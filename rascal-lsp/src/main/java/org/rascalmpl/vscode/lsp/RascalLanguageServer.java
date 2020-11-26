@@ -4,6 +4,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
@@ -21,6 +22,12 @@ public class RascalLanguageServer implements LanguageServer {
     }
 
     @Override
+    public void initialized(InitializedParams params) {
+        // TODO Auto-generated method stub
+        LanguageServer.super.initialized(params);
+    }
+
+    @Override
     public CompletableFuture<Object> shutdown() {
         // TODO Auto-generated method stub
         return null;
@@ -29,7 +36,6 @@ public class RascalLanguageServer implements LanguageServer {
     @Override
     public void exit() {
         // TODO Auto-generated method stub
-
     }
 
     @Override
@@ -41,5 +47,4 @@ public class RascalLanguageServer implements LanguageServer {
     public WorkspaceService getWorkspaceService() {
         return new RascalWorkspaceService();
     }
-
 }
