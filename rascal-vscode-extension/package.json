@@ -41,7 +41,7 @@
 			{
 				"language": "rascal-mpl",
 				"scopeName": "source.rascalmpl",
-				"path": "./syntaxes/rascal-mpl.tmLanguage.json"
+				"path": "./syntaxes/rascal-mpl.tmLanguage"
 			}
 		]
 	},

@@ -6,7 +6,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-lan
 import { fileURLToPath } from 'url';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
-const version: string = '1.0.0';
+const version: string = '1.0.0-SNAPSHOT';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
 		let executable: string = path.join(JAVA_HOME, 'bin', 'java');
 
 		// path to the launcher.jar rascal-lsp/target/org.rascalmpl.rascal-lsp-1.0-SNAPSHOT.jar
-		let classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '-SNAPSHOT.jar');
+		let classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
 		const args: string[] = ['-cp', classPath];
 		
 		console.log('Using classpath: ' + classPath);
