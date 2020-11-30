@@ -28,8 +28,7 @@
 			{
 				"id": "rascal-mpl",
 				"aliases": [
-					"Rascal MPL",
-					"hello"
+					"Rascal MPL"
 				],
 				"extensions": [
 					".rsc"
@@ -41,7 +40,7 @@
 			{
 				"language": "rascal-mpl",
 				"scopeName": "source.rascalmpl",
-				"path": "./syntaxes/rascal-mpl.tmLanguage"
+				"path": "./syntaxes/rascal-mpl.tmLanguage.json"
 			}
 		]
 	},
