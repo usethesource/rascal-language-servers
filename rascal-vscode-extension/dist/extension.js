@@ -90,12 +90,12 @@ module.exports =
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-/* WEBPACK VAR INJECTION */(function(__dirname) {
+
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
 const path = __webpack_require__(1);
 const vscode_languageclient_1 = __webpack_require__(2);
-const main = 'RascalLanguageServer';
+const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version = '1.0.0';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -107,15 +107,17 @@ function activate(context) {
     // If java home is available continue.
     if (JAVA_HOME) {
         // Java execution path.
-        let excecutable = path.join(JAVA_HOME, 'bin', 'java');
-        // path to the launcher.jar
-        let classPath = path.join(__dirname, '..', 'launcher', 'rascal-vscode-extension-' + version + '.jar');
+        let executable = path.join(JAVA_HOME, 'bin', 'java');
+        // path to the launcher.jar rascal-lsp/target/org.rascalmpl.rascal-lsp-1.0-SNAPSHOT.jar
+        let classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '-SNAPSHOT.jar');
         const args = ['-cp', classPath];
+        console.log('Using classpath: ' + classPath);
+        console.log('Using executable' + executable);
         // Set the server options 
         // -- java execution path
         // -- argument to be pass when executing the java command
         let serverOptions = {
-            command: excecutable,
+            command: executable,
             args: [...args, main],
             options: {}
         };
@@ -135,7 +137,6 @@ exports.activate = activate;
 function deactivate() { }
 exports.deactivate = deactivate;
 
-/* WEBPACK VAR INJECTION */}.call(this, "/"))
 
 /***/ }),
 /* 1 */

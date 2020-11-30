@@ -21,7 +21,6 @@ public class RascalWorkspaceService implements WorkspaceService {
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        // TODO Auto-generated method stub
-        return WorkspaceService.super.executeCommand(params);
+        return CompletableFuture.supplyAsync(() -> "Hello!");
     }
 }

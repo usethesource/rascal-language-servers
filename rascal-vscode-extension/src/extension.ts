@@ -3,8 +3,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
+import { fileURLToPath } from 'url';
 
-const main: string = 'RascalLanguageServer';
+const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0';
 
 // this method is called when your extension is activated
@@ -20,17 +21,20 @@ export function activate(context: vscode.ExtensionContext) {
 	// If java home is available continue.
 	if (JAVA_HOME) {
 		// Java execution path.
-		let excecutable: string = path.join(JAVA_HOME, 'bin', 'java');
+		let executable: string = path.join(JAVA_HOME, 'bin', 'java');
 
-		// path to the launcher.jar
-		let classPath = path.join(__dirname, '..', 'launcher', 'rascal-vscode-extension-' + version + '.jar');
+		// path to the launcher.jar rascal-lsp/target/org.rascalmpl.rascal-lsp-1.0-SNAPSHOT.jar
+		let classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '-SNAPSHOT.jar');
 		const args: string[] = ['-cp', classPath];
+		
+		console.log('Using classpath: ' + classPath);
+		console.log('Using executable' + executable);
 
 		// Set the server options 
 		// -- java execution path
 		// -- argument to be pass when executing the java command
 		let serverOptions: ServerOptions = {
-			command: excecutable,
+			command: executable,
 			args: [...args, main],
 			options: {}
 		};

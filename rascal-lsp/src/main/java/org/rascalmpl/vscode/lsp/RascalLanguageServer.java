@@ -75,9 +75,9 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     public static void main(String[] args) {
-        LogManager.getLogManager().reset();
-        Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-        globalLogger.setLevel(Level.OFF);
+        // LogManager.getLogManager().reset();
+        // Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+        // globalLogger.setLevel(Level.OFF);
         
         RascalLanguageServer server = new RascalLanguageServer() ;
         Launcher<LanguageClient> launcher = LSPLauncher.createServerLauncher(server, System.in, System.out);

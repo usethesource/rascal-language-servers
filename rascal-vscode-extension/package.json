@@ -2,9 +2,13 @@
 	"name": "rascal-mpl",
 	"displayName": "Rascal Metaprogramming Language",
 	"description": "Provides language support for the Rascal metaprogramming language",
+	"publisher": "usethesource.io",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.51.0"
+	},
+	"dependencies": {
+		"vscode-languageclient": "5.1.1"
 	},
 	"categories": [
 		"Other"
@@ -16,13 +20,13 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "rascal-mpl.helloWorld",
+				"command": "extension.helloWorld",
 				"title": "Hello World"
 			}
 		],
 		"languages": [
 			{
-				"id": "rascalmpl",
+				"id": "rascal-mpl",
 				"aliases": [
 					"Rascal MPL",
 					"hello"
@@ -35,16 +39,14 @@
 		],
 		"grammars": [
 			{
-				"language": "rascalmpl",
+				"language": "rascal-mpl",
 				"scopeName": "source.rascalmpl",
 				"path": "./syntaxes/rascal-mpl.tmLanguage.json"
 			}
 		]
 	},
-	"dependencies": {
-		"vscode-languageclient": "5.1.1"
-	},
 	"scripts": {
+		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/",
 		"vscode:prepublish": "npm run package",
 		"compile": "webpack --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
 		"watch": "webpack --watch --devtool nosources-source-map --info-verbosity verbose --config ./build/node-extension.webpack.config.js",

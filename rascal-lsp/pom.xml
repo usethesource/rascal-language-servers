@@ -1,8 +1,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
-  <artifactId>org.rascalmpl.rascal-lsp</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <artifactId>rascal-lsp</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
   <properties>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -12,7 +12,36 @@
     <checkstyle-rules.version>4.0.1</checkstyle-rules.version>
     <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
   </properties>
+   <distributionManagement>
+        <repository>
+            <id>usethesource-releases</id>
+            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>usethesource-snapshots</id>
+            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <!-- dependency resolution configuration (usethesource) -->
+    <repositories>
+        <repository>
+            <id>usethesource</id>
+            <url>https://nexus.usethesource.io/content/repositories/public/</url>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>usethesource</id>
+            <url>https://nexus.usethesource.io/content/repositories/public/</url>
+        </pluginRepository>
+    </pluginRepositories>
   <dependencies>
+    <dependency>
+      <groupId>org.rascalmpl</groupId>
+      <artifactId>rascal</artifactId>
+      <version>0.19.3-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
@@ -38,6 +67,44 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+      </plugin>
+      <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>2.4.1</version>
+          <executions>
+              <execution>
+                  <phase>package</phase>
+                  <goals>
+                      <goal>shade</goal>
+                  </goals>
+                  <configuration>
+                      <transformers>
+                          <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                              <manifestEntries>
+                                  <Name>rascal-lsp</Name>
+                                  <Main-Class>org.rascalmpl.vscode.lsp.RascalLanguageServer</Main-Class>
+                                  <Specification-Version>${project.version}</Specification-Version>
+                                  <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
+                              </manifestEntries>
+                          </transformer>
+                      </transformers>
+                      <!--
+                          http://zhentao-li.blogspot.nl/2012/06/maven-shade-plugin-invalid-signature.html
+                      -->
+                      <filters>
+                          <filter>
+                              <artifact>*:*</artifact>
+                              <excludes>
+                                  <exclude>META-INF/*.SF</exclude>
+                                  <exclude>META-INF/*.DSA</exclude>
+                                  <exclude>META-INF/*.RSA</exclude>
+                              </excludes>
+                          </filter>
+                      </filters>
+                  </configuration>
+              </execution>
+          </executions>
       </plugin>
     </plugins>
   </build>
