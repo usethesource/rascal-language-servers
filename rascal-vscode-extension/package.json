@@ -14,7 +14,6 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascalmpl.repl",
 		"onCommand:rascalTerminal.createTerminal",
 		"onCommand:rascalTerminal.createAndSend"
 	],
@@ -28,14 +27,6 @@
 			{
 				"command": "rascalTerminal.createTerminal",
 				"title": "Rascal REPL: Create Terminal"
-			},
-			{
-				"command": "rascalTerminal.createTerminalHideFromUser",
-				"title": "Rascal REPL: Create Terminal (hideFromUser)"
-			},
-			{
-				"command": "rascalTerminal.createZshLoginShell",
-				"title": "Rascal REPL: Create Terminal (zsh login shell)"
 			},
 			{
 				"command": "rascalTerminal.dimensions",
@@ -58,10 +49,6 @@
 				"title": "Rascal REPL: Attach dimensions listener"
 			},
 			{
-				"command": "rascalTerminal.processId",
-				"title": "Rascal REPL: Get process ID"
-			},
-			{
 				"command": "rascalTerminal.sendText",
 				"title": "Rascal REPL: Send Text"
 			},
@@ -80,14 +67,6 @@
 			{
 				"command": "rascalTerminal.terminals",
 				"title": "Rascal REPL: View terminals"
-			},
-			{
-				"command": "rascalTerminal.updateEnvironment",
-				"title": "Rascal REPL: Update environment"
-			},
-			{
-				"command": "rascalTerminal.clearEnvironment",
-				"title": "Rascal REPL: Clear environment"
 			},
 			{
 				"command": "rascalTerminal.registerTerminalLinkProvider",

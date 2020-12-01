@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 export function activateTerminal(context: vscode.ExtensionContext) {
 	let NEXT_TERM_ID = 1;
 
-	console.log("Terminals: " + (<any>vscode.window).terminals.length);
+	console.log("Terminal count: " + (<any>vscode.window).terminals.length);
 
 	// vscode.window.onDidOpenTerminal
 	vscode.window.onDidOpenTerminal(terminal => {
@@ -34,9 +34,6 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.createAndSend', () => {
 		const terminal = vscode.window.createTerminal(`Ext Terminal #${NEXT_TERM_ID++}`);
 		terminal.sendText("echo 'Sent text immediately after creating'");
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.createZshLoginShell', () => {
-		vscode.window.createTerminal(`Ext Terminal #${NEXT_TERM_ID++}`, '/bin/zsh', ['-l']);
 	}));
 
 	// Terminal.hide
@@ -101,22 +98,6 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	// Terminal.processId
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.processId', () => {
-		selectTerminal().then(terminal => {
-			if (!terminal) {
-				return;
-			}
-			terminal.processId.then((processId) => {
-				if (processId) {
-					vscode.window.showInformationMessage(`Terminal.processId: ${processId}`);
-				} else {
-					vscode.window.showInformationMessage('Terminal does not have a process ID');
-				}
-			});
-		});
-	}));
-
 	// vscode.window.onDidCloseTerminal
 	vscode.window.onDidCloseTerminal((terminal) => {
 		vscode.window.showInformationMessage(`onDidCloseTerminal, name: ${terminal.name}`);
@@ -125,17 +106,6 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	// vscode.window.terminals
 	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.terminals', () => {
 		selectTerminal();
-	}));
-
-	// ExtensionContext.environmentVariableCollection
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.updateEnvironment', () => {
-		const collection = context.environmentVariableCollection;
-		collection.replace('FOO', 'BAR');
-		collection.append('PATH', '/test/path');
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.clearEnvironment', () => {
-		context.environmentVariableCollection.clear();
 	}));
 
 	// vvv Proposed APIs below vvv
