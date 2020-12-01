@@ -2,8 +2,10 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as terminal from 'terminal';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
+import { activateTerminal } from './terminal';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
@@ -50,6 +52,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Disposables to remove on deactivation.
 		context.subscriptions.push(disposable);
+
+		activateTerminal(context);
 	}
 }
 

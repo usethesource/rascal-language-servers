@@ -14,14 +14,84 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascalmpl.repl"
+		"onCommand:rascalmpl.repl",
+		"onCommand:rascalTerminal.createTerminal",
+		"onCommand:rascalTerminal.createAndSend"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "rascalmpl.repl",
-				"title": "Rascal REPL"
+				"command": "rascalTerminal.createAndSend",
+				"title": "Rascal REPL: Create Terminal and Immediately Send"
+			},
+			{
+				"command": "rascalTerminal.createTerminal",
+				"title": "Rascal REPL: Create Terminal"
+			},
+			{
+				"command": "rascalTerminal.createTerminalHideFromUser",
+				"title": "Rascal REPL: Create Terminal (hideFromUser)"
+			},
+			{
+				"command": "rascalTerminal.createZshLoginShell",
+				"title": "Rascal REPL: Create Terminal (zsh login shell)"
+			},
+			{
+				"command": "rascalTerminal.dimensions",
+				"title": "Rascal REPL: Set dimensions"
+			},
+			{
+				"command": "rascalTerminal.dispose",
+				"title": "Rascal REPL: Dispose"
+			},
+			{
+				"command": "rascalTerminal.hide",
+				"title": "Rascal REPL: Hide"
+			},
+			{
+				"command": "rascalTerminal.onDidWriteTerminalData",
+				"title": "Rascal REPL: Attach data listener"
+			},
+			{
+				"command": "rascalTerminal.onDidChangeTerminalDimensions",
+				"title": "Rascal REPL: Attach dimensions listener"
+			},
+			{
+				"command": "rascalTerminal.processId",
+				"title": "Rascal REPL: Get process ID"
+			},
+			{
+				"command": "rascalTerminal.sendText",
+				"title": "Rascal REPL: Send Text"
+			},
+			{
+				"command": "rascalTerminal.sendTextNoNewLine",
+				"title": "Rascal REPL: Send Text (no implied \\n)"
+			},
+			{
+				"command": "rascalTerminal.show",
+				"title": "Rascal REPL: Show"
+			},
+			{
+				"command": "rascalTerminal.showPreserveFocus",
+				"title": "Rascal REPL: Show (preserving focus)"
+			},
+			{
+				"command": "rascalTerminal.terminals",
+				"title": "Rascal REPL: View terminals"
+			},
+			{
+				"command": "rascalTerminal.updateEnvironment",
+				"title": "Rascal REPL: Update environment"
+			},
+			{
+				"command": "rascalTerminal.clearEnvironment",
+				"title": "Rascal REPL: Clear environment"
+			},
+			{
+				"command": "rascalTerminal.registerTerminalLinkProvider",
+				"title": "Rascal REPL: Register link provider"
 			}
 		],
 		"languages": [
