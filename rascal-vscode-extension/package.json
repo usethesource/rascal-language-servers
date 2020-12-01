@@ -40,7 +40,7 @@
 			{
 				"language": "rascalmpl",
 				"scopeName": "source.rascalmpl",
-				"path": "./syntaxes/rascalmpl.tmLanguage"
+				"path": "./syntaxes/simple.tmGrammar.json"
 			}
 		]
 	},

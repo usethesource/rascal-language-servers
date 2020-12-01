@@ -1,0 +1,72 @@
+{
+    "scopeName": "source.rascalmpl",
+    "patterns": [{ "include": "#expression" }],
+    "repository": {
+        "expression": {
+            "patterns": [
+                { 
+                    "include": "#keywords" 
+                },
+                { 
+                    "include": "#types" 
+                },
+                { 
+                    "include": "#modifiers" 
+                },
+                { 
+                    "include": "#comments" 
+                },
+                { 
+                    "include": "#specialvariables" 
+                },
+                { 
+                    "include": "#tags" 
+                }
+            ]
+        },
+        "specialvariables" : {
+            "match": "\\bit\\b",
+            "name": "variable.language"
+        },
+        "keywords": {
+            "match": "\\b(module|if|while|for|return|case|switch|visit|try|catch|throw|append|insert|fail|break|continue|syntax|lexical|keyword|data|alias|else|when)\\b",
+            "name": "keyword.control"
+        },
+        "types": {
+            "match": "\\b(int|rel|set|rat|real|num|list|value|void|datetime|loc|lrel|tuple|map|str)\\b",
+            "name": "storage.type"
+        },
+        "modifiers": {
+            "match": "\\b(default|public|private|test)\\b",
+            "name": "storage.modifier"
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line",
+                    "begin": "//",
+                    "end": "\\n"
+                },
+                {
+                    "name": "comment.block",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "tags": {
+            "patterns": [
+                {
+                    "name": "comment.block.documentation",
+                    "begin": "@doc{",
+                    "end": "}"
+                },
+                {
+                    "name": "comment.block",
+                    "begin": "@[A-Za-z]+{",
+                    "end": "}"
+                }
+            ]
+        }
+    }
+}
