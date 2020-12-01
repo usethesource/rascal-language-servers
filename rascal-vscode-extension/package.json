@@ -14,14 +14,14 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascalmpl.helloWorld"
+		"onCommand:rascalmpl.repl"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
+				"command": "rascalmpl.repl",
+				"title": "Rascal REPL"
 			}
 		],
 		"languages": [
