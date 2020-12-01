@@ -24,12 +24,19 @@
                 },
                 { 
                     "include": "#strings" 
+                },
+                { 
+                    "include": "#concrete" 
                 }
             ]
         },
         "strings": {
             "match": "\"([^\"]|\\\")*\"",
             "name" : "string.quoted.double"
+        },
+        "concrete": {
+            "match": "`([^`]|\\`)*`",
+            "name" : "string.unquoted"
         },
         "specialvariables" : {
             "match": "\\bit\\b",
