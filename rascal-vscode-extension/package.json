@@ -1,5 +1,5 @@
 {
-	"name": "rascal-mpl",
+	"name": "rascalmpl",
 	"displayName": "Rascal Metaprogramming Language",
 	"description": "Provides language support for the Rascal metaprogramming language",
 	"publisher": "usethesource.io",
@@ -14,7 +14,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascal-mpl.helloWorld"
+		"onCommand:rascalmpl.helloWorld"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -26,7 +26,7 @@
 		],
 		"languages": [
 			{
-				"id": "rascal-mpl",
+				"id": "rascalmpl",
 				"aliases": [
 					"Rascal MPL"
 				],
@@ -38,9 +38,9 @@
 		],
 		"grammars": [
 			{
-				"language": "rascal-mpl",
+				"language": "rascalmpl",
 				"scopeName": "source.rascalmpl",
-				"path": "./syntaxes/rascal-mpl.tmLanguage"
+				"path": "./syntaxes/rascalmpl.tmLanguage"
 			}
 		]
 	},

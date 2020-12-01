@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
 		};
 
 		// Create the language client and start the client.
-		let disposable = new LanguageClient('rascal-mpl', 'Rascal MPL Language Server', serverOptions, clientOptions).start();
+		let disposable = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions).start();
 
 		// Disposables to remove on deactivation.
 		context.subscriptions.push(disposable);

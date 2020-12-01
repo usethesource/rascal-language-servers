@@ -1,4 +1,4 @@
-# rascal-mpl README
+# rascalmpl README
 
 Rascal MPL is a programming language specifically designed to analyze and manipulate code in 
 any data format or programming language.
