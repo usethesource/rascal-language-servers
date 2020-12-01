@@ -31,11 +31,11 @@
             ]
         },
         "strings": {
-            "match": "\"([^\"]|\\\")*\"",
+            "match": "\"([^\"]|\\\")*?\"",
             "name" : "string.quoted.double"
         },
         "concrete": {
-            "match": "`([^`]|\\`)*`",
+            "match": "`([^`]|\\`)*?`",
             "name" : "string.unquoted"
         },
         "specialvariables" : {

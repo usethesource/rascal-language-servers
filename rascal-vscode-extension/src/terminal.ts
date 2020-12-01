@@ -25,19 +25,19 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 		vscode.window.createTerminal(`Ext Terminal #${NEXT_TERM_ID++}`);
 		vscode.window.showInformationMessage('Hello World 2!');
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.createTerminalHideFromUser', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.createTerminalHideFromUser', () => {
 		vscode.window.createTerminal({
 			name: `Ext Terminal #${NEXT_TERM_ID++}`,
 			hideFromUser: true
 		} as any);
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.createAndSend', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.createAndSend', () => {
 		const terminal = vscode.window.createTerminal(`Ext Terminal #${NEXT_TERM_ID++}`);
 		terminal.sendText("echo 'Sent text immediately after creating'");
 	}));
 
 	// Terminal.hide
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.hide', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.hide', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -48,7 +48,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	}));
 
 	// Terminal.show
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.show', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.show', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -57,7 +57,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 			});
 		}
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.showPreserveFocus', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.showPreserveFocus', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -68,7 +68,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	}));
 
 	// Terminal.sendText
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.sendText', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.sendText', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -77,7 +77,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 			});
 		}
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.sendTextNoNewLine', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.sendTextNoNewLine', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -88,7 +88,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	}));
 
 	// Terminal.dispose
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.dispose', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.dispose', () => {
 		if (ensureTerminalExists()) {
 			selectTerminal().then(terminal => {
 				if (terminal) {
@@ -104,14 +104,14 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	});
 
 	// vscode.window.terminals
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.terminals', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.terminals', () => {
 		selectTerminal();
 	}));
 
 	// vvv Proposed APIs below vvv
 
 	// vscode.window.onDidWriteTerminalData
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.onDidWriteTerminalData', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.onDidWriteTerminalData', () => {
 		(<any>vscode.window).onDidWriteTerminalData((e: any) => {
 			vscode.window.showInformationMessage(`onDidWriteTerminalData listener attached, check the devtools console to see events`);
 			console.log('onDidWriteData', e);
@@ -119,7 +119,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	}));
 
 	// vscode.window.onDidChangeTerminalDimensions
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.onDidChangeTerminalDimensions', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.onDidChangeTerminalDimensions', () => {
 		vscode.window.showInformationMessage(`Listening to onDidChangeTerminalDimensions, check the devtools console to see events`);
 		(<any>vscode.window).onDidChangeTerminalDimensions((event: any) => {
 			console.log(`onDidChangeTerminalDimensions: terminal:${event.terminal.name}, columns=${event.dimensions.columns}, rows=${event.dimensions.rows}`);
@@ -127,7 +127,7 @@ export function activateTerminal(context: vscode.ExtensionContext) {
 	}));
 
 	// vscode.window.registerTerminalLinkProvider
-	context.subscriptions.push(vscode.commands.registerCommand('terminalTest.registerTerminalLinkProvider', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('rascalTerminal.registerTerminalLinkProvider', () => {
 		(<any>vscode.window).registerTerminalLinkProvider({
 			provideTerminalLinks: (context: any, token: vscode.CancellationToken) => {
 				// Detect the first instance of the word "link" if it exists and linkify it
