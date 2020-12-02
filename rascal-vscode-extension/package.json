@@ -8,69 +8,23 @@
 		"vscode": "^1.51.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "5.1.1"
+		"vscode-languageclient": "5.1.1",
+		"xterm": "^4.9.0",
+		"xterm-addon-attach": "0.6.0",
+		"xterm-addon-fit": "0.4.0"
 	},
 	"categories": [
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascalTerminal.createTerminal",
-		"onCommand:rascalTerminal.createAndSend"
+			"onCommand:rascalmpl.createTerminal"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "rascalTerminal.createAndSend",
-				"title": "Rascal REPL: Create Terminal and Immediately Send"
-			},
-			{
-				"command": "rascalTerminal.createTerminal",
-				"title": "Rascal REPL: Create Terminal"
-			},
-			{
-				"command": "rascalTerminal.dimensions",
-				"title": "Rascal REPL: Set dimensions"
-			},
-			{
-				"command": "rascalTerminal.dispose",
-				"title": "Rascal REPL: Dispose"
-			},
-			{
-				"command": "rascalTerminal.hide",
-				"title": "Rascal REPL: Hide"
-			},
-			{
-				"command": "rascalTerminal.onDidWriteTerminalData",
-				"title": "Rascal REPL: Attach data listener"
-			},
-			{
-				"command": "rascalTerminal.onDidChangeTerminalDimensions",
-				"title": "Rascal REPL: Attach dimensions listener"
-			},
-			{
-				"command": "rascalTerminal.sendText",
-				"title": "Rascal REPL: Send Text"
-			},
-			{
-				"command": "rascalTerminal.sendTextNoNewLine",
-				"title": "Rascal REPL: Send Text (no implied \\n)"
-			},
-			{
-				"command": "rascalTerminal.show",
-				"title": "Rascal REPL: Show"
-			},
-			{
-				"command": "rascalTerminal.showPreserveFocus",
-				"title": "Rascal REPL: Show (preserving focus)"
-			},
-			{
-				"command": "rascalTerminal.terminals",
-				"title": "Rascal REPL: View terminals"
-			},
-			{
-				"command": "rascalTerminal.registerTerminalLinkProvider",
-				"title": "Rascal REPL: Register link provider"
+				"command": "rascalmpl.createTerminal",
+				"title": "Create Rascal Terminal"
 			}
 		],
 		"languages": [
