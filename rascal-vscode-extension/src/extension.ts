@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
-import { activateTerminal } from './content-viewer';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
@@ -113,16 +112,19 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 
 						contentPanels.push(panel);
 					
+						panel.webview
 						panel.webview.html = `
 						<!DOCTYPE html>
 						<html lang="en">
 						<head>
 							<meta charset="UTF-8">
 							<meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<meta http-equiv="refresh" content="0;http://localhost:${port}">
+							<meta http-equiv="refresh" content="1;http://localhost:9050/">
 						</head>
 						<body>
-						<p>Loading content now...</p>
+						<iframe src="http://localhost:9050/" frameborder="0" sandbox="allow-same-origin allow-pointer-lock" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
+						Loading content...
+						</iframe>
 						</body>
 						</html>`;
 
