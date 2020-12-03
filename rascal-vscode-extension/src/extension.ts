@@ -148,8 +148,9 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 			handleTerminalLink: (link: any) => {
 			  vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
 			}
-		  });
+		});
 		  
-
-    context.subscriptions.push(disposable);
+		terminal.show(false);
+    	context.subscriptions.push(disposable);
+	});
 }
