@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
-import { activateTerminal } from './terminal';
+import { activateTerminal } from './content-viewer';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
@@ -53,9 +53,43 @@ export function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(disposable);
 
 		console.log('Activating Rascal Terminal...');
-		activateTerminal(context);
+		activateTerminal(context, executable);
 	}
 }
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
+
+function activateTerminal(context: vscode.ExtensionContext, executable:string) {
+	let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
+        let editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			return;
+		}
+
+		let document = editor.document;
+		if (!document) {
+			return;
+		}
+
+		let uri = document.uri;
+		if (!uri) {
+			return;
+		}
+
+		let terminal = vscode.window.createTerminal({
+			cwd: path.dirname(uri.fsPath),
+			shellPath: executable,
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp-' + version + '.jar'), 'org.rascalmpl.shell.RascalShell'],
+			name: 'Rascal Terminal',
+		});
+
+		terminal.sendText('1 + 1');
+		terminal.show();
+
+		return 'ok';
+    });
+
+    context.subscriptions.push(disposable);
+	
+}
