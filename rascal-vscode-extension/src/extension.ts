@@ -84,11 +84,40 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 			name: 'Rascal Terminal',
 		});
 
-		terminal.sendText('1 + 1');
-		terminal.show();
+		// An idea: let the link provider start a webview to serve the content in as a side-effect.
+		// have to check that there is maximally one view per port.
+	// 	vscode.window.registerTerminalLinkProvider({
+	// 		provideTerminalLinks: (context, token) => {
+	// 		  // Detect the first instance of the word "test" if it exists and linkify it
+	// 		  const startIndex = (context.line as string).indexOf('Serving visual content at |'
+	// 		  );
+	// 		  if (startIndex === -1) {
+	// 			return [];
+	// 		  }
 
-		return 'ok';
-    });
+	// 		  // Return an array of link results, this example only returns a single link
+	// 		  return [
+	// 			{
+	// 			  startIndex,
+	// 			  length: 'test'.length,
+	// 			  tooltip: 'Show a notification',
+	// 			  // You can return data in this object to access inside handleTerminalLink
+	// 			  data: 'Example data'
+	// 			}
+	// 		  ];
+	// 		},
+	// 		handleTerminalLink: (link: any) => {
+	// 		  vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
+	// 		}
+	// 	  });
+		  
+	// 	vscode.window.registerTerminalLinkProvider(() -> {
+	// 		Serving visual content at |http://localhost:9050/|
+	// 	});
+	// 	terminal.show();
+
+	// 	return 'ok';
+    // });
 
     context.subscriptions.push(disposable);
 }
