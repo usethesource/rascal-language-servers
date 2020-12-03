@@ -8,6 +8,7 @@ import { activateTerminal } from './content-viewer';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
+let contentPanels : any[] = [];
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -84,40 +85,69 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 			name: 'Rascal Terminal',
 		});
 
-		// An idea: let the link provider start a webview to serve the content in as a side-effect.
+		// Let the link provider start a webview to serve the content in as a side-effect.
 		// have to check that there is maximally one view per port.
-	// 	vscode.window.registerTerminalLinkProvider({
-	// 		provideTerminalLinks: (context, token) => {
-	// 		  // Detect the first instance of the word "test" if it exists and linkify it
-	// 		  const startIndex = (context.line as string).indexOf('Serving visual content at |'
-	// 		  );
-	// 		  if (startIndex === -1) {
-	// 			return [];
-	// 		  }
+		vscode.window.registerTerminalLinkProvider({
+			provideTerminalLinks: (context, token) => {
+				const startIndex = (context.line as string).indexOf('Serving visual content at |');
 
-	// 		  // Return an array of link results, this example only returns a single link
-	// 		  return [
-	// 			{
-	// 			  startIndex,
-	// 			  length: 'test'.length,
-	// 			  tooltip: 'Show a notification',
-	// 			  // You can return data in this object to access inside handleTerminalLink
-	// 			  data: 'Example data'
-	// 			}
-	// 		  ];
-	// 		},
-	// 		handleTerminalLink: (link: any) => {
-	// 		  vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
-	// 		}
-	// 	  });
+				if (startIndex === -1) {
+					return [];
+			  	}
+
+			  	var pattern: RegExp = new RegExp('Serving visual content at |http://localhost:(?<thePort>\d+)/|');
+			  	var result = pattern.exec(context.line);
+
+			  	if (result != null) {
+					let port = result.groups!.thePort;
+					let matchAt = result.index;
+					let contentType = 'rascal-content-' + port;
+
+					if (contentPanels.find(p => p.viewType == contentType) == undefined) {
+						const panel = vscode.window.createWebviewPanel(
+							contentType,
+							'Title',
+							vscode.ViewColumn.One,
+							{}
+						);
+
+						contentPanels.push(panel);
+					
+						panel.webview.html = `
+						<!DOCTYPE html>
+						<html lang="en">
+						<head>
+							<meta charset="UTF-8">
+							<meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<meta http-equiv="refresh" content="0;http://localhost:${port}">
+						</head>
+						<body>
+						<p>Loading content now...</p>
+						</body>
+						</html>`;
+
+						panel.onDidDispose((e) => {
+							contentPanels.splice(contentPanels.indexOf(panel), 1);
+						});
+					}
+
+			  		return [
+						{
+				  			matchAt,
+				  			length: result?.length,
+				  			tooltip: 'Content is being served',
+				  			data: result.groups!.thePort
+						}
+					];	
+				}	
+			  
+				return [];
+			},
+			handleTerminalLink: (link: any) => {
+			  vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
+			}
+		  });
 		  
-	// 	vscode.window.registerTerminalLinkProvider(() -> {
-	// 		Serving visual content at |http://localhost:9050/|
-	// 	});
-	// 	terminal.show();
-
-	// 	return 'ok';
-    // });
 
     context.subscriptions.push(disposable);
 }
