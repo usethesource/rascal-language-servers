@@ -91,5 +91,4 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
     });
 
     context.subscriptions.push(disposable);
-	
 }
