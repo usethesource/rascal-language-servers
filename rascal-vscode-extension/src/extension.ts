@@ -94,21 +94,22 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 function registerContentViewSupport() {
 	vscode.window.registerTerminalLinkProvider({
 		provideTerminalLinks: (context, token) => {
-			var pattern: RegExp = new RegExp('Serving visual content at \\|http://localhost:(?<thePort>[0-9]+)/\\|');
+			var pattern: RegExp = new RegExp('Serving \'(?<theTitle>[^\']+)\' at \\|http://localhost:(?<thePort>[0-9]+)/\\|');
 			var result:RegExpExecArray = pattern.exec(context.line)!;
 
 			if (result !== null) {
 				let port = result.groups!.thePort;
 				let matchAt = result.index;
+				let title = result.groups!.theTitle;
 
 				return [
 					{
 						startIndex: matchAt,
 						length: result?.input.length,
-						tooltip: 'Click to view content',
+						tooltip: 'Click to view ' + title,
 						url: 'http://localhost:' + port + '/',
 						contentType: 'text/html',
-						contentId: 'to-be-added'
+						contentId: title
 					}
 				];
 			}	
@@ -140,8 +141,8 @@ function registerContentViewSupport() {
 					<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				</head>
 				<body>
-				<iframe src="${url}" frameborder="10" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads" style="width: 100%; height: 100%; visibility: visible;">
-				Loading content...
+				<iframe id="iframe-rascal-content" src="${url}" frameborder="10" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
+				Loading ${theLink.contentId}...
 				</iframe>
 				</body>
 				</html>`;
