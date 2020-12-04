@@ -141,7 +141,7 @@ function registerContentViewSupport() {
 					<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				</head>
 				<body>
-				<iframe id="iframe-rascal-content" src="${url}" frameborder="10" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
+				<iframe id="iframe-rascal-content" src="${url}" frameborder="0" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
 				Loading ${theLink.contentId}...
 				</iframe>
 				</body>
