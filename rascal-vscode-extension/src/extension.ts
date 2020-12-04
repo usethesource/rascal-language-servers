@@ -80,77 +80,84 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
 			shellPath: executable,
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp-' + version + '.jar'), 'org.rascalmpl.shell.RascalShell'],
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp-' + version + '.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
 
-		// Let the link provider start a webview to serve the content in as a side-effect.
-		// have to check that there is maximally one view per port.
-		vscode.window.registerTerminalLinkProvider({
-			provideTerminalLinks: (context, token) => {
-				const startIndex = (context.line as string).indexOf('Serving visual content at |');
-
-				if (startIndex === -1) {
-					return [];
-			  	}
-
-			  	var pattern: RegExp = new RegExp('Serving visual content at |http://localhost:(?<thePort>\d+)/|');
-			  	var result = pattern.exec(context.line);
-
-			  	if (result != null) {
-					let port = result.groups!.thePort;
-					let matchAt = result.index;
-					let contentType = 'rascal-content-' + port;
-
-					if (contentPanels.find(p => p.viewType == contentType) == undefined) {
-						const panel = vscode.window.createWebviewPanel(
-							contentType,
-							'Title',
-							vscode.ViewColumn.One,
-							{}
-						);
-
-						contentPanels.push(panel);
-					
-						panel.webview
-						panel.webview.html = `
-						<!DOCTYPE html>
-						<html lang="en">
-						<head>
-							<meta charset="UTF-8">
-							<meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<meta http-equiv="refresh" content="1;http://localhost:9050/">
-						</head>
-						<body>
-						<iframe src="http://localhost:9050/" frameborder="0" sandbox="allow-same-origin allow-pointer-lock" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
-						Loading content...
-						</iframe>
-						</body>
-						</html>`;
-
-						panel.onDidDispose((e) => {
-							contentPanels.splice(contentPanels.indexOf(panel), 1);
-						});
-					}
-
-			  		return [
-						{
-				  			matchAt,
-				  			length: result?.length,
-				  			tooltip: 'Content is being served',
-				  			data: result.groups!.thePort
-						}
-					];	
-				}	
-			  
-				return [];
-			},
-			handleTerminalLink: (link: any) => {
-			  vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
-			}
-		});
-		  
+		registerContentViewSupport();
+		context.subscriptions.push(disposable);
 		terminal.show(false);
-    	context.subscriptions.push(disposable);
+
 	});
+}
+
+function registerContentViewSupport() {
+	vscode.window.registerTerminalLinkProvider({
+		provideTerminalLinks: (context, token) => {
+			var pattern: RegExp = new RegExp('Serving visual content at \\|http://localhost:(?<thePort>[0-9]+)/\\|');
+			var result:RegExpExecArray = pattern.exec(context.line)!;
+
+			if (result !== null) {
+				let port = result.groups!.thePort;
+				let matchAt = result.index;
+
+				return [
+					{
+						startIndex: matchAt,
+						length: result?.input.length,
+						tooltip: 'Click to view content',
+						url: 'http://localhost:' + port + '/',
+						contentType: 'text/html',
+						contentId: 'to-be-added'
+					}
+				];
+			}	
+		  
+			return [];
+		},
+		handleTerminalLink: (link: vscode.TerminalLink) => {
+			let theLink = (link as RascalTerminalContentLink);
+			let contentType = theLink.contentType;
+			let url = theLink.url;
+			let oldPanel:vscode.WebviewPanel = contentPanels.find(p => (p as vscode.WebviewPanel).title === theLink.contentId);
+
+			if (oldPanel === undefined) {
+				const panel = vscode.window.createWebviewPanel(
+					theLink.contentType,
+					theLink.contentId,
+					vscode.ViewColumn.One,
+					{
+						enableScripts: true,
+					}
+				);
+
+				contentPanels.push(panel);
+				panel.webview.html = `
+				<!DOCTYPE html>
+				<html lang="en">
+				<head>
+					<meta charset="UTF-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				</head>
+				<body>
+				<iframe src="${url}" frameborder="10" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads" style="width: 100%; height: 100%; visibility: visible;">
+				Loading content...
+				</iframe>
+				</body>
+				</html>`;
+
+				panel.onDidDispose((e) => {
+					contentPanels.splice(contentPanels.indexOf(panel), 1);
+				});
+			} else {
+				oldPanel.reveal(vscode.ViewColumn.One, false);
+			}
+		}
+	});
+}
+
+interface RascalTerminalContentLink extends vscode.TerminalLink {
+	url: string
+	contentType: string
+	contentId: string
 }
