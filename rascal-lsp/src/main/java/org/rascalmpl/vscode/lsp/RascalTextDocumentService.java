@@ -265,8 +265,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 			this.stamp = stamp;
 		}
 	}
-	
-
 
 	public void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
 		Map<ISourceLocation, List<Diagnostic>> grouped = groupByKey(diagnostics);
@@ -435,7 +433,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	
 	private static Location toJSPLoc(ISourceLocation sloc) {
 		return new Location(slocToURI.get(sloc), toRange(sloc));
-	}
+    }
+    
 	private static Range toRange(ISourceLocation sloc) {
 		return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
 	}
