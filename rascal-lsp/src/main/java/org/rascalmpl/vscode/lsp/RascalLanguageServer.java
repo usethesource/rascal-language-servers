@@ -43,12 +43,6 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     @Override
-    public void initialized(InitializedParams params) {
-        // TODO Auto-generated method stub
-        LanguageServer.super.initialized(params);
-    }
-
-    @Override
     public CompletableFuture<Object> shutdown() {
         this.errorCode = 0;
         return null;

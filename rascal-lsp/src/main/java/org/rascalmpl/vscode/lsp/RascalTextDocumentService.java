@@ -14,9 +14,7 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.lang.ref.WeakReference;
 import java.net.URISyntaxException;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,13 +32,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.eclipse.lsp4j.CodeActionParams;
-import org.eclipse.lsp4j.CodeLens;
-import org.eclipse.lsp4j.CodeLensParams;
-import org.eclipse.lsp4j.Command;
-import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionList;
-import org.eclipse.lsp4j.CompletionParams;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
@@ -48,29 +43,15 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentFormattingParams;
-import org.eclipse.lsp4j.DocumentHighlight;
-import org.eclipse.lsp4j.DocumentOnTypeFormattingParams;
-import org.eclipse.lsp4j.DocumentRangeFormattingParams;
-import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.ReferenceParams;
-import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.SignatureHelp;
-import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
-import org.eclipse.lsp4j.TextDocumentPositionParams;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -79,14 +60,12 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.model.Summary;
 import org.rascalmpl.vscode.lsp.util.IRangeToLocationMap;
 import org.rascalmpl.vscode.lsp.util.TreeMapLookup;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -97,12 +76,11 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware /*, ILSPContext*/ {
-
-	private final static CompletableFuture<IRangeToLocationMap> EMPTY_LOCATION_RANGE_MAP = CompletableFuture.completedFuture(null);
+	private static final CompletableFuture<IRangeToLocationMap> EMPTY_LOCATION_RANGE_MAP = CompletableFuture.completedFuture(null);
 	public static final CompletableFuture<ITree> EMPTY_TREE = CompletableFuture.completedFuture(null);
 	private final Map<ISourceLocation, FileState> files;
 	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
-	private final ExecutorService rascalExecutor = Executors.newSingleThreadScheduledExecutor();
+	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
 	private LanguageClient client;
 	private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
@@ -121,18 +99,17 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	public static class FileState {
 		private static final int DEBOUNCE_TIME = 500;
         private final ISourceLocation file;
-        private final IRascalValueFactory VF = IRascalValueFactory.getInstance();
-		private final ExecutorService rascalSchedular;
 		private final ExecutorService javaSchedular;
+		private final RascalLanguageServices services;
 		private volatile StampedReference<String> fileContents;
 		private final AtomicReference<CompletableFuture<IRangeToLocationMap>> defineMap;
 		private volatile CompletableFuture<Summary> currentSummary;
 		private volatile CompletableFuture<ITree> currentTree;
 		private volatile CompletableFuture<Summary> previousSummary;
-
-		public FileState(ISourceLocation file, ExecutorService rascalSchedular, ExecutorService javaSchedular) {
+		
+		public FileState(RascalLanguageServices services, ISourceLocation file, ExecutorService javaSchedular) {
+			this.services = services;
 			this.file = file;
-			this.rascalSchedular = rascalSchedular;
 			this.javaSchedular = javaSchedular;
 			this.defineMap = new AtomicReference<>(EMPTY_LOCATION_RANGE_MAP);
 			this.currentTree = EMPTY_TREE;
@@ -163,7 +140,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                         }
 
                         try {
-                            ITree result = parse(currentContents.value.toCharArray(), file);
+                            ITree result = services.parseSourceFile(file, currentContents.value);
                             if (currentContents == fileContents) {
                             	newTreeCalculate.complete(result);
                             	return;
@@ -186,9 +163,10 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                 	}
                 }, javaSchedular);
 
-                CompletableFuture<Summary> newSummaryCalculate = newTreeCalculate.thenCombineAsync(previousSummary, 
-                		(t, s) -> getLanguage().getImplementation().calculateSummary(t, s, parent)
-                , rascalSchedular);
+				CompletableFuture<Summary> newSummaryCalculate = newTreeCalculate.thenCombineAsync(previousSummary, 
+				// TODO: share ITree of the given module? Now we parse this from disk. Can't be correct.
+				// We need a getSummary to work on an ITree
+				(t,s) -> new Summary(services.getSummary(TreeAdapter.getLocation(t), services.getModulePathConfig(TreeAdapter.getLocation(t)))));
 
                 newSummaryCalculate.thenAcceptAsync((s) -> {
                 	parent.replaceDiagnostics(file, s.getDiagnostics().map(d -> 
@@ -203,13 +181,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                 currentSummary = newSummaryCalculate;
                 defineMap.set(null);
 			}
-			
 		}
-
-		private ITree parse(char[] charArray, ISourceLocation file2) {
-            // TODO
-            return null;
-        }
 
         public CompletableFuture<List<? extends Location>> definition(Range cursor) {
 			CompletableFuture<IRangeToLocationMap> defines = defineMap.get();
@@ -230,7 +202,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 	
 	private static class SimpleEntry<K, V> implements Entry<K,V> {
-		
 		private final K key;
 		private final V value;
 
@@ -253,7 +224,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		public V setValue(V value) {
 			throw new IllegalArgumentException();
 		}
-		
 	}
 	
 	private static class StampedReference<T> {
@@ -292,9 +262,11 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		result.setMessage(((IString)d.get("msg")).getValue());
 		result.setRange(toRange((ISourceLocation) d.get("at")));
 		IWithKeywordParameters<? extends IConstructor> dkw = d.asWithKeywordParameters();
+
 		if (dkw.hasParameter("source")) {
 			result.setSource(((IString)dkw.getParameter("source")).getValue());
 		}
+
 		if (dkw.hasParameter("relatedInformation")) {
 			List<DiagnosticRelatedInformation> related = new ArrayList<>();
 			for (IValue e : (IList)dkw.getParameter("relatedInformation")) {
@@ -303,6 +275,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 			}
 			result.setRelatedInformation(related);
 		}
+
 		return result;
 	}
 	
@@ -323,6 +296,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	public ITree getTree(ISourceLocation loc) throws IOException {
 		FileState file = openExistingOrOpenNew(loc);
+
 		if (file.fileContents == null) {
 			// new file, we have to read it ourself
 			StringBuilder result = new StringBuilder();
@@ -335,11 +309,14 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 			}
 			file.newContents(result.toString(), this);
 		}
+
 		try {
 			return file.currentTree.get();
-		} catch (InterruptedException e) {
+		} 
+		catch (InterruptedException e) {
 			return null;
-		} catch (ExecutionException e) {
+		} 
+		catch (ExecutionException e) {
 			Throwable cause = e.getCause();
 			if (cause instanceof ParseError) {
 				throw (ParseError)cause;
@@ -372,7 +349,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	
 	public FileState openExistingOrOpenNew(ISourceLocation loc) {
 		return files.computeIfAbsent(loc, 
-				l -> new FileState(l, rascalExecutor, ownExcecutor));
+				l -> new FileState(rascalServices, l, ownExcecutor));
 	}
 
 
@@ -443,10 +420,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		return new Range(new Position(pe.getBeginLine() - 1, pe.getBeginColumn()), new Position(pe.getEndLine() - 1, pe.getEndColumn()));
 	}
 
-	private static Range toRange(Position pos) {
-		return new Range(pos, pos);
-	}
-
 	private FileState getFileOrThrow(ISourceLocation loc) {
 		FileState file = files.get(loc);
 		if (file == null) {
@@ -456,54 +429,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 
 	@Override
-	public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(
-			CompletionParams position) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<List<? extends TextEdit>> rangeFormatting(
-			DocumentRangeFormattingParams params) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<List<? extends TextEdit>> onTypeFormatting(
-			DocumentOnTypeFormattingParams params) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public void connect(LanguageClient client) {
 		this.client = client;
 	}
-
-
 }
