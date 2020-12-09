@@ -2,59 +2,54 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
+import * as net from 'net';
+import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
+import { cpuUsage } from 'process';
 
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
+const serverPort = 9001;
+
 let contentPanels : any[] = [];
+
+let deployMode = false;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	console.log('Rascal MPL extension is active!');
-
-	// Get the java home from the process environment.
 	const { JAVA_HOME } = process.env;
 
-	console.log(`Using java from JAVA_HOME: ${JAVA_HOME}`);
-	// If java home is available continue.
-	if (JAVA_HOME) {
-		// Java execution path.
-		let executable: string = path.join(JAVA_HOME, 'bin', 'java');
+	const executable: string = JAVA_HOME ? path.join(JAVA_HOME, 'bin', 'java') : 'java';
 
-		// path to the launcher.jar rascal-lsp/target/org.rascalmpl.rascal-lsp-1.0-SNAPSHOT.jar
-		let classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
-		const args: string[] = ['-cp', classPath];
-		
-		console.log('Using classpath: ' + classPath);
-		console.log('Using executable' + executable);
+	const classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
 
-		// Set the server options 
-		// -- java execution path
-		// -- argument to be pass when executing the java command
-		let serverOptions: ServerOptions = {
+	const args: string[] = ['-cp', classPath];		
+
+	const serverOptions: ServerOptions = deployMode 
+		? {
 			command: executable,
-			args: [...args, main],
+			args: [...args, main, '-port', '' + serverPort],
 			options: {}
-		};
+		}
+		: () => tryOpenConnection(serverPort, 'localhost', 10, 1000).then(
+			s => <StreamInfo>{
+				writer: s,
+				reader: s
+			}
+		);
 
-		// Options to control the language client
-		let clientOptions: LanguageClientOptions = {
-			// Register the server for plain text documents
-			documentSelector: [{ scheme: 'file', language: 'rascalmpl' }]
-		};
+	const clientOptions: LanguageClientOptions = {
+		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }]
+	};
 
-		// Create the language client and start the client.
-		let disposable = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions).start();
+	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions);
+		
+	client.trace = Trace.Verbose;
 
-		// Disposables to remove on deactivation.
-		context.subscriptions.push(disposable);
+	context.subscriptions.push(client.start());
 
-		console.log('Activating Rascal Terminal...');
-		activateTerminal(context, executable);
-	}
+	activateTerminal(context, executable);
 }
 
 // this method is called when your extension is deactivated
@@ -87,7 +82,6 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 		registerContentViewSupport();
 		context.subscriptions.push(disposable);
 		terminal.show(false);
-
 	});
 }
 
@@ -155,6 +149,35 @@ function registerContentViewSupport() {
 			}
 		}
 	});
+}
+
+function tryOpenConnection(port: number, host: string, maxTries: number, retryDelay: number): Thenable<net.Socket> {
+    return new Promise((connected, failed) => {
+        const client = new net.Socket();
+        var tries = 0;
+        function retry(err?: Error) {
+            if (tries <= maxTries) {
+                tries++;
+                client.connect(port, host);
+            }
+            else {
+                failed("Connection retries exceeded" + (err ? (": " + err.message) : ""));
+            }
+        }
+        // normal error case, timeout of the connection setup
+        client.setTimeout(retryDelay);
+        client.on('timeout', retry);
+        // random errors, also retry
+        client.on('error', retry);
+        // success, so let's report back
+        client.once('connect', () => {
+            client.setTimeout(0); // undo the timeout
+            client.removeAllListeners(); // remove the error listener
+            connected(client);
+        });
+        // kick-off the retry loop
+        retry();
+    });
 }
 
 interface RascalTerminalContentLink extends vscode.TerminalLink {

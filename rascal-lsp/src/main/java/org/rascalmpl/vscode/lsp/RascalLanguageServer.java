@@ -1,20 +1,21 @@
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
-import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
-import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.launch.LSPLauncher;
+import org.eclipse.lsp4j.launch.LSPLauncher.Builder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -29,17 +30,19 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
 
     private static final RascalTextDocumentService RASCAL_TEXT_DOCUMENT_SERVICE = new RascalTextDocumentService();
     private static final RascalWorkspaceService RASCAL_WORKSPACE_SERVICE = new RascalWorkspaceService();
-	private int errorCode = 1;
-	private LanguageClient client;
+    private int errorCode = 1;
+    private static int devPortNumber = 9001;
+
+    private LanguageClient client;
 
     @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
 
-        initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Full);
-        CompletionOptions completionOptions = new CompletionOptions();
-        initializeResult.getCapabilities().setCompletionProvider(completionOptions);
-        return CompletableFuture.supplyAsync(()->initializeResult);
+        initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Incremental);
+        // CompletionOptions completionOptions = new CompletionOptions();
+        // initializeResult.getCapabilities().setCompletionProvider(completionOptions);
+        return CompletableFuture.supplyAsync(() -> initializeResult);
     }
 
     @Override
@@ -68,20 +71,30 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         this.client = client;
     }
 
+    private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)
+            throws IOException {
+        Launcher<LanguageClient> clientLauncher = new Builder<LanguageClient>().setLocalService(server)
+                .setRemoteInterface(LanguageClient.class).setInput(client.getInputStream())
+                .setOutput(client.getOutputStream()).create();
+        server.connect(clientLauncher.getRemoteProxy());
+        return clientLauncher;
+    }
+
     public static void main(String[] args) {
         LogManager.getLogManager().reset();
         Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
         globalLogger.setLevel(Level.INFO);
         globalLogger.log(Level.INFO, "Starting Rascal Language Server");
-        
-        RascalLanguageServer server = new RascalLanguageServer() ;
-        Launcher<LanguageClient> launcher = LSPLauncher.createServerLauncher(server, System.in, System.out);
-        server.connect(launcher.getRemoteProxy());
-        Future<Void> startListening = launcher.startListening();
-        try {
-			startListening.get();
-		} catch (InterruptedException | ExecutionException e) {
-			e.printStackTrace();
-		}
+
+        try (ServerSocket serverSocket = new ServerSocket(devPortNumber, 0, InetAddress.getByName("localhost"))) {
+            Socket client;
+            while ((client = serverSocket.accept()) != null) {
+                constructLSPClient(client, new RascalLanguageServer()).startListening();
+            }
+        } catch (UnknownHostException e1) {
+            throw new RuntimeException(e1);
+        } catch (IOException e1) {
+            ;
+        }
     }
 }
