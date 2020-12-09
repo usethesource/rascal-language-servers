@@ -17,7 +17,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:rascalmpl.createTerminal"
+		"onCommand:rascalmpl.createTerminal",
+		"onLanguage:rascalmpl"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
