@@ -40,8 +40,6 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
 
         initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Incremental);
-        // CompletionOptions completionOptions = new CompletionOptions();
-        // initializeResult.getCapabilities().setCompletionProvider(completionOptions);
         return CompletableFuture.supplyAsync(() -> initializeResult);
     }
 
@@ -74,8 +72,10 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)
             throws IOException {
         Launcher<LanguageClient> clientLauncher = new Builder<LanguageClient>().setLocalService(server)
-                .setRemoteInterface(LanguageClient.class).setInput(client.getInputStream())
-                .setOutput(client.getOutputStream()).create();
+                .setRemoteInterface(LanguageClient.class)
+                .setInput(client.getInputStream())
+                .setOutput(client.getOutputStream())
+                .create();
         server.connect(clientLauncher.getRemoteProxy());
         return clientLauncher;
     }

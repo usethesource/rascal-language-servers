@@ -241,7 +241,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void didChange(DidChangeTextDocumentParams params) {
-		getFileOrThrow(toLoc(params.getTextDocument())).newContents(last(params.getContentChanges()).getText(), this);
+        getFileOrThrow(toLoc(params.getTextDocument())).newContents(last(params.getContentChanges()).getText(), this);
 	}
 	
 	private static <T> T last(List<T> l) {

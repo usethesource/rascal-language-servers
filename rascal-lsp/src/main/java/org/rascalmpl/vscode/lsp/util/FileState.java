@@ -11,7 +11,6 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.RascalTextDocumentService;
 import org.rascalmpl.vscode.lsp.model.Summary;
@@ -43,7 +42,7 @@ public class FileState {
 
 	public synchronized void newContents(String contents, RascalTextDocumentService parent) {
 		fileContents = new StampedReference<String>(contents, System.currentTimeMillis()); 
-		if (currentTree.isDone()) {
+		// if (currentTree.isDone()) {
 			CompletableFuture<ITree> newTreeCalculate = new CompletableFuture<>();
 
             CompletableFuture.runAsync(() -> {
@@ -52,15 +51,16 @@ public class FileState {
             		// debounce the calls of the parser & rest
                     long time;
                     StampedReference<String> currentContents;
-                    while ((currentContents = fileContents).stamp + DEBOUNCE_TIME < (time = System.currentTimeMillis())) {
-                        try {
-                            Thread.sleep(DEBOUNCE_TIME - Math.abs(time - currentContents.stamp));
-                        } catch (InterruptedException e) {
-                            newTreeCalculate.completeExceptionally(e);
-                            return;
-                        }
-                    }
+                    // while ((currentContents = fileContents).stamp + DEBOUNCE_TIME < (time = System.currentTimeMillis())) {
+                    //     try {
+                    //         Thread.sleep(DEBOUNCE_TIME - Math.abs(time - currentContents.stamp));
+                    //     } catch (InterruptedException e) {
+                    //         newTreeCalculate.completeExceptionally(e);
+                    //         return;
+                    //     }
+                    // }
 
+					currentContents = fileContents;
                     try {
                         ITree result = services.parseSourceFile(file, currentContents.value);
                         if (currentContents == fileContents) {
@@ -104,7 +104,7 @@ public class FileState {
             currentTree = newTreeCalculate;
             // currentSummary = newSummaryCalculate;
             defineMap.set(null);
-		}
+		// }
 	}
 
     public CompletableFuture<List<? extends Location>> definition(Range cursor) {
