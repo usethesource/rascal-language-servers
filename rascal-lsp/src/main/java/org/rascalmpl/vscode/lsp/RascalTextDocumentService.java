@@ -28,6 +28,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -140,7 +142,12 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	public void appendDiagnostics(ISourceLocation location, Diagnostic msg) {
 		List<Diagnostic> currentMessages = currentDiagnostics.get(location.top());
 		currentMessages.add(msg);
-		client.publishDiagnostics(new PublishDiagnosticsParams(location.top().getURI().toString(), currentMessages));
+		if (location.hasLineColumn()) {
+			client.publishDiagnostics(new PublishDiagnosticsParams(location.top().getURI().toString(), currentMessages));
+		}
+		else {
+			client.publishDiagnostics(new PublishDiagnosticsParams(location.top().getURI().toString(), currentMessages));
+		}
 	}
 
 	public void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
@@ -275,7 +282,13 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 
 	private static Range toRange(ParseError pe) {
-		return new Range(new Position(pe.getBeginLine() - 1, pe.getBeginColumn()), new Position(pe.getEndLine() - 1, pe.getEndColumn()));
+		Logger.getGlobal().log(Level.SEVERE, pe.getMessage());
+		if (pe.getBeginLine() == pe.getEndLine() && pe.getBeginColumn() == pe.getEndColumn()) {
+			return new Range(new Position(pe.getBeginLine() - 1, pe.getBeginColumn()), new Position(pe.getEndLine() - 1, pe.getEndColumn() + 1));
+		}
+		else {
+			return new Range(new Position(pe.getBeginLine() - 1, pe.getBeginColumn()), new Position(pe.getEndLine() - 1, pe.getEndColumn()));
+		}
 	}
 
 	private FileState getFileOrThrow(ISourceLocation loc) {

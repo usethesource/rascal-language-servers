@@ -19,7 +19,6 @@ import org.eclipse.lsp4j.launch.LSPLauncher.Builder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
-import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 /**
@@ -39,7 +38,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
 
-        initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Incremental);
+        initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Full);
         return CompletableFuture.supplyAsync(() -> initializeResult);
     }
 
@@ -55,7 +54,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     @Override
-    public TextDocumentService getTextDocumentService() {
+    public RascalTextDocumentService getTextDocumentService() {
         return RASCAL_TEXT_DOCUMENT_SERVICE;
     }
 
@@ -67,6 +66,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
+        getTextDocumentService().connect(client);
     }
 
     private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)

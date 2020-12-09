@@ -64,7 +64,8 @@ public class FileState {
                     try {
                         ITree result = services.parseSourceFile(file, currentContents.value);
                         if (currentContents == fileContents) {
-                        	newTreeCalculate.complete(result);
+							newTreeCalculate.complete(result);
+							parent.replaceDiagnostics(file, Stream.empty());
                         	return;
                         }
 					} 
@@ -73,7 +74,7 @@ public class FileState {
                     		parent.replaceDiagnostics(file,
                                 Stream.of(e)
                                 .map(e1 -> new SimpleEntry<>(file, RascalTextDocumentService.translateDiagnostic(e1)))
-                            );
+							);
                     		newTreeCalculate.completeExceptionally(e);
                     		return;
                     	}
