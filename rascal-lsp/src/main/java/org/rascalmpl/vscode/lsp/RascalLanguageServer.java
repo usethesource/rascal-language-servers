@@ -30,7 +30,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     private static final RascalTextDocumentService RASCAL_TEXT_DOCUMENT_SERVICE = new RascalTextDocumentService();
     private static final RascalWorkspaceService RASCAL_WORKSPACE_SERVICE = new RascalWorkspaceService();
     private int errorCode = 1;
-    private static int devPortNumber = 9001;
+    private static int portNumber = 9001;
 
     private LanguageClient client;
 
@@ -86,7 +86,13 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         globalLogger.setLevel(Level.INFO);
         globalLogger.log(Level.INFO, "Starting Rascal Language Server");
 
-        try (ServerSocket serverSocket = new ServerSocket(devPortNumber, 0, InetAddress.getByName("localhost"))) {
+        for (int i = 1; i < args.length; i++) {
+            if (args[i].equals("-port") && i + 1 < args.length) {
+                portNumber = Integer.parseInt(args[++i]);
+            }
+        }
+
+        try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("localhost"))) {
             Socket client;
             while ((client = serverSocket.accept()) != null) {
                 constructLSPClient(client, new RascalLanguageServer()).startListening();

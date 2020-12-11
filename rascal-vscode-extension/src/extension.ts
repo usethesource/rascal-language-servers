@@ -13,7 +13,7 @@ const serverPort = 9001;
 
 let contentPanels : any[] = [];
 
-let deployMode = false;
+let deployMode = true;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed

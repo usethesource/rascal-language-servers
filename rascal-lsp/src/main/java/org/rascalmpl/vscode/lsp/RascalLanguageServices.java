@@ -288,7 +288,6 @@ public class RascalLanguageServices {
             }
         }
 
-        PathConfig.fromSourceProjectRascalManifest(manifestRoot)
         // TODO: resolve path config for this module location
         return new PathConfig();
     }
