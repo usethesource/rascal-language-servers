@@ -158,7 +158,8 @@ function startJavaServerProcess(port: number, extensionPath: string): Thenable<c
 
 function getJavaExecutable():string {
 	const { JAVA_HOME } = process.env;	
-	const name = os.platform.name === 'win32' ? 'java.exe' : 'java';
+	
+	const name = os.platform() === 'win32' ? 'java.exe' : 'java';
 	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', name) : name;
 }
 
