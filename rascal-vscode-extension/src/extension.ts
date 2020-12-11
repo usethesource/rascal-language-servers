@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as net from 'net';
+import * as cp from 'child_process';
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
 import { cpuUsage } from 'process';
@@ -15,23 +16,15 @@ let contentPanels : any[] = [];
 
 let deployMode = true;
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	const { JAVA_HOME } = process.env;
-
-	const executable: string = JAVA_HOME ? path.join(JAVA_HOME, 'bin', 'java') : 'java';
-
-	const classPath = path.join(context.extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
-
-	const args: string[] = ['-cp', classPath];		
-
+	
 	const serverOptions: ServerOptions = deployMode 
-		? {
-			command: executable,
-			args: [...args, main, '-port', '' + serverPort],
-			options: {}
-		}
+		? () => startJavaServerProcess(serverPort, context.extensionPath)
+			.then((cp) => tryOpenConnection(serverPort, 'localhost', 10, 1000)
+			.then((s) => <StreamInfo>{
+				writer: s,
+				reader: s
+			}))
 		: () => tryOpenConnection(serverPort, 'localhost', 10, 1000).then(
 			s => <StreamInfo>{
 				writer: s,
@@ -49,13 +42,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(client.start());
 
-	activateTerminal(context, executable);
+	activateTerminal(context);
 }
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
 
-function activateTerminal(context: vscode.ExtensionContext, executable:string) {
+function activateTerminal(context: vscode.ExtensionContext) {
 	let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
         let editor = vscode.window.activeTextEditor;
 		if (!editor) {
@@ -74,7 +67,7 @@ function activateTerminal(context: vscode.ExtensionContext, executable:string) {
 
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
-			shellPath: executable,
+			shellPath: getJavaExecutable(),
 			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp-' + version + '.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
@@ -150,6 +143,23 @@ function registerContentViewSupport() {
 		}
 	});
 }
+
+function startJavaServerProcess(port: number, extensionPath: string): Thenable<cp.ChildProcessWithoutNullStreams> {
+	return new Promise((started, failed) => {
+		const classPath = path.join(extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
+
+		const args: string[] = ['-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + port];		
+
+		started(cp.spawn(getJavaExecutable(), args));
+	});
+}
+
+function getJavaExecutable():string {
+	const { JAVA_HOME } = process.env;	
+
+	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', 'java') : 'java';
+}
+
 
 function tryOpenConnection(port: number, host: string, maxTries: number, retryDelay: number): Thenable<net.Socket> {
     return new Promise((connected, failed) => {
