@@ -1,2 +1,3 @@
 .DS_Store
 rascal-vscode-extension/dist/rascal-lsp-*.jar
+rascal-vscode-extension/rascalmpl-0.0.1.vsix

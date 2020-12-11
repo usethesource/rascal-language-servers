@@ -4,6 +4,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as net from 'net';
 import * as cp from 'child_process';
+import * as os from 'os';
+
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient';
 import { fileURLToPath } from 'url';
 import { cpuUsage } from 'process';
@@ -20,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	const serverOptions: ServerOptions = deployMode 
 		? () => startJavaServerProcess(serverPort, context.extensionPath)
-			.then((cp) => tryOpenConnection(serverPort, 'localhost', 10, 1000)
+			.then((_) => tryOpenConnection(serverPort, 'localhost', 10, 1000)
 			.then((s) => <StreamInfo>{
 				writer: s,
 				reader: s
@@ -156,8 +158,8 @@ function startJavaServerProcess(port: number, extensionPath: string): Thenable<c
 
 function getJavaExecutable():string {
 	const { JAVA_HOME } = process.env;	
-
-	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', 'java') : 'java';
+	const name = os.platform.name === 'win32' ? 'java.exe' : 'java';
+	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', name) : name;
 }
 
 
