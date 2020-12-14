@@ -56,7 +56,7 @@ node {
 
         stage('Deploy VScode extension') {
             env.EXTENSION_VERSION="${EXTENSION_VERSION}"
-            sh 'mvn deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=https://nexus.usethesource.io/content/repositories/snapshots/org/rascalmpl/rascal-vscode-extension/'
+            sh 'mvn --batch-mode deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=https://nexus.usethesource.io/content/repositories/snapshots/org/rascalmpl/rascal-vscode-extension/'
         }
     }
   } catch (e) {
