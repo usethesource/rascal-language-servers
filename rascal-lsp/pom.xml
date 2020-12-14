@@ -10,7 +10,7 @@
     <junit.version>5.6.0</junit.version>
     <checkstyle.version>8.29</checkstyle.version>
     <checkstyle-rules.version>4.0.1</checkstyle-rules.version>
-    <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
   </properties>
    <distributionManagement>
         <repository>
@@ -97,6 +97,10 @@
                                   <Specification-Version>${project.version}</Specification-Version>
                                   <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
                               </manifestEntries>
+                          </transformer>
+                          <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                              <resource>org/rascalmpl/uri/resolvers.config</resource>
+                              <resource>io/usethesource/vallang/type/types.config</resource>
                           </transformer>
                       </transformers>
                       <!--
