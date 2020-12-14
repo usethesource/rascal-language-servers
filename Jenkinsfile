@@ -3,7 +3,7 @@ node {
   env.PATH="${env.JAVA_HOME}/bin:${env.PATH}"
   env.N_PREFIX="${HOME}/node_installs/"
   env.NPM_CONFIG_PREFIX="${HOME}/npm-libs"
-  env.NPM_VERSION="7.0.14"
+  env.NPM_VERSION="15.3.0"
   env.NPM="${N_PREFIX}/bin/npm"
   env.VSCE="${N_PREFIX}/bin/vsce"
 
