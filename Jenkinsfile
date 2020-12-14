@@ -4,8 +4,8 @@ node {
   env.N_PREFIX="${HOME}/node_installs/"
   env.NPM_CONFIG_PREFIX="${HOME}/npm-libs"
   env.NPM_VERSION="15.4.0"
-  env.NPM="${N_PREFIX}/${NPM_VERSION}/bin/npm"
-  env.VSCE="${N_PREFIX}/${NPM_VERSION}/bin/vsce"
+  env.NPM="${N_PREFIX}/bin/npm"
+  env.VSCE="${N_PREFIX}/bin/vsce"
 
   try {
     stage('Clone'){
