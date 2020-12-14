@@ -55,7 +55,7 @@ node {
         }
 
         stage('Deploy VScode extension') {
-            sh "mvn deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=$NEXUS_ROOT/content/repositories/snapshots/'
+            sh "mvn deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=$NEXUS_ROOT/content/repositories/snapshots/"
         }
     }
   } catch (e) {
