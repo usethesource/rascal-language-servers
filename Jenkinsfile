@@ -2,8 +2,8 @@ node {
   env.JAVA_HOME="${tool 'jdk-oracle-8'}"
   env.PATH="${env.JAVA_HOME}/bin:${env.PATH}"
   env.N_PREFIX="${HOME}/node_installs/"
-  env.NPM="${N_PREFIX}/bin/npm"
-  env.VSCE="${N_PREFIX}/bin/vsce"
+  env.NPM="${N_PREFIX}/15.4.0/bin/npm"
+  env.VSCE="${N_PREFIX}/15.4.0/bin/vsce"
 
   try {
     stage('Clone'){
@@ -23,7 +23,8 @@ node {
     dir ('rascal-vscode-extension') {
         stage('Install prerequisites') {
             sh 'mkdir -p ${N_PREFIX}'
-            sh '${NPM} install -g n'
+            sh 'npm install -g n'
+            sh 'n 15.4.0'
             sh '${NPM} install webpack'
             sh '${NPM} install vsce'
         }
