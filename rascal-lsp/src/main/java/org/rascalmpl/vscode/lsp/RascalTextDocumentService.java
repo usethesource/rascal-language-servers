@@ -217,7 +217,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 				l -> new FileState(rascalServices, l, ownExcecutor));
 	}
 
-
 	@Override
 	public void didOpen(DidOpenTextDocumentParams params) {
 		openExistingOrOpenNew(toLoc(params.getTextDocument()))
