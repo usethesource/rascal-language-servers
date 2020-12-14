@@ -1,11 +1,9 @@
 node {
   env.JAVA_HOME="${tool 'jdk-oracle-8'}"
-  env.PATH="${env.JAVA_HOME}/bin:${env.PATH}"
   env.N_PREFIX="${HOME}/node_installs/"
   env.NPM_CONFIG_PREFIX="${HOME}/npm-libs"
+  env.PATH="${env.JAVA_HOME}/bin:${env.NPM_CONFIG_PREFIX}/bin:${env.N_PREFIX}/bin:${env.PATH}"
   env.NPM_VERSION="15.3.0"
-  env.NPM="${N_PREFIX}/bin/npm"
-  env.VSCE="${N_PREFIX}/bin/vsce"
 
   try {
     stage('Clone'){
@@ -27,27 +25,27 @@ node {
             sh 'mkdir -p ${N_PREFIX}'
             sh 'mkdir -p ${NPM_CONFIG_PREFIX}'
             sh 'npm install -g n'
-            sh "${NPM_CONFIG_PREFIX}/bin/n ${NPM_VERSION}"
-            sh '${NPM} install webpack'
-            sh '${NPM} install vsce'
+            sh "n ${NPM_VERSION}"
+            sh 'npm install webpack'
+            sh 'npm install vsce'
         }
 
         stage('Rebuild dependencies') {
-            sh '${NPM} rebuild'
+            sh 'npm rebuild'
         }
 
         stage('Compile VScode extension') {
-            sh '${NPM} run compile'
+            sh 'npm run compile'
         }
 
         stage('Copy LSP server jar') {
             sh 'mkdir -p dist'
-            sh '${NPM} run lsp4j:package'
+            sh 'npm run lsp4j:package'
         }
 
         stage('Package VScode extension') {
-            sh '${NPM} install'
-            sh '${VCSE} package'
+            sh 'npm install'
+            sh 'vsce package'
         }
     }
   } catch (e) {
