@@ -27,7 +27,7 @@ node {
             sh 'mkdir -p ${N_PREFIX}'
             sh 'mkdir -p ${NPM_CONFIG_PREFIX}'
             sh 'npm install -g n'
-            sh "n ${NPM_VERSION}"
+            sh "${NPM_CONFIG_PREFIX}/bin/n ${NPM_VERSION}"
             sh '${NPM} install webpack'
             sh '${NPM} install vsce'
         }
