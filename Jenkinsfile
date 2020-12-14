@@ -21,6 +21,13 @@ node {
     }
 
     dir ('rascal-vscode-extension') {
+        EXTENSION_VERSION=sh (
+             script: grep '"version" package.json | cut -d \':\' -f 2 | cut -d \" -f 2'
+             returnStdout: true
+        ).trim()
+
+        echo "Extension version is ${EXTENSION_VERSION}"
+
         stage('Install prerequisites') {
             sh 'mkdir -p ${N_PREFIX}'
             sh 'mkdir -p ${NPM_CONFIG_PREFIX}'
@@ -45,6 +52,10 @@ node {
 
         stage('Package VScode extension') {
             sh 'vsce package'
+        }
+
+        stage('Deploy VScode extension') {
+            sh "mvn deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=$NEXUS_ROOT/content/repositories/snapshots/'
         }
     }
   } catch (e) {
