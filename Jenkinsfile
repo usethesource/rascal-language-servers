@@ -22,7 +22,7 @@ node {
 
     dir ('rascal-vscode-extension') {
         EXTENSION_VERSION=sh (
-             script: "grep \"version\" package.json | cut -d \':\' -f 2 | cut -d \" -f 2",
+             script: "grep \"version\" package.json | cut -d \':\' -f 2 | cut -d \\\" -f 2",
              returnStdout: true
         ).trim()
 
