@@ -20,7 +20,6 @@ import org.rascalmpl.vscode.lsp.RascalTextDocumentService;
 import org.rascalmpl.vscode.lsp.model.Summary;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.visitors.BottomUpVisitor;
 
 public class FileState {
 	private static final int DEBOUNCE_TIME = 500;

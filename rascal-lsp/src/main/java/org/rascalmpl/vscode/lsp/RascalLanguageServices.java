@@ -289,7 +289,7 @@ public class RascalLanguageServices {
         }
 
         // TODO: resolve path config for this module location
-        return PathConfig.
+        return new PathConfig();
     }
     
     private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
