@@ -11,10 +11,6 @@ node {
           sh "mvn clean compile"
         }
 
-        stage('Test Rascal LSP') {
-          sh "mvn test"
-        }
-
         stage('Package Rascal LSP') {
           sh "mvn package"
         }
