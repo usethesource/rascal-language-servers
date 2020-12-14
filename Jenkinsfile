@@ -24,10 +24,10 @@ node {
         stage('Install prerequisites') {
             sh 'mkdir -p ${N_PREFIX}'
             sh 'mkdir -p ${NPM_CONFIG_PREFIX}'
-            sh 'npm install -g n'
+            sh 'n --version || npm install -g n'
             sh "n ${NPM_VERSION}"
-            sh 'npm install webpack'
-            sh 'npm install vsce'
+            sh 'npm install -g vsce'
+            sh 'npm install'
         }
 
         stage('Rebuild dependencies') {
@@ -44,7 +44,6 @@ node {
         }
 
         stage('Package VScode extension') {
-            sh 'npm install'
             sh 'vsce package'
         }
     }
