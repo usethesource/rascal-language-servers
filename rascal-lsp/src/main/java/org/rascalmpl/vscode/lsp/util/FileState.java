@@ -7,8 +7,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -17,6 +20,7 @@ import org.rascalmpl.vscode.lsp.RascalTextDocumentService;
 import org.rascalmpl.vscode.lsp.model.Summary;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.visitors.BottomUpVisitor;
 
 public class FileState {
 	private static final int DEBOUNCE_TIME = 500;
@@ -25,6 +29,7 @@ public class FileState {
 	private final RascalLanguageServices services;
 	public volatile TimedReference<String> fileContents;
 	private final AtomicReference<CompletableFuture<IRangeToLocationMap>> defineMap;
+	private final CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> currentSymbols;
 	public volatile CompletableFuture<Summary> currentSummary;
 	public volatile CompletableFuture<ITree> currentTree;
 	public volatile CompletableFuture<Summary> previousSummary;
@@ -37,6 +42,7 @@ public class FileState {
 		this.currentTree = RascalTextDocumentService.EMPTY_TREE;
 		this.previousSummary = CompletableFuture.supplyAsync(() -> new Summary());
 		this.currentSummary = previousSummary;
+		this.currentSymbols = CompletableFuture.completedFuture(null);
 		this.fileContents = null;
 	}
 	
@@ -100,8 +106,8 @@ public class FileState {
             			, RascalTextDocumentService.translateDiagnostic(d)
                     )
                 ));
-            }, javaScheduler);
-            
+			}, javaScheduler);
+			
             currentTree = newTreeCalculate;
             // currentSummary = newSummaryCalculate;
             defineMap.set(null);

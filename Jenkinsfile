@@ -5,15 +5,26 @@ node {
     stage('Clone'){
       checkout scm
     }
-   
-    stage('Compile Rascal LSP server') {
-        sh "cd rascal-lsp; mvn package"
+ 
+    dir('rascal-lsp'){
+        stage('Compile Rascal LSP') {
+          sh "mvn clean compile"
+        }
+
+        stage('Test Rascal LSP') {
+          sh "mvn test"
+        }
+
+        stage('Package Rascal LSP') {
+          sh "mvn package"
+        }
     }
 
-    stage('Compile Visual Studio Code extension') {
-        sh "npm install vsce; npm rebuild; npm run lsp4j:package; npm install; vsce package"
+    dir ('rascal-vscode-extension') {
+        stage('Compile and package VSCode extension') {
+            sh "npm install vsce; npm rebuild; npm run lsp4j:package; npm install; vsce package"
+        }
     }
-
   } catch (e) {
     slackSend (color: '#d9534f', message: "FAILED: <${env.BUILD_URL}|${env.JOB_NAME} [${env.BUILD_NUMBER}]>")
     throw e
