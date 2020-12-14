@@ -31,6 +31,7 @@ node {
         }
 
         stage('Copy LSP server jar') {
+            sh 'mkdir -p dist'
             sh 'npm run lsp4j:package'
         }
 
