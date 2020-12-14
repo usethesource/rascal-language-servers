@@ -1,7 +1,7 @@
 node {
   env.JAVA_HOME="${tool 'jdk-oracle-8'}"
-  env.N_PREFIX="${HOME}/node_installs/"
-  env.NPM_CONFIG_PREFIX="${HOME}/npm-libs"
+  env.N_PREFIX="${WORKSPACE_TMP}/.n"
+  env.NPM_CONFIG_PREFIX="${WORKSPACE_TMP}/.npm"
   env.PATH="${env.JAVA_HOME}/bin:${env.NPM_CONFIG_PREFIX}/bin:${env.N_PREFIX}/bin:${env.PATH}"
   env.NPM_VERSION="15.3.0"
 
