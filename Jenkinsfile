@@ -37,7 +37,6 @@ node {
 
         stage('Package VScode extension') {
             sh 'npm install'
-            sh 'npm package'
             sh 'vsce package'
         }
     }
