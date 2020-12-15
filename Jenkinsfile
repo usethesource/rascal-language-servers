@@ -47,10 +47,6 @@ node {
             sh 'npm run compile'
         }
 
-        stage('Test VScode extension') {
-            sh 'npm test'
-        }
-
         stage('Copy LSP server jar') {
             sh 'mkdir -p dist'
             sh 'npm run lsp4j:package'
