@@ -12,17 +12,12 @@
  */
 package org.rascalmpl.vscode.lsp.model;
 
-import java.util.Map.Entry;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
+
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
-import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.ITuple;
-import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
@@ -44,22 +39,16 @@ public class Summary {
 	}
 
 	public Summary(IConstructor summary) {
-		assert summary != null && summary.getType().getName().equals("LSPSummary");
 		this.summary = summary;
 		this.summaryKW = summary.asWithKeywordParameters();
 	}
 
-	
-	public Stream<Entry<ISourceLocation, ISourceLocation>> getDefinitions() {
-		return toEntryStream(getKWFieldSet("definition"));
-	}
-
-	public Stream<Entry<ISourceLocation, ISourceLocation>> getTypeDefinitions() {
-		return toEntryStream(getKWFieldSet("typeDefinition"));
+	public IRelation<ISet> getDefinitions() {
+		return getKWFieldSet("declarations").asRelation();
 	}
 	
-	public Stream<IConstructor> getDiagnostics() {
-		return toStream(getKWFieldSet("diagnostics"));
+	public ISet getMessages() {
+		return (ISet) getKWFieldSet("messages");
 	}
 	
 	private ISet getKWFieldSet(String name) {
@@ -67,49 +56,5 @@ public class Summary {
 			return (ISet) summaryKW.getParameter(name);
 		}
 		return EMPTY_SET;
-	}
-	
-	@SuppressWarnings("unchecked")
-	private static <T> Stream<T> toStream(ISet target) {
-		return StreamSupport.stream(target.spliterator(), false)
-			.map(v -> (T)v);
-	}
-
-	@SuppressWarnings("unchecked")
-	private static <K,V> Stream<Entry<K,V>> toEntryStream(ISet target) {
-		return Summary.<ITuple>toStream(target)
-				.map(t -> new OwnEntry<>((K)t.get(0), (V)t.get(1)) );
-	}
-
-	private static final class OwnEntry<K,V> implements Entry<K,V> {
-		
-		private final K key;
-		private final V value;
-		
-		public OwnEntry(K key, V value) {
-			this.key = key;
-			this.value = value;
-		}
-
-
-		@Override
-		public K getKey() {
-			return key;
-		}
-
-		@Override
-		public V getValue() {
-			return value;
-		}
-
-		@Override
-		public V setValue(V value) {
-			throw new RuntimeException("Not supported");
-		}
-		
-	}
-
-	public IValue getRascalSummary() {
-		return summary;
 	}
 }
