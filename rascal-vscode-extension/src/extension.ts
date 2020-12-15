@@ -16,7 +16,7 @@ const serverPort = 9001;
 
 let contentPanels : any[] = [];
 
-let deployMode = false;
+let deployMode = true;
 
 export function getRascalExtensionDeploymode() : boolean {
 	return deployMode;
