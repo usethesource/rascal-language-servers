@@ -10,13 +10,15 @@ node {
       checkout scm
     }
  
-    dir('rascal-lsp'){
-        stage('Compile Rascal LSP') {
-          sh "mvn clean compile"
-        }
+    dir('rascal-lsp') {
+        withMaven(maven: 'M3', jdk: 'jdk-oracle-8', mavenOpts: '-Xmx4G', options: [artifactsPublisher(disabled: true), junitPublisher(disabled: false)] ) {
+            stage('Compile Rascal LSP') {
+                sh "mvn clean compile"
+            }
 
-        stage('Package Rascal LSP') {
-          sh "mvn package"
+            stage('Package Rascal LSP') {
+                sh "mvn package"
+            }
         }
     }
 
@@ -54,9 +56,11 @@ node {
             sh 'vsce package'
         }
 
-        stage('Deploy VScode extension') {
-            env.EXTENSION_VERSION="${EXTENSION_VERSION}"
-            sh 'mvn -e --batch-mode deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=https://nexus.usethesource.io/content/repositories/snapshots/'
+        withMaven(maven: 'M3', jdk: 'jdk-oracle-8', mavenOpts: '-Xmx4G', options: [artifactsPublisher(disabled: true), junitPublisher(disabled: false)] ) {
+            stage('Deploy VScode extension') {
+                env.EXTENSION_VERSION="${EXTENSION_VERSION}"
+                sh 'mvn -e --batch-mode deploy:deploy-file -DgroupId=org.rascalmpl -DartifactId=rascal-vscode-extension -Dversion=${EXTENSION_VERSION} -DgeneratePom=false -Dpackaging=vsix -Dfile=rascalmpl-${EXTENSION_VERSION}.vsix -DrepositoryId=usethesource-snapshots -Durl=https://nexus.usethesource.io/content/repositories/snapshots/'
+            }
         }
     }
   } catch (e) {
