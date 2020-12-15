@@ -38,7 +38,8 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
 
-        initializeResult.getCapabilities().setTextDocumentSync(TextDocumentSyncKind.Full);
+        RASCAL_TEXT_DOCUMENT_SERVICE.setCapabilities(initializeResult.getCapabilities());
+        
         return CompletableFuture.supplyAsync(() -> initializeResult);
     }
 

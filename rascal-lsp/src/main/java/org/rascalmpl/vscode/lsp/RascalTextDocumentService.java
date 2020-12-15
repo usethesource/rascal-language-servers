@@ -48,13 +48,14 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 
-public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware {
+public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
 	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
 	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
 	private LanguageClient client;
@@ -62,95 +63,68 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	
 	private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
-	private static final LoadingCache<String, ISourceLocation> uriToLocCache = Caffeine.newBuilder().maximumSize(1000)
-	.expireAfterAccess(5, TimeUnit.MINUTES).build(u -> {
-		try {
-			return URIUtil.createFromURI(u);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
-	});
+	private static final LoadingCache<String, ISourceLocation> uriToLocCache = Caffeine.newBuilder()
+		.maximumSize(1000)
+		.expireAfterAccess(5, TimeUnit.MINUTES).build(u -> {
+			try {
+				return URIUtil.createFromURI(u);
+			} catch (URISyntaxException e) {
+				throw new RuntimeException(e);
+			}
+		});
 	
 	public RascalTextDocumentService() {
 		this.files = new ConcurrentHashMap<>();
 	}
 
-	public void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
-		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
-		grouped.putIfAbsent(clearFor, Collections.emptyList());
-
-		grouped.forEach((file, msgs) -> {
-			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), msgs));
-			currentDiagnostics.replace(file, msgs);
-		});
+	public void initializeServerCapabilities(ServerCapabilities result) {
+		result.setDefinitionProvider(true);
+		result.setTextDocumentSync(TextDocumentSyncKind.Full);
 	}
 
-	public void clearDiagnostics(ISourceLocation file) {
+	@Override
+	public void connect(LanguageClient client) {
+		this.client = client;
+	}
+
+	// Error reporting API
+
+	@Override
+	public void clearReports(ISourceLocation file) {
 		client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), Collections.emptyList()));
 		currentDiagnostics.replace(file, Collections.emptyList());
 	}
 
-	public void appendDiagnostics(ISourceLocation location, Diagnostic msg) {
-		List<Diagnostic> currentMessages = currentDiagnostics.get(location.top());
-		currentMessages.add(msg);
-		if (location.hasLineColumn()) {
-			client.publishDiagnostics(new PublishDiagnosticsParams(location.top().getURI().toString(), currentMessages));
-		} 
-		else {
-			client.publishDiagnostics(
-					new PublishDiagnosticsParams(location.top().getURI().toString(), currentMessages));
-		}
-	}
-
-	public void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
-		Diagnostics.groupByKey(diagnostics).forEach((file, msgs) -> {
-			List<Diagnostic> currentMessages = currentDiagnostics.get(file);
-			currentMessages.addAll(msgs);
-			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), currentMessages));
-		});
-	}
-
+	@Override
 	public void report(ISet msgs) {
 		appendDiagnostics(msgs.stream()
 			.map(d -> (IConstructor) d)
 			.map(d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
 	}
 
-	public void setCapabilities(ServerCapabilities result) {
-		result.setDefinitionProvider(true);
-		result.setTextDocumentSync(TextDocumentSyncKind.Full);
-	}
-
-	private FileState open(ISourceLocation loc, String content) {
-		return files.computeIfAbsent(loc, l -> new FileState(rascalServices, this, ownExcecutor, l, content));
+	@Override
+	public void report(ISourceLocation file, ISet messages) {
+		replaceDiagnostics(file, messages.stream()
+		.map(d -> (IConstructor) d)
+		.map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
 	}
 
 	@Override
+	public void report(ParseError e) {
+		replaceDiagnostics(e.getLocation(), Stream.of(e)
+								.map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
+	}
+
+	// LSP interface methods
+
+	@Override
 	public void didOpen(DidOpenTextDocumentParams params) {
-		open(toLoc(params.getTextDocument()), params.getTextDocument().getText());
-	}
-
-	private static ISourceLocation toLoc(TextDocumentItem doc) {
-		return toLoc(doc.getUri());
-	}
-
-	private static ISourceLocation toLoc(TextDocumentIdentifier doc) {
-		return toLoc(doc.getUri());
-	}
-
-
-
-	private static ISourceLocation toLoc(String uri) {
-		return uriToLocCache.get(uri);
+		open(params.getTextDocument());
 	}
 
 	@Override
 	public void didChange(DidChangeTextDocumentParams params) {
 		getFileOrThrow(toLoc(params.getTextDocument())).update(last(params.getContentChanges()).getText());
-	}
-
-	private static <T> T last(List<T> l) {
-		return l.get(l.size() - 1);
 	}
 
 	@Override
@@ -166,27 +140,51 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	}
 
+	// Private utility methods
+	
+	private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
+		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
+		grouped.putIfAbsent(clearFor, Collections.emptyList());
+
+		grouped.forEach((file, msgs) -> {
+			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), msgs));
+			currentDiagnostics.replace(file, msgs);
+		});
+	}
+
+	private void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
+		Diagnostics.groupByKey(diagnostics).forEach((file, msgs) -> {
+			List<Diagnostic> currentMessages = currentDiagnostics.get(file);
+			currentMessages.addAll(msgs);
+			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), currentMessages));
+		});
+	}
+
+	private static ISourceLocation toLoc(TextDocumentItem doc) {
+		return toLoc(doc.getUri());
+	}
+
+	private static ISourceLocation toLoc(TextDocumentIdentifier doc) {
+		return toLoc(doc.getUri());
+	}
+
+	private static ISourceLocation toLoc(String uri) {
+		return uriToLocCache.get(uri);
+	}
+
+	private static <T> T last(List<T> l) {
+		return l.get(l.size() - 1);
+	}
+
+	private FileState open(TextDocumentItem doc) {
+		return files.computeIfAbsent(toLoc(doc), l -> new FileState(rascalServices, this, ownExcecutor, l, doc.getText()));
+	}
+
 	private FileState getFileOrThrow(ISourceLocation loc) {
 		FileState file = files.get(loc);
 		if (file == null) {
 			throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
 		}
 		return file;
-	}
-
-	@Override
-	public void connect(LanguageClient client) {
-		this.client = client;
-	}
-
-	public void report(ISourceLocation file, ISet messages) {
-		replaceDiagnostics(file, messages.stream()
-		.map(d -> (IConstructor) d)
-		.map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
-	}
-
-	public void report(ParseError e) {
-		replaceDiagnostics(e.getLocation(), Stream.of(e)
-								.map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
 	}
 }
