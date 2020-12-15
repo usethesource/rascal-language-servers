@@ -3,7 +3,7 @@
 	"displayName": "Rascal Metaprogramming Language",
 	"description": "Provides language support for the Rascal metaprogramming language",
 	"publisher": "usethesource",
-	"version": "0.0.1",
+	"version": "0.0.1-SNAPSHOT",
 	"engines": {
 		"vscode": "^1.51.0"
 	},
