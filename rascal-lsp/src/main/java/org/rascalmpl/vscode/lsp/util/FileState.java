@@ -13,6 +13,7 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.parser.gtd.exception.ParseError;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.RascalLanguageServices;
@@ -29,6 +30,7 @@ public class FileState {
 	public volatile TimedReference<String> fileContents;
 	private final AtomicReference<CompletableFuture<IRangeToLocationMap>> defineMap;
 	private final CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> currentSymbols;
+	public static final CompletableFuture<ITree> EMPTY_TREE = CompletableFuture.completedFuture(null);
 	public volatile CompletableFuture<Summary> currentSummary;
 	public volatile CompletableFuture<ITree> currentTree;
 	public volatile CompletableFuture<Summary> previousSummary;

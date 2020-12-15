@@ -18,6 +18,10 @@ let contentPanels : any[] = [];
 
 let deployMode = true;
 
+export function getRascalExtensionDeploymode() : boolean {
+	return deployMode;
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	
 	const serverOptions: ServerOptions = deployMode 

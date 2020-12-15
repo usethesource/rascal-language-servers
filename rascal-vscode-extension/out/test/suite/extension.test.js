@@ -4,12 +4,11 @@ const assert = require("assert");
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 const vscode = require("vscode");
-// import * as myExtension from '../../extension';
+const rascalExtension = require("../../extension");
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
-    test('Sample test', () => {
-        assert.equal(-1, [1, 2, 3].indexOf(5));
-        assert.equal(-1, [1, 2, 3].indexOf(0));
+    test('Never commit debug mode', () => {
+        assert.strictEqual(rascalExtension.getRascalExtensionDeploymode(), true);
     });
 });
 //# sourceMappingURL=extension.test.js.map

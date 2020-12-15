@@ -77,7 +77,6 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware /*, ILSPContext*/ {
 	public static final CompletableFuture<IRangeToLocationMap> EMPTY_LOCATION_RANGE_MAP = CompletableFuture.completedFuture(null);
-	public static final CompletableFuture<ITree> EMPTY_TREE = CompletableFuture.completedFuture(null);
 	private final Map<ISourceLocation, FileState> files;
 	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
 	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
