@@ -203,8 +203,8 @@ function connectToRascalLanguageServerSocket(port: number): Thenable<net.Socket>
         client.on('timeout', retry);
         client.on('error', retry);
         client.once('connect', () => {
-            // client.setTimeout(0); 
-            // client.removeAllListeners(); 
+            client.setTimeout(0); 
+            client.removeAllListeners(); 
             return connected(client);
 		});
 		
