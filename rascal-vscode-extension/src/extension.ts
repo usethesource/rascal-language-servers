@@ -148,7 +148,7 @@ function registerContentViewSupport() {
 function findFreeServerPort() : Thenable<number> {
 	return new Promise((started, failed) => {
 		try {
-			let port = findFreePort({start: 8888, end: 8999, num: 1, ip: '127.0.0.1'});
+			let port = findFreePort({start: 8889, end: 9999, num: 1, ip: '127.0.0.1'});
 			started(port);
 		}
 		catch (e) {
