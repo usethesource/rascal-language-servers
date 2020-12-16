@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -13,7 +12,6 @@ import java.util.logging.Logger;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher.Builder;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -30,7 +28,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     private static final RascalTextDocumentService RASCAL_TEXT_DOCUMENT_SERVICE = new RascalTextDocumentService();
     private static final RascalWorkspaceService RASCAL_WORKSPACE_SERVICE = new RascalWorkspaceService();
     private int errorCode = 1;
-    private static int portNumber = 9001;
+    private static int portNumber = 8888;
 
     private LanguageClient client;
 
@@ -38,8 +36,8 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
 
-        RASCAL_TEXT_DOCUMENT_SERVICE.setCapabilities(initializeResult.getCapabilities());
-        
+        RASCAL_TEXT_DOCUMENT_SERVICE.initializeServerCapabilities(initializeResult.getCapabilities());
+
         return CompletableFuture.supplyAsync(() -> initializeResult);
     }
 
@@ -87,21 +85,21 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         globalLogger.setLevel(Level.INFO);
         globalLogger.log(Level.INFO, "Starting Rascal Language Server");
 
-        for (int i = 1; i < args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-port") && i + 1 < args.length) {
                 portNumber = Integer.parseInt(args[++i]);
+                break;
             }
         }
 
-        try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("localhost"))) {
-            Socket client;
-            while ((client = serverSocket.accept()) != null) {
-                constructLSPClient(client, new RascalLanguageServer()).startListening();
-            }
-        } catch (UnknownHostException e1) {
-            throw new RuntimeException(e1);
-        } catch (IOException e1) {
-            ;
+        globalLogger.log(Level.CONFIG, "Rascal LSP server listens on port number: " + portNumber);
+        System.err.println("port !!! " + portNumber);
+
+        try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
+            constructLSPClient(serverSocket.accept(), new RascalLanguageServer()).startListening();
+        } 
+        catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

@@ -21,9 +21,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -47,6 +50,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.model.Summary;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
@@ -60,19 +64,18 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
 	private LanguageClient client;
 	private final Map<ISourceLocation, FileState> files;
-	
+
 	private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
-	private static final LoadingCache<String, ISourceLocation> uriToLocCache = Caffeine.newBuilder()
-		.maximumSize(1000)
-		.expireAfterAccess(5, TimeUnit.MINUTES).build(u -> {
-			try {
-				return URIUtil.createFromURI(u);
-			} catch (URISyntaxException e) {
-				throw new RuntimeException(e);
-			}
-		});
-	
+	private static final LoadingCache<String, ISourceLocation> uriToLocCache = Caffeine.newBuilder().maximumSize(1000)
+			.expireAfterAccess(5, TimeUnit.MINUTES).build(u -> {
+				try {
+					return URIUtil.createFromURI(u);
+				} catch (URISyntaxException e) {
+					throw new RuntimeException(e);
+				}
+			});
+
 	public RascalTextDocumentService() {
 		this.files = new ConcurrentHashMap<>();
 	}
@@ -97,22 +100,22 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void report(ISet msgs) {
-		appendDiagnostics(msgs.stream()
-			.map(d -> (IConstructor) d)
-			.map(d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
+		appendDiagnostics(msgs.stream().map(d -> (IConstructor) d).map(
+				d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
 	}
 
 	@Override
 	public void report(ISourceLocation file, ISet messages) {
-		replaceDiagnostics(file, messages.stream()
-		.map(d -> (IConstructor) d)
-		.map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
+		replaceDiagnostics(file,
+				messages.stream().map(d -> (IConstructor) d)
+						.map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(),
+								Diagnostics.translateDiagnostic(d))));
 	}
 
 	@Override
 	public void report(ParseError e) {
 		replaceDiagnostics(e.getLocation(), Stream.of(e)
-								.map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
+				.map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
 	}
 
 	// LSP interface methods
@@ -124,7 +127,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void didChange(DidChangeTextDocumentParams params) {
-		getFileOrThrow(toLoc(params.getTextDocument())).update(last(params.getContentChanges()).getText());
+		getFile(toLoc(params.getTextDocument())).update(last(params.getContentChanges()).getText());
 	}
 
 	@Override
@@ -137,11 +140,16 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void didSave(DidSaveTextDocumentParams params) {
-
+		try {
+			Summary summary = getFile(toLoc(params.getTextDocument())).getSummary().get();
+			report(summary.getMessages());
+		} catch (InterruptedException | ExecutionException e) {
+			Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
+		}
 	}
 
 	// Private utility methods
-	
+
 	private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
 		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
 		grouped.putIfAbsent(clearFor, Collections.emptyList());
@@ -180,7 +188,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		return files.computeIfAbsent(toLoc(doc), l -> new FileState(rascalServices, this, ownExcecutor, l, doc.getText()));
 	}
 
-	private FileState getFileOrThrow(ISourceLocation loc) {
+	private FileState getFile(ISourceLocation loc) {
 		FileState file = files.get(loc);
 		if (file == null) {
 			throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));

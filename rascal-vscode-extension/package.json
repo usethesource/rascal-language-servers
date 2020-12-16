@@ -12,6 +12,7 @@
 		"url": "https://github.com/cwi-swat/rascal-vscode"
 	},
 	"dependencies": {
+		"find-port-free-sync": "1.0.5",
 		"vsce": "^1.81.1",
 		"vscode-languageclient": "5.1.1",
 		"xterm": "^4.9.0",

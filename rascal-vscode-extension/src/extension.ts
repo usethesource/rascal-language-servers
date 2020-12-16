@@ -10,33 +10,28 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace
 import { fileURLToPath } from 'url';
 import { cpuUsage } from 'process';
 
+let findFreePort = require('find-port-free-sync');
+ 
+const deployMode = true;
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
-const serverPort = 9001;
+
+let developmentPort = 8888;
 
 let contentPanels : any[] = [];
-
-let deployMode = true;
 
 export function getRascalExtensionDeploymode() : boolean {
 	return deployMode;
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	
 	const serverOptions: ServerOptions = deployMode 
-		? () => startJavaServerProcess(serverPort, context.extensionPath)
-			.then((_) => tryOpenConnection(serverPort, 'localhost', 10, 1000)
-			.then((s) => <StreamInfo>{
-				writer: s,
-				reader: s
-			}))
-		: () => tryOpenConnection(serverPort, 'localhost', 10, 1000).then(
-			s => <StreamInfo>{
-				writer: s,
-				reader: s
-			}
-		);
+		? () => findFreeServerPort()
+		    .then((port) => startRascalLanguageServerProcess(port, context.extensionPath))
+			.then((port) => connectToRascalLanguageServerSocket(port))
+			.then((socket) => <StreamInfo> {writer: socket, reader: socket})
+		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
+			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }]
@@ -150,13 +145,30 @@ function registerContentViewSupport() {
 	});
 }
 
-function startJavaServerProcess(port: number, extensionPath: string): Thenable<cp.ChildProcessWithoutNullStreams> {
+function findFreeServerPort() : Thenable<number> {
+	return new Promise((started, failed) => {
+		try {
+			let port = findFreePort({start: 8888, end: 8999, num: 1, ip: '127.0.0.1'});
+			started(port);
+		}
+		catch (e) {
+			failed(e);
+		}
+	});
+}
+
+function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Thenable<number> {
 	return new Promise((started, failed) => {
 		const classPath = path.join(extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
+		const args: string[] = ['-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + portNumber];		
 
-		const args: string[] = ['-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + port];		
-
-		started(cp.spawn(getJavaExecutable(), args));
+		try {
+			cp.spawn(getJavaExecutable(), args);
+			return started(portNumber);
+		}
+		catch(e) {
+			return failed(e);
+		}
 	});
 }
 
@@ -168,32 +180,35 @@ function getJavaExecutable():string {
 }
 
 
-function tryOpenConnection(port: number, host: string, maxTries: number, retryDelay: number): Thenable<net.Socket> {
+function connectToRascalLanguageServerSocket(port: number): Thenable<net.Socket> {
     return new Promise((connected, failed) => {
-        const client = new net.Socket();
-        var tries = 0;
-        function retry(err?: Error) {
+		const maxTries = 10;
+		const host = '127.0.0.1';
+		const retryDelay = 10000;
+		const client = new net.Socket();
+		
+		var tries = 0;
+		
+        function retry(err?: Error) : net.Socket | void {
             if (tries <= maxTries) {
                 tries++;
-                client.connect(port, host);
+				return client.connect(port, host);
             }
             else {
-                failed("Connection retries exceeded" + (err ? (": " + err.message) : ""));
+                return failed("Connection retries exceeded" + (err ? (": " + err.message) : ""));
             }
-        }
-        // normal error case, timeout of the connection setup
+		}
+		
         client.setTimeout(retryDelay);
         client.on('timeout', retry);
-        // random errors, also retry
         client.on('error', retry);
-        // success, so let's report back
         client.once('connect', () => {
-            client.setTimeout(0); // undo the timeout
-            client.removeAllListeners(); // remove the error listener
-            connected(client);
-        });
-        // kick-off the retry loop
-        retry();
+            // client.setTimeout(0); 
+            // client.removeAllListeners(); 
+            return connected(client);
+		});
+		
+        return retry();
     });
 }
 
