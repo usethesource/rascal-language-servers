@@ -25,7 +25,8 @@ public class FileState {
 	private final PathConfig pcfg;
 	private volatile String fileContents;
 	private volatile CompletableFuture<ITree> currentTree;
-
+	private volatile CompletableFuture<Summary> currentSummary;
+	
 	public FileState(RascalLanguageServices services, RascalTextDocumentService tds, ExecutorService javaSchedular, ISourceLocation file) {
 		this.services = services;
 		this.javaScheduler = javaSchedular;
@@ -83,7 +84,7 @@ public class FileState {
 		currentTree = newTreeCalculate;
 	}
 
-	public ITree getCurrentTree() throws IOException {
+	public ITree getCurrentTree() {
 		if (fileContents == null) {
 			// new file, we have to read it in first
 			
@@ -95,13 +96,16 @@ public class FileState {
 					result.append(buffer, 0, read);
 				}
 			}
+			catch (IOException e) {
+				return null;
+			}
 			
 			newContents(result.toString());
 		}
 
 		try {
 			return currentTree.get();
-		} 
+		}
 		catch (InterruptedException e) {
 			return null;
 		}
@@ -120,8 +124,7 @@ public class FileState {
 	}
 
 	public CompletableFuture<Summary> getSummary() {
-		return currentTree.thenApplyAsync(t -> {
-			return new Summary(services.getSummary(file, pcfg));
-		}, javaScheduler);
+		currentSummary = currentTree.thenApplyAsync(t -> new Summary(services.getSummary(file, pcfg)), javaScheduler);
+		return currentSummary;
 	}
 }

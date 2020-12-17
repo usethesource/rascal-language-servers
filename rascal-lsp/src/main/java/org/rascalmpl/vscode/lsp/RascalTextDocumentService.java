@@ -15,34 +15,38 @@ package org.rascalmpl.vscode.lsp;
 import java.net.URISyntaxException;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
-
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -50,14 +54,18 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.model.Summary;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
 	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
@@ -66,15 +74,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	private final Map<ISourceLocation, FileState> files;
 
 	private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
-
-	private static final LoadingCache<String, ISourceLocation> uriToLocCache = Caffeine.newBuilder().maximumSize(1000)
-			.expireAfterAccess(5, TimeUnit.MINUTES).build(u -> {
-				try {
-					return URIUtil.createFromURI(u);
-				} catch (URISyntaxException e) {
-					throw new RuntimeException(e);
-				}
-			});
 
 	public RascalTextDocumentService() {
 		this.files = new ConcurrentHashMap<>();
@@ -148,8 +147,103 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		}
 	}
 
+	@Override
+	public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+		FileState file = getFile(toLoc(params.getTextDocument()));
+	
+		final int column = params.getPosition().getCharacter();
+		final int line = params.getPosition().getLine();
+
+		return file.getSummary()
+			.thenApply(s -> {
+				final ITree tree = file.getCurrentTree();
+				ITree lexical = locateLexical(tree, line, column);
+
+				if (lexical == null) {
+					throw new RuntimeException("no lexical found");
+				}
+
+				return toLSPLocation(s.definition(TreeAdapter.getLocation(lexical)));
+			})
+			.thenApply(l -> locList(l))
+			.exceptionally(e -> locList())
+			;
+	}
+
 	// Private utility methods
 
+	private static Either<List<? extends Location>, List<? extends LocationLink>> locList(Location... l) {
+		return Either.<List<? extends Location>, List<? extends LocationLink>>forLeft(Arrays.asList(l));
+	}
+
+	private static Location toLSPLocation(ISourceLocation sloc) {
+		return new Location(sloc.getURI().toASCIIString(), toRange(sloc));
+	}
+
+	private static Range toRange(ISourceLocation sloc) {
+		return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
+	}
+
+	public static ITree locateLexical(ITree tree, int line, int column) {
+		ISourceLocation l = TreeAdapter.getLocation(tree);
+
+		if (l == null) {
+			throw new IllegalArgumentException("no position info");
+		}
+
+		if (!l.hasLineColumn()) {
+			return null;
+		}
+
+		if (TreeAdapter.isLexical(tree)) {
+			if (l.getBeginLine() == line && l.getBeginColumn() <= column && column <= l.getEndColumn()) {
+				// found a lexical that has the cursor inside of it
+				return tree;
+			}
+
+			return null;
+		}
+
+		if (TreeAdapter.isAmb(tree)) {
+			return null;
+		}
+
+		if (TreeAdapter.isAppl(tree)) {
+			IList children = TreeAdapter.getASTArgs(tree);
+
+			for (IValue child : children) {
+				ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
+
+				if (childLoc == null) {
+					continue;
+				}
+
+				// only go down in the right range, such that
+				// finding the lexical is in O(log filesize)
+				if (childLoc.getBeginLine() <= line && line <= childLoc.getEndLine()) {
+					if (childLoc.getBeginLine() == line && childLoc.getEndColumn() == line) {
+						// go down to the right column
+						if (childLoc.getBeginColumn() <= column && column <= childLoc.getEndColumn()) {
+							ITree result = locateLexical((ITree) child, line, column);	
+							if (result != null) {
+								return result;
+							}
+						}
+					}
+					else { // in the line range, but not on the exact line yet
+						ITree result = locateLexical((ITree) child, line, column);
+
+						if (result != null) {
+							return result;
+						}
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+	
 	private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
 		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
 		grouped.putIfAbsent(clearFor, Collections.emptyList());
@@ -177,7 +271,11 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 
 	private static ISourceLocation toLoc(String uri) {
-		return uriToLocCache.get(uri);
+		try {
+			return URIUtil.createFromURI(uri);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private static <T> T last(List<T> l) {

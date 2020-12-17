@@ -187,7 +187,6 @@ public class RascalLanguageServices {
         }
     }
     
-    // TODO to be removed, rewrite HyperlinkDetector
     public ISet getUseDef(ISourceLocation file, PathConfig pcfg, String moduleName) {
         return get(file, pcfg, "useDef", vf.set());
     }

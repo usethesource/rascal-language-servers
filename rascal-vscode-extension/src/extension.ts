@@ -16,6 +16,8 @@ const deployMode = true;
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
 
+let childProcess: cp.ChildProcessWithoutNullStreams;
+
 let developmentPort = 8888;
 
 let contentPanels : any[] = [];
@@ -47,7 +49,11 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  if (childProcess) {
+	  childProcess.kill('SIGKILL');
+  }
+}
 
 function activateTerminal(context: vscode.ExtensionContext) {
 	let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
@@ -149,7 +155,7 @@ function findFreeServerPort() : Thenable<number> {
 	return new Promise((started, failed) => {
 		try {
 			let port = findFreePort({start: 8889, end: 9999, num: 1, ip: '127.0.0.1'});
-			started(port);
+			return started(port);
 		}
 		catch (e) {
 			failed(e);
@@ -163,7 +169,7 @@ function startRascalLanguageServerProcess(portNumber:number, extensionPath: stri
 		const args: string[] = ['-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + portNumber];		
 
 		try {
-			cp.spawn(getJavaExecutable(), args);
+			childProcess = cp.spawn(getJavaExecutable(), args);
 			return started(portNumber);
 		}
 		catch(e) {
@@ -182,24 +188,26 @@ function getJavaExecutable():string {
 
 function connectToRascalLanguageServerSocket(port: number): Thenable<net.Socket> {
     return new Promise((connected, failed) => {
-		const maxTries = 10;
+		const maxTries = 20;
 		const host = '127.0.0.1';
-		const retryDelay = 10000;
+		let retryDelay = 0;
 		const client = new net.Socket();
-		
 		var tries = 0;
 		
         function retry(err?: Error) : net.Socket | void {
             if (tries <= maxTries) {
-                tries++;
-				return client.connect(port, host);
+				setTimeout (() => {
+					tries++;
+					retryDelay = Math.min(2500, retryDelay + 250);
+					client.connect(port, host);
+				}, retryDelay);
             }
             else {
                 return failed("Connection retries exceeded" + (err ? (": " + err.message) : ""));
             }
 		}
 		
-        client.setTimeout(retryDelay);
+        client.setTimeout(1000);
         client.on('timeout', retry);
         client.on('error', retry);
         client.once('connect', () => {

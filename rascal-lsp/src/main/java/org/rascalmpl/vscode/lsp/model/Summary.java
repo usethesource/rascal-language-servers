@@ -16,8 +16,8 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
+import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
@@ -43,8 +43,8 @@ public class Summary {
 		this.summaryKW = summary.asWithKeywordParameters();
 	}
 
-	public IRelation<ISet> getDefinitions() {
-		return getKWFieldSet("declarations").asRelation();
+	public ISourceLocation definition(ISourceLocation from) {
+		return (ISourceLocation) getKWFieldSet("declarations").asRelation().index(from).stream().findFirst().get();
 	}
 	
 	public ISet getMessages() {
