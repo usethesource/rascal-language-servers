@@ -12,9 +12,8 @@ import { cpuUsage } from 'process';
 
 let findFreePort = require('find-port-free-sync');
  
-const deployMode = true;
+const deployMode = false;
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
-const version: string = '1.0.0-SNAPSHOT';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
@@ -75,7 +74,7 @@ function activateTerminal(context: vscode.ExtensionContext) {
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
 			shellPath: getJavaExecutable(),
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp-' + version + '.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
 
@@ -165,8 +164,8 @@ function findFreeServerPort() : Thenable<number> {
 
 function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Thenable<number> {
 	return new Promise((started, failed) => {
-		const classPath = path.join(extensionPath, 'dist', 'rascal-lsp-' + version + '.jar');
-		const args: string[] = ['-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + portNumber];		
+		const classPath = path.join(extensionPath, 'dist', 'rascal-lsp.jar');
+		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '-port', '' + portNumber];		
 
 		try {
 			childProcess = cp.spawn(getJavaExecutable(), args);

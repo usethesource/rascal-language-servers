@@ -55,7 +55,7 @@
 		]
 	},
 	"scripts": {
-		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/",
+		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/rascal-lsp.jar",
 		"vscode:prepublish": "npm run package",
 		"compile": "webpack --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
 		"watch": "webpack --watch --devtool nosources-source-map --info-verbosity verbose --config ./build/node-extension.webpack.config.js",
