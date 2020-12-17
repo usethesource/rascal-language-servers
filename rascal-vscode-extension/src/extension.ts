@@ -12,7 +12,7 @@ import { cpuUsage } from 'process';
 
 let findFreePort = require('find-port-free-sync');
  
-const deployMode = false;
+const deployMode = true;
 const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 const version: string = '1.0.0-SNAPSHOT';
 
