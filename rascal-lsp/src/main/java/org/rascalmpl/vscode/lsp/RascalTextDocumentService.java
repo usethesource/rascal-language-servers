@@ -36,6 +36,7 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentSymbolCapabilities;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
@@ -127,6 +128,14 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	@Override
 	public void didChange(DidChangeTextDocumentParams params) {
 		getFile(toLoc(params.getTextDocument())).update(last(params.getContentChanges()).getText());
+
+		// TODO: temporarily here because didSave is not called
+		try {
+			Summary summary = getFile(toLoc(params.getTextDocument())).getSummary().get();
+			report(summary.getMessages());
+		} catch (InterruptedException | ExecutionException e) {
+			Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
+		}
 	}
 
 	@Override

@@ -296,8 +296,11 @@ public class RascalLanguageServices {
             // TODO: channel the streams to the IDE
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(System.in, System.out, System.err);
            
-            eval.addRascalSearchPath(URIUtil.correctLocation("jar+plugin", "rascal_eclipse", "/lib/typepal.jar!/"));
-            eval.addRascalSearchPath(URIUtil.correctLocation("jar+plugin", "rascal_eclipse", "/lib/rascal-core.jar!/"));
+            eval.getConfiguration().setRascalJavaClassPathProperty("/Users/jurgenv/.m2/repository/org/rascalmpl/rascal/0.19.3-SNAPSHOT/rascal-0.19.3-SNAPSHOT.jar:/Users/jurgenv/.m2/repository/org/rascalmpl/rascal-core/0.4.17-SNAPSHOT/rascal-core-0.4.17-SNAPSHOT.jar:/Users/jurgenv/.m2/repository/junit/junit/4.12/junit-4.12.jar:/Users/jurgenv/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/jurgenv/.m2/repository/io/usethesource/vallang/0.12.0/vallang-0.12.0.jar:/Users/jurgenv/.m2/repository/io/usethesource/capsule/0.6.3/capsule-0.6.3.jar");
+            eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
+            eval.addClassLoader(IValue.class.getClassLoader());
+            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
+            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
             
             for (String i : imports) {
                 try {
