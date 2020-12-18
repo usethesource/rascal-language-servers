@@ -12,6 +12,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleEntry;
@@ -36,7 +37,6 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentSymbolCapabilities;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
@@ -53,8 +53,11 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.model.Summary;
@@ -62,15 +65,17 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
 
+import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
 	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
 	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
+	private final IRascalValueFactory vf = IRascalValueFactory.getInstance();
+
 	private LanguageClient client;
 	private final Map<ISourceLocation, FileState> files;
 
@@ -99,9 +104,11 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 
 	@Override
-	public void report(ISet msgs) {
-		appendDiagnostics(msgs.stream().map(d -> (IConstructor) d).map(
-				d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
+	public void report(ICollection<?> msgs) {
+		appendDiagnostics(
+			msgs.stream()
+			.map(d -> (IConstructor) d)
+			.map(d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
 	}
 
 	@Override
@@ -127,15 +134,24 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void didChange(DidChangeTextDocumentParams params) {
-		getFile(toLoc(params.getTextDocument())).update(last(params.getContentChanges()).getText());
+		String text = last(params.getContentChanges()).getText();
+		ISourceLocation src = toLoc(params.getTextDocument());
 
-		// TODO: temporarily here because didSave is not called
-		try {
-			Summary summary = getFile(toLoc(params.getTextDocument())).getSummary().get();
-			report(summary.getMessages());
-		} catch (InterruptedException | ExecutionException e) {
-			Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
-		}
+		getFile(src).update(text);
+
+		// CompletableFuture.runAsync(() -> {
+		// 	// TODO: temporarily here because didSave is not called
+		// 	try {
+		// 		IList files = vf.list(src);
+		// 		PathConfig pcfg = PathConfig.fromSourceProjectMemberRascalManifest(src);
+		// 		IList messages = rascalServices.compileFileList(new NullRascalMonitor(), files, pcfg);
+		// 		report(messages);
+		// 	} catch (IOException e) {
+		// 		Logger.getGlobal().log(Level.INFO,
+		// 				"compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
+		// 	}
+		// });
+		
 	}
 
 	@Override
@@ -148,12 +164,13 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 	@Override
 	public void didSave(DidSaveTextDocumentParams params) {
-		try {
-			Summary summary = getFile(toLoc(params.getTextDocument())).getSummary().get();
-			report(summary.getMessages());
-		} catch (InterruptedException | ExecutionException e) {
-			Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
-		}
+		// TODO didSave never happens. Perhaps because file sync is on FULL instead of INCREMENTAL?
+		// try {
+		// 	Summary summary = getFile(toLoc(params.getTextDocument())).getSummary().get();
+		// 	report(summary.getMessages());
+		// } catch (InterruptedException | ExecutionException e) {
+		// 	Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " + params.getTextDocument().getUri() + " failed", e);
+		// }
 	}
 
 	@Override
@@ -166,7 +183,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 		return file.getSummary()
 			.thenApply(s -> {
 				final ITree tree = file.getCurrentTree();
-				ITree lexical = locateLexical(tree, line, column);
+				ITree lexical = TreeAdapter.locateLexical(tree, line, column);
 
 				if (lexical == null) {
 					throw new RuntimeException("no lexical found");
@@ -186,73 +203,13 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 	}
 
 	private static Location toLSPLocation(ISourceLocation sloc) {
-		return new Location(sloc.getURI().toASCIIString(), toRange(sloc));
+		return new Location(sloc.getURI().toString(), toRange(sloc));
 	}
 
 	private static Range toRange(ISourceLocation sloc) {
 		return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
 	}
 
-	public static ITree locateLexical(ITree tree, int line, int column) {
-		ISourceLocation l = TreeAdapter.getLocation(tree);
-
-		if (l == null) {
-			throw new IllegalArgumentException("no position info");
-		}
-
-		if (!l.hasLineColumn()) {
-			return null;
-		}
-
-		if (TreeAdapter.isLexical(tree)) {
-			if (l.getBeginLine() == line && l.getBeginColumn() <= column && column <= l.getEndColumn()) {
-				// found a lexical that has the cursor inside of it
-				return tree;
-			}
-
-			return null;
-		}
-
-		if (TreeAdapter.isAmb(tree)) {
-			return null;
-		}
-
-		if (TreeAdapter.isAppl(tree)) {
-			IList children = TreeAdapter.getASTArgs(tree);
-
-			for (IValue child : children) {
-				ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
-
-				if (childLoc == null) {
-					continue;
-				}
-
-				// only go down in the right range, such that
-				// finding the lexical is in O(log filesize)
-				if (childLoc.getBeginLine() <= line && line <= childLoc.getEndLine()) {
-					if (childLoc.getBeginLine() == line && childLoc.getEndColumn() == line) {
-						// go down to the right column
-						if (childLoc.getBeginColumn() <= column && column <= childLoc.getEndColumn()) {
-							ITree result = locateLexical((ITree) child, line, column);	
-							if (result != null) {
-								return result;
-							}
-						}
-					}
-					else { // in the line range, but not on the exact line yet
-						ITree result = locateLexical((ITree) child, line, column);
-
-						if (result != null) {
-							return result;
-						}
-					}
-				}
-			}
-		}
-
-		return null;
-	}
-	
 	private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
 		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
 		grouped.putIfAbsent(clearFor, Collections.emptyList());

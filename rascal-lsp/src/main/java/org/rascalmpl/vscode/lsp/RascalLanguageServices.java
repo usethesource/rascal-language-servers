@@ -12,7 +12,6 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.concurrent.Callable;
@@ -266,29 +265,6 @@ public class RascalLanguageServices {
     public void invalidateEverything() {
         summaryCache.invalidateAll();
         outlineCache.invalidateAll();;
-    }
-    
-    public PathConfig getProjectPathConfig(File prj) {
-        if (prj != null) {
-            // TODO; make sure we get the right PathConfig for this file location
-            return new PathConfig();
-        }
-    	
-    	return new PathConfig();
-    }
-    
-    public PathConfig getModulePathConfig(ISourceLocation module) {
-        if (module.getScheme().equals("lib")) {
-            try {
-                return PathConfig.fromLibraryRascalManifest(module.getAuthority());
-            }
-            catch (IOException e) {
-                Logger.getGlobal().log(Level.SEVERE, "could not configure compiler for " + module, e);
-            }
-        }
-
-        // TODO: resolve path config for this module location
-        return new PathConfig();
     }
     
     private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
