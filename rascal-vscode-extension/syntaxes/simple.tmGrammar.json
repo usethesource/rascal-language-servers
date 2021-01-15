@@ -43,7 +43,7 @@
             "name": "variable.language"
         },
         "keywords": {
-            "match": "\\b(import|layout|module|if|while|for|return|case|switch|visit|try|catch|throw|append|insert|fail|break|continue|syntax|lexical|keyword|data|alias|else|when)\\b",
+            "match": "\\b(import|extend|assert|layout|module|if|while|for|return|case|switch|visit|try|catch|throw|append|insert|fail|break|continue|syntax|lexical|keyword|data|alias|else|when)\\b",
             "name": "keyword.control"
         },
         "types": {
