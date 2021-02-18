@@ -165,10 +165,18 @@ function findFreeServerPort() : Thenable<number> {
 function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Thenable<number> {
 	return new Promise((started, failed) => {
 		const classPath = path.join(extensionPath, 'dist', 'rascal-lsp.jar');
-		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--port', '' + portNumber];		
+		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--debug', '--port', '' + portNumber];		
 
 		try {
 			childProcess = cp.spawn(getJavaExecutable(), args);
+			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
+			childProcess.stdout.on('data', b => output.appendLine(b + ''));
+			childProcess.stderr.on('data', b => output.appendLine(b + ''));
+			function delayedClose() {
+				setTimeout(output.dispose, 60*1000);
+			}
+			childProcess.on('close', delayedClose);
+			childProcess.on('error', delayedClose);
 			return started(portNumber);
 		}
 		catch(e) {
