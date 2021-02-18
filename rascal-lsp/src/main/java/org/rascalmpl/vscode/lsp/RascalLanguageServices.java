@@ -166,7 +166,6 @@ public class RascalLanguageServices {
         }
     }
 
-
     public ISet getUseDef(ISourceLocation file, PathConfig pcfg, String moduleName) {
         return get(file, pcfg, "useDef", VF.set());
     }
@@ -320,8 +319,8 @@ public class RascalLanguageServices {
                 decode(ByteBuffer.allocate(0), true);
             }
         };
-
     }
+    
     private static IRascalMonitor loggingMonitor(Logger target) {
         return new IRascalMonitor(){
 
