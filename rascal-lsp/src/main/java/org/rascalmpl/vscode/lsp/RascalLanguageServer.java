@@ -118,5 +118,6 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         Configuration config = context.getConfiguration();
         LoggerConfig rootConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
         rootConfig.setLevel(level);
+        context.updateLoggers();
     }
 }
