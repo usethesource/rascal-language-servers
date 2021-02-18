@@ -6,7 +6,7 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
 import { fileURLToPath } from 'url';
 import { cpuUsage } from 'process';
 
@@ -150,7 +150,7 @@ function registerContentViewSupport() {
 	});
 }
 
-function findFreeServerPort() : Thenable<number> {
+function findFreeServerPort() : Promise<number> {
 	return new Promise((started, failed) => {
 		try {
 			let port = findFreePort({start: 8889, end: 9999, num: 1, ip: '127.0.0.1'});
@@ -164,10 +164,10 @@ function findFreeServerPort() : Thenable<number> {
 
 const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
 
-function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Thenable<number> {
+function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Promise<number> {
 	return new Promise((started, failed) => {
 		const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
-		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--debug', '--port', '' + portNumber];		
+		const args: string[] = ['-Dlog4j2.level=TRACE','-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--trace', '--port', '' + portNumber];		
 
 		try {
 			childProcess = cp.spawn(getJavaExecutable(), args);
@@ -196,7 +196,7 @@ function getJavaExecutable():string {
 }
 
 
-function connectToRascalLanguageServerSocket(port: number): Thenable<net.Socket> {
+function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> {
     return new Promise((connected, failed) => {
 		const maxTries = 20;
 		const host = '127.0.0.1';
