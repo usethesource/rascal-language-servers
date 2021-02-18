@@ -5,10 +5,13 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -24,6 +27,7 @@ import org.eclipse.lsp4j.services.WorkspaceService;
  * lsp4j library
  */
 public class RascalLanguageServer implements LanguageServer, LanguageClientAware {
+    private static final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
 
     private static final RascalTextDocumentService RASCAL_TEXT_DOCUMENT_SERVICE = new RascalTextDocumentService();
     private static final RascalWorkspaceService RASCAL_WORKSPACE_SERVICE = new RascalWorkspaceService();
@@ -80,26 +84,39 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     public static void main(String[] args) {
-        LogManager.getLogManager().reset();
-        Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-        globalLogger.setLevel(Level.INFO);
-        globalLogger.log(Level.INFO, "Starting Rascal Language Server");
+        logger.info("Starting Rascal Language Server");
+        setLoggingLevel(Level.INFO);
 
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("-port") && i + 1 < args.length) {
-                portNumber = Integer.parseInt(args[++i]);
-                break;
+            switch (args[i])  {
+                case "--port":
+                    if (i + 1 < args.length) {
+                        portNumber = Integer.parseInt(args[++i]);
+                    }
+                    break;
+                case "--debug":
+                    setLoggingLevel(Level.DEBUG);
+                    break;
+                case "--trace":
+                    setLoggingLevel(Level.TRACE);
+                    break;
             }
         }
 
-        globalLogger.log(Level.CONFIG, "Rascal LSP server listens on port number: " + portNumber);
-        System.err.println("port !!! " + portNumber);
 
         try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
+            logger.info("Rascal LSP server listens on port number: {}", portNumber);
             constructLSPClient(serverSocket.accept(), new RascalLanguageServer()).startListening();
-        } 
-        catch (IOException e) {
-            e.printStackTrace();
         }
+        catch (IOException e) {
+            logger.fatal("Failure to start TCP server", e);
+        }
+    }
+
+    private static void setLoggingLevel(Level level) {
+        LoggerContext context = (LoggerContext) LogManager.getContext(false);
+        Configuration config = context.getConfiguration();
+        LoggerConfig rootConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
+        rootConfig.setLevel(level);
     }
 }
