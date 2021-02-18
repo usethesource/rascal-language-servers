@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -75,10 +76,8 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)
             throws IOException {
         Launcher<LanguageClient> clientLauncher = new Builder<LanguageClient>().setLocalService(server)
-                .setRemoteInterface(LanguageClient.class)
-                .setInput(client.getInputStream())
-                .setOutput(client.getOutputStream())
-                .create();
+                .setRemoteInterface(LanguageClient.class).setInput(client.getInputStream())
+                .setOutput(client.getOutputStream()).create();
         server.connect(clientLauncher.getRemoteProxy());
         return clientLauncher;
     }
@@ -88,7 +87,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
         setLoggingLevel(Level.INFO);
 
         for (int i = 0; i < args.length; i++) {
-            switch (args[i])  {
+            switch (args[i]) {
                 case "--port":
                     if (i + 1 < args.length) {
                         portNumber = Integer.parseInt(args[++i]);
@@ -103,13 +102,17 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
             }
         }
 
-
         try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
             logger.info("Rascal LSP server listens on port number: {}", portNumber);
-            constructLSPClient(serverSocket.accept(), new RascalLanguageServer()).startListening();
-        }
-        catch (IOException e) {
+            constructLSPClient(serverSocket.accept(), new RascalLanguageServer()).startListening().get();
+        } catch (IOException e) {
             logger.fatal("Failure to start TCP server", e);
+        } catch (InterruptedException e) {
+            logger.trace("Interrupted server", e);
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.fatal("Unexpected exception", e.getCause());
+            System.exit(1);
         }
     }
 
