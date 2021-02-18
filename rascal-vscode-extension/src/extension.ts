@@ -167,7 +167,6 @@ const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
 function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Thenable<number> {
 	return new Promise((started, failed) => {
 		const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
-		console.log(classPath);
 		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--debug', '--port', '' + portNumber];		
 
 		try {
@@ -175,7 +174,8 @@ function startRascalLanguageServerProcess(portNumber:number, extensionPath: stri
 			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
 			childProcess.stdout.on('data', b => output.appendLine(b + ''));
 			childProcess.stderr.on('data', b => output.appendLine(b + ''));
-			function delayedClose() {
+			function delayedClose(a: any) {
+				output.appendLine("Process terminated...: " + a);
 				setTimeout(output.dispose, 60*1000);
 			}
 			childProcess.on('close', delayedClose);
