@@ -90,6 +90,49 @@
         <version>${maven-surefire-plugin.version}</version>
       </plugin>
       <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.2</version>
+        <executions>
+          <execution>
+            <id>copy</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <outputAbsoluteArtifactFilename>true</outputAbsoluteArtifactFilename>
+              <overWriteSnapshots>true</overWriteSnapshots>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.rascalmpl</groupId>
+                  <artifactId>rascal</artifactId>
+                  <type>jar</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                  <destFileName>rascal.jar</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.rascalmpl</groupId>
+                  <artifactId>rascal-core</artifactId>
+                  <type>jar</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                  <destFileName>rascal-core.jar</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.rascalmpl</groupId>
+                  <artifactId>typepal</artifactId>
+                  <type>jar</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                  <destFileName>typepal.jar</destFileName>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
           <version>2.4.1</version>
@@ -109,11 +152,14 @@
                                   <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
                               </manifestEntries>
                           </transformer>
-                          <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                              <resource>org/rascalmpl/uri/resolvers.config</resource>
-                              <resource>io/usethesource/vallang/type/types.config</resource>
-                          </transformer>
                       </transformers>
+                      <artifactSet>
+                        <excludes>
+                          <exclude>org.rascalmpl:rascal</exclude>
+                          <exclude>org.rascalmpl:rascal-core</exclude>
+                          <exclude>org.rascalmpl:typepal</exclude>
+                        </excludes>
+                      </artifactSet>
                       <!--
                           http://zhentao-li.blogspot.nl/2012/06/maven-shade-plugin-invalid-signature.html
                       -->
