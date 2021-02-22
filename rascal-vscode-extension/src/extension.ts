@@ -170,8 +170,8 @@ function startRascalLanguageServerProcess(portNumber:number, extensionPath: stri
 		try {
 			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
 			childProcess = cp.spawn(getJavaExecutable(), args);
-			childProcess.stdout.on('data', b => output.append(b));
-			childProcess.stderr.on('data', b => output.append(b));
+			childProcess.stdout.on('data', b => output.append(b + ''));
+			childProcess.stderr.on('data', b => output.append(b + ''));
 			function delayedClose(a: any) {
 				output.appendLine("Process terminated...: " + a);
 				setTimeout(output.dispose, 60*1000);
