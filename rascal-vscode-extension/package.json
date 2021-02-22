@@ -54,8 +54,8 @@
 	"scripts": {
 		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
 		"vscode:prepublish": "npm run package",
-		"compile": "webpack --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
-		"watch": "webpack --watch --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
+		"compile": "webpack --devtool nosources-source-map --mode development --config ./build/node-extension.webpack.config.js",
+		"watch": "webpack --watch --devtool nosources-source-map --mode development --info-verbosity verbose --config ./build/node-extension.webpack.config.js",
 		"package": "webpack --mode production --config ./build/node-extension.webpack.config.js",
 		"test-compile": "tsc -p ./",
 		"test-watch": "tsc -watch -p ./",
@@ -76,7 +76,7 @@
 		"ts-loader": "^8.0.3",
 		"typescript": "^4.0.2",
 		"vscode-test": "^1.4.0",
-		"webpack": "^5.23.0",
-		"webpack-cli": "^4.5.0"
+		"webpack": "~4.20.0",
+		"webpack-cli": "^3.0.0"
 	}
 }
