@@ -7,13 +7,11 @@ import * as cp from 'child_process';
 import * as os from 'os';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
-import { fileURLToPath } from 'url';
-import { cpuUsage } from 'process';
 
 let findFreePort = require('find-port-free-sync');
  
 const deployMode = true;
-const main: string = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
+const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
@@ -167,13 +165,13 @@ const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
 function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Promise<number> {
 	return new Promise((started, failed) => {
 		const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
-		const args: string[] = ['-Dlog4j2.level=TRACE','-Drascal.compilerClasspath=' + classPath, '-cp', classPath, 'org.rascalmpl.vscode.lsp.RascalLanguageServer', '--trace', '--port', '' + portNumber];		
+		const args: string[] = ['-Dlog4j2.level=TRACE','-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--trace', '--port', '' + portNumber];		
 
 		try {
-			childProcess = cp.spawn(getJavaExecutable(), args);
 			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
-			childProcess.stdout.on('data', b => output.appendLine(b + ''));
-			childProcess.stderr.on('data', b => output.appendLine(b + ''));
+			childProcess = cp.spawn(getJavaExecutable(), args);
+			childProcess.stdout.on('data', b => output.append(b));
+			childProcess.stderr.on('data', b => output.append(b));
 			function delayedClose(a: any) {
 				output.appendLine("Process terminated...: " + a);
 				setTimeout(output.dispose, 60*1000);
