@@ -165,7 +165,7 @@ const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
 function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Promise<number> {
 	return new Promise((started, failed) => {
 		const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
-		const args: string[] = ['-Dlog4j2.level=TRACE','-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--trace', '--port', '' + portNumber];		
+		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--debug', '--port', '' + portNumber];		
 
 		try {
 			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
