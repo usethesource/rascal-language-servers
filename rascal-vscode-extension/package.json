@@ -14,10 +14,7 @@
 	"dependencies": {
 		"find-port-free-sync": "1.0.5",
 		"vsce": "^1.81.1",
-		"vscode-languageclient": "^7.0.0",
-		"xterm": "^4.9.0",
-		"xterm-addon-attach": "0.6.0",
-		"xterm-addon-fit": "^0.5.0"
+		"vscode-languageclient": "^7.0.0"
 	},
 	"categories": [
 		"Other"
@@ -58,7 +55,7 @@
 		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
 		"vscode:prepublish": "npm run package",
 		"compile": "webpack --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
-		"watch": "webpack --watch --devtool nosources-source-map --info-verbosity verbose --config ./build/node-extension.webpack.config.js",
+		"watch": "webpack --watch --devtool nosources-source-map --config ./build/node-extension.webpack.config.js",
 		"package": "webpack --mode production --config ./build/node-extension.webpack.config.js",
 		"test-compile": "tsc -p ./",
 		"test-watch": "tsc -watch -p ./",
