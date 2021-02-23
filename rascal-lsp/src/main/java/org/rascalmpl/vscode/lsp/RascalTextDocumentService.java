@@ -76,128 +76,130 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
-	private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
-	private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
-	private final IRascalValueFactory vf = IRascalValueFactory.getInstance();
+    private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
+    private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
+    private final IRascalValueFactory vf = IRascalValueFactory.getInstance();
 
-	private LanguageClient client;
-	private final Map<ISourceLocation, FileState> files;
+    private LanguageClient client;
+    private final Map<ISourceLocation, FileState> files;
 
-	private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
+    private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
-	public RascalTextDocumentService() {
-		this.files = new ConcurrentHashMap<>();
-	}
+    public RascalTextDocumentService() {
+        this.files = new ConcurrentHashMap<>();
+    }
 
-	public void initializeServerCapabilities(ServerCapabilities result) {
-		result.setDefinitionProvider(true);
-		result.setTextDocumentSync(TextDocumentSyncKind.Full);
+    public void initializeServerCapabilities(ServerCapabilities result) {
+        result.setDefinitionProvider(true);
+        result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
-	}
+    }
 
-	@Override
-	public void connect(LanguageClient client) {
-		this.client = client;
-	}
+    @Override
+    public void connect(LanguageClient client) {
+        this.client = client;
+    }
 
-	// Error reporting API
+    // Error reporting API
 
-	@Override
-	public void clearReports(ISourceLocation file) {
-		client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), Collections.emptyList()));
-		currentDiagnostics.replace(file, Collections.emptyList());
-	}
+    @Override
+    public void clearReports(ISourceLocation file) {
+        client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), Collections.emptyList()));
+        currentDiagnostics.replace(file, Collections.emptyList());
+    }
 
-	@Override
-	public void report(ICollection<?> msgs) {
+    @Override
+    public void report(ICollection<?> msgs) {
         appendDiagnostics(msgs.stream().map(d -> (IConstructor) d).map(
                 d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
-	}
+    }
 
-	@Override
-	public void report(ISourceLocation file, ISet messages) {
-		replaceDiagnostics(file,
-				messages.stream().map(d -> (IConstructor) d)
-						.map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(),
-								Diagnostics.translateDiagnostic(d))));
-	}
+    @Override
+    public void report(ISourceLocation file, ISet messages) {
+        replaceDiagnostics(file,
+                messages.stream().map(d -> (IConstructor) d)
+                        .map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(),
+                                Diagnostics.translateDiagnostic(d))));
+    }
 
-	@Override
-	public void report(ParseError e) {
-		replaceDiagnostics(e.getLocation(), Stream.of(e)
-				.map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
-	}
+    @Override
+    public void report(ParseError e) {
+        replaceDiagnostics(e.getLocation(), Stream.of(e)
+                .map(e1 -> new AbstractMap.SimpleEntry<>(e.getLocation(), Diagnostics.translateDiagnostic(e1))));
+    }
 
-	// LSP interface methods
+    // LSP interface methods
 
-	@Override
-	public void didOpen(DidOpenTextDocumentParams params) {
-		open(params.getTextDocument());
-	}
+    @Override
+    public void didOpen(DidOpenTextDocumentParams params) {
+        open(params.getTextDocument());
+    }
 
-	@Override
-	public void didChange(DidChangeTextDocumentParams params) {
-		String text = last(params.getContentChanges()).getText();
-		ISourceLocation src = toLoc(params.getTextDocument());
+    @Override
+    public void didChange(DidChangeTextDocumentParams params) {
+        String text = last(params.getContentChanges()).getText();
+        ISourceLocation src = toLoc(params.getTextDocument());
 
-		getFile(src).update(text);
+        getFile(src).update(text);
 
-		// CompletableFuture.runAsync(() -> {
-		// 	// TODO: temporarily here because didSave is not called
-		// 	try {
-		// 		IList files = vf.list(src);
-		// 		PathConfig pcfg = PathConfig.fromSourceProjectMemberRascalManifest(src);
+        /*
+        // CompletableFuture.runAsync(() -> {
+        //     // TODO: temporarily here because didSave is not called
+        //     try {
+        //         IList files = vf.list(src);
+        //         PathConfig pcfg = PathConfig.fromSourceProjectMemberRascalManifest(src);
         // IList messages = rascalServices.compileFileList(new NullRascalMonitor(),
         // files, pcfg);
-		// 		report(messages);
-		// 	} catch (IOException e) {
-		// 		Logger.getGlobal().log(Level.INFO,
+        //         report(messages);
+        //     } catch (IOException e) {
+        //         Logger.getGlobal().log(Level.INFO,
         // "compilation/typechecking of " + params.getTextDocument().getUri() + "
         // failed", e);
-		// 	}
-		// });
+        //     }
+        // });
+        */
 
-	}
+    }
 
-	@Override
-	public void didClose(DidCloseTextDocumentParams params) {
-		if (files.remove(toLoc(params.getTextDocument())) == null) {
-			throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-					"Unknown file: " + toLoc(params.getTextDocument()), params));
-		}
-	}
+    @Override
+    public void didClose(DidCloseTextDocumentParams params) {
+        if (files.remove(toLoc(params.getTextDocument())) == null) {
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
+                    "Unknown file: " + toLoc(params.getTextDocument()), params));
+        }
+    }
 
-	@Override
-	public void didSave(DidSaveTextDocumentParams params) {
+    @Override
+    public void didSave(DidSaveTextDocumentParams params) {
         // TODO didSave never happens. Perhaps because file sync is on FULL instead of
         // INCREMENTAL?
-		// try {
+        // try {
         // Summary summary =
         // getFile(toLoc(params.getTextDocument())).getSummary().get();
-		// 	report(summary.getMessages());
-		// } catch (InterruptedException | ExecutionException e) {
+        //     report(summary.getMessages());
+        // } catch (InterruptedException | ExecutionException e) {
         // Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " +
         // params.getTextDocument().getUri() + " failed", e);
-		// }
-	}
+        // }
+    }
 
-	@Override
+    @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
-		FileState file = getFile(toLoc(params.getTextDocument()));
+        FileState file = getFile(toLoc(params.getTextDocument()));
 
-		final int column = params.getPosition().getCharacter();
-		final int line = params.getPosition().getLine();
+        final int column = params.getPosition().getCharacter();
+        final int line = params.getPosition().getLine();
 
         return file.getSummary().thenApply(s -> {
-				final ITree tree = file.getCurrentTree();
-				ITree lexical = TreeAdapter.locateLexical(tree, line, column);
+                final ITree tree = file.getCurrentTree();
+                ITree lexical = TreeAdapter.locateLexical(tree, line, column);
 
-				if (lexical == null) {
-					throw new RuntimeException("no lexical found");
-				}
+                if (lexical == null) {
+                    throw new RuntimeException("no lexical found");
+                }
 
-				return toLSPLocation(s.definition(TreeAdapter.getLocation(lexical)));
+                return toLSPLocation(s.definition(TreeAdapter.getLocation(lexical)));
         }).thenApply(l -> locList(l)).exceptionally(e -> locList());
     }
 
@@ -206,9 +208,9 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
             DocumentSymbolParams params) {
         return getFile(toLoc(params.getTextDocument())).getCurrentTreeAsync().thenApply(rascalServices::getOutline)
                 .thenApply(RascalTextDocumentService::buildOutlineTree);
-	}
+    }
 
-	// Private utility methods
+    // Private utility methods
 
     private static List<Either<SymbolInformation, DocumentSymbol>> buildOutlineTree(INode outline) {
 
@@ -267,65 +269,65 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return null;
     }
 
-	private static Either<List<? extends Location>, List<? extends LocationLink>> locList(Location... l) {
-		return Either.<List<? extends Location>, List<? extends LocationLink>>forLeft(Arrays.asList(l));
-	}
+    private static Either<List<? extends Location>, List<? extends LocationLink>> locList(Location... l) {
+        return Either.<List<? extends Location>, List<? extends LocationLink>>forLeft(Arrays.asList(l));
+    }
 
-	private static Location toLSPLocation(ISourceLocation sloc) {
-		return new Location(sloc.getURI().toString(), toRange(sloc));
-	}
+    private static Location toLSPLocation(ISourceLocation sloc) {
+        return new Location(sloc.getURI().toString(), toRange(sloc));
+    }
 
-	private static Range toRange(ISourceLocation sloc) {
-		return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
-	}
+    private static Range toRange(ISourceLocation sloc) {
+        return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
+    }
 
-	private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
-		Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
-		grouped.putIfAbsent(clearFor, Collections.emptyList());
+    private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
+        Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
+        grouped.putIfAbsent(clearFor, Collections.emptyList());
 
-		grouped.forEach((file, msgs) -> {
-			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), msgs));
-			currentDiagnostics.replace(file, msgs);
-		});
-	}
+        grouped.forEach((file, msgs) -> {
+            client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), msgs));
+            currentDiagnostics.replace(file, msgs);
+        });
+    }
 
-	private void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
-		Diagnostics.groupByKey(diagnostics).forEach((file, msgs) -> {
-			List<Diagnostic> currentMessages = currentDiagnostics.get(file);
-			currentMessages.addAll(msgs);
-			client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), currentMessages));
-		});
-	}
+    private void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
+        Diagnostics.groupByKey(diagnostics).forEach((file, msgs) -> {
+            List<Diagnostic> currentMessages = currentDiagnostics.get(file);
+            currentMessages.addAll(msgs);
+            client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), currentMessages));
+        });
+    }
 
-	private static ISourceLocation toLoc(TextDocumentItem doc) {
-		return toLoc(doc.getUri());
-	}
+    private static ISourceLocation toLoc(TextDocumentItem doc) {
+        return toLoc(doc.getUri());
+    }
 
-	private static ISourceLocation toLoc(TextDocumentIdentifier doc) {
-		return toLoc(doc.getUri());
-	}
+    private static ISourceLocation toLoc(TextDocumentIdentifier doc) {
+        return toLoc(doc.getUri());
+    }
 
-	private static ISourceLocation toLoc(String uri) {
-		try {
-			return URIUtil.createFromURI(uri);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
-	}
+    private static ISourceLocation toLoc(String uri) {
+        try {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	private static <T> T last(List<T> l) {
-		return l.get(l.size() - 1);
-	}
+    private static <T> T last(List<T> l) {
+        return l.get(l.size() - 1);
+    }
 
-	private FileState open(TextDocumentItem doc) {
-		return files.computeIfAbsent(toLoc(doc), l -> new FileState(rascalServices, this, ownExcecutor, l, doc.getText()));
-	}
+    private FileState open(TextDocumentItem doc) {
+        return files.computeIfAbsent(toLoc(doc), l -> new FileState(rascalServices, this, ownExcecutor, l, doc.getText()));
+    }
 
-	private FileState getFile(ISourceLocation loc) {
-		FileState file = files.get(loc);
-		if (file == null) {
-			throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
-		}
-		return file;
-	}
+    private FileState getFile(ISourceLocation loc) {
+        FileState file = files.get(loc);
+        if (file == null) {
+            throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
+        }
+        return file;
+    }
 }
