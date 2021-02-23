@@ -14,25 +14,20 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.Reader;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CoderResult;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
@@ -236,11 +231,12 @@ public class RascalLanguageServices {
 
     private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
         return asyncGenerator(label, () ->  {
+            logger.debug("Creating evaluator: {}", label);
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(
                 new ByteArrayInputStream(new byte[0]),
-                loggingOutputStream(customLog::error, customLog.isErrorEnabled()),
-                loggingOutputStream(customLog::info, customLog.isInfoEnabled())
+                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(),
+                IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream()
             );
             eval.setMonitor(loggingMonitor(customLog));
 
@@ -259,68 +255,12 @@ public class RascalLanguageServices {
                     throw new RuntimeException("Failure to import required module " + i, e);
                 }
             }
+            logger.debug("Finished creating evaluator: {}", label);
 
             return eval;
         });
     }
 
-    private static OutputStream loggingOutputStream(Consumer<String> target, boolean enabled) {
-        if (!enabled) {
-            return new OutputStream(){
-                @Override
-                public void write(int b) throws IOException {
-                    // sink
-                }
-
-            };
-        }
-        return new OutputStream(){
-            private final CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
-            private final CharBuffer decoderOut = CharBuffer.allocate(8 * 1024);
-
-            @Override
-            public void write(int b) throws IOException {
-                write(new byte[] {(byte) b}, 0, 1);
-            }
-
-            @Override
-            public void write(byte[] b, int off, int len) throws IOException {
-                ByteBuffer input = ByteBuffer.wrap(b, off, len);
-                decode(input, false);
-                assert !input.hasRemaining();
-            }
-
-            private void decode(ByteBuffer src, boolean end) throws IOException {
-                while (true) {
-                    CoderResult result = decoder.decode(src, decoderOut, end);
-                    if (result.isOverflow()) {
-                        flush();
-                    }
-                    else if (result.isUnderflow()) {
-                        return;
-                    }
-                    else {
-                        throw new IOException("Unexpected decoder result " + result);
-                    }
-                }
-            }
-
-            @Override
-            public void flush() throws IOException {
-                if (decoderOut.position() > 0) {
-                    target.accept(new String(decoderOut.array(), 0, decoderOut.position()));
-                }
-                decoderOut.rewind();
-            }
-
-            @Override
-            public void close() throws IOException {
-                decoder.flush(decoderOut);
-                decode(ByteBuffer.allocate(0), true);
-            }
-        };
-    }
-    
     private static IRascalMonitor loggingMonitor(Logger target) {
         return new IRascalMonitor(){
 
@@ -388,7 +328,9 @@ public class RascalLanguageServices {
             }
         });
 
-        new Thread(result, "Loading " + name + " Evaluator").start();
+        Thread t = new Thread(result, "Loading " + name + " Evaluator");
+        t.setDaemon(true);
+        t.start();
 
         return result;
     }

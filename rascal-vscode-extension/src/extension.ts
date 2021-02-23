@@ -7,8 +7,8 @@ import * as cp from 'child_process';
 import * as os from 'os';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
+import { Server } from 'http';
 
-let findFreePort = require('find-port-free-sync');
  
 const deployMode = true;
 const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
@@ -25,15 +25,14 @@ export function getRascalExtensionDeploymode() : boolean {
 
 export function activate(context: vscode.ExtensionContext) {
 	const serverOptions: ServerOptions = deployMode 
-		? () => findFreeServerPort()
-		    .then((port) => startRascalLanguageServerProcess(port, context.extensionPath))
-			.then((port) => connectToRascalLanguageServerSocket(port))
-			.then((socket) => <StreamInfo> {writer: socket, reader: socket})
+		? buildRascalServerOptions(context.extensionPath)
 		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }]
+		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }],
+		//diagnosticCollectionName: 'rascal-mpl',
+		progressOnInitialization: true
 	};
 
 	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions);
@@ -109,7 +108,6 @@ function registerContentViewSupport() {
 		},
 		handleTerminalLink: (link: vscode.TerminalLink) => {
 			let theLink = (link as RascalTerminalContentLink);
-			let contentType = theLink.contentType;
 			let url = theLink.url;
 			let oldPanel:vscode.WebviewPanel = contentPanels.find(p => (p as vscode.WebviewPanel).title === theLink.contentId);
 
@@ -148,42 +146,16 @@ function registerContentViewSupport() {
 	});
 }
 
-function findFreeServerPort() : Promise<number> {
-	return new Promise((started, failed) => {
-		try {
-			let port = findFreePort({start: 8889, end: 9999, num: 1, ip: '127.0.0.1'});
-			return started(port);
-		}
-		catch (e) {
-			failed(e);
-		}
-	});
-}
 
 const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
 
-function startRascalLanguageServerProcess(portNumber:number, extensionPath: string): Promise<number> {
-	return new Promise((started, failed) => {
-		const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
-		const args: string[] = ['-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--debug', '--port', '' + portNumber];		
-
-		try {
-			let output = vscode.window.createOutputChannel("Rascal LSP Bridge: " + portNumber);
-			childProcess = cp.spawn(getJavaExecutable(), args);
-			childProcess.stdout.on('data', b => output.append(b + ''));
-			childProcess.stderr.on('data', b => output.append(b + ''));
-			function delayedClose(a: any) {
-				output.appendLine("Process terminated...: " + a);
-				setTimeout(output.dispose, 60*1000);
-			}
-			childProcess.on('close', delayedClose);
-			childProcess.on('error', delayedClose);
-			return started(portNumber);
-		}
-		catch(e) {
-			return failed(e);
-		}
-	});
+function buildRascalServerOptions(extensionPath: string): ServerOptions {
+	const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
+	return {
+		command: 'java',
+		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
+			'-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--trace', '--deploy'],
+	};
 }
 
 function getJavaExecutable():string {

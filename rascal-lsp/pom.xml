@@ -30,12 +30,17 @@
             <id>usethesource</id>
             <url>https://nexus.usethesource.io/content/repositories/public/</url>
         </repository>
+        <repository>
+          <id>maven-central-snapshots</id>
+          <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+        </repository>
     </repositories>
     <pluginRepositories>
         <pluginRepository>
             <id>usethesource</id>
             <url>https://nexus.usethesource.io/content/repositories/public/</url>
         </pluginRepository>
+
     </pluginRepositories>
   <dependencies>
     <dependency>
@@ -68,7 +73,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>0.10.0</version>
+      <version>0.11.0-SNAPSHOT</version>
       <type>jar</type>
     </dependency>
     <dependency>
@@ -79,6 +84,16 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
+      <version>${log4j2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-iostreams</artifactId>
+      <version>${log4j2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-jul</artifactId>
       <version>${log4j2.version}</version>
     </dependency>
   </dependencies>
