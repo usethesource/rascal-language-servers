@@ -26,12 +26,12 @@ public class FileState {
 	private volatile String fileContents;
 	private volatile CompletableFuture<ITree> currentTree;
 	private volatile CompletableFuture<Summary> currentSummary;
-	
+
 	public FileState(RascalLanguageServices services, RascalTextDocumentService tds, ExecutorService javaSchedular, ISourceLocation file) {
 		this.services = services;
 		this.javaScheduler = javaSchedular;
 		this.parent = tds;
-		
+
 		this.file = file;
 		this.fileContents = null;
 		this.currentTree = CompletableFuture.completedFuture(null);
@@ -55,7 +55,7 @@ public class FileState {
 
 	private synchronized void newContents(String contents) {
 		fileContents = contents;
-		
+
 		CompletableFuture<ITree> newTreeCalculate = new CompletableFuture<>();
 
 		CompletableFuture.runAsync(() -> {
@@ -82,12 +82,12 @@ public class FileState {
 		}, javaScheduler);
 
 		currentTree = newTreeCalculate;
-	}
+    }
 
-	public ITree getCurrentTree() {
+    public CompletableFuture<ITree> getCurrentTreeAsync() {
 		if (fileContents == null) {
 			// new file, we have to read it in first
-			
+
 			StringBuilder result = new StringBuilder();
 			try (Reader r = URIResolverRegistry.getInstance().getCharacterReader(file)) {
 				char[] buffer = new char[4096];
@@ -99,12 +99,17 @@ public class FileState {
 			catch (IOException e) {
 				return null;
 			}
-			
+
 			newContents(result.toString());
-		}
+        }
+        return currentTree;
+
+    }
+
+	public ITree getCurrentTree() {
 
 		try {
-			return currentTree.get();
+			return getCurrentTreeAsync().get();
 		}
 		catch (InterruptedException e) {
 			return null;
