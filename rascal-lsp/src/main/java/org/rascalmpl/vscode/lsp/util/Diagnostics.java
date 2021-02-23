@@ -26,14 +26,14 @@ import io.usethesource.vallang.IString;
 
 public class Diagnostics {
 	private static final Map<String, DiagnosticSeverity> serverityMap;
-	
+
 	static {
 		serverityMap = new HashMap<>();
 		serverityMap.put("error", DiagnosticSeverity.Error);
 		serverityMap.put("warning", DiagnosticSeverity.Warning);
 		serverityMap.put("info", DiagnosticSeverity.Information);
     }
-    
+
     private static final LoadingCache<ISourceLocation, String> slocToURI = Caffeine.newBuilder().maximumSize(1000)
 			.expireAfterAccess(5, TimeUnit.MINUTES).build(l -> l.getURI().toString());
 
@@ -53,7 +53,7 @@ public class Diagnostics {
 		result.setRange(toRange((ISourceLocation) d.get("at")));
 		return result;
     }
-    
+
     public static Range toRange(ISourceLocation sloc) {
 		return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()),
 				new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
@@ -62,9 +62,8 @@ public class Diagnostics {
     public static Location toJSPLoc(ISourceLocation sloc) {
 		return new Location(slocToURI.get(sloc), toRange(sloc));
     }
-    
+
 	private static Range toRange(ParseError pe) {
-		Logger.getGlobal().log(Level.SEVERE, pe.getMessage());
 		if (pe.getBeginLine() == pe.getEndLine() && pe.getBeginColumn() == pe.getEndColumn()) {
 			return new Range(new Position(pe.getBeginLine() - 1, pe.getBeginColumn()),
 					new Position(pe.getEndLine() - 1, pe.getEndColumn() + 1));
