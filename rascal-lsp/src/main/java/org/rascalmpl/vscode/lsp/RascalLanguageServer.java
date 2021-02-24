@@ -52,6 +52,7 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     @Override
     public CompletableFuture<Object> shutdown() {
         this.errorCode = 0;
+        RASCAL_TEXT_DOCUMENT_SERVICE.shutdown();
         return CompletableFuture.completedFuture(null);
     }
 
