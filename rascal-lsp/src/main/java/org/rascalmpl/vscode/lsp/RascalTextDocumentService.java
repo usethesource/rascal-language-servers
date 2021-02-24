@@ -52,14 +52,14 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.model.FileInformation;
+import org.rascalmpl.vscode.lsp.model.Summary;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
 import org.rascalmpl.vscode.lsp.util.Locations;
+import org.rascalmpl.vscode.lsp.util.Outline;
 
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
@@ -72,7 +72,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
 
     private LanguageClient client;
-    private final Map<ISourceLocation, FileInformation> files;
+    private final Map<ISourceLocation, FileState> files;
 
     private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
@@ -150,21 +150,30 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
         logger.debug("Save: {}", params.getTextDocument());
-        FileInformation file = getFile(params.getTextDocument());
+        FileState file = getFile(params.getTextDocument());
         file.update(params.getText());
-        file.getSummary().thenAcceptAsync(s -> report(s.getMessages()), ownExecuter);
+
+        getSummary(file).thenAccept(s -> report(s.getMessages()));
     }
+
+    private CompletableFuture<Summary> getSummary(FileState file) {
+        return CompletableFuture.supplyAsync(() ->
+            new Summary(rascalServices.getSummary(file.getLocation(), file.getPathConfig())), ownExecuter
+        );
+    }
+
+
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        FileInformation file = getFile(Locations.toLoc(params.getTextDocument()));
+        FileState file = getFile(Locations.toLoc(params.getTextDocument()));
 
         final int column = params.getPosition().getCharacter();
         final int line = params.getPosition().getLine();
 
-        return file.getSummary().thenApply(s -> {
+        return getSummary(file).thenApply(s -> {
                 final ITree tree = file.getMostRecentTree();
                 ITree lexical = TreeAdapter.locateLexical(tree, line, column);
 
@@ -180,8 +189,12 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
             DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
-        return getFile(params.getTextDocument())
-            .getOutline();
+        FileState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync()
+                .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
+                .thenApplyAsync(rascalServices::getOutline, ownExecuter)
+                .thenApply(Outline::buildOutlineTree)
+                ;
     }
 
     // Private utility methods
@@ -213,16 +226,16 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return l.get(l.size() - 1);
     }
 
-    private FileInformation open(TextDocumentItem doc) {
-        return files.computeIfAbsent(Locations.toLoc(doc), l -> new FileInformation(rascalServices, this, ownExecuter, l, doc.getText()));
+    private FileState open(TextDocumentItem doc) {
+        return files.computeIfAbsent(Locations.toLoc(doc), l -> new FileState(rascalServices, this, ownExecuter, l, doc.getText()));
     }
 
-    private FileInformation getFile(TextDocumentIdentifier doc) {
+    private FileState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
     }
 
-    private FileInformation getFile(ISourceLocation loc) {
-        FileInformation file = files.get(loc);
+    private FileState getFile(ISourceLocation loc) {
+        FileState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
         }

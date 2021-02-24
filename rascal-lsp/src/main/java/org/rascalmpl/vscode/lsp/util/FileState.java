@@ -1,10 +1,12 @@
 package org.rascalmpl.vscode.lsp.util;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.RascalLanguageServices;
@@ -18,7 +20,10 @@ public class FileState {
     private final RascalTextDocumentService parent;
 
     private final ISourceLocation file;
+    private final PathConfig pcfg;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile @MonotonicNonNull ITree lastFullTree;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<ITree> currentTree;
 
     public FileState(RascalLanguageServices services, RascalTextDocumentService tds, Executor javaSchedular, ISourceLocation file, String content) {
@@ -27,13 +32,20 @@ public class FileState {
         this.parent = tds;
 
         this.file = file;
+        try {
+            this.pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         currentTree = newContents(content);
     }
 
-    public void update(String text) {
-        currentTree = newContents(text);
+    public CompletableFuture<ITree> update(String text) {
+        return currentTree = newContents(text);
     }
 
+    @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
     private CompletableFuture<ITree> newContents(String contents) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -57,5 +69,13 @@ public class FileState {
     public @MonotonicNonNull ITree getMostRecentTree() {
         return lastFullTree;
     }
+
+	public PathConfig getPathConfig() {
+		return pcfg;
+	}
+
+	public ISourceLocation getLocation() {
+		return file;
+	}
 
 }
