@@ -3,6 +3,7 @@ package org.rascalmpl.vscode.lsp;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -76,14 +77,10 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
 
     private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)
             throws IOException {
-        Launcher<LanguageClient> clientLauncher = new Builder<LanguageClient>().setLocalService(server)
-                .setRemoteInterface(LanguageClient.class).setInput(client.getInputStream())
-                .setOutput(client.getOutputStream()).create();
-        server.connect(clientLauncher.getRemoteProxy());
-        return clientLauncher;
+        return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
-    private static Launcher<LanguageClient> constructLSPClient(InputStream in, PrintStream out, RascalLanguageServer server) {
+    private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out, RascalLanguageServer server) {
         Launcher<LanguageClient> clientLauncher = LSPLauncher.createServerLauncher(server, in, out);
         server.connect(clientLauncher.getRemoteProxy());
         return clientLauncher;

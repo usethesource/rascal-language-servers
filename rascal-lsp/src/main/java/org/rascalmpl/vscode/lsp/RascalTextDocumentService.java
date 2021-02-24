@@ -241,4 +241,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         }
         return file;
     }
+
+	public void shutdown() {
+        ownExecuter.shutdown();
+	}
 }
