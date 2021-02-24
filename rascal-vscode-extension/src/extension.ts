@@ -153,7 +153,7 @@ function buildRascalServerOptions(extensionPath: string): ServerOptions {
 	const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
 	return {
 		command: 'java',
-		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
+		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=TRACE', 
 			'-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--trace', '--deploy'],
 	};
 }
