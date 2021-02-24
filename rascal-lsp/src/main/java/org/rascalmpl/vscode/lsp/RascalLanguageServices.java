@@ -65,7 +65,6 @@ public class RascalLanguageServices {
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
     private final Cache<ISourceLocation, IConstructor> summaryCache;
-    private final Cache<ISourceLocation, INode> outlineCache;
 
     private final Future<Evaluator> outlineEvaluator = makeFutureEvaluator("Rascal outline", "lang::rascal::ide::Outline");
     private final Future<Evaluator> summaryEvaluator = makeFutureEvaluator("Rascal summary", "lang::rascalcore::check::Summary");
@@ -76,12 +75,6 @@ public class RascalLanguageServices {
             		.softValues()
             		.maximumSize(256)
             		.expireAfterAccess(60, TimeUnit.MINUTES)
-            		.build();
-
-            outlineCache = Caffeine.newBuilder()
-            		.softValues()
-            		.expireAfterWrite(60, TimeUnit.MINUTES)
-            		.maximumSize(512)
             		.build();
     }
 
@@ -203,10 +196,6 @@ public class RascalLanguageServices {
 
     private final static INode EMPTY_NODE = VF.node("");
 
-    private INode replaceNull(@Nullable INode result) {
-    	return result == null ? EMPTY_NODE : result;
-	}
-
     public INode getOutline(IConstructor module) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
@@ -214,22 +203,14 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE);
-        /*
-        return replaceNull(outlineCache.get(loc.top(), l -> {
-            logger.trace("Recalculating outline on tree: {}", l);
-            return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), null);
-        }));
-        */
     }
 
 	public void clearSummaryCache(ISourceLocation file) {
         summaryCache.invalidate(file.top());
-        outlineCache.invalidate(file.top());
     }
 
     public void invalidateEverything() {
         summaryCache.invalidateAll();
-        outlineCache.invalidateAll();
     }
 
 

@@ -39,8 +39,6 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     private int errorCode = 1;
     private static int portNumber = 8888;
 
-    private LanguageClient client;
-
     @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         logger.info("LSP connection started");
@@ -73,7 +71,6 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
 
     @Override
     public void connect(LanguageClient client) {
-        this.client = client;
         getTextDocumentService().connect(client);
     }
 

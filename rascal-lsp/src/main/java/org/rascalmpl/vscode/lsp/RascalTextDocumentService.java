@@ -55,6 +55,7 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.model.FileInformation;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
@@ -67,12 +68,11 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
-    private final ExecutorService ownExcecutor = Executors.newCachedThreadPool();
+    private final ExecutorService ownExecuter = Executors.newCachedThreadPool();
     private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
-    private final IRascalValueFactory vf = IRascalValueFactory.getInstance();
 
     private LanguageClient client;
-    private final Map<ISourceLocation, FileState> files;
+    private final Map<ISourceLocation, FileInformation> files;
 
     private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
 
@@ -119,7 +119,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public void report(ParseError e) {
         ISourceLocation loc = e.getLocation();
-        logger.trace("Report parse error: {}", loc,  e);
+        logger.trace("Report parse error: {}", loc);
         replaceDiagnostics(e.getLocation(), Stream.of(e)
                 .map(e1 -> new AbstractMap.SimpleEntry<>(loc, Diagnostics.translateDiagnostic(e1))));
     }
@@ -135,28 +135,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         logger.trace("Change contents: {}", params.getTextDocument());
-        String text = last(params.getContentChanges()).getText();
-        ISourceLocation src = Locations.toLoc(params.getTextDocument());
-
-        getFile(src).update(text);
-
-        /*
-        // CompletableFuture.runAsync(() -> {
-        //     // TODO: temporarily here because didSave is not called
-        //     try {
-        //         IList files = vf.list(src);
-        //         PathConfig pcfg = PathConfig.fromSourceProjectMemberRascalManifest(src);
-        // IList messages = rascalServices.compileFileList(new NullRascalMonitor(),
-        // files, pcfg);
-        //         report(messages);
-        //     } catch (IOException e) {
-        //         Logger.getGlobal().log(Level.INFO,
-        // "compilation/typechecking of " + params.getTextDocument().getUri() + "
-        // failed", e);
-        //     }
-        // });
-        */
-
+        getFile(params.getTextDocument()).update(last(params.getContentChanges()).getText());
     }
 
     @Override
@@ -171,23 +150,16 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
         logger.debug("Save: {}", params.getTextDocument());
-        // TODO didSave never happens. Perhaps because file sync is on FULL instead of
-        // INCREMENTAL?
-        // try {
-        // Summary summary =
-        // getFile(toLoc(params.getTextDocument())).getSummary().get();
-        //     report(summary.getMessages());
-        // } catch (InterruptedException | ExecutionException e) {
-        // Logger.getGlobal().log(Level.INFO, "compilation/typechecking of " +
-        // params.getTextDocument().getUri() + " failed", e);
-        // }
+        FileInformation file = getFile(params.getTextDocument());
+        file.update(params.getText());
+        file.getSummary().thenAcceptAsync(s -> report(s.getMessages()), ownExecuter);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        FileState file = getFile(Locations.toLoc(params.getTextDocument()));
+        FileInformation file = getFile(Locations.toLoc(params.getTextDocument()));
 
         final int column = params.getPosition().getCharacter();
         final int line = params.getPosition().getLine();
@@ -209,7 +181,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
             DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         return getFile(params.getTextDocument())
-            .getCurrentOutline();
+            .getOutline();
     }
 
     // Private utility methods
@@ -241,16 +213,16 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return l.get(l.size() - 1);
     }
 
-    private FileState open(TextDocumentItem doc) {
-        return files.computeIfAbsent(Locations.toLoc(doc), l -> new FileState(rascalServices, this, ownExcecutor, l, doc.getText()));
+    private FileInformation open(TextDocumentItem doc) {
+        return files.computeIfAbsent(Locations.toLoc(doc), l -> new FileInformation(rascalServices, this, ownExecuter, l, doc.getText()));
     }
 
-    private FileState getFile(TextDocumentIdentifier doc) {
+    private FileInformation getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
     }
 
-    private FileState getFile(ISourceLocation loc) {
-        FileState file = files.get(loc);
+    private FileInformation getFile(ISourceLocation loc) {
+        FileInformation file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
         }

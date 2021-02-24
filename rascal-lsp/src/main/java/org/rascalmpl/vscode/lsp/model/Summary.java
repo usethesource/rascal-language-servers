@@ -25,6 +25,7 @@ import io.usethesource.vallang.type.TypeStore;
 
 public class Summary {
     private final IConstructor summary;
+
     private final IWithKeywordParameters<? extends IConstructor> summaryKW;
     private static final ISet EMPTY_SET = ValueFactoryFactory.getValueFactory().setWriter().done();
 
