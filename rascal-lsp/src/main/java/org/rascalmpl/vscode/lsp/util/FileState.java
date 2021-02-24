@@ -1,19 +1,24 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.io.IOException;
-import java.io.Reader;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.DocumentSymbol;
+import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.RascalTextDocumentService;
 import org.rascalmpl.vscode.lsp.model.Summary;
 
+import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileState {
@@ -23,18 +28,18 @@ public class FileState {
 
     private final ISourceLocation file;
     private final PathConfig pcfg;
-    private volatile String fileContents;
+    private volatile @MonotonicNonNull ITree lastFullTree;
     private volatile CompletableFuture<ITree> currentTree;
-    private volatile CompletableFuture<Summary> currentSummary;
+    private volatile @Nullable CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> currentOutline;
 
-    public FileState(RascalLanguageServices services, RascalTextDocumentService tds, ExecutorService javaSchedular, ISourceLocation file) {
+    public FileState(RascalLanguageServices services, RascalTextDocumentService tds, ExecutorService javaSchedular, ISourceLocation file, String content) {
         this.services = services;
         this.javaScheduler = javaSchedular;
         this.parent = tds;
 
         this.file = file;
-        this.fileContents = null;
-        this.currentTree = CompletableFuture.completedFuture(null);
+        currentTree = newContents(content);
+        currentOutline = null;
 
         try {
             this.pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file);
@@ -44,92 +49,47 @@ public class FileState {
         }
     }
 
-    public FileState(RascalLanguageServices services, RascalTextDocumentService tds, ExecutorService javaSchedular, ISourceLocation file, String content) {
-        this(services, tds, javaSchedular, file);
-        newContents(content);
-    }
-
     public void update(String text) {
-        newContents(text);
+        currentTree = newContents(text);
+        currentOutline = null;
     }
 
-    private synchronized void newContents(String contents) {
-        fileContents = contents;
-
-        CompletableFuture<ITree> newTreeCalculate = new CompletableFuture<>();
-
-        CompletableFuture.runAsync(() -> {
-            String currentContents = fileContents;
+    private CompletableFuture<ITree> newContents(String contents) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
-                ITree result = services.parseSourceFile(file, currentContents);
-                if (currentContents == fileContents) {
-                    newTreeCalculate.complete(result);
-                    parent.clearReports(file);
-                    return;
-                }
+                ITree result = services.parseSourceFile(file, contents);
+                parent.clearReports(file);
+                lastFullTree = result;
+                return result;
             } catch (ParseError e) {
-                if (currentContents == fileContents) {
-                    parent.report(e);
-                    newTreeCalculate.completeExceptionally(e);
-                    return;
-                }
+                parent.report(e);
+                throw new CompletionException(e);
             } catch (Throwable e) {
-                if (currentContents == fileContents) {
-                    newTreeCalculate.completeExceptionally(e);
-                    return;
-                }
+                throw new CompletionException(e);
             }
         }, javaScheduler);
-
-        currentTree = newTreeCalculate;
     }
 
     public CompletableFuture<ITree> getCurrentTreeAsync() {
-        if (fileContents == null) {
-            // new file, we have to read it in first
-
-            StringBuilder result = new StringBuilder();
-            try (Reader r = URIResolverRegistry.getInstance().getCharacterReader(file)) {
-                char[] buffer = new char[4096];
-                int read;
-                while ((read = r.read(buffer)) > 0) {
-                    result.append(buffer, 0, read);
-                }
-            }
-            catch (IOException e) {
-                return null;
-            }
-
-            newContents(result.toString());
-        }
         return currentTree;
-
     }
 
-    public ITree getCurrentTree() {
+    public @MonotonicNonNull ITree getMostRecentTree() {
+        return lastFullTree;
+    }
 
-        try {
-            return getCurrentTreeAsync().get();
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> getCurrentOutline() {
+        CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> result = currentOutline;
+        if (result == null) {
+            currentOutline = result = currentTree
+                .thenApplyAsync(services::getOutline, javaScheduler)
+                .thenApply(Outline::buildOutlineTree)
+                ;
         }
-        catch (InterruptedException e) {
-            return null;
-        }
-        catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof ParseError) {
-                throw (ParseError)cause;
-            }
-            else if (cause instanceof RuntimeException) {
-                throw (RuntimeException)cause;
-            }
-            else {
-                throw new RuntimeException(cause);
-            }
-        }
+        return result;
     }
 
     public CompletableFuture<Summary> getSummary() {
-        currentSummary = currentTree.thenApplyAsync(t -> new Summary(services.getSummary(file, pcfg)), javaScheduler);
-        return currentSummary;
+        return CompletableFuture.supplyAsync(() -> new Summary(services.getSummary(file, pcfg)), javaScheduler);
     }
 }

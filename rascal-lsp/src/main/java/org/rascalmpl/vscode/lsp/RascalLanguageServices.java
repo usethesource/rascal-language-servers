@@ -213,9 +213,13 @@ public class RascalLanguageServices {
             return EMPTY_NODE;
         }
 
-        return replaceNull(outlineCache.get(loc.top(), (l) ->
-            runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), null)
-        ));
+        return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE);
+        /*
+        return replaceNull(outlineCache.get(loc.top(), l -> {
+            logger.trace("Recalculating outline on tree: {}", l);
+            return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), null);
+        }));
+        */
     }
 
 	public void clearSummaryCache(ISourceLocation file) {
