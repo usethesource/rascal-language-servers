@@ -121,12 +121,15 @@ public class RascalLanguageServices {
         });
      }
 
-    public IList compileFolder(IRascalMonitor monitor, ISourceLocation folder, PathConfig pcfg) {
-        return runEvaluator("checkAll",  compilerEvaluator, e -> (IList) e.call(monitor, "checkAll", folder, pcfg.asConstructor()), VF.list());
+    public IList compileFolder(ISourceLocation folder, PathConfig pcfg) {
+        return runEvaluator("checkAll",  compilerEvaluator, e -> (IList) e.call("checkAll", folder, pcfg.asConstructor()), VF.list());
     }
 
-    public IList compileFileList(IRascalMonitor monitor, IList files, PathConfig pcfg) {
-        return runEvaluator("check",  compilerEvaluator, e -> (IList) e.call(monitor, "check", files, pcfg.asConstructor()), VF.list());
+    public IList compileFile(ISourceLocation file, PathConfig pcfg) {
+        return compileFileList(VF.list(file), pcfg);
+    }
+    public IList compileFileList(IList files, PathConfig pcfg) {
+        return runEvaluator("check",  compilerEvaluator, e -> (IList) e.call("check", files, pcfg.asConstructor()), VF.list());
     }
 
     private static <T> T runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call, T defaultResult) {
@@ -220,8 +223,8 @@ public class RascalLanguageServices {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(
                 new ByteArrayInputStream(new byte[0]),
-                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(),
-                IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream()
+                IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
+                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream()
             );
             eval.setMonitor(loggingMonitor(customLog));
 

@@ -13,6 +13,7 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +53,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.model.Summary;
@@ -65,11 +67,13 @@ import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValueFactory;
 
 public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware, ErrorReporter {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter = Executors.newCachedThreadPool();
     private final RascalLanguageServices rascalServices = RascalLanguageServices.getInstance();
+    private final IValueFactory VF = ValueFactoryFactory.getValueFactory();
 
     private LanguageClient client;
     private final Map<ISourceLocation, FileState> files;
@@ -97,14 +101,15 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     public void clearReports(ISourceLocation file) {
         logger.trace("Clear reports: {}", file);
         client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), Collections.emptyList()));
-        currentDiagnostics.replace(file, Collections.emptyList());
+        currentDiagnostics.remove(file);
     }
 
     @Override
     public void report(ICollection<?> msgs) {
         logger.trace("Reports: {}", msgs);
-        appendDiagnostics(msgs.stream().map(d -> (IConstructor) d).map(
-                d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
+        appendDiagnostics(msgs.stream()
+            .map(d -> (IConstructor) d)
+            .map(d -> new SimpleEntry<>(((ISourceLocation) d.get("at")).top(), Diagnostics.translateDiagnostic(d))));
     }
 
     @Override
@@ -153,7 +158,30 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         FileState file = getFile(params.getTextDocument());
         file.update(params.getText());
 
-        getSummary(file).thenAccept(s -> report(s.getMessages()));
+        CompletableFuture
+            .supplyAsync(() -> rascalServices.compileFile(file.getLocation(), file.getPathConfig()), ownExecuter)
+            .thenApply(l -> l.stream()
+                .map(p -> {
+                    IConstructor program = (IConstructor)p;
+                    if (program.has("main_module")) {
+                        program = (IConstructor) program.get("main_module");
+                    }
+
+                    if (!program.has("src")) {
+                        logger.debug("Could not get src for errors: {}", program);
+                        return VF.set();
+                    }
+                    if (!program.has("messages")) {
+                        logger.debug("Could not get messages for errors: {}", program);
+                        return VF.set();
+                    }
+                    return (ISet)program.get("messages");
+                })
+                .reduce(ISet::union)
+                .orElse(VF.set())
+            )
+            .thenAccept(this::report)
+            ;
     }
 
     private CompletableFuture<Summary> getSummary(FileState file) {
@@ -215,9 +243,12 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     }
 
     private void appendDiagnostics(Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
-        Diagnostics.groupByKey(diagnostics).forEach((file, msgs) -> {
-            List<Diagnostic> currentMessages = currentDiagnostics.get(file);
+        Map<ISourceLocation, List<Diagnostic>> perFile = Diagnostics.groupByKey(diagnostics);
+        perFile.forEach((file, msgs) -> {
+            List<Diagnostic> currentMessages = currentDiagnostics.computeIfAbsent(file, f -> new ArrayList<>());
+            logger.trace("Adding new diagnostic messages {}", file);
             currentMessages.addAll(msgs);
+            logger.trace("Current messages {}", currentMessages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), currentMessages));
         });
     }

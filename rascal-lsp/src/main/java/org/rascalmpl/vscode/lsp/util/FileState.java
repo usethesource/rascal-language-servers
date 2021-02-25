@@ -5,6 +5,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
@@ -15,6 +17,7 @@ import org.rascalmpl.vscode.lsp.RascalTextDocumentService;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileState {
+    private static final Logger logger = LogManager.getLogger(FileState.class);
     private final Executor javaScheduler;
     private final RascalLanguageServices services;
     private final RascalTextDocumentService parent;
@@ -34,6 +37,7 @@ public class FileState {
         this.file = file;
         try {
             this.pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file);
+            logger.trace("PathConfig for file: {} is {}", file, pcfg);
         }
         catch (IOException e) {
             throw new RuntimeException(e);

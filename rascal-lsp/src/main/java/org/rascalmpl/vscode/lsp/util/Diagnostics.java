@@ -1,5 +1,6 @@
 package org.rascalmpl.vscode.lsp.util;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,7 @@ public class Diagnostics {
 
     public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
         return diagnostics.collect(
-                Collectors.groupingBy(Entry::getKey, Collectors.mapping(Entry::getValue, Collectors.toList())));
+                Collectors.groupingBy(Entry::getKey, Collectors.mapping(Entry::getValue, Collectors.toCollection(ArrayList::new))));
     }
 
     public static Diagnostic translateDiagnostic(ParseError e) {
