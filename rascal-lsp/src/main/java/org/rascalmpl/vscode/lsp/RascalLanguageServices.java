@@ -28,7 +28,6 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
@@ -128,6 +127,7 @@ public class RascalLanguageServices {
     public IList compileFile(ISourceLocation file, PathConfig pcfg) {
         return compileFileList(VF.list(file), pcfg);
     }
+
     public IList compileFileList(IList files, PathConfig pcfg) {
         return runEvaluator("check",  compilerEvaluator, e -> (IList) e.call("check", files, pcfg.asConstructor()), VF.list());
     }
@@ -301,9 +301,6 @@ public class RascalLanguageServices {
             public void todo(int work) {
                 // ignore
             }
-
-
-
         };
     }
 

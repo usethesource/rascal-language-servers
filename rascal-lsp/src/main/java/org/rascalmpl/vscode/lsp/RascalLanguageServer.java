@@ -22,7 +22,6 @@ import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher;
-import org.eclipse.lsp4j.launch.LSPLauncher.Builder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;

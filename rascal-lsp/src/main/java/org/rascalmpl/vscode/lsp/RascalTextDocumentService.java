@@ -190,8 +190,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         );
     }
 
-
-
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
@@ -230,7 +228,6 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     private static Either<List<? extends Location>, List<? extends LocationLink>> locList(Location... l) {
         return Either.<List<? extends Location>, List<? extends LocationLink>>forLeft(Arrays.asList(l));
     }
-
 
     private void replaceDiagnostics(ISourceLocation clearFor, Stream<Entry<ISourceLocation, Diagnostic>> diagnostics) {
         Map<ISourceLocation, List<Diagnostic>> grouped = Diagnostics.groupByKey(diagnostics);
