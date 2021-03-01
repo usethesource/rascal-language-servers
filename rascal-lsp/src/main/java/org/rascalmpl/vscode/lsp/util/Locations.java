@@ -33,7 +33,9 @@ public class Locations {
     }
 
     public static Range toRange(ISourceLocation sloc) {
-        return new Range(new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()), new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
+        return new Range(
+            new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()),
+            new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
     }
 
 }

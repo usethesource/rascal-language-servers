@@ -35,9 +35,10 @@ public class Outline {
                 for (IValue e : (IList) arg) {
                     result.add(buildOutlineEntry(kind, (INode) e));
                 }
-            } else if (arg instanceof IMap) {
-                ((IMap)arg).valueIterator().forEachRemaining(v -> {
-                    for (IValue e: (IList)v) {
+            }
+            else if (arg instanceof IMap) {
+                ((IMap) arg).valueIterator().forEachRemaining(v -> {
+                    for (IValue e : (IList) v) {
                         result.add(buildOutlineEntry(kind, (INode) e));
                     }
                 });
@@ -46,13 +47,13 @@ public class Outline {
         return result;
     }
 
-    private static Either<SymbolInformation, DocumentSymbol> buildOutlineEntry( SymbolKind kind, INode element) {
+    private static Either<SymbolInformation, DocumentSymbol> buildOutlineEntry(SymbolKind kind, INode element) {
         IWithKeywordParameters<? extends IValue> kwParams = element.asWithKeywordParameters();
         ISourceLocation loc = (ISourceLocation) kwParams.getParameter("loc");
         if (loc == null) {
-            loc =  URIUtil.invalidLocation();
+            loc = URIUtil.invalidLocation();
         }
-        Range target = loc != null ? Locations.toRange(loc) : new Range(new Position(0,0), new Position(0,0));
+        Range target = loc != null ? Locations.toRange(loc) : new Range(new Position(0, 0), new Position(0, 0));
         IString details = (IString) kwParams.getParameter("label");
         DocumentSymbol result;
         if (details == null) {
@@ -66,14 +67,22 @@ public class Outline {
 
     private static SymbolKind translateKind(String name) {
         switch (name) {
-            case "Functions": return SymbolKind.Function;
-            case "Tests": return SymbolKind.Method;
-            case "Variables": return SymbolKind.Variable;
-            case "Aliases": return SymbolKind.Class;
-            case "Data": return SymbolKind.Struct;
-            case "Tags": return SymbolKind.Property;
-            case "Imports": return null;
-            case "Syntax": return SymbolKind.Interface;
+            case "Functions":
+                return SymbolKind.Function;
+            case "Tests":
+                return SymbolKind.Method;
+            case "Variables":
+                return SymbolKind.Variable;
+            case "Aliases":
+                return SymbolKind.Class;
+            case "Data":
+                return SymbolKind.Struct;
+            case "Tags":
+                return SymbolKind.Property;
+            case "Imports":
+                return null;
+            case "Syntax":
+                return SymbolKind.Interface;
         }
         return null;
     }

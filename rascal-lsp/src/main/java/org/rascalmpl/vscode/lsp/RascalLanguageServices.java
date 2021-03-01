@@ -1,14 +1,22 @@
 /**
- * Copyright (c) 2018, Davy Landman, SWAT.engineering BV, 2020 Jurgen J. Vinju, NWO-I CWI
- * All rights reserved.
+ * Copyright (c) 2018, Davy Landman, SWAT.engineering BV, 2020 Jurgen J. Vinju, NWO-I CWI All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+ * following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+ * disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+ * following disclaimer in the documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.rascalmpl.vscode.lsp;
 
@@ -65,16 +73,19 @@ public class RascalLanguageServices {
 
     private final Cache<ISourceLocation, IConstructor> summaryCache;
 
-    private final Future<Evaluator> outlineEvaluator = makeFutureEvaluator("Rascal outline", "lang::rascal::ide::Outline");
-    private final Future<Evaluator> summaryEvaluator = makeFutureEvaluator("Rascal summary", "lang::rascalcore::check::Summary");
-    private final Future<Evaluator> compilerEvaluator = makeFutureEvaluator("Rascal compiler", "lang::rascalcore::check::Checker");
+    private final Future<Evaluator> outlineEvaluator =
+        makeFutureEvaluator("Rascal outline", "lang::rascal::ide::Outline");
+    private final Future<Evaluator> summaryEvaluator =
+        makeFutureEvaluator("Rascal summary", "lang::rascalcore::check::Summary");
+    private final Future<Evaluator> compilerEvaluator =
+        makeFutureEvaluator("Rascal compiler", "lang::rascalcore::check::Checker");
 
     private RascalLanguageServices() {
-            summaryCache = Caffeine.newBuilder()
-            		.softValues()
-            		.maximumSize(256)
-            		.expireAfterAccess(60, TimeUnit.MINUTES)
-            		.build();
+        summaryCache = Caffeine.newBuilder()
+            .softValues()
+            .maximumSize(256)
+            .expireAfterAccess(60, TimeUnit.MINUTES)
+            .build();
     }
 
     private static class InstanceHolder {
@@ -86,25 +97,25 @@ public class RascalLanguageServices {
     }
 
     private synchronized <T extends IValue> T get(ISourceLocation occ, PathConfig pcfg, String field, T def) {
-       IConstructor summary = getSummary(occ, pcfg);
+        IConstructor summary = getSummary(occ, pcfg);
 
-       if (summary != null) {
-           IWithKeywordParameters<? extends IConstructor> kws = summary.asWithKeywordParameters();
-           if (kws.hasParameters()) {
-               @SuppressWarnings("unchecked")
-               T val = (T) kws.getParameter(field);
+        if (summary != null) {
+            IWithKeywordParameters<? extends IConstructor> kws = summary.asWithKeywordParameters();
+            if (kws.hasParameters()) {
+                @SuppressWarnings("unchecked")
+                T val = (T) kws.getParameter(field);
 
-               if (val != null) {
-                   return val;
-               }
-           }
-       }
+                if (val != null) {
+                    return val;
+                }
+            }
+        }
 
-       return def;
+        return def;
     }
 
     public synchronized IConstructor getSummary(ISourceLocation occ, PathConfig pcfg) {
-    	return summaryCache.get(occ.top(), (u) -> {
+        return summaryCache.get(occ.top(), (u) -> {
             IString moduleName;
             try {
                 moduleName = VF.string(pcfg.getModuleName(occ));
@@ -114,14 +125,15 @@ public class RascalLanguageServices {
             }
 
             return runEvaluator("makeSummary", summaryEvaluator, eval -> {
-                    IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
-                    return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
+                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+                return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
             }, null);
         });
-     }
+    }
 
     public IList compileFolder(ISourceLocation folder, PathConfig pcfg) {
-        return runEvaluator("checkAll",  compilerEvaluator, e -> (IList) e.call("checkAll", folder, pcfg.asConstructor()), VF.list());
+        return runEvaluator("checkAll", compilerEvaluator,
+            e -> (IList) e.call("checkAll", folder, pcfg.asConstructor()), VF.list());
     }
 
     public IList compileFile(ISourceLocation file, PathConfig pcfg) {
@@ -129,21 +141,21 @@ public class RascalLanguageServices {
     }
 
     public IList compileFileList(IList files, PathConfig pcfg) {
-        return runEvaluator("check",  compilerEvaluator, e -> (IList) e.call("check", files, pcfg.asConstructor()), VF.list());
+        return runEvaluator("check", compilerEvaluator, e -> (IList) e.call("check", files, pcfg.asConstructor()),
+            VF.list());
     }
 
-    private static <T> T runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call, T defaultResult) {
+    private static <T> T runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call,
+        T defaultResult) {
         try {
             Evaluator actualEval = eval.get();
 
             synchronized (actualEval) {
                 try {
                     return call.apply(actualEval);
-                }
-                catch (InterruptException e) {
+                } catch (InterruptException e) {
                     return defaultResult;
-                }
-                finally {
+                } finally {
                     actualEval.__setInterrupt(false);
                 }
             }
@@ -152,7 +164,7 @@ public class RascalLanguageServices {
             logger.error("Full internal error: ", e);
             return defaultResult;
         } catch (Exception e) {
-            logger.error(task +" failed",  e);
+            logger.error(task + " failed", e);
             return defaultResult;
         }
     }
@@ -161,9 +173,9 @@ public class RascalLanguageServices {
         return get(file, pcfg, "useDef", VF.set());
     }
 
-    public IString getType(ISourceLocation occ, PathConfig pcfg){
-    	IMap locationTypes = get(occ, pcfg, "locationTypes", VF.mapWriter().done());
-    	return (IString) locationTypes.get(occ);
+    public IString getType(ISourceLocation occ, PathConfig pcfg) {
+        IMap locationTypes = get(occ, pcfg, "locationTypes", VF.mapWriter().done());
+        return (IString) locationTypes.get(occ);
     }
 
     public ISet getDefs(ISourceLocation occ, PathConfig pcfg) {
@@ -182,19 +194,19 @@ public class RascalLanguageServices {
     }
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
-    	try {
-    		if (TreeAdapter.isTop(moduleTree)) {
-    			moduleTree = TreeAdapter.getStartTop(moduleTree);
-    		}
-    		ISourceLocation loc = TreeAdapter.getLocation(moduleTree);
-    		if (loc != null) {
-    			return loc.top();
-    		}
-    		return null;
-    	} catch (Exception t) {
+        try {
+            if (TreeAdapter.isTop(moduleTree)) {
+                moduleTree = TreeAdapter.getStartTop(moduleTree);
+            }
+            ISourceLocation loc = TreeAdapter.getLocation(moduleTree);
+            if (loc != null) {
+                return loc.top();
+            }
+            return null;
+        } catch (Exception t) {
             logger.trace("Failure to get file loc from tree: {}", moduleTree, t);
-    		return null;
-    	}
+            return null;
+        }
     }
 
     private final static INode EMPTY_NODE = VF.node("");
@@ -208,7 +220,7 @@ public class RascalLanguageServices {
         return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE);
     }
 
-	public void clearSummaryCache(ISourceLocation file) {
+    public void clearSummaryCache(ISourceLocation file) {
         summaryCache.invalidate(file.top());
     }
 
@@ -218,14 +230,13 @@ public class RascalLanguageServices {
 
 
     private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
-        return asyncGenerator(label, () ->  {
+        return asyncGenerator(label, () -> {
             logger.debug("Creating evaluator: {}", label);
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(
                 new ByteArrayInputStream(new byte[0]),
                 IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream()
-            );
+                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
             eval.setMonitor(loggingMonitor(customLog));
 
             eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
@@ -237,8 +248,7 @@ public class RascalLanguageServices {
             for (String i : imports) {
                 try {
                     eval.doImport(eval, i);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     logger.error("Failed to import: {}", i, e);
                     throw new RuntimeException("Failure to import required module " + i, e);
                 }
@@ -250,7 +260,7 @@ public class RascalLanguageServices {
     }
 
     private static IRascalMonitor loggingMonitor(Logger target) {
-        return new IRascalMonitor(){
+        return new IRascalMonitor() {
 
             @Override
             public void startJob(String name) {
@@ -335,7 +345,7 @@ public class RascalLanguageServices {
     }
 
 
-    private static final char[] getResourceContent(ISourceLocation location) throws IOException{
+    private static final char[] getResourceContent(ISourceLocation location) throws IOException {
         try (Reader textStream = URIResolverRegistry.getInstance().getCharacterReader(location)) {
             return InputConverter.toChar(textStream);
         }

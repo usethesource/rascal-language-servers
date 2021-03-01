@@ -28,8 +28,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 /**
- * The main language server class for Rascal is build on top of the Eclipse
- * lsp4j library
+ * The main language server class for Rascal is build on top of the Eclipse lsp4j library
  */
 public class RascalLanguageServer implements LanguageServer, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
@@ -76,11 +75,12 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     private static Launcher<LanguageClient> constructLSPClient(Socket client, RascalLanguageServer server)
-            throws IOException {
+        throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
-    private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out, RascalLanguageServer server) {
+    private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out,
+        RascalLanguageServer server) {
         Launcher<LanguageClient> clientLauncher = LSPLauncher.createServerLauncher(server, in, out);
         server.connect(clientLauncher.getRemoteProxy());
         return clientLauncher;
@@ -133,15 +133,15 @@ public class RascalLanguageServer implements LanguageServer, LanguageClientAware
     }
 
     private static void startLSP(Launcher<LanguageClient> server) {
-            try {
-                server.startListening().get();
-            } catch (InterruptedException e) {
-                logger.trace("Interrupted server", e);
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException e) {
-                logger.fatal("Unexpected exception", e.getCause());
-                System.exit(1);
-            }
+        try {
+            server.startListening().get();
+        } catch (InterruptedException e) {
+            logger.trace("Interrupted server", e);
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.fatal("Unexpected exception", e.getCause());
+            System.exit(1);
+        }
     }
 
 

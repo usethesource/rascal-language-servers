@@ -29,7 +29,8 @@ public class FileState {
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<ITree> currentTree;
 
-    public FileState(RascalLanguageServices services, RascalTextDocumentService tds, Executor javaSchedular, ISourceLocation file, String content) {
+    public FileState(RascalLanguageServices services, RascalTextDocumentService tds, Executor javaSchedular,
+        ISourceLocation file, String content) {
         this.services = services;
         this.javaScheduler = javaSchedular;
         this.parent = tds;
@@ -38,8 +39,7 @@ public class FileState {
         try {
             this.pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file);
             logger.trace("PathConfig for file: {} is {}", file, pcfg);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
         currentTree = newContents(content);
@@ -74,12 +74,12 @@ public class FileState {
         return lastFullTree;
     }
 
-	public PathConfig getPathConfig() {
-		return pcfg;
-	}
+    public PathConfig getPathConfig() {
+        return pcfg;
+    }
 
-	public ISourceLocation getLocation() {
-		return file;
-	}
+    public ISourceLocation getLocation() {
+        return file;
+    }
 
 }

@@ -16,7 +16,7 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
 
     @Override
     public String[] getSupportedTypes() {
-        return new String[] { "*" };
+        return new String[] {"*"};
     }
 
     @Override
@@ -26,7 +26,7 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
 
     @Override
     public Configuration getConfiguration(LoggerContext loggerContext, String name, URI configLocation,
-            ClassLoader loader) {
+        ClassLoader loader) {
         return buildRedirectConfig();
     }
 
@@ -49,13 +49,11 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
         builder.add(builder
             .newAppender("Console", "CONSOLE")
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
-            .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d [%t] %p - %c %m%n"))
-        );
+            .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d [%t] %p - %c %m%n")));
 
         builder.add(builder
             .newRootLogger(targetLevel)
-            .add(builder.newAppenderRef("Console"))
-        );
+            .add(builder.newAppenderRef("Console")));
 
         return builder.build();
     }

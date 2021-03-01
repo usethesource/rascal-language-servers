@@ -8,7 +8,10 @@ import io.usethesource.vallang.ISourceLocation;
 
 public interface ErrorReporter {
     void clearReports(ISourceLocation file);
+
     void report(ICollection<?> msgs);
+
     void report(ISourceLocation file, ISet messages);
+
     void report(ParseError e);
 }

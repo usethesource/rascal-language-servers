@@ -1,14 +1,22 @@
 /**
- * Copyright (c) 2018, Davy Landman, SWAT.engineering BV, 2020 Jurgen J. Vinju, NWO-I CWI
- * All rights reserved.
+ * Copyright (c) 2018, Davy Landman, SWAT.engineering BV, 2020 Jurgen J. Vinju, NWO-I CWI All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+ * following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+ * disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+ * following disclaimer in the documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.rascalmpl.vscode.lsp;
 
@@ -116,9 +124,9 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     public void report(ISourceLocation file, ISet messages) {
         logger.trace("Report: {} : {}", file, messages);
         replaceDiagnostics(file,
-                messages.stream().map(d -> (IConstructor) d)
-                        .map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(),
-                                Diagnostics.translateDiagnostic(d))));
+            messages.stream().map(d -> (IConstructor) d)
+                .map(d -> new AbstractMap.SimpleEntry<>(((ISourceLocation) d.get("at")).top(),
+                    Diagnostics.translateDiagnostic(d))));
     }
 
     @Override
@@ -126,7 +134,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         ISourceLocation loc = e.getLocation();
         logger.trace("Report parse error: {}", loc);
         replaceDiagnostics(e.getLocation(), Stream.of(e)
-                .map(e1 -> new AbstractMap.SimpleEntry<>(loc, Diagnostics.translateDiagnostic(e1))));
+            .map(e1 -> new AbstractMap.SimpleEntry<>(loc, Diagnostics.translateDiagnostic(e1))));
     }
 
     // LSP interface methods
@@ -148,7 +156,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         logger.debug("Close: {}", params.getTextDocument());
         if (files.remove(Locations.toLoc(params.getTextDocument())) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-                    "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
+                "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
         }
     }
 
@@ -162,7 +170,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
             .supplyAsync(() -> rascalServices.compileFile(file.getLocation(), file.getPathConfig()), ownExecuter)
             .thenApply(l -> l.stream()
                 .map(p -> {
-                    IConstructor program = (IConstructor)p;
+                    IConstructor program = (IConstructor) p;
                     if (program.has("main_module")) {
                         program = (IConstructor) program.get("main_module");
                     }
@@ -175,24 +183,21 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                         logger.debug("Could not get messages for errors: {}", program);
                         return VF.set();
                     }
-                    return (ISet)program.get("messages");
+                    return (ISet) program.get("messages");
                 })
                 .reduce(ISet::union)
-                .orElse(VF.set())
-            )
-            .thenAccept(this::report)
-            ;
+                .orElse(VF.set()))
+            .thenAccept(this::report);
     }
 
     private CompletableFuture<Summary> getSummary(FileState file) {
-        return CompletableFuture.supplyAsync(() ->
-            new Summary(rascalServices.getSummary(file.getLocation(), file.getPathConfig())), ownExecuter
-        );
+        return CompletableFuture.supplyAsync(
+            () -> new Summary(rascalServices.getSummary(file.getLocation(), file.getPathConfig())), ownExecuter);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
-            DefinitionParams params) {
+        DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
         FileState file = getFile(Locations.toLoc(params.getTextDocument()));
 
@@ -200,27 +205,26 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         final int line = params.getPosition().getLine();
 
         return getSummary(file).thenApply(s -> {
-                final ITree tree = file.getMostRecentTree();
-                ITree lexical = TreeAdapter.locateLexical(tree, line, column);
+            final ITree tree = file.getMostRecentTree();
+            ITree lexical = TreeAdapter.locateLexical(tree, line, column);
 
-                if (lexical == null) {
-                    throw new RuntimeException("no lexical found");
-                }
+            if (lexical == null) {
+                throw new RuntimeException("no lexical found");
+            }
 
-                return Locations.toLSPLocation(s.definition(TreeAdapter.getLocation(lexical)));
+            return Locations.toLSPLocation(s.definition(TreeAdapter.getLocation(lexical)));
         }).thenApply(l -> locList(l)).exceptionally(e -> locList());
     }
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
-            DocumentSymbolParams params) {
+        DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         FileState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
-                .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
-                .thenApplyAsync(rascalServices::getOutline, ownExecuter)
-                .thenApply(Outline::buildOutlineTree)
-                ;
+            .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
+            .thenApplyAsync(rascalServices::getOutline, ownExecuter)
+            .thenApply(Outline::buildOutlineTree);
     }
 
     // Private utility methods
@@ -255,7 +259,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     }
 
     private FileState open(TextDocumentItem doc) {
-        return files.computeIfAbsent(Locations.toLoc(doc), l -> new FileState(rascalServices, this, ownExecuter, l, doc.getText()));
+        return files.computeIfAbsent(Locations.toLoc(doc),
+            l -> new FileState(rascalServices, this, ownExecuter, l, doc.getText()));
     }
 
     private FileState getFile(TextDocumentIdentifier doc) {
@@ -270,7 +275,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return file;
     }
 
-	public void shutdown() {
+    public void shutdown() {
         ownExecuter.shutdown();
-	}
+    }
 }
