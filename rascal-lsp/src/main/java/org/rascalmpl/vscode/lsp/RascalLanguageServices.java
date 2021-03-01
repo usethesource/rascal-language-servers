@@ -344,7 +344,6 @@ public class RascalLanguageServices {
             new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
     }
 
-
     private static final char[] getResourceContent(ISourceLocation location) throws IOException {
         try (Reader textStream = URIResolverRegistry.getInstance().getCharacterReader(location)) {
             return InputConverter.toChar(textStream);
