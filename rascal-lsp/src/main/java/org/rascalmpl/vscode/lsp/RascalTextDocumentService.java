@@ -70,6 +70,7 @@ import org.rascalmpl.vscode.lsp.util.ErrorReporter;
 import org.rascalmpl.vscode.lsp.util.FileState;
 import org.rascalmpl.vscode.lsp.util.Locations;
 import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
@@ -84,6 +85,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     private final IValueFactory VF = ValueFactoryFactory.getValueFactory();
 
     private LanguageClient client;
+    private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Map<ISourceLocation, FileState> files;
 
     private ConcurrentMap<ISourceLocation, List<Diagnostic>> currentDiagnostics = new ConcurrentHashMap<>();
@@ -96,6 +98,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
+        result.setSemanticTokensProvider(tokenizer.options());
     }
 
     @Override

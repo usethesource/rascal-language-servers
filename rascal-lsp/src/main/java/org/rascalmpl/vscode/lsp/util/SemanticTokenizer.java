@@ -1,18 +1,19 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
+import org.eclipse.lsp4j.SemanticTokensClientCapabilitiesRequests;
 import org.eclipse.lsp4j.SemanticTokensDelta;
-import org.eclipse.lsp4j.SemanticTokensDeltaParams;
-import org.eclipse.lsp4j.SemanticTokensParams;
-import org.eclipse.lsp4j.SemanticTokensRangeParams;
-import org.eclipse.lsp4j.TokenFormat;
+import org.eclipse.lsp4j.SemanticTokensLegend;
+import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -21,34 +22,49 @@ import org.rascalmpl.values.parsetrees.visitors.TreeVisitor;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer implements ISemanticTokens {
 
     @Override
-    public SemanticTokens semanticTokensFull(SemanticTokensParams params, ITree tree) {
-        // TODO Auto-generated method stub
-        return null;
+    public SemanticTokens semanticTokensFull(ITree tree) {
+        TokenList tokens = new TokenList();
+        tree.accept(new TokenCollector(tokens));
+        return new SemanticTokens(tokens.getTheList());
     }
 
     @Override
-    public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(SemanticTokensDeltaParams params,
-            ITree tree) {
-        // TODO Auto-generated method stub
-        return null;
+    public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousId, ITree tree) {
+       return Either.forLeft(semanticTokensFull(tree));
     }
 
     @Override
-    public SemanticTokens semanticTokensRange(SemanticTokensRangeParams params, ITree tree) {
-        // TODO Auto-generated method stub
-        return null;
+    public SemanticTokens semanticTokensRange(Range range, ITree tree) {
+        return semanticTokensFull(tree);
     }
 
     @Override
-    public SemanticTokensCapabilities semanticTokenCapabilities() {
-        // TODO Auto-generated method stub
-        return null;
+    public SemanticTokensWithRegistrationOptions options() {
+        SemanticTokensWithRegistrationOptions result = new SemanticTokensWithRegistrationOptions();
+        SemanticTokensLegend legend = new SemanticTokensLegend(TokenTypes.getTokenTypes(), TokenTypes.getTokenModifiers());
+
+        result.setFull(true);
+        result.setLegend(legend);
+
+        return result;
+    }
+
+    @Override
+    public SemanticTokensCapabilities capabilities() {
+        SemanticTokensClientCapabilitiesRequests requests = new SemanticTokensClientCapabilitiesRequests(true);
+        SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
+            requests,
+            TokenTypes.getTokenTypes(),
+            Collections.emptyList(),
+            Collections.emptyList());
+
+        return cps;
     }
 
     private static class TokenList {
@@ -75,14 +91,22 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenTypes {
         private static final Map<String, Integer> cache = new HashMap<>();
 
-        private static String[] types = new String[] { "Normal", "Type", "Identifier", "Variable", "Constant", "Comment",
-                "Todo", "Quote", "MetaAmbiguity", "MetaVariable", "MetaKeyword", "MetaSkipped", "NonterminalLabel",
-                "Result", "StdOut", "StdErr" };
+        private static String[] types = new String[] { TreeAdapter.NORMAL, TreeAdapter.TYPE, TreeAdapter.IDENTIFIER, TreeAdapter.VARIABLE, TreeAdapter.CONSTANT, TreeAdapter.COMMENT,
+                TreeAdapter.TODO, TreeAdapter.QUOTE, TreeAdapter.META_AMBIGUITY, TreeAdapter.META_VARIABLE, TreeAdapter.META_KEYWORD, TreeAdapter.META_SKIPPED, TreeAdapter.NONTERMINAL_LABEL,
+                TreeAdapter.RESULT, TreeAdapter.STDOUT, TreeAdapter.STDERR };
 
         static {
             for (int i = 0; i < types.length; i++) {
                 cache.put(types[i], i);
             }
+        }
+
+        public static List<String> getTokenTypes() {
+            return Arrays.asList(types);
+        }        
+        
+        public static List<String> getTokenModifiers() {
+            return Collections.emptyList();
         }
 
         public static int tokenTypeForName(String category) {
