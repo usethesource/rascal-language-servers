@@ -48,6 +48,11 @@ import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.SemanticTokens;
+import org.eclipse.lsp4j.SemanticTokensDelta;
+import org.eclipse.lsp4j.SemanticTokensDeltaParams;
+import org.eclipse.lsp4j.SemanticTokensParams;
+import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
@@ -280,5 +285,24 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
     public void shutdown() {
         ownExecuter.shutdown();
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+            .thenApply(t -> tokenizer.semanticTokensFull(t));
+    }
+
+    @Override
+    public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
+            SemanticTokensDeltaParams params) {
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+                .thenApply(t -> Either.forLeft(tokenizer.semanticTokensFull(t)));
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+        .thenApply(t -> tokenizer.semanticTokensFull(t));
     }
 }
