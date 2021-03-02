@@ -297,12 +297,12 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
         return getFile(params.getTextDocument()).getCurrentTreeAsync()
-                .thenApply(t -> Either.forLeft(tokenizer.semanticTokensFull(t)));
+            .thenApply(t -> Either.forLeft(tokenizer.semanticTokensFull(t)));
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         return getFile(params.getTextDocument()).getCurrentTreeAsync()
-        .thenApply(t -> tokenizer.semanticTokensFull(t));
+            .thenApply(t -> tokenizer.semanticTokensFull(t));
     }
 }
