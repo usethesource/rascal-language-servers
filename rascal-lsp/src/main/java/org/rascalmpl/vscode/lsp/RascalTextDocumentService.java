@@ -290,19 +290,35 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
         return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> tokenizer.semanticTokensFull(t));
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+        ;
     }
 
     @Override
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
         return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> Either.forLeft(tokenizer.semanticTokensFull(t)));
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+            .thenApply(t -> Either.forLeft(t))
+        ;
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> tokenizer.semanticTokensFull(t));
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+        ;
     }
 }
