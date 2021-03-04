@@ -20,50 +20,126 @@
  */
 package org.rascalmpl.vscode.lsp.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
-
+import org.rascalmpl.vscode.lsp.util.IRangeMap;
+import org.rascalmpl.vscode.lsp.util.Lazy;
+import org.rascalmpl.vscode.lsp.util.Locations;
+import org.rascalmpl.vscode.lsp.util.TreeMapLookup;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
+import io.usethesource.vallang.ITuple;
+import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class Summary {
-    private final IConstructor summary;
+    private static final ISet EMPTY_SET = ValueFactoryFactory.getValueFactory().set();
+    private static final IMap EMPTY_MAP = ValueFactoryFactory.getValueFactory().map();
+    private static final IConstructor EMPTY_SUMMARY;
 
-    private final IWithKeywordParameters<? extends IConstructor> summaryKW;
-    private static final ISet EMPTY_SET = ValueFactoryFactory.getValueFactory().setWriter().done();
+    static {
 
-    public Summary() {
         TypeFactory TF = TypeFactory.getInstance();
         TypeStore TS = new TypeStore();
+        Type summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary");
+        EMPTY_SUMMARY = IRascalValueFactory.getInstance().constructor(summaryCons);
+    }
 
-        Type Summary = TF.abstractDataType(TS, "Summary");
-        Type summary = TF.constructor(TS, Summary, "summary");
-        this.summary = IRascalValueFactory.getInstance().constructor(summary);
-        this.summaryKW = this.summary.asWithKeywordParameters();
+    private final IWithKeywordParameters<? extends IConstructor> data;
+    private final Lazy<IRangeMap<List<Location>>> definitions;
+    private final Lazy<IRangeMap<String>> typeNames;
+
+
+    public Summary() {
+        this(EMPTY_SUMMARY);
     }
 
     public Summary(IConstructor summary) {
-        this.summary = summary;
-        this.summaryKW = summary.asWithKeywordParameters();
+        this.data = summary.asWithKeywordParameters();
+        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), v -> Locations.toLSPLocation((ISourceLocation)v)));
+        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), v -> ((IString)v).getValue()));
+
     }
 
-    public ISourceLocation definition(ISourceLocation from) {
-        return (ISourceLocation) getKWFieldSet("declarations").asRelation().index(from).stream().findFirst().get();
+    private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper) {
+        TreeMapLookup<List<T>> result = new TreeMapLookup<>();
+        for (IValue v: binaryRel) {
+            ITuple row = (ITuple)v;
+            Range from = Locations.toRange((ISourceLocation)row.get(0));
+            T to = valueMapper.apply(row.get(1));
+            List<T> existing = result.getExact(from);
+            if (existing == null) {
+                // most cases there is only a single entry, to so save a lot of memory, we store a singleton list to start with
+                result.put(from, Collections.singletonList(to));
+            }
+            else if (existing.size() == 1) {
+                // we had a singleton list in there, so let's replace it with a regular last
+                existing = new ArrayList<>(existing);
+                result.put(from, existing);
+                existing.add(to);
+            }
+            else {
+                existing.add(to);
+            }
+        }
+        return result;
     }
 
-    public ISet getMessages() {
-        return (ISet) getKWFieldSet("messages");
+    private static <T> IRangeMap<T> translateMap(IMap binaryMap, Function<IValue, T> valueMapper) {
+        TreeMapLookup<T> result = new TreeMapLookup<>();
+        binaryMap.entryIterator().forEachRemaining(e -> {
+            Range from = Locations.toRange((ISourceLocation)e.getKey());
+            T to = valueMapper.apply(e.getValue());
+            result.put(from, to);
+        });
+        return result;
     }
 
-    private ISet getKWFieldSet(String name) {
-        if (summaryKW.hasParameter(name)) {
-            return (ISet) summaryKW.getParameter(name);
+    private static ISet getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
+        if (data.hasParameter(name)) {
+            return (ISet) data.getParameter(name);
         }
         return EMPTY_SET;
     }
+
+    private static IMap getKWFieldMap(IWithKeywordParameters<? extends IConstructor> data, String name) {
+        if (data.hasParameter(name)) {
+            return (IMap) data.getParameter(name);
+        }
+        return EMPTY_MAP;
+    }
+
+    private static <T> T replaceNull(@Nullable T value, T defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    public List<Location> getDefinition(Position cursor) {
+        return getDefinition(new Range(cursor, cursor));
+    }
+
+    public List<Location> getDefinition(Range cursor) {
+        return replaceNull(definitions.get().lookup(cursor), Collections.emptyList());
+    }
+
+    public String getTypeName(Range cursor) {
+        return replaceNull(typeNames.get().lookup(cursor), "");
+    }
+
 }

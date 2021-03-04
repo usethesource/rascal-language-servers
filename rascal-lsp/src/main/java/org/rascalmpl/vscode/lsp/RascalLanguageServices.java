@@ -23,19 +23,22 @@ package org.rascalmpl.vscode.lsp;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
@@ -54,24 +57,20 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.IWithKeywordParameters;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
-
-    private final Cache<ISourceLocation, IConstructor> summaryCache;
 
     private final Future<Evaluator> outlineEvaluator =
         makeFutureEvaluator("Rascal outline", "lang::rascal::ide::Outline");
@@ -80,118 +79,52 @@ public class RascalLanguageServices {
     private final Future<Evaluator> compilerEvaluator =
         makeFutureEvaluator("Rascal compiler", "lang::rascalcore::check::Checker");
 
-    private RascalLanguageServices() {
-        summaryCache = Caffeine.newBuilder()
-            .softValues()
-            .maximumSize(256)
-            .expireAfterAccess(60, TimeUnit.MINUTES)
-            .build();
-    }
-
-    private static class InstanceHolder {
-        static RascalLanguageServices sInstance = new RascalLanguageServices();
-    }
-
-    public static RascalLanguageServices getInstance() {
-        return InstanceHolder.sInstance;
-    }
-
-    private synchronized <T extends IValue> T get(ISourceLocation occ, PathConfig pcfg, String field, T def) {
-        IConstructor summary = getSummary(occ, pcfg);
-
-        if (summary != null) {
-            IWithKeywordParameters<? extends IConstructor> kws = summary.asWithKeywordParameters();
-            if (kws.hasParameters()) {
-                @SuppressWarnings("unchecked")
-                T val = (T) kws.getParameter(field);
-
-                if (val != null) {
-                    return val;
-                }
-            }
-        }
-
-        return def;
-    }
-
-    public synchronized IConstructor getSummary(ISourceLocation occ, PathConfig pcfg) {
-        return summaryCache.get(occ.top(), (u) -> {
-            IString moduleName;
-            try {
-                moduleName = VF.string(pcfg.getModuleName(occ));
-            } catch (IOException e) {
-                logger.error("Error looking up module name from source location {}", occ, e);
-                return null;
-            }
-
+    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg, Executor exec) {
+        try {
+            IString moduleName = VF.string(pcfg.getModuleName(occ));
             return runEvaluator("makeSummary", summaryEvaluator, eval -> {
                 IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null);
-        });
-    }
-
-    public IList compileFolder(ISourceLocation folder, PathConfig pcfg) {
-        return runEvaluator("checkAll", compilerEvaluator,
-            e -> (IList) e.call("checkAll", folder, pcfg.asConstructor()), VF.list());
-    }
-
-    public IList compileFile(ISourceLocation file, PathConfig pcfg) {
-        return compileFileList(VF.list(file), pcfg);
-    }
-
-    public IList compileFileList(IList files, PathConfig pcfg) {
-        return runEvaluator("check", compilerEvaluator, e -> (IList) e.call("check", files, pcfg.asConstructor()),
-            VF.list());
-    }
-
-    private static <T> T runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call,
-        T defaultResult) {
-        try {
-            Evaluator actualEval = eval.get();
-
-            synchronized (actualEval) {
-                try {
-                    return call.apply(actualEval);
-                } catch (InterruptException e) {
-                    return defaultResult;
-                } finally {
-                    actualEval.__setInterrupt(false);
-                }
-            }
-        } catch (Throw e) {
-            logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(), e.getTrace());
-            logger.error("Full internal error: ", e);
-            return defaultResult;
-        } catch (Exception e) {
-            logger.error(task + " failed", e);
-            return defaultResult;
+            }, null, exec);
+        } catch (IOException e) {
+            logger.error("Error looking up module name from source location {}", occ, e);
+            return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {});
         }
     }
 
-    public ISet getUseDef(ISourceLocation file, PathConfig pcfg, String moduleName) {
-        return get(file, pcfg, "useDef", VF.set());
+    public InterruptibleFuture<Map<ISourceLocation,ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg, Executor exec) {
+        return runEvaluator("checkAll", compilerEvaluator,
+            e -> translateCheckResults((IList) e.call("checkAll", folder, pcfg.asConstructor())),
+            Collections.emptyMap(), exec
+            );
     }
 
-    public IString getType(ISourceLocation occ, PathConfig pcfg) {
-        IMap locationTypes = get(occ, pcfg, "locationTypes", VF.mapWriter().done());
-        return (IString) locationTypes.get(occ);
+    private static Map<ISourceLocation,ISet> translateCheckResults(IList messages) {
+        return messages.stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .collect(Collectors.toMap(
+                c -> (ISourceLocation) c.get("src"),
+                c -> (ISet) c.get("messages")));
     }
 
-    public ISet getDefs(ISourceLocation occ, PathConfig pcfg) {
-        ISet useDefs = get(occ, pcfg, "useDef", VF.set());
-        return useDefs.asRelation().index(occ);
+    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg, Executor exec) {
+        return compileFileList(VF.list(file), pcfg, exec);
     }
 
-    public IString getSynopsis(ISourceLocation occ, PathConfig pcfg) {
-        IMap synopses = get(occ, pcfg, "synopses", VF.mapWriter().done());
-        return (IString) synopses.get(occ);
+    private Map<ISourceLocation, ISet> buildEmptyResult(IList files) {
+        return files.stream()
+            .map(ISourceLocation.class::cast)
+            .collect(Collectors.toMap(k -> k, k -> VF.set()));
     }
 
-    public ISourceLocation getDocLoc(ISourceLocation occ, PathConfig pcfg) {
-        IMap docLocs = get(occ, pcfg, "docLocs", VF.mapWriter().done());
-        return (ISourceLocation) docLocs.get(occ);
+    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFileList(IList files, PathConfig pcfg, Executor exec) {
+        return runEvaluator("check", compilerEvaluator,
+            e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
+            buildEmptyResult(files), exec
+            );
     }
+
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
         try {
@@ -211,23 +144,55 @@ public class RascalLanguageServices {
 
     private final static INode EMPTY_NODE = VF.node("");
 
-    public INode getOutline(IConstructor module) {
+    public InterruptibleFuture<INode> getOutline(IConstructor module, Executor exec) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
-            return EMPTY_NODE;
+            return new InterruptibleFuture<>(CompletableFuture.completedFuture(EMPTY_NODE), () -> {});
         }
 
-        return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE);
+        return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE, exec);
     }
 
-    public void clearSummaryCache(ISourceLocation file) {
-        summaryCache.invalidate(file.top());
-    }
+    private static <T> InterruptibleFuture<T> runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call,
+        T defaultResult, Executor exec) {
+        AtomicBoolean interrupted = new AtomicBoolean(false);
+        AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
+        return new InterruptibleFuture<>(CompletableFuture.supplyAsync(() -> {
+            try {
+                Evaluator actualEval = eval.get();
 
-    public void invalidateEverything() {
-        summaryCache.invalidateAll();
+                synchronized (actualEval) {
+                    try {
+                        runningEvaluator.set(actualEval);
+                        if (interrupted.get()) {
+                            return defaultResult;
+                        }
+                        return call.apply(actualEval);
+                    } catch (InterruptException e) {
+                        return defaultResult;
+                    } finally {
+                        actualEval.__setInterrupt(false);
+                        runningEvaluator.set(null);
+                    }
+                }
+            } catch (Throw e) {
+                logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
+                    e.getTrace());
+                logger.error("Full internal error: ", e);
+                return defaultResult;
+            } catch (Exception e) {
+                logger.error(task + " failed", e);
+                return defaultResult;
+            }
+        }, exec),
+        () -> {
+            interrupted.set(true);
+            Evaluator actualEval = runningEvaluator.get();
+            if (actualEval != null) {
+                actualEval.interrupt();
+            }
+        });
     }
-
 
     private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
         return asyncGenerator(label, () -> {
