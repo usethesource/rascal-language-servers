@@ -41,7 +41,7 @@
 				],
 				"configuration": "./language-configuration.json"
 			}
-		],
+		]
 	},
 	"scripts": {
 		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
