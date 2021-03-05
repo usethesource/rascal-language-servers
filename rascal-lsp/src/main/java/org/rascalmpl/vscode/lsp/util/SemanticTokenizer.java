@@ -91,9 +91,47 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenTypes {
         private static final Map<String, Integer> cache = new HashMap<>();
 
-        private static String[] types = new String[] { TreeAdapter.NORMAL, TreeAdapter.TYPE, TreeAdapter.IDENTIFIER, TreeAdapter.VARIABLE, TreeAdapter.CONSTANT, TreeAdapter.COMMENT,
-                TreeAdapter.TODO, TreeAdapter.QUOTE, TreeAdapter.META_AMBIGUITY, TreeAdapter.META_VARIABLE, TreeAdapter.META_KEYWORD, TreeAdapter.META_SKIPPED, TreeAdapter.NONTERMINAL_LABEL,
-                TreeAdapter.RESULT, TreeAdapter.STDOUT, TreeAdapter.STDERR };
+        private static String[] types = new String[] { 
+            TreeAdapter.NORMAL, 
+            TreeAdapter.TYPE, 
+            TreeAdapter.IDENTIFIER, 
+            TreeAdapter.VARIABLE, 
+            TreeAdapter.CONSTANT, 
+            TreeAdapter.COMMENT,
+            TreeAdapter.TODO, 
+            TreeAdapter.QUOTE, 
+            TreeAdapter.META_AMBIGUITY, 
+            TreeAdapter.META_VARIABLE, 
+            TreeAdapter.META_KEYWORD, 
+            TreeAdapter.META_SKIPPED, 
+            TreeAdapter.NONTERMINAL_LABEL,
+            TreeAdapter.RESULT, 
+            TreeAdapter.STDOUT, 
+            TreeAdapter.STDERR 
+        };
+
+        /**
+         * translates the Rascal category types to tmGrammar token names
+         * TODO: the ones with ? have not been mapped yet 
+         */
+        private static String[] tmTokenNames = new String[] {
+            "?Normal",
+            "type",
+            "identifier",
+            "variable",
+            "constant",
+            "comment",
+            "comment.todo",
+            "?Quote",
+            "?Ambiguity",
+            "variable",
+            "keyword",
+            "?Skipped",
+            "?NonterminalLabel",
+            "?Result",
+            "?Stdout",
+            "?Stderr"
+        };
 
         static {
             for (int i = 0; i < types.length; i++) {
@@ -102,7 +140,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         public static List<String> getTokenTypes() {
-            return Arrays.asList(types);
+            return Arrays.asList(tmTokenNames);
         }        
         
         public static List<String> getTokenModifiers() {
@@ -114,41 +152,6 @@ public class SemanticTokenizer implements ISemanticTokens {
 
             return result != null ? result : 0;
         }
-
-        // TODO: register Token Types with font attributes, with the following defaults:
-
-        // map.put(TreeAdapter.NORMAL, new TextAttribute(null, null, SWT.NONE));
-        // map.put(TreeAdapter.NONTERMINAL_LABEL, new TextAttribute(new
-        // Color(Display.getDefault(), 0x80, 0x80, 0x80), null, SWT.ITALIC));
-        // map.put(TreeAdapter.META_KEYWORD, new TextAttribute(new
-        // Color(Display.getDefault(), 123, 0, 82), null, SWT.BOLD));
-        // map.put(TreeAdapter.META_VARIABLE, new TextAttribute(new
-        // Color(Display.getDefault(), 0x29,0x5F,0x94), null, SWT.ITALIC));
-        // map.put(TreeAdapter.META_AMBIGUITY, new TextAttribute(new
-        // Color(Display.getDefault(), 186, 29, 29), null, SWT.BOLD));
-        // map.put(TreeAdapter.META_SKIPPED, new TextAttribute(null, new
-        // Color(Display.getDefault(), 255, 255, 255), SWT.ITALIC)); //82, 141, 115
-        // map.put(TreeAdapter.TODO,new TextAttribute(new Color(Display.getDefault(),
-        // 123, 157, 198), null, SWT.BOLD));
-        // map.put(TreeAdapter.COMMENT,new TextAttribute(new Color(Display.getDefault(),
-        // 82, 141, 115), null, SWT.ITALIC));
-        // map.put(TreeAdapter.CONSTANT,new TextAttribute(new
-        // Color(Display.getDefault(), 139, 0, 139), null, SWT.NONE));
-        // map.put(TreeAdapter.VARIABLE,new TextAttribute(new
-        // Color(Display.getDefault(), 0x55,0xaa,0x55), null, SWT.NONE));
-        // map.put(TreeAdapter.IDENTIFIER,new TextAttribute(new
-        // Color(Display.getDefault(), 0x2C,0x57,0x7C), null, SWT.NONE));
-        // map.put(TreeAdapter.QUOTE,new TextAttribute(new Color(Display.getDefault(),
-        // 255, 69, 0), new Color(Display.getDefault(), 32,178,170), SWT.NONE));
-        // map.put(TreeAdapter.TYPE,new TextAttribute(new Color(Display.getDefault(),
-        // 0xAB,0x25,0x25), null, SWT.NONE));
-        // map.put(TreeAdapter.RESULT, new TextAttribute(new Color(Display.getDefault(),
-        // 0x74,0x8B,0x00), new Color(Display.getDefault(), 0xEC, 0xEC, 0xEC),
-        // SWT.ITALIC));
-        // map.put(TreeAdapter.STDOUT, new TextAttribute(new Color(Display.getDefault(),
-        // 0xB3,0xB3,0xB3), null, SWT.ITALIC));
-        // map.put(TreeAdapter.STDERR, new TextAttribute(new Color(Display.getDefault(),
-        // 0xAF,0x00,0x00), null, SWT.NONE));
     }
 
     private static class TokenCollector extends TreeVisitor<RuntimeException> {
@@ -169,7 +172,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 int length = ambLoc != null ? ambLoc.getLength() : TreeAdapter.yield(arg).length();
 
                 location += length;
-                tokens.addToken(ambLoc.getBeginLine(), ambLoc.getBeginColumn(), ambLoc.getLength(), "MetaAmbiguity");
+                tokens.addToken(ambLoc.getBeginLine() - 1, ambLoc.getBeginColumn(), ambLoc.getLength(), "MetaAmbiguity");
             } else {
                 TreeAdapter.getAlternatives(arg).iterator().next().accept(this);
             }
@@ -204,7 +207,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
 
             if (category != null && loc != null) {
-                tokens.addToken(loc.getBeginLine(), loc.getBeginColumn(), loc.getLength(), category);
+                tokens.addToken(loc.getBeginLine() - 1, loc.getBeginColumn(), loc.getLength(), category);
                 location += loc.getLength();
                 return arg;
             }
