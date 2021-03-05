@@ -18,7 +18,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.values.parsetrees.visitors.TreeVisitor;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -30,7 +29,7 @@ public class SemanticTokenizer implements ISemanticTokens {
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
         TokenList tokens = new TokenList();
-        tree.accept(new TokenCollector(tokens));
+        new TokenCollector(tokens).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
@@ -153,8 +152,11 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
     }
 
-    private static class TokenCollector extends TreeVisitor<RuntimeException> {
+    private static class TokenCollector {
         private int location;
+        private int line;
+        private int column;
+
         private final boolean showAmb = false;
         private TokenList tokens;
 
@@ -162,9 +164,69 @@ public class SemanticTokenizer implements ISemanticTokens {
             super();
             this.tokens = tokens;
             location = 0;
+            line = 0;
+            column = 0;
         }
 
-        public ITree visitTreeAmb(ITree arg) {
+        public void collect(ITree tree) {
+            collect(tree, false);
+        }
+
+        private void collect(ITree tree, boolean skip) {
+            if (tree.isAppl()) {
+                collectAppl(tree, skip);
+            }
+            else if (tree.isAmb()) {
+                collectAmb(tree, skip);
+            }
+            else if (tree.isChar()) {
+                collectChar(tree, skip);
+            }
+        }
+
+        private void collectAppl(ITree arg, boolean skip) {
+            String category = null;
+
+            if (!skip) {
+                IValue catAnno = arg.asWithKeywordParameters().getParameter("category");
+
+                if (catAnno != null) {
+                    category = ((IString) catAnno).getValue();
+                }
+
+                IConstructor prod = TreeAdapter.getProduction(arg);
+
+                if (category == null && ProductionAdapter.isDefault(prod)) {
+                    category = ProductionAdapter.getCategory(prod);
+                }
+
+                if (category == null && ProductionAdapter.isDefault(prod) && (TreeAdapter.isLiteral(arg) || TreeAdapter.isCILiteral(arg))) {
+                    category = TreeAdapter.META_KEYWORD;
+    
+                    // unless this is an operator
+                    for (IValue child : TreeAdapter.getArgs(arg)) {
+                        int c = TreeAdapter.getCharacter((ITree) child);
+                        if (c != '-' && !Character.isJavaIdentifierPart(c)) {
+                            category = null;
+                        }
+                    }
+                }
+            }
+
+            int startLine = line;
+            int startColumn = column;
+
+            // now we go down in the tree to find more tokens and to advance the counters
+            for (IValue child : TreeAdapter.getArgs(arg)) {
+                collect((ITree) child, skip || category != null);
+            }
+
+            if (category != null && !skip) {
+                tokens.addToken(startLine, startColumn, column -startColumn, category);
+            }
+        }
+
+        private void collectAmb(ITree arg, boolean skip) {
             if (showAmb) {
                 int offset = location;
                 ISourceLocation ambLoc = TreeAdapter.getLocation(arg);
@@ -173,82 +235,20 @@ public class SemanticTokenizer implements ISemanticTokens {
                 location += length;
                 tokens.addToken(ambLoc.getBeginLine() - 1, ambLoc.getBeginColumn(), ambLoc.getLength(), "MetaAmbiguity");
             } else {
-                TreeAdapter.getAlternatives(arg).iterator().next().accept(this);
+                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), skip);
             }
-            return arg;
-
         }
 
-        public ITree visitTreeAppl(ITree arg) {
-            IValue catAnno = arg.asWithKeywordParameters().getParameter("category");
-            String category = null;
+        private void collectChar(ITree ch, boolean skip) {
+            location++;
 
-            if (catAnno != null) {
-                category = ((IString) catAnno).getValue();
+            if (TreeAdapter.getCharacter(ch) == '\n') {
+                line++;
+                column = 0;
             }
-
-            IConstructor prod = TreeAdapter.getProduction(arg);
-            if (category == null && ProductionAdapter.isDefault(prod)) {
-                category = ProductionAdapter.getCategory(prod);
+            else {
+                column++;
             }
-
-            // It's not so nice to link the sort name to the token color constant ...
-            if (TreeAdapter.NONTERMINAL_LABEL.equals(ProductionAdapter.getSortName(prod))) {
-                category = TreeAdapter.NONTERMINAL_LABEL;
-            }
-
-            // short cut, if we have source locations and a category we found a long token
-            ISourceLocation loc = TreeAdapter.getLocation(arg);
-
-            // Always sync location with locs because of concrete syntax stuff in Rascal.
-            if (loc != null) {
-                location = loc.getOffset();
-            }
-
-            if (category != null && loc != null) {
-                tokens.addToken(loc.getBeginLine() - 1, loc.getBeginColumn(), loc.getLength(), category);
-                location += loc.getLength();
-                return arg;
-            }
-
-            // now we go down in the tree to find more tokens
-
-            for (IValue child : TreeAdapter.getArgs(arg)) {
-                child.accept(this);
-            }
-
-            if (ProductionAdapter.isDefault(prod) && (TreeAdapter.isLiteral(arg) || TreeAdapter.isCILiteral(arg))) {
-                if (category == null) {
-                    category = TreeAdapter.META_KEYWORD;
-
-                    for (IValue child : TreeAdapter.getArgs(arg)) {
-                        int c = TreeAdapter.getCharacter((ITree) child);
-                        if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                            category = null;
-                        }
-                    }
-
-                    if (category == null) {
-                        category = TreeAdapter.NORMAL;
-                    }
-                }
-            }
-
-            if (category != null && loc != null) {
-                tokens.addToken(loc.getBeginLine(), loc.getBeginColumn(), loc.getLength(), category);
-            }
-
-            return arg;
-        }
-
-        public ITree visitTreeChar(ITree arg) {
-            ++location;
-
-            return arg;
-        }
-
-        public ITree visitTreeCycle(ITree arg) {
-            return arg;
         }
     }
 }
