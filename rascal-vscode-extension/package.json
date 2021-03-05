@@ -41,6 +41,13 @@
 				],
 				"configuration": "./language-configuration.json"
 			}
+		],
+		"grammars": [
+			{
+				"language": "rascalmpl",
+				"scopeName": "source.rascalmpl",
+				"path": "./syntaxes/simple.tmGrammar.json"
+			}
 		]
 	},
 	"scripts": {
