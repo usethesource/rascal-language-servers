@@ -21,16 +21,16 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.NavigableMap;
-import java.util.Optional;
 import java.util.TreeMap;
-import org.eclipse.lsp4j.Location;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 
-public class TreeMapLookup implements IRangeToLocationMap {
+public class TreeMapLookup<T> implements IRangeMap<T> {
 
-    private final NavigableMap<Range, Location> data = new TreeMap<>(TreeMapLookup::compareRanges);
+    private final NavigableMap<Range, T> data = new TreeMap<>(TreeMapLookup::compareRanges);
 
     private static int compareRanges(Range a, Range b) {
         Position aStart = a.getStart();
@@ -82,8 +82,8 @@ public class TreeMapLookup implements IRangeToLocationMap {
     }
 
     @Override
-    public Optional<Location> lookup(Range from) {
-        Entry<Range, Location> result = data.floorEntry(from);
+    public @Nullable T lookup(Range from) {
+        Entry<Range, T> result = data.floorEntry(from);
         if (result == null) {
             // could be that it's at the start of the entry
             result = data.ceilingEntry(from);
@@ -91,18 +91,22 @@ public class TreeMapLookup implements IRangeToLocationMap {
         if (result != null) {
             Range match = result.getKey();
             if (rangeContains(match, from)) {
-                return Optional.of(result.getValue());
+                return result.getValue();
             }
         }
-        return Optional.empty();
+        return null;
     }
 
-    public void add(Range from, Location to) {
+    public void put(Range from, T to) {
         data.put(from, to);
     }
 
-    @Override
-    public String toString() {
-        return "lookup: " + data;
+    public @Nullable T getExact(Range from) {
+        return data.get(from);
     }
+
+    public T computeIfAbsent(Range exact, Function<Range, T> compute ) {
+        return data.computeIfAbsent(exact, compute);
+    }
+
 }

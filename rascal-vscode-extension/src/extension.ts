@@ -154,7 +154,8 @@ function buildRascalServerOptions(extensionPath: string): ServerOptions {
 	return {
 		command: 'java',
 		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=TRACE', 
-			'-Drascal.compilerClasspath=' + classPath, '-cp', classPath, main , '--trace', '--deploy'],
+			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classPath, 
+			'-cp', classPath, main],
 	};
 }
 
