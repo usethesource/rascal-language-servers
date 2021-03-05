@@ -20,8 +20,9 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
-
+import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
@@ -75,5 +76,13 @@ public class Diagnostics {
                 new Position(pe.getBeginLine() - 1, pe.getBeginColumn()),
                 new Position(pe.getEndLine() - 1, pe.getEndColumn()));
         }
+    }
+
+    public static List<Diagnostic> translateDiagnostics(ICollection<?> messages) {
+        return messages.stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .map(Diagnostics::translateDiagnostic)
+            .collect(Collectors.toList());
     }
 }
