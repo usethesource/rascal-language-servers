@@ -10,7 +10,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace
 import { Server } from 'http';
 
  
-const deployMode = true;
+const deployMode = false;
 const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;

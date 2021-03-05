@@ -23,12 +23,12 @@ package org.rascalmpl.vscode.lsp;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -45,14 +45,15 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.Registration;
-import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.SemanticTokens;
+import org.eclipse.lsp4j.SemanticTokensDelta;
+import org.eclipse.lsp4j.SemanticTokensDeltaParams;
+import org.eclipse.lsp4j.SemanticTokensParams;
+import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
-import org.eclipse.lsp4j.TextDocumentRegistrationOptions;
-import org.eclipse.lsp4j.TextDocumentSaveRegistrationOptions;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -69,6 +70,8 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FileState;
 import org.rascalmpl.vscode.lsp.util.Locations;
 import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
 
@@ -78,6 +81,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     private final RascalLanguageServices rascalServices;
     private final IValueFactory VF = ValueFactoryFactory.getValueFactory();
 
+    private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
 
     private final Map<ISourceLocation, FileState> files;
@@ -93,6 +97,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
+        result.setSemanticTokensProvider(tokenizer.options());
     }
 
     @Override
@@ -217,5 +222,43 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
     public void shutdown() {
         ownExecuter.shutdown();
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
+        logger.debug("semanticTokensFull: {}", params.getTextDocument());
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+        ;
+    }
+
+    @Override
+    public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
+            SemanticTokensDeltaParams params) {
+        logger.debug("semanticTokensFullDelta: {}", params.getTextDocument());
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+            .thenApply(t -> Either.forLeft(t))
+        ;
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
+        logger.debug("semanticTokensRange: {}", params.getTextDocument());
+        return getFile(params.getTextDocument()).getCurrentTreeAsync()
+            .thenApply(t -> tokenizer.semanticTokensFull(t))
+            .exceptionally(e -> {
+                logger.error("tokenization failed", e);
+                return new SemanticTokens(Collections.emptyList());
+            })
+        ;
     }
 }
