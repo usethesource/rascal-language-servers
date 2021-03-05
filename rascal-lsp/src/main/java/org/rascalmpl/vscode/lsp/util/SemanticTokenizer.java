@@ -112,25 +112,24 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         /**
          * translates the Rascal category types to tmGrammar token names
-         * TODO: the ones with ? have not been mapped yet 
          */
         private static String[] tmTokenNames = new String[] {
-            "?Normal",
+            "???",
             "type",
             "identifier",
             "variable",
             "constant",
             "comment",
             "comment.todo",
-            "?Quote",
-            "?Ambiguity",
+            "string.double",
+            "invalid.illegal",
             "variable",
-            "keyword",
-            "?Skipped",
-            "?NonterminalLabel",
-            "?Result",
-            "?Stdout",
-            "?Stderr"
+            "keyword.control",
+            "invalid.illegal",
+            "variable.parameter",
+            "constant",
+            "constant",
+            "constant"
         };
 
         static {
