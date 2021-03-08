@@ -181,7 +181,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))
-            .thenApply(s -> s.getDefinition(params.getPosition()))
+            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
             .thenApply(Either::forLeft)
             ;
     }
