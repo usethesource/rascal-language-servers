@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
@@ -360,9 +361,10 @@ public class SemanticTokenizer implements ISemanticTokens {
     }
 
     private static class TokenCollector {
-        private int location;
         private int line;
         private int column;
+        private int startLineCurrentToken;
+        private int startColumnCurrentToken;
 
         private final boolean showAmb = false;
         private TokenList tokens;
@@ -370,31 +372,30 @@ public class SemanticTokenizer implements ISemanticTokens {
         public TokenCollector(TokenList tokens) {
             super();
             this.tokens = tokens;
-            location = 0;
             line = 0;
             column = 0;
         }
 
         public void collect(ITree tree) {
-            collect(tree, false);
+            collect(tree, null);
         }
 
-        private void collect(ITree tree, boolean skip) {
+        private void collect(ITree tree, @Nullable String currentCategory) {
             if (tree.isAppl()) {
-                collectAppl(tree, skip);
+                collectAppl(tree, currentCategory);
             }
             else if (tree.isAmb()) {
-                collectAmb(tree, skip);
+                collectAmb(tree, currentCategory);
             }
             else if (tree.isChar()) {
-                collectChar(tree, skip);
+                collectChar(tree, currentCategory);
             }
         }
 
-        private void collectAppl(ITree arg, boolean skip) {
+        private void collectAppl(ITree arg, @Nullable String currentCategory) {
             String category = null;
 
-            if (!skip) {
+            if (currentCategory == null) {
                 IValue catAnno = arg.asWithKeywordParameters().getParameter("category");
 
                 if (catAnno != null) {
@@ -420,89 +421,44 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
             }
 
-            int startLine = line;
-            int startColumn = column;
+            if (category != null && currentCategory == null) {
+                startLineCurrentToken = line;
+                startColumnCurrentToken = column;
+            }
 
             // now we go down in the tree to find more tokens and to advance the counters
             for (IValue child : TreeAdapter.getArgs(arg)) {
-                collect((ITree) child, skip || category != null);
+                collect((ITree) child, currentCategory != null ? currentCategory : category);
             }
 
-            if (category != null && !skip) {
-                if (startLine == line) {
-                    tokens.addToken(startLine, startColumn, column - startColumn, category);
-                }
-                else {
-                    splitTokenLines(arg, startLine, startColumn, category);
-                }
+            if (category != null && currentCategory == null) {
+                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, category);
             }
         }
 
-        private void splitTokenLines(ITree arg, int startLine, int startColumn, String category) {
-            // reset to the start of the token
-            line = startLine;
-            column = startColumn;
-
-            // recurse to find each individual line
-            splitTokenLinesRec(arg, startLine, startColumn, category);
-
-            // tokenize the last line
-            if (line != startLine) {
-                tokens.addToken(line, 0, column, category);
-            }
-        }
-
-        private void splitTokenLinesRec(ITree arg, int startLine, int startColumn, String category) {
-            if (arg.isAppl()) {
-                for (IValue child : TreeAdapter.getArgs(arg)) {
-                    splitTokenLinesRec((ITree) child, startLine, startColumn, category);
-                }
-            }
-            else if (arg.isAmb()) {
-                splitTokenLinesRec((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), startLine, startColumn, category);
-            }
-            else if (arg.isChar()) {
-                int ch = TreeAdapter.getCharacter(arg);
-                location++;
-
-                if (ch == '\n') {
-                    if (startLine == line) {
-                        // the first line may start somewhere in the middle
-                        tokens.addToken(line, startColumn, column - startColumn, category);
-                    }
-                    else {
-                        // middle lines are just the whole line
-                        tokens.addToken(line, 0, column, category);
-                    }
-
-                    line++;
-                    column = 0;
-                }
-                else {
-                    column++;
-                }
-            }
-        }
-
-        private void collectAmb(ITree arg, boolean skip) {
+        private void collectAmb(ITree arg, @Nullable String currentCategory) {
             if (showAmb) {
-                int offset = location;
                 ISourceLocation ambLoc = TreeAdapter.getLocation(arg);
                 int length = ambLoc != null ? ambLoc.getLength() : TreeAdapter.yield(arg).length();
 
-                location += length;
                 tokens.addToken(ambLoc.getBeginLine() - 1, ambLoc.getBeginColumn(), ambLoc.getLength(), "MetaAmbiguity");
             } else {
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), skip);
+                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), currentCategory);
             }
         }
 
-        private void collectChar(ITree ch, boolean skip) {
-            location++;
-
+        private void collectChar(ITree ch, @Nullable String currentCategory) {
             if (TreeAdapter.getCharacter(ch) == '\n') {
                 line++;
+
+                // this splits multi-line tokens automatically across the lines
+                if (currentCategory != null) {
+                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentCategory);
+                    startColumnCurrentToken = 0;
+                    startLineCurrentToken = line;
+                }
                 column = 0;
+
             }
             else {
                 column++;
