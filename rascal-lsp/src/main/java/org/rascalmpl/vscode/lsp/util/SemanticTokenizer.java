@@ -417,7 +417,6 @@ public class SemanticTokenizer implements ISemanticTokens {
                             category = null;
                         }
                     }
-
                 }
             }
 

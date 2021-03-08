@@ -22,6 +22,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.ideservices.IDEServices;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -52,13 +53,13 @@ public class RascalLanguageServer {
 
     private static int portNumber = 8888;
 
-    private static Launcher<LanguageClient> constructLSPClient(Socket client, ActualServer server)
+    private static Launcher<LanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
     private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out,
-        ActualServer server) {
+        ActualLanguageServer server) {
         Launcher<LanguageClient> clientLauncher = LSPLauncher.createServerLauncher(server, in, out);
         server.connect(clientLauncher.getRemoteProxy());
         return clientLauncher;
@@ -69,13 +70,13 @@ public class RascalLanguageServer {
         logger.info("Starting Rascal Language Server");
 
         if (DEPLOY_MODE) {
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualServer(() -> System.exit(0))));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0))));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualServer(() -> {})));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {})));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server", e);
@@ -97,13 +98,13 @@ public class RascalLanguageServer {
         }
     }
 
-    private static final class ActualServer implements LanguageServer, LanguageClientAware {
-        private static final Logger logger = LogManager.getLogger(ActualServer.class);
+    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware {
+        private static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
         private final Runnable onExit;
 
-        private ActualServer(Runnable onExit) {
+        private ActualLanguageServer(Runnable onExit) {
             this.onExit = onExit;
             lspDocumentService = new RascalTextDocumentService(new RascalLanguageServices());
         }
