@@ -408,15 +408,16 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
 
                 if (category == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
-                    category = "keyword.control";
+                    category = "keyword.other";
     
                     // unless this is an operator
                     for (IValue child : TreeAdapter.getArgs(arg)) {
                         int c = TreeAdapter.getCharacter((ITree) child);
                         if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                            category = "keyword.operator.arithmetic";
+                            category = null;
                         }
                     }
+
                 }
             }
 
