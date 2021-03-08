@@ -17,6 +17,8 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let developmentPort = 8888;
 
+let ideServicesPort = -1;
+
 let contentPanels : any[] = [];
 
 export function getRascalExtensionDeploymode() : boolean {
@@ -38,6 +40,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions);
 		
 	client.trace = Trace.Verbose;
+
+	client.onReady().then(() => {
+		client.onNotification("rascal/acceptIDEServicesPort", (port:number) => {
+			ideServicesPort = port;
+			console.log("IDE services port registered at " + port);
+		});
+	});
 
 	context.subscriptions.push(client.start());
 

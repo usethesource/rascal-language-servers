@@ -10,19 +10,21 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.launch.LSPLauncher;
+import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.ideservices.IDEServices;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -53,15 +55,28 @@ public class RascalLanguageServer {
 
     private static int portNumber = 8888;
 
-    private static Launcher<LanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
+    private static Launcher<RascalLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
-    private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out,
-        ActualLanguageServer server) {
-        Launcher<LanguageClient> clientLauncher = LSPLauncher.createServerLauncher(server, in, out);
+    private static interface RascalLanguageClient extends LanguageClient {
+        @JsonRequest("rascal/acceptIDEServicesPort")
+        default CompletableFuture<Void> acceptIDEServicesPort(int port) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static Launcher<RascalLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
+        Launcher<RascalLanguageClient> clientLauncher = new Launcher.Builder<RascalLanguageClient>()
+            .setLocalService(server)
+            .setRemoteInterface(RascalLanguageClient.class)
+            .setInput(in)
+            .setOutput(out)
+            .create();
+
         server.connect(clientLauncher.getRemoteProxy());
+        
         return clientLauncher;
     }
 
@@ -84,7 +99,7 @@ public class RascalLanguageServer {
         }
     }
 
-    private static void startLSP(Launcher<LanguageClient> server) {
+    private static void startLSP(Launcher<RascalLanguageClient> server) {
         try {
             server.startListening().get();
         } catch (InterruptedException e) {
@@ -140,7 +155,30 @@ public class RascalLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            getTextDocumentService().connect(client);
+            try {
+                getTextDocumentService().connect(client);
+                startIDEServices((RascalLanguageClient) client);
+            } catch (IOException e) {
+                logger.error("could not connect client", e);
+            }
+        }
+
+        /**
+         * 
+         * @return the port number that the IDE services are running on
+         * @throws IOException
+         */
+        private static void startIDEServices(RascalLanguageClient client) throws IOException {
+            ServerSocket serverSocket = new ServerSocket(0);
+            int port = serverSocket.getLocalPort();
+
+            try {
+                logger.info("sending acceptIDEServicesPort(" + port + ")");
+                client.acceptIDEServicesPort(port);
+            }
+            catch (Throwable t) {
+                logger.error(t);
+            }
         }
     }
 }
