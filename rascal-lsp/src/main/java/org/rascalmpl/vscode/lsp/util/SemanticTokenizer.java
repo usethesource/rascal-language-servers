@@ -63,6 +63,8 @@ public class SemanticTokenizer implements ISemanticTokens {
             Collections.emptyList(),
             Collections.emptyList());
 
+        cps.setMultilineTokenSupport(true);
+
         return cps;
     }
 
@@ -91,7 +93,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         private static final Map<String, Integer> cache = new HashMap<>();
 
         /**
-         * The Rascal legacy token types are translates to
+         * The Rascal legacy token types are translated to
          * textmate token types here
          */
         private static String[][] rascalCategories = new String[][] { 
@@ -427,8 +429,64 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
 
             if (category != null && !skip) {
-                tokens.addToken(startLine, startColumn, column -startColumn, category);
+                if (startLine == line) {
+                    tokens.addToken(startLine, startColumn, column - startColumn, category);
+                }
+                else {
+                    splitTokenLines(arg, startLine, startColumn, category);
+                }
             }
+        }
+
+        private void splitTokenLines(ITree arg, int startLine, int startColumn, String category) {
+            // reset to the start of the token
+            line = startLine;
+            column = startColumn;
+
+            // recurse to find each individual line
+            splitTokenLinesRec(arg, startLine, startColumn, category);
+
+            // tokenize the last line
+            if (line != startLine) {
+                tokens.addToken(line, 0, column, category);
+            }
+        }
+
+        private void splitTokenLinesRec(ITree arg, int startLine, int startColumn, String category) {
+            if (arg.isAppl()) {
+                for (IValue child : TreeAdapter.getArgs(arg)) {
+                    splitTokenLinesRec((ITree) child, startLine, startColumn, category);
+                }
+            }
+            else if (arg.isAmb()) {
+                splitTokenLinesRec((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), startLine, startColumn, category);
+            }
+            else if (arg.isChar()) {
+                int ch = TreeAdapter.getCharacter(arg);
+                location++;
+
+                if (ch == '\n') {
+                    if (startLine == line) {
+                        // the first line may start somewhere in the middle
+                        tokens.addToken(line, startColumn, column - startColumn, category);
+                    }
+                    else {
+                        // middle lines are just the whole line
+                        tokens.addToken(line, 0, column, category);
+                    }
+
+                    line++;
+                    column = 0;
+                }
+                else {
+                    column++;
+                }
+            }
+        }
+
+        private void splitTokenLinesAppl(ITree arg, String category) {
+             // now we go down in the tree to find more tokens and to advance the counters
+            
         }
 
         private void collectAmb(ITree arg, boolean skip) {
