@@ -21,7 +21,6 @@ import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
@@ -408,14 +407,14 @@ public class SemanticTokenizer implements ISemanticTokens {
                     category = ProductionAdapter.getCategory(prod);
                 }
 
-                if (category == null && ProductionAdapter.isDefault(prod) && (TreeAdapter.isLiteral(arg) || TreeAdapter.isCILiteral(arg))) {
-                    category = TreeAdapter.META_KEYWORD;
+                if (category == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
+                    category = "keyword.control";
     
                     // unless this is an operator
                     for (IValue child : TreeAdapter.getArgs(arg)) {
                         int c = TreeAdapter.getCharacter((ITree) child);
                         if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                            category = null;
+                            category = "keyword.operator.arithmetic";
                         }
                     }
                 }
@@ -438,10 +437,12 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         private void collectAmb(ITree arg, @Nullable String currentCategory) {
             if (showAmb) {
-                ISourceLocation ambLoc = TreeAdapter.getLocation(arg);
-                int length = ambLoc != null ? ambLoc.getLength() : TreeAdapter.yield(arg).length();
+                startLineCurrentToken = line;
+                startColumnCurrentToken = column;
 
-                tokens.addToken(ambLoc.getBeginLine() - 1, ambLoc.getBeginColumn(), ambLoc.getLength(), "MetaAmbiguity");
+                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), "MetaAmbiguity");
+
+                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, "MetaAmbiguity");
             } else {
                 collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), currentCategory);
             }
