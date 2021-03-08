@@ -97,8 +97,6 @@ public class RascalLanguageServer {
         }
     }
 
-
-
     private static final class ActualServer implements LanguageServer, LanguageClientAware {
         private static final Logger logger = LogManager.getLogger(ActualServer.class);
         private final RascalTextDocumentService lspDocumentService;
@@ -143,6 +141,5 @@ public class RascalLanguageServer {
         public void connect(LanguageClient client) {
             getTextDocumentService().connect(client);
         }
-
     }
 }

@@ -484,11 +484,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
         }
 
-        private void splitTokenLinesAppl(ITree arg, String category) {
-             // now we go down in the tree to find more tokens and to advance the counters
-            
-        }
-
         private void collectAmb(ITree arg, boolean skip) {
             if (showAmb) {
                 int offset = location;
