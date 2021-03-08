@@ -26,6 +26,7 @@ import org.eclipse.lsp4j.services.WorkspaceService;
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
  */
+@SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public class RascalLanguageServer {
     private static final @Nullable PrintStream capturedOut;
     private static final @Nullable InputStream capturedIn;
@@ -34,10 +35,11 @@ public class RascalLanguageServer {
     static {
         DEPLOY_MODE = System.getProperty("rascal.lsp.deploy", "false").equalsIgnoreCase("true");
         if (DEPLOY_MODE){
+            // we redirect system.out & system.in so that we can use them exclusively for lsp
             capturedIn = System.in;
             capturedOut = System.out;
             System.setIn(new ByteArrayInputStream(new byte[0]));
-            System.setOut(System.err);
+            System.setOut(new PrintStream(System.err, false)); // wrap stderr with a non flushing stream as that is how std.out normally works
         }
         else {
             capturedIn = null;
