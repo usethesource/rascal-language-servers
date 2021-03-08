@@ -90,57 +90,262 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenTypes {
         private static final Map<String, Integer> cache = new HashMap<>();
 
-        private static String[] types = new String[] { 
-            TreeAdapter.NORMAL, 
-            TreeAdapter.TYPE, 
-            TreeAdapter.IDENTIFIER, 
-            TreeAdapter.VARIABLE, 
-            TreeAdapter.CONSTANT, 
-            TreeAdapter.COMMENT,
-            TreeAdapter.TODO, 
-            TreeAdapter.QUOTE, 
-            TreeAdapter.META_AMBIGUITY, 
-            TreeAdapter.META_VARIABLE, 
-            TreeAdapter.META_KEYWORD, 
-            TreeAdapter.META_SKIPPED, 
-            TreeAdapter.NONTERMINAL_LABEL,
-            TreeAdapter.RESULT, 
-            TreeAdapter.STDOUT, 
-            TreeAdapter.STDERR 
+        /**
+         * The Rascal legacy token types are translates to
+         * textmate token types here
+         */
+        private static String[][] rascalCategories = new String[][] { 
+            { TreeAdapter.NORMAL,               "source" },
+            { TreeAdapter.TYPE,                 "storage.type"},
+            { TreeAdapter.IDENTIFIER,           "variable"},
+            { TreeAdapter.VARIABLE,             "variable" },
+            { TreeAdapter.CONSTANT,             "constant" },
+            { TreeAdapter.COMMENT,              "comment" },
+            { TreeAdapter.TODO,                 "comment" },
+            { TreeAdapter.QUOTE,                "meta.string" },
+            { TreeAdapter.META_AMBIGUITY,       "invalid" },
+            { TreeAdapter.META_VARIABLE,        "variable" },
+            { TreeAdapter.META_KEYWORD,         "keyword.other" },
+            { TreeAdapter.META_SKIPPED,         "invalid" },
+            { TreeAdapter.NONTERMINAL_LABEL,    "variable.parameter"},
+            { TreeAdapter.RESULT,               "text"},
+            { TreeAdapter.STDOUT,               "text"},
+            { TreeAdapter.STDERR,               "text"}
         };
 
         /**
-         * translates the Rascal category types to tmGrammar token names
+         * These should be _all_ textmate token categories that exist 
+         * See <https://www.sublimetext.com/docs/3/scope_naming.html>.
          */
-        private static String[] tmTokenNames = new String[] {
-            "???",
-            "type",
-            "identifier",
+        private static String[] textmateCategories = new String[] { 
+            // The first block is what we minally need to get good
+            // highlighting support
+            "entity.name",
+            "entity.other.inherited-class",
+            "entity.name.section",
+            "entity.name.tag",
+            "entity.other.attribute-name",
             "variable",
-            "constant",
-            "comment",
-            "comment.todo",
-            "string.double",
-            "invalid.illegal",
-            "variable",
-            "keyword.control",
-            "invalid.illegal",
+            "variable.language",
             "variable.parameter",
+            "variable.function",
             "constant",
+            "constant.numeric",
+            "constant.language",
+            "constant.character.escape",
+            "storage.type",
+            "storage.modifier",
+            "support",
+            "keyword",
+            "keyword.control",
+            "keyword.operator",
+            "keyword.declaration",
+            "string",
+            "comment",
+            "invalid",
+            "invalid.deprecated",
+
+            // this second block is all additional semantic information which
+            // can slightly improve the editing experience, but may also lead
+            // a to X-mas tree 
+            "comment.block.documentation",
+            "comment.block",
+            "comment.single",
+            "comment",
+            "constant.character.escape",
+            "constant.language",
+            "constant.numeric.complex.imaginary",
+            "constant.numeric.complex.real",
+            "constant.numeric.complex",
+            "constant.numeric.float.binary",
+            "constant.numeric.float.decimal",
+            "constant.numeric.float.hexadecimal",
+            "constant.numeric.float.octal",
+            "constant.numeric.float.other",
+            "constant.numeric.float",
+            "constant.numeric.integer.binary",
+            "constant.numeric.integer.decimal",
+            "constant.numeric.integer.hexadecimal",
+            "constant.numeric.integer.octal",
+            "constant.numeric.integer.other",
+            "constant.numeric.integer",
+            "constant.numeric",
+            "constant.other.placeholder",
+            "constant.other",
             "constant",
-            "constant"
+            "entity.name.class.forward-decl",
+            "entity.name.class",
+            "entity.name.constant",
+            "entity.name.enum",
+            "entity.name.function.constructor",
+            "entity.name.function.destructor",
+            "entity.name.function",
+            "entity.name.impl",
+            "entity.name.interface",
+            "entity.name.label",
+            "entity.name.namespace",
+            "entity.name.section",
+            "entity.name.struct",
+            "entity.name.tag",
+            "entity.name.trait",
+            "entity.name.type",
+            "entity.name.union",
+            "entity.name",
+            "entity.other.attribute-name",
+            "entity.other.inherited-class",
+            "entity",
+            "invalid.deprecated",
+            "invalid.illegal",
+            "invalid",
+            "keyword.control.conditional",
+            "keyword.control.import",
+            "keyword.control",
+            "keyword.declaration.class",
+            "keyword.declaration.enum",
+            "keyword.declaration.function",
+            "keyword.declaration.impl",
+            "keyword.declaration.interface",
+            "keyword.declaration.struct",
+            "keyword.declaration.trait",
+            "keyword.declaration.type",
+            "keyword.declaration.union",
+            "keyword.declaration",
+            "keyword.operator.arithmetic",
+            "keyword.operator.assignment",
+            "keyword.operator.bitwise",
+            "keyword.operator.logical",
+            "keyword.operator.word",
+            "keyword.operator",
+            "keyword.other",
+            "keyword",
+            "markup.bold",
+            "markup.deleted",
+            "markup.heading",
+            "markup.inserted",
+            "markup.italic",
+            "markup.list.numbered",
+            "markup.list.unnumbered",
+            "markup.other",
+            "markup.quote",
+            "markup.raw.block",
+            "markup.raw.inline",
+            "markup.underline.link",
+            "markup.underline",
+            "markup",
+            "meta.annotation.identifier",
+            "meta.annotation.parameters",
+            "meta.annotation",
+            "meta.block",
+            "meta.braces",
+            "meta.brackets",
+            "meta.class",
+            "meta.enum",
+            "meta.function-call",
+            "meta.function.parameters",
+            "meta.function.return-type",
+            "meta.function",
+            "meta.group",
+            "meta.impl",
+            "meta.interface",
+            "meta.interpolation",
+            "meta.namespace",
+            "meta.paragraph",
+            "meta.parens",
+            "meta.path",
+            "meta.preprocessor",
+            "meta.string",
+            "meta.struct",
+            "meta.tag",
+            "meta.toc-list",
+            "meta.trait",
+            "meta.type",
+            "meta.union",
+            "meta",
+            "punctuation.accessor",
+            "punctuation.definition.annotation",
+            "punctuation.definition.comment",
+            "punctuation.definition.keyword",
+            "punctuation.definition.string.begin",
+            "punctuation.definition.string.end",
+            "punctuation.definition.variable",
+            "punctuation.section.block.begin",
+            "punctuation.section.block.end",
+            "punctuation.section.braces.begin",
+            "punctuation.section.braces.end",
+            "punctuation.section.brackets.begin",
+            "punctuation.section.brackets.end",
+            "punctuation.section.group.begin",
+            "punctuation.section.group.end",
+            "punctuation.section.interpolation.begin",
+            "punctuation.section.interpolation.end",
+            "punctuation.section.parens.begin",
+            "punctuation.section.parens.end",
+            "punctuation.separator.continuation",
+            "punctuation.separator",
+            "punctuation.terminator",
+            "source",
+            "storage.modifier",
+            "storage.type.class",
+            "storage.type.enum", 
+            "storage.type.function",
+            "storage.type.impl",
+            "storage.type.interface",
+            "storage.type.struct",
+            "storage.type.trait",
+            "storage.type.union",
+            "storage.type",
+            "storage.type",
+            "string.quoted.double",
+            "string.quoted.other",
+            "string.quoted.single",
+            "string.quoted.triple",
+            "string.regexp",
+            "string.unquoted",
+            "string",
+            "support.class",
+            "support.constant",
+            "support.function",
+            "support.module",
+            "support.type",
+            "text.html",
+            "text.xml",
+            "text",
+            "variable.annotation",
+            "variable.function",
+            "variable.language",
+            "variable.other.constant",
+            "variable.other.member",
+            "variable.other.readwrite",
+            "variable.other",
+            "variable.parameter",
         };
 
         static {
-            for (int i = 0; i < types.length; i++) {
-                cache.put(types[i], i);
+            // the cache translates Rascal token types to textmate token indexes
+            for (int i = 0; i < rascalCategories.length; i++) {
+                cache.put(rascalCategories[i][0], indexOf(rascalCategories[i][1], textmateCategories));
+            }
+
+            // and the cache also translates the normal textmate token types to token indexes
+            for (int i = 0; i < textmateCategories.length; i++) {
+                cache.put(textmateCategories[i], i);
             }
         }
 
         public static List<String> getTokenTypes() {
-            return Arrays.asList(tmTokenNames);
+            return Arrays.asList(textmateCategories);
         }        
         
+        private static Integer indexOf(String needle, String[] haystack) {
+            for (int i = 0; i < haystack.length; i++) {
+                if (needle.equals(haystack[i])) {
+                    return i;
+                }
+            }
+
+            throw new RuntimeException("this should not happen: " + needle + " not found?!?");
+        }
+
         public static List<String> getTokenModifiers() {
             return Collections.emptyList();
         }
