@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Rascal-LSP server",
+      "request": "launch",
+      "mainClass": "org.rascalmpl.vscode.lsp.RascalLanguageServer",
+      "console": "internalConsole",
+      "vmArgs": ["-Dlog4j2.level=TRACE", "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar"]
+    }
+
+  ]
+}
