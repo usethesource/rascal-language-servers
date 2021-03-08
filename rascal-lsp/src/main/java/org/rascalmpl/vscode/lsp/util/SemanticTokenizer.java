@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
@@ -25,6 +27,7 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer implements ISemanticTokens {
+    private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
@@ -96,7 +99,7 @@ public class SemanticTokenizer implements ISemanticTokens {
          * The Rascal legacy token types are translated to
          * textmate token types here
          */
-        private static String[][] rascalCategories = new String[][] { 
+        private static String[][] rascalCategories = new String[][] {
             { TreeAdapter.NORMAL,               "source" },
             { TreeAdapter.TYPE,                 "storage.type"},
             { TreeAdapter.IDENTIFIER,           "variable"},
@@ -116,10 +119,10 @@ public class SemanticTokenizer implements ISemanticTokens {
         };
 
         /**
-         * These should be _all_ textmate token categories that exist 
+         * These should be _all_ textmate token categories that exist
          * See <https://www.sublimetext.com/docs/3/scope_naming.html>.
          */
-        private static String[] textmateCategories = new String[] { 
+        private static String[] textmateCategories = new String[] {
             // The first block is what we minally need to get good
             // highlighting support
             "entity.name",
@@ -149,7 +152,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
             // this second block is all additional semantic information which
             // can slightly improve the editing experience, but may also lead
-            // a to X-mas tree 
+            // a to X-mas tree
             "comment.block.documentation",
             "comment.block",
             "comment.single",
@@ -288,7 +291,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             "source",
             "storage.modifier",
             "storage.type.class",
-            "storage.type.enum", 
+            "storage.type.enum",
             "storage.type.function",
             "storage.type.impl",
             "storage.type.interface",
@@ -336,8 +339,8 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         public static List<String> getTokenTypes() {
             return Arrays.asList(textmateCategories);
-        }        
-        
+        }
+
         private static Integer indexOf(String needle, String[] haystack) {
             for (int i = 0; i < haystack.length; i++) {
                 if (needle.equals(haystack[i])) {
@@ -409,7 +412,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
                 if (category == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
                     category = "keyword.other";
-    
+
                     // unless this is an operator
                     for (IValue child : TreeAdapter.getArgs(arg)) {
                         int c = TreeAdapter.getCharacter((ITree) child);

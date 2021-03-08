@@ -5,7 +5,7 @@
 	"publisher": "usethesource",
 	"version": "0.0.1-SNAPSHOT",
 	"engines": {
-		"vscode": "^1.51.0"
+		"vscode": "^1.52.0"
 	},
 	"repository": {
 		"type": "git",
@@ -51,7 +51,7 @@
 		]
 	},
 	"scripts": {
-		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
+		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
 		"vscode:prepublish": "npm run package",
 		"compile": "webpack --devtool nosources-source-map --mode development --config ./build/node-extension.webpack.config.js",
 		"watch": "webpack --watch --devtool nosources-source-map --mode development --info-verbosity verbose --config ./build/node-extension.webpack.config.js",
@@ -66,7 +66,7 @@
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.0",
 		"@types/node": "^14.14.28",
-		"@types/vscode": "^1.51.0",
+		"@types/vscode": "^1.52.0",
 		"@typescript-eslint/eslint-plugin": "^4.1.1",
 		"@typescript-eslint/parser": "^4.1.1",
 		"eslint": "^7.9.0",

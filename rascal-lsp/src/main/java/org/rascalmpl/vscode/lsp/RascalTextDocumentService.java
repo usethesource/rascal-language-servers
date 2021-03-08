@@ -140,14 +140,13 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
     private FileState updateContents(TextDocumentIdentifier doc, String newContents) {
         FileState file = getFile(doc);
-        logger.trace("New contents: {} has: {}", doc, newContents);
+        logger.trace("New contents for {}", doc);
         handleParsingErrors(file, file.update(newContents));
         return file;
     }
 
     private void handleParsingErrors(FileState file, CompletableFuture<ITree> futureTree) {
         futureTree.handle((tree, excp) -> {
-            logger.trace("Finished parsing tree: {}", file.getLocation());
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
                 excp = excp.getCause();
@@ -163,7 +162,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                     DiagnosticSeverity.Error,
                     "Rascal Parser");
             }
-            logger.trace("Reporting new parse error: {} for: {}", newParseError, file.getLocation());
+            logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
             facts.reportParseErrors(file.getLocation(),
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
@@ -176,8 +175,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
 
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
-        DefinitionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
+        definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))
@@ -187,8 +186,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
-        DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
+        documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         FileState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
@@ -224,41 +223,34 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         ownExecuter.shutdown();
     }
 
+    private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
+        return getFile(doc).getCurrentTreeAsync()
+                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .exceptionally(e -> {
+                    logger.error("Tokenization failed", e);
+                    return new SemanticTokens(Collections.emptyList());
+                })
+                .whenComplete((r, e) ->
+                    logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size())
+                );
+    }
+
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
         logger.debug("semanticTokensFull: {}", params.getTextDocument());
-        return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> tokenizer.semanticTokensFull(t))
-            .exceptionally(e -> {
-                logger.error("tokenization failed", e);
-                return new SemanticTokens(Collections.emptyList());
-            })
-        ;
+        return getSemanticTokens(params.getTextDocument());
     }
 
     @Override
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
         logger.debug("semanticTokensFullDelta: {}", params.getTextDocument());
-        return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> tokenizer.semanticTokensFull(t))
-            .exceptionally(e -> {
-                logger.error("tokenization failed", e);
-                return new SemanticTokens(Collections.emptyList());
-            })
-            .thenApply(t -> Either.forLeft(t))
-        ;
+        return getSemanticTokens(params.getTextDocument()).thenApply(Either::forLeft);
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         logger.debug("semanticTokensRange: {}", params.getTextDocument());
-        return getFile(params.getTextDocument()).getCurrentTreeAsync()
-            .thenApply(t -> tokenizer.semanticTokensFull(t))
-            .exceptionally(e -> {
-                logger.error("tokenization failed", e);
-                return new SemanticTokens(Collections.emptyList());
-            })
-        ;
+        return getSemanticTokens(params.getTextDocument());
     }
 }

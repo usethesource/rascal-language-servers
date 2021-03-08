@@ -10,7 +10,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace
 import { Server } from 'http';
 
  
-const deployMode = false;
+const deployMode = true;
 const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
@@ -71,7 +71,7 @@ function activateTerminal(context: vscode.ExtensionContext) {
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
 			shellPath: getJavaExecutable(),
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
 
@@ -153,7 +153,7 @@ function buildRascalServerOptions(extensionPath: string): ServerOptions {
 	const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
 	return {
 		command: 'java',
-		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=TRACE', 
+		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
 			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classPath, 
 			'-cp', classPath, main],
 	};
