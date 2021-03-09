@@ -6,7 +6,7 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, NotificationType, NotificationType1, ParameterStructures, ProtocolNotificationType, ProtocolRequestType, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
 import { Server } from 'http';
 
  
@@ -42,9 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
 	client.trace = Trace.Verbose;
 
 	client.onReady().then(() => {
-		client.onNotification("rascal/acceptIDEServicesPort", (port:number) => {
-			ideServicesPort = port;
-			console.log("IDE services port registered at " + port);
+		client.onNotification("client/acceptIDEServicesPort", (port:string) => {
+			ideServicesPort = Number.parseInt(port);
+			vscode.window.showInformationMessage('rascal', port);
 		});
 	});
 
@@ -80,7 +80,7 @@ function activateTerminal(context: vscode.ExtensionContext) {
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
 			shellPath: getJavaExecutable(),
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal-lsp.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
 

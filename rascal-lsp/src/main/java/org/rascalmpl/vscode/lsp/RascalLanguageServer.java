@@ -20,6 +20,7 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
@@ -55,22 +56,22 @@ public class RascalLanguageServer {
 
     private static int portNumber = 8888;
 
-    private static Launcher<RascalLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
+    private static Launcher<IRascalLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
-    private static interface RascalLanguageClient extends LanguageClient {
-        @JsonRequest("rascal/acceptIDEServicesPort")
-        default CompletableFuture<Void> acceptIDEServicesPort(int port) {
+    private static interface IRascalLanguageClient extends LanguageClient {
+        @JsonNotification("client/acceptIDEServicesPort")
+        default CompletableFuture<Void> acceptIDEServicesPort(String port) {
             throw new UnsupportedOperationException();
         }
     }
 
-    private static Launcher<RascalLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
-        Launcher<RascalLanguageClient> clientLauncher = new Launcher.Builder<RascalLanguageClient>()
+    private static Launcher<IRascalLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
+        Launcher<IRascalLanguageClient> clientLauncher = new Launcher.Builder<IRascalLanguageClient>()
             .setLocalService(server)
-            .setRemoteInterface(RascalLanguageClient.class)
+            .setRemoteInterface(IRascalLanguageClient.class)
             .setInput(in)
             .setOutput(out)
             .create();
@@ -99,7 +100,7 @@ public class RascalLanguageServer {
         }
     }
 
-    private static void startLSP(Launcher<RascalLanguageClient> server) {
+    private static void startLSP(Launcher<IRascalLanguageClient> server) {
         try {
             server.startListening().get();
         } catch (InterruptedException e) {
@@ -118,6 +119,7 @@ public class RascalLanguageServer {
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
         private final Runnable onExit;
+        private IRascalLanguageClient client;
 
         private ActualLanguageServer(Runnable onExit) {
             this.onExit = onExit;
@@ -129,6 +131,11 @@ public class RascalLanguageServer {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+            try {
+                startIDEServices(client);
+            } catch (IOException e) {
+                logger.error(e);
+            }
             return CompletableFuture.completedFuture(initializeResult);
         }
 
@@ -155,26 +162,27 @@ public class RascalLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            try {
-                getTextDocumentService().connect(client);
-                startIDEServices((RascalLanguageClient) client);
-            } catch (IOException e) {
-                logger.error("could not connect client", e);
-            }
+            this.client = (IRascalLanguageClient) client;
+            getTextDocumentService().connect(client);
         }
 
         /**
+         * Start a server for remove IDE services. These are used
+         * by an implementation of @see IDEServices that is given to Rascal terminal REPLS
+         * when they are started in the context of the LSP. This way
+         * Rascal REPLs get access to @see IDEServices to provide browsers 
+         * for interactive visualizations, starting editors and resolving IDE project URI.
          * 
          * @return the port number that the IDE services are running on
-         * @throws IOException
+         * @throws IOException when a new server socket can not be established.
          */
-        private static void startIDEServices(RascalLanguageClient client) throws IOException {
+        private static void startIDEServices(IRascalLanguageClient client) throws IOException {
             ServerSocket serverSocket = new ServerSocket(0);
             int port = serverSocket.getLocalPort();
 
             try {
                 logger.info("sending acceptIDEServicesPort(" + port + ")");
-                client.acceptIDEServicesPort(port);
+                client.acceptIDEServicesPort("" + port);
             }
             catch (Throwable t) {
                 logger.error(t);
