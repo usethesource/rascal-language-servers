@@ -452,7 +452,8 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         private void collectChar(ITree ch, @Nullable String currentCategory) {
-            if (TreeAdapter.getCharacter(ch) == '\n') {
+            int currentChar = TreeAdapter.getCharacter(ch);
+            if (currentChar == '\n') {
                 line++;
 
                 // this splits multi-line tokens automatically across the lines
@@ -463,6 +464,9 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
                 column = 0;
 
+            }
+            else if (Character.isSupplementaryCodePoint(currentChar)) {
+                column += 2; // lsp counts 16-bit chars instead of 32bit codepoints
             }
             else {
                 column++;
