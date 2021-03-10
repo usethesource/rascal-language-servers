@@ -81,20 +81,24 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return false;
     }
 
-    @Override
-    public @Nullable T lookup(Range from) {
-        Entry<Range, T> result = data.floorEntry(from);
-        if (result == null) {
-            // could be that it's at the start of the entry
-            result = data.ceilingEntry(from);
-        }
-        if (result != null) {
-            Range match = result.getKey();
+    private @Nullable T contains(@Nullable Entry<Range, T> entry, Range from) {
+        if (entry != null) {
+            Range match = entry.getKey();
             if (rangeContains(match, from)) {
-                return result.getValue();
+                return entry.getValue();
             }
         }
         return null;
+    }
+
+    @Override
+    public @Nullable T lookup(Range from) {
+        T result = contains(data.floorEntry(from), from);
+        if (result == null) {
+            // could be that it's at the start of the entry
+            result = contains(data.ceilingEntry(from), from);
+        }
+        return result;
     }
 
     public void put(Range from, T to) {
