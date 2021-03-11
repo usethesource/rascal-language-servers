@@ -394,6 +394,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
         }
 
+        @SuppressWarnings("java:S3776") // parsing tends to be complex
         private void collectAppl(ITree arg, @Nullable String currentCategory) {
             String category = null;
 

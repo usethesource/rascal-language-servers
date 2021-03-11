@@ -15,6 +15,7 @@ public class FileState {
     private final RascalLanguageServices services;
 
     private final ISourceLocation file;
+    private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile @MonotonicNonNull ITree lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
@@ -25,11 +26,14 @@ public class FileState {
         this.javaScheduler = javaSchedular;
 
         this.file = file;
+        this.currentContent = content;
         currentTree = newContents(content);
     }
 
     public CompletableFuture<ITree> update(String text) {
-        return currentTree = newContents(text);
+        currentContent = text;
+        currentTree = newContents(text);
+        return currentTree;
     }
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
@@ -48,6 +52,10 @@ public class FileState {
 
     public ISourceLocation getLocation() {
         return file;
+    }
+
+    public String getCurrentContent() {
+        return currentContent;
     }
 
 }
