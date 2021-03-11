@@ -18,15 +18,17 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.util.locations.impl;
 
 import java.util.Map.Entry;
-import java.util.function.Function;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.function.Function;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
 public class TreeMapLookup<T> implements IRangeMap<T> {
 

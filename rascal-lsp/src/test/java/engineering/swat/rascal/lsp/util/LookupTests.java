@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.junit.jupiter.api.Test;
-import org.rascalmpl.vscode.lsp.util.TreeMapLookup;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
 
 public class LookupTests {
 

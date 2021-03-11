@@ -20,6 +20,8 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -63,14 +67,16 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.model.FileFacts;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FileState;
-import org.rascalmpl.vscode.lsp.util.Locations;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
@@ -85,12 +91,29 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     private @MonotonicNonNull LanguageClient client;
 
     private final Map<ISourceLocation, FileState> files;
+    private final ColumnMaps columns;
     private final FileFacts facts;
 
     public RascalTextDocumentService(RascalLanguageServices rascal) {
         this.files = new ConcurrentHashMap<>();
         this.rascalServices = rascal;
-        this.facts = new FileFacts(ownExecuter, rascal);
+        this.columns = new ColumnMaps(this::getContents);
+        this.facts = new FileFacts(ownExecuter, rascal, columns);
+    }
+
+    private String getContents(ISourceLocation file) {
+        file = file.top();
+        FileState ideState = files.get(file);
+        if (ideState != null) {
+            return ideState.getCurrentContent();
+        }
+        try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
+            return CharStreams.toString(src);
+        }
+        catch (IOException e) {
+            logger.error("Error opening file {} to get contents", file, e);
+            return "";
+        }
     }
 
     public void initializeServerCapabilities(ServerCapabilities result) {
@@ -152,7 +175,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
                 excp = excp.getCause();
             }
             if (excp instanceof ParseError) {
-                newParseError = Diagnostics.translateDiagnostic((ParseError)excp);
+                newParseError = Diagnostics.translateDiagnostic((ParseError)excp, columns);
             }
             else if (excp != null) {
                 logger.error("Parsing crashed", excp);
@@ -193,7 +216,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return file.getCurrentTreeAsync()
             .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
             .thenCompose(tr -> rascalServices.getOutline(tr, ownExecuter).get())
-            .thenApply(Outline::buildOutlineTree);
+            .thenApply(o -> Outline.buildOutlineTree(o, columns.get(file.getLocation())));
     }
 
     // Private utility methods
