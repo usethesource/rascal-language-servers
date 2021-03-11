@@ -23,7 +23,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.vscode.lsp.terminal.*;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -133,11 +133,6 @@ public class RascalLanguageServer {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
-            try {
-                ideServicesConfiguration = startIDEServices(this);
-            } catch (IOException e) {
-                logger.error(e);
-            }
             return CompletableFuture.completedFuture(initializeResult);
         }
 
@@ -165,6 +160,7 @@ public class RascalLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             this.client = (IRascalLanguageClient) client;
+            ideServicesConfiguration = startIDEServices(this.client);
             getTextDocumentService().connect(client);
         }
 

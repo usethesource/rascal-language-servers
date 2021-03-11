@@ -1,4 +1,4 @@
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.terminal;
 
 import java.util.concurrent.CompletableFuture;
 
