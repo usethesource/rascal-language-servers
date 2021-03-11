@@ -8,7 +8,7 @@ import org.rascalmpl.vscode.lsp.IRascalLanguageClient;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
- * directly to the LSP language client
+ * directly to the LSP language client.
  */
 public class TerminalIDEServer implements ITerminalIDEServer {
     private final IRascalLanguageClient languageClient;
