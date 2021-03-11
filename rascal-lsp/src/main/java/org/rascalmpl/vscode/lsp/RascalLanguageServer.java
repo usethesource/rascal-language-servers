@@ -8,7 +8,6 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -18,17 +17,13 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Registration;
-import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.ideservices.IDEServices;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -110,7 +105,7 @@ public class RascalLanguageServer {
         }
     }
 
-    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
+    public static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
         private static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
@@ -139,7 +134,7 @@ public class RascalLanguageServer {
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             try {
-                ideServicesConfiguration = startIDEServices(client);
+                ideServicesConfiguration = startIDEServices(this);
             } catch (IOException e) {
                 logger.error(e);
             }
@@ -183,10 +178,47 @@ public class RascalLanguageServer {
          * @return the port number that the IDE services are running on
          * @throws IOException when a new server socket can not be established.
          */
-        private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) throws IOException {
-            // ServerSocket serverSocket = new ServerSocket(0);
+        private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) {
+            IDEServicesThread service = new IDEServicesThread(client);
+            service.start();
+            return service.getConfig();
+        }
 
-            return new IDEServicesConfiguration(9999);
+        private static class IDEServicesThread extends Thread {
+            private IDEServicesConfiguration config = null;
+            private final IRascalLanguageClient ideClient;
+
+            public IDEServicesThread(IRascalLanguageClient client) {
+                super("Terminal IDE Services Thread");
+                this.ideClient = client;
+            }
+
+            @Override
+            public void run() {
+                try (ServerSocket serverSocket = new ServerSocket(0)) {
+                    config = new IDEServicesConfiguration(serverSocket.getLocalPort());
+
+                    while(true) {
+                        Socket connection = serverSocket.accept();
+
+                        Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
+                            .setLocalService(new TerminalIDEServer(ideClient))
+                            .setInput(connection.getInputStream())
+                            .setOutput(connection.getOutputStream())
+                            .create();
+
+                        ideServicesServerLauncher.startListening();
+                    }
+                }
+                catch (IOException e) {
+                    logger.error(e);
+                    throw new RuntimeException(e);
+                }
+            }
+
+            public synchronized IDEServicesConfiguration getConfig() {
+                return config;
+            }
         }
     }
 }
