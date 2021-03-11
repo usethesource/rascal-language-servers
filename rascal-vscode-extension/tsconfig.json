@@ -17,5 +17,9 @@
 	"exclude": [
 		"node_modules",
 		".vscode-test"
-	]
+	],
+	"rascalmpl.trace.server": {
+		"format": "json",
+		"verbosity": "verbose"
+	},
 }

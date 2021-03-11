@@ -6,8 +6,9 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { LanguageClient, LanguageClientOptions, NotificationType, NotificationType1, ParameterStructures, ProtocolNotificationType, ProtocolRequestType, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
+import { ErrorAction, LanguageClient, LanguageClientOptions, Message, ServerOptions, StreamInfo, Trace, ErrorHandler, CloseAction, ProtocolRequestType0, integer } from 'vscode-languageclient/node';
 import { Server } from 'http';
+import { REPL_MODE_SLOPPY } from 'node:repl';
 
  
 const deployMode = false;
@@ -17,7 +18,15 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let developmentPort = 8888;
 
-let ideServicesPort = -1;
+class IDEServicesConfiguration {
+	public port:integer;
+
+	constructor (port:integer) {
+		this.port = port;
+	}
+}
+
+let ideServicesConfig:IDEServicesConfiguration = new IDEServicesConfiguration(0);
 
 let contentPanels : any[] = [];
 
@@ -33,25 +42,25 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }],
-		//diagnosticCollectionName: 'rascal-mpl',
-		progressOnInitialization: true
+		// progressOnInitialization: true,
 	};
 
-	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions);
+	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions, true);
 		
-	client.trace = Trace.Verbose;
-
 	client.onReady().then(() => {
-		client.onNotification("client/acceptIDEServicesPort", (port:string) => {
-			ideServicesPort = Number.parseInt(port);
-			vscode.window.showInformationMessage('rascal', port);
-		});
+		const reply:Promise<IDEServicesConfiguration> = client.sendRequest("rascal/supplyIDEServicesConfiguration");
+		reply.then((r:IDEServicesConfiguration) =>  {
+			ideServicesConfig = r;
+		}
+		);
 	});
 
 	context.subscriptions.push(client.start());
-
+	
 	activateTerminal(context);
 }
+
+
 
 // this method is called when your extension is deactivated
 export function deactivate() {
@@ -80,7 +89,7 @@ function activateTerminal(context: vscode.ExtensionContext) {
 		let terminal = vscode.window.createTerminal({
 			cwd: path.dirname(uri.fsPath),
 			shellPath: getJavaExecutable(),
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
+			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal.jar'), '-Drascal.useSystemBrowser=false','-Drascal.ideServicesPort=' + ideServicesConfig.port, 'org.rascalmpl.shell.RascalShell'],
 			name: 'Rascal Terminal',
 		});
 

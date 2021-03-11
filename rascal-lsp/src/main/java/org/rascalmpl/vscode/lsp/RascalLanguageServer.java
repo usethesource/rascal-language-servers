@@ -8,9 +8,11 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -18,10 +20,11 @@ import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.Registration;
+import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -59,13 +62,6 @@ public class RascalLanguageServer {
     private static Launcher<IRascalLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
-    }
-
-    private static interface IRascalLanguageClient extends LanguageClient {
-        @JsonNotification("client/acceptIDEServicesPort")
-        default CompletableFuture<Void> acceptIDEServicesPort(String port) {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static Launcher<IRascalLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
@@ -114,16 +110,27 @@ public class RascalLanguageServer {
         }
     }
 
-    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware {
+    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
         private static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
         private final Runnable onExit;
         private IRascalLanguageClient client;
+        private IDEServicesConfiguration ideServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit) {
             this.onExit = onExit;
             lspDocumentService = new RascalTextDocumentService(new RascalLanguageServices());
+        }
+
+        @Override
+        public CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
+            if (ideServicesConfiguration != null) {
+                return CompletableFuture.completedFuture(ideServicesConfiguration);
+            }
+            
+            logger.log(Level.ERROR, "no IDEServicesConfiguration is set?");
+            throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
         @Override
@@ -132,7 +139,7 @@ public class RascalLanguageServer {
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             try {
-                startIDEServices(client);
+                ideServicesConfiguration = startIDEServices(client);
             } catch (IOException e) {
                 logger.error(e);
             }
@@ -167,7 +174,7 @@ public class RascalLanguageServer {
         }
 
         /**
-         * Start a server for remove IDE services. These are used
+         * Start a server for remote IDE services. These are used
          * by an implementation of @see IDEServices that is given to Rascal terminal REPLS
          * when they are started in the context of the LSP. This way
          * Rascal REPLs get access to @see IDEServices to provide browsers 
@@ -176,17 +183,10 @@ public class RascalLanguageServer {
          * @return the port number that the IDE services are running on
          * @throws IOException when a new server socket can not be established.
          */
-        private static void startIDEServices(IRascalLanguageClient client) throws IOException {
-            ServerSocket serverSocket = new ServerSocket(0);
-            int port = serverSocket.getLocalPort();
+        private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) throws IOException {
+            // ServerSocket serverSocket = new ServerSocket(0);
 
-            try {
-                logger.info("sending acceptIDEServicesPort(" + port + ")");
-                client.acceptIDEServicesPort("" + port);
-            }
-            catch (Throwable t) {
-                logger.error(t);
-            }
+            return new IDEServicesConfiguration(9999);
         }
     }
 }
