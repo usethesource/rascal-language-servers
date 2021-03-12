@@ -80,7 +80,6 @@ public class LSPTerminalREPL extends BaseREPL {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        try {
         int ideServicesPort = -1;
 
         for (int i = 0; i < args.length; i++) {
@@ -95,16 +94,12 @@ public class LSPTerminalREPL extends BaseREPL {
 
         try {
             new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort)).run();
+            System.exit(0); // kill the other threads
         } 
         catch (IOException | URISyntaxException e) {
             e.printStackTrace();
-            Thread.sleep(10 * 1000);
-            // System.exit(1);
+            System.exit(1);
         }
-    } catch (Throwable t) {
-        t.printStackTrace();
-        Thread.sleep(10 * 1000);
-    }
     }
 }
 
