@@ -160,7 +160,7 @@ public class RascalLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             this.client = (IRascalLanguageClient) client;
-            ideServicesConfiguration = startIDEServices(this.client);
+            this.ideServicesConfiguration = startIDEServices(this.client);
             getTextDocumentService().connect(client);
         }
 
@@ -175,25 +175,31 @@ public class RascalLanguageServer {
          * @throws IOException when a new server socket can not be established.
          */
         private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) {
-            IDEServicesThread service = new IDEServicesThread(client);
-            service.start();
-            return service.getConfig();
+            try {
+                ServerSocket socket = new ServerSocket(0);
+                IDEServicesThread service = new IDEServicesThread(client, socket);
+                service.start();
+            
+                return new IDEServicesConfiguration(socket.getLocalPort());
+            } catch (IOException e) {
+                logger.error(e);
+                throw new RuntimeException(e);
+            }
         }
 
         private static class IDEServicesThread extends Thread {
-            private IDEServicesConfiguration config = null;
             private final IRascalLanguageClient ideClient;
+            private final ServerSocket serverSocket;
 
-            public IDEServicesThread(IRascalLanguageClient client) {
+            public IDEServicesThread(IRascalLanguageClient client, ServerSocket socket) {
                 super("Terminal IDE Services Thread");
+                this.serverSocket = socket;
                 this.ideClient = client;
             }
 
             @Override
             public void run() {
-                try (ServerSocket serverSocket = new ServerSocket(0)) {
-                    config = new IDEServicesConfiguration(serverSocket.getLocalPort());
-
+                try {
                     while(true) {
                         Socket connection = serverSocket.accept();
 
@@ -210,10 +216,13 @@ public class RascalLanguageServer {
                     logger.error(e);
                     throw new RuntimeException(e);
                 }
-            }
-
-            public synchronized IDEServicesConfiguration getConfig() {
-                return config;
+                finally {
+                    try {
+                        serverSocket.close();
+                    } catch (IOException e) {
+                        logger.error(e);
+                    }
+                }
             }
         }
     }
