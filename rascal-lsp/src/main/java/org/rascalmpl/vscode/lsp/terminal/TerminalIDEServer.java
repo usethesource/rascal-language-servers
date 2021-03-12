@@ -19,7 +19,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
-        languageClient.showMessage(new MessageParams(MessageType.Info, "trying to browse: " + uri.getUri()));
+        languageClient.showContent(uri);
         return CompletableFuture.completedFuture(null);
     }
 

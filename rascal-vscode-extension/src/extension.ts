@@ -42,7 +42,13 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions, true);
-		
+
+	client.onReady().then(() => {
+		client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
+		   showContentPanel(bp.uri);
+		});
+	});
+
 	context.subscriptions.push(client.start());
 	
 	registerTerminalCommand(context, client);
@@ -146,6 +152,51 @@ function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> 
 		
         return retry();
     });
+}
+
+let contentPanels : vscode.WebviewPanel[] = [];
+
+function showContentPanel(url: string) : void {
+	let oldPanel:vscode.WebviewPanel|undefined = contentPanels.find(p => (p as vscode.WebviewPanel).title === url);
+
+	if (oldPanel === undefined) {
+			const panel = vscode.window.createWebviewPanel(
+					"text/html",
+					url,
+					vscode.ViewColumn.One,
+					{
+							enableScripts: true,
+					}
+			);
+
+			contentPanels.push(panel);
+			panel.webview.html = `
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+					<meta charset="UTF-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			</head>
+			<body>
+			<iframe id="iframe-rascal-content" src="${url}" frameborder="0" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
+			Loading ${url}...
+			</iframe>
+			</body>
+			</html>`;
+
+			panel.onDidDispose((e) => {
+					contentPanels.splice(contentPanels.indexOf(panel), 1);
+			});
+	} else {
+			oldPanel.reveal(vscode.ViewColumn.One, false);
+	}
+}
+
+	
+interface BrowseParameter {
+	uri: string;
+	mimetype: string;
+	title:string;
 }
 
 interface RascalTerminalContentLink extends vscode.TerminalLink {
