@@ -9,6 +9,7 @@ import * as os from 'os';
 import { ErrorAction, LanguageClient, LanguageClientOptions, Message, ServerOptions, StreamInfo, Trace, ErrorHandler, CloseAction, ProtocolRequestType0, integer } from 'vscode-languageclient/node';
 import { Server } from 'http';
 import { REPL_MODE_SLOPPY } from 'node:repl';
+import { loadavg } from 'node:os';
 
  
 const deployMode = false;
@@ -159,18 +160,30 @@ let contentPanels : vscode.WebviewPanel[] = [];
 function showContentPanel(url: string) : void {
 	let oldPanel:vscode.WebviewPanel|undefined = contentPanels.find(p => (p as vscode.WebviewPanel).title === url);
 
-	if (oldPanel === undefined) {
-			const panel = vscode.window.createWebviewPanel(
-					"text/html",
-					url,
-					vscode.ViewColumn.One,
-					{
-							enableScripts: true,
-					}
-			);
+	if (oldPanel) {
+		oldPanel.dispose();
+	}
 
-			contentPanels.push(panel);
-			panel.webview.html = `
+	const panel = vscode.window.createWebviewPanel(
+			"text/html",
+			url,
+			vscode.ViewColumn.One,
+			{
+					enableScripts: true,
+			}
+	);
+
+	contentPanels.push(panel);
+	loadURLintoPanel(panel, url);
+
+	panel.onDidDispose((e) => {
+			contentPanels.splice(contentPanels.indexOf(panel), 1);
+			// TODO: possibly clean up the server side while we are at it?
+	});
+}
+
+function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
+	panel.webview.html = `
 			<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -178,20 +191,18 @@ function showContentPanel(url: string) : void {
 					<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			</head>
 			<body>
-			<iframe id="iframe-rascal-content" src="${url}" frameborder="0" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
+			<iframe 
+				id="iframe-rascal-content" 
+				src="${url}" 
+				frameborder="0" 
+				sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" 
+				style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;"
+			>
 			Loading ${url}...
 			</iframe>
 			</body>
 			</html>`;
-
-			panel.onDidDispose((e) => {
-					contentPanels.splice(contentPanels.indexOf(panel), 1);
-			});
-	} else {
-			oldPanel.reveal(vscode.ViewColumn.One, false);
-	}
 }
-
 	
 interface BrowseParameter {
 	uri: string;
