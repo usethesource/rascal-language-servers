@@ -13,8 +13,11 @@ import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.ILogicalSourceLocationResolver;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
+import io.usethesource.vallang.ISourceLocation;
 import jline.Terminal;
 import jline.TerminalFactory;
 
@@ -40,7 +43,28 @@ public class LSPTerminalREPL extends BaseREPL {
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
-                    return ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr);
+                    Evaluator eval =  ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr);
+
+                    URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+                    reg.registerLogical(new ILogicalSourceLocationResolver(){
+                        @Override
+                        public ISourceLocation resolve(ISourceLocation input) throws IOException {
+                            return services.resolveProjectLocation(input);
+                        }
+
+                        @Override
+                        public String scheme() {
+                            return "project";
+                        }
+
+                        @Override
+                        public String authority() {
+                            return null;
+                        }
+                    });
+                    
+                    return eval;
                 }
 
                 @Override

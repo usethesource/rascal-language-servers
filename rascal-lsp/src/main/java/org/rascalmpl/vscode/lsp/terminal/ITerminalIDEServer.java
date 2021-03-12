@@ -4,6 +4,8 @@ import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 
+import io.usethesource.vallang.ISourceLocation;
+
 /**
  * Server interface for remote implementation of @see IDEServices
  */
@@ -15,6 +17,11 @@ public interface ITerminalIDEServer {
 
     @JsonRequest
     default CompletableFuture<Void> edit(EditParameter edit)  {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest
+    default CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation edit) {
         throw new UnsupportedOperationException();
     }
 
