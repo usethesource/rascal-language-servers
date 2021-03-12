@@ -19,18 +19,18 @@ import io.usethesource.vallang.ISourceLocation;
  * the request to the Rascal IDE client (@see TerminalIDEServer)
  */
 public class TerminalIDEClient implements IDEServices {
-    private ITerminalIDEServer server;
+    private final ITerminalIDEServer server;
 
     public TerminalIDEClient(int port) throws IOException {
-        try (Socket socket = new Socket(InetAddress.getByName("127.0.0.1"), port)) {
-            Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
-                .setRemoteInterface(ITerminalIDEServer.class)
-                .setLocalService(this)
-                .setInput(socket.getInputStream())
-                .setOutput(socket.getOutputStream())
-                .create();
-            launch.startListening();
-        }
+        Socket socket = new Socket(InetAddress.getByName("127.0.0.1"), port);
+        Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
+            .setRemoteInterface(ITerminalIDEServer.class)
+            .setLocalService(this)
+            .setInput(socket.getInputStream())
+            .setOutput(socket.getOutputStream())
+            .create();
+        launch.startListening();
+        server = launch.getRemoteProxy();
     }
 
     @Override

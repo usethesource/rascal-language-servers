@@ -80,7 +80,7 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
 				shellArgs: [
 					'-cp' , buildJVMPath(context), 
 					'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-					'--ideServicesPort ', 
+					'--ideServicesPort', 
 					'' + cfg.port
 				],
 				name: 'Rascal Terminal',

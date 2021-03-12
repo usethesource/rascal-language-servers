@@ -79,7 +79,8 @@ public class LSPTerminalREPL extends BaseREPL {
         return historyFile;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        try {
         int ideServicesPort = -1;
 
         for (int i = 0; i < args.length; i++) {
@@ -97,8 +98,13 @@ public class LSPTerminalREPL extends BaseREPL {
         } 
         catch (IOException | URISyntaxException e) {
             e.printStackTrace();
-            System.exit(1);
+            Thread.sleep(10 * 1000);
+            // System.exit(1);
         }
+    } catch (Throwable t) {
+        t.printStackTrace();
+        Thread.sleep(10 * 1000);
+    }
     }
 }
 

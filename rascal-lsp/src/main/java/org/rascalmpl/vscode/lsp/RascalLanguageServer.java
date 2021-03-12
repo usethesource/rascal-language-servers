@@ -19,6 +19,8 @@ import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -177,8 +179,8 @@ public class RascalLanguageServer {
         private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) {
             try {
                 ServerSocket socket = new ServerSocket(0);
-                IDEServicesThread service = new IDEServicesThread(client, socket);
-                service.start();
+            
+                new IDEServicesThread(client, socket).start();
             
                 return new IDEServicesConfiguration(socket.getLocalPort());
             } catch (IOException e) {
@@ -193,6 +195,7 @@ public class RascalLanguageServer {
 
             public IDEServicesThread(IRascalLanguageClient client, ServerSocket socket) {
                 super("Terminal IDE Services Thread");
+                setDaemon(true);
                 this.serverSocket = socket;
                 this.ideClient = client;
             }
@@ -201,19 +204,31 @@ public class RascalLanguageServer {
             public void run() {
                 try {
                     while(true) {
+                        logger.trace("Accepting connection for TerminalIDE Services on port {}", serverSocket.getLocalPort());
                         Socket connection = serverSocket.accept();
 
-                        Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
-                            .setLocalService(new TerminalIDEServer(ideClient))
-                            .setInput(connection.getInputStream())
-                            .setOutput(connection.getOutputStream())
-                            .create();
+                        try {
+                            Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
+                                .setLocalService(new TerminalIDEServer(ideClient))
+                                .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
+                                .setInput(connection.getInputStream())
+                                .setOutput(connection.getOutputStream())
+                                .setExceptionHandler(e -> {
+                                    logger.error(e);
+                                    return new ResponseError(ResponseErrorCode.InternalError, e.getMessage(), e);
+                                })
+                                .create();
 
-                        ideServicesServerLauncher.startListening();
+                            logger.trace("Terminal IDE services starts listening");
+                            ideServicesServerLauncher.startListening();
+                        }
+                        catch (Throwable e) {
+                            logger.error("Making a connection for Terminal IDE services failed", e);
+                        }
                     }
                 }
                 catch (IOException e) {
-                    logger.error(e);
+                    logger.error("Cannot accept new Terminal IDE Services connections", e);
                     throw new RuntimeException(e);
                 }
                 finally {
