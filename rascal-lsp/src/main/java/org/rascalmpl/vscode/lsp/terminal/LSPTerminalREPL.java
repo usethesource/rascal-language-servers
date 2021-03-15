@@ -74,7 +74,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         }
                     });
 
-                    return eval;
+                    return evaluator;
                 }
 
                 @Override
