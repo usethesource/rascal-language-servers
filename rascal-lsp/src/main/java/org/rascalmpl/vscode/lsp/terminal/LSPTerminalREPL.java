@@ -63,7 +63,7 @@ public class LSPTerminalREPL extends BaseREPL {
                             return null;
                         }
                     });
-                    
+
                     return eval;
                 }
 

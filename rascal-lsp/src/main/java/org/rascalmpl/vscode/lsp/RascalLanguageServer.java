@@ -107,7 +107,7 @@ public class RascalLanguageServer {
         }
     }
 
-    public static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
+    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
         private static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
@@ -126,7 +126,6 @@ public class RascalLanguageServer {
                 return CompletableFuture.completedFuture(ideServicesConfiguration);
             }
             
-            logger.log(Level.ERROR, "no IDEServicesConfiguration is set?");
             throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
@@ -203,11 +202,12 @@ public class RascalLanguageServer {
             @Override
             public void run() {
                 try {
-                    while(true) {
-                        logger.trace("Accepting connection for TerminalIDE Services on port {}", serverSocket.getLocalPort());
-                        Socket connection = serverSocket.accept();
+                    logger.trace("Accepting connection for TerminalIDE Services on port {}", serverSocket.getLocalPort());
 
+                    while(true) {
                         try {
+                            Socket connection = serverSocket.accept();
+
                             Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
                                 .setLocalService(new TerminalIDEServer(ideClient))
                                 .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
@@ -226,10 +226,6 @@ public class RascalLanguageServer {
                             logger.error("Making a connection for Terminal IDE services failed", e);
                         }
                     }
-                }
-                catch (IOException e) {
-                    logger.error("Cannot accept new Terminal IDE Services connections", e);
-                    throw new RuntimeException(e);
                 }
                 finally {
                     try {

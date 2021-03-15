@@ -101,7 +101,7 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
 
 function buildJVMPath(context: vscode.ExtensionContext) :string {
 	const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
-	return jars.map(j => context.asAbsolutePath('./dist/' + j)).join(path.delimiter);
+	return jars.map(j => context.asAbsolutePath(path.join('.', 'dist', 'j'))).join(path.delimiter);
 }
 
 function buildRascalServerOptions(context: vscode.ExtensionContext): ServerOptions {

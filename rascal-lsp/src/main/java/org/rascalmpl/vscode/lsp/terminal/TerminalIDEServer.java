@@ -48,9 +48,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
                     ISourceLocation root = URIUtil.createFromURI(folder.getUri());
                     return CompletableFuture.completedFuture(URIUtil.getChildLocation(root, input.getPath()));
                 }
-                
             }
-            return CompletableFuture.completedFuture(null);
+
+            return CompletableFuture.completedFuture(input);
         }  
         catch (URISyntaxException | InterruptedException | ExecutionException e) {
             logger.error(e);
