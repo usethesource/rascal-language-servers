@@ -12,6 +12,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -19,12 +20,13 @@ import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.launch.LSPLauncher;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.vscode.lsp.terminal.*;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -55,15 +57,21 @@ public class RascalLanguageServer {
 
     private static int portNumber = 8888;
 
-    private static Launcher<LanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
+    private static Launcher<IRascalLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
-    private static Launcher<LanguageClient> constructLSPClient(InputStream in, OutputStream out,
-        ActualLanguageServer server) {
-        Launcher<LanguageClient> clientLauncher = LSPLauncher.createServerLauncher(server, in, out);
+    private static Launcher<IRascalLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
+        Launcher<IRascalLanguageClient> clientLauncher = new Launcher.Builder<IRascalLanguageClient>()
+            .setLocalService(server)
+            .setRemoteInterface(IRascalLanguageClient.class)
+            .setInput(in)
+            .setOutput(out)
+            .create();
+
         server.connect(clientLauncher.getRemoteProxy());
+        
         return clientLauncher;
     }
 
@@ -99,7 +107,7 @@ public class RascalLanguageServer {
         }
     }
 
-    private static void startLSP(Launcher<LanguageClient> server) {
+    private static void startLSP(Launcher<IRascalLanguageClient> server) {
         try {
             server.startListening().get();
         } catch (InterruptedException e) {
@@ -113,15 +121,26 @@ public class RascalLanguageServer {
         }
     }
 
-    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware {
+    private static final class ActualLanguageServer implements LanguageServer, LanguageClientAware, IRascalLanguageServerExtensions {
         private static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final RascalTextDocumentService lspDocumentService;
         private final RascalWorkspaceService lspWorkspaceService = new RascalWorkspaceService();
         private final Runnable onExit;
+        private IRascalLanguageClient client;
+        private IDEServicesConfiguration ideServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit) {
             this.onExit = onExit;
             lspDocumentService = new RascalTextDocumentService(new RascalLanguageServices());
+        }
+
+        @Override
+        public CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
+            if (ideServicesConfiguration != null) {
+                return CompletableFuture.completedFuture(ideServicesConfiguration);
+            }
+            
+            throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
         @Override
@@ -156,7 +175,81 @@ public class RascalLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
+            this.client = (IRascalLanguageClient) client;
+            this.ideServicesConfiguration = startIDEServices(this.client);
             getTextDocumentService().connect(client);
+        }
+
+        /**
+         * Start a server for remote IDE services. These are used
+         * by an implementation of @see IDEServices that is given to Rascal terminal REPLS
+         * when they are started in the context of the LSP. This way
+         * Rascal REPLs get access to @see IDEServices to provide browsers 
+         * for interactive visualizations, starting editors and resolving IDE project URI.
+         * 
+         * @return the port number that the IDE services are running on
+         * @throws IOException when a new server socket can not be established.
+         */
+        private IDEServicesConfiguration startIDEServices(IRascalLanguageClient client) {
+            try {
+                ServerSocket socket = new ServerSocket(0);
+            
+                new IDEServicesThread(client, socket).start();
+            
+                return new IDEServicesConfiguration(socket.getLocalPort());
+            } catch (IOException e) {
+                logger.error(e);
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static class IDEServicesThread extends Thread {
+            private final IRascalLanguageClient ideClient;
+            private final ServerSocket serverSocket;
+
+            public IDEServicesThread(IRascalLanguageClient client, ServerSocket socket) {
+                super("Terminal IDE Services Thread");
+                setDaemon(true);
+                this.serverSocket = socket;
+                this.ideClient = client;
+            }
+
+            @Override
+            public void run() {
+                try {
+                    logger.trace("Accepting connection for TerminalIDE Services on port {}", serverSocket.getLocalPort());
+
+                    while(true) {
+                        try {
+                            Socket connection = serverSocket.accept();
+
+                            Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
+                                .setLocalService(new TerminalIDEServer(ideClient))
+                                .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
+                                .setInput(connection.getInputStream())
+                                .setOutput(connection.getOutputStream())
+                                .setExceptionHandler(e -> {
+                                    logger.error(e);
+                                    return new ResponseError(ResponseErrorCode.InternalError, e.getMessage(), e);
+                                })
+                                .create();
+
+                            logger.trace("Terminal IDE services starts listening");
+                            ideServicesServerLauncher.startListening();
+                        }
+                        catch (Throwable e) {
+                            logger.error("Making a connection for Terminal IDE services failed", e);
+                        }
+                    }
+                }
+                finally {
+                    try {
+                        serverSocket.close();
+                    } catch (IOException e) {
+                        logger.error(e);
+                    }
+                }
+            }
         }
     }
 }

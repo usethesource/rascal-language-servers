@@ -6,8 +6,10 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
+import { ErrorAction, LanguageClient, LanguageClientOptions, Message, ServerOptions, StreamInfo, Trace, ErrorHandler, CloseAction, ProtocolRequestType0, integer } from 'vscode-languageclient/node';
 import { Server } from 'http';
+import { REPL_MODE_SLOPPY } from 'node:repl';
+import { loadavg } from 'node:os';
 
  
 const deployMode = true;
@@ -17,7 +19,13 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let developmentPort = 8888;
 
-let contentPanels : any[] = [];
+class IDEServicesConfiguration {
+	public port:integer;
+
+	constructor (port:integer) {
+		this.port = port;
+	}
+}
 
 export function getRascalExtensionDeploymode() : boolean {
 	return deployMode;
@@ -25,33 +33,35 @@ export function getRascalExtensionDeploymode() : boolean {
 
 export function activate(context: vscode.ExtensionContext) {
 	const serverOptions: ServerOptions = deployMode 
-		? buildRascalServerOptions(context.extensionPath)
+		? buildRascalServerOptions(context)
 		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }],
-		//diagnosticCollectionName: 'rascal-mpl',
-		progressOnInitialization: true
+		// progressOnInitialization: true,
 	};
 
-	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions);
-		
-	client.trace = Trace.Verbose;
+	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions, true);
+
+	client.onReady().then(() => {
+		client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
+		   showContentPanel(bp.uri);
+		});
+	});
 
 	context.subscriptions.push(client.start());
-
-	activateTerminal(context);
+	
+	registerTerminalCommand(context, client);
 }
 
-// this method is called when your extension is deactivated
 export function deactivate() {
-  if (childProcess) {
-	  childProcess.kill('SIGKILL');
-  }
+	if (childProcess) {
+		childProcess.kill('SIGKILL');
+	}
 }
 
-function activateTerminal(context: vscode.ExtensionContext) {
+function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
 	let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
         let editor = vscode.window.activeTextEditor;
 		if (!editor) {
@@ -68,94 +78,39 @@ function activateTerminal(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		let terminal = vscode.window.createTerminal({
-			cwd: path.dirname(uri.fsPath),
-			shellPath: getJavaExecutable(),
-			shellArgs: ['-cp' , context.asAbsolutePath('./dist/rascal.jar'), '-Drascal.useSystemBrowser=false','org.rascalmpl.shell.RascalShell'],
-			name: 'Rascal Terminal',
+		const reply:Promise<IDEServicesConfiguration> = client.sendRequest("rascal/supplyIDEServicesConfiguration");
+
+		reply.then((cfg:IDEServicesConfiguration) => {
+			let terminal = vscode.window.createTerminal({
+				cwd: path.dirname(uri.fsPath),
+				shellPath: getJavaExecutable(),
+				shellArgs: [
+					'-cp' , buildJVMPath(context), 
+					'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
+					'--ideServicesPort', 
+					'' + cfg.port
+				],
+				name: 'Rascal Terminal',
+			});
+
+			context.subscriptions.push(disposable);
+			terminal.show(false);
 		});
-
-		registerContentViewSupport();
-		context.subscriptions.push(disposable);
-		terminal.show(false);
 	});
 }
 
-function registerContentViewSupport() {
-	vscode.window.registerTerminalLinkProvider({
-		provideTerminalLinks: (context, token) => {
-			var pattern: RegExp = new RegExp('Serving \'(?<theTitle>[^\']+)\' at \\|http://localhost:(?<thePort>[0-9]+)/\\|');
-			var result:RegExpExecArray = pattern.exec(context.line)!;
-
-			if (result !== null) {
-				let port = result.groups!.thePort;
-				let matchAt = result.index;
-				let title = result.groups!.theTitle;
-
-				return [
-					{
-						startIndex: matchAt,
-						length: result?.input.length,
-						tooltip: 'Click to view ' + title,
-						url: 'http://localhost:' + port + '/',
-						contentType: 'text/html',
-						contentId: title
-					}
-				];
-			}	
-		  
-			return [];
-		},
-		handleTerminalLink: (link: vscode.TerminalLink) => {
-			let theLink = (link as RascalTerminalContentLink);
-			let url = theLink.url;
-			let oldPanel:vscode.WebviewPanel = contentPanels.find(p => (p as vscode.WebviewPanel).title === theLink.contentId);
-
-			if (oldPanel === undefined) {
-				const panel = vscode.window.createWebviewPanel(
-					theLink.contentType,
-					theLink.contentId,
-					vscode.ViewColumn.One,
-					{
-						enableScripts: true,
-					}
-				);
-
-				contentPanels.push(panel);
-				panel.webview.html = `
-				<!DOCTYPE html>
-				<html lang="en">
-				<head>
-					<meta charset="UTF-8">
-					<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				</head>
-				<body>
-				<iframe id="iframe-rascal-content" src="${url}" frameborder="0" sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;">
-				Loading ${theLink.contentId}...
-				</iframe>
-				</body>
-				</html>`;
-
-				panel.onDidDispose((e) => {
-					contentPanels.splice(contentPanels.indexOf(panel), 1);
-				});
-			} else {
-				oldPanel.reveal(vscode.ViewColumn.One, false);
-			}
-		}
-	});
+function buildJVMPath(context: vscode.ExtensionContext) :string {
+	const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
+	return jars.map(j => context.asAbsolutePath(path.join('.', 'dist', j))).join(path.delimiter);
 }
 
-
-const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
-
-function buildRascalServerOptions(extensionPath: string): ServerOptions {
-	const classPath = jars.map(j => path.join(extensionPath, 'dist', j)).join(path.delimiter);
+function buildRascalServerOptions(context: vscode.ExtensionContext): ServerOptions {
+	const classpath = buildJVMPath(context);
 	return {
 		command: 'java',
 		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
-			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classPath, 
-			'-cp', classPath, main],
+			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath, 
+			'-cp', classpath, main],
 	};
 }
 
@@ -165,7 +120,6 @@ function getJavaExecutable():string {
 	const name = os.platform() === 'win32' ? 'java.exe' : 'java';
 	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', name) : name;
 }
-
 
 function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> {
     return new Promise((connected, failed) => {
@@ -199,6 +153,61 @@ function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> 
 		
         return retry();
     });
+}
+
+let contentPanels : vscode.WebviewPanel[] = [];
+
+function showContentPanel(url: string) : void {
+	let oldPanel:vscode.WebviewPanel|undefined = contentPanels.find(p => (p as vscode.WebviewPanel).title === url);
+
+	if (oldPanel) {
+		oldPanel.dispose();
+	}
+
+	const panel = vscode.window.createWebviewPanel(
+			"text/html",
+			url,
+			vscode.ViewColumn.One,
+			{
+					enableScripts: true,
+			}
+	);
+
+	contentPanels.push(panel);
+	loadURLintoPanel(panel, url);
+
+	panel.onDidDispose((e) => {
+			contentPanels.splice(contentPanels.indexOf(panel), 1);
+			// TODO: possibly clean up the server side while we are at it?
+	});
+}
+
+function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
+	panel.webview.html = `
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+					<meta charset="UTF-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			</head>
+			<body>
+			<iframe 
+				id="iframe-rascal-content" 
+				src="${url}" 
+				frameborder="0" 
+				sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" 
+				style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;"
+			>
+			Loading ${url}...
+			</iframe>
+			</body>
+			</html>`;
+}
+	
+interface BrowseParameter {
+	uri: string;
+	mimetype: string;
+	title:string;
 }
 
 interface RascalTerminalContentLink extends vscode.TerminalLink {

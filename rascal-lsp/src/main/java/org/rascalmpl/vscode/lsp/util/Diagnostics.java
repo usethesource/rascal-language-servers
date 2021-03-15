@@ -10,6 +10,9 @@ import java.util.stream.Stream;
 
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
+import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
