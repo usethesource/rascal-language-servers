@@ -3,6 +3,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -112,7 +113,7 @@ public class LSPTerminalREPL extends BaseREPL {
         return historyFile;
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;
 
         for (int i = 0; i < args.length; i++) {
@@ -131,6 +132,8 @@ public class LSPTerminalREPL extends BaseREPL {
         } 
         catch (IOException | URISyntaxException e) {
             e.printStackTrace();
+            System.err.println("Rascal terminal terminated exceptionally; press any key to exit process.");
+            System.in.read();
             System.exit(1);
         }
     }
