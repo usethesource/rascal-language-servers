@@ -1,6 +1,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,18 +31,21 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
+        logger.trace("browse({})", uri);
         languageClient.showContent(uri);
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> edit(EditParameter edit) {
+        logger.trace("edit({})", edit);
         languageClient.showMessage(new MessageParams(MessageType.Info, "trying to edit: " + edit.getModule()));
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter loc) {
+        logger.trace("resolveProjectLocation({})", loc);
         try {
             ISourceLocation input = loc.getLocation();
 
@@ -56,7 +60,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
             return CompletableFuture.completedFuture(loc);
         }  
-        catch (URISyntaxException | InterruptedException | ExecutionException | IOException e) {
+        catch (URISyntaxException | InterruptedException | ExecutionException e) {
             logger.error(e);
             return CompletableFuture.completedFuture(loc);
         } 

@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.util.concurrent.ExecutionException;
 
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -43,6 +45,17 @@ public class TerminalIDEClient implements IDEServices {
     public void edit(ISourceLocation path) {
         // TODO this is a experimental dummy
        server.edit(new EditParameter(path.getPath()));
+    }
+
+    @Override
+    public ISourceLocation resolveProjectLocation(ISourceLocation input) {
+        try {
+            return server.resolveProjectLocation(new SourceLocationParameter(input))
+                .get()
+                .getLocation();
+        } catch (InterruptedException | ExecutionException e) {
+            return input;
+        }
     }
 
     @Override

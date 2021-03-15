@@ -41,6 +41,11 @@ public interface ITerminalIDEServer {
         public String getModule() {
             return module;
         }
+
+        @Override
+        public String toString() {
+            return "editParameter: " + module;
+        }
     }
 
     public static class BrowseParameter {
@@ -53,6 +58,11 @@ public interface ITerminalIDEServer {
         public String getUri() {
             return uri;
         }
+
+        @Override
+        public String toString() {
+            return "browseParameter:" + uri;
+        }
     }
 
     public static class SourceLocationParameter {
@@ -62,15 +72,22 @@ public interface ITerminalIDEServer {
             this.loc = loc.toString();
         }
     
-        public ISourceLocation getLocation() throws IOException {
+        public ISourceLocation getLocation() {
             try {
                 return (ISourceLocation) new StandardTextReader().read(
                     IRascalValueFactory.getInstance(), 
                     TypeFactory.getInstance().sourceLocationType(),
                     new StringReader(loc));
-            } catch (FactTypeUseException e) {
-                throw new IOException(e);
+            } catch (FactTypeUseException | IOException e) {
+                // this should really never happen
+                assert false;
+                throw new RuntimeException(e);
             }
+        }
+
+        @Override
+        public String toString() {
+            return "sourceLocationParameter: " + loc;
         }
     }
 }

@@ -70,7 +70,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
                         @Override
                         public String authority() {
-                            return null;
+                            return "";
                         }
                     });
 
