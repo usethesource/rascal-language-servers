@@ -24,16 +24,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
-import org.rascalmpl.vscode.lsp.util.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-import org.rascalmpl.vscode.lsp.util.Locations;
-import org.rascalmpl.vscode.lsp.util.TreeMapLookup;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
@@ -65,21 +68,23 @@ public class Summary {
 
 
     public Summary() {
-        this(EMPTY_SUMMARY);
+        this.data = EMPTY_SUMMARY.asWithKeywordParameters();
+        this.definitions = TreeMapLookup::new;
+        this.typeNames = TreeMapLookup::new;
     }
 
-    public Summary(IConstructor summary) {
+    public Summary(IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), v -> Locations.toLSPLocation((ISourceLocation)v)));
-        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), v -> ((IString)v).getValue()));
+        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
+        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), v -> ((IString)v).getValue(), cm));
 
     }
 
-    private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper) {
+    private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper, ColumnMaps cm) {
         TreeMapLookup<List<T>> result = new TreeMapLookup<>();
         for (IValue v: binaryRel) {
             ITuple row = (ITuple)v;
-            Range from = Locations.toRange((ISourceLocation)row.get(0));
+            Range from = Locations.toRange((ISourceLocation)row.get(0), cm);
             T to = valueMapper.apply(row.get(1));
             List<T> existing = result.getExact(from);
             if (existing == null) {
@@ -99,10 +104,10 @@ public class Summary {
         return result;
     }
 
-    private static <T> IRangeMap<T> translateMap(IMap binaryMap, Function<IValue, T> valueMapper) {
+    private static <T> IRangeMap<T> translateMap(IMap binaryMap, Function<IValue, T> valueMapper, ColumnMaps cm) {
         TreeMapLookup<T> result = new TreeMapLookup<>();
         binaryMap.entryIterator().forEachRemaining(e -> {
-            Range from = Locations.toRange((ISourceLocation)e.getKey());
+            Range from = Locations.toRange((ISourceLocation)e.getKey(), cm);
             T to = valueMapper.apply(e.getValue());
             result.put(from, to);
         });

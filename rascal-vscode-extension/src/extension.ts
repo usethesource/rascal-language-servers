@@ -12,7 +12,7 @@ import { REPL_MODE_SLOPPY } from 'node:repl';
 import { loadavg } from 'node:os';
 
  
-const deployMode = false;
+const deployMode = true;
 const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
@@ -108,7 +108,7 @@ function buildRascalServerOptions(context: vscode.ExtensionContext): ServerOptio
 	const classpath = buildJVMPath(context);
 	return {
 		command: 'java',
-		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=TRACE', 
+		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
 			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath, 
 			'-cp', classpath, main],
 	};

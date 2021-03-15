@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -76,7 +77,7 @@ public class RascalLanguageServer {
 
     @SuppressWarnings({"java:S2189", "java:S106"})
     public static void main(String[] args) {
-        logger.info("Starting Rascal Language Server");
+        logger.info("Starting Rascal Language Server: {}", getVersion());
 
         if (DEPLOY_MODE) {
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0))));
@@ -90,6 +91,19 @@ public class RascalLanguageServer {
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server", e);
             }
+        }
+    }
+
+    private static String getVersion() {
+        try (InputStream prop = RascalLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
+            Properties properties = new Properties();
+            properties.load(prop);
+            return properties.getProperty("rascal.lsp.version", "unknown") + " at "
+                    + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
+        }
+        catch (IOException e) {
+            logger.debug("Cannot find lsp version", e);
+            return "unknown";
         }
     }
 
@@ -134,6 +148,7 @@ public class RascalLanguageServer {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+            logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
             return CompletableFuture.completedFuture(initializeResult);
         }
 

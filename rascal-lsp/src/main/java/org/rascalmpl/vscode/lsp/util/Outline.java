@@ -10,6 +10,8 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.SymbolKind;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -21,7 +23,7 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 public class Outline {
 
-    public static List<Either<SymbolInformation, DocumentSymbol>> buildOutlineTree(INode outline) {
+    public static List<Either<SymbolInformation, DocumentSymbol>> buildOutlineTree(INode outline, LineColumnOffsetMap om) {
 
         List<Either<SymbolInformation, DocumentSymbol>> result = new ArrayList<>();
         for (IValue g : outline) {
@@ -33,13 +35,13 @@ public class Outline {
             IValue arg = group.get(0);
             if (arg instanceof IList) {
                 for (IValue e : (IList) arg) {
-                    result.add(buildOutlineEntry(kind, (INode) e));
+                    result.add(buildOutlineEntry(kind, (INode) e, om));
                 }
             }
             else if (arg instanceof IMap) {
                 ((IMap) arg).valueIterator().forEachRemaining(v -> {
                     for (IValue e : (IList) v) {
-                        result.add(buildOutlineEntry(kind, (INode) e));
+                        result.add(buildOutlineEntry(kind, (INode) e, om));
                     }
                 });
             }
@@ -47,13 +49,13 @@ public class Outline {
         return result;
     }
 
-    private static Either<SymbolInformation, DocumentSymbol> buildOutlineEntry(SymbolKind kind, INode element) {
+    private static Either<SymbolInformation, DocumentSymbol> buildOutlineEntry(SymbolKind kind, INode element, LineColumnOffsetMap om) {
         IWithKeywordParameters<? extends IValue> kwParams = element.asWithKeywordParameters();
         ISourceLocation loc = (ISourceLocation) kwParams.getParameter("loc");
         if (loc == null) {
             loc = URIUtil.invalidLocation();
         }
-        Range target = loc != null ? Locations.toRange(loc) : new Range(new Position(0, 0), new Position(0, 0));
+        Range target = loc != null ? Locations.toRange(loc, om) : new Range(new Position(0, 0), new Position(0, 0));
         IString details = (IString) kwParams.getParameter("label");
         DocumentSymbol result;
         if (details == null) {

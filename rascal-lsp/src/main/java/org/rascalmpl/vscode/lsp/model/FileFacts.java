@@ -22,6 +22,8 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -30,10 +32,12 @@ public class FileFacts {
     private final RascalLanguageServices rascal;
     private volatile @MonotonicNonNull LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
+    private final ColumnMaps cm;
 
-    public FileFacts(Executor exec, RascalLanguageServices rascal) {
+    public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
+        this.cm = cm;
     }
 
     public void setClient(LanguageClient client) {
@@ -81,7 +85,7 @@ public class FileFacts {
                 r -> {
                     r.interrupt();
                     InterruptibleFuture<@Nullable Summary> summaryCalc = rascal.getSummary(file, this.pcfg, exec)
-                        .thenApply(s -> s == null ? null : new Summary(s));
+                        .thenApply(s -> s == null ? null : new Summary(s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)
                     CompletableFuture<@Nullable Summary> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());
@@ -121,7 +125,7 @@ public class FileFacts {
                 rascal.compileFile(file, pcfg, exec)
                     .thenApply(m -> {
                         Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
-                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(msgs)));
+                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(msgs, cm)));
                         return result;
                     })
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));

@@ -1,4 +1,4 @@
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.net.URISyntaxException;
 
@@ -28,14 +28,23 @@ public class Locations {
         }
     }
 
-    public static Location toLSPLocation(ISourceLocation sloc) {
-        return new Location(sloc.getURI().toString(), toRange(sloc));
+    public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
+        return new Location(sloc.getURI().toString(), toRange(sloc, cm));
     }
 
-    public static Range toRange(ISourceLocation sloc) {
+    public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {
+        return toRange(sloc, cm.get(sloc));
+    }
+
+    public static Range toRange(ISourceLocation sloc, LineColumnOffsetMap map) {
         return new Range(
-            new Position(sloc.getBeginLine() - 1, sloc.getBeginColumn()),
-            new Position(sloc.getEndLine() - 1, sloc.getEndColumn()));
+            toPosition(sloc.getBeginLine() - 1, sloc.getBeginColumn(), map, false),
+            toPosition(sloc.getEndLine() - 1, sloc.getEndColumn(), map, true)
+        );
+    }
+
+    public static Position toPosition(int line, int column, LineColumnOffsetMap map, boolean atEnd) {
+        return new Position(line, map.translateColumn(line, column, atEnd));
     }
 
 }
