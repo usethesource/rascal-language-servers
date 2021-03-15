@@ -9,15 +9,19 @@ import java.util.Map;
 
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.env.GlobalEnvironment;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
-import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValueFactory;
 import jline.Terminal;
 import jline.TerminalFactory;
 
@@ -43,10 +47,15 @@ public class LSPTerminalREPL extends BaseREPL {
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
-                    Evaluator eval =  ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr);
-
+                    GlobalEnvironment heap = new GlobalEnvironment();
+                    ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
+                    IValueFactory vf = ValueFactoryFactory.getValueFactory();
+                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
+                    evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
+            
+                    evaluator.setMonitor(services);
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
+            
                     reg.registerLogical(new ILogicalSourceLocationResolver(){
                         @Override
                         public ISourceLocation resolve(ISourceLocation input) throws IOException {

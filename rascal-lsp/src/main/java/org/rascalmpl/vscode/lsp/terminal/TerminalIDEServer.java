@@ -1,5 +1,6 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -40,21 +41,24 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation input) {
+    public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter loc) {
         try {
+            ISourceLocation input = loc.getLocation();
+
             for (WorkspaceFolder folder : languageClient.workspaceFolders().get()) {
                 // TODO check if everything goes ok encoding-wise
                 if (folder.getName().equals(input.getAuthority())) {
                     ISourceLocation root = URIUtil.createFromURI(folder.getUri());
-                    return CompletableFuture.completedFuture(URIUtil.getChildLocation(root, input.getPath()));
+                    ISourceLocation newLoc = URIUtil.getChildLocation(root, input.getPath());
+                    return CompletableFuture.completedFuture(new SourceLocationParameter(newLoc));
                 }
             }
 
-            return CompletableFuture.completedFuture(input);
+            return CompletableFuture.completedFuture(loc);
         }  
-        catch (URISyntaxException | InterruptedException | ExecutionException e) {
+        catch (URISyntaxException | InterruptedException | ExecutionException | IOException e) {
             logger.error(e);
-            return CompletableFuture.completedFuture(input);
+            return CompletableFuture.completedFuture(loc);
         } 
     }
 }
