@@ -15,7 +15,7 @@ public class RascalInterface {
         this.services = services;
     }
 
-    void registerLanguage(IConstructor lang) {
+    public void registerLanguage(IConstructor lang) {
         services.registerLanguage(lang);
     }
 }
