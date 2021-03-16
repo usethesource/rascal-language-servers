@@ -13,7 +13,6 @@ import { loadavg } from 'node:os';
 
  
 const deployMode = true;
-const rascalMain = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
 const parametricMain = 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
@@ -34,45 +33,30 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	activateRascalLanguageClient(context);
+	const rascalClient = activateRascalLanguageClient(context);
+	registerTerminalCommand(context, rascalClient);
 	activateParametricLanguageClient(context);
 }
 
-export function activateRascalLanguageClient(context: vscode.ExtensionContext) {
-	const serverOptions: ServerOptions = deployMode 
-		? buildRascalServerOptions(context, rascalMain)
-		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
-			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
-
-	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'rascalmpl' }],
-		// progressOnInitialization: true,
-	};
-
-	const client = new LanguageClient('rascalmpl', 'Rascal MPL Language Server', serverOptions, clientOptions, true);
-
-	client.onReady().then(() => {
-		client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
-		   showContentPanel(bp.uri);
-		});
-	});
-
-	context.subscriptions.push(client.start());
-	
-	registerTerminalCommand(context, client);
+export function activateRascalLanguageClient(context: vscode.ExtensionContext):LanguageClient {
+	return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server');
 }
 
 export function activateParametricLanguageClient(context: vscode.ExtensionContext) {
+	return activateLanguageClient(context, 'parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server');
+}
+
+export function activateLanguageClient(context: vscode.ExtensionContext, language:string, main:string, title:string) :LanguageClient {
 	const serverOptions: ServerOptions = deployMode 
-		? buildRascalServerOptions(context, parametricMain)
+		? buildRascalServerOptions(context, main)
 		: () => connectToRascalLanguageServerSocket(parametricDevelopmentPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'parametric-rascalmpl' }],
+		documentSelector: [{ scheme: 'file', language: language }],
 	};
 
-	const client = new LanguageClient('parametric-rascalmpl', 'Language Parametric Rascal Language Server', serverOptions, clientOptions, true);
+	const client = new LanguageClient(language, title, serverOptions, clientOptions, true);
 
 	client.onReady().then(() => {
 		client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
@@ -81,6 +65,7 @@ export function activateParametricLanguageClient(context: vscode.ExtensionContex
 	});
 
 	context.subscriptions.push(client.start());
+	return client;
 }
 
 
