@@ -16,6 +16,6 @@ public class RascalInterface {
     }
 
     void registerLanguage(IConstructor lang) {
-        
+        services.registerLanguage(lang);
     }
 }

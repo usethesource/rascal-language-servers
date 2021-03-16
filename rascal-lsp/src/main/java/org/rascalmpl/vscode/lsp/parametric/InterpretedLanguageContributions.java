@@ -64,6 +64,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
         eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
         eval.addClassLoader(IValue.class.getClassLoader());
+        eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 
         try {
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
