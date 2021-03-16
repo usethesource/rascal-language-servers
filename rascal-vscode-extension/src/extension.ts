@@ -12,8 +12,6 @@ const deployMode = true;
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
-let parametricDevelopmentPort = 9999;
-
 class IDEServicesConfiguration {
 	public port:integer;
 
