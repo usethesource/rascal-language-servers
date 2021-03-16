@@ -253,6 +253,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
-        contributions.put(lang.getExtension(), new LanguageContributions(lang));
+        contributions.put(lang.getExtension(), new InterpretedLanguageContributions(lang));
     }
 }
