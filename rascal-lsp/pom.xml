@@ -103,6 +103,10 @@
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
       </resource>
+      <resource>
+          <directory>src/main/rascal/src</directory>
+        <filtering>true</filtering>
+      </resource>
     </resources>
     <plugins>
       <plugin>
