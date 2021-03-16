@@ -1,0 +1,96 @@
+digraph RascalLanguageServerComponents {
+
+    
+
+    subgraph clusterVScode {
+        style="filled";
+        color="lightgrey";
+        label="Visual Studio Code";
+
+        VScodeIDE [label="VScode IDE"];
+        VScodeClient [label="Rascal VScode Client"];
+        ParametricVScodeClient [label="Parametric VScode Client"]
+        
+        VScodeIDE -> VScodeClient [dir="both"];
+        VScodeClient -> ParametricVScodeClient [ style=dotted]
+        WebView
+        VScodeIDE -> WebView [ style=dotted label="starts"]
+        VScodeIDE -> VScodeClient [ style=dotted label="starts"]
+        {rank=same WebView VScodeClient ParametricVScodeClient}
+    }
+
+    subgraph clusterRascal {
+        label="Rascal Language Server";
+        color="lightblue";
+        style=filled;
+
+        RascalLanguageServer [label="Rascal\nLanguage Server"];
+        RascalTerminal [label="Rascal\nTerminal REPL"];
+        RascalTerminal -> RascalLanguageServer [label="IDE Services"];
+
+        {rank=same RascalTerminal RascalLanguageServer}
+    }
+
+    subgraph clusterRascalSupport {
+        label="Rascal Libraries";
+        style=filled;
+        color=yellow;
+
+        RascalInterpreter [label="Rascal Interpreter"]
+        RascalCore [label="Rascal Core\n(Compiler + Typechecker)"]
+        RascalContentServer [label="Rascal Web\nContent Server"]
+        URIResolverRegistry 
+        WebView -> RascalContentServer [dir=both style=dashed]
+
+        RascalCore -> RascalInterpreter
+        RascalTerminal -> RascalContentServer  [style=dotted label="starts"]
+        RascalInterpreter -> URIResolverRegistry
+    }
+
+    VScodeClient -> RascalLanguageServer [dir=both, label="LSP(+)"];
+    VScodeClient -> RascalLanguageServer [ style=dotted label="starts"];
+    VScodeClient -> RascalTerminal [ style=dotted label="starts"];
+    RascalTerminal -> VScodeClient [label="IO" dir=both]
+
+    subgraph clusterMetaRascal {
+        label="Parametric Language Server"
+        color="salmon";
+        style=filled;
+
+        ParametricLanguageServer [label="Parametric\nLanguage Server"]
+        ParametricREPL [label="Parametric\nTerminal REPL"]
+
+        LanguageServiceRegistry [label="Language Service Contributions\n(Callbacks)"]
+        ParametricVScodeClient -> ParametricLanguageServer [dir=both label="LSP(+)"]
+        ParametricVScodeClient -> ParametricLanguageServer [style=dotted label="starts"]
+        ParametricREPL -> ParametricLanguageServer [label="IDE Services"]
+        ParametricVScodeClient -> ParametricREPL [ style=dotted label="starts"];
+        ParametricLanguageServer -> LanguageServiceRegistry [dir=both]
+        LanguageServiceRegistry -> RascalInterpreter
+        ParametricREPL -> LanguageServiceRegistry
+        ParametricVScodeClient -> VScodeIDE [dir=both]
+        LanguageServiceRegistry -> RascalContentServer [label="starts" style=dotted]
+ 
+        {rank=same ParametricREPL ParametricLanguageServer }
+    }
+
+    subgraph clusterOperatingSystem {
+        label="Operating System"
+        color="peachpuff";
+        style=filled;
+
+        FileSystem
+        URIResolverRegistry -> FileSystem
+        VScodeClient -> FileSystem
+        ParametricVScodeClient -> FileSystem
+    }
+
+    RascalTerminal -> RascalInterpreter
+    RascalLanguageServer -> RascalInterpreter
+    RascalLanguageServer -> RascalCore
+    RascalContentServer -> RascalInterpreter [dir=both]
+
+    ParametricREPL -> RascalContentServer [ style=dotted label="starts"]
+
+   
+}
