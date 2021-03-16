@@ -18,11 +18,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -36,17 +37,12 @@ import com.google.common.io.CharStreams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentSymbol;
-import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.Location;
-import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -55,7 +51,6 @@ import org.eclipse.lsp4j.SemanticTokensDeltaParams;
 import org.eclipse.lsp4j.SemanticTokensParams;
 import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
@@ -68,42 +63,38 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.model.FileFacts;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileState;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.FileState;
-import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValueFactory;
 
-public class RascalTextDocumentService implements TextDocumentService, LanguageClientAware {
-    private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
+public class ParametricTextDocumentService implements TextDocumentService, LanguageClientAware {
+    private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter = Executors.newCachedThreadPool();
-    private final RascalLanguageServices rascalServices;
-    private final IValueFactory VF = ValueFactoryFactory.getValueFactory();
 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
 
-    private final Map<ISourceLocation, FileState> files;
+    private final Map<ISourceLocation, ParametricFileState> files;
     private final ColumnMaps columns;
-    private final FileFacts facts;
+    private final ParametricFileFacts facts;
 
-    public RascalTextDocumentService(RascalLanguageServices rascal) {
+    private final Map<String, ILanguageContributions> contributions = new HashMap<>();
+
+    public ParametricTextDocumentService() {
         this.files = new ConcurrentHashMap<>();
-        this.rascalServices = rascal;
         this.columns = new ColumnMaps(this::getContents);
-        this.facts = new FileFacts(ownExecuter, rascal, columns);
+        this.facts = new ParametricFileFacts(ownExecuter);
     }
 
     private String getContents(ISourceLocation file) {
         file = file.top();
-        FileState ideState = files.get(file);
+        ParametricFileState ideState = files.get(file);
         if (ideState != null) {
             return ideState.getCurrentContent();
         }
@@ -117,9 +108,9 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     }
 
     public void initializeServerCapabilities(ServerCapabilities result) {
-        result.setDefinitionProvider(true);
+        // result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
-        result.setDocumentSymbolProvider(true);
+        // result.setDocumentSymbolProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
     }
 
@@ -134,7 +125,7 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Open file: {}", params.getTextDocument());
-        FileState file = open(params.getTextDocument());
+        ParametricFileState file = open(params.getTextDocument());
         handleParsingErrors(file);
     }
 
@@ -158,17 +149,17 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that comes in via change
         // but we do trigger the type checker on save
-        facts.invalidate(Locations.toLoc(params.getTextDocument()));
+        // facts.invalidate(Locations.toLoc(params.getTextDocument()));
     }
 
-    private FileState updateContents(TextDocumentIdentifier doc, String newContents) {
-        FileState file = getFile(doc);
+    private ParametricFileState updateContents(TextDocumentIdentifier doc, String newContents) {
+        ParametricFileState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         handleParsingErrors(file, file.update(newContents));
         return file;
     }
 
-    private void handleParsingErrors(FileState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(ParametricFileState file, CompletableFuture<ITree> futureTree) {
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -192,31 +183,8 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         });
     }
 
-    private void handleParsingErrors(FileState file) {
-        handleParsingErrors(file,file.getCurrentTreeAsync());
-    }
-
-
-    @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
-        definition(DefinitionParams params) {
-        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-
-        return facts.getSummary(Locations.toLoc(params.getTextDocument()))
-            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-            .thenApply(Either::forLeft)
-            ;
-    }
-
-    @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
-        documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
-        FileState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync()
-            .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
-            .thenCompose(tr -> rascalServices.getOutline(tr, ownExecuter).get())
-            .thenApply(o -> Outline.buildOutlineTree(o, columns.get(file.getLocation())));
+    private void handleParsingErrors(ParametricFileState file) {
+        handleParsingErrors(file, file.getCurrentTreeAsync());
     }
 
     // Private utility methods
@@ -225,17 +193,20 @@ public class RascalTextDocumentService implements TextDocumentService, LanguageC
         return l.get(l.size() - 1);
     }
 
-    private FileState open(TextDocumentItem doc) {
+    private ParametricFileState open(TextDocumentItem doc) {
+        // TODO: get the right contributions
+        ILanguageContributions contrib = contributions.get("");
+
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new FileState(rascalServices, ownExecuter, l, doc.getText()));
+            l -> new ParametricFileState(contrib, ownExecuter, l, doc.getText()));
     }
 
-    private FileState getFile(TextDocumentIdentifier doc) {
+    private ParametricFileState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
     }
 
-    private FileState getFile(ISourceLocation loc) {
-        FileState file = files.get(loc);
+    private ParametricFileState getFile(ISourceLocation loc) {
+        ParametricFileState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
         }

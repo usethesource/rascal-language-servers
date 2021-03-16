@@ -13,7 +13,7 @@ import { loadavg } from 'node:os';
 
  
 const deployMode = true;
-const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
+const main = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
