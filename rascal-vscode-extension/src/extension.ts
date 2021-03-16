@@ -6,18 +6,12 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { ErrorAction, LanguageClient, LanguageClientOptions, Message, ServerOptions, StreamInfo, Trace, ErrorHandler, CloseAction, ProtocolRequestType0, integer } from 'vscode-languageclient/node';
-import { Server } from 'http';
-import { REPL_MODE_SLOPPY } from 'node:repl';
-import { loadavg } from 'node:os';
-
+import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo,  integer } from 'vscode-languageclient/node';
  
 const deployMode = true;
-const parametricMain = 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
-let developmentPort = 8888;
 let parametricDevelopmentPort = 9999;
 
 class IDEServicesConfiguration {
@@ -39,17 +33,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext):LanguageClient {
-	return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server');
+	return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888);
 }
 
 export function activateParametricLanguageClient(context: vscode.ExtensionContext) {
-	return activateLanguageClient(context, 'parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server');
+	return activateLanguageClient(context, 'parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server', 9999);
 }
 
-export function activateLanguageClient(context: vscode.ExtensionContext, language:string, main:string, title:string) :LanguageClient {
+export function activateLanguageClient(context: vscode.ExtensionContext, language:string, main:string, title:string, devPort:integer) :LanguageClient {
 	const serverOptions: ServerOptions = deployMode 
 		? buildRascalServerOptions(context, main)
-		: () => connectToRascalLanguageServerSocket(parametricDevelopmentPort) // we assume a server is running in debug mode
+		: () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
 	const clientOptions: LanguageClientOptions = {
