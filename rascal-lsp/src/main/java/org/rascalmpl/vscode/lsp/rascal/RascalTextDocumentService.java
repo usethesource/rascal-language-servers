@@ -68,7 +68,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.IRascalTextDocumentService;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.FileState;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -79,7 +79,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class RascalTextDocumentService implements IRascalTextDocumentService, LanguageClientAware {
+public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter = Executors.newCachedThreadPool();
     private final RascalLanguageServices rascalServices;

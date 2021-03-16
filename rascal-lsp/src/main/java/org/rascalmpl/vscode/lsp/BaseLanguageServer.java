@@ -51,8 +51,6 @@ public abstract class BaseLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
-    private static int portNumber = 8888;
-
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
@@ -72,7 +70,7 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void main(String[] args, IBaseTextDocumentService service) {
+    public static void main(String[] args, IBaseTextDocumentService service, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
         if (DEPLOY_MODE) {

@@ -13,11 +13,13 @@ import { loadavg } from 'node:os';
 
  
 const deployMode = true;
-const main = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
+const rascalMain = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
+const parametricMain = 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer';
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let developmentPort = 8888;
+let parametricDevelopmentPort = 9999;
 
 class IDEServicesConfiguration {
 	public port:integer;
@@ -32,8 +34,13 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+	activateRascalLanguageClient(context);
+	activateParametricLanguageClient(context);
+}
+
+export function activateRascalLanguageClient(context: vscode.ExtensionContext) {
 	const serverOptions: ServerOptions = deployMode 
-		? buildRascalServerOptions(context)
+		? buildRascalServerOptions(context, rascalMain)
 		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -54,6 +61,28 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	registerTerminalCommand(context, client);
 }
+
+export function activateParametricLanguageClient(context: vscode.ExtensionContext) {
+	const serverOptions: ServerOptions = deployMode 
+		? buildRascalServerOptions(context, parametricMain)
+		: () => connectToRascalLanguageServerSocket(parametricDevelopmentPort) // we assume a server is running in debug mode
+			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
+
+	const clientOptions: LanguageClientOptions = {
+		documentSelector: [{ scheme: 'file', language: 'parametric-rascalmpl' }],
+	};
+
+	const client = new LanguageClient('parametric-rascalmpl', 'Language Parametric Rascal Language Server', serverOptions, clientOptions, true);
+
+	client.onReady().then(() => {
+		client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
+		   showContentPanel(bp.uri);
+		});
+	});
+
+	context.subscriptions.push(client.start());
+}
+
 
 export function deactivate() {
 	if (childProcess) {
@@ -104,7 +133,7 @@ function buildJVMPath(context: vscode.ExtensionContext) :string {
 	return jars.map(j => context.asAbsolutePath(path.join('.', 'dist', j))).join(path.delimiter);
 }
 
-function buildRascalServerOptions(context: vscode.ExtensionContext): ServerOptions {
+function buildRascalServerOptions(context: vscode.ExtensionContext, main:string): ServerOptions {
 	const classpath = buildJVMPath(context);
 	return {
 		command: 'java',

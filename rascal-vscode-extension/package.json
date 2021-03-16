@@ -40,6 +40,16 @@
 					".rsc"
 				],
 				"configuration": "./language-configuration.json"
+			},
+			{
+				"id": "parametric-rascalmpl",
+				"aliases": [
+					"Parametric Rascal LSP"
+				],
+				"extensions": [
+					".anyLanguage"
+				],
+				"configuration": "./language-configuration.json"
 			}
 		],
 		"grammars": [
@@ -47,7 +57,13 @@
 				"language": "rascalmpl",
 				"scopeName": "source.rascalmpl",
 				"path": "./syntaxes/simple.tmGrammar.json"
+			},
+			{
+				"language": "parametric-rascalmpl",
+				"scopeName": "source.parametric-rascalmpl",
+				"path": "./syntaxes/simple.tmGrammar.json"
 			}
+
 		]
 	},
 	"scripts": {
