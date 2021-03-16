@@ -57,6 +57,7 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.util.LoggingMonitor;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -202,7 +203,7 @@ public class RascalLanguageServices {
                 new ByteArrayInputStream(new byte[0]),
                 IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
                 IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
-            eval.setMonitor(loggingMonitor(customLog));
+            eval.setMonitor(new LoggingMonitor(customLog));
 
             eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
             eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
@@ -224,60 +225,6 @@ public class RascalLanguageServices {
         });
     }
 
-    private static IRascalMonitor loggingMonitor(Logger target) {
-        return new IRascalMonitor() {
-
-            @Override
-            public void startJob(String name) {
-                target.trace(name);
-            }
-
-            @Override
-            public void warning(String message, ISourceLocation src) {
-                target.warn("{} : {}", src, message);
-            }
-
-            @Override
-            public void startJob(String name, int totalWork) {
-                startJob(name);
-            }
-
-            @Override
-            public void startJob(String name, int workShare, int totalWork) {
-                startJob(name);
-            }
-
-            @Override
-            public void event(String name) {
-                // ignore
-            }
-
-            @Override
-            public void event(String name, int inc) {
-                // ignore
-            }
-
-            @Override
-            public void event(int inc) {
-                // ignore
-            }
-
-            @Override
-            public int endJob(boolean succeeded) {
-                return 0;
-            }
-
-            @Override
-            public boolean isCanceled() {
-                return false;
-            }
-
-            @Override
-            public void todo(int work) {
-                // ignore
-            }
-        };
-    }
 
     private static <T> Future<T> asyncGenerator(String name, Callable<T> generate) {
         FutureTask<T> result = new FutureTask<>(() -> {

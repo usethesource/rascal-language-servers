@@ -71,6 +71,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.FileState;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
@@ -78,6 +79,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.exceptions.IllegalOperationException;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
@@ -272,5 +274,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         logger.debug("semanticTokensRange: {}", params.getTextDocument());
         return getSemanticTokens(params.getTextDocument());
+    }
+
+    @Override
+    public void registerLanguage(LanguageParameter lang) {
+        throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
 }

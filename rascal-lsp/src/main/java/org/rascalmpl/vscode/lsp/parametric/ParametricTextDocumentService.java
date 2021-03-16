@@ -67,6 +67,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileState;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -247,5 +248,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         logger.debug("semanticTokensRange: {}", params.getTextDocument());
         return getSemanticTokens(params.getTextDocument());
+    }
+
+    @Override
+    public void registerLanguage(LanguageParameter lang) {
+        logger.trace("registerLanguage({})", lang.getName());
+        contributions.put(lang.getExtension(), new LanguageContributions(lang));
     }
 }

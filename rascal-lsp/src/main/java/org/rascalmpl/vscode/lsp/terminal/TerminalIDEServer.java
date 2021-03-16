@@ -65,4 +65,12 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             return CompletableFuture.completedFuture(loc);
         } 
     }
+
+    @Override
+    public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
+        // we forward the request from the terminal to register a language
+        // straight into the client:
+        languageClient.receiveRegisterLanguage(lang);
+        return CompletableFuture.completedFuture(null);
+    }
 }

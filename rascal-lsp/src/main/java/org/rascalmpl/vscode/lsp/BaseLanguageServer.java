@@ -23,6 +23,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -165,6 +166,12 @@ public abstract class BaseLanguageServer {
         @Override
         public WorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
+        }
+
+        @Override
+        public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            lspDocumentService.registerLanguage(lang);
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override

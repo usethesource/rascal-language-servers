@@ -6,7 +6,7 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo,  integer } from 'vscode-languageclient/node';
+import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
  
 const deployMode = true;
 
@@ -27,7 +27,25 @@ export function getRascalExtensionDeploymode() : boolean {
 export function activate(context: vscode.ExtensionContext) {
 	const rascalClient = activateRascalLanguageClient(context);
 	registerTerminalCommand(context, rascalClient);
-	activateParametricLanguageClient(context);
+	const parametricClient = activateParametricLanguageClient(context);
+
+	// we can receive new languages (only) from the Rascal LSP
+	rascalClient.onReady().then(() => {
+		rascalClient.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
+			registerLanguage(context, parametricClient, lang);
+		});
+	});
+}
+
+export function registerLanguage(context: vscode.ExtensionContext, parametricClient:LanguageClient, lang:LanguageParameter) {
+	// first we load the new language into the parametric server
+	parametricClient.sendRequest("rascal/sendRegisterLanguage", lang);
+
+	// then we register the file extension with the IDE, pointing to the parametric-rascalmpl language
+	vscode.workspace.getConfiguration('files.associations');
+	const workbenchConfig = vscode.workspace.getConfiguration('workbench')
+    const associations = workbenchConfig.get('files.associations');
+	console.log('file associations:' + associations);
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext):LanguageClient {
@@ -216,8 +234,10 @@ interface BrowseParameter {
 	title:string;
 }
 
-interface RascalTerminalContentLink extends vscode.TerminalLink {
-	url: string
-	contentType: string
-	contentId: string
+interface LanguageParameter {
+	pathConfig: string 		// rascal pathConfig constructor as a string
+	name: string; 			// name of the language
+	extension:string; 		// extension for files in this language
+	mainModule: string; 	// main module to locate mainFunction in
+	mainFunction: string; 	// main function which contributes the language implementation
 }
