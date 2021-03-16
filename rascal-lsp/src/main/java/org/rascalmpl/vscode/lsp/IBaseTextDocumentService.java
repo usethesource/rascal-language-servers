@@ -4,7 +4,7 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
-public interface IRascalTextDocumentService extends TextDocumentService {
+public interface IBaseTextDocumentService extends TextDocumentService {
     void initializeServerCapabilities(ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);

@@ -72,7 +72,7 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void main(String[] args, IRascalTextDocumentService service) {
+    public static void main(String[] args, IBaseTextDocumentService service) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
         if (DEPLOY_MODE) {
@@ -119,13 +119,13 @@ public abstract class BaseLanguageServer {
 
     private static class ActualLanguageServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
-        private final IRascalTextDocumentService lspDocumentService;
+        private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService = new BaseWorkspaceService();
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
 
-        private ActualLanguageServer(Runnable onExit, IRascalTextDocumentService lspDocumentService) {
+        private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
         }
@@ -160,7 +160,7 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public IRascalTextDocumentService getTextDocumentService() {
+        public IBaseTextDocumentService getTextDocumentService() {
             return lspDocumentService;
         }
 
