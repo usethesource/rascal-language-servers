@@ -98,16 +98,23 @@
     </dependency>
   </dependencies>
   <build>
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-        <filtering>true</filtering>
-      </resource>
-      <resource>
-          <directory>src/main/rascal/src</directory>
-        <filtering>true</filtering>
-      </resource>
-    </resources>
+      <resources>
+          <resource>
+              <directory>.</directory>
+              <filtering>false</filtering>
+              <includes>
+                  <include>META-INF/RASCAL.MF</include>
+              </includes>
+          </resource>
+          <resource>
+              <directory>src/main/resources</directory>
+              <filtering>true</filtering>
+          </resource>
+          <resource>
+              <directory>src/main/rascal/src</directory>
+              <filtering>true</filtering>
+          </resource>
+      </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
