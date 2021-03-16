@@ -10,9 +10,12 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -56,6 +59,19 @@ public class TerminalIDEClient implements IDEServices {
         } catch (InterruptedException | ExecutionException e) {
             return input;
         }
+    }
+
+    @Override
+    public void registerLanguage(IConstructor language) {
+        server.receiveRegisterLanguage(
+            new LanguageParameter(
+                language.get(0).toString(), 
+                ((IString) language.get(1)).getValue(), 
+                ((IString) language.get(2)).getValue(), 
+                ((IString) language.get(3)).getValue(), 
+                ((IString) language.get(4)).getValue()
+            )
+        );
     }
 
     @Override
