@@ -60,6 +60,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -73,6 +74,7 @@ import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -167,7 +169,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             if (excp != null && excp instanceof CompletionException) {
                 excp = excp.getCause();
             }
-            if (excp instanceof ParseError) {
+
+            if (excp instanceof Throw) {
+                Throw thrown = (Throw) excp;
+                newParseError = Diagnostics.translateRascalParseError(thrown.getException(), columns);
+            }
+            else if (excp instanceof ParseError) {
                 newParseError = Diagnostics.translateDiagnostic((ParseError)excp, columns);
             }
             else if (excp != null) {
