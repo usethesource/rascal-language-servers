@@ -16,6 +16,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParame
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -40,13 +41,11 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void browse(URI uri) {
-        // TODO this is an experimental dummy
         server.browse(new BrowseParameter(uri.toString()));
     }
 
     @Override
     public void edit(ISourceLocation path) {
-        // TODO this is a experimental dummy
        server.edit(new EditParameter(path.getPath()));
     }
 
@@ -77,7 +76,6 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void startJob(String name) {
         // TODO Auto-generated method stub
-        
     }
 
     @Override

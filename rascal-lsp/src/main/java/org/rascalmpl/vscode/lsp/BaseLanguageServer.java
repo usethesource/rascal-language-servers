@@ -139,6 +139,12 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
+        public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
@@ -166,12 +172,6 @@ public abstract class BaseLanguageServer {
         @Override
         public WorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
-        }
-
-        @Override
-        public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
-            lspDocumentService.registerLanguage(lang);
-            return CompletableFuture.completedFuture(null);
         }
 
         @Override

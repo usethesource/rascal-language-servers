@@ -73,4 +73,5 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         languageClient.receiveRegisterLanguage(lang);
         return CompletableFuture.completedFuture(null);
     }
+
 }

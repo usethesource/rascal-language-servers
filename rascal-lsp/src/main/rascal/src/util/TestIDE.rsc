@@ -11,5 +11,5 @@ set[Contribution] exampleLanguageContributor() = {
 };
 
 void testExampleLanguageContribution() {
-    registerLanguage(language(pathConfig(), "Example language", "example", "util::IDE", "exampleLanguageContributor"));
+    registerLanguage(language(pathConfig(), "Example language", "example", "util::TestIDE", "exampleLanguageContributor"));
 }

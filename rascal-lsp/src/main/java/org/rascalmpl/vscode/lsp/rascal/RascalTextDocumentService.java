@@ -79,7 +79,6 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.exceptions.IllegalOperationException;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);

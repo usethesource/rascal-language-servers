@@ -24,6 +24,7 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class InterpretedLanguageContributions implements ILanguageContributions {
+    private static final Logger logger = LogManager.getLogger(InterpretedLanguageContributions.class);
     private final Evaluator eval;
     private final IValueFactory VF;
     private final String name;
@@ -39,14 +40,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private void loadContributions(Evaluator eval, LanguageParameter lang) {
-        ISet contribs = (ISet) eval.eval(null, lang.getMainModule() + "::" + lang.getMainFunction() + "()", URIUtil.rootLocation("lsp")).getValue();
+        try {
+            ISet contribs = (ISet) eval.eval(null, lang.getMainFunction() + "()", URIUtil.rootLocation("lsp")).getValue();
 
-        for (IValue elem : contribs) {
-            IConstructor contrib = (IConstructor) elem;
-            switch (contrib.getConstructorType().getName()) {
-                case "parser":
-                this.parser = Optional.of((IFunction) contrib.get(0));
+            for (IValue elem : contribs) {
+                IConstructor contrib = (IConstructor) elem;
+                switch (contrib.getConstructorType().getName()) {
+                    case "parser":
+                    this.parser = Optional.of((IFunction) contrib.get(0));
+                }
             }
+        }
+        catch (Throwable e) {
+            logger.catching(e);
+            logger.error("failed to load contributions for {}", lang.getName());
         }
     }
 
@@ -77,6 +84,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             return eval;
         } catch (Exception e) {
+            customLog.catching(e);
             customLog.error("Failed to import: {}", lang.getMainModule());
             throw new RuntimeException("Failure to import required module " + lang.getMainModule(), e);
         }
