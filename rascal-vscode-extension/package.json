@@ -47,7 +47,6 @@
 					"Parametric Rascal LSP"
 				],
 				"extensions": [
-					".anyLanguage"
 				],
 				"configuration": "./language-configuration.json"
 			}

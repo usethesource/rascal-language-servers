@@ -8,7 +8,9 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
  
-const deployMode = false;
+const deployMode = true;
+const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
+let registeredFileExtensions:Array<String> = [];
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
@@ -29,6 +31,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const rascalClient = activateRascalLanguageClient(context, parametricClient);
 	registerTerminalCommand(context, rascalClient);
 	
+	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
+		const extension:string|undefined = e.fileName.split('.').pop();
+		if (extension !== undefined && registeredFileExtensions.indexOf(extension) !== -1) {
+			vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
+		}
+	}));
+
 	console.log('LSP servers started (Rascal and Parametric)');
 }
 
@@ -36,11 +45,9 @@ export function registerLanguage(context: vscode.ExtensionContext, client:Langua
 	// first we load the new language into the parametric server
 	client.sendRequest("rascal/sendRegisterLanguage", lang);	
 
-	// then we register the file extension with the IDE, pointing to the parametric-rascalmpl language
-	// vscode.workspace.getConfiguration('files.associations');
-	// const workbenchConfig = vscode.workspace.getConfiguration('workbench')
-    // const associations = workbenchConfig.get('files.associations');
-	// console.log('file associations:' + associations);
+	if (registeredFileExtensions.indexOf(lang.extension) === -1) {
+		registeredFileExtensions.push(lang.extension);
+	}
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext, parametricServer:LanguageClient):LanguageClient {
