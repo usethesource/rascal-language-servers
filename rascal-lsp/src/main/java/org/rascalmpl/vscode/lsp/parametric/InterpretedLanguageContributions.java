@@ -94,7 +94,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public ITree parseSourceFile(ISourceLocation loc, String input) {
         if (parser.isPresent()) {
             synchronized (eval) {
-                return parser.get().call(loc, VF.string(input));
+                return parser.get().call(VF.string(input), loc);
             }
         }
         else {

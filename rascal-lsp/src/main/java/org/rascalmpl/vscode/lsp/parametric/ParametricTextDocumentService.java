@@ -62,6 +62,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
@@ -195,11 +196,23 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileState open(TextDocumentItem doc) {
-        // TODO: get the right contributions
-        ILanguageContributions contrib = contributions.get("file extension here");
+        int index = -1;
 
-        return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new ParametricFileState(contrib, ownExecuter, l, doc.getText()));
+        if ((index = doc.getUri().lastIndexOf(".")) != -1) {
+            String extension = doc.getUri().substring(index + 1);
+            ILanguageContributions contrib = contributions.get(extension);
+            
+            if (contrib != null) {
+                return files.computeIfAbsent(Locations.toLoc(doc),
+                l -> new ParametricFileState(contrib, ownExecuter, l, doc.getText()));
+            }
+            else {
+                throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());
+            }
+        }
+        else {
+            throw new IllegalArgumentException(doc.getUri() + " has not extension for Rascal Parametric LSP to switch languages on.");
+        }
     }
 
     private ParametricFileState getFile(TextDocumentIdentifier doc) {
