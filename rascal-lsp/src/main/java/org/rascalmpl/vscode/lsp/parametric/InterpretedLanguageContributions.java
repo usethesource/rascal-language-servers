@@ -90,6 +90,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         }
     }
     
+    public String getName() {
+        return name;
+    }
+    
     @Override
     public ITree parseSourceFile(ISourceLocation loc, String input) {
         if (parser.isPresent()) {
