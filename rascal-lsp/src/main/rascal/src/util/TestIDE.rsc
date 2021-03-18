@@ -5,7 +5,7 @@ import lang::pico::\syntax::Main;
 
 set[Contribution] picoLanguageContributor() = {
     parserFor(#start[Program]),
-    picoOutliner(picoOutliner)
+    outliner(picoOutliner)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
