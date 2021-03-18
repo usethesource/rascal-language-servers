@@ -1,23 +1,22 @@
 module util::TestIDE
 
 import util::IDE;
+import lang::pico::\syntax::Main;
 
-start syntax ExampleLanguage = ("example" | " ")+;
-
-set[Contribution] exampleLanguageContributor() = {
+set[Contribution] picoLanguageContributor() = {
     parser(Tree (str input, loc src) {
-        return parse(#start[ExampleLanguage], input, src);
+        return parse(#start[Program], input, src);
     })
 };
 
-void testExampleLanguageContribution() {
+void testPicoLanguageContribution() {
     registerLanguage(
         language(
             pathConfig(), 
-            "Example language", 
-            "example", 
+            "Pico", 
+            "pico", 
             "util::TestIDE", 
-            "exampleLanguageContributor"
+            "picoLanguageContributor"
         )
     );
 }

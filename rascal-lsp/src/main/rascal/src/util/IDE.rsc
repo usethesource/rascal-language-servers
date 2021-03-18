@@ -17,7 +17,7 @@ data Language
 
 alias Parser        = Tree (str input, loc origin);
 alias Summarizer    = Summary (Tree input);
-alias Outliner      = Outline (Tree input);
+alias Outliner      = DocumentSymbol (Tree input);
 alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
 
@@ -72,10 +72,37 @@ Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
     return parse(grammar, input, src);
 });
 
-@synopsis{Outline encodes a sorted and hierarchical outline of a source file}
-data Outline
-    = group(str label, loc src, list[Outline] members)
-    | symbol(str label, loc src)
+@synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
+data DocumentSymbol = symbol(str name, str label, loc src, list[DocumentSymbol] children=[]);
+
+data DocumentSymbolKind 
+	= \file()
+	| \module()
+	| \namespace()
+	| \package()
+	| \class()
+	| \method()
+	| \property()
+	| \field()
+	| \constructor()
+	| \enum()
+	| \interface()
+	| \function()
+	| \variable()
+	| \constant()
+	| \string()
+	| \number()
+	| \boolean()
+	| \array()
+	| \object()
+	| \key()
+	| \null()
+	| \enumMember()
+	| \struct()
+	| \event()
+	| \operator()
+	| \typeParameter()
+    | \other(str label)
     ;
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
