@@ -9,19 +9,19 @@
 module util::IDE
 
 extend util::Reflective;
-extend util::Content;
+extend Content;
 extend ParseTree;
 
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
-alias Parser = Tree (str input, loc origin);
-alias Summarizer = Summary (Tree input);
-alias Outliner = Outline (Tree input);
-alias Annotater = Tree (Tree input);
-alias Completer = list[Completion] (Tree input, str prefix, int requestOffset);
+alias Parser        = Tree (str input, loc origin);
+alias Summarizer    = Summary (Tree input);
+alias Outliner      = Outline (Tree input);
+alias Annotater     = Tree (Tree input);
+alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
 
-@synopsis{Each kind of contributions contibutes a language processing feature to an IDE}
+@synopsis{Each kind of contribution contibutes the implementation of one (or several) IDE features.}
 data Contribution
     = parser(Parser parser)
     | summarizer(Summarizer summarizer)
@@ -74,8 +74,8 @@ Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
 
 @synopsis{Outline encodes a sorted and hierarchical outline of a source file}
 data Outline
-    = group(str label, list[Outline] members)
-    | item(str label, loc src)
+    = group(str label, loc src, list[Outline] members)
+    | symbol(str label, loc src)
     ;
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);

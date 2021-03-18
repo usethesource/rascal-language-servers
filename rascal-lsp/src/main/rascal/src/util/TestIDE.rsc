@@ -5,7 +5,9 @@ import util::IDE;
 start syntax ExampleLanguage = ("example" | " ")+;
 
 set[Contribution] exampleLanguageContributor() = {
-    parserFor(#start[ExampleLanguage])
+    parser(Tree (str input, loc src) {
+        return parse(#start[ExampleLanguage], input, src);
+    })
 };
 
 void testExampleLanguageContribution() {

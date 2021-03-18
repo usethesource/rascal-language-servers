@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,6 +45,7 @@ import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -54,6 +56,9 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.WorkDoneProgressBegin;
+import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
+import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -63,7 +68,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
@@ -74,7 +78,6 @@ import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -88,7 +91,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final ColumnMaps columns;
     private final ParametricFileFacts facts;
 
-    private final Map<String, ILanguageContributions> contributions = new HashMap<>();
+    private final Map<String, CompletableFuture<ILanguageContributions>> contributions = new HashMap<>();
 
     public ParametricTextDocumentService() {
         this.files = new ConcurrentHashMap<>();
@@ -128,7 +131,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        logger.debug("Open file: {}", params.getTextDocument());
+        logger.debug("Did Open file: {}", params.getTextDocument());
         ParametricFileState file = open(params.getTextDocument());
         handleParsingErrors(file);
     }
@@ -141,7 +144,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        logger.debug("Close: {}", params.getTextDocument());
+        logger.debug("Did Close: {}", params.getTextDocument());
         if (files.remove(Locations.toLoc(params.getTextDocument())) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
@@ -207,11 +210,22 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         if ((index = doc.getUri().lastIndexOf(".")) != -1) {
             String extension = doc.getUri().substring(index + 1);
-            ILanguageContributions contrib = contributions.get(extension);
+            CompletableFuture<ILanguageContributions> contrib = contributions.get(extension);
             
             if (contrib != null) {
-                return files.computeIfAbsent(Locations.toLoc(doc),
-                l -> new ParametricFileState(contrib, ownExecuter, l, doc.getText()));
+                try {
+                    return contrib.thenApply((ILanguageContributions c) -> {
+                        return files.computeIfAbsent(Locations.toLoc(doc),
+                        l -> new ParametricFileState(c, ownExecuter, l, doc.getText()));
+                    })
+                    .exceptionally(e -> {
+                        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());      
+                    })
+                    .get();
+                }
+                catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                } 
             }
             else {
                 throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());
@@ -272,6 +286,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
-        contributions.put(lang.getExtension(), new InterpretedLanguageContributions(lang));
+        contributions.put(
+            lang.getExtension(), 
+            CompletableFuture.supplyAsync(() -> {
+                final String token = "registering language " + lang.getName();
+                
+                try {
+                    client.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(token)));
+                    return new InterpretedLanguageContributions(lang);
+                }
+                finally {
+                    client.notifyProgress(new ProgressParams(Either.forLeft(token), Either.forLeft(new WorkDoneProgressEnd())));
+                }
+            }));
     }
 }
