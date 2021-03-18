@@ -55,7 +55,6 @@ public class Summary {
     private static final IConstructor EMPTY_SUMMARY;
 
     static {
-
         TypeFactory TF = TypeFactory.getInstance();
         TypeStore TS = new TypeStore();
         Type summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary");
