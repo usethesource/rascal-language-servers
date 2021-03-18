@@ -8,7 +8,7 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
  
-const deployMode = true;
+const deployMode = false;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 let registeredFileExtensions:Array<String> = [];
 

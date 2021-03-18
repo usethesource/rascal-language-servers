@@ -77,7 +77,15 @@ Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
 });
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
-data DocumentSymbol = symbol(str name, DocumentSymbolKind kind, loc range, loc selection=range, str detail=name, list[DocumentSymbol] children=[]);
+data DocumentSymbol 
+    = symbol(
+        str name, 
+        DocumentSymbolKind kind, 
+        loc range, 
+        loc selection=range, 
+        str detail=name, 
+        list[DocumentSymbol] children=[]
+    );
 
 data DocumentSymbolKind 
 	= \file()

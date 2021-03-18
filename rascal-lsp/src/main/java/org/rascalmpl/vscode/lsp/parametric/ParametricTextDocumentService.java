@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -135,8 +134,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
-        ParametricFileState file = open(params.getTextDocument());
-        handleParsingErrors(file);
+        open(params.getTextDocument()).thenAccept(file -> handleParsingErrors(file));
     }
 
     @Override
@@ -231,20 +229,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private ParametricFileState open(TextDocumentItem doc) {
+    private CompletableFuture<ParametricFileState> open(TextDocumentItem doc) {
         CompletableFuture<ILanguageContributions> contrib = contributions(doc);
         
         if (contrib != null) {
-            try {
-                return contrib.thenApply((ILanguageContributions c) -> {
-                    return files.computeIfAbsent(Locations.toLoc(doc),
-                    l -> new ParametricFileState(c, ownExecuter, l, doc.getText()));
-                })
-                .get();
-            }
-            catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            } 
+            return contrib.thenApply((ILanguageContributions c) -> {
+                return files.computeIfAbsent(Locations.toLoc(doc),
+                l -> new ParametricFileState(c, ownExecuter, l, doc.getText()));
+            });
         }
         else {
             throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());
