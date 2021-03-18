@@ -81,7 +81,6 @@ import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -209,11 +208,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return l.get(l.size() - 1);
     }
 
+    private CompletableFuture<ILanguageContributions> contributions(TextDocumentIdentifier doc) {
+        return contributions(doc.getUri());
+    }
+
     private CompletableFuture<ILanguageContributions> contributions(TextDocumentItem doc) {
+        return contributions(doc.getUri());
+    }
+
+    private CompletableFuture<ILanguageContributions> contributions(String doc) {
         int index = -1;
 
-        if ((index = doc.getUri().lastIndexOf(".")) != -1) {
-            String extension = doc.getUri().substring(index + 1);
+        if ((index = doc.lastIndexOf(".")) != -1) {
+            String extension = doc.substring(index + 1);
             CompletableFuture<ILanguageContributions> contrib = contributions.get(extension);
 
             if (contrib != null) {
@@ -221,7 +228,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             }
         }
      
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());
+        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
     private ParametricFileState open(TextDocumentItem doc) {
@@ -232,9 +239,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return contrib.thenApply((ILanguageContributions c) -> {
                     return files.computeIfAbsent(Locations.toLoc(doc),
                     l -> new ParametricFileState(c, ownExecuter, l, doc.getText()));
-                })
-                .exceptionally(e -> {
-                    throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());      
                 })
                 .get();
             }
@@ -299,12 +303,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
 
-        CompletableFuture<ILanguageContributions> contrib = contributions.get(params.getTextDocument());
+        CompletableFuture<ILanguageContributions> contrib = contributions(params.getTextDocument());
             
         if (contrib != null) {
-            ParametricFileState file = getFile(params.getTextDocument());
+            final ParametricFileState file = getFile(params.getTextDocument());
             return file.getCurrentTreeAsync().thenCombine(contrib, (tree, c) -> {
-                return Collections.singletonList(Either.forRight(Outline.buildParameticOutlineTree(c.outline(tree))));
+                return Outline.buildParametricOutline(c.outline(tree), columns.get(file.getLocation()));
             });
         }
         else {

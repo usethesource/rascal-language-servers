@@ -91,11 +91,17 @@ public class Outline {
         }
         return null;
     }
-
+ 
     private static String capitalize(String kindName) {
        return kindName.substring(0,1).toUpperCase() + kindName.substring(1);
     }
 
+    /**
+     * Converts a list of Rascal DocumentSymbols (@see util::IDE) to LSP DocumentSymbols
+     * @param symbols list of Rascal DocumentSymbols
+     * @param om line/column offset map
+     * @return list of LSP DocumentSymbols
+     */
     public static List<Either<SymbolInformation, DocumentSymbol>> buildParametricOutline(IList symbols, LineColumnOffsetMap om) {
         return symbols.stream()
                 .map(s -> buildParametricOutline((IConstructor) s, om))
@@ -103,6 +109,12 @@ public class Outline {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Converts a constructor tree of Rascal type DocumentSymbol from util::IDE to an LSP DocumentSymbol
+     * @param symbol IConstructor of Rascal type DocumentSymbol
+     * @param om     line/column offset map
+     * @return a DocumentSymbol
+     */
     public static DocumentSymbol buildParametricOutline(IConstructor symbol, final LineColumnOffsetMap om) {
         IWithKeywordParameters<?> kwp = symbol.asWithKeywordParameters();
 
