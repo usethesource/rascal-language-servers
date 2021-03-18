@@ -214,7 +214,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
             .thenCompose(tr -> rascalServices.getOutline(tr, ownExecuter).get())
-            .thenApply(o -> Outline.buildOutlineTree(o, columns.get(file.getLocation())));
+            .thenApply(o -> Outline.buildRascalOutlineTree(o, columns.get(file.getLocation())));
     }
 
     // Private utility methods

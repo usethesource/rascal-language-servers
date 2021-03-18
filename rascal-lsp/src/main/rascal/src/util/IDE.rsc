@@ -17,7 +17,7 @@ data Language
 
 alias Parser        = Tree (str input, loc origin);
 alias Summarizer    = Summary (Tree input);
-alias Outliner      = DocumentSymbol (Tree input);
+alias Outliner      = list[DocumentSymbol] (Tree input);
 alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
 
@@ -34,14 +34,16 @@ data Contribution
 data Tree(
     set[Message] messages      = {}, // error messages associated with a tree node
     set[str]     documentation = {}, // documentation strings associated with a tree node
-    set[loc]     references    = {}  // this nodes points to these references
+    set[loc]     references    = {}, // this nodes points to these references
+    str          category      = ""  // semantic highlighting category
 );
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 data Summary = summary(loc src
     rel[loc, Message] messages = {},
     rel[loc, str]     documentation = {},
-    rel[loc, loc]     references = {}
+    rel[loc, loc]     references = {},
+    lrel[loc, str]    categories = []
 );
 
 data Completion = completion(str newText, str proposal=newText);
@@ -51,12 +53,14 @@ Contribution summarizer(Annotater annotater) = summarizer(Summary (Tree input) {
     messages = {};
     documentation = {};
     references = {};
+    categories = [];
 
     visit(annotater(input)) {
         case Tree t: if (t.src?) {
             messages      += {<t.src, m> | m <- t.messages};
             documentation += {<t.src, d> | d <- t.documentation};
             references    += {<t.src, r> | r <- t.references};
+            categories    += [<t.src, t.category> | t.category?];
         }
     }
 
@@ -73,7 +77,7 @@ Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
 });
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
-data DocumentSymbol = symbol(str name, str label, loc src, list[DocumentSymbol] children=[]);
+data DocumentSymbol = symbol(str name, DocumentSymbolKind kind, loc range, loc selection=range, str detail=name, list[DocumentSymbol] children=[]);
 
 data DocumentSymbolKind 
 	= \file()
@@ -103,6 +107,10 @@ data DocumentSymbolKind
 	| \operator()
 	| \typeParameter()
     | \other(str label)
+    ;
+
+data DocumentSymbolTag
+    = \deprecated()
     ;
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);

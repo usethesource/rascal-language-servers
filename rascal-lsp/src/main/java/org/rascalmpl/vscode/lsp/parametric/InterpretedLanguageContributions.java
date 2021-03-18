@@ -18,6 +18,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.LoggingMonitor;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -30,6 +31,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final String name;
 
     private Optional<IFunction> parser = Optional.empty();
+    private Optional<IFunction> outliner = Optional.empty();
 
     public InterpretedLanguageContributions(LanguageParameter lang) {
         this.name = lang.getName();
@@ -47,7 +49,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 IConstructor contrib = (IConstructor) elem;
                 switch (contrib.getConstructorType().getName()) {
                     case "parser":
-                    this.parser = Optional.of((IFunction) contrib.get(0));
+                        this.parser = Optional.of((IFunction) contrib.get(0));
+                        break;
+                    case "outliner":
+                        this.outliner = Optional.of((IFunction) contrib.get(0));
+                        break;
+                    default:
+                        logger.warn("Contribution is not implemented yet: " + contrib); 
                 }
             }
         }
@@ -103,6 +111,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         }
         else {
             throw new UnsupportedOperationException("no parser is registered for " + name);
+        }
+    }
+
+    @Override
+    public IList outline(ITree input) {
+        if (outliner.isPresent()) {
+            synchronized (eval) {
+                return (IList) outliner.get().call(input);
+            }
+        }
+        else {
+            throw new UnsupportedOperationException("no outliner is registered for " + name);
         }
     }
 }
