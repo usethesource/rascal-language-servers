@@ -1,7 +1,6 @@
 package org.rascalmpl.vscode.lsp.parametric.model;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -10,8 +9,6 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileState {
-    private final Executor javaScheduler;
-
     private final ISourceLocation file;
     private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
@@ -21,8 +18,7 @@ public class ParametricFileState {
 
     private final ILanguageContributions contributions;
 
-    public ParametricFileState(ILanguageContributions contributions, Executor javaSchedular, ISourceLocation file, String content) {
-        this.javaScheduler = javaSchedular;
+    public ParametricFileState(ILanguageContributions contributions, ISourceLocation file, String content) {
         this.contributions = contributions;
 
         this.file = file;
@@ -38,7 +34,7 @@ public class ParametricFileState {
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
     private CompletableFuture<ITree> newContents(String contents) {
-        return CompletableFuture.supplyAsync(() -> contributions.parseSourceFile(file, contents), javaScheduler)
+        return contributions.parseSourceFile(file, contents)
             .whenComplete((r, t) -> { if (r != null) { lastFullTree = r; } });
     }
 

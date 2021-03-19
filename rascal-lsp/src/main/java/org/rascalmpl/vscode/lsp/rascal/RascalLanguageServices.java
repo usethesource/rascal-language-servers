@@ -20,29 +20,22 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
-import java.io.ByteArrayInputStream;
+import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
+import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.logging.log4j.Level;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.rascalmpl.debug.IRascalMonitor;
-import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.Parser;
@@ -51,21 +44,18 @@ import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
-import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.util.LoggingMonitor;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
-import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class RascalLanguageServices {
@@ -74,11 +64,11 @@ public class RascalLanguageServices {
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
     private final Future<Evaluator> outlineEvaluator =
-        makeFutureEvaluator("Rascal outline", "lang::rascal::ide::Outline");
+        makeFutureEvaluator("Rascal outline", null, "lang::rascal::ide::Outline");
     private final Future<Evaluator> summaryEvaluator =
-        makeFutureEvaluator("Rascal summary", "lang::rascalcore::check::Summary");
+        makeFutureEvaluator("Rascal summary", null, "lang::rascalcore::check::Summary");
     private final Future<Evaluator> compilerEvaluator =
-        makeFutureEvaluator("Rascal compiler", "lang::rascalcore::check::Checker");
+        makeFutureEvaluator("Rascal compiler", null, "lang::rascalcore::check::Checker");
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg, Executor exec) {
         try {
@@ -154,94 +144,7 @@ public class RascalLanguageServices {
         return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE, exec);
     }
 
-    private static <T> InterruptibleFuture<T> runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call,
-        T defaultResult, Executor exec) {
-        AtomicBoolean interrupted = new AtomicBoolean(false);
-        AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
-        return new InterruptibleFuture<>(CompletableFuture.supplyAsync(() -> {
-            try {
-                Evaluator actualEval = eval.get();
-
-                synchronized (actualEval) {
-                    try {
-                        runningEvaluator.set(actualEval);
-                        if (interrupted.get()) {
-                            return defaultResult;
-                        }
-                        return call.apply(actualEval);
-                    } catch (InterruptException e) {
-                        return defaultResult;
-                    } finally {
-                        actualEval.__setInterrupt(false);
-                        runningEvaluator.set(null);
-                    }
-                }
-            } catch (Throw e) {
-                logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
-                    e.getTrace());
-                logger.error("Full internal error: ", e);
-                return defaultResult;
-            } catch (Exception e) {
-                logger.error(task + " failed", e);
-                return defaultResult;
-            }
-        }, exec),
-        () -> {
-            interrupted.set(true);
-            Evaluator actualEval = runningEvaluator.get();
-            if (actualEval != null) {
-                actualEval.interrupt();
-            }
-        });
-    }
-
-    private Future<Evaluator> makeFutureEvaluator(String label, final String... imports) {
-        return asyncGenerator(label, () -> {
-            logger.debug("Creating evaluator: {}", label);
-            Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(
-                new ByteArrayInputStream(new byte[0]),
-                IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
-            eval.setMonitor(new LoggingMonitor(customLog));
-
-            eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
-            eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
-            eval.addClassLoader(IValue.class.getClassLoader());
-            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
-
-            for (String i : imports) {
-                try {
-                    eval.doImport(eval, i);
-                } catch (Exception e) {
-                    logger.error("Failed to import: {}", i, e);
-                    throw new RuntimeException("Failure to import required module " + i, e);
-                }
-            }
-            logger.debug("Finished creating evaluator: {}", label);
-
-            return eval;
-        });
-    }
-
-
-    private static <T> Future<T> asyncGenerator(String name, Callable<T> generate) {
-        FutureTask<T> result = new FutureTask<>(() -> {
-            try {
-                return generate.call();
-            } catch (Exception e) {
-                throw new RuntimeException("Cannot initialize " + name, e);
-            }
-        });
-
-        Thread t = new Thread(result, "Loading " + name + " Evaluator");
-        t.setDaemon(true);
-        t.start();
-
-        return result;
-    }
-
+   
     public ITree parseSourceFile(ISourceLocation loc, String input) {
         return parseContents(loc, input.toCharArray());
     }

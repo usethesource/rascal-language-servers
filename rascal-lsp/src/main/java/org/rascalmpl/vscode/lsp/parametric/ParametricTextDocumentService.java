@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -81,6 +82,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IList;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
@@ -235,7 +237,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         if (contrib != null) {
             return contrib.thenApply((ILanguageContributions c) -> {
                 return files.computeIfAbsent(Locations.toLoc(doc),
-                l -> new ParametricFileState(c, ownExecuter, l, doc.getText()));
+                l -> new ParametricFileState(c, l, doc.getText()));
             });
         }
         else {
@@ -291,16 +293,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
-        documentSymbol(DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
 
         CompletableFuture<ILanguageContributions> contrib = contributions(params.getTextDocument());
             
         if (contrib != null) {
             final ParametricFileState file = getFile(params.getTextDocument());
+
             return file.getCurrentTreeAsync().thenCombine(contrib, (tree, c) -> {
-                return Outline.buildParametricOutline(c.outline(tree), columns.get(file.getLocation()));
+                try {
+                    return Outline.buildParametricOutline(contrib.get().outline(tree).get(),  columns.get(file.getLocation()));
+                } catch (InterruptedException | ExecutionException e) {
+                    logger.catching(e);
+                    return Collections.emptyList();
+                }
             });
         }
         else {
