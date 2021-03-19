@@ -7,6 +7,8 @@ import * as cp from 'child_process';
 import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
+import { TextDocumentContentProvider } from 'vscode';
+import { StringifyOptions } from 'node:querystring';
  
 const deployMode = true;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -36,9 +38,32 @@ export function activate(context: vscode.ExtensionContext) {
 		if (extension !== undefined && registeredFileExtensions.indexOf(extension) !== -1) {
 			vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
 		}
+		if (extension === 'rsc') {
+			vscode.languages.setTextDocumentLanguage(e, 'rascalmpl');
+		}
 	}));
 
+	const provider = new RascalTextDocumentContentProvider(rascalClient);
+
+	vscode.workspace.registerTextDocumentContentProvider('project', provider);
+	vscode.workspace.registerTextDocumentContentProvider('std', provider);
+	vscode.workspace.registerTextDocumentContentProvider('lib', provider);
+
 	console.log('LSP servers started (Rascal and Parametric)');
+}
+
+class RascalTextDocumentContentProvider implements TextDocumentContentProvider {
+	onDidChange?: vscode.Event<vscode.Uri> | undefined;
+	client:LanguageClient;
+
+	constructor(client:LanguageClient) {
+		this.client = client;
+	}
+
+	provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
+		const reply:Promise<LocationContent> = this.client.sendRequest("rascal/locationContents", { uri: uri.toString() });
+		return reply.then(c => c.content);
+	}
 }
 
 export function registerLanguage(context: vscode.ExtensionContext, client:LanguageClient, lang:LanguageParameter) {
@@ -48,8 +73,6 @@ export function registerLanguage(context: vscode.ExtensionContext, client:Langua
 	if (registeredFileExtensions.indexOf(lang.extension) === -1) {
 		registeredFileExtensions.push(lang.extension);
 	}
-
-	
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext, parametricServer:LanguageClient):LanguageClient {
@@ -245,10 +268,18 @@ interface BrowseParameter {
 	title:string;
 }
 
+interface URIParameter {
+	uri:string;
+}
+
 interface LanguageParameter {
 	pathConfig: string 		// rascal pathConfig constructor as a string
 	name: string; 			// name of the language
 	extension:string; 		// extension for files in this language
 	mainModule: string; 	// main module to locate mainFunction in
 	mainFunction: string; 	// main function which contributes the language implementation
+}
+
+interface LocationContent {
+	content: string;
 }

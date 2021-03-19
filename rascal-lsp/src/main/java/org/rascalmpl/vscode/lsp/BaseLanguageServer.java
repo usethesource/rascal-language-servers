@@ -8,6 +8,8 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -23,7 +25,13 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.library.Prelude;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+
+import io.usethesource.vallang.ISourceLocation;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -142,6 +150,28 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
             CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang));
             return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<LocationContent> locationContents(URIParameter lang) {
+            try {
+            ISourceLocation loc = URIUtil.createFromURI(lang.getUri());
+            URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+            return CompletableFuture.completedFuture(reg.getCharacterReader(loc))
+                .thenApply(r -> {
+                    try {
+                        return Prelude.consumeInputStream(r);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .thenApply(s -> new LocationContent(s));
+                    
+            } catch (URISyntaxException | IOException e) {
+                logger.catching(e);
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
