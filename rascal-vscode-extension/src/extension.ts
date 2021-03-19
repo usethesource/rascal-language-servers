@@ -8,7 +8,7 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
  
-const deployMode = true;
+const deployMode = false;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 let registeredFileExtensions:Array<String> = [];
 
@@ -48,6 +48,8 @@ export function registerLanguage(context: vscode.ExtensionContext, client:Langua
 	if (registeredFileExtensions.indexOf(lang.extension) === -1) {
 		registeredFileExtensions.push(lang.extension);
 	}
+
+	
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext, parametricServer:LanguageClient):LanguageClient {

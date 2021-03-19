@@ -119,7 +119,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ServerCapabilities result) {
         // result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
-        // result.setDocumentSymbolProvider(true);
+        result.setDocumentSymbolProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
     }
 
@@ -315,17 +315,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         contributions.put(
             lang.getExtension(), 
             CompletableFuture.supplyAsync(() -> {
-                final String token = "registering language " + lang.getName();
-                
-                try {
-                    client.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(token)));
                     return new InterpretedLanguageContributions(lang);
-                }
-                finally {
-                    client.notifyProgress(new ProgressParams(Either.forLeft(token), Either.forLeft(new WorkDoneProgressEnd())));
-                }
-            }));
+            })
+        );
     }
-
-
 }

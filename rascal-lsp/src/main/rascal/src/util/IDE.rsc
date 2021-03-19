@@ -9,7 +9,7 @@
 module util::IDE
 
 extend util::Reflective;
-extend Content;
+// extend Content;
 extend ParseTree;
 
 data Language
@@ -71,10 +71,11 @@ Contribution summarizer(Annotater annotater) = summarizer(Summary (Tree input) {
     );
 });
 
-@synopsis{Produces a parser contribution from a reified grammar}
-Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
-    return parse(grammar, input, src);
-});
+// THERE is a bug in the interpreter that lets this function fail
+// @synopsis{Produces a parser contribution from a reified grammar}
+// Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
+//     return parse(grammar, input, src);
+// });
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
 data DocumentSymbol 
@@ -114,7 +115,6 @@ data DocumentSymbolKind
 	| \event()
 	| \operator()
 	| \typeParameter()
-    | \other(str label)
     ;
 
 data DocumentSymbolTag
@@ -125,7 +125,7 @@ data CompletionProposal = sourceProposal(str newText, str proposal=newText);
     
 data Command 
     = action(str label, void (Tree tree, loc selection) action)
-    | interaction(str label, Content (Tree tree, loc selection) server)
+    // | interaction(str label, Content (Tree tree, loc selection) server)
     | action(str label, void (str selStr, loc selLoc) handler) 
     | toggle(str label, bool() state, void(Tree tree, loc selection) action)
     | edit(str label, str (Tree tree, loc selection) edit)

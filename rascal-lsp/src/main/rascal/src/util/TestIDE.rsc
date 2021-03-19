@@ -4,7 +4,9 @@ import util::IDE;
 import lang::pico::\syntax::Main;
 
 set[Contribution] picoLanguageContributor() = {
-    parserFor(#start[Program]),
+    parser(Tree (str input, loc src) {
+        return parse(#start[Program], input, src);
+    }),
     outliner(picoOutliner)
 };
 
