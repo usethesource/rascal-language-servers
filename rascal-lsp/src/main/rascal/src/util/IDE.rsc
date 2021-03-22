@@ -20,6 +20,7 @@ alias Summarizer    = Summary (Tree input);
 alias Outliner      = list[DocumentSymbol] (Tree input);
 alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
+alias Builder       = list[Messages] (list[loc] sources, PathConfig pcfg);
 
 @synopsis{Each kind of contribution contibutes the implementation of one (or several) IDE features.}
 data Contribution
@@ -27,6 +28,7 @@ data Contribution
     | summarizer(Summarizer summarizer)
     | outliner(Outliner outliner)
     | completer(Completer completer)
+    | builder(Builder builder)
     | command(Command command)
     ;
 
@@ -39,10 +41,10 @@ data Tree(
 );
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
-data Summary = summary(loc src
+data Summary = summary(loc src,
     rel[loc, Message] messages = {},
     rel[loc, str]     documentation = {},
-    rel[loc, loc]     references = {},
+    rel[loc, loc]     references = {}, // TODO: definitions?
     lrel[loc, str]    categories = []
 );
 
@@ -84,7 +86,7 @@ data DocumentSymbol
         DocumentSymbolKind kind, 
         loc range, 
         loc selection=range, 
-        str detail=name, 
+        str detail="", 
         list[DocumentSymbol] children=[]
     );
 

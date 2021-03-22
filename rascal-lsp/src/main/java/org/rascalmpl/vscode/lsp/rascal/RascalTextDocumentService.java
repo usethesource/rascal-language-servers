@@ -225,7 +225,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private FileState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new FileState(rascalServices, ownExecuter, l, doc.getText()));
+            l -> new FileState((loc, input) -> rascalServices.parseSourceFile(loc, input, ownExecuter), l, doc.getText()));
     }
 
     private FileState getFile(TextDocumentIdentifier doc) {

@@ -1,17 +1,15 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileState {
-    private final Executor javaScheduler;
-    private final RascalLanguageServices services;
+    private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
     private volatile String currentContent;
@@ -20,10 +18,8 @@ public class FileState {
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<ITree> currentTree;
 
-    public FileState(RascalLanguageServices services, Executor javaSchedular, ISourceLocation file, String content) {
-        this.services = services;
-        this.javaScheduler = javaSchedular;
-
+    public FileState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, String content) {
+        this.parser = parser;
         this.file = file;
         this.currentContent = content;
         currentTree = newContents(content);
@@ -37,8 +33,12 @@ public class FileState {
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
     private CompletableFuture<ITree> newContents(String contents) {
-        return CompletableFuture.supplyAsync(() -> services.parseSourceFile(file, contents), javaScheduler)
-            .whenComplete((r, t) -> { if (r != null) { lastFullTree = r; } });
+        return parser.apply(file, contents)
+            .whenComplete((r, t) -> { 
+                if (r != null) { 
+                    lastFullTree = r; 
+                } 
+            });
     }
 
     public CompletableFuture<ITree> getCurrentTreeAsync() {

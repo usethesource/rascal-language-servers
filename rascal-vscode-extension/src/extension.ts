@@ -97,7 +97,7 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
 		   showContentPanel(bp.uri);
 		});
 
-		if (parametricServer !== undefined) {
+		if (parametricServer) {
 			client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
 				registerLanguage(context, parametricServer, lang);
 			});

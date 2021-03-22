@@ -47,7 +47,6 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -59,8 +58,6 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -73,7 +70,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileState;
+import org.rascalmpl.vscode.lsp.rascal.model.FileState;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
@@ -82,7 +79,6 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IList;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
@@ -91,11 +87,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
 
-    private final Map<ISourceLocation, ParametricFileState> files;
+    private final Map<ISourceLocation, FileState> files;
     private final ColumnMaps columns;
     private final ParametricFileFacts facts;
 
-    private final Map<String, CompletableFuture<ILanguageContributions>> contributions = new HashMap<>();
+    private final Map<String, ILanguageContributions> contributions = new HashMap<>();
 
     public ParametricTextDocumentService() {
         this.files = new ConcurrentHashMap<>();
@@ -105,7 +101,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private String getContents(ISourceLocation file) {
         file = file.top();
-        ParametricFileState ideState = files.get(file);
+        FileState ideState = files.get(file);
         if (ideState != null) {
             return ideState.getCurrentContent();
         }
@@ -136,7 +132,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
-        open(params.getTextDocument()).thenAccept(file -> handleParsingErrors(file));
+        handleParsingErrors(open(params.getTextDocument()));
     }
 
     @Override
@@ -162,14 +158,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // facts.invalidate(Locations.toLoc(params.getTextDocument()));
     }
 
-    private ParametricFileState updateContents(TextDocumentIdentifier doc, String newContents) {
-        ParametricFileState file = getFile(doc);
+    private FileState updateContents(TextDocumentIdentifier doc, String newContents) {
+        FileState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         handleParsingErrors(file, file.update(newContents));
         return file;
     }
 
-    private void handleParsingErrors(ParametricFileState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(FileState file, CompletableFuture<ITree> futureTree) {
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -198,7 +194,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         });
     }
 
-    private void handleParsingErrors(ParametricFileState file) {
+    private void handleParsingErrors(FileState file) {
         handleParsingErrors(file, file.getCurrentTreeAsync());
     }
 
@@ -208,20 +204,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return l.get(l.size() - 1);
     }
 
-    private CompletableFuture<ILanguageContributions> contributions(TextDocumentIdentifier doc) {
+    private ILanguageContributions contributions(TextDocumentIdentifier doc) {
         return contributions(doc.getUri());
     }
 
-    private CompletableFuture<ILanguageContributions> contributions(TextDocumentItem doc) {
+    private ILanguageContributions contributions(TextDocumentItem doc) {
         return contributions(doc.getUri());
     }
 
-    private CompletableFuture<ILanguageContributions> contributions(String doc) {
+    private ILanguageContributions contributions(String doc) {
         int index = -1;
 
         if ((index = doc.lastIndexOf(".")) != -1) {
             String extension = doc.substring(index + 1);
-            CompletableFuture<ILanguageContributions> contrib = contributions.get(extension);
+            ILanguageContributions contrib = contributions.get(extension);
 
             if (contrib != null) {
                 return contrib;
@@ -231,26 +227,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private CompletableFuture<ParametricFileState> open(TextDocumentItem doc) {
-        CompletableFuture<ILanguageContributions> contrib = contributions(doc);
-        
-        if (contrib != null) {
-            return contrib.thenApply((ILanguageContributions c) -> {
-                return files.computeIfAbsent(Locations.toLoc(doc),
-                l -> new ParametricFileState(c, l, doc.getText()));
-            });
-        }
-        else {
-            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc.getUri());
-        }
+    private FileState open(TextDocumentItem doc) {
+        return files.computeIfAbsent(Locations.toLoc(doc),
+            l -> new FileState(contributions(doc)::parseSourceFile, l, doc.getText())
+        );
     }
 
-    private ParametricFileState getFile(TextDocumentIdentifier doc) {
+    private FileState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
     }
 
-    private ParametricFileState getFile(ISourceLocation loc) {
-        ParametricFileState file = files.get(loc);
+    private FileState getFile(ISourceLocation loc) {
+        FileState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
         }
@@ -296,24 +284,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
 
-        CompletableFuture<ILanguageContributions> contrib = contributions(params.getTextDocument());
-            
-        if (contrib != null) {
-            final ParametricFileState file = getFile(params.getTextDocument());
+        final FileState file = getFile(params.getTextDocument());
 
-            return file.getCurrentTreeAsync().thenCombine(contrib, (tree, c) -> {
-                try {
-                    return Outline.buildParametricOutline(contrib.get().outline(tree).get(),  columns.get(file.getLocation()));
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.catching(e);
-                    return Collections.emptyList();
-                }
-            });
-        }
-        else {
-            logger.trace("no outline available for " + params.getTextDocument());
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
+        return file.getCurrentTreeAsync().thenApply(tree -> {
+            try {
+                ILanguageContributions contrib = contributions(params.getTextDocument());
+                return Outline.buildParametricOutline(contrib.outline(tree).get(),  columns.get(file.getLocation()));
+            } catch (InterruptedException | ExecutionException e) {
+                logger.catching(e);
+                return Collections.emptyList();
+            }
+        });
     }
 
     @Override
@@ -321,9 +302,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.trace("registerLanguage({})", lang.getName());
         contributions.put(
             lang.getExtension(), 
-            CompletableFuture.supplyAsync(() -> {
-                    return new InterpretedLanguageContributions(lang);
-            })
+            new InterpretedLanguageContributions(lang)
         );
     }
 }

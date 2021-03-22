@@ -145,23 +145,13 @@ public class RascalLanguageServices {
     }
 
    
-    public ITree parseSourceFile(ISourceLocation loc, String input) {
-        return parseContents(loc, input.toCharArray());
-    }
-
-    public ITree parseSourceFile(ISourceLocation loc) throws IOException {
-        return parseContents(loc, getResourceContent(loc));
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input, Executor exec) {
+        return CompletableFuture.supplyAsync(() -> parseContents(loc, input.toCharArray()), exec);
     }
 
     private ITree parseContents(ISourceLocation loc, char[] input) {
         IActionExecutor<ITree> actions = new NoActionExecutor();
         return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
             new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
-    }
-
-    private static final char[] getResourceContent(ISourceLocation location) throws IOException {
-        try (Reader textStream = URIResolverRegistry.getInstance().getCharacterReader(location)) {
-            return InputConverter.toChar(textStream);
-        }
     }
 }

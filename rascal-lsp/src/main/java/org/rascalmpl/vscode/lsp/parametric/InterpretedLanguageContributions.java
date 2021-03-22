@@ -1,12 +1,11 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
@@ -29,8 +28,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Evaluator> eval;
     private final String name;
 
-    private Optional<IFunction> parser = Optional.empty();
-    private Optional<IFunction> outliner = Optional.empty();
+    private @MonotonicNonNull IFunction parser;
+    private @MonotonicNonNull IFunction outliner;
 
     public InterpretedLanguageContributions(LanguageParameter lang) {
         this.name = lang.getName();
@@ -56,10 +55,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 IConstructor contrib = (IConstructor) elem;
                 switch (contrib.getConstructorType().getName()) {
                     case "parser":
-                        this.parser = Optional.of((IFunction) contrib.get(0));
+                        this.parser = (IFunction) contrib.get(0);
                         break;
                     case "outliner":
-                        this.outliner = Optional.of((IFunction) contrib.get(0));
+                        this.outliner = (IFunction) contrib.get(0);
                         break;
                     default:
                         logger.warn("Contribution is not implemented yet: " + contrib); 
@@ -78,21 +77,25 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        if (parser.isPresent()) {
-            return eval.thenApply(e -> parser.get().call(VF.string(input), loc));
+        if (parser != null) {
+            return eval.thenApply(e -> parser.call(VF.string(input), loc));
         }
         else {
-            throw new UnsupportedOperationException("no parser is registered for " + name);
+            return CompletableFuture.supplyAsync(() -> {
+                throw new UnsupportedOperationException("no parser is registered for " + name);
+            });
         }
     }
 
     @Override
     public CompletableFuture<IList> outline(ITree input) {
-        if (outliner.isPresent()) {
-            return eval.thenApply(e -> outliner.get().call(input));
+        if (outliner != null) {
+            return eval.thenApply(e -> outliner.call(input));
         }
         else {
-            throw new UnsupportedOperationException("no outliner is registered for " + name);
+            return CompletableFuture.supplyAsync(() -> {
+                throw new UnsupportedOperationException("no outliner is registered for " + name);
+            });
         }
     }
 }
