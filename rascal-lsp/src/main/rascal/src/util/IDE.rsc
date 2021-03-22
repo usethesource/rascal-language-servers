@@ -20,7 +20,7 @@ alias Summarizer    = Summary (Tree input);
 alias Outliner      = list[DocumentSymbol] (Tree input);
 alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
-alias Builder       = list[Messages] (list[loc] sources, PathConfig pcfg);
+alias Builder       = list[Message] (list[loc] sources, PathConfig pcfg);
 
 @synopsis{Each kind of contribution contibutes the implementation of one (or several) IDE features.}
 data Contribution
