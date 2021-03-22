@@ -3,6 +3,7 @@ package org.rascalmpl.vscode.lsp.util;
 import java.io.ByteArrayInputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,7 +68,7 @@ public class EvaluatorUtil {
         });
     }
 
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(String label, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, String label, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
@@ -97,6 +98,6 @@ public class EvaluatorUtil {
             }
 
             return eval;
-        });
+        }, exec);
     }
 }

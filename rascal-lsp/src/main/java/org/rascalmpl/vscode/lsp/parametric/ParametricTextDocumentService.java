@@ -302,7 +302,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.trace("registerLanguage({})", lang.getName());
         contributions.put(
             lang.getExtension(), 
-            new InterpretedLanguageContributions(lang)
+            new InterpretedLanguageContributions(lang, ownExecuter)
         );
     }
 }

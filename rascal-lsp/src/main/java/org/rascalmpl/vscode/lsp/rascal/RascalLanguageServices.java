@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -60,17 +61,18 @@ public class RascalLanguageServices {
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
-    private final Future<Evaluator> outlineEvaluator =
-        makeFutureEvaluator("Rascal outline", null, "lang::rascal::ide::Outline");
-    private final Future<Evaluator> summaryEvaluator =
-        makeFutureEvaluator("Rascal summary", null, "lang::rascalcore::check::Summary");
-    private final Future<Evaluator> compilerEvaluator =
-        makeFutureEvaluator("Rascal compiler", null, "lang::rascalcore::check::Checker");
+    private final Future<Evaluator> outlineEvaluator;
+    private final Future<Evaluator> summaryEvaluator;
+    private final Future<Evaluator> compilerEvaluator;
 
-    private final Executor exec;
+    private final ExecutorService exec;
 
-    public RascalLanguageServices(Executor exec) {
+    public RascalLanguageServices(ExecutorService exec) {
         this.exec = exec;
+
+        outlineEvaluator = makeFutureEvaluator(exec, "Rascal outline", null, "lang::rascal::ide::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, "Rascal summary", null, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, "Rascal compiler", null, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
