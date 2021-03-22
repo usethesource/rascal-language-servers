@@ -16,7 +16,7 @@ data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
 alias Parser        = Tree (str input, loc origin);
-alias Summarizer    = Summary (Tree input);
+alias Summarizer    = Summary (loc origin, Tree input);
 alias Outliner      = list[DocumentSymbol] (Tree input);
 alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
@@ -51,7 +51,7 @@ data Summary = summary(loc src,
 data Completion = completion(str newText, str proposal=newText);
 
 @synopsis{produces a summarizer from an annotator by collecting all relevant information from a source Tree}
-Contribution summarizer(Annotater annotater) = summarizer(Summary (Tree input) {
+Contribution summarizer(Annotater annotater) = summarizer(Summary (loc src, Tree input) {
     messages = {};
     documentation = {};
     references = {};
@@ -66,7 +66,7 @@ Contribution summarizer(Annotater annotater) = summarizer(Summary (Tree input) {
         }
     }
 
-    return summary(input.src,
+    return summary(src,
         messages=messages,
         documentation=documentation,
         references=references
