@@ -73,13 +73,16 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -191,7 +194,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts.reportParseErrors(file.getLocation(),
+            facts.reportParseErrors(file.getLocation(), futureTree,
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
@@ -305,12 +308,22 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         final TextDocumentState file = getFile(params.getTextDocument());
+        ILanguageContributions contrib = contributions(params.getTextDocument());
 
-        return file.getCurrentTreeAsync()
-            .thenApply(t -> facts.getSummary(Locations.toLoc(params.getTextDocument()), t))
-            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-            .thenApply(Either::forLeft)
-            ;
+        // TODO: really interrupt and then replace the summary computation
+        CompletableFuture<InterruptibleFuture<IConstructor>> summary = file.getCurrentTreeAsync().thenApply(tree -> contrib.summarize(file.getLocation(), tree));
+
+        CompletableFuture<ParametricSummaryBridge> bridge = summary.thenApply(cons -> {
+            try {
+                return new ParametricSummaryBridge(cons.get().get(), columns);
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        CompletableFuture<List<Location>> locs = bridge.thenApply(br -> br.getDefinition(params.getPosition()));
+
+        return locs.thenApply(Either::forLeft);
     }
 
     @Override
