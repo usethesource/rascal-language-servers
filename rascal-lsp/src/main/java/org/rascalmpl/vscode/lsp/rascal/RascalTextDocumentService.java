@@ -196,8 +196,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>>
-        definition(DefinitionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))

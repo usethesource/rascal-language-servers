@@ -34,7 +34,13 @@ public class ParametricFileFacts {
     }
 
     private FileFact getFile(ISourceLocation l) {
-        return files.computeIfAbsent(l, l1 -> new FileFact(l1, exec));
+        return files.computeIfAbsent(
+            l, 
+            l1 -> new FileFact(
+                l1, 
+                exec
+            )
+        );
     }
 
     private class FileFact {

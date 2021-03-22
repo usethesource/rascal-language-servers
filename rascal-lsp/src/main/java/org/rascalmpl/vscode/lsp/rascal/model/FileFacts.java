@@ -48,7 +48,7 @@ public class FileFacts {
         getFile(changedFile).invalidate();
     }
 
-    public CompletableFuture<@Nullable Summary> getSummary(ISourceLocation file) {
+    public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
         return getFile(file).getSummary();
     }
 
@@ -63,7 +63,7 @@ public class FileFacts {
     private class FileFact {
         private final ISourceLocation file;
         private final PathConfig pcfg;
-        private final LazyUpdateableReference<InterruptibleFuture<@Nullable Summary>> summary;
+        private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
@@ -80,15 +80,15 @@ public class FileFacts {
             this.pcfg = pcfg;
             this.typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Collections.emptyMap()));
             this.summary = new LazyUpdateableReference<>(
-                new InterruptibleFuture<>(CompletableFuture.completedFuture(new Summary()), () -> {
+                new InterruptibleFuture<>(CompletableFuture.completedFuture(new SummaryBridge()), () -> {
                 }),
                 r -> {
                     r.interrupt();
-                    InterruptibleFuture<@Nullable Summary> summaryCalc = rascal.getSummary(file, this.pcfg)
-                        .thenApply(s -> s == null ? null : new Summary(s, cm));
+                    InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, this.pcfg)
+                        .thenApply(s -> s == null ? null : new SummaryBridge(s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)
-                    CompletableFuture<@Nullable Summary> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());
+                    CompletableFuture<@Nullable SummaryBridge> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());
                     return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
                 });
         }
@@ -114,7 +114,7 @@ public class FileFacts {
         }
 
 
-        public CompletableFuture<@Nullable Summary> getSummary() {
+        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
             return summary.get().get();
         }
 

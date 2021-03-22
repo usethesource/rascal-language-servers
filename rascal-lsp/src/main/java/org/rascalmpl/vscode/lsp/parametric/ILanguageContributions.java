@@ -12,5 +12,5 @@ import io.usethesource.vallang.ISourceLocation;
 public interface ILanguageContributions {
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public CompletableFuture<IList> outline(ITree input);
-    public InterruptibleFuture<IConstructor> summarizer(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
 }

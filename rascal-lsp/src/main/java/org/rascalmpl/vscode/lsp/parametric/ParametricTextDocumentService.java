@@ -37,6 +37,7 @@ import com.google.common.io.CharStreams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
@@ -45,6 +46,8 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -115,7 +118,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     public void initializeServerCapabilities(ServerCapabilities result) {
-        // result.setDefinitionProvider(true);
+        result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
@@ -295,6 +298,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return Collections.emptyList();
             }
         });
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
+
+        final TextDocumentState file = getFile(params.getTextDocument());
+
+        return file.getCurrentTreeAsync()
+            .thenApply(t -> facts.getSummary(Locations.toLoc(params.getTextDocument()), t))
+            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
+            .thenApply(Either::forLeft)
+            ;
     }
 
     @Override

@@ -118,7 +118,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarizer(ISourceLocation src, ITree input) {
+    public InterruptibleFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
         if (summarizer != null) {
             return EvaluatorUtil.runEvaluator(
                 "summarize", 
