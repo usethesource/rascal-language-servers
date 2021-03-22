@@ -38,9 +38,6 @@ export function activate(context: vscode.ExtensionContext) {
 		if (extension !== undefined && registeredFileExtensions.indexOf(extension) !== -1) {
 			vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
 		}
-		if (extension === 'rsc') {
-			vscode.languages.setTextDocumentLanguage(e, 'rascalmpl');
-		}
 	}));
 
 	const provider = new RascalTextDocumentContentProvider(rascalClient);
