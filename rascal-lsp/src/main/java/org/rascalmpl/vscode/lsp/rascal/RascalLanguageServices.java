@@ -24,7 +24,6 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -39,12 +38,10 @@ import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.Parser;
-import org.rascalmpl.parser.gtd.io.InputConverter;
 import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -70,7 +67,13 @@ public class RascalLanguageServices {
     private final Future<Evaluator> compilerEvaluator =
         makeFutureEvaluator("Rascal compiler", null, "lang::rascalcore::check::Checker");
 
-    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg, Executor exec) {
+    private final Executor exec;
+
+    public RascalLanguageServices(Executor exec) {
+        this.exec = exec;
+    }
+
+    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
         try {
             IString moduleName = VF.string(pcfg.getModuleName(occ));
             return runEvaluator("makeSummary", summaryEvaluator, eval -> {
@@ -135,7 +138,7 @@ public class RascalLanguageServices {
 
     private final static INode EMPTY_NODE = VF.node("");
 
-    public InterruptibleFuture<INode> getOutline(IConstructor module, Executor exec) {
+    public InterruptibleFuture<INode> getOutline(IConstructor module) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(EMPTY_NODE), () -> {});
@@ -145,7 +148,7 @@ public class RascalLanguageServices {
     }
 
    
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input, Executor exec) {
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         return CompletableFuture.supplyAsync(() -> parseContents(loc, input.toCharArray()), exec);
     }
 

@@ -84,7 +84,7 @@ public class FileFacts {
                 }),
                 r -> {
                     r.interrupt();
-                    InterruptibleFuture<@Nullable Summary> summaryCalc = rascal.getSummary(file, this.pcfg, exec)
+                    InterruptibleFuture<@Nullable Summary> summaryCalc = rascal.getSummary(file, this.pcfg)
                         .thenApply(s -> s == null ? null : new Summary(s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)

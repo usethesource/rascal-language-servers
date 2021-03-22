@@ -79,7 +79,7 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void main(String[] args, IBaseTextDocumentService service, int portNumber) {
+    public static void startLanguageServer(IBaseTextDocumentService service, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
         if (DEPLOY_MODE) {

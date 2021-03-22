@@ -31,7 +31,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.google.common.io.CharStreams;
 
@@ -69,8 +68,8 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.rascal.model.FileState;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
@@ -82,18 +81,19 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
-    private final ExecutorService ownExecuter = Executors.newCachedThreadPool();
+    private final ExecutorService ownExecuter;
 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
 
-    private final Map<ISourceLocation, FileState> files;
+    private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
     private final ParametricFileFacts facts;
 
     private final Map<String, ILanguageContributions> contributions = new HashMap<>();
 
-    public ParametricTextDocumentService() {
+    public ParametricTextDocumentService(ExecutorService exec) {
+        this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
         this.facts = new ParametricFileFacts(ownExecuter);
@@ -101,7 +101,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private String getContents(ISourceLocation file) {
         file = file.top();
-        FileState ideState = files.get(file);
+        TextDocumentState ideState = files.get(file);
         if (ideState != null) {
             return ideState.getCurrentContent();
         }
@@ -158,14 +158,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // facts.invalidate(Locations.toLoc(params.getTextDocument()));
     }
 
-    private FileState updateContents(TextDocumentIdentifier doc, String newContents) {
-        FileState file = getFile(doc);
+    private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
+        TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         handleParsingErrors(file, file.update(newContents));
         return file;
     }
 
-    private void handleParsingErrors(FileState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<ITree> futureTree) {
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -194,7 +194,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         });
     }
 
-    private void handleParsingErrors(FileState file) {
+    private void handleParsingErrors(TextDocumentState file) {
         handleParsingErrors(file, file.getCurrentTreeAsync());
     }
 
@@ -227,18 +227,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private FileState open(TextDocumentItem doc) {
+    private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new FileState(contributions(doc)::parseSourceFile, l, doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
         );
     }
 
-    private FileState getFile(TextDocumentIdentifier doc) {
+    private TextDocumentState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
     }
 
-    private FileState getFile(ISourceLocation loc) {
-        FileState file = files.get(loc);
+    private TextDocumentState getFile(ISourceLocation loc) {
+        TextDocumentState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
         }
@@ -284,7 +284,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
 
-        final FileState file = getFile(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
 
         return file.getCurrentTreeAsync().thenApply(tree -> {
             try {
