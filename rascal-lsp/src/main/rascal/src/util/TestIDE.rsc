@@ -23,7 +23,8 @@ Summary picoSummarizer(loc l, start[Program] input) {
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
     return summary(l, 
-        references = uses o defs + (uses o defs)<1,0>,
+        references = (uses o defs)<1,0>,
+        definitions = uses o defs,
         documentation = (uses o defs) o docs
     );
 }
