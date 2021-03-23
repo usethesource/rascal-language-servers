@@ -26,9 +26,12 @@ import java.util.List;
 import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -40,6 +43,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
@@ -65,15 +69,28 @@ public class ParametricSummaryBridge {
     private final IWithKeywordParameters<? extends IConstructor> data;
 
     private final Lazy<IRangeMap<List<Location>>> definitions;
+    private final Lazy<IRangeMap<List<Either<String, MarkedString>>>> hovers;
     
     public ParametricSummaryBridge(ISourceLocation file) {
         this.data = emptySummary(file).asWithKeywordParameters();
         this.definitions = TreeMapLookup::new;
+        this.hovers = TreeMapLookup::new;
     }
 
     public ParametricSummaryBridge(IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "references"), v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
+        this.definitions = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "references"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.hovers = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "documentation"), 
+                v -> Either.forLeft(((IString) v).getValue()),
+                cm
+            )
+        );
     }
 
     private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper, ColumnMaps cm) {
@@ -112,6 +129,14 @@ public class ParametricSummaryBridge {
             return defaultValue;
         }
         return value;
+    }
+
+    public List<Either<String,MarkedString>> getHover(Range range) {
+        return replaceNull(hovers.get().lookup(range), Collections.emptyList());
+    }
+
+    public List<Either<String,MarkedString>> getHover(Position position) {
+        return getHover(new Range(position, position));
     }
 
     public List<Location> getDefinition(Position cursor) {

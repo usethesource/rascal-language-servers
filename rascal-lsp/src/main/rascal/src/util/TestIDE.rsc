@@ -1,6 +1,7 @@
 module util::TestIDE
 
 import util::IDE;
+import IO;
 import lang::pico::\syntax::Main;
 
 set[Contribution] picoLanguageContributor() = {
@@ -21,7 +22,8 @@ Summary picoSummarizer(loc l, start[Program] input) {
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
 
     return summary(l, 
-        references = uses o defs
+        references = uses o defs,
+        documentation = {<use, "variable: <readFile(def)>"> | <use,def> <- uses o defs}
     );
 }
 

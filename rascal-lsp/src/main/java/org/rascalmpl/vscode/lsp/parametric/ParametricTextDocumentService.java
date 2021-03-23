@@ -46,6 +46,8 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
@@ -325,6 +327,29 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(br -> br.getDefinition(params.getPosition()))
             .thenApply(Either::forLeft);
 
+    }
+
+    @Override
+    public CompletableFuture<Hover> hover(HoverParams params) {
+        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
+
+        final TextDocumentState file = getFile(params.getTextDocument());
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+
+        // TODO: really interrupt and then replace the summary computation
+        return file.getCurrentTreeAsync()
+            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
+            .thenApply(cons -> {
+                try {
+                    IConstructor result = cons.get().get();
+                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
+                    return new ParametricSummaryBridge(cons.get().get(), columns);
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .thenApply(br -> br.getHover(params.getPosition()))
+            .thenApply(Hover::new);
     }
 
     @Override
