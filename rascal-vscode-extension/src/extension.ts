@@ -11,7 +11,7 @@ import { Server } from 'http';
 import { REPL_MODE_SLOPPY } from 'node:repl';
 import { loadavg } from 'node:os';
 
- 
+
 const deployMode = true;
 const main = 'org.rascalmpl.vscode.lsp.RascalLanguageServer';
 
@@ -32,7 +32,7 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	const serverOptions: ServerOptions = deployMode 
+	const serverOptions: ServerOptions = deployMode
 		? buildRascalServerOptions(context)
 		: () => connectToRascalLanguageServerSocket(developmentPort) // we assume a server is running in debug mode
 			.then((socket) => <StreamInfo> { writer: socket, reader: socket});
@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(client.start());
-	
+
 	registerTerminalCommand(context, client);
 }
 
@@ -85,9 +85,9 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
 				cwd: path.dirname(uri.fsPath),
 				shellPath: getJavaExecutable(),
 				shellArgs: [
-					'-cp' , buildJVMPath(context), 
+					'-cp' , buildJVMPath(context),
 					'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-					'--ideServicesPort', 
+					'--ideServicesPort',
 					'' + cfg.port
 				],
 				name: 'Rascal Terminal',
@@ -95,28 +95,28 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
 
 			context.subscriptions.push(disposable);
 			terminal.show(false);
-		});
-	});
+        });
+    });
 }
 
 function buildJVMPath(context: vscode.ExtensionContext) :string {
 	const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
-	return jars.map(j => context.asAbsolutePath(path.join('.', 'dist', j))).join(path.delimiter);
+	return jars.map(j => context.asAbsolutePath(path.join('.', 'out', j))).join(path.delimiter);
 }
 
 function buildRascalServerOptions(context: vscode.ExtensionContext): ServerOptions {
 	const classpath = buildJVMPath(context);
 	return {
 		command: 'java',
-		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG', 
-			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath, 
+		args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',
+			'-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath,
 			'-cp', classpath, main],
 	};
 }
 
 function getJavaExecutable():string {
-	const { JAVA_HOME } = process.env;	
-	
+	const { JAVA_HOME } = process.env;
+
 	const name = os.platform() === 'win32' ? 'java.exe' : 'java';
 	return JAVA_HOME ? path.join(JAVA_HOME, 'bin', name) : name;
 }
@@ -128,7 +128,7 @@ function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> 
 		let retryDelay = 0;
 		const client = new net.Socket();
 		var tries = 0;
-		
+
         function retry(err?: Error) : net.Socket | void {
             if (tries <= maxTries) {
 				setTimeout (() => {
@@ -141,16 +141,16 @@ function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> 
                 return failed("Connection retries exceeded" + (err ? (": " + err.message) : ""));
             }
 		}
-		
+
         client.setTimeout(1000);
         client.on('timeout', retry);
         client.on('error', retry);
         client.once('connect', () => {
-            client.setTimeout(0); 
-            client.removeAllListeners(); 
+            client.setTimeout(0);
+            client.removeAllListeners();
             return connected(client);
 		});
-		
+
         return retry();
     });
 }
@@ -191,11 +191,11 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
 					<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			</head>
 			<body>
-			<iframe 
-				id="iframe-rascal-content" 
-				src="${url}" 
-				frameborder="0" 
-				sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation" 
+			<iframe
+				id="iframe-rascal-content"
+				src="${url}"
+				frameborder="0"
+				sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation"
 				style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;"
 			>
 			Loading ${url}...
@@ -203,7 +203,7 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
 			</body>
 			</html>`;
 }
-	
+
 interface BrowseParameter {
 	uri: string;
 	mimetype: string;

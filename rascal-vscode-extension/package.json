@@ -12,7 +12,6 @@
 		"url": "https://github.com/cwi-swat/rascal-vscode"
 	},
 	"dependencies": {
-		"vsce": "^1.85.0",
 		"vscode-languageclient": "^7.0.0"
 	},
 	"categories": [
@@ -22,7 +21,7 @@
 		"onCommand:rascalmpl.createTerminal",
 		"onLanguage:rascalmpl"
 	],
-	"main": "./dist/extension.js",
+	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
@@ -56,18 +55,16 @@
 		]
 	},
 	"scripts": {
-		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar dist/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar dist/",
-		"vscode:prepublish": "npm run package",
-		"compile": "webpack --devtool nosources-source-map --mode development --config ./build/node-extension.webpack.config.js",
-		"watch": "webpack --watch --devtool nosources-source-map --mode development --info-verbosity verbose --config ./build/node-extension.webpack.config.js",
-		"package": "webpack --mode production --config ./build/node-extension.webpack.config.js",
-		"test-compile": "tsc -p ./",
-		"test-watch": "tsc -watch -p ./",
-		"pretest": "npm run test-compile && npm run lint",
+		"lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar out/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar out/",
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
+		"vsce": "^1.85.0",
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.0",
 		"@types/node": "^14.14.28",
@@ -79,8 +76,6 @@
 		"mocha": "^8.1.3",
 		"ts-loader": "^8.0.3",
 		"typescript": "^4.0.2",
-		"vscode-test": "^1.4.0",
-		"webpack": "~4.20.0",
-		"webpack-cli": "^3.0.0"
+		"vscode-test": "^1.4.0"
 	}
 }
