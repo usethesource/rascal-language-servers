@@ -69,18 +69,34 @@ public class ParametricSummaryBridge {
     private final IWithKeywordParameters<? extends IConstructor> data;
 
     private final Lazy<IRangeMap<List<Location>>> definitions;
+    private final Lazy<IRangeMap<List<Location>>> references;
+    private final Lazy<IRangeMap<List<Location>>> implementations;
     private final Lazy<IRangeMap<List<Either<String, MarkedString>>>> hovers;
     
     public ParametricSummaryBridge(ISourceLocation file) {
         this.data = emptySummary(file).asWithKeywordParameters();
         this.definitions = TreeMapLookup::new;
+        this.references = TreeMapLookup::new;
+        this.implementations = TreeMapLookup::new;
         this.hovers = TreeMapLookup::new;
     }
 
     public ParametricSummaryBridge(IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
         this.definitions = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "definitions"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.references = Lazy.defer(
             () -> translateRelation(getKWFieldSet(data, "references"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.implementations = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "implementations"), 
                 v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
                 cm
             )
@@ -145,6 +161,22 @@ public class ParametricSummaryBridge {
 
     public List<Location> getDefinition(Range cursor) {
         return replaceNull(definitions.get().lookup(cursor), Collections.emptyList());
+    }
+
+    public List<Location> getReferences(Position cursor) {
+        return getReferences(new Range(cursor, cursor));
+    }
+
+    public List<Location> getReferences(Range cursor) {
+        return replaceNull(references.get().lookup(cursor), Collections.emptyList());
+    }
+
+    public List<Location> getImplementations(Position cursor) {
+        return getImplementations(new Range(cursor, cursor));
+    }
+
+    public List<Location> getImplementations(Range cursor) {
+        return replaceNull(implementations.get().lookup(cursor), Collections.emptyList());
     }
 
     public static IConstructor emptySummary(ISourceLocation src) {

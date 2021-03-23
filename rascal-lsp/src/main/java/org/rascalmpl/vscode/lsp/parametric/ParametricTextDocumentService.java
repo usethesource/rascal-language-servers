@@ -48,10 +48,12 @@ import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
+import org.eclipse.lsp4j.ImplementationParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -125,6 +127,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
+        result.setHoverProvider(true);
+        result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
     }
@@ -330,6 +334,52 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
+            ImplementationParams params) {
+        logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
+
+        // TODO: really interrupt and then replace the summary computation
+        return file.getCurrentTreeAsync()
+            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
+            .thenApply(cons -> {
+                try {
+                    IConstructor result = cons.get().get();
+                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
+                    return new ParametricSummaryBridge(cons.get().get(), columns);
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .thenApply(br -> br.getImplementations(params.getPosition()))
+            .thenApply(Either::forLeft);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
+        logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
+
+        // TODO: really interrupt and then replace the summary computation
+        return file.getCurrentTreeAsync()
+            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
+            .thenApply(cons -> {
+                try {
+                    IConstructor result = cons.get().get();
+                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
+                    return new ParametricSummaryBridge(cons.get().get(), columns);
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .thenApply(br -> br.getReferences(params.getPosition()));
+    }
+
+    @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
@@ -342,7 +392,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(cons -> {
                 try {
                     IConstructor result = cons.get().get();
-                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
                     return new ParametricSummaryBridge(cons.get().get(), columns);
                 } catch (InterruptedException | ExecutionException e) {
                     throw new RuntimeException(e);

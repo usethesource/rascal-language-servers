@@ -6,7 +6,7 @@
   http://www.eclipse.org/legal/epl-v10.html
 }
 @contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
-module util::IDE
+module util::LanguageServer
 
 extend util::Reflective;
 // extend Content;
@@ -23,7 +23,7 @@ alias Completer     = list[Completion] (Tree input, str prefix, int requestOffse
 alias Builder       = list[Message] (list[loc] sources, PathConfig pcfg);
 
 @synopsis{Each kind of contribution contibutes the implementation of one (or several) IDE features.}
-data Contribution
+data LanguageService
     = parser(Parser parser)
     | summarizer(Summarizer summarizer)
     | outliner(Outliner outliner)
@@ -34,42 +34,50 @@ data Contribution
 
 @synopsis{Annotations that an annotator may provide on a parse tree node}
 data Tree(
-    set[Message] messages      = {}, // error messages associated with a tree node
-    set[str]     documentation = {}, // documentation strings associated with a tree node
-    set[loc]     references    = {}, // this nodes points to these references
-    str          category      = ""  // semantic highlighting category
+    set[Message] messages        = {}, // error messages associated with a tree node
+    set[str]     documentation   = {}, // this node is documented with this string
+    set[loc]     definitions     = {}, // this use is defined there
+    set[loc]     references      = {}, // this declaration is referenced there
+    set[loc]     implementations = {}, // this definition is implemented there
 );
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 data Summary = summary(loc src,
     rel[loc, Message] messages = {},
-    rel[loc, str]     documentation = {},
-    rel[loc, loc]     references = {}, // TODO: definitions?
-    lrel[loc, str]    categories = []
+    rel[loc, str]     documentation = {},   // documentation for each location
+    rel[loc, loc]     definitions = {},     // links to the definitions of names
+    rel[loc, loc]     references = {},      // links to the uses of definitions
+    rel[loc, loc]     implementations = {}, // links to the implementations of declarations
 );
 
 data Completion = completion(str newText, str proposal=newText);
 
 @synopsis{produces a summarizer from an annotator by collecting all relevant information from a source Tree}
-Contribution summarizer(Annotater annotater) = summarizer(Summary (loc src, Tree input) {
+LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, Tree input) {
     messages = {};
     documentation = {};
     references = {};
+    definitions = {};
+    implementations = {};
     categories = [];
 
     visit(annotater(input)) {
         case Tree t: if (t.src?) {
-            messages      += {<t.src, m> | m <- t.messages};
-            documentation += {<t.src, d> | d <- t.documentation};
-            references    += {<t.src, r> | r <- t.references};
-            categories    += [<t.src, t.category> | t.category?];
+            messages        += {<t.src, m> | m <- t.messages};
+            documentation   += {<t.src, d> | d <- t.documentation};
+            definitions     += {<t.src, r> | r <- t.definitions};
+            references      += {<t.src, r> | r <- t.references};
+            implementations += {<t.src, r> | r <- t.implementations};
+            categories      += [<t.src, t.category> | t.category?];
         }
     }
 
     return summary(src,
         messages=messages,
         documentation=documentation,
-        references=references
+        references=references,
+        definitions=definitions,
+        implementations=implementations
     );
 });
 
