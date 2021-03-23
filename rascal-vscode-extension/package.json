@@ -42,6 +42,11 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
+		"configurationDefaults": {
+			"[rascalmpl]": {
+				"editor.semanticHighlighting.enabled": true
+			}
+		},
 		"grammars": [
 			{
 				"language": "rascalmpl",
