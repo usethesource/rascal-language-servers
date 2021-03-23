@@ -38,7 +38,7 @@ data Tree(
     set[str]     documentation   = {}, // this node is documented with this string
     set[loc]     definitions     = {}, // this use is defined there
     set[loc]     references      = {}, // this declaration is referenced there
-    set[loc]     implementations = {}, // this definition is implemented there
+    set[loc]     implementations = {}  // this definition is implemented there
 );
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
@@ -47,7 +47,7 @@ data Summary = summary(loc src,
     rel[loc, str]     documentation = {},   // documentation for each location
     rel[loc, loc]     definitions = {},     // links to the definitions of names
     rel[loc, loc]     references = {},      // links to the uses of definitions
-    rel[loc, loc]     implementations = {}, // links to the implementations of declarations
+    rel[loc, loc]     implementations = {}  // links to the implementations of declarations
 );
 
 data Completion = completion(str newText, str proposal=newText);
