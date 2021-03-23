@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, intege
 import { TextDocumentContentProvider } from 'vscode';
 import { StringifyOptions } from 'node:querystring';
  
-const deployMode = true;
+const deployMode = false;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 let registeredFileExtensions:Array<String> = [];
 

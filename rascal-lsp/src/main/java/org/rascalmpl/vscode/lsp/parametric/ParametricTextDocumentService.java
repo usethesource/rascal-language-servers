@@ -311,19 +311,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(params.getTextDocument());
 
         // TODO: really interrupt and then replace the summary computation
-        CompletableFuture<InterruptibleFuture<IConstructor>> summary = file.getCurrentTreeAsync().thenApply(tree -> contrib.summarize(file.getLocation(), tree));
+        return file.getCurrentTreeAsync()
+            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
+            .thenApply(cons -> {
+                try {
+                    IConstructor result = cons.get().get();
+                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
+                    return new ParametricSummaryBridge(cons.get().get(), columns);
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .thenApply(br -> br.getDefinition(params.getPosition()))
+            .thenApply(Either::forLeft);
 
-        CompletableFuture<ParametricSummaryBridge> bridge = summary.thenApply(cons -> {
-            try {
-                return new ParametricSummaryBridge(cons.get().get(), columns);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        CompletableFuture<List<Location>> locs = bridge.thenApply(br -> br.getDefinition(params.getPosition()));
-
-        return locs.thenApply(Either::forLeft);
     }
 
     @Override
