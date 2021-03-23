@@ -308,9 +308,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-
-        final TextDocumentState file = getFile(params.getTextDocument());
+        
         ILanguageContributions contrib = contributions(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
 
         // TODO: really interrupt and then replace the summary computation
         return file.getCurrentTreeAsync()
@@ -331,7 +331,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
-        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());

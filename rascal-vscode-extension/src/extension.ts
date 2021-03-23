@@ -20,7 +20,7 @@ class IDEServicesConfiguration {
 	public port:integer;
 
 	constructor (port:integer) {
-		this.port = port;
+        this.port = port;
 	}
 }
 

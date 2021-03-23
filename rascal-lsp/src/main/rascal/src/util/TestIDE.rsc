@@ -20,10 +20,11 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
 Summary picoSummarizer(loc l, start[Program] input) {
     rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var  := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+    rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
     return summary(l, 
         references = uses o defs,
-        documentation = {<use, "variable: <readFile(def)>"> | <use,def> <- uses o defs}
+        documentation = (uses o defs) o docs
     );
 }
 
