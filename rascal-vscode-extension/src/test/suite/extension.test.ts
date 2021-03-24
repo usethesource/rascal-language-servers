@@ -4,9 +4,9 @@ import * as vscode from 'vscode';
 import * as rascalExtension from '../../extension';
 
 suite('Extension Test Suite', () => {
-	vscode.window.showInformationMessage('Start all tests.');
+    vscode.window.showInformationMessage('Start all tests.');
 
-	test('Never commit debug mode', () => {
-		assert.strictEqual(rascalExtension.getRascalExtensionDeploymode(), true);
-	});
+    test('Never commit debug mode', () => {
+        assert.strictEqual(rascalExtension.getRascalExtensionDeploymode(), true);
+    });
 });
