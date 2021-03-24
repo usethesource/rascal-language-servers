@@ -99,7 +99,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final ColumnMaps columns;
     private final ParametricFileFacts facts;
 
-    private final Map<String, ILanguageContributions> contributions = new HashMap<>();
+    private final Map<String, ILanguageContributions> contributions = new ConcurrentHashMap<>();
 
     public ParametricTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
