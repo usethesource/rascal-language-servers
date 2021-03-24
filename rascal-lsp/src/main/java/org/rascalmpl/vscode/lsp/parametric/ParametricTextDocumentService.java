@@ -82,7 +82,6 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -130,6 +129,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setHoverProvider(true);
         result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
+        result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
     }
 
@@ -235,7 +235,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return contrib;
             }
         }
-     
+
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
@@ -312,7 +312,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        
+
         ILanguageContributions contrib = contributions(params.getTextDocument());
         final TextDocumentState file = getFile(params.getTextDocument());
 
@@ -337,7 +337,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
             ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-        
+
         ILanguageContributions contrib = contributions(params.getTextDocument());
         final TextDocumentState file = getFile(params.getTextDocument());
 
@@ -360,7 +360,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-        
+
         ILanguageContributions contrib = contributions(params.getTextDocument());
         final TextDocumentState file = getFile(params.getTextDocument());
 
@@ -405,7 +405,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
         contributions.put(
-            lang.getExtension(), 
+            lang.getExtension(),
             new InterpretedLanguageContributions(lang, ownExecuter)
         );
     }
