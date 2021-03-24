@@ -22,7 +22,7 @@ alias Annotater     = Tree (Tree input);
 alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
 alias Builder       = list[Message] (list[loc] sources, PathConfig pcfg);
 
-@synopsis{Each kind of contribution contibutes the implementation of one (or several) IDE features.}
+@synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
     = parser(Parser parser)
     | summarizer(Summarizer summarizer)
@@ -59,7 +59,6 @@ LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, T
     references = {};
     definitions = {};
     implementations = {};
-    categories = [];
 
     visit(annotater(input)) {
         case Tree t: if (t.src?) {
@@ -68,7 +67,6 @@ LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, T
             definitions     += {<t.src, r> | r <- t.definitions};
             references      += {<t.src, r> | r <- t.references};
             implementations += {<t.src, r> | r <- t.implementations};
-            categories      += [<t.src, t.category> | t.category?];
         }
     }
 
@@ -82,7 +80,7 @@ LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, T
 });
 
 // THERE is a bug in the interpreter that lets this function fail
-// @synopsis{Produces a parser contribution from a reified grammar}
+// @synopsis{Produces a parser service from a reified grammar}
 // Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
 //     return parse(grammar, input, src);
 // });
