@@ -53,6 +53,9 @@
     "configurationDefaults": {
       "[rascalmpl]": {
         "editor.semanticHighlighting.enabled": true
+      },
+      "[parametric-rascalmpl]": {
+        "editor.semanticHighlighting.enabled": true
       }
     },
     "grammars": [
