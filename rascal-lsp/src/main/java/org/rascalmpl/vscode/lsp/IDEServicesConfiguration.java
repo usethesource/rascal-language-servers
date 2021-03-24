@@ -1,6 +1,6 @@
 package org.rascalmpl.vscode.lsp;
 
-class IDEServicesConfiguration {
+public class IDEServicesConfiguration {
     private final int port;
 
     public IDEServicesConfiguration(int port) {

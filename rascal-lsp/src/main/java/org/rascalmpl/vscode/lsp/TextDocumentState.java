@@ -1,18 +1,24 @@
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.function.BiFunction;
+
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.RascalLanguageServices;
+
 import io.usethesource.vallang.ISourceLocation;
 
-public class FileState {
-    private static final Logger logger = LogManager.getLogger(FileState.class);
-    private final Executor javaScheduler;
-    private final RascalLanguageServices services;
+/**
+ * TextDocumentState encapsulates the current contents of every open file editor, 
+ * and the corresponding latest parse tree that belongs to it.
+ * It is parametrized by the parser that must be used to map the string
+ * contents to a tree. All other TextDocumentServices depend on this information. 
+ * 
+ * Objects of this class are used by the implementations of RascalTextDocumentService
+ * and ParametricTextDocumentService. 
+ */
+public class TextDocumentState {
+    private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
     private volatile String currentContent;
@@ -21,10 +27,8 @@ public class FileState {
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<ITree> currentTree;
 
-    public FileState(RascalLanguageServices services, Executor javaSchedular, ISourceLocation file, String content) {
-        this.services = services;
-        this.javaScheduler = javaSchedular;
-
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, String content) {
+        this.parser = parser;
         this.file = file;
         this.currentContent = content;
         currentTree = newContents(content);
@@ -38,8 +42,12 @@ public class FileState {
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
     private CompletableFuture<ITree> newContents(String contents) {
-        return CompletableFuture.supplyAsync(() -> services.parseSourceFile(file, contents), javaScheduler)
-            .whenComplete((r, t) -> { if (r != null) { lastFullTree = r; } });
+        return parser.apply(file, contents)
+            .whenComplete((r, t) -> { 
+                if (r != null) { 
+                    lastFullTree = r; 
+                } 
+            });
     }
 
     public CompletableFuture<ITree> getCurrentTreeAsync() {
@@ -57,5 +65,4 @@ public class FileState {
     public String getCurrentContent() {
         return currentContent;
     }
-
 }

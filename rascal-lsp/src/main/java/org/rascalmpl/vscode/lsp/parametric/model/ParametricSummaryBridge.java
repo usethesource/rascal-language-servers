@@ -18,7 +18,7 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.model;
+package org.rascalmpl.vscode.lsp.parametric.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,11 +26,13 @@ import java.util.List;
 import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
@@ -38,46 +40,73 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
-public class Summary {
-    private static final ISet EMPTY_SET = ValueFactoryFactory.getValueFactory().set();
-    private static final IMap EMPTY_MAP = ValueFactoryFactory.getValueFactory().map();
-    private static final IConstructor EMPTY_SUMMARY;
+public class ParametricSummaryBridge {
+    private static final ISet EMPTY_SET = IRascalValueFactory.getInstance().set();
+
+    // data Summary = summary(loc src
+    //   rel[loc, Message] messages = {},
+    //   rel[loc, str]     documentation = {},
+    //   rel[loc, loc]     references = {},
+    //   lrel[loc, str]    categories = []);
+    private static final Type summaryCons;
 
     static {
-
         TypeFactory TF = TypeFactory.getInstance();
         TypeStore TS = new TypeStore();
-        Type summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary");
-        EMPTY_SUMMARY = IRascalValueFactory.getInstance().constructor(summaryCons);
+        summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary", TF.sourceLocationType(), "src");
     }
 
     private final IWithKeywordParameters<? extends IConstructor> data;
+
     private final Lazy<IRangeMap<List<Location>>> definitions;
-    private final Lazy<IRangeMap<String>> typeNames;
-
-
-    public Summary() {
-        this.data = EMPTY_SUMMARY.asWithKeywordParameters();
+    private final Lazy<IRangeMap<List<Location>>> references;
+    private final Lazy<IRangeMap<List<Location>>> implementations;
+    private final Lazy<IRangeMap<List<Either<String, MarkedString>>>> hovers;
+    
+    public ParametricSummaryBridge(ISourceLocation file) {
+        this.data = emptySummary(file).asWithKeywordParameters();
         this.definitions = TreeMapLookup::new;
-        this.typeNames = TreeMapLookup::new;
+        this.references = TreeMapLookup::new;
+        this.implementations = TreeMapLookup::new;
+        this.hovers = TreeMapLookup::new;
     }
 
-    public Summary(IConstructor summary, ColumnMaps cm) {
+    public ParametricSummaryBridge(IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
-        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), v -> ((IString)v).getValue(), cm));
-
+        this.definitions = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "definitions"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.references = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "references"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.implementations = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "implementations"), 
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+                cm
+            )
+        );
+        this.hovers = Lazy.defer(
+            () -> translateRelation(getKWFieldSet(data, "documentation"), 
+                v -> Either.forLeft(((IString) v).getValue()),
+                cm
+            )
+        );
     }
 
     private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper, ColumnMaps cm) {
@@ -104,16 +133,6 @@ public class Summary {
         return result;
     }
 
-    private static <T> IRangeMap<T> translateMap(IMap binaryMap, Function<IValue, T> valueMapper, ColumnMaps cm) {
-        TreeMapLookup<T> result = new TreeMapLookup<>();
-        binaryMap.entryIterator().forEachRemaining(e -> {
-            Range from = Locations.toRange((ISourceLocation)e.getKey(), cm);
-            T to = valueMapper.apply(e.getValue());
-            result.put(from, to);
-        });
-        return result;
-    }
-
     private static ISet getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
         if (data.hasParameter(name)) {
             return (ISet) data.getParameter(name);
@@ -121,18 +140,19 @@ public class Summary {
         return EMPTY_SET;
     }
 
-    private static IMap getKWFieldMap(IWithKeywordParameters<? extends IConstructor> data, String name) {
-        if (data.hasParameter(name)) {
-            return (IMap) data.getParameter(name);
-        }
-        return EMPTY_MAP;
-    }
-
     private static <T> T replaceNull(@Nullable T value, T defaultValue) {
         if (value == null) {
             return defaultValue;
         }
         return value;
+    }
+
+    public List<Either<String,MarkedString>> getHover(Range range) {
+        return replaceNull(hovers.get().lookup(range), Collections.emptyList());
+    }
+
+    public List<Either<String,MarkedString>> getHover(Position position) {
+        return getHover(new Range(position, position));
     }
 
     public List<Location> getDefinition(Position cursor) {
@@ -143,8 +163,23 @@ public class Summary {
         return replaceNull(definitions.get().lookup(cursor), Collections.emptyList());
     }
 
-    public String getTypeName(Range cursor) {
-        return replaceNull(typeNames.get().lookup(cursor), "");
+    public List<Location> getReferences(Position cursor) {
+        return getReferences(new Range(cursor, cursor));
     }
 
+    public List<Location> getReferences(Range cursor) {
+        return replaceNull(references.get().lookup(cursor), Collections.emptyList());
+    }
+
+    public List<Location> getImplementations(Position cursor) {
+        return getImplementations(new Range(cursor, cursor));
+    }
+
+    public List<Location> getImplementations(Range cursor) {
+        return replaceNull(implementations.get().lookup(cursor), Collections.emptyList());
+    }
+
+    public static IConstructor emptySummary(ISourceLocation src) {
+        return IRascalValueFactory.getInstance().constructor(summaryCons, src);
+    }
 }

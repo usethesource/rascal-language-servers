@@ -12,7 +12,7 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.vscode.lsp.IRascalLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -23,9 +23,9 @@ import io.usethesource.vallang.ISourceLocation;
 public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
-    private final IRascalLanguageClient languageClient;
+    private final IBaseLanguageClient languageClient;
 
-    public TerminalIDEServer(IRascalLanguageClient client) {
+    public TerminalIDEServer(IBaseLanguageClient client) {
         this.languageClient = client;
     }
 
@@ -65,4 +65,13 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             return CompletableFuture.completedFuture(loc);
         } 
     }
+
+    @Override
+    public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
+        // we forward the request from the terminal to register a language
+        // straight into the client:
+        languageClient.receiveRegisterLanguage(lang);
+        return CompletableFuture.completedFuture(null);
+    }
+
 }

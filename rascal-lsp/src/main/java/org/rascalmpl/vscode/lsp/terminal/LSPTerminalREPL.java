@@ -53,6 +53,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
                     Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
+                    evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
             
                     evaluator.setMonitor(services);
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();

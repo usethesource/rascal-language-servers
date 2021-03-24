@@ -23,6 +23,7 @@ import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 
 public class Diagnostics {
     private static final Map<String, DiagnosticSeverity> severityMap;
@@ -42,6 +43,17 @@ public class Diagnostics {
 
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
         return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+    }
+
+    public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
+        if (e instanceof IConstructor) {
+            IConstructor error = (IConstructor) e;
+            ISourceLocation loc = (ISourceLocation) error.get(0);
+            return new Diagnostic(Locations.toRange(loc, cm), "parse error", DiagnosticSeverity.Error, "parser");
+        }
+        else {
+            throw new IllegalArgumentException(e.toString());
+        }
     }
 
     public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {

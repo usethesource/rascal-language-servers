@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
 
@@ -28,6 +29,11 @@ public interface ITerminalIDEServer {
 
     @JsonRequest
     default CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter edit) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/receiveRegisterLanguage") 
+    default CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
 
@@ -88,6 +94,42 @@ public interface ITerminalIDEServer {
         @Override
         public String toString() {
             return "sourceLocationParameter: " + loc;
+        }
+    }
+
+    public static class LanguageParameter {
+        private final String pathConfig;
+	    private final String name; // name of the language
+	    private final String extension; // extension for files in this language
+	    private final String mainModule; // main module to locate mainFunction in
+	    private final String mainFunction; // main function which contributes the language implementation
+
+        LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
+            this.pathConfig = pathConfig.toString();
+            this.name = name;
+            this.extension = extension;
+            this.mainModule = mainModule;
+            this.mainFunction = mainFunction;
+        }
+
+        public String getPathConfig() {
+            return pathConfig;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getExtension() {
+            return extension;
+        }
+
+        public String getMainFunction() {
+            return mainFunction;
+        }
+
+        public String getMainModule() {
+            return mainModule;
         }
     }
 }
