@@ -1,8 +1,7 @@
 module util::TestIDE
 
 import util::LanguageServer;
-import IO;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
 
 set[LanguageService] picoLanguageContributor() = {
     parser(Tree (str input, loc src) {
@@ -22,7 +21,7 @@ Summary picoSummarizer(loc l, start[Program] input) {
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
-    return summary(l, 
+    return summary(l,
         references = (uses o defs)<1,0>,
         definitions = uses o defs,
         documentation = (uses o defs) o docs
@@ -32,10 +31,10 @@ Summary picoSummarizer(loc l, start[Program] input) {
 void testPicoLanguageContribution() {
     registerLanguage(
         language(
-            pathConfig(), 
-            "Pico", 
-            "pico", 
-            "util::TestIDE", 
+            pathConfig(),
+            "Pico",
+            "pico",
+            "util::TestIDE",
             "picoLanguageContributor"
         )
     );
