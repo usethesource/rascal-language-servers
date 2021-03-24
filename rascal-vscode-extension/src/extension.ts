@@ -6,13 +6,12 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer} from 'vscode-languageclient/node';
+import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 import { TextDocumentContentProvider } from 'vscode';
-import { StringifyOptions } from 'node:querystring';
 
 const deployMode = true;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
-let registeredFileExtensions:Array<String> = [];
+const registeredFileExtensions:Set<string> = new Set();
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
@@ -34,8 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
     registerTerminalCommand(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
-        const extension:string|undefined = e.fileName.split('.').pop();
-        if (extension !== undefined && registeredFileExtensions.indexOf(extension) !== -1) {
+
+        if (e.languageId !== ALL_LANGUAGES_ID && registeredFileExtensions.has(path.extname(e.fileName))) {
             vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
         }
     }));
@@ -50,7 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 class RascalTextDocumentContentProvider implements TextDocumentContentProvider {
-    onDidChange?: vscode.Event<vscode.Uri> | undefined;
+    onDidChange?: vscode.Event<vscode.Uri>;
     client:LanguageClient;
 
     constructor(client:LanguageClient) {
@@ -58,8 +57,9 @@ class RascalTextDocumentContentProvider implements TextDocumentContentProvider {
     }
 
     provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        const reply:Promise<LocationContent> = this.client.sendRequest("rascal/locationContents", { uri: uri.toString() });
-        return reply.then(c => c.content);
+        return this.client
+            .sendRequest<LocationContent>("rascal/locationContents", { uri: uri.toString() })
+            .then(c => c.content);
     }
 }
 
@@ -67,8 +67,8 @@ export function registerLanguage(context: vscode.ExtensionContext, client:Langua
     // first we load the new language into the parametric server
     client.sendRequest("rascal/sendRegisterLanguage", lang);
 
-    if (registeredFileExtensions.indexOf(lang.extension) === -1) {
-        registeredFileExtensions.push(lang.extension);
+    if (lang.extension && lang.extension !== "") {
+        registeredFileExtensions.add(lang.extension);
     }
 }
 
