@@ -112,7 +112,7 @@
           </resource>
           <resource>
               <directory>src/main/rascal/src</directory>
-              <filtering>true</filtering>
+              <filtering>false</filtering>
           </resource>
       </resources>
     <plugins>
