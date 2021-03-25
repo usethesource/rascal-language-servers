@@ -1,21 +1,24 @@
 package org.rascalmpl.vscode.lsp.parametric.model;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-
+import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.values.parsetrees.ITree;
-
+import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
@@ -23,8 +26,15 @@ public class ParametricFileFacts {
     private final Executor exec;
     private volatile @MonotonicNonNull LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
+    private final ILanguageContributions contrib;
+    private final Function<ISourceLocation, TextDocumentState> lookupState;
+    private final ColumnMaps columns;
 
-    public ParametricFileFacts(Executor exec) {
+    public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
+        ColumnMaps columns, Executor exec) {
+        this.contrib = contrib;
+        this.lookupState = lookupState;
+        this.columns = columns;
         this.exec = exec;
     }
 
@@ -32,32 +42,61 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file,  CompletableFuture<ITree> tree, List<Diagnostic> msgs) {
-        getFile(file, tree).reportParseErrors(msgs);
+    public void reportParseErrors(ISourceLocation file, List<Diagnostic> msgs) {
+        getFile(file).reportParseErrors(msgs);
     }
 
-    private FileFact getFile(ISourceLocation l, CompletableFuture<ITree> tree) {
-        return files.computeIfAbsent(
-            l, 
-            l1 -> new FileFact(l1, tree, exec)
-        );
+    private FileFact getFile(ISourceLocation l) {
+        return files.computeIfAbsent(l, FileFact::new);
+    }
+
+    public CompletableFuture<ParametricSummaryBridge> getSummary(ISourceLocation file) {
+        return getFile(file).getSummary();
+    }
+
+    public void invalidate(ISourceLocation file) {
+        getFile(file).invalidate();
     }
 
     private class FileFact {
         private final ISourceLocation file;
-        private final CompletableFuture<ITree> tree;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
+        private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
+        private final ReplaceableFuture<ParametricSummaryBridge> summary;
 
-        public FileFact(ISourceLocation file, CompletableFuture<ITree> tree, Executor exec) {
+        public FileFact(ISourceLocation file) {
             this.file = file;
-            this.tree = tree;
+            summary = new ReplaceableFuture<>(updateSummary(file));
+        }
+
+        private InterruptibleFuture<ParametricSummaryBridge> updateSummary(ISourceLocation file) {
+            InterruptibleFuture<ParametricSummaryBridge> result = InterruptibleFuture.flatten(
+                lookupState.apply(file).getCurrentTreeAsync()
+                    .thenApply(t -> contrib.summarize(file, t)), exec)
+                .thenApply(cons -> new ParametricSummaryBridge(cons, columns));
+            // also schedule update of error messages
+            result.thenAccept(p -> reportTypeCheckerMessages(p.getMessages()));
+            return result;
+        }
+
+        private void reportTypeCheckerMessages(List<Diagnostic> messages) {
+            typeCheckerMessages = messages;
+            sendDiagnostics();
+        }
+
+        public void invalidate() {
+            summary.replace(updateSummary(file));
+        }
+
+        public CompletableFuture<ParametricSummaryBridge> getSummary() {
+            return summary.get();
         }
 
         public void reportParseErrors(List<Diagnostic> msgs) {
             parseMessages = msgs;
             sendDiagnostics();
         }
-        
+
         private void sendDiagnostics() {
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
@@ -66,7 +105,19 @@ public class ParametricFileFacts {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
-                parseMessages));
+                union(parseMessages, typeCheckerMessages)));
         }
+    }
+
+    private static <T> List<T> union(List<T> a, List<T> b) {
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+        List<T> result = new ArrayList<>(a);
+        result.addAll(b);
+        return result;
     }
 }

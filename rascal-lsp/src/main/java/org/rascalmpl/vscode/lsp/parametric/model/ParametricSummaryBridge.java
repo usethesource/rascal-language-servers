@@ -22,28 +22,30 @@ package org.rascalmpl.vscode.lsp.parametric.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
-
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
@@ -68,13 +70,15 @@ public class ParametricSummaryBridge {
 
     private final IWithKeywordParameters<? extends IConstructor> data;
 
+    private final Lazy<List<Diagnostic>> messages;
     private final Lazy<IRangeMap<List<Location>>> definitions;
     private final Lazy<IRangeMap<List<Location>>> references;
     private final Lazy<IRangeMap<List<Location>>> implementations;
     private final Lazy<IRangeMap<List<Either<String, MarkedString>>>> hovers;
-    
+
     public ParametricSummaryBridge(ISourceLocation file) {
         this.data = emptySummary(file).asWithKeywordParameters();
+        this.messages = Collections::emptyList;
         this.definitions = TreeMapLookup::new;
         this.references = TreeMapLookup::new;
         this.implementations = TreeMapLookup::new;
@@ -83,26 +87,31 @@ public class ParametricSummaryBridge {
 
     public ParametricSummaryBridge(IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
+        this.messages = Lazy.defer(() ->
+            getKWFieldSet(data, "messages").stream()
+                .map(d -> Diagnostics.translateDiagnostic((IConstructor)d, cm))
+                .collect(Collectors.toList())
+        );
         this.definitions = Lazy.defer(
-            () -> translateRelation(getKWFieldSet(data, "definitions"), 
-                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+            () -> translateRelation(getKWFieldSet(data, "definitions"),
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm),
                 cm
             )
         );
         this.references = Lazy.defer(
-            () -> translateRelation(getKWFieldSet(data, "references"), 
-                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+            () -> translateRelation(getKWFieldSet(data, "references"),
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm),
                 cm
             )
         );
         this.implementations = Lazy.defer(
-            () -> translateRelation(getKWFieldSet(data, "implementations"), 
-                v -> Locations.toLSPLocation((ISourceLocation)v, cm), 
+            () -> translateRelation(getKWFieldSet(data, "implementations"),
+                v -> Locations.toLSPLocation((ISourceLocation)v, cm),
                 cm
             )
         );
         this.hovers = Lazy.defer(
-            () -> translateRelation(getKWFieldSet(data, "documentation"), 
+            () -> translateRelation(getKWFieldSet(data, "documentation"),
                 v -> Either.forLeft(((IString) v).getValue()),
                 cm
             )
@@ -181,5 +190,9 @@ public class ParametricSummaryBridge {
 
     public static IConstructor emptySummary(ISourceLocation src) {
         return IRascalValueFactory.getInstance().constructor(summaryCons, src);
+    }
+
+    public List<Diagnostic> getMessages() {
+        return messages.get();
     }
 }

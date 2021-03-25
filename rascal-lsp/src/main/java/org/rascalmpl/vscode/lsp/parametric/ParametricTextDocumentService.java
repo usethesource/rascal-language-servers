@@ -97,15 +97,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
-    private final ParametricFileFacts facts;
 
+    private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
     private final Map<String, ILanguageContributions> contributions = new ConcurrentHashMap<>();
 
     public ParametricTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
-        this.facts = new ParametricFileFacts(ownExecuter);
     }
 
     private String getContents(ISourceLocation file) {
@@ -136,7 +135,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        facts.setClient(client);
+        facts.values().forEach(v -> v.setClient(client));
     }
 
     // LSP interface methods
@@ -145,12 +144,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
         handleParsingErrors(open(params.getTextDocument()));
+        invalidateFacts(params.getTextDocument());
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         logger.trace("Change contents: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
+        invalidateFacts(params.getTextDocument());
     }
 
     @Override
@@ -160,6 +161,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
         }
+    }
+
+
+    private void invalidateFacts(TextDocumentItem doc) {
+        facts(doc).invalidate(Locations.toLoc(doc));
+    }
+
+    private void invalidateFacts(TextDocumentIdentifier doc) {
+        facts(doc).invalidate(Locations.toLoc(doc));
     }
 
     @Override
@@ -200,7 +210,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts.reportParseErrors(file.getLocation(), futureTree,
+            facts(file.getLocation()).reportParseErrors(file.getLocation(),
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
@@ -225,17 +235,40 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ILanguageContributions contributions(String doc) {
-        int index = -1;
+        ILanguageContributions contrib = contributions.get(extension(doc));
 
-        if ((index = doc.lastIndexOf(".")) != -1) {
-            String extension = doc.substring(index + 1);
-            ILanguageContributions contrib = contributions.get(extension);
-
-            if (contrib != null) {
-                return contrib;
-            }
+        if (contrib != null) {
+            return contrib;
         }
 
+        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+    }
+
+    private static String extension(String file) {
+        int index = file.lastIndexOf(".");
+        if (index != -1) {
+            return file.substring(index + 1);
+        }
+        return "";
+    }
+
+    private ParametricFileFacts facts(TextDocumentIdentifier doc) {
+        return facts(doc.getUri());
+    }
+
+    private ParametricFileFacts facts(TextDocumentItem doc) {
+        return facts(doc.getUri());
+    }
+
+    private ParametricFileFacts facts(ISourceLocation doc) {
+        return facts(doc.getPath());
+    }
+
+    private ParametricFileFacts facts(String doc) {
+        ParametricFileFacts fact = facts.get(extension(doc));
+        if (fact != null) {
+            return fact;
+        }
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
@@ -309,28 +342,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         });
     }
 
+    private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc) {
+        return facts(doc).getSummary(Locations.toLoc(doc));
+    }
+
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-        final TextDocumentState file = getFile(params.getTextDocument());
 
-        // TODO: really interrupt and then replace the summary computation
-        return file.getCurrentTreeAsync()
-            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
-            .thenApply(cons -> {
-                try {
-                    IConstructor result = cons.get().get();
-                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
-                    return new ParametricSummaryBridge(cons.get().get(), columns);
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            })
+        return summary(params.getTextDocument())
             .thenApply(br -> br.getDefinition(params.getPosition()))
             .thenApply(Either::forLeft);
-
     }
 
     @Override
@@ -338,21 +361,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-        final TextDocumentState file = getFile(params.getTextDocument());
-
-        // TODO: really interrupt and then replace the summary computation
-        return file.getCurrentTreeAsync()
-            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
-            .thenApply(cons -> {
-                try {
-                    IConstructor result = cons.get().get();
-                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
-                    return new ParametricSummaryBridge(cons.get().get(), columns);
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            })
+        return summary(params.getTextDocument())
             .thenApply(br -> br.getImplementations(params.getPosition()))
             .thenApply(Either::forLeft);
     }
@@ -361,21 +370,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-        final TextDocumentState file = getFile(params.getTextDocument());
-
-        // TODO: really interrupt and then replace the summary computation
-        return file.getCurrentTreeAsync()
-            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
-            .thenApply(cons -> {
-                try {
-                    IConstructor result = cons.get().get();
-                    logger.trace("definition({}) = {}", params.getTextDocument().getUri(), result);
-                    return new ParametricSummaryBridge(cons.get().get(), columns);
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            })
+        return summary(params.getTextDocument())
             .thenApply(br -> br.getReferences(params.getPosition()));
     }
 
@@ -383,20 +378,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
-        final TextDocumentState file = getFile(params.getTextDocument());
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-
-        // TODO: really interrupt and then replace the summary computation
-        return file.getCurrentTreeAsync()
-            .thenApply(tree -> contrib.summarize(file.getLocation(), tree))
-            .thenApply(cons -> {
-                try {
-                    IConstructor result = cons.get().get();
-                    return new ParametricSummaryBridge(cons.get().get(), columns);
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            })
+        return summary(params.getTextDocument())
             .thenApply(br -> br.getHover(params.getPosition()))
             .thenApply(Hover::new);
     }
@@ -404,9 +386,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
-        contributions.put(
-            lang.getExtension(),
-            new InterpretedLanguageContributions(lang, ownExecuter)
-        );
+
+        InterpretedLanguageContributions contrib = new InterpretedLanguageContributions(lang, ownExecuter);
+        ParametricFileFacts fact = new ParametricFileFacts(contrib, this::getFile, columns, ownExecuter);
+
+        contributions.put(lang.getExtension(), contrib);
+        facts.put(lang.getExtension(), fact);
+        if (client != null) {
+            fact.setClient(client);
+        }
     }
 }
