@@ -15,12 +15,12 @@ import ParseTree;
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
-alias Parser        = Tree (str input, loc origin);
-alias Summarizer    = Summary (loc origin, Tree input);
-alias Outliner      = list[DocumentSymbol] (Tree input);
-alias Annotater     = Tree (Tree input);
-alias Completer     = list[Completion] (Tree input, str prefix, int requestOffset);
-alias Builder       = list[Message] (list[loc] sources, PathConfig pcfg);
+alias Parser        = Tree (str /*input*/, loc /*origin*/);
+alias Summarizer    = Summary (loc /*origin*/, Tree /*input*/);
+alias Outliner      = list[DocumentSymbol] (Tree /*input*/);
+alias Annotater     = Tree (Tree /*input*/);
+alias Completer     = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
+alias Builder       = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
