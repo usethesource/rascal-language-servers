@@ -111,7 +111,7 @@
               <filtering>true</filtering>
           </resource>
           <resource>
-              <directory>src/main/rascal/src</directory>
+              <directory>src/main/rascal</directory>
               <filtering>false</filtering>
           </resource>
       </resources>
