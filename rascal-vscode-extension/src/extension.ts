@@ -33,7 +33,9 @@ export function activate(context: vscode.ExtensionContext) {
     registerTerminalCommand(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
-        if (registeredFileExtensions.has(path.extname(e.fileName))) {
+        const ext = path.extname(e.fileName);
+
+        if (ext !== "" && e.languageId !== ALL_LANGUAGES_ID && registeredFileExtensions.has(ext.substring(1))) {
             vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
         }
     }));
