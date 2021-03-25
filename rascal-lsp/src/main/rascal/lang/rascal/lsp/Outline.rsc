@@ -54,7 +54,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] m) {
     //  }
    }
 
-    return symbol("<m.header.name>", \module(), m.header@\loc, children=children);
+    return [symbol("<m.header.name>", \module(), m.header@\loc, children=children)];
 }
 
 // remove leading backslash
