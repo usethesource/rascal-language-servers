@@ -5,12 +5,12 @@
   which accompanies this distribution, and is available at
   http://www.eclipse.org/legal/epl-v10.html
 }
-@contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
+@contributor{Jurgen J. Vinju - Jurge1n.Vinju@cwi.nl - CWI}
 module util::LanguageServer
 
-extend util::Reflective;
+import util::Reflective;
 // extend Content;
-extend ParseTree;
+import ParseTree;
 
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
@@ -86,17 +86,17 @@ LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, T
 // });
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
-data DocumentSymbol 
+data DocumentSymbol
     = symbol(
-        str name, 
-        DocumentSymbolKind kind, 
-        loc range, 
-        loc selection=range, 
-        str detail="", 
+        str name,
+        DocumentSymbolKind kind,
+        loc range,
+        loc selection=range,
+        str detail="",
         list[DocumentSymbol] children=[]
     );
 
-data DocumentSymbolKind 
+data DocumentSymbolKind
 	= \file()
 	| \module()
 	| \namespace()
@@ -130,11 +130,11 @@ data DocumentSymbolTag
     ;
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
-    
-data Command 
+
+data Command
     = action(str label, void (Tree tree, loc selection) action)
     // | interaction(str label, Content (Tree tree, loc selection) server)
-    | action(str label, void (str selStr, loc selLoc) handler) 
+    | action(str label, void (str selStr, loc selLoc) handler)
     | toggle(str label, bool() state, void(Tree tree, loc selection) action)
     | edit(str label, str (Tree tree, loc selection) edit)
     | group(str label, list[Command] members)

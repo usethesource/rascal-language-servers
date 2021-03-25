@@ -1,7 +1,9 @@
 module util::TestIDE
 
 import util::LanguageServer;
-extend lang::pico::\syntax::Main;
+import ParseTree;
+import util::Reflective;
+import lang::pico::\syntax::Main;
 
 set[LanguageService] picoLanguageContributor() = {
     parser(Tree (str input, loc src) {
