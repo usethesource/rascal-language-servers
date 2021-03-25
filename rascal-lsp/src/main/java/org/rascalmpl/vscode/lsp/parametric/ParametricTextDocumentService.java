@@ -82,6 +82,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -274,7 +275,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
+            l -> {
+                ILanguageContributions cont = contributions(doc);
+                // TODO: store this interruptible future and also replace it
+                return new TextDocumentState((loc, inp) -> cont.parseSourceFile(loc, inp).get(), l, doc.getText());
+            }
         );
     }
 
@@ -330,16 +335,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
-
-        return file.getCurrentTreeAsync().thenApply(tree -> {
-            try {
-                ILanguageContributions contrib = contributions(params.getTextDocument());
-                return Outline.buildParametricOutline(contrib.outline(tree).get(),  columns.get(file.getLocation()));
-            } catch (InterruptedException | ExecutionException e) {
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+        return file.getCurrentTreeAsync()
+            .thenApply(contrib::outline) // TODO: store this interruptible future and also replace it
+            .thenCompose(InterruptibleFuture::get)
+            .thenApply(c -> Outline.buildParametricOutline(c, columns.get(file.getLocation())))
+            .exceptionally(e -> {
                 logger.catching(e);
                 return Collections.emptyList();
-            }
-        });
+            });
     }
 
     private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc) {

@@ -5,10 +5,12 @@ import java.nio.channels.InterruptibleChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -82,21 +84,39 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        return parser.thenApply(p -> p.call(VF.string(input), loc))
-            .handle((r, e) -> {
-                logger.catching(e);
-                throw new RuntimeException(e);
-            });
+    public InterruptibleFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+    AtomicReference<Evaluator> currentEval = new AtomicReference<>(null);
+    /* we want to pass along parse errors to the IDE,
+        so we cannot use the normal exec function call,
+        as that catches all exceptions */
+    return new InterruptibleFuture<>(parser.thenCombineAsync(eval, (p, ev) -> {
+            synchronized(ev) {
+                try {
+                    currentEval.set(ev);
+                    if (interrupted.get()) {
+                        throw new RuntimeException("Interrupted before finishing");
+                    }
+                    return (ITree)p.call(VF.string(input), loc);
+                }
+                finally {
+                    currentEval.set(null);
+                    ev.__setInterrupt(false);
+                }
+            }
+        }, exec),
+        () -> {
+            interrupted.set(true);
+            Evaluator e = currentEval.get();
+            if (e != null) {
+                e.interrupt();
+            }
+        });
     }
 
     @Override
-    public CompletableFuture<IList> outline(ITree input) {
-        return outliner.thenApply(o -> o.call(input))
-            .handle((r, e) -> {
-                logger.catching(e);
-                throw new RuntimeException(e);
-            });
+    public InterruptibleFuture<IList> outline(ITree input) {
+        return execFunction("outline",outliner, VF.list(), input);
     }
 
     @Override
@@ -107,19 +127,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<IFunction> target, T defaultResult, IValue... args) {
-        return flatten(
+        return InterruptibleFuture.flatten(
             target.thenApply(s -> EvaluatorUtil.runEvaluator(name, eval,e -> s.call(args), defaultResult, exec))
-        );
-    }
-
-    /**
-     * Turn an completable future with a interruptible future inside into a
-     * regular interruptible future by inlining them
-     */
-    private <T> InterruptibleFuture<T> flatten(CompletableFuture<InterruptibleFuture<T>> f) {
-        return new InterruptibleFuture<>(
-            f.thenCompose(InterruptibleFuture::get),
-            () -> f.thenAcceptAsync(InterruptibleFuture::interrupt) // schedule interrupt async so that we don't deadlock during interrupt
-        );
+        , exec);
     }
 }
