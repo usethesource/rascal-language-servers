@@ -3,7 +3,6 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -16,6 +15,7 @@ import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
+import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -26,9 +26,9 @@ import io.usethesource.vallang.IValueFactory;
 import jline.Terminal;
 import jline.TerminalFactory;
 
-/** 
+/**
  * This class runs a Rascal terminal REPL that
- * connects to a running LSP server instance to 
+ * connects to a running LSP server instance to
  * provide IDE feature to the user of a terminal instance.
  */
 public class LSPTerminalREPL extends BaseREPL {
@@ -43,7 +43,7 @@ public class LSPTerminalREPL extends BaseREPL {
     }
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        
+
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 @Override
@@ -54,10 +54,13 @@ public class LSPTerminalREPL extends BaseREPL {
                     Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-            
+
+                    ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
+                    ShellEvaluatorFactory.configureProjectEvaluator(evaluator, projectDir);
+
                     evaluator.setMonitor(services);
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            
+
                     reg.registerLogical(new ILogicalSourceLocationResolver(){
                         @Override
                         public ISourceLocation resolve(ISourceLocation input) throws IOException {
@@ -92,25 +95,25 @@ public class LSPTerminalREPL extends BaseREPL {
                     }
                 }
             };
-    
+
         repl.setMeasureCommandTime(false);
-    
+
         return repl;
     }
 
     private static File getHistoryFile() throws IOException {
         File home = new File(System.getProperty("user.home"));
         File rascal = new File(home, ".rascal");
-    
+
         if (!rascal.exists()) {
             rascal.mkdirs();
         }
-    
+
         File historyFile = new File(rascal, ".repl-history-rascal-terminal");
         if (!historyFile.exists()) {
             historyFile.createNewFile();
         }
-    
+
         return historyFile;
     }
 
@@ -130,7 +133,7 @@ public class LSPTerminalREPL extends BaseREPL {
         try {
             new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort)).run();
             System.exit(0); // kill the other threads
-        } 
+        }
         catch (IOException | URISyntaxException e) {
             e.printStackTrace();
             System.err.println("Rascal terminal terminated exceptionally; press any key to exit process.");
