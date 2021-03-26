@@ -23,13 +23,11 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import com.google.common.io.CharStreams;
@@ -86,7 +84,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
