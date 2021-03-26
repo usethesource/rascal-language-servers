@@ -4,14 +4,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.util.Map;
 
+import org.fusesource.hawtjni.runtime.Library;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
+import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
@@ -19,9 +23,12 @@ import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.project.TargetURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import jline.Terminal;
 import jline.TerminalFactory;
@@ -54,13 +61,12 @@ public class LSPTerminalREPL extends BaseREPL {
                     Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
-                    ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-                    ShellEvaluatorFactory.configureProjectEvaluator(evaluator, projectDir);
-
-                    evaluator.setMonitor(services);
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
+                    ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
+                    String projectName = new RascalManifest().getProjectName(projectDir);
+
+                    reg.registerLogical(new TargetURIResolver(projectDir, projectName));
                     reg.registerLogical(new ILogicalSourceLocationResolver(){
                         @Override
                         public ISourceLocation resolve(ISourceLocation input) throws IOException {
@@ -77,6 +83,33 @@ public class LSPTerminalREPL extends BaseREPL {
                             return "";
                         }
                     });
+
+                    try {
+                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+
+                        for (IValue path : pcfg.getSrcs()) {
+                            evaluator.addRascalSearchPath((ISourceLocation) path);
+                        }
+
+                        for (IValue path : pcfg.getLibs()) {
+                            evaluator.addRascalSearchPath((ISourceLocation) path);
+                        }
+
+                        ClassLoader cl = new SourceLocationClassLoader(
+                            pcfg.getClassloaders()
+                                .append(URIUtil.correctLocation("lib", "rascal",""))
+                                .append(URIUtil.correctLocation("lib", "rascal-lsp",""))
+                                .append(URIUtil.correctLocation("target", projectName, "")),
+                            ClassLoader.getSystemClassLoader()
+                        );
+
+                        evaluator.addClassLoader(cl);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace(new PrintStream(stderr));
+                    }
+
+                    evaluator.setMonitor(services);
 
                     return evaluator;
                 }
