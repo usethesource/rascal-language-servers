@@ -7,7 +7,9 @@ import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
-        ExecutorService threadPool = Executors.newCachedThreadPool();
-        startLanguageServer(new RascalTextDocumentService(new RascalLanguageServices(threadPool), threadPool), 8888);
+        startLanguageServer(() -> {
+            ExecutorService threadPool = Executors.newCachedThreadPool();
+            return new RascalTextDocumentService(new RascalLanguageServices(threadPool), threadPool);
+        }, 8888);
     }
 }

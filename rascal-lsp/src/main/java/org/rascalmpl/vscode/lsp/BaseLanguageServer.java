@@ -8,12 +8,11 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
+import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -28,9 +27,7 @@ import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -74,22 +71,22 @@ public abstract class BaseLanguageServer {
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
-        
+
         return clientLauncher;
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(IBaseTextDocumentService service, int portNumber) {
+    public static void startLanguageServer(Supplier<IBaseTextDocumentService> service, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
         if (DEPLOY_MODE) {
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), service)));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), service.get())));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, service)));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, service.get())));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server", e);
@@ -142,7 +139,7 @@ public abstract class BaseLanguageServer {
             if (ideServicesConfiguration != null) {
                 return CompletableFuture.completedFuture(ideServicesConfiguration);
             }
-            
+
             throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
@@ -167,7 +164,7 @@ public abstract class BaseLanguageServer {
                     }
                 })
                 .thenApply(s -> new LocationContent(s));
-                    
+
             } catch (URISyntaxException | IOException e) {
                 logger.catching(e);
                 throw new RuntimeException(e);
