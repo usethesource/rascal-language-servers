@@ -26,10 +26,14 @@
 
     <!-- dependency resolution configuration (usethesource) -->
     <repositories>
-        <repository>
-            <id>usethesource</id>
-            <url>https://nexus.usethesource.io/content/repositories/public/</url>
-        </repository>
+        <pluginRepository>
+            <id>usethesource-releases</id>
+            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
+        </pluginRepository>
+        <pluginRepository>
+            <id>usethesource-snapshots</id>
+            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
+        </pluginRepository>
         <repository>
           <id>maven-central-snapshots</id>
           <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
@@ -37,10 +41,13 @@
     </repositories>
     <pluginRepositories>
         <pluginRepository>
-            <id>usethesource</id>
-            <url>https://nexus.usethesource.io/content/repositories/public/</url>
+            <id>usethesource-releases</id>
+            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
         </pluginRepository>
-
+        <pluginRepository>
+            <id>usethesource-snapshots</id>
+            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
+        </pluginRepository>
     </pluginRepositories>
   <dependencies>
     <dependency>
