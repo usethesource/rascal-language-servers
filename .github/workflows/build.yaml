@@ -54,9 +54,9 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: npm run compile
 
-      - name: test extension
-        working-directory: ./rascal-vscode-extension
-        run: npm run test
+#      - name: test extension
+#        working-directory: ./rascal-vscode-extension
+#        run: npm run test
 
   package-vscode:
     runs-on: ubuntu-latest

@@ -34,7 +34,7 @@ jobs:
         run: |
           npm ci
           npm run compile
-          npm run test
+          # npm run test
 
       - name: package extension
         working-directory: rascal-vscode-extension
