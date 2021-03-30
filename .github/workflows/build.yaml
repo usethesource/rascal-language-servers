@@ -63,6 +63,8 @@ jobs:
   package-vscode:
     runs-on: ubuntu-latest
     needs: [build-lsp, build-vscode]
+
+    steps:
       - uses: actions/checkout@v2
 
       - name: setup node
