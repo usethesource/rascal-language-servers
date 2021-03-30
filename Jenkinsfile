@@ -35,7 +35,6 @@ node {
             sh 'mkdir -p ${NPM_CONFIG_PREFIX}'
             sh 'n --version || npm install -g n'
             sh "n ${NPM_VERSION}"
-            sh 'npm install -g vsce'
             sh 'npm install'
         }
 
@@ -53,7 +52,7 @@ node {
         }
 
         stage('Package VScode extension') {
-            sh 'vsce package'
+            sh 'npx vsce package'
         }
 
         withMaven(maven: 'M3', jdk: 'jdk-oracle-8', mavenOpts: '-Xmx4G', options: [artifactsPublisher(disabled: true), junitPublisher(disabled: false)] ) {

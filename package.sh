@@ -4,6 +4,6 @@ set -e
 set -x
 
 cd rascal-vscode-extension
-vsce package
+npx vsce package
 cd ..
 
