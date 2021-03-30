@@ -4,7 +4,6 @@ on: [push]
 jobs:
   build-lsp:
     runs-on: ubuntu-latest
-    working-directory: ./rascal-lsp
 
     steps:
       - uses: actions/checkout@v2
@@ -22,21 +21,22 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Test with Maven
+        working-directory: ./rascal-lsp
         run: mvn -B --update-snapshots clean compile test
 
       - name: package
+        working-directory: ./rascal-lsp
         run: mvn -B package
 
       - name: lsp packaged results 
         uses: actions/upload-artifact@v2
         with:
           name: rascal-lsp-${{ github.sha }}
-          path: target/
+          path: ./rascal-lsp/target/
           retention-days: 1
     
   build-vscode:
     runs-on: ubuntu-latest
-    working-directory: ./rascal-vscode-extension
 
     steps:
       - uses: actions/checkout@v2
@@ -47,12 +47,15 @@ jobs:
           node-version: 14
 
       - name: get dependencies
+        working-directory: ./rascal-vscode-extension
         run: npm ci
 
       - name: compile extension
+        working-directory: ./rascal-vscode-extension
         run: npm compile
 
       - name: test extension
+        working-directory: ./rascal-vscode-extension
         run: npm test
 
   package-vscode:
@@ -69,7 +72,6 @@ jobs:
 
       - name: extract rascal-lsp results
         uses: actions/download-artifact@v2
-        working-directory: ./rascal-lsp
         with:
           name: rascal-lsp-${{ github.sha }}
 
