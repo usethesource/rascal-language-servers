@@ -18,10 +18,10 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
             children +=  [symbol(clean("<name>"), field(), t@\loc, detail="anno <t> <ot>")];
 
         case (Declaration) `<Tags _> <Visibility _> alias <UserType u> = <Type al>;`:
-            children += [symbol(clean("<u.name>"), \type(), u@\loc, detail="<u> = <al>")];
+            children += [symbol(clean("<u.name>"), struct(), u@\loc, detail="<u> = <al>")];
 
         case (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
-            children += [symbol(clean("<name>"), \key(), name@\loc, "tag <k> <name> on <ts>")];
+            children += [symbol(clean("<name>"), \key(), name@\loc, detail="tag <k> <name> on <ts>")];
 
         case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
             kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
