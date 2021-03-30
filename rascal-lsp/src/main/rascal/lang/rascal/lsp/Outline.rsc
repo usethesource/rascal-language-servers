@@ -6,8 +6,6 @@ import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 
-syntax A = "a" | "b";
-
 list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
     m= \mod.top;
     children = [];
