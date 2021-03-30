@@ -70,7 +70,10 @@ jobs:
         with:
           node-version: 14
 
+      - run: mkdir rascal-lsp/target
+
       - name: extract rascal-lsp results
+        working-directory: rascal-lsp/target
         uses: actions/download-artifact@v2
         with:
           name: rascal-lsp-${{ github.sha }}
