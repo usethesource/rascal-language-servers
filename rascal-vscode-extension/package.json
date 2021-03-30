@@ -71,7 +71,7 @@
     ]
   },
   "scripts": {
-    "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar out/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar out/",
+    "lsp4j:package": "mkdir -p out/ && cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar out/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar out/",
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
