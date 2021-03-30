@@ -74,9 +74,9 @@ jobs:
 
       - name: extract rascal-lsp results
         uses: actions/download-artifact@v2
-        working-directory: rascal-lsp/target
         with:
           name: rascal-lsp-${{ github.sha }}
+          path: rascal-lsp/target
 
       - name: package extension
         working-directory: rascal-vscode-extension
