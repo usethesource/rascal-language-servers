@@ -33,13 +33,13 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm compile
-          npm test
+          npm run compile
+          npm run test
 
       - name: package extension
         working-directory: rascal-vscode-extension
         run: |
-          npm lsp4j:package
+          npm run lsp4j:package
           npx vsce package
 
       - name: upload final vsix 
