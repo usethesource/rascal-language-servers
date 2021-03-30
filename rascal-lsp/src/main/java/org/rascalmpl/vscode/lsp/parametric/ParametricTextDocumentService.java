@@ -336,7 +336,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return file.getCurrentTreeAsync()
             .thenApply(contrib::outline) // TODO: store this interruptible future and also replace it
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(c -> Outline.buildParametricOutline(c, columns.get(file.getLocation())))
+            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             .exceptionally(e -> {
                 logger.catching(e);
                 return Collections.emptyList();
