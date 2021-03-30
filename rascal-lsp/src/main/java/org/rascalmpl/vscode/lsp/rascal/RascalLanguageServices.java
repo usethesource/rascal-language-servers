@@ -70,7 +70,7 @@ public class RascalLanguageServices {
     public RascalLanguageServices(ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, "Rascal outline", null, "lang::rascal::ide::Outline");
+        outlineEvaluator = makeFutureEvaluator(exec, "Rascal outline", null, "lang::rascal::lsp::Outline");
         summaryEvaluator = makeFutureEvaluator(exec, "Rascal summary", null, "lang::rascalcore::check::Summary");
         compilerEvaluator = makeFutureEvaluator(exec, "Rascal compiler", null, "lang::rascalcore::check::Checker");
     }
@@ -138,18 +138,17 @@ public class RascalLanguageServices {
         }
     }
 
-    private final static INode EMPTY_NODE = VF.node("");
 
-    public InterruptibleFuture<INode> getOutline(IConstructor module) {
+    public InterruptibleFuture<IList> getOutline(IConstructor module) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
-            return new InterruptibleFuture<>(CompletableFuture.completedFuture(EMPTY_NODE), () -> {});
+            return new InterruptibleFuture<>(CompletableFuture.completedFuture(VF.list()), () -> {});
         }
 
-        return runEvaluator("outline", outlineEvaluator, eval -> (INode) eval.call("outline", module), EMPTY_NODE, exec);
+        return runEvaluator("outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module), VF.list(), exec);
     }
 
-   
+
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         return CompletableFuture.supplyAsync(() -> parseContents(loc, input.toCharArray()), exec);
     }

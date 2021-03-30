@@ -1,12 +1,15 @@
+@bootstrapParser
 module lang::rascal::lsp::Outline
 
+import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 
-list[DocumentSymbol] outlineRascalModule(start[Module] m) {
-   children = [];
+list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
+    m= \mod.top;
+    children = [];
 
-   top-down-break visit (m) {
+    top-down-break visit (m) {
         case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
             children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <n>") | v <- vars];
 
@@ -41,7 +44,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] m) {
             children += [symbol("<mm.name>", \module(), mm@\loc, detail="import <mm>")];
 
         case (Import) `import <QualifiedName m2> = <LocationLiteral ll>;` :
-            children += [symbol("<mm.name>", \module(), mm@\loc, detail="import <m2>=<ll>")];
+            children += [symbol("<m2.name>", \module(), m2@\loc, detail="import <m2>=<ll>")];
 
         case SyntaxDefinition def : {
             rs = [symbol(prefix, \function(), p@\loc, detail="syntax <prefix> <p.syms>")
