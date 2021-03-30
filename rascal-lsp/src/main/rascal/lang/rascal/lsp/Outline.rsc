@@ -6,10 +6,11 @@ import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 
+syntax A = "a" | "b";
+
 list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
     m= \mod.top;
     children = [];
-    kwlist = [];
 
     top-down-break visit (m) {
         case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
@@ -22,23 +23,24 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
             children += [symbol(clean("<u.name>"), \type(), u@\loc, detail="<u> = <al>")];
 
         case (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
-            children += [symbol(clean("<name>"), \key(), n@\loc, "tag <k> <name> on <ts>")];
+            children += [symbol(clean("<name>"), \key(), name@\loc, "tag <k> <name> on <ts>")];
 
         case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
-            kwlist += [symbol(".<k.name>", key(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
-            children += [symbol("<u.name>", \class(), u@\loc, detail="data <u> <kws>", children=kwlist)];
+            kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
+            children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist)];
         }
 
         case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws> = <{Variant "|"}+ variants>;` : {
-            kwlist += [symbol(".<k.name>", field(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
-            variantlist = [symbol(clean("<v.name>"), \function(), v@\loc, detail="<v>") | v <- variants];
+            kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
+            variantlist = [symbol(clean("<v>"), \constructor(), v@\loc) | v <- variants];
 
-            children += [symbol("<u.name>", class(), u@\loc, detail="data <u> <kws>", children=kwlist + variantlist)];
+            children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist + variantlist)];
         }
 
         case FunctionDeclaration func :
-            children += [symbol("<func.signature.name>", \function(), (func.signature)@\loc, detail="<func.signature>")];
+            children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature)@\loc, detail="<func.signature.\type>")];
 
+/*
         case (Import) `extend <ImportedModule mm>;` :
             children += [symbol("<mm.name>", \module(), mm@\loc, detail="extend <mm>")];
 
@@ -47,21 +49,24 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
 
         case (Import) `import <QualifiedName m2> = <LocationLiteral ll>;` :
             children += [symbol("<m2>", \module(), m2@\loc, detail="import <m2>=<ll>")];
+*/
 
         case SyntaxDefinition def : {
-            rs = [symbol(prefix, \function(), p@\loc, detail="syntax <prefix> <p.syms>")
+            rs = [symbol(clean("<prefix> <p.syms>"), \function(), p@\loc)
                 | /Prod p := def.production, p is labeled || p is unlabeled,
                 str prefix := (p is labeled ? "<p.name>: " : "")
             ];
-            children += [symbol("<def.defined>", \function(), def@\loc, detail="<def>", children=rs)];
+            children += [symbol(clean("<def.defined>"), \function(), def@\loc, children=rs)];
         }
     }
 
-    return [symbol("<m.header.name>", \module(), m.header@\loc, children=children)];
+    return [symbol(clean("<m.header.name>"), \module(), m.header@\loc, children=children)];
 }
 
 // remove leading backslash
 str clean(/\\<rest:.*>/) = clean(rest);
+
+str clean("false") = "\\false"; // vscode doesn't like a falsy name
 
 // multi-line becomes single line
 str clean(str x:/\n/) = clean(visit(x) { case /\n/ => " " });

@@ -91,7 +91,7 @@ public class Outline {
         }
         return null;
     }
- 
+
     private static String capitalize(String kindName) {
        return kindName.substring(0,1).toUpperCase() + kindName.substring(1);
     }
@@ -118,7 +118,7 @@ public class Outline {
     public static DocumentSymbol buildParametricOutline(IConstructor symbol, final LineColumnOffsetMap om) {
         IWithKeywordParameters<?> kwp = symbol.asWithKeywordParameters();
 
-        List<DocumentSymbol> children = kwp.hasParameter("children") ? 
+        List<DocumentSymbol> children = kwp.hasParameter("children") ?
             ((IList) kwp.getParameter("children"))
                 .stream()
                 .map(c -> buildParametricOutline((IConstructor) c, om))
@@ -129,10 +129,10 @@ public class Outline {
         SymbolKind kind = SymbolKind.valueOf(capitalize(kindName));
         String symbolName = ((IString) symbol.get("name")).getValue();
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
-        Range selection = kwp.hasParameter("selection") 
-            ? Locations.toRange(((ISourceLocation) kwp.getParameter("selection")), om) 
+        Range selection = kwp.hasParameter("selection")
+            ? Locations.toRange(((ISourceLocation) kwp.getParameter("selection")), om)
             : range;
-        String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : symbolName;
+        String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : null;
 
         return new  DocumentSymbol(symbolName, kind, range, selection, detail, children);
     }
