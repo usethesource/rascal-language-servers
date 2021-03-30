@@ -1,6 +1,7 @@
 @bootstrapParser
 module lang::rascal::lsp::Outline
 
+import String;
 import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
@@ -8,19 +9,20 @@ import util::LanguageServer;
 list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
     m= \mod.top;
     children = [];
+    kwlist = [];
 
     top-down-break visit (m) {
         case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
-            children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <n>") | v <- vars];
+            children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars];
 
         case (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
-            children +=  [symbol(clean("<name>"), field(), d@\loc detail="anno <t> <ot>")];
+            children +=  [symbol(clean("<name>"), field(), t@\loc, detail="anno <t> <ot>")];
 
         case (Declaration) `<Tags _> <Visibility _> alias <UserType u> = <Type al>;`:
             children += [symbol(clean("<u.name>"), \type(), u@\loc, detail="<u> = <al>")];
 
         case (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
-            children += [symbol(clean("<name>"), \key(), d@\loc, "tag <k> <name> on <ts>")];
+            children += [symbol(clean("<name>"), \key(), n@\loc, "tag <k> <name> on <ts>")];
 
         case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
             kwlist += [symbol(".<k.name>", key(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
@@ -44,7 +46,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
             children += [symbol("<mm.name>", \module(), mm@\loc, detail="import <mm>")];
 
         case (Import) `import <QualifiedName m2> = <LocationLiteral ll>;` :
-            children += [symbol("<m2.name>", \module(), m2@\loc, detail="import <m2>=<ll>")];
+            children += [symbol("<m2>", \module(), m2@\loc, detail="import <m2>=<ll>")];
 
         case SyntaxDefinition def : {
             rs = [symbol(prefix, \function(), p@\loc, detail="syntax <prefix> <p.syms>")
