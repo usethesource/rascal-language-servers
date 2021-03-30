@@ -2,7 +2,7 @@ name: CI
 on: [push]
 
 jobs:
-  build-lsp:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -13,6 +13,11 @@ jobs:
         with:
           java-version: 1.8
 
+      - name: setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+
       - name: Cache Maven packages
         uses: actions/cache@v2
         with:
@@ -20,68 +25,20 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Test with Maven
+      - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B --update-snapshots clean compile test
+        run: mvn -B --update-snapshots clean package
 
-      - name: package
-        working-directory: ./rascal-lsp
-        run: mvn -B package
-
-      - name: lsp packaged results 
-        uses: actions/upload-artifact@v2
-        with:
-          name: rascal-lsp-${{ github.sha }}
-          path: ./rascal-lsp/target/
-          retention-days: 1
-    
-  build-vscode:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: setup node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 14
-
-      - name: get dependencies
+      - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
-        run: npm ci
-
-      - name: compile extension
-        working-directory: ./rascal-vscode-extension
-        run: npm run compile
-
-#      - name: test extension
-#        working-directory: ./rascal-vscode-extension
-#        run: npm run test
-
-  package-vscode:
-    runs-on: ubuntu-latest
-    needs: ["build-lsp", "build-vscode"]
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: setup node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 14
-
-      - run: mkdir rascal-lsp/target
-
-      - name: extract rascal-lsp results
-        uses: actions/download-artifact@v2
-        with:
-          name: rascal-lsp-${{ github.sha }}
-          path: rascal-lsp/target
+        run: |
+          npm ci
+          npm run compile
+          # npm run test
 
       - name: package extension
         working-directory: rascal-vscode-extension
         run: |
-          npm ci
           npm run lsp4j:package
           npx vsce package
 
@@ -89,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           path: rascal-vscode-extension/*.vsix
-          retention-days: 1
+          retention-days: 20
