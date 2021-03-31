@@ -44,8 +44,11 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -118,6 +121,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
+        result.setHoverProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
     }
 
@@ -217,6 +221,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
+    @Override
+    public CompletableFuture<Hover> hover(HoverParams params) {
+        logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
+        return facts.getSummary(Locations.toLoc(params.getTextDocument()))
+            .thenApply(s -> s.getTypeName(params.getPosition()))
+            .thenApply(n -> new Hover(new MarkupContent("plaintext", n)));
+    }
+
     // Private utility methods
 
     private static <T> T last(List<T> l) {
@@ -279,4 +291,5 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void registerLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
+
 }

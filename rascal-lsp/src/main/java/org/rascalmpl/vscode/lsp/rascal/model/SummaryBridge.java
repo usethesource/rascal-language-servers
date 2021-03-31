@@ -142,8 +142,11 @@ public class SummaryBridge {
         return replaceNull(definitions.get().lookup(cursor), Collections.emptyList());
     }
 
+    public String getTypeName(Position cursor) {
+        return getTypeName(new Range(cursor, cursor));
+    }
+
     public String getTypeName(Range cursor) {
         return replaceNull(typeNames.get().lookup(cursor), "");
     }
-
 }
