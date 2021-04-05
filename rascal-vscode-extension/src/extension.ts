@@ -119,17 +119,17 @@ export function deactivate() {
 
 function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
     let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
-        let editor = vscode.window.activeTextEditor;
+        const editor = vscode.window.activeTextEditor;
         if (!editor) {
             return;
         }
 
-        let document = editor.document;
+        const document = editor.document;
         if (!document) {
             return;
         }
 
-        let uri = document.uri;
+        const uri = document.uri;
         if (!uri) {
             return;
         }
