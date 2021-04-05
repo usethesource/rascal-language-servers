@@ -192,7 +192,7 @@ function calculateDSLMemoryReservation() {
 
 function buildJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
-    return jars.map(j => context.asAbsolutePath(path.join('.', 'out', j))).join(path.delimiter);
+    return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
 }
 
 function buildRascalServerOptions(context: vscode.ExtensionContext, main:string): ServerOptions {
