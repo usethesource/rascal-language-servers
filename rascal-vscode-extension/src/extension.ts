@@ -155,6 +155,41 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
     });
 }
 
+function gb(amount: integer) {
+    return amount * (1024 * 1024);
+}
+
+function calculateRascalMemoryReservation() {
+    // rascal lsp needs at least 800M but runs better with 2G or even 2.5G (especially the type checker)
+    if (os.totalmem() >= gb(32)) {
+        return "-Xmx2500M";
+    }
+    if (os.totalmem() >= gb(16)) {
+        return "-Xmx1500M";
+
+    }
+    if (os.totalmem() >= gb(8)) {
+        return "-Xmx1200M";
+    }
+    return "-Xmx800M";
+}
+
+function calculateDSLMemoryReservation() {
+    // this is a hard one, if you register many DSLs, it can grow quite a bit
+    // 400MB per language is a reasonable estimate (for average sized languages)
+    if (os.totalmem() >= gb(32)) {
+        return "-Xmx2400M";
+    }
+    if (os.totalmem() >= gb(16)) {
+        return "-Xmx1600M";
+    }
+    if (os.totalmem() >= gb(8)) {
+        return "-Xmx1200M";
+    }
+    return "-Xmx800M";
+
+}
+
 function buildJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
     return jars.map(j => context.asAbsolutePath(path.join('.', 'out', j))).join(path.delimiter);
@@ -166,6 +201,7 @@ function buildRascalServerOptions(context: vscode.ExtensionContext, main:string)
         command: 'java',
         args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',
             '-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath,
+            main.includes("Parametric") ? calculateDSLMemoryReservation() : calculateRascalMemoryReservation(),
             '-cp', classpath, main],
     };
 }
