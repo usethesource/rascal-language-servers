@@ -5,7 +5,7 @@
   which accompanies this distribution, and is available at
   http://www.eclipse.org/legal/epl-v10.html
 }
-@contributor{Jurgen J. Vinju - Jurge1n.Vinju@cwi.nl - CWI}
+@contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
 module util::LanguageServer
 
 import util::Reflective;
@@ -18,7 +18,6 @@ data Language
 alias Parser        = Tree (str /*input*/, loc /*origin*/);
 alias Summarizer    = Summary (loc /*origin*/, Tree /*input*/);
 alias Outliner      = list[DocumentSymbol] (Tree /*input*/);
-alias Annotater     = Tree (Tree /*input*/);
 alias Completer     = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
 alias Builder       = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 
@@ -32,15 +31,6 @@ data LanguageService
     | command(Command command)
     ;
 
-@synopsis{Annotations that an annotator may provide on a parse tree node}
-data Tree(
-    set[Message] messages        = {}, // error messages associated with a tree node
-    set[str]     documentation   = {}, // this node is documented with this string
-    set[loc]     definitions     = {}, // this use is defined there
-    set[loc]     references      = {}, // this declaration is referenced there
-    set[loc]     implementations = {}  // this definition is implemented there
-);
-
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 data Summary = summary(loc src,
     rel[loc, Message] messages = {},
@@ -51,33 +41,6 @@ data Summary = summary(loc src,
 );
 
 data Completion = completion(str newText, str proposal=newText);
-
-@synopsis{produces a summarizer from an annotator by collecting all relevant information from a source Tree}
-LanguageService summarizer(Annotater annotater) = summarizer(Summary (loc src, Tree input) {
-    messages = {};
-    documentation = {};
-    references = {};
-    definitions = {};
-    implementations = {};
-
-    visit(annotater(input)) {
-        case Tree t: if (t.src?) {
-            messages        += {<t.src, m> | m <- t.messages};
-            documentation   += {<t.src, d> | d <- t.documentation};
-            definitions     += {<t.src, r> | r <- t.definitions};
-            references      += {<t.src, r> | r <- t.references};
-            implementations += {<t.src, r> | r <- t.implementations};
-        }
-    }
-
-    return summary(src,
-        messages=messages,
-        documentation=documentation,
-        references=references,
-        definitions=definitions,
-        implementations=implementations
-    );
-});
 
 // THERE is a bug in the interpreter that lets this function fail
 // @synopsis{Produces a parser service from a reified grammar}
@@ -138,7 +101,6 @@ data Command
     | toggle(str label, bool() state, void(Tree tree, loc selection) action)
     | edit(str label, str (Tree tree, loc selection) edit)
     | group(str label, list[Command] members)
-    | menu(str label, list[Command] members)
     | popup(str label, list[Command] members)
     ;
 
