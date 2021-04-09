@@ -54,7 +54,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
                 | /Prod p := def.production, p is labeled || p is unlabeled,
                 str prefix := (p is labeled ? "<p.name>: " : "")
             ];
-            children += [symbol(clean("<def.defined>"), \function(), def@\loc, children=rs)];
+            children += [symbol(clean("<def.defined>"), \struct(), def@\loc, children=rs)];
         }
     }
 
