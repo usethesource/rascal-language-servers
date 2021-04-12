@@ -63,18 +63,18 @@ public class IDEServicesThread extends Thread {
      * Start a server for remote IDE services. These are used
      * by an implementation of @see IDEServices that is given to Rascal terminal REPLS
      * when they are started in the context of the LSP. This way
-     * Rascal REPLs get access to @see IDEServices to provide browsers 
+     * Rascal REPLs get access to @see IDEServices to provide browsers
      * for interactive visualizations, starting editors and resolving IDE project URI.
-     * 
+     *
      * @return the port number that the IDE services are running on
      * @throws IOException when a new server socket can not be established.
      */
     public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client) {
         try {
             ServerSocket socket = new ServerSocket(0);
-        
+
             new IDEServicesThread(client, socket).start();
-        
+
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
             throw new RuntimeException(e);

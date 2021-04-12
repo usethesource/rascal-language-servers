@@ -3,7 +3,6 @@ package org.rascalmpl.vscode.lsp;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 
 public interface IBaseLanguageServerExtensions {
@@ -19,6 +18,11 @@ public interface IBaseLanguageServerExtensions {
 
     @JsonRequest("rascal/locationContents")
     default CompletableFuture<LocationContent> locationContents(URIParameter lang) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest("rascal/supplyProjectCompilationClasspath")
+    default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
         throw new UnsupportedOperationException();
     }
 
@@ -46,5 +50,5 @@ public interface IBaseLanguageServerExtensions {
         }
     }
 
-    
+
 }

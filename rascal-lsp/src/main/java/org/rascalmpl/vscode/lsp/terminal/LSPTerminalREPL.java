@@ -8,7 +8,6 @@ import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.util.Map;
 
-import org.fusesource.hawtjni.runtime.Library;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;

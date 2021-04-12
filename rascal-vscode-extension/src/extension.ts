@@ -8,8 +8,9 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 import { TextDocumentContentProvider } from 'vscode';
+import { REPL_MODE_SLOPPY } from 'node:repl';
 
-const deployMode = true;
+const deployMode = false;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 const registeredFileExtensions:Set<string> = new Set();
 
@@ -136,21 +137,26 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
 
         const reply:Promise<IDEServicesConfiguration> = client.sendRequest("rascal/supplyIDEServicesConfiguration");
 
-        reply.then((cfg:IDEServicesConfiguration) => {
-            let terminal = vscode.window.createTerminal({
-                cwd: path.dirname(uri.fsPath),
-                shellPath: getJavaExecutable(),
-                shellArgs: [
-                    '-cp' , buildJVMPath(context),
-                    'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-                    '--ideServicesPort',
-                    '' + cfg.port
-                ],
-                name: 'Rascal Terminal',
-            });
+        reply.then(cfg => {
+            const reply:Promise<Array<string>> = client.sendRequest("rascal/supplyProjectCompilationClasspath", {uri: uri.toString()});
 
-            context.subscriptions.push(disposable);
-            terminal.show(false);
+            reply.then(cp => {
+                // vscode.window.showInformationMessage('hello', cp.join(':'));
+                let terminal = vscode.window.createTerminal({
+                    cwd: path.dirname(uri.fsPath),
+                    shellPath: getJavaExecutable(),
+                    shellArgs: [
+                        '-cp' , buildJVMPath(context) + (cp.length > 0 ? (':' + cp.join(':')) : ''),
+                        'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
+                        '--ideServicesPort',
+                        '' + cfg.port
+                    ],
+                    name: 'Rascal Terminal',
+                });
+
+                context.subscriptions.push(disposable);
+                terminal.show(false);
+            });
         });
     });
 }

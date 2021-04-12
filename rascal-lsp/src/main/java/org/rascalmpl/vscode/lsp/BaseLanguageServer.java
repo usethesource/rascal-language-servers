@@ -1,6 +1,7 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -25,10 +26,13 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.library.Prelude;
+import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import io.usethesource.vallang.ISourceLocation;
+import jline.console.completer.Completer;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -141,6 +145,29 @@ public abstract class BaseLanguageServer {
             }
 
             throw new RuntimeException("no IDEServicesConfiguration is set?");
+        }
+
+        @Override
+        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
+            try {
+                ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
+                if (!URIResolverRegistry.getInstance().isDirectory(path)) {
+                    path = URIUtil.getParentLocation(path);
+                }
+
+                ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
+                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+
+                return CompletableFuture.completedFuture(pcfg.getClassloaders().stream()
+                    .map(e -> (ISourceLocation) e)
+                    .filter(e -> e.getScheme().equals("file"))
+                    .map(e -> ((ISourceLocation) e).getPath())
+                    .toArray(String[]::new));
+            }
+            catch (IOException | URISyntaxException e) {
+                logger.catching(e);
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
