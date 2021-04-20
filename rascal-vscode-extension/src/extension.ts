@@ -8,7 +8,7 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 import { TextDocumentContentProvider } from 'vscode';
-import { REPL_MODE_SLOPPY } from 'node:repl';
+import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 
 const deployMode = false;
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -46,6 +46,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider('project', provider);
     vscode.workspace.registerTextDocumentContentProvider('std', provider);
     vscode.workspace.registerTextDocumentContentProvider('lib', provider);
+
+    vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider());
 
     console.log('LSP servers started (Rascal and Parametric)');
 }
