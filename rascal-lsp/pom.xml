@@ -34,10 +34,6 @@
             <id>usethesource-snapshots</id>
             <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
         </repository>
-        <repository>
-          <id>maven-central-snapshots</id>
-          <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-        </repository>
     </repositories>
     <pluginRepositories>
         <pluginRepository>
@@ -80,7 +76,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>0.11.0-SNAPSHOT</version>
+      <version>0.12.0</version>
       <type>jar</type>
     </dependency>
     <dependency>
