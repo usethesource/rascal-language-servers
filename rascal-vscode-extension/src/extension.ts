@@ -148,7 +148,7 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
                     cwd: path.dirname(uri.fsPath),
                     shellPath: getJavaExecutable(),
                     shellArgs: [
-                        '-cp' , buildJVMPath(context) + (cp.length > 0 ? (':' + cp.join(':')) : ''),
+                        '-cp' , buildJVMPath(context) + (cp.length > 0 ? (path.delimiter + cp.join(path.delimiter)) : ''),
                         'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
                         '--ideServicesPort',
                         '' + cfg.port
