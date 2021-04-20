@@ -72,12 +72,10 @@ function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.R
         );
     }
     else if (sloc.offsetLength) {
-        // fixing these is a mess (newlines and the like), so if we only have locs with offset & length
-        // you might be off by a few characters if before the offset there are
-        // full surrogate pairs
+        const rangePositions = fixedOffsetLengthPositions(td, sloc.offsetLength[0], sloc.offsetLength[1]);
         return new vscode.Range(
-            td.positionAt(sloc.offsetLength[0]),
-            td.positionAt(sloc.offsetLength[0] + sloc.offsetLength[1])
+            td.positionAt(rangePositions[0]),
+            td.positionAt(rangePositions[1])
         );
     }
     return undefined;
@@ -132,3 +130,19 @@ function fixedColumn(td: vscode.TextDocument, line: number, originalColumn: numb
     return result;
 }
 
+
+function fixedOffsetLengthPositions(td: vscode.TextDocument, offset: number, length: number): [number, number] {
+    const fullText = td.getText();
+    let endOffset = offset+length;
+    for (let i = 0; i < fullText.length && i < endOffset; i++) {
+        const c = fullText.charCodeAt(i);
+        if (isHighSurrogate(c) && (i + 1) < fullText.length && isLowSurrogate(fullText.charCodeAt(i + 1))) {
+            if (i <= offset) {
+                offset++;
+            }
+            endOffset++;
+            i++;
+        }
+    }
+    return [offset, endOffset];
+}
