@@ -1,0 +1,20 @@
+{
+  "license": "../LICENSE.txt",
+  "ignoreFile": ".gitignore",
+  "ignore": ["**/*.jar", "**/*.vsix", "**/*.md", ".editorconfig", ".vscodeignore", "**/*.gitignore"],
+  "licenseFormats": {
+      "js|ts": {
+          "prepend": "/*",
+          "append": " */",
+          "eachLine": {
+              "prepend": " * "
+          }
+      },
+      "dotfile": {
+          "eachLine": {
+              "prepend": "# "
+          }
+      }
+  },
+  "trailingWhitespace": "TRIM"
+}
