@@ -8,12 +8,23 @@ class RascalFileSystemProvider implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
 
-    constructor (scheme:string, client:LanguageClient) {
+    constructor (context: vscode.ExtensionContext, client:LanguageClient) {
         this.client = client;
 
         client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {
             this._emitter.fire([event]);
-         });
+        });
+
+        let protectedSchemes:string[] = ["file", "http", "https"];
+
+        this.client.sendRequest<string[]>("rascal/filesystem/schemes")
+            .then(schemes => {
+                schemes
+                    .filter(s => !protectedSchemes.includes(s))
+                    .forEach(s => {
+                        vscode.workspace.registerFileSystemProvider(s, this);
+                    });
+            });
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
