@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 
-public interface IBaseLanguageServerExtensions {
+public interface IBaseLanguageServerExtensions extends IRascalFileSystemService {
     @JsonRequest("rascal/supplyIDEServicesConfiguration")
     default CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
         throw new UnsupportedOperationException();

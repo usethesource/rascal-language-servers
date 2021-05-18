@@ -234,5 +234,10 @@ public abstract class BaseLanguageServer {
             this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client);
             getTextDocumentService().connect(this.client);
         }
+
+        @Override
+        public String[] fileSystemSchemes() {
+            return URIResolverRegistry.getInstance().getRegisteredInputSchemes().stream().toArray(String[]::new);
+        }
     }
 }

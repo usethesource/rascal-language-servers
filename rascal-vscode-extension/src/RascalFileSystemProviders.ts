@@ -8,7 +8,13 @@ class RascalFileSystemProvider implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
 
-    constructor (context: vscode.ExtensionContext, client:LanguageClient) {
+    /**
+     * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
+     * for file, http and https.
+     *
+     * @param client to use as a server for the file system provider methods
+     */
+    constructor (client:LanguageClient) {
         this.client = client;
 
         client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {
@@ -66,6 +72,6 @@ class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/rename", {oldUri: oldUri, newUri: newUri});
+        return this.client.sendRequest<void>("rascal/filesystem/rename", {oldUri: oldUri, newUri: newUri, overwrite: options.overwrite});
     }
 }
