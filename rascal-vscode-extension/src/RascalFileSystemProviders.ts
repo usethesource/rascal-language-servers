@@ -64,7 +64,7 @@ class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {uri: uri, create:create, overwrite:overwrite});
+        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {uri: uri, create:options.create, overwrite:options.overwrite});
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {

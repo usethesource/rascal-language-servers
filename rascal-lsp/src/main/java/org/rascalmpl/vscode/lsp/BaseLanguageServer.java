@@ -10,6 +10,8 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,9 +32,9 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import io.usethesource.vallang.ISourceLocation;
-import jline.console.completer.Completer;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -125,7 +127,79 @@ public abstract class BaseLanguageServer {
         }
     }
 
-    private static class ActualLanguageServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
+    private static class BaseFileSystemServer implements IRascalFileSystemService {
+        private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+        @Override
+        public String[] fileSystemSchemes() {
+            return reg.getRegisteredInputSchemes().stream().toArray(String[]::new);
+        }
+
+        @Override
+        public void watch(String uri, boolean recursive, String[] excludes) {
+            throw new RuntimeException("not yet implemented");
+        }
+
+        @Override
+        public FileStat stat(String uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return new FileStat(
+                reg.isDirectory(loc) ? FileType.Directory : FileType.File,
+                reg.lastModified(loc), // TODO add creation time
+                reg.lastModified(loc),
+                reg.supportsReadableFileChannel(loc)
+                    ? reg.getReadableFileChannel(loc).size()
+                    : -1 // TODO: compute size slowly
+                    );
+        }
+
+        @Override
+        public FileWithType[] readDirectory(String uri) throws URISyntaxException, IOException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return Arrays.stream(reg.list(loc))
+                .map(l -> new FileWithType(URIUtil.getLocationName(l), reg.isDirectory(l) ? FileType.Directory : FileType.File))
+                .toArray(FileWithType[]::new);
+        }
+
+        @Override
+        public void createDirectory(String uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            reg.mkDirectory(loc);
+        }
+
+        @Override
+        public String readFile(String uri) throws URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue();
+        }
+
+        @Override
+        public void writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            // TODO: implement 'create' and 'overwrite' flags
+
+            // TODO check encoding issues
+            reg.getOutputStream(loc, false).write(content.getBytes(Charset.forName("UTF8")));
+        }
+
+        @Override
+        public void delete(String uri, boolean recursive) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            // TODO implement recursive flag
+            reg.remove(loc);
+        }
+
+        @Override
+        public void rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
+           // TODO implement rename in ISourcelocationOutput to make it more efficient
+           ISourceLocation oldLoc = URIUtil.createFromURI(oldUri);
+           ISourceLocation newLoc = URIUtil.createFromURI(newUri);
+           reg.copy(oldLoc, newLoc);
+           reg.remove(oldLoc);
+        }
+
+    }
+    private static class ActualLanguageServer extends BaseFileSystemServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService = new BaseWorkspaceService();
