@@ -19,4 +19,6 @@ package org.rascalmpl.vscode.lsp.util.locations;
  */
 public interface LineColumnOffsetMap {
     int translateColumn(int line, int column, boolean isEnd);
+
+    int reverseColumn(int line, int column, boolean isEnd);
 }

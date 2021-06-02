@@ -48,6 +48,13 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
         return column + columnIndex;
     }
 
+    @Override
+    public int reverseColumn(int line, int column, boolean isEnd) {
+        int newColumn = translateColumn(line, column, isEnd);
+        // we just inverse the column offset
+        return column - (newColumn - column);
+    }
+
 
     @SuppressWarnings("java:S3776") // parsing tends to be complex
     public static LineColumnOffsetMap build(String contents) {
@@ -96,6 +103,11 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
     private static LineColumnOffsetMap EMPTY_MAP = new LineColumnOffsetMap(){
         @Override
         public int translateColumn(int line, int column, boolean atEnd) {
+            return column;
+        }
+
+        @Override
+        public int reverseColumn(int rascalLine, int column, boolean isEnd) {
             return column;
         }
     };

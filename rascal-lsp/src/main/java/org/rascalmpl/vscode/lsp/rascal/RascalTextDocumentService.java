@@ -1,32 +1,46 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
- * All rights reserved.
+ * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+ * following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+ * disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+ * following disclaimer in the documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-
+import java.util.stream.Collectors;
 import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionKind;
+import org.eclipse.lsp4j.CodeActionOptions;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
@@ -43,6 +57,7 @@ import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -53,6 +68,8 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -63,6 +80,7 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.RascalTextEdit;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -102,8 +120,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return CharStreams.toString(src);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
             return "";
         }
@@ -115,6 +132,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setDocumentSymbolProvider(true);
         result.setHoverProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
+        result.setRenameProvider(true);
     }
 
     @Override
@@ -169,17 +187,18 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 excp = excp.getCause();
             }
             if (excp instanceof ParseError) {
-                newParseError = Diagnostics.translateDiagnostic((ParseError)excp, columns);
+                newParseError = Diagnostics.translateDiagnostic((ParseError) excp, columns);
             }
             else if (excp != null) {
                 logger.error("Parsing crashed", excp);
                 newParseError = new Diagnostic(
-                    new Range(new Position(0,0), new Position(0,1)),
+                    new Range(new Position(0, 0), new Position(0, 1)),
                     "Parsing failed: " + excp.getMessage(),
                     DiagnosticSeverity.Error,
                     "Rascal Parser");
             }
-            logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
+            logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError,
+                file.getLocation());
             facts.reportParseErrors(file.getLocation(),
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
@@ -187,30 +206,29 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private void handleParsingErrors(TextDocumentState file) {
-        handleParsingErrors(file,file.getCurrentTreeAsync());
+        handleParsingErrors(file, file.getCurrentTreeAsync());
     }
 
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
+        DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))
             .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-            .thenApply(Either::forLeft)
-            ;
+            .thenApply(Either::forLeft);
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
-        documentSymbol(DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
+        DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
             .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
             .thenCompose(tr -> rascalServices.getOutline(tr).get())
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
-            ;
+            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())));
     }
 
     @Override
@@ -219,6 +237,35 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))
             .thenApply(s -> s.getTypeName(params.getPosition()))
             .thenApply(n -> new Hover(new MarkupContent("plaintext", n)));
+    }
+
+    private WorkspaceEdit translate(List<RascalTextEdit> edits) {
+        Map<String, List<TextEdit>> changes = new HashMap<>();
+        edits.stream()
+            .collect(Collectors.groupingBy(e -> e.getRange().top()))
+            .forEach((file, ch) ->
+                changes.put(
+                    file.getURI().toString(),
+                    ch.stream()
+                        .map(c -> c.convert(columns))
+                        .collect(Collectors.toList())
+                )
+            );
+        return new WorkspaceEdit(changes);
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
+        TextDocumentState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync()
+            .thenApply(t -> Locations.findPositionInTree(t, file.getLocation(), params.getPosition(), columns))
+            .thenCompose(pos -> {
+                if (pos == null) {
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams, "Cannot find location in parse tree", null));
+                }
+                return rascalServices.calculateRename(pos, params.getNewName()).get();
+            })
+            .thenApply(this::translate);
     }
 
     // Private utility methods
@@ -283,5 +330,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void registerLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
+
 
 }
