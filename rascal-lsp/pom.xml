@@ -209,6 +209,34 @@
           </executions>
       </plugin>
       <plugin>
+        <groupId>org.rascalmpl</groupId>
+        <artifactId>rascal-maven-plugin</artifactId>
+        <version>0.4.4</version>
+        <configuration>
+          <bin>${project.build.outputDirectory}</bin>
+          <srcs>
+            <src>${project.basedir}/src/main/rascal</src>
+          </srcs>
+          <errorsAsWarnings>true</errorsAsWarnings>
+        </configuration>
+        <executions>
+          <execution>
+            <id>lsp-compile</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>lsp-package</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>package</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
         <!-- check and possible add license header
