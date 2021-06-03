@@ -189,6 +189,8 @@
                           <exclude>org.rascalmpl:rascal</exclude>
                           <exclude>org.rascalmpl:rascal-core</exclude>
                           <exclude>org.rascalmpl:typepal</exclude>
+                          <exclude>io.usethesource:vallang</exclude>
+                          <exclude>io.usethesource:capsule</exclude>
                         </excludes>
                       </artifactSet>
                       <!--
