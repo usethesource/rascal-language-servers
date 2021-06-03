@@ -22,7 +22,7 @@ import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, intege
 import { TextDocumentContentProvider } from 'vscode';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 
-const deployMode = false;
+const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 const registeredFileExtensions:Set<string> = new Set();
 
