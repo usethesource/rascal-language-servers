@@ -3,12 +3,18 @@
   "displayName": "Rascal Metaprogramming Language",
   "description": "Provides language support for the Rascal metaprogramming language",
   "publisher": "usethesource",
-  "keywords": ["metaprogramming", "DSL", "parsing", "source code analysis"],
+  "keywords": [
+    "metaprogramming",
+    "DSL",
+    "parsing",
+    "source code analysis"
+  ],
   "icon": "assets/images/rascal-logo.png",
   "version": "0.0.1-SNAPSHOT",
   "engines": {
     "vscode": "^1.55.0"
   },
+  "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
     "url": "https://github.com/cwi-swat/rascal-vscode"
@@ -79,7 +85,9 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "license-check": "license-check-and-add check -f license-config.json",
+    "license-add": "license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
     "@types/glob": "^7.1.3",
@@ -90,6 +98,7 @@
     "@typescript-eslint/parser": "^4.1.1",
     "eslint": "^7.9.0",
     "glob": "^7.1.6",
+    "license-check-and-add": "^4.0.2",
     "mocha": "^8.1.3",
     "ts-loader": "^8.0.3",
     "typescript": "^4.0.2",

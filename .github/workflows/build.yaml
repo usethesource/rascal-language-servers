@@ -27,12 +27,13 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B --update-snapshots clean package
+        run: mvn -B --update-snapshots clean package verify
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
+          npm run license-check
           npm run compile
           # npm run test
 

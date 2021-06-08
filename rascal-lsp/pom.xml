@@ -1,3 +1,17 @@
+<!--
+
+    Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
@@ -13,53 +27,35 @@
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     <log4j2.version>2.14.0</log4j2.version>
   </properties>
-   <distributionManagement>
-        <repository>
-            <id>usethesource-releases</id>
-            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>usethesource-snapshots</id>
-            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <!-- dependency resolution configuration (usethesource) -->
     <repositories>
         <repository>
             <id>usethesource-releases</id>
-            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
-        </repository>
-        <repository>
-            <id>usethesource-snapshots</id>
-            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
+            <url>https://releases.usethesource.io/maven/</url>
         </repository>
     </repositories>
     <pluginRepositories>
         <pluginRepository>
             <id>usethesource-releases</id>
-            <url>https://nexus.usethesource.io/content/repositories/releases/</url>
-        </pluginRepository>
-        <pluginRepository>
-            <id>usethesource-snapshots</id>
-            <url>https://nexus.usethesource.io/content/repositories/snapshots/</url>
+            <url>https://releases.usethesource.io/maven/</url>
         </pluginRepository>
     </pluginRepositories>
   <dependencies>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.19.4-SNAPSHOT</version>
+      <version>0.19.4-RC1</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.4.17-SNAPSHOT</version>
+      <version>0.4.16</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.4.11-SNAPSHOT</version>
+      <version>0.4.11</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -193,6 +189,8 @@
                           <exclude>org.rascalmpl:rascal</exclude>
                           <exclude>org.rascalmpl:rascal-core</exclude>
                           <exclude>org.rascalmpl:typepal</exclude>
+                          <exclude>io.usethesource:vallang</exclude>
+                          <exclude>io.usethesource:capsule</exclude>
                         </excludes>
                       </artifactSet>
                       <!--
@@ -212,6 +210,47 @@
               </execution>
           </executions>
       </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <!-- check and possible add license header
+          run mvn license:format to automatically update all license headers
+          and add missing ones -->
+        <version>4.0</version>
+        <configuration>
+          <licenseSets>
+            <licenseSet>
+              <header>../LICENSE.txt</header>
+              <excludes>
+                <exclude>**/README</exclude>
+                <exclude>src/test/resources/**</exclude>
+                <exclude>src/main/resources/**</exclude>
+                <exclude>**/*.tpl</exclude>
+                <exclude>META-INF/**</exclude>
+                <exclude>.editorconfig</exclude>
+              </excludes>
+            </licenseSet>
+          </licenseSets>
+          <mapping>
+            <java>SLASHSTAR_STYLE</java>
+            <rsc>SLASHSTAR_STYLE</rsc>
+          </mapping>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+  <licenses>
+    <license>
+      <name>BSD-2-Clause</name>
+      <url>https://opensource.org/licenses/BSD-2-Clause</url>
+      <distribution>manual</distribution>
+    </license>
+  </licenses>
   </project>
