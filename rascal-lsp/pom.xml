@@ -189,8 +189,13 @@
                           <exclude>org.rascalmpl:rascal</exclude>
                           <exclude>org.rascalmpl:rascal-core</exclude>
                           <exclude>org.rascalmpl:typepal</exclude>
+                          <!-- exclude dependencies that rascal shades but still contains in the pom -->
                           <exclude>io.usethesource:vallang</exclude>
                           <exclude>io.usethesource:capsule</exclude>
+                          <exclude>org.apache.commons:commons-compress</exclude>
+                          <exclude>org.tukaani:xz</exclude>
+                          <exclude>com.github.luben:zstd-jni</exclude>
+                          <exclude>com.github.ben-manes.caffeine:caffeine</exclude>
                         </excludes>
                       </artifactSet>
                       <!--
