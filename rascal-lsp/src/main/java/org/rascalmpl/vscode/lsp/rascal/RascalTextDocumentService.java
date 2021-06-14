@@ -65,6 +65,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
@@ -217,6 +218,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
         return facts.getSummary(Locations.toLoc(params.getTextDocument()))
+            .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
             .thenApply(s -> s.getTypeName(params.getPosition()))
             .thenApply(n -> new Hover(new MarkupContent("plaintext", n)));
     }
