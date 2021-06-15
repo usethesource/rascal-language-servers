@@ -1,2 +1,3 @@
 Project-Name: rascal-lsp
 Source: src/main/rascal
+Require-Libraries: |lib://typepal/|, |lib://rascal-core/|
