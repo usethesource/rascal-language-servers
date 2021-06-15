@@ -35,6 +35,7 @@ import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.project.ProjectURIResolver;
 import org.rascalmpl.uri.project.TargetURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
 
@@ -78,22 +79,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     String projectName = new RascalManifest().getProjectName(projectDir);
 
                     reg.registerLogical(new TargetURIResolver(projectDir, projectName));
-                    reg.registerLogical(new ILogicalSourceLocationResolver(){
-                        @Override
-                        public ISourceLocation resolve(ISourceLocation input) throws IOException {
-                            return services.resolveProjectLocation(input);
-                        }
-
-                        @Override
-                        public String scheme() {
-                            return "project";
-                        }
-
-                        @Override
-                        public String authority() {
-                            return "";
-                        }
-                    });
+                    reg.registerLogical(new ProjectURIResolver(projectDir, projectName));
 
                     try {
                         PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
