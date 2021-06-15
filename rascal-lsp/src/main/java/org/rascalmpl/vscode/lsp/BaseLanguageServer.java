@@ -14,6 +14,7 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,6 +24,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +43,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -188,28 +191,34 @@ public abstract class BaseLanguageServer {
         @Override
         public void writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
             ISourceLocation loc = URIUtil.createFromURI(uri);
-            // TODO: implement 'create' and 'overwrite' flags
 
-            // TODO check encoding issues
+            if (!reg.exists(loc) && !create) {
+                throw new FileNotFoundException(loc.toString());
+            }
+
+            if (!reg.exists(URIUtil.getParentLocation(loc)) && create) {
+                throw new FileNotFoundException(URIUtil.getParentLocation(loc).toString());
+            }
+
+            if (reg.exists(loc) && create && !overwrite) {
+                throw new FileAlreadyExistsException(loc.toString());
+            }
+
             reg.getOutputStream(loc, false).write(content.getBytes(Charset.forName("UTF8")));
         }
 
         @Override
         public void delete(String uri, boolean recursive) throws IOException, URISyntaxException {
             ISourceLocation loc = URIUtil.createFromURI(uri);
-            // TODO implement recursive flag
-            reg.remove(loc);
+            reg.remove(loc, recursive);
         }
 
         @Override
         public void rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
-           // TODO implement rename in ISourcelocationOutput to make it more efficient
            ISourceLocation oldLoc = URIUtil.createFromURI(oldUri);
            ISourceLocation newLoc = URIUtil.createFromURI(newUri);
-           reg.copy(oldLoc, newLoc);
-           reg.remove(oldLoc);
+           reg.rename(oldLoc, newLoc, overwrite);
         }
-
     }
     private static class ActualLanguageServer extends BaseFileSystemServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
@@ -242,7 +251,7 @@ public abstract class BaseLanguageServer {
                 }
 
                 ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
-                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
 
                 return CompletableFuture.completedFuture(pcfg.getClassloaders().stream()
                     .map(e -> (ISourceLocation) e)

@@ -27,6 +27,7 @@ import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
@@ -62,7 +63,6 @@ public class LSPTerminalREPL extends BaseREPL {
     }
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 @Override
@@ -78,17 +78,13 @@ public class LSPTerminalREPL extends BaseREPL {
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
                     String projectName = new RascalManifest().getProjectName(projectDir);
 
+                    reg.registerLogical(new ProjectURIResolver(services));
                     reg.registerLogical(new TargetURIResolver(projectDir, projectName));
-                    reg.registerLogical(new ProjectURIResolver(projectDir, projectName));
 
                     try {
-                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
 
                         for (IValue path : pcfg.getSrcs()) {
-                            evaluator.addRascalSearchPath((ISourceLocation) path);
-                        }
-
-                        for (IValue path : pcfg.getLibs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
                         }
 
@@ -129,6 +125,29 @@ public class LSPTerminalREPL extends BaseREPL {
         repl.setMeasureCommandTime(false);
 
         return repl;
+    }
+
+    private static class ProjectURIResolver implements ILogicalSourceLocationResolver {
+        private final IDEServices services;
+
+        public ProjectURIResolver(IDEServices services) {
+            this.services = services;
+        }
+
+        @Override
+        public ISourceLocation resolve(ISourceLocation input) throws IOException {
+            return services.resolveProjectLocation(input);
+        }
+
+        @Override
+        public String scheme() {
+            return "project";
+        }
+
+        @Override
+        public String authority() {
+            return "";
+        }
     }
 
     private static File getHistoryFile() throws IOException {

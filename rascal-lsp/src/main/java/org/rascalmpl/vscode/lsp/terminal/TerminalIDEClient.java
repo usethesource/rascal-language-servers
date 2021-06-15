@@ -28,7 +28,6 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParame
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
-import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -76,10 +75,10 @@ public class TerminalIDEClient implements IDEServices {
     public void registerLanguage(IConstructor language) {
         server.receiveRegisterLanguage(
             new LanguageParameter(
-                language.get(0).toString(), 
-                ((IString) language.get(1)).getValue(), 
-                ((IString) language.get(2)).getValue(), 
-                ((IString) language.get(3)).getValue(), 
+                language.get(0).toString(),
+                ((IString) language.get(1)).getValue(),
+                ((IString) language.get(2)).getValue(),
+                ((IString) language.get(3)).getValue(),
                 ((IString) language.get(4)).getValue()
             )
         );
@@ -93,31 +92,31 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void startJob(String name, int totalWork) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void startJob(String name, int workShare, int totalWork) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void event(String name) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void event(String name, int inc) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void event(int inc) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
@@ -135,12 +134,12 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void todo(int work) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
         // TODO Auto-generated method stub
-        
+
     }
 }

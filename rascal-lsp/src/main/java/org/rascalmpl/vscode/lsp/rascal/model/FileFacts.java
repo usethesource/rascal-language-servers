@@ -29,6 +29,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -84,7 +85,7 @@ public class FileFacts {
             this.file = file;
             PathConfig pcfg;
             try {
-                pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file);
+                pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file, RascalConfigMode.COMPILER);
             } catch (IOException e) {
                 logger.error("Could not figure out path config for: {}, falling back to default", file, e);
                 pcfg = new PathConfig();
