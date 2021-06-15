@@ -160,7 +160,7 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
                     cwd: path.dirname(uri.fsPath),
                     shellPath: getJavaExecutable(),
                     shellArgs: [
-                        '-cp' , buildJVMPath(context) + (cp.length > 0 ? (path.delimiter + cp.join(path.delimiter)) : ''),
+                        '-cp' , buildTerminalJVMPath(context) + (cp.length > 0 ? (path.delimiter + cp.join(path.delimiter)) : ''),
                         'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
                         '--ideServicesPort',
                         '' + cfg.port
@@ -210,13 +210,18 @@ function calculateDSLMemoryReservation() {
 
 }
 
-function buildJVMPath(context: vscode.ExtensionContext) :string {
+function buildCompilerJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
     return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
 }
 
+function buildTerminalJVMPath(context: vscode.ExtensionContext) :string {
+    const jars = ['rascal-lsp.jar', 'rascal.jar'];
+    return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
+}
+
 function buildRascalServerOptions(context: vscode.ExtensionContext, main:string): ServerOptions {
-    const classpath = buildJVMPath(context);
+    const classpath = buildCompilerJVMPath(context);
     return {
         command: 'java',
         args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',
