@@ -14,41 +14,41 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 
 public interface IRascalFileSystemService {
     @JsonRequest("rascal/filesystem/schemes")
-    String[] fileSystemSchemes();
+    CompletableFuture<String[]> fileSystemSchemes();
 
     @JsonRequest("rascal/filesystem/watch")
-    void watch(String uri, boolean recursive, String[] excludes);
+    CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException;
 
     @JsonNotification("rascal/filesystem/onDidChangeFile")
     default void onDidChangeFile(FileChangeEvent event) { };
 
     @JsonRequest("rascal/filesystem/stat")
-    FileStat stat(String uri) throws IOException, URISyntaxException;
+    CompletableFuture<FileStat> stat(String uri) throws IOException, URISyntaxException;
 
     @JsonRequest("rascal/filesystem/readDirectory")
-    FileWithType[] readDirectory(String uri) throws URISyntaxException, IOException;
+    CompletableFuture<FileWithType[]> readDirectory(String uri) throws URISyntaxException, IOException;
 
     @JsonRequest("rascal/filesystem/createDirectory")
-    void createDirectory(String uri) throws IOException, URISyntaxException;
+    CompletableFuture<Void> createDirectory(String uri) throws IOException, URISyntaxException;
 
     @JsonRequest("rascal/filesystem/readFile")
-    String readFile(String uri) throws URISyntaxException;
+    CompletableFuture<String> readFile(String uri) throws URISyntaxException;
 
     @JsonRequest("rascal/filesystem/writeFile")
-    void writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException;
+    CompletableFuture<Void>  writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException;
 
     @JsonRequest("rascal/filesystem/delete")
-    void delete(String uri, boolean recursive) throws IOException, URISyntaxException;
+    CompletableFuture<Void>  delete(String uri, boolean recursive) throws IOException, URISyntaxException;
 
     @JsonRequest("rascal/filesystem/rename")
-    void rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException;
-
+    CompletableFuture<Void>  rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException;
     public static class FileChangeEvent {
         private final FileChangeType type;
         private final String uri;
