@@ -64,6 +64,10 @@ public class FileFacts {
         return getFile(file).getSummary();
     }
 
+    public PathConfig getPathConfig(ISourceLocation file) {
+        return getFile(file).pcfg;
+    }
+
     public void reportParseErrors(ISourceLocation file, List<Diagnostic> msgs) {
         getFile(file).reportParseErrors(msgs);
     }

@@ -150,8 +150,8 @@ public class RascalLanguageServices {
             new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
     }
 
-    public InterruptibleFuture<List<RascalTextEdit>> calculateRename(ISourceLocation pos, String newName) {
-        return runEvaluator("rename", compilerEvaluator, e -> (IList) e.call("renameSymbol", pos, VF.string(newName)), VF.list(), exec)
+    public InterruptibleFuture<List<RascalTextEdit>> calculateRename(ISourceLocation pos, String newName, PathConfig projectPath) {
+        return runEvaluator("rename", compilerEvaluator, e -> (IList) e.call("renameSymbol", pos, VF.string(newName), projectPath.asConstructor(), VF.set()), VF.list(), exec)
             .thenApply(l -> l.stream()
                 .map(ITuple.class::cast)
                 .map(t -> new RascalTextEdit((ISourceLocation)t.get(0), (IString)t.get(1)))
