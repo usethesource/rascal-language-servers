@@ -44,6 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
     const parametricClient = activateParametricLanguageClient(context);
     const rascalClient = activateRascalLanguageClient(context, parametricClient);
     registerTerminalCommand(context, rascalClient);
+    registerMainRun(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
         const ext = path.extname(e.fileName);
@@ -133,47 +134,48 @@ export function deactivate() {
 }
 
 function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
-    let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
             return;
         }
+        startTerminal(client, text.document.uri, context);
+    });
+    context.subscriptions.push(command);
+}
 
-        const document = editor.document;
-        if (!document) {
+function registerMainRun(context: vscode.ExtensionContext, client: LanguageClient) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.runMain", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
             return;
         }
+        startTerminal(client, text.document.uri, context, "--loadModule", moduleName, "--runModule");
+    });
+    context.subscriptions.push(command);
+}
 
-        const uri = document.uri;
-        if (!uri) {
-            return;
-        }
 
-        const reply:Promise<IDEServicesConfiguration> = client.sendRequest("rascal/supplyIDEServicesConfiguration");
-
-        reply.then(cfg => {
-            const reply:Promise<Array<string>> = client.sendRequest("rascal/supplyProjectCompilationClasspath", {uri: uri.toString()});
-
-            reply.then(cp => {
-                // vscode.window.showInformationMessage('hello', cp.join(':'));
-                let terminal = vscode.window.createTerminal({
-                    cwd: path.dirname(uri.fsPath),
-                    shellPath: getJavaExecutable(),
-                    shellArgs: [
-                        '-cp' , buildJVMPath(context) + (cp.length > 0 ? (path.delimiter + cp.join(path.delimiter)) : ''),
-                        'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-                        '--ideServicesPort',
-                        '' + cfg.port
-                    ],
-                    name: 'Rascal Terminal',
-                });
-
-                context.subscriptions.push(disposable);
-                terminal.show(false);
-            });
+function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.ExtensionContext, ...extraArgs: string[]) {
+    Promise.all([
+        client.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration"),
+        client.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() })
+    ]).then(cfg => {
+        const classPath = cfg[1];
+        let terminal = vscode.window.createTerminal({
+            cwd: path.dirname(uri.fsPath),
+            shellPath: getJavaExecutable(),
+            shellArgs: [
+                '-cp', buildJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+                'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
+                '--ideServicesPort',
+                '' + cfg[0].port
+            ].concat(extraArgs || []),
+            name: 'Rascal Terminal',
         });
+
+        terminal.show(false);
     });
 }
+
 
 function gb(amount: integer) {
     return amount * (1024 * 1024);
@@ -337,3 +339,4 @@ interface LanguageParameter {
 interface LocationContent {
     content: string;
 }
+

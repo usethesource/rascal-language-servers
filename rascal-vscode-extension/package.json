@@ -35,6 +35,11 @@
       {
         "command": "rascalmpl.createTerminal",
         "title": "Create Rascal Terminal"
+      },
+      {
+        "command": "rascalmpl.runMain",
+        "title": "Start Rascal Terminal, Import module and Run main function"
+
       }
     ],
     "languages": [
@@ -77,6 +82,7 @@
         "path": "./syntaxes/simple.tmGrammar.json"
       }
     ]
+
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",

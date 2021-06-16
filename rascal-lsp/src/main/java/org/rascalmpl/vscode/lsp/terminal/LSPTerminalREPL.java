@@ -163,10 +163,20 @@ public class LSPTerminalREPL extends BaseREPL {
 
     public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;
+        String loadModule = null;
+        boolean runModule = false;
 
         for (int i = 0; i < args.length; i++) {
-            if ("--ideServicesPort".equals(args[i])) {
-                ideServicesPort = Integer.parseInt(args[++i]);
+            switch (args[i]) {
+                case "--ideServicesPort":
+                    ideServicesPort = Integer.parseInt(args[++i]);
+                    break;
+                case "--loadModule":
+                    loadModule = args[++i];
+                    break;
+                case "--runModule":
+                    runModule = true;
+                    break;
             }
         }
 
@@ -175,7 +185,15 @@ public class LSPTerminalREPL extends BaseREPL {
         }
 
         try {
-            new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort)).run();
+            LSPTerminalREPL terminal =
+                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort));
+            if (loadModule != null) {
+                terminal.queueCommand("import " + loadModule + ";");
+                if (runModule) {
+                    terminal.queueCommand("main()");
+                }
+            }
+            terminal.run();
             System.exit(0); // kill the other threads
         }
         catch (IOException | URISyntaxException e) {
