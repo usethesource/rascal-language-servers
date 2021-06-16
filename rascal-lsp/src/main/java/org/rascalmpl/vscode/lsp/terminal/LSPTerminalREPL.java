@@ -32,13 +32,12 @@ import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
-import org.rascalmpl.uri.project.ProjectURIResolver;
-import org.rascalmpl.uri.project.TargetURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
+import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -78,8 +77,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
                     String projectName = new RascalManifest().getProjectName(projectDir);
 
-                    reg.registerLogical(new ProjectURIResolver(services));
-                    reg.registerLogical(new TargetURIResolver(projectDir, projectName));
+                    reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
+                    reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
                     try {
                         PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
@@ -125,29 +124,6 @@ public class LSPTerminalREPL extends BaseREPL {
         repl.setMeasureCommandTime(false);
 
         return repl;
-    }
-
-    private static class ProjectURIResolver implements ILogicalSourceLocationResolver {
-        private final IDEServices services;
-
-        public ProjectURIResolver(IDEServices services) {
-            this.services = services;
-        }
-
-        @Override
-        public ISourceLocation resolve(ISourceLocation input) throws IOException {
-            return services.resolveProjectLocation(input);
-        }
-
-        @Override
-        public String scheme() {
-            return "project";
-        }
-
-        @Override
-        public String authority() {
-            return "";
-        }
     }
 
     private static File getHistoryFile() throws IOException {

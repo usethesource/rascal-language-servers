@@ -12,8 +12,6 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
-import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -71,11 +69,11 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             }
 
             return CompletableFuture.completedFuture(loc);
-        }  
+        }
         catch (URISyntaxException | InterruptedException | ExecutionException e) {
             logger.error(e);
             return CompletableFuture.completedFuture(loc);
-        } 
+        }
     }
 
     @Override
