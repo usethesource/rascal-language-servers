@@ -27,7 +27,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B --update-snapshots clean package verify
+        run: mvn -B clean verify
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
