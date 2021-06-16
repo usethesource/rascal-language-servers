@@ -257,7 +257,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 if (pos == null) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams, "Cannot find location in parse tree", null));
                 }
-                return rascalServices.calculateRename(pos, params.getNewName()).get();
+                return rascalServices.calculateRename(pos, params.getNewName(), facts.getPathConfig(pos.top())).get();
             })
             .thenApply(this::translate);
     }
