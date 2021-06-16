@@ -36,6 +36,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
@@ -51,6 +52,9 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
+import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -262,6 +266,25 @@ public abstract class BaseLanguageServer {
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
+            URIResolverRegistry.getInstance().registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
+            URIResolverRegistry.getInstance().registerLogical(new TargetURIResolver(this::resolveProjectLocation));
+        }
+
+        private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
+            try {
+                for (WorkspaceFolder folder : client.workspaceFolders().get()) {
+                    if (folder.getName().equals(loc.getAuthority())) {
+                        ISourceLocation root = URIUtil.createFromURI(folder.getUri());
+                        return URIUtil.getChildLocation(root, loc.getPath());
+                    }
+                }
+
+                return loc;
+            }
+            catch (InterruptedException | ExecutionException | URISyntaxException e) {
+                logger.catching(e);
+                return loc;
+            }
         }
 
         @Override
