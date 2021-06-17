@@ -59,6 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
     const rascalClient = activateRascalLanguageClient(context, parametricClient);
     registerTerminalCommand(context, rascalClient);
     registerMainRun(context, rascalClient);
+    registerImportModule(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
         const ext = path.extname(e.fileName);
@@ -163,6 +164,17 @@ function registerMainRun(context: vscode.ExtensionContext, client: LanguageClien
             return;
         }
         startTerminal(client, text.document.uri, context, "--loadModule", moduleName, "--runModule");
+    });
+    context.subscriptions.push(command);
+}
+
+
+function registerImportModule(context: vscode.ExtensionContext, client: LanguageClient) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.importModule", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
+            return;
+        }
+        startTerminal(client, text.document.uri, context, "--loadModule", moduleName);
     });
     context.subscriptions.push(command);
 }

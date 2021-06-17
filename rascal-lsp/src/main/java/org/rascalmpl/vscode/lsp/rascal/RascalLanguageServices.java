@@ -30,6 +30,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -168,38 +169,57 @@ public class RascalLanguageServices {
             new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
     }
 
-    public List<MainFunction> locateMainFunctions(ITree tree) {
+    public List<CodeLensSuggestion> locateCodeLenses(ITree tree) {
         tree = TreeAdapter.getStartTop(tree);
-        String moduleName = TreeAdapter.yield(TreeAdapter.getArg(TreeAdapter.getArg(tree, "header"),"name"));
-        List<MainFunction> result = new ArrayList<>(0);
-        for (IValue topLevel : TreeAdapter.getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
-            ITree decl = TreeAdapter.getArg((ITree)topLevel, "declaration");
+        ITree module = TreeAdapter.getArg(TreeAdapter.getArg(tree, "header"), "name");
+        String moduleName = TreeAdapter.yield(module);
+        List<CodeLensSuggestion> result = new ArrayList<>(2);
+        result.add(new CodeLensSuggestion(module, "Import", "rascalmpl.importModule", moduleName));
+
+        for (IValue topLevel : TreeAdapter
+            .getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
+            ITree decl = TreeAdapter.getArg((ITree) topLevel, "declaration");
             if ("function".equals(TreeAdapter.getConstructorName(decl))) {
                 ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");
                 ITree name = TreeAdapter.getArg(signature, "name");
                 if ("main".equals(TreeAdapter.yield(name))) {
-                    result.add(new MainFunction(TreeAdapter.getLocation(name), moduleName));
+                    result.add(new CodeLensSuggestion(name, "Run", "rascalmpl.runMain", moduleName));
                 }
             }
         }
         return result;
     }
 
-    public static final class MainFunction {
+    public static final class CodeLensSuggestion {
         private final ISourceLocation line;
-        private final String moduleName;
+        private final String commandName;
+        private final List<Object> arguments;
+        private final String shortName;
 
-        public MainFunction(ISourceLocation line, String moduleName) {
-            this.line = line;
-            this.moduleName = moduleName;
+        public CodeLensSuggestion(ITree line, String shortName, String commandName, Object... arguments) {
+            this.line = TreeAdapter.getLocation(line);
+            this.arguments = Arrays.asList(arguments);
+            this.commandName = commandName;
+            this.shortName = shortName;
         }
 
-        public String getModuleName() {
-            return moduleName;
+
+        public List<Object> getArguments() {
+            return arguments;
         }
+
 
         public ISourceLocation getLine() {
             return line;
+        }
+
+        public String getCommandName() {
+            return commandName;
+        }
+
+
+        public String getShortName() {
+            return shortName;
         }
 
     }

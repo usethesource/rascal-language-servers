@@ -82,7 +82,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.MainFunction;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -310,7 +310,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         TextDocumentState f = getFile(params.getTextDocument());
         return f.getCurrentTreeAsync()
-            .thenApplyAsync(rascalServices::locateMainFunctions, ownExecuter)
+            .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList()))
@@ -322,10 +322,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
-    private CodeLens makeRunCodeLens(MainFunction detected) {
+    private CodeLens makeRunCodeLens(CodeLensSuggestion detected) {
         return new CodeLens(
             Locations.toRange(detected.getLine(), columns),
-            new Command("Run", "rascalmpl.runMain", Collections.singletonList(detected.getModuleName())),
+            new Command(detected.getShortName(), detected.getCommandName(), detected.getArguments()),
             null
         );
     }
