@@ -15,10 +15,11 @@ import { normalize } from 'node:path';
 import * as vscode from 'vscode';
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 
-class RascalFileSystemProvider implements vscode.FileSystemProvider {
+export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: LanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
+    private readonly protectedSchemes:string[] = ["file", "http", "https"];
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
@@ -32,17 +33,12 @@ class RascalFileSystemProvider implements vscode.FileSystemProvider {
         client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {
             this._emitter.fire([event]);
         });
+    }
 
-        let protectedSchemes:string[] = ["file", "http", "https"];
-
-        this.client.sendRequest<string[]>("rascal/filesystem/schemes")
-            .then(schemes => {
-                schemes
-                    .filter(s => !protectedSchemes.includes(s))
-                    .forEach(s => {
-                        vscode.workspace.registerFileSystemProvider(s, this);
-                    });
-            });
+    registerSchemes(schemes:string[]):void {
+        schemes
+            .filter(s => !this.protectedSchemes.includes(s))
+            .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {

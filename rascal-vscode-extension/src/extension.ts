@@ -20,7 +20,9 @@ import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 import { TextDocumentContentProvider } from 'vscode';
+import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
+import { ClientRequest } from 'node:http';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -53,30 +55,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    const provider = new RascalTextDocumentContentProvider(rascalClient);
-
-    vscode.workspace.registerTextDocumentContentProvider('project', provider);
-    vscode.workspace.registerTextDocumentContentProvider('std', provider);
-    vscode.workspace.registerTextDocumentContentProvider('lib', provider);
 
     vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider());
 
+
+
     console.log('LSP servers started (Rascal and Parametric)');
-}
-
-class RascalTextDocumentContentProvider implements TextDocumentContentProvider {
-    onDidChange?: vscode.Event<vscode.Uri>;
-    client:LanguageClient;
-
-    constructor(client:LanguageClient) {
-        this.client = client;
-    }
-
-    provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return this.client
-            .sendRequest<LocationContent>("rascal/locationContents", { uri: uri.toString() })
-            .then(c => c.content);
-    }
 }
 
 export function registerLanguage(context: vscode.ExtensionContext, client:LanguageClient, lang:LanguageParameter) {
@@ -118,6 +102,12 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
                 registerLanguage(context, parametricServer, lang);
             });
         }
+
+        let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
+
+        schemesReply.then( (schemes:string[]) => {
+            new RascalFileSystemProvider(client).registerSchemes(schemes);
+        });
     });
 
     context.subscriptions.push(client.start());

@@ -26,10 +26,14 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -83,6 +87,7 @@ public abstract class BaseLanguageServer {
     }
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
+    private static IBaseLanguageClient remoteProxy;
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
@@ -119,6 +124,9 @@ public abstract class BaseLanguageServer {
                 logger.fatal("Failure to start TCP server", e);
             }
         }
+
+
+
     }
 
     private static String getVersion() {
@@ -146,15 +154,12 @@ public abstract class BaseLanguageServer {
                 System.exit(1);
             }
         }
+
+
     }
 
     private static class BaseFileSystemServer implements IRascalFileSystemService {
         private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-        @Override
-        public CompletableFuture<String[]> fileSystemSchemes() {
-            return CompletableFuture.completedFuture(reg.getRegisteredInputSchemes().stream().toArray(String[]::new));
-        }
 
         @Override
         public CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
@@ -253,6 +258,16 @@ public abstract class BaseLanguageServer {
            ISourceLocation newLoc = URIUtil.createFromURI(newUri);
            reg.rename(oldLoc, newLoc, overwrite);
            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            Set<String> inputs = reg.getRegisteredInputSchemes();
+            Set<String> logicals = reg.getRegisteredLogicalSchemes();
+
+            return CompletableFuture.completedFuture(
+                Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new)
+            );
         }
     }
     private static class ActualLanguageServer extends BaseFileSystemServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
@@ -382,13 +397,6 @@ public abstract class BaseLanguageServer {
             this.client = (IBaseLanguageClient) client;
             this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client);
             getTextDocumentService().connect(this.client);
-        }
-
-        @Override
-        public CompletableFuture<String[]> fileSystemSchemes() {
-            return CompletableFuture.completedFuture(
-                URIResolverRegistry.getInstance().getRegisteredInputSchemes().stream().toArray(String[]::new)
-            );
         }
     }
 }
