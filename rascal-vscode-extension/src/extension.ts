@@ -58,8 +58,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider());
 
-
-
     console.log('LSP servers started (Rascal and Parametric)');
 }
 
@@ -145,7 +143,6 @@ function registerTerminalCommand(context: vscode.ExtensionContext, client:Langua
             const reply:Promise<Array<string>> = client.sendRequest("rascal/supplyProjectCompilationClasspath", {uri: uri.toString()});
 
             reply.then(cp => {
-                // vscode.window.showInformationMessage('hello', cp.join(':'));
                 let terminal = vscode.window.createTerminal({
                     cwd: path.dirname(uri.fsPath),
                     shellPath: getJavaExecutable(),

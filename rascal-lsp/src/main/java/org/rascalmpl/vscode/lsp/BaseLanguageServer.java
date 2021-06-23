@@ -124,9 +124,6 @@ public abstract class BaseLanguageServer {
                 logger.fatal("Failure to start TCP server", e);
             }
         }
-
-
-
     }
 
     private static String getVersion() {
@@ -157,120 +154,7 @@ public abstract class BaseLanguageServer {
 
 
     }
-
-    private static class BaseFileSystemServer implements IRascalFileSystemService {
-        private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-        @Override
-        public CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
-            URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri), recursive, changed -> {
-                try {
-                    onDidChangeFile(convertChangeEvent(changed));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            return CompletableFuture.completedFuture(null);
-        }
-
-        private static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
-            return new FileChangeEvent(convertFileChangeType(changed.getChangeType()), changed.getLocation().getURI().toASCIIString());
-        }
-
-        private static FileChangeType convertFileChangeType(ISourceLocationChangeType changeType) throws IOException {
-            switch (changeType) {
-                case CREATED:
-                    return FileChangeType.Created;
-                case DELETED:
-                    return FileChangeType.Deleted;
-                case MODIFIED:
-                    return FileChangeType.Changed;
-                default:
-                    throw new IOException("unknown change type: " + changeType);
-            }
-        }
-
-        @Override
-        public CompletableFuture<FileStat> stat(String uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            return CompletableFuture.completedFuture(new FileStat(
-                reg.isDirectory(loc) ? FileType.Directory : FileType.File,
-                reg.created(loc),
-                reg.lastModified(loc),
-                reg.supportsReadableFileChannel(loc)
-                    ? reg.getReadableFileChannel(loc).size()
-                    : Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue()
-                    ));
-        }
-
-        @Override
-        public CompletableFuture<FileWithType[]> readDirectory(String uri) throws URISyntaxException, IOException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            return CompletableFuture.completedFuture(Arrays.stream(reg.list(loc))
-                .map(l -> new FileWithType(URIUtil.getLocationName(l), reg.isDirectory(l) ? FileType.Directory : FileType.File))
-                .toArray(FileWithType[]::new));
-        }
-
-        @Override
-        public CompletableFuture<Void> createDirectory(String uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            reg.mkDirectory(loc);
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<String> readFile(String uri) throws URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            return CompletableFuture.completedFuture(Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue());
-        }
-
-        @Override
-        public CompletableFuture<Void> writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-
-            if (!reg.exists(loc) && !create) {
-                throw new FileNotFoundException(loc.toString());
-            }
-
-            if (!reg.exists(URIUtil.getParentLocation(loc)) && create) {
-                throw new FileNotFoundException(URIUtil.getParentLocation(loc).toString());
-            }
-
-            if (reg.exists(loc) && create && !overwrite) {
-                throw new FileAlreadyExistsException(loc.toString());
-            }
-
-            reg.getOutputStream(loc, false).write(content.getBytes(Charset.forName("UTF8")));
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<Void> delete(String uri, boolean recursive) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            reg.remove(loc, recursive);
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<Void> rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
-           ISourceLocation oldLoc = URIUtil.createFromURI(oldUri);
-           ISourceLocation newLoc = URIUtil.createFromURI(newUri);
-           reg.rename(oldLoc, newLoc, overwrite);
-           return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<String[]> fileSystemSchemes() {
-            Set<String> inputs = reg.getRegisteredInputSchemes();
-            Set<String> logicals = reg.getRegisteredLogicalSchemes();
-
-            return CompletableFuture.completedFuture(
-                Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new)
-            );
-        }
-    }
-    private static class ActualLanguageServer extends BaseFileSystemServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
+    private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService = new BaseWorkspaceService();
@@ -397,6 +281,117 @@ public abstract class BaseLanguageServer {
             this.client = (IBaseLanguageClient) client;
             this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client);
             getTextDocumentService().connect(this.client);
+        }
+
+        private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+        @Override
+        public CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
+            URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri), recursive, changed -> {
+                try {
+                    onDidChangeFile(convertChangeEvent(changed));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            return CompletableFuture.completedFuture(null);
+        }
+
+        private static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
+            return new FileChangeEvent(convertFileChangeType(changed.getChangeType()), changed.getLocation().getURI().toASCIIString());
+        }
+
+        private static FileChangeType convertFileChangeType(ISourceLocationChangeType changeType) throws IOException {
+            switch (changeType) {
+                case CREATED:
+                    return FileChangeType.Created;
+                case DELETED:
+                    return FileChangeType.Deleted;
+                case MODIFIED:
+                    return FileChangeType.Changed;
+                default:
+                    throw new IOException("unknown change type: " + changeType);
+            }
+        }
+
+        @Override
+        public CompletableFuture<FileStat> stat(String uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return CompletableFuture.completedFuture(new FileStat(
+                reg.isDirectory(loc) ? FileType.Directory : FileType.File,
+                reg.created(loc),
+                reg.lastModified(loc),
+                reg.supportsReadableFileChannel(loc)
+                    ? reg.getReadableFileChannel(loc).size()
+                    : Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue()
+                    ));
+        }
+
+        @Override
+        public CompletableFuture<FileWithType[]> readDirectory(String uri) throws URISyntaxException, IOException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return CompletableFuture.completedFuture(Arrays.stream(reg.list(loc))
+                .map(l -> new FileWithType(URIUtil.getLocationName(l), reg.isDirectory(l) ? FileType.Directory : FileType.File))
+                .toArray(FileWithType[]::new));
+        }
+
+        @Override
+        public CompletableFuture<Void> createDirectory(String uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            reg.mkDirectory(loc);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<String> readFile(String uri) throws URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            return CompletableFuture.completedFuture(Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue());
+        }
+
+        @Override
+        public CompletableFuture<Void> writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+
+            if (!reg.exists(loc) && !create) {
+                throw new FileNotFoundException(loc.toString());
+            }
+
+            if (!reg.exists(URIUtil.getParentLocation(loc)) && create) {
+                throw new FileNotFoundException(URIUtil.getParentLocation(loc).toString());
+            }
+
+            if (reg.exists(loc) && create && !overwrite) {
+                throw new FileAlreadyExistsException(loc.toString());
+            }
+
+            reg.getOutputStream(loc, false).write(content.getBytes(Charset.forName("UTF8")));
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<Void> delete(String uri, boolean recursive) throws IOException, URISyntaxException {
+            ISourceLocation loc = URIUtil.createFromURI(uri);
+            reg.remove(loc, recursive);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<Void> rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
+           ISourceLocation oldLoc = URIUtil.createFromURI(oldUri);
+           ISourceLocation newLoc = URIUtil.createFromURI(newUri);
+           reg.rename(oldLoc, newLoc, overwrite);
+           return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            Set<String> inputs = reg.getRegisteredInputSchemes();
+            Set<String> logicals = reg.getRegisteredLogicalSchemes();
+
+            return CompletableFuture.completedFuture(
+                Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new)
+            );
         }
     }
 }
