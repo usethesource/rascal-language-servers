@@ -285,6 +285,8 @@ public abstract class BaseLanguageServer {
 
         private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
+        // BELOW THE FILESYSTEM SERVICE:
+
         @Override
         public CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
             URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri), recursive, changed -> {

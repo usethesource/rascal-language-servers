@@ -42,6 +42,8 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
         throw new UnsupportedOperationException();
     }
 
+    // BELOW THE FILESYSTEM SERVICE METHODS:
+
     @JsonRequest("rascal/filesystem/schemes")
     default CompletableFuture<String[]> fileSystemSchemes() {
         throw new UnsupportedOperationException();
