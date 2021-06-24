@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import com.google.common.io.CharStreams;
@@ -53,6 +54,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -86,6 +88,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private final Map<ISourceLocation, TextDocumentState> documents;
     private final ColumnMaps columns;
     private final FileFacts facts;
+    private List<WorkspaceFolder> workspaceFolders;
 
     public RascalTextDocumentService(RascalLanguageServices rascal, ExecutorService exec) {
         this.ownExecuter = exec;

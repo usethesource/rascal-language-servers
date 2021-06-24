@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -32,13 +33,13 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/locationContents")
-    default CompletableFuture<LocationContent> locationContents(URIParameter lang) {
+    @JsonRequest("rascal/supplyProjectCompilationClasspath")
+    default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/supplyProjectCompilationClasspath")
-    default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
+    @JsonRequest("rascal/initializeWorkspaceFolders")
+    default CompletableFuture<Void> initializeWorkspaceFolders(WorkspaceFolder[] folders) {
         throw new UnsupportedOperationException();
     }
 

@@ -26,7 +26,8 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -44,16 +45,15 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
@@ -87,7 +87,6 @@ public abstract class BaseLanguageServer {
     }
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
-    private static IBaseLanguageClient remoteProxy;
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
         throws IOException {
@@ -151,8 +150,6 @@ public abstract class BaseLanguageServer {
                 System.exit(1);
             }
         }
-
-
     }
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
@@ -161,6 +158,7 @@ public abstract class BaseLanguageServer {
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
+        private WorkspaceFolder[] workspaceFolders;
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
@@ -170,8 +168,13 @@ public abstract class BaseLanguageServer {
         }
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
+            if (workspaceFolders == null) {
+                logger.debug("workspace folders not configured for resolving " + loc);
+                return loc;
+            }
+
             try {
-                for (WorkspaceFolder folder : client.workspaceFolders().get()) {
+                for (WorkspaceFolder folder : workspaceFolders) {
                     if (folder.getName().equals(loc.getAuthority())) {
                         ISourceLocation root = URIUtil.createFromURI(folder.getUri());
                         return URIUtil.getChildLocation(root, loc.getPath());
@@ -180,10 +183,16 @@ public abstract class BaseLanguageServer {
 
                 return loc;
             }
-            catch (InterruptedException | ExecutionException | URISyntaxException e) {
+            catch (URISyntaxException e) {
                 logger.catching(e);
                 return loc;
             }
+        }
+
+        @Override
+        public CompletableFuture<Void> initializeWorkspaceFolders(WorkspaceFolder[] folders) {
+            this.workspaceFolders = folders;
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override
@@ -225,33 +234,12 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<LocationContent> locationContents(URIParameter lang) {
-            try {
-            ISourceLocation loc = URIUtil.createFromURI(lang.getUri());
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-            return CompletableFuture.completedFuture(reg.getCharacterReader(loc))
-                .thenApply(r -> {
-                    try {
-                        return Prelude.consumeInputStream(r);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .thenApply(s -> new LocationContent(s));
-
-            } catch (URISyntaxException | IOException e) {
-                logger.catching(e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+
             return CompletableFuture.completedFuture(initializeResult);
         }
 

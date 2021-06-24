@@ -23,6 +23,7 @@ import { TextDocumentContentProvider } from 'vscode';
 import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { ClientRequest } from 'node:http';
+import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG, WSAEFAULT } from 'node:constants';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -45,6 +46,7 @@ export function getRascalExtensionDeploymode() : boolean {
 export function activate(context: vscode.ExtensionContext) {
     const parametricClient = activateParametricLanguageClient(context);
     const rascalClient = activateRascalLanguageClient(context, parametricClient);
+
     registerTerminalCommand(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
@@ -100,6 +102,8 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
                 registerLanguage(context, parametricServer, lang);
             });
         }
+
+        client.sendRequest("rascal/initializeWorkspaceFolders", vscode.workspace.workspaceFolders);
 
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
 
