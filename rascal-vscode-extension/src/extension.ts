@@ -330,6 +330,4 @@ interface LanguageParameter {
     mainFunction: string; 	// main function which contributes the language implementation
 }
 
-interface LocationContent {
-    content: string;
-}
+

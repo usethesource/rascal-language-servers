@@ -20,7 +20,10 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+
+import io.usethesource.vallang.ISourceLocation;
 
 public interface IBaseLanguageServerExtensions  extends LanguageServer {
     @JsonRequest("rascal/supplyIDEServicesConfiguration")
@@ -51,7 +54,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     }
 
     @JsonRequest("rascal/filesystem/watch")
-    default CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
+    default CompletableFuture<Void> watch(URIParameter uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
@@ -59,32 +62,32 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     default void onDidChangeFile(FileChangeEvent event) { };
 
     @JsonRequest("rascal/filesystem/stat")
-    default CompletableFuture<FileStat> stat(String uri) throws IOException, URISyntaxException {
+    default CompletableFuture<FileStat> stat(URIParameter uri) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/readDirectory")
-    default CompletableFuture<FileWithType[]> readDirectory(String uri) throws URISyntaxException, IOException {
+    default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) throws URISyntaxException, IOException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/createDirectory")
-    default CompletableFuture<Void> createDirectory(String uri) throws IOException, URISyntaxException {
+    default CompletableFuture<Void> createDirectory(URIParameter uri) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/readFile")
-    default CompletableFuture<String> readFile(String uri) throws URISyntaxException {
+    default CompletableFuture<LocationContent> readFile(URIParameter uri) throws URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/writeFile")
-    default CompletableFuture<Void>  writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
+    default CompletableFuture<Void>  writeFile(URIParameter uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/delete")
-    default CompletableFuture<Void>  delete(String uri, boolean recursive) throws IOException, URISyntaxException {
+    default CompletableFuture<Void>  delete(URIParameter uri, boolean recursive) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
@@ -195,6 +198,10 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
 
         public String getUri() {
             return uri;
+        }
+
+        public ISourceLocation getLocation() throws URISyntaxException {
+            return URIUtil.createFromURI(uri);
         }
     }
 }

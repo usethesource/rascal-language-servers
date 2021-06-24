@@ -13,6 +13,7 @@
 import { create } from 'node:domain';
 import { normalize } from 'node:path';
 import * as vscode from 'vscode';
+import { TextEncoder } from 'node:util';
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
@@ -68,7 +69,9 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        return this.client.sendRequest<Uint8Array>("rascal/filesystem/readFile", {uri: uri.toString()});
+        return this.client.sendRequest<LocationContent>("rascal/filesystem/readFile", {uri: uri.toString()})
+            .then(content => content.content)
+            .then(str => new TextEncoder().encode(str));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
@@ -82,4 +85,8 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
         return this.client.sendRequest<void>("rascal/filesystem/rename", {oldUri: oldUri.toString(), newUri: newUri.toString(), overwrite: options.overwrite});
     }
+}
+
+interface LocationContent {
+    content: string;
 }

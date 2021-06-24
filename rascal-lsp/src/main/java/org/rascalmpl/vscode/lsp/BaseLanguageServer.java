@@ -26,8 +26,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -276,8 +274,8 @@ public abstract class BaseLanguageServer {
         // BELOW THE FILESYSTEM SERVICE:
 
         @Override
-        public CompletableFuture<Void> watch(String uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
-            URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri), recursive, changed -> {
+        public CompletableFuture<Void> watch(URIParameter uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
+            URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri.getUri()), recursive, changed -> {
                 try {
                     onDidChangeFile(convertChangeEvent(changed));
                 } catch (IOException e) {
@@ -306,8 +304,8 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<FileStat> stat(String uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
+        public CompletableFuture<FileStat> stat(URIParameter uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = uri.getLocation();
             return CompletableFuture.completedFuture(new FileStat(
                 reg.isDirectory(loc) ? FileType.Directory : FileType.File,
                 reg.created(loc),
@@ -319,29 +317,29 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<FileWithType[]> readDirectory(String uri) throws URISyntaxException, IOException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
+        public CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) throws URISyntaxException, IOException {
+            ISourceLocation loc = uri.getLocation();
             return CompletableFuture.completedFuture(Arrays.stream(reg.list(loc))
                 .map(l -> new FileWithType(URIUtil.getLocationName(l), reg.isDirectory(l) ? FileType.Directory : FileType.File))
                 .toArray(FileWithType[]::new));
         }
 
         @Override
-        public CompletableFuture<Void> createDirectory(String uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
+        public CompletableFuture<Void> createDirectory(URIParameter uri) throws IOException, URISyntaxException {
+            ISourceLocation loc = uri.getLocation();
             reg.mkDirectory(loc);
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
-        public CompletableFuture<String> readFile(String uri) throws URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
-            return CompletableFuture.completedFuture(Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue());
+        public CompletableFuture<LocationContent> readFile(URIParameter uri) throws URISyntaxException {
+            ISourceLocation loc = uri.getLocation();
+            return CompletableFuture.completedFuture(new LocationContent(Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue()));
         }
 
         @Override
-        public CompletableFuture<Void> writeFile(String uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
+        public CompletableFuture<Void> writeFile(URIParameter uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
+            ISourceLocation loc = uri.getLocation();
 
             if (!reg.exists(loc) && !create) {
                 throw new FileNotFoundException(loc.toString());
@@ -360,8 +358,8 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<Void> delete(String uri, boolean recursive) throws IOException, URISyntaxException {
-            ISourceLocation loc = URIUtil.createFromURI(uri);
+        public CompletableFuture<Void> delete(URIParameter uri, boolean recursive) throws IOException, URISyntaxException {
+            ISourceLocation loc = uri.getLocation();
             reg.remove(loc, recursive);
             return CompletableFuture.completedFuture(null);
         }
