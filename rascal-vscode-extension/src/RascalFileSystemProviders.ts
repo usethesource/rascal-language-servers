@@ -19,7 +19,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: LanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly protectedSchemes:string[] = ["file", "http", "https"];
+    private readonly protectedSchemes:string[] = ["file", "http", "https", "unknown"];
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
@@ -43,43 +43,43 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         this.client.sendRequest<void>("rascal/filesystem/watch", {
-            uri: uri,
+            uri: uri.toString(),
             recursive:options.recursive,
             excludes: options.excludes
         });
 
         return new vscode.Disposable(() => {
             this.client.sendRequest<void>("rascal/filesystem/unwatch", {
-                uri: uri
+                uri: uri.toString()
             });
         });
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
-        return this.client.sendRequest<vscode.FileStat>("rascal/filesystem/stat", {uri: uri});
+        return this.client.sendRequest<vscode.FileStat>("rascal/filesystem/stat", {uri: uri.toString()});
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
-        return this.client.sendRequest<[string, vscode.FileType][]>("rascal/filesystem/readDirectory", {uri: uri});
+        return this.client.sendRequest<[string, vscode.FileType][]>("rascal/filesystem/readDirectory", {uri: uri.toString()});
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/createDirectory", {uri: uri});
+        return this.client.sendRequest<void>("rascal/filesystem/createDirectory", {uri: uri.toString()});
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        return this.client.sendRequest<Uint8Array>("rascal/filesystem/readFile", {uri: uri});
+        return this.client.sendRequest<Uint8Array>("rascal/filesystem/readFile", {uri: uri.toString()});
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {uri: uri, create:options.create, overwrite:options.overwrite});
+        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {uri: uri.toString(), create:options.create, overwrite:options.overwrite});
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/delete", {uri: uri, recursive:options.recursive});
+        return this.client.sendRequest<void>("rascal/filesystem/delete", {uri: uri.toString(), recursive:options.recursive});
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/rename", {oldUri: oldUri, newUri: newUri, overwrite: options.overwrite});
+        return this.client.sendRequest<void>("rascal/filesystem/rename", {oldUri: oldUri.toString(), newUri: newUri.toString(), overwrite: options.overwrite});
     }
 }
