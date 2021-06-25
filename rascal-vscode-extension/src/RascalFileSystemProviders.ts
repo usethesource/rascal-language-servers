@@ -91,3 +91,9 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 interface LocationContent {
     content: string;
 }
+
+interface WatchParameters {
+    uri: string;
+    recursive: boolean;
+    excludes:Array<string>;
+}

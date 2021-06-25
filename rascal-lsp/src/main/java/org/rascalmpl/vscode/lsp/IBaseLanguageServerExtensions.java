@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
-import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -49,7 +48,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     }
 
     @JsonRequest("rascal/filesystem/watch")
-    default CompletableFuture<Void> watch(URIParameter uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
+    default CompletableFuture<Void> watch(WatchParameters params) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
@@ -77,18 +76,83 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     }
 
     @JsonRequest("rascal/filesystem/writeFile")
-    default CompletableFuture<Void>  writeFile(URIParameter uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
+    default CompletableFuture<Void>  writeFile(WriteFileParameters params) throws URISyntaxException, IOException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/delete")
-    default CompletableFuture<Void>  delete(URIParameter uri, boolean recursive) throws IOException, URISyntaxException {
+    default CompletableFuture<Void>  delete(DeleteParameters params) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/rename")
-    default CompletableFuture<Void>  rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
+    default CompletableFuture<Void>  rename(RenameParameters params) throws IOException, URISyntaxException {
         throw new UnsupportedOperationException();
+    }
+
+    public static class DeleteParameters {
+        private final String uri;
+        private final boolean recursive;
+
+        public DeleteParameters(String uri, boolean recursive) {
+            this.uri = uri;
+            this.recursive = recursive;
+        }
+
+        public ISourceLocation getLocation() throws URISyntaxException {
+            return new URIParameter(uri).getLocation();
+        }
+
+        public boolean isRecursive() {
+            return recursive;
+        }
+    }
+
+    public static class RenameParameters {
+        private final String oldUri;
+        private final String newUri;
+        private final boolean overwrite;
+
+        public RenameParameters(String oldUri, String newUri, boolean overwrite) {
+            this.oldUri = oldUri;
+            this.newUri = newUri;
+            this.overwrite = overwrite;
+        }
+
+        public ISourceLocation getOldLocation() throws URISyntaxException {
+            return new URIParameter(oldUri).getLocation();
+        }
+
+        public ISourceLocation getNewLocation() throws URISyntaxException {
+            return new URIParameter(newUri).getLocation();
+        }
+
+        public boolean isOverwrite() {
+            return overwrite;
+        }
+    }
+    public static class WatchParameters {
+        private final String uri;
+        private final boolean recursive;
+        private final String[] excludes;
+
+        public WatchParameters(String uri, boolean recursive, String[] excludes) {
+            this.uri = uri;
+            this.recursive = recursive;
+            this.excludes = excludes;
+        }
+
+        public ISourceLocation getLocation() throws URISyntaxException {
+            return new URIParameter(uri).getLocation();
+        }
+
+        public String[] getExcludes() {
+            return excludes;
+        }
+
+        public boolean isRecursive() {
+            return recursive;
+        }
     }
     public static class FileChangeEvent {
         private final FileChangeType type;
@@ -103,8 +167,8 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
             return type;
         }
 
-        public String getUri() {
-            return uri;
+        public ISourceLocation getLocation() throws URISyntaxException {
+            return new URIParameter(uri).getLocation();
         }
     }
 
@@ -197,6 +261,40 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
 
         public ISourceLocation getLocation() throws URISyntaxException {
             return URIUtil.createFromURI(uri);
+        }
+    }
+
+    public static class WriteFileParameters {
+        private final String uri;
+        private final String content;
+        private final boolean create;
+        private final boolean overwrite;
+
+        public WriteFileParameters(String uri, String content, boolean create, boolean overwrite) {
+            this.uri = uri;
+            this.content = content;
+            this.create = create;
+            this.overwrite = overwrite;
+        }
+
+        public String getUri() {
+            return uri;
+        }
+
+        public ISourceLocation getLocation() throws URISyntaxException {
+            return new URIParameter(uri).getLocation();
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public boolean isCreate() {
+            return create;
+        }
+
+        public boolean isOverwrite() {
+            return overwrite;
         }
     }
 }

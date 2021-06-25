@@ -266,8 +266,10 @@ public abstract class BaseLanguageServer {
         // BELOW THE FILESYSTEM SERVICE:
 
         @Override
-        public CompletableFuture<Void> watch(URIParameter uri, boolean recursive, String[] excludes) throws IOException, URISyntaxException {
-            URIResolverRegistry.getInstance().watch(URIUtil.createFromURI(uri.getUri()), recursive, changed -> {
+        public CompletableFuture<Void> watch(WatchParameters params) throws IOException, URISyntaxException {
+            ISourceLocation loc = params.getLocation();
+
+            URIResolverRegistry.getInstance().watch(loc, params.isRecursive(), changed -> {
                 try {
                     onDidChangeFile(convertChangeEvent(changed));
                 } catch (IOException e) {
@@ -330,37 +332,37 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<Void> writeFile(URIParameter uri, String content, boolean create, boolean overwrite) throws URISyntaxException, IOException {
-            ISourceLocation loc = uri.getLocation();
+        public CompletableFuture<Void> writeFile(WriteFileParameters params) throws URISyntaxException, IOException {
+            ISourceLocation loc = params.getLocation();
 
-            if (!reg.exists(loc) && !create) {
+            if (!reg.exists(loc) && !params.isCreate()) {
                 throw new FileNotFoundException(loc.toString());
             }
 
-            if (!reg.exists(URIUtil.getParentLocation(loc)) && create) {
+            if (!reg.exists(URIUtil.getParentLocation(loc)) && params.isCreate()) {
                 throw new FileNotFoundException(URIUtil.getParentLocation(loc).toString());
             }
 
-            if (reg.exists(loc) && create && !overwrite) {
+            if (reg.exists(loc) && params.isCreate() && !params.isOverwrite()) {
                 throw new FileAlreadyExistsException(loc.toString());
             }
 
-            reg.getOutputStream(loc, false).write(content.getBytes(Charset.forName("UTF8")));
+            reg.getOutputStream(loc, false).write(params.getContent().getBytes(Charset.forName("UTF8")));
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
-        public CompletableFuture<Void> delete(URIParameter uri, boolean recursive) throws IOException, URISyntaxException {
-            ISourceLocation loc = uri.getLocation();
-            reg.remove(loc, recursive);
+        public CompletableFuture<Void> delete(DeleteParameters params) throws IOException, URISyntaxException {
+            ISourceLocation loc = params.getLocation();
+            reg.remove(loc, params.isRecursive());
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
-        public CompletableFuture<Void> rename(String oldUri, String newUri, boolean overwrite) throws IOException, URISyntaxException {
-           ISourceLocation oldLoc = URIUtil.createFromURI(oldUri);
-           ISourceLocation newLoc = URIUtil.createFromURI(newUri);
-           reg.rename(oldLoc, newLoc, overwrite);
+        public CompletableFuture<Void> rename(RenameParameters params) throws IOException, URISyntaxException {
+           ISourceLocation oldLoc = params.getOldLocation();
+           ISourceLocation newLoc = params.getNewLocation();
+           reg.rename(oldLoc, newLoc, params.isOverwrite());
            return CompletableFuture.completedFuture(null);
         }
 
