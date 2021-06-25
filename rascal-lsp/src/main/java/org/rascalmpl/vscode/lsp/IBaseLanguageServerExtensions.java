@@ -41,11 +41,6 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/initializeWorkspaceFolders")
-    default CompletableFuture<Void> initializeWorkspaceFolders(WorkspaceFolder[] folders) {
-        throw new UnsupportedOperationException();
-    }
-
     // BELOW THE FILESYSTEM SERVICE METHODS:
 
     @JsonRequest("rascal/filesystem/schemes")

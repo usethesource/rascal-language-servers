@@ -26,6 +26,8 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -156,7 +158,7 @@ public abstract class BaseLanguageServer {
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
-        private WorkspaceFolder[] workspaceFolders;
+        private List<WorkspaceFolder> workspaceFolders = Collections.emptyList();
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
@@ -166,11 +168,6 @@ public abstract class BaseLanguageServer {
         }
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
-            if (workspaceFolders == null) {
-                logger.debug("workspace folders not configured for resolving " + loc);
-                return loc;
-            }
-
             try {
                 for (WorkspaceFolder folder : workspaceFolders) {
                     if (folder.getName().equals(loc.getAuthority())) {
@@ -185,12 +182,6 @@ public abstract class BaseLanguageServer {
                 logger.catching(e);
                 return loc;
             }
-        }
-
-        @Override
-        public CompletableFuture<Void> initializeWorkspaceFolders(WorkspaceFolder[] folders) {
-            this.workspaceFolders = folders;
-            return CompletableFuture.completedFuture(null);
         }
 
         @Override
@@ -237,6 +228,7 @@ public abstract class BaseLanguageServer {
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+            this.workspaceFolders = params.getWorkspaceFolders();
 
             return CompletableFuture.completedFuture(initializeResult);
         }

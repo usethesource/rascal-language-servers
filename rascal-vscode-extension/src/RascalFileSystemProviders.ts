@@ -13,7 +13,7 @@
 import { create } from 'node:domain';
 import { normalize } from 'node:path';
 import * as vscode from 'vscode';
-import { TextEncoder } from 'node:util';
+import { TextEncoder } from 'util';
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {

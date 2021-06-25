@@ -103,8 +103,6 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
             });
         }
 
-        client.sendRequest("rascal/initializeWorkspaceFolders", vscode.workspace.workspaceFolders);
-
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
 
         schemesReply.then( (schemes:string[]) => {
