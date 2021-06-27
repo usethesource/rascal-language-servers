@@ -2,13 +2,27 @@
  * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
@@ -48,6 +62,8 @@ export function activate(context: vscode.ExtensionContext) {
     const rascalClient = activateRascalLanguageClient(context, parametricClient);
 
     registerTerminalCommand(context, rascalClient);
+    registerMainRun(context, rascalClient);
+    registerImportModule(context, rascalClient);
 
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
         const ext = path.extname(e.fileName);
@@ -123,46 +139,58 @@ export function deactivate() {
 }
 
 function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
-    let disposable = vscode.commands.registerCommand('rascalmpl.createTerminal', () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
             return;
         }
+        startTerminal(client, text.document.uri, context);
+    });
+    context.subscriptions.push(command);
+}
 
-        const document = editor.document;
-        if (!document) {
+function registerMainRun(context: vscode.ExtensionContext, client: LanguageClient) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.runMain", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
             return;
         }
+        startTerminal(client, text.document.uri, context, "--loadModule", moduleName, "--runModule");
+    });
+    context.subscriptions.push(command);
+}
 
-        const uri = document.uri;
-        if (!uri) {
+
+function registerImportModule(context: vscode.ExtensionContext, client: LanguageClient) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.importModule", (text, edit, moduleName) => {
+        if (!text.document.uri || !moduleName) {
             return;
         }
+        startTerminal(client, text.document.uri, context, "--loadModule", moduleName);
+    });
+    context.subscriptions.push(command);
+}
 
-        const reply:Promise<IDEServicesConfiguration> = client.sendRequest("rascal/supplyIDEServicesConfiguration");
-
-        reply.then(cfg => {
-            const reply:Promise<Array<string>> = client.sendRequest("rascal/supplyProjectCompilationClasspath", {uri: uri.toString()});
-
-            reply.then(cp => {
-                let terminal = vscode.window.createTerminal({
-                    cwd: path.dirname(uri.fsPath),
-                    shellPath: getJavaExecutable(),
-                    shellArgs: [
-                        '-cp' , buildTerminalJVMPath(context) + (cp.length > 0 ? (path.delimiter + cp.join(path.delimiter)) : ''),
-                        'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-                        '--ideServicesPort',
-                        '' + cfg.port
-                    ],
-                    name: 'Rascal Terminal',
-                });
-
-                context.subscriptions.push(disposable);
-                terminal.show(false);
-            });
+function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.ExtensionContext, ...extraArgs: string[]) {
+    Promise.all([
+        client.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration"),
+        client.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() })
+    ]).then(cfg => {
+        const classPath = cfg[1];
+        let terminal = vscode.window.createTerminal({
+            cwd: path.dirname(uri.fsPath),
+            shellPath: getJavaExecutable(),
+            shellArgs: [
+                '-cp', buildTerminalJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+                'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
+                '--ideServicesPort',
+                '' + cfg[0].port
+            ].concat(extraArgs || []),
+            name: 'Rascal Terminal',
         });
+
+        terminal.show(false);
     });
 }
+
 
 function gb(amount: integer) {
     return amount * (1024 * 1024);
@@ -328,4 +356,7 @@ interface LanguageParameter {
     mainFunction: string; 	// main function which contributes the language implementation
 }
 
+interface LocationContent {
+    content: string;
+}
 
