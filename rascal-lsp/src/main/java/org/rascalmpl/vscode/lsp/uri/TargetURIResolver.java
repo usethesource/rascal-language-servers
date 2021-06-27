@@ -31,27 +31,22 @@ public class TargetURIResolver implements ILogicalSourceLocationResolver {
 
     @Override
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
-        try {
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            ISourceLocation projectLoc = URIUtil.changeScheme(input, "project");
-            ISourceLocation resolved = resolver.apply(projectLoc);
-            ISourceLocation target;
+        URIResolverRegistry reg = URIResolverRegistry.getInstance();
+        ISourceLocation projectLoc = URIUtil.correctLocation("project", input.getAuthority(), "");
+        ISourceLocation resolved = resolver.apply(projectLoc);
+        ISourceLocation target;
 
-            target = URIUtil.getChildLocation(resolved, "bin");
-            if (reg.exists(target)) {
-                return URIUtil.getChildLocation(target, input.getPath());
-            }
-
-            target = URIUtil.getChildLocation(resolved, "target/classes");
-            if (reg.exists(target)) {
-                return URIUtil.getChildLocation(target, input.getPath());
-            }
-
-            return input;
+        target = URIUtil.getChildLocation(resolved, "target/classes");
+        if (reg.exists(target)) {
+            return URIUtil.getChildLocation(target, input.getPath());
         }
-        catch (URISyntaxException e) {
-            throw new IOException(e);
+
+        target = URIUtil.getChildLocation(resolved, "bin");
+        if (reg.exists(target)) {
+            return URIUtil.getChildLocation(target, input.getPath());
         }
+
+        return input;
     }
 
     @Override
