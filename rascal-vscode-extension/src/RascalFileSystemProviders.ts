@@ -86,11 +86,16 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
         return this.client.sendRequest<LocationContent>("rascal/filesystem/readFile", {uri: uri.toString()})
             .then(content => content.content)
-            .then(str => new TextEncoder().encode(str));
+            .then(str => Buffer.from(str, "base64"));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {uri: uri.toString(), create:options.create, overwrite:options.overwrite});
+        return this.client.sendRequest<void>("rascal/filesystem/writeFile", {
+            uri: uri.toString(),
+            create:options.create,
+            overwrite:options.overwrite,
+            content: Buffer.from(content).toString("base64")
+        });
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {

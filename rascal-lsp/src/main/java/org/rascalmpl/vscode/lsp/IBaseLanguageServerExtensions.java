@@ -62,7 +62,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     }
 
     @JsonRequest("rascal/filesystem/watch")
-    default CompletableFuture<Void> watch(WatchParameters params) throws IOException, URISyntaxException {
+    default CompletableFuture<Void> watch(WatchParameters params) {
         throw new UnsupportedOperationException();
     }
 
@@ -70,37 +70,37 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer {
     default void onDidChangeFile(FileChangeEvent event) { };
 
     @JsonRequest("rascal/filesystem/stat")
-    default CompletableFuture<FileStat> stat(URIParameter uri) throws IOException, URISyntaxException {
+    default CompletableFuture<FileStat> stat(URIParameter uri)  {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/readDirectory")
-    default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) throws URISyntaxException, IOException {
+    default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/createDirectory")
-    default CompletableFuture<Void> createDirectory(URIParameter uri) throws IOException, URISyntaxException {
+    default CompletableFuture<Void> createDirectory(URIParameter uri) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/readFile")
-    default CompletableFuture<LocationContent> readFile(URIParameter uri) throws URISyntaxException {
+    default CompletableFuture<LocationContent> readFile(URIParameter uri) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/writeFile")
-    default CompletableFuture<Void>  writeFile(WriteFileParameters params) throws URISyntaxException, IOException {
+    default CompletableFuture<Void>  writeFile(WriteFileParameters params) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/delete")
-    default CompletableFuture<Void>  delete(DeleteParameters params) throws IOException, URISyntaxException {
+    default CompletableFuture<Void>  delete(DeleteParameters params) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/filesystem/rename")
-    default CompletableFuture<Void>  rename(RenameParameters params) throws IOException, URISyntaxException {
+    default CompletableFuture<Void>  rename(RenameParameters params) {
         throw new UnsupportedOperationException();
     }
 

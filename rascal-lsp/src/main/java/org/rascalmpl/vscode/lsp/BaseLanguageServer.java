@@ -40,15 +40,17 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -72,7 +74,6 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
-
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -280,18 +281,22 @@ public abstract class BaseLanguageServer {
         // BELOW THE FILESYSTEM SERVICE:
 
         @Override
-        public CompletableFuture<Void> watch(WatchParameters params) throws IOException, URISyntaxException {
-            ISourceLocation loc = params.getLocation();
-
-            URIResolverRegistry.getInstance().watch(loc, params.isRecursive(), changed -> {
+        public CompletableFuture<Void> watch(WatchParameters params) {
+            return CompletableFuture.runAsync(() -> {
                 try {
-                    onDidChangeFile(convertChangeEvent(changed));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    ISourceLocation loc = params.getLocation();
+
+                    URIResolverRegistry.getInstance().watch(loc, params.isRecursive(), changed -> {
+                        try {
+                            onDidChangeFile(convertChangeEvent(changed));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
                 }
             });
-
-            return CompletableFuture.completedFuture(null);
         }
 
         private static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
@@ -312,72 +317,132 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<FileStat> stat(URIParameter uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = uri.getLocation();
-            return CompletableFuture.completedFuture(new FileStat(
-                reg.isDirectory(loc) ? FileType.Directory : FileType.File,
-                reg.created(loc),
-                reg.lastModified(loc),
-                reg.supportsReadableFileChannel(loc)
-                    ? reg.getReadableFileChannel(loc).size()
-                    : Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue()
-                    ));
+        public CompletableFuture<FileStat> stat(URIParameter uri) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    ISourceLocation loc = uri.getLocation();
+                    return new FileStat(
+                        reg.isDirectory(loc) ? FileType.Directory : FileType.File,
+                        reg.created(loc),
+                        reg.lastModified(loc),
+                        reg.supportsReadableFileChannel(loc)
+                            ? reg.getReadableFileChannel(loc).size()
+                            : Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue());
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
-        public CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) throws URISyntaxException, IOException {
-            ISourceLocation loc = uri.getLocation();
-            return CompletableFuture.completedFuture(Arrays.stream(reg.list(loc))
-                .map(l -> new FileWithType(URIUtil.getLocationName(l), reg.isDirectory(l) ? FileType.Directory : FileType.File))
-                .toArray(FileWithType[]::new));
+        public CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    ISourceLocation loc = uri.getLocation();
+                    return Arrays.stream(reg.list(loc))
+                        .map(l -> new FileWithType(
+                            URIUtil.getLocationName(l),
+                            reg.isDirectory(l) ? FileType.Directory : FileType.File)
+                        )
+                        .toArray(FileWithType[]::new);
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
-        public CompletableFuture<Void> createDirectory(URIParameter uri) throws IOException, URISyntaxException {
-            ISourceLocation loc = uri.getLocation();
-            reg.mkDirectory(loc);
-            return CompletableFuture.completedFuture(null);
+        public CompletableFuture<Void> createDirectory(URIParameter uri) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    ISourceLocation loc = uri.getLocation();
+                    reg.mkDirectory(loc);
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
+        }
+
+        private static final int BUFFER_SIZE = 3 * 1024; // has to be divisibly by 3
+        @Override
+        public CompletableFuture<LocationContent> readFile(URIParameter uri) {
+            return CompletableFuture.supplyAsync(() -> {
+                logger.trace("Reading file: {}", uri.getUri());
+                try (InputStream source = reg.getInputStream(uri.getLocation())){
+                    // there is no streaming base64 encoder, but we also do not want to have the whole file in memory
+                    // just to base64 encode it. So we stream it in chunks that will not cause padding characters in
+                    // base 64
+                    Encoder encoder = Base64.getEncoder();
+                    StringBuilder result = new StringBuilder();
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    int read;
+                    while ((read = source.read(buffer, 0, BUFFER_SIZE)) == BUFFER_SIZE) {
+                        result.append(encoder.encodeToString(buffer));
+                    }
+                    if (read > 0) {
+                        // last part needs to be a truncated part of the buffer
+                        buffer = Arrays.copyOf(buffer, read);
+                        result.append(encoder.encodeToString(buffer));
+                    }
+                    return new LocationContent(result.toString());
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
-        public CompletableFuture<LocationContent> readFile(URIParameter uri) throws URISyntaxException {
-            ISourceLocation loc = uri.getLocation();
-            return CompletableFuture.completedFuture(new LocationContent(Prelude.readFile(IRascalValueFactory.getInstance(), false, loc).getValue()));
+        public CompletableFuture<Void> writeFile(WriteFileParameters params) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    ISourceLocation loc = params.getLocation();
+
+                    boolean fileExists = reg.exists(loc);
+                    if (!fileExists && !params.isCreate()) {
+                        throw new FileNotFoundException(loc.toString());
+                    }
+
+                    ISourceLocation parentFolder = URIUtil.getParentLocation(loc);
+                    if (!reg.exists(parentFolder) && params.isCreate()) {
+                        throw new FileNotFoundException(parentFolder.toString());
+                    }
+
+                    if (fileExists && params.isCreate() && !params.isOverwrite()) {
+                        throw new FileAlreadyExistsException(loc.toString());
+                    }
+                    try (OutputStream target = reg.getOutputStream(loc, false)) {
+                        target.write(Base64.getDecoder().decode(params.getContent()));
+                    }
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
-        public CompletableFuture<Void> writeFile(WriteFileParameters params) throws URISyntaxException, IOException {
-            ISourceLocation loc = params.getLocation();
-
-            if (!reg.exists(loc) && !params.isCreate()) {
-                throw new FileNotFoundException(loc.toString());
-            }
-
-            if (!reg.exists(URIUtil.getParentLocation(loc)) && params.isCreate()) {
-                throw new FileNotFoundException(URIUtil.getParentLocation(loc).toString());
-            }
-
-            if (reg.exists(loc) && params.isCreate() && !params.isOverwrite()) {
-                throw new FileAlreadyExistsException(loc.toString());
-            }
-
-            reg.getOutputStream(loc, false).write(params.getContent().getBytes(Charset.forName("UTF8")));
-            return CompletableFuture.completedFuture(null);
+        public CompletableFuture<Void> delete(DeleteParameters params) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    ISourceLocation loc = params.getLocation();
+                    reg.remove(loc, params.isRecursive());
+                } catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
-        public CompletableFuture<Void> delete(DeleteParameters params) throws IOException, URISyntaxException {
-            ISourceLocation loc = params.getLocation();
-            reg.remove(loc, params.isRecursive());
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<Void> rename(RenameParameters params) throws IOException, URISyntaxException {
-           ISourceLocation oldLoc = params.getOldLocation();
-           ISourceLocation newLoc = params.getNewLocation();
-           reg.rename(oldLoc, newLoc, params.isOverwrite());
-           return CompletableFuture.completedFuture(null);
+        public CompletableFuture<Void> rename(RenameParameters params) {
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    ISourceLocation oldLoc = params.getOldLocation();
+                    ISourceLocation newLoc = params.getNewLocation();
+                    reg.rename(oldLoc, newLoc, params.isOverwrite());
+                }
+                catch (IOException | URISyntaxException e) {
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
