@@ -33,11 +33,8 @@ import * as cp from 'child_process';
 import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
-import { TextDocumentContentProvider } from 'vscode';
 import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { ClientRequest } from 'node:http';
-import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG, WSAEFAULT } from 'node:constants';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -121,7 +118,7 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
 
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
 
-        schemesReply.then( (schemes:string[]) => {
+        schemesReply.then( schemes => {
             new RascalFileSystemProvider(client).registerSchemes(schemes);
         });
     });
