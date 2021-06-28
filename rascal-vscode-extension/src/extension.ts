@@ -139,8 +139,8 @@ export function deactivate() {
 }
 
 function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
-    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit, moduleName) => {
-        if (!text.document.uri || !moduleName) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit) => {
+        if (!text.document.uri) {
             return;
         }
         startTerminal(client, text.document.uri, context);
@@ -170,6 +170,7 @@ function registerImportModule(context: vscode.ExtensionContext, client: Language
 }
 
 function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.ExtensionContext, ...extraArgs: string[]) {
+    console.log("Starting:" + uri + extraArgs);
     Promise.all([
         client.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration"),
         client.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() })
