@@ -56,6 +56,7 @@ import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.io.StandardTextWriter;
 import jline.Terminal;
 import jline.TerminalFactory;
 
@@ -96,6 +97,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
                     try {
                         PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+
+                        new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
