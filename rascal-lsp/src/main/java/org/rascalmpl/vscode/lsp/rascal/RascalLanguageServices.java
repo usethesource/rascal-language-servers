@@ -174,7 +174,7 @@ public class RascalLanguageServices {
         ITree module = TreeAdapter.getArg(TreeAdapter.getArg(tree, "header"), "name");
         String moduleName = TreeAdapter.yield(module);
         List<CodeLensSuggestion> result = new ArrayList<>(2);
-        result.add(new CodeLensSuggestion(module, "Import", "rascalmpl.importModule", moduleName));
+        result.add(new CodeLensSuggestion(module, "Start Rascal terminal and import " + moduleName, "rascalmpl.importModule", moduleName));
 
         for (IValue topLevel : TreeAdapter
             .getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
@@ -183,7 +183,7 @@ public class RascalLanguageServices {
                 ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");
                 ITree name = TreeAdapter.getArg(signature, "name");
                 if ("main".equals(TreeAdapter.yield(name))) {
-                    result.add(new CodeLensSuggestion(name, "Run", "rascalmpl.runMain", moduleName));
+                    result.add(new CodeLensSuggestion(name, "Start Rascal terminal and run main", "rascalmpl.runMain", moduleName));
                 }
             }
         }
