@@ -32,7 +32,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
@@ -48,6 +50,7 @@ import org.rascalmpl.repl.RascalInterpreterREPL;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
@@ -79,6 +82,8 @@ public class LSPTerminalREPL extends BaseREPL {
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
+                private Set<String> dirtyModules = new HashSet<>();
+
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
                     GlobalEnvironment heap = new GlobalEnvironment();
@@ -102,6 +107,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
+                            reg.watch((ISourceLocation) path, true, (d) -> sourceLocationChanged(pcfg, d));
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
@@ -123,18 +129,46 @@ public class LSPTerminalREPL extends BaseREPL {
                     return evaluator;
                 }
 
+                private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {
+                    // TODO: check this code for weird corner cases (relativizing paths is not properly done here)
+                    for (IValue src : pcfg.getSrcs()) {
+                        ISourceLocation srcPath = (ISourceLocation) src;
+                        String locPath = d.getLocation().getPath();
+                        if (locPath.startsWith(srcPath.getPath())) {
+                            String modName = locPath.substring(srcPath.getPath().length());
+                            if (modName.startsWith("/")) {
+                                modName = modName.substring(1);
+                            }
+                            modName = modName.replaceAll("/", "::");
+                            modName = modName.replace(".rsc", "");
+                            dirtyModules.add(modName);
+                        }
+                    }
+                }
+
                 @Override
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
-                    super.handleInput(line, output, metadata);
-
-                    for (String mimetype : output.keySet()) {
-                        if (!mimetype.contains("html") && !mimetype.startsWith("image/")) {
-                            continue;
+                        try {
+                            eval.reloadModules(eval.getMonitor(), dirtyModules, URIUtil.rootLocation("reloader"));
+                            dirtyModules.clear();
+                        }
+                        catch (Throwable e) {
+                            getErrorWriter().println("Error during reload: " + e.getMessage());
+                            // in which case the dirty modules are not cleared and the system will try
+                            // again at the next command
+                            return;
                         }
 
-                        services.browse(URIUtil.assumeCorrect(metadata.get("url")));
-                    }
+                        super.handleInput(line, output, metadata);
+
+                        for (String mimetype : output.keySet()) {
+                            if (!mimetype.contains("html") && !mimetype.startsWith("image/")) {
+                                continue;
+                            }
+
+                            services.browse(URIUtil.assumeCorrect(metadata.get("url")));
+                        }
                 }
             };
 
@@ -142,6 +176,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
         return repl;
     }
+
+
 
     private static File getHistoryFile() throws IOException {
         File home = new File(System.getProperty("user.home"));
@@ -158,6 +194,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
         return historyFile;
     }
+
+
 
     public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;
