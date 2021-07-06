@@ -32,9 +32,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
@@ -48,9 +47,9 @@ import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
@@ -82,7 +81,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
-                private Set<String> dirtyModules = new HashSet<>();
+                private Map<String,String> dirtyModules = new ConcurrentHashMap<>();
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
@@ -130,18 +129,19 @@ public class LSPTerminalREPL extends BaseREPL {
                 }
 
                 private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {
-                    // TODO: check this code for weird corner cases (relativizing paths is not properly done here)
                     for (IValue src : pcfg.getSrcs()) {
                         ISourceLocation srcPath = (ISourceLocation) src;
-                        String locPath = d.getLocation().getPath();
-                        if (locPath.startsWith(srcPath.getPath())) {
-                            String modName = locPath.substring(srcPath.getPath().length());
+
+                        if (URIUtil.isParentOf(srcPath, d.getLocation())) {
+                            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
+                            relative = URIUtil.removeExtension(relative);
+
+                            String modName = relative.getPath();
                             if (modName.startsWith("/")) {
                                 modName = modName.substring(1);
                             }
                             modName = modName.replaceAll("/", "::");
-                            modName = modName.replace(".rsc", "");
-                            dirtyModules.add(modName);
+                            dirtyModules.put(modName,modName);
                         }
                     }
                 }
@@ -150,7 +150,7 @@ public class LSPTerminalREPL extends BaseREPL {
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
                         try {
-                            eval.reloadModules(eval.getMonitor(), dirtyModules, URIUtil.rootLocation("reloader"));
+                            eval.reloadModules(eval.getMonitor(), dirtyModules.keySet(), URIUtil.rootLocation("reloader"));
                             dirtyModules.clear();
                         }
                         catch (Throwable e) {
