@@ -81,7 +81,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
-                private final AtomicReference<Set<String>> dirtyModules = new AtomicReference<>(new ConcurrentHashMap<String, String>().keySet());
+                private final AtomicReference<Set<String>> dirtyModules = new AtomicReference<>(ConcurrentHashMap.newKeySet());
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
@@ -150,14 +150,7 @@ public class LSPTerminalREPL extends BaseREPL {
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
                         try {
-                            Set<String> changes = dirtyModules.updateAndGet((old) -> {
-                                if (old.isEmpty()) {
-                                    // if no changes are registered, just keep around the old set
-                                    return old;
-                                }
-                                // otherwise put a new one there (and the old will be returned)
-                                return new ConcurrentHashMap<String,String>().keySet();
-                            });
+                            Set<String> changes = dirtyModules.getAndSet(ConcurrentHashMap.newKeySet());
                             eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
                         }
                         catch (Throwable e) {
