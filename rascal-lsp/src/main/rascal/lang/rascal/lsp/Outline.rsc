@@ -100,3 +100,4 @@ str clean(str x) = clean(x[..239]) when size(x) > 256;
 
 // done
 default str clean(str x) = x;
+

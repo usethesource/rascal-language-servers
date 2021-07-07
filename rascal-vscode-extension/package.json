@@ -10,7 +10,7 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.0.1-SNAPSHOT",
+  "version": "0.0.1",
   "engines": {
     "vscode": "^1.55.0"
   },
@@ -85,7 +85,6 @@
         "path": "./syntaxes/simple.tmGrammar.json"
       }
     ]
-
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*SNAPSHOT.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",

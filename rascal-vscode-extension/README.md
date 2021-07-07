@@ -1,11 +1,16 @@
-# rascalmpl README
+# Rascal Metaprogramming Language and Language Workbench
 
 Rascal MPL is a programming language specifically designed to analyze and manipulate code in 
-any data format or programming language.
+any data format or programming language. This means code generation, code analysis, code visualization,
+anything that you can do to code and with code, Rascal is designed to make it easy.
+
+In particular the creation of IDEs for new Programming Languages and Domain Specific Languages (DSLs)
+is easy with Rascal. The Rascal VScode extensionl is a so-called Language Workbench.
 
 ## Features
 
-This extension offers language support for the Rascal language. Currently nothing is implemented ;-)
+* IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
+* A language paramatrized LSP server for languages expressed in Rascal. From a syntax definition you can start running your own LSP in vscode in a few steps.
 
 ## Requirements
 
@@ -20,17 +25,17 @@ This extension contributes the following settings:
 
 ## Known Issues
 
-* This extension is under development. Nothing works at the moment.
+* This extension is under development, some stuff is still buggy.
 
 ## Release Notes
 
 Users appreciate release notes as you update your extension.
 
-### 1.0.0
+### 0.0.1
 
 * Initial release of rudimentary support for the Rascal language
-* a TM grammar
-* a terminal
+* A terminal REPL for Rascal
+* A parametrized LSP that can be configured directly from the Rascal REPL using `registerLanguage`
 
 ## LICENSE
 
