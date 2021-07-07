@@ -33,8 +33,9 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
+import java.util.concurrent.atomic.AtomicReference;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -54,7 +55,6 @@ import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
-
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -81,7 +81,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
-                private Map<String,String> dirtyModules = new ConcurrentHashMap<>();
+                private final AtomicReference<Set<String>> dirtyModules = new AtomicReference<>(new ConcurrentHashMap<String, String>().keySet());
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
@@ -106,7 +106,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
-                            reg.watch((ISourceLocation) path, true, (d) -> sourceLocationChanged(pcfg, d));
+                            reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
@@ -141,7 +141,7 @@ public class LSPTerminalREPL extends BaseREPL {
                                 modName = modName.substring(1);
                             }
                             modName = modName.replaceAll("/", "::");
-                            dirtyModules.put(modName,modName);
+                            dirtyModules.get().add(modName);
                         }
                     }
                 }
@@ -150,8 +150,15 @@ public class LSPTerminalREPL extends BaseREPL {
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
                         try {
-                            eval.reloadModules(eval.getMonitor(), dirtyModules.keySet(), URIUtil.rootLocation("reloader"));
-                            dirtyModules.clear();
+                            Set<String> changes = dirtyModules.updateAndGet((old) -> {
+                                // if no changes are registered, just keep around the old set
+                                if (old.isEmpty()) {
+                                    return old;
+                                }
+                                // otherwise put a new one there (and the old will be returned)
+                                return new ConcurrentHashMap<String,String>().keySet();
+                            });
+                            eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
                         }
                         catch (Throwable e) {
                             getErrorWriter().println("Error during reload: " + e.getMessage());
