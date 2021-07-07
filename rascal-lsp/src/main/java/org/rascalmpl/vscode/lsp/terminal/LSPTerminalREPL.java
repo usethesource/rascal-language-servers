@@ -151,8 +151,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     throws InterruptedException {
                         try {
                             Set<String> changes = dirtyModules.updateAndGet((old) -> {
-                                // if no changes are registered, just keep around the old set
                                 if (old.isEmpty()) {
+                                    // if no changes are registered, just keep around the old set
                                     return old;
                                 }
                                 // otherwise put a new one there (and the old will be returned)
