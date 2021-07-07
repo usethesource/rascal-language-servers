@@ -47,19 +47,25 @@ public class TargetURIResolver implements ILogicalSourceLocationResolver {
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
         ISourceLocation projectLoc = URIUtil.correctLocation("project", input.getAuthority(), "");
         ISourceLocation resolved = resolver.apply(projectLoc);
-        ISourceLocation target;
 
-        target = URIUtil.getChildLocation(resolved, "target/classes");
-        if (reg.exists(target)) {
-            return URIUtil.getChildLocation(target, input.getPath());
+        ISourceLocation bin = URIUtil.getChildLocation(resolved, "bin");
+        ISourceLocation targetClasses = URIUtil.getChildLocation(resolved, "target/classes");
+
+        if (reg.exists(bin)) {
+            if (!reg.exists(targetClasses)) {
+                return bin;
+            }
         }
 
-        target = URIUtil.getChildLocation(resolved, "bin");
-        if (reg.exists(target)) {
-            return URIUtil.getChildLocation(target, input.getPath());
+        if (reg.exists(targetClasses)) {
+            return targetClasses;
         }
 
-        return input;
+        if (reg.exists(URIUtil.getChildLocation(resolved, "pom.xml"))) {
+            return targetClasses;
+        }
+
+        return bin;
     }
 
     @Override
