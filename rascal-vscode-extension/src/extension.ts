@@ -33,7 +33,7 @@ import * as cp from 'child_process';
 import * as os from 'os';
 
 import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
-import { TextDocumentContentProvider } from 'vscode';
+import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
@@ -57,6 +57,7 @@ export function getRascalExtensionDeploymode() : boolean {
 export function activate(context: vscode.ExtensionContext) {
     const parametricClient = activateParametricLanguageClient(context);
     const rascalClient = activateRascalLanguageClient(context, parametricClient);
+
     registerTerminalCommand(context, rascalClient);
     registerMainRun(context, rascalClient);
     registerImportModule(context, rascalClient);
@@ -69,30 +70,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    const provider = new RascalTextDocumentContentProvider(rascalClient);
-
-    vscode.workspace.registerTextDocumentContentProvider('project', provider);
-    vscode.workspace.registerTextDocumentContentProvider('std', provider);
-    vscode.workspace.registerTextDocumentContentProvider('lib', provider);
 
     vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider());
 
     console.log('LSP servers started (Rascal and Parametric)');
-}
-
-class RascalTextDocumentContentProvider implements TextDocumentContentProvider {
-    onDidChange?: vscode.Event<vscode.Uri>;
-    client:LanguageClient;
-
-    constructor(client:LanguageClient) {
-        this.client = client;
-    }
-
-    provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return this.client
-            .sendRequest<LocationContent>("rascal/locationContents", { uri: uri.toString() })
-            .then(c => c.content);
-    }
 }
 
 export function registerLanguage(context: vscode.ExtensionContext, client:LanguageClient, lang:LanguageParameter) {
@@ -119,7 +100,7 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: language }],
+        documentSelector: [{ scheme: '*', language: language }],
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, true);
@@ -134,6 +115,12 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
                 registerLanguage(context, parametricServer, lang);
             });
         }
+
+        let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
+
+        schemesReply.then( schemes => {
+            new RascalFileSystemProvider(client).registerSchemes(schemes);
+        });
     });
 
     context.subscriptions.push(client.start());
@@ -149,8 +136,8 @@ export function deactivate() {
 }
 
 function registerTerminalCommand(context: vscode.ExtensionContext, client:LanguageClient) {
-    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit, moduleName) => {
-        if (!text.document.uri || !moduleName) {
+    const command = vscode.commands.registerTextEditorCommand("rascalmpl.createTerminal", (text, edit) => {
+        if (!text.document.uri) {
             return;
         }
         startTerminal(client, text.document.uri, context);
@@ -179,8 +166,8 @@ function registerImportModule(context: vscode.ExtensionContext, client: Language
     context.subscriptions.push(command);
 }
 
-
 function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.ExtensionContext, ...extraArgs: string[]) {
+    console.log("Starting:" + uri + extraArgs);
     Promise.all([
         client.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration"),
         client.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() })
@@ -190,7 +177,7 @@ function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.
             cwd: path.dirname(uri.fsPath),
             shellPath: getJavaExecutable(),
             shellArgs: [
-                '-cp', buildJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+                '-cp', buildTerminalJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
                 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
                 '--ideServicesPort',
                 '' + cfg[0].port
@@ -238,13 +225,18 @@ function calculateDSLMemoryReservation() {
 
 }
 
-function buildJVMPath(context: vscode.ExtensionContext) :string {
+function buildCompilerJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
     return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
 }
 
+function buildTerminalJVMPath(context: vscode.ExtensionContext) :string {
+    const jars = ['rascal-lsp.jar', 'rascal.jar'];
+    return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
+}
+
 function buildRascalServerOptions(context: vscode.ExtensionContext, main:string): ServerOptions {
-    const classpath = buildJVMPath(context);
+    const classpath = buildCompilerJVMPath(context);
     return {
         command: 'java',
         args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',

@@ -36,29 +36,34 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
+import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
+
 import io.usethesource.vallang.ISourceLocation;
-import jline.console.completer.Completer;
 
 /**
  * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -150,18 +155,37 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-
-    private static class ActualLanguageServer implements LanguageServer, LanguageClientAware, IBaseLanguageServerExtensions {
+    private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService = new BaseWorkspaceService();
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
+        private List<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
+            URIResolverRegistry.getInstance().registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
+            URIResolverRegistry.getInstance().registerLogical(new TargetURIResolver(this::resolveProjectLocation));
+        }
+
+        private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
+            try {
+                for (WorkspaceFolder folder : workspaceFolders) {
+                    if (folder.getName().equals(loc.getAuthority())) {
+                        ISourceLocation root = URIUtil.createFromURI(folder.getUri());
+                        return URIUtil.getChildLocation(root, loc.getPath());
+                    }
+                }
+
+                return loc;
+            }
+            catch (URISyntaxException e) {
+                logger.catching(e);
+                return loc;
+            }
         }
 
         @Override
@@ -174,7 +198,7 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
+        public CompletableFuture<String[]> supplyProjectCompilationClasspath(IBaseLanguageServerExtensions.URIParameter projectFolder) {
             try {
                 ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
                 if (!URIResolverRegistry.getInstance().isDirectory(path)) {
@@ -182,7 +206,7 @@ public abstract class BaseLanguageServer {
                 }
 
                 ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
-                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
 
                 return CompletableFuture.completedFuture(pcfg.getClassloaders().stream()
                     .map(e -> (ISourceLocation) e)
@@ -203,33 +227,13 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<LocationContent> locationContents(URIParameter lang) {
-            try {
-            ISourceLocation loc = URIUtil.createFromURI(lang.getUri());
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-            return CompletableFuture.completedFuture(reg.getCharacterReader(loc))
-                .thenApply(r -> {
-                    try {
-                        return Prelude.consumeInputStream(r);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .thenApply(s -> new LocationContent(s));
-
-            } catch (URISyntaxException | IOException e) {
-                logger.catching(e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+            this.workspaceFolders.addAll(params.getWorkspaceFolders());
+
             return CompletableFuture.completedFuture(initializeResult);
         }
 

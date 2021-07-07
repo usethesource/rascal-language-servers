@@ -24,19 +24,34 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.io.IOException;
+import java.util.function.Function;
 
-public interface IBaseLanguageClient extends LanguageClient {
+import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+import io.usethesource.vallang.ISourceLocation;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+public class ProjectURIResolver implements ILogicalSourceLocationResolver {
+    private final Function<ISourceLocation,ISourceLocation> resolver;
 
+    public ProjectURIResolver(Function<ISourceLocation,ISourceLocation> resolver) {
+        this.resolver = resolver;
+    }
+
+    @Override
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        return resolver.apply(input);
+    }
+
+    @Override
+    public String scheme() {
+        return "project";
+    }
+
+    @Override
+    public String authority() {
+        return "";
+    }
 }

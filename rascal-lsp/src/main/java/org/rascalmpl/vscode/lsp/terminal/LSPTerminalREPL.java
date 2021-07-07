@@ -32,8 +32,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Map;
-
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -41,20 +44,22 @@ import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.ILogicalSourceLocationResolver;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
-import org.rascalmpl.uri.project.TargetURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
-
+import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
+import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.io.StandardTextWriter;
 import jline.Terminal;
 import jline.TerminalFactory;
 
@@ -75,9 +80,10 @@ public class LSPTerminalREPL extends BaseREPL {
     }
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
+                private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
+
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
                     GlobalEnvironment heap = new GlobalEnvironment();
@@ -91,33 +97,17 @@ public class LSPTerminalREPL extends BaseREPL {
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
                     String projectName = new RascalManifest().getProjectName(projectDir);
 
-                    reg.registerLogical(new TargetURIResolver(projectDir, projectName));
-                    reg.registerLogical(new ILogicalSourceLocationResolver(){
-                        @Override
-                        public ISourceLocation resolve(ISourceLocation input) throws IOException {
-                            return services.resolveProjectLocation(input);
-                        }
-
-                        @Override
-                        public String scheme() {
-                            return "project";
-                        }
-
-                        @Override
-                        public String authority() {
-                            return "";
-                        }
-                    });
+                    reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
+                    reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
                     try {
-                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir);
+                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+
+                        new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
-                        }
-
-                        for (IValue path : pcfg.getLibs()) {
-                            evaluator.addRascalSearchPath((ISourceLocation) path);
+                            reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
@@ -139,18 +129,49 @@ public class LSPTerminalREPL extends BaseREPL {
                     return evaluator;
                 }
 
+                private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {
+                    for (IValue src : pcfg.getSrcs()) {
+                        ISourceLocation srcPath = (ISourceLocation) src;
+
+                        if (URIUtil.isParentOf(srcPath, d.getLocation())) {
+                            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
+                            relative = URIUtil.removeExtension(relative);
+
+                            String modName = relative.getPath();
+                            if (modName.startsWith("/")) {
+                                modName = modName.substring(1);
+                            }
+                            modName = modName.replaceAll("/", "::");
+                            dirtyModules.add(modName);
+                        }
+                    }
+                }
+
                 @Override
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
-                    super.handleInput(line, output, metadata);
-
-                    for (String mimetype : output.keySet()) {
-                        if (!mimetype.contains("html") && !mimetype.startsWith("image/")) {
-                            continue;
+                        try {
+                            Set<String> changes = new HashSet<>();
+                            changes.addAll(dirtyModules);
+                            dirtyModules.removeAll(changes);
+                            eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
+                        }
+                        catch (Throwable e) {
+                            getErrorWriter().println("Error during reload: " + e.getMessage());
+                            // in which case the dirty modules are not cleared and the system will try
+                            // again at the next command
+                            return;
                         }
 
-                        services.browse(URIUtil.assumeCorrect(metadata.get("url")));
-                    }
+                        super.handleInput(line, output, metadata);
+
+                        for (String mimetype : output.keySet()) {
+                            if (!mimetype.contains("html") && !mimetype.startsWith("image/")) {
+                                continue;
+                            }
+
+                            services.browse(URIUtil.assumeCorrect(metadata.get("url")));
+                        }
                 }
             };
 
@@ -158,6 +179,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
         return repl;
     }
+
+
 
     private static File getHistoryFile() throws IOException {
         File home = new File(System.getProperty("user.home"));
@@ -174,6 +197,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
         return historyFile;
     }
+
+
 
     public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;

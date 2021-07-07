@@ -29,6 +29,7 @@
 import org.rascalmpl.ideservices.IDEServices;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISourceLocation;
 
 /**
  * This is to call the language registry from Rascal (for example in REPL code)
@@ -43,5 +44,9 @@ public class RascalInterface {
 
     public void registerLanguage(IConstructor lang) {
         services.registerLanguage(lang);
+    }
+
+    public ISourceLocation resolveProjectLocation(ISourceLocation project) {
+        return services.resolveProjectLocation(project);
     }
 }
