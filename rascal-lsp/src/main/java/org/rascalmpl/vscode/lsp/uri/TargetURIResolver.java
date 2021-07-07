@@ -53,19 +53,19 @@ public class TargetURIResolver implements ILogicalSourceLocationResolver {
 
         if (reg.exists(bin)) {
             if (!reg.exists(targetClasses)) {
-                return bin;
+                return URIUtil.getChildLocation(bin, input.getPath());
             }
         }
 
         if (reg.exists(targetClasses)) {
-            return targetClasses;
+            return URIUtil.getChildLocation(targetClasses, input.getPath());
         }
 
         if (reg.exists(URIUtil.getChildLocation(resolved, "pom.xml"))) {
-            return targetClasses;
+            return URIUtil.getChildLocation(targetClasses, input.getPath());
         }
 
-        return bin;
+        return URIUtil.getChildLocation(bin, input.getPath());
     }
 
     @Override
