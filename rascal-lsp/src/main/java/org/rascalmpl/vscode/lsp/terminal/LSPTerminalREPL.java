@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,7 +82,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
-                private final AtomicReference<Set<String>> dirtyModules = new AtomicReference<>(ConcurrentHashMap.newKeySet());
+                private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
@@ -141,7 +142,7 @@ public class LSPTerminalREPL extends BaseREPL {
                                 modName = modName.substring(1);
                             }
                             modName = modName.replaceAll("/", "::");
-                            dirtyModules.get().add(modName);
+                            dirtyModules.add(modName);
                         }
                     }
                 }
@@ -150,7 +151,9 @@ public class LSPTerminalREPL extends BaseREPL {
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
                         try {
-                            Set<String> changes = dirtyModules.getAndSet(ConcurrentHashMap.newKeySet());
+                            Set<String> changes = new HashSet<>();
+                            changes.addAll(dirtyModules);
+                            dirtyModules.removeAll(changes);
                             eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
                         }
                         catch (Throwable e) {
