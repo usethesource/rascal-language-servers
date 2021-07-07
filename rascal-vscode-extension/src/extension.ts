@@ -100,7 +100,7 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: language }],
+        documentSelector: [{ scheme: '*', language: language }],
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, true);
