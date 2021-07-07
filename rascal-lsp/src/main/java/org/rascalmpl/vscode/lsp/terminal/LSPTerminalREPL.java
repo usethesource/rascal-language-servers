@@ -32,7 +32,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -150,20 +149,15 @@ public class LSPTerminalREPL extends BaseREPL {
                 @Override
                 public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
                     throws InterruptedException {
-                        Set<String> changes = dirtyModules.getAndSet(ConcurrentHashMap.newKeySet());
-                        Set<String> processed = Collections.emptySet();
                         try {
-                            processed = eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
+                            Set<String> changes = dirtyModules.getAndSet(ConcurrentHashMap.newKeySet());
+                            eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
                         }
                         catch (Throwable e) {
                             getErrorWriter().println("Error during reload: " + e.getMessage());
                             // in which case the dirty modules are not cleared and the system will try
                             // again at the next command
                             return;
-                        }
-                        finally {
-                            changes.removeAll(processed);
-                            dirtyModules.get().addAll(changes);
                         }
 
                         super.handleInput(line, output, metadata);
