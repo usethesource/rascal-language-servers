@@ -174,7 +174,7 @@ public class RascalLanguageServices {
         ITree module = TreeAdapter.getArg(TreeAdapter.getArg(tree, "header"), "name");
         String moduleName = TreeAdapter.yield(module);
         List<CodeLensSuggestion> result = new ArrayList<>(2);
-        result.add(new CodeLensSuggestion(module, "Import in new Rascal terminal " + moduleName, "rascalmpl.importModule", moduleName));
+        result.add(new CodeLensSuggestion(module, "Import in new Rascal terminal", "rascalmpl.importModule", moduleName));
 
         for (IValue topLevel : TreeAdapter
             .getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
