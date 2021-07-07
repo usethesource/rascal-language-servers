@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -173,7 +174,7 @@ public abstract class BaseLanguageServer {
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
-        private List<WorkspaceFolder> workspaceFolders = Collections.emptyList();
+        private List<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
@@ -243,7 +244,7 @@ public abstract class BaseLanguageServer {
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            this.workspaceFolders = params.getWorkspaceFolders();
+            this.workspaceFolders.addAll(params.getWorkspaceFolders());
 
             return CompletableFuture.completedFuture(initializeResult);
         }
