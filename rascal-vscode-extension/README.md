@@ -19,9 +19,7 @@ is easy with Rascal. The Rascal VScode extension is a so-called Language Workben
 
 ## Extension Settings
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: enable/disable this extension
+No settings so far.
 
 ## Known Issues
 
@@ -31,6 +29,13 @@ This extension contributes the following settings:
 
 Users appreciate release notes as you update your extension.
 
+### 0.0.3
+
+* Fixed bug that disabled the IDE generator functionality.
+
+### 0.0.2
+
+* updated this Readme
 ### 0.0.1
 
 * Initial release of rudimentary support for the Rascal language
