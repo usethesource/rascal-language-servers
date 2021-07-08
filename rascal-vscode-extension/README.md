@@ -5,7 +5,7 @@ any data format or programming language. This means code generation, code analys
 anything that you can do to code and with code, Rascal is designed to make it easy.
 
 In particular the creation of IDEs for new Programming Languages and Domain Specific Languages (DSLs)
-is easy with Rascal. The Rascal VScode extensionl is a so-called Language Workbench.
+is easy with Rascal. The Rascal VScode extension is a so-called Language Workbench.
 
 ## Features
 
