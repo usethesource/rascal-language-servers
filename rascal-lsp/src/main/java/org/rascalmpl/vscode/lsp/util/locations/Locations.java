@@ -63,10 +63,15 @@ public class Locations {
     }
 
     public static Range toRange(ISourceLocation sloc, LineColumnOffsetMap map) {
-        return new Range(
-            toPosition(sloc.getBeginLine() - 1, sloc.getBeginColumn(), map, false),
-            toPosition(sloc.getEndLine() - 1, sloc.getEndColumn(), map, true)
-        );
+        if (sloc.hasLineColumn()) {
+            return new Range(
+                toPosition(sloc.getBeginLine() - 1, sloc.getBeginColumn(), map, false),
+                toPosition(sloc.getEndLine() - 1, sloc.getEndColumn(), map, true)
+            );
+        }
+        else {
+            return new Range(new Position(0, 0), new Position(0,0));
+        }
     }
 
     public static Position toPosition(int line, int column, LineColumnOffsetMap map, boolean atEnd) {
