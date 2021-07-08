@@ -114,7 +114,7 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath((ISourceLocation) src);
                 }
             }
-            
+
             for (String i : imports) {
                 try {
                     eval.doImport(eval, i);

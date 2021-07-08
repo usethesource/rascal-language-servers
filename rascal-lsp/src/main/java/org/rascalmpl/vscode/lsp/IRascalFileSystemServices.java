@@ -131,8 +131,6 @@ public interface IRascalFileSystemServices {
         });
     }
 
-
-
     @JsonRequest("rascal/filesystem/readFile")
     default CompletableFuture<LocationContent> readFile(URIParameter uri) {
         final int BUFFER_SIZE = 3 * 1024; // has to be divisibly by 3

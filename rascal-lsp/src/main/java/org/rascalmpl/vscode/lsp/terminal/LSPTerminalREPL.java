@@ -36,7 +36,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
+
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -56,6 +56,7 @@ import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -92,6 +93,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
@@ -124,6 +126,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         e.printStackTrace(new PrintStream(stderr));
                     }
 
+                     // this is very important since it hooks up the languageRegistration feature
                     evaluator.setMonitor(services);
 
                     return evaluator;
