@@ -49,7 +49,20 @@ public class Locations {
     public static ISourceLocation toLoc(String uri) {
         try {
             return URIUtil.createFromURI(uri);
-        } catch (URISyntaxException e) {
+        } catch (UnsupportedOperationException e) {
+            if (e.getMessage().contains("Opaque URI schemes are not supported")) {
+                int colonPos = uri.indexOf(':');
+                try {
+                    return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos));
+                } catch (URISyntaxException e1) {
+                    throw new RuntimeException(e);
+                }
+            }
+            else {
+                throw e;
+            }
+        }
+        catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
     }
