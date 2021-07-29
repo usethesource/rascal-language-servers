@@ -33,18 +33,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -52,6 +49,7 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class Diagnostics {
+    private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
 
     static {
@@ -106,7 +104,17 @@ public class Diagnostics {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
+            .filter(Diagnostics::hasValidLocation)
             .map(d -> translateDiagnostic(d, cm))
             .collect(Collectors.toList());
+    }
+
+    private static boolean hasValidLocation(IConstructor d) {
+        ISourceLocation loc = (ISourceLocation)d.get("at");
+        if (loc == null || loc.getScheme().equals("unknown")) {
+            logger.error("Dropping diagnostic due to incorrect location on message: {}", d);
+            return false;
+        }
+        return true;
     }
 }
