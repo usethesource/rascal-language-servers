@@ -30,13 +30,16 @@ import util::LanguageServer;
 import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import IO;
 
 set[LanguageService] picoLanguageContributor() = {
     parser(Tree (str input, loc src) {
         return parse(#start[Program], input, src);
     }),
     outliner(picoOutliner),
-    summarizer(picoSummarizer)
+    summarizer(picoSummarizer),
+    lenses(lenses),
+    executor(evalCommand)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -54,6 +57,12 @@ Summary picoSummarizer(loc l, start[Program] input) {
         definitions = uses o defs,
         documentation = (uses o defs) o docs
     );
+}
+
+rel[loc,Command] lenses(start[Program] input) = {<input@\loc, noop(title="This is a long title")>};
+
+void evalCommand(noop()) {
+    println("The command was printed!");
 }
 
 void testPicoLanguageContribution() {
