@@ -29,6 +29,8 @@ package org.rascalmpl.vscode.lsp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import com.google.gson.JsonPrimitive;
+
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
@@ -54,9 +56,9 @@ public class BaseWorkspaceService implements WorkspaceService {
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         switch (params.getCommand()) {
-            case "rascal-execute-command":
-                String extension = (String) params.getArguments().get(0);
-                String command = (String) params.getArguments().get(1);
+            case "rascal-meta-command":
+                String extension = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
+                String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
                 return documentService.executeCommand(extension, command).thenApply(v -> command);
             default:
                 return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
