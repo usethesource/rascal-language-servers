@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.CodeLens;
+import org.eclipse.lsp4j.CodeLensOptions;
+import org.eclipse.lsp4j.CodeLensParams;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
@@ -50,6 +56,7 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -90,9 +97,14 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
+import io.usethesource.vallang.IValue;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+    private static final String RASCAL_META_COMMAND = "rascal-meta-command";
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
 
@@ -134,6 +146,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
+        result.setCodeLensProvider(new CodeLensOptions(false));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RASCAL_META_COMMAND)));
     }
 
     @Override
@@ -166,7 +180,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
         }
     }
-
 
     private void invalidateFacts(TextDocumentItem doc) {
         facts(doc).invalidate(Locations.toLoc(doc));
@@ -220,11 +233,38 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         });
     }
 
+    @Override
+    public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
+        final TextDocumentState file = getFile(params.getTextDocument());
+        final ILanguageContributions contrib = contributions(params.getTextDocument());
+        InterruptibleFuture<ISet> result = InterruptibleFuture.flatten(
+            file.getCurrentTreeAsync()
+                .thenApply(contrib::lenses), ownExecuter
+        );
+
+        return result.get()
+            .thenApply(s -> s.stream()
+                .map(e -> locCommandTupleToCodeLense(contrib.getExtension(), e))
+                .collect(Collectors.toList())
+            )
+            ;
+    }
+
+    private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {
+        ITuple t = (ITuple) v;
+        ISourceLocation loc = (ISourceLocation) t.get(0);
+        IConstructor command = (IConstructor) t.get(1);
+
+        return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(extension, command), null);
+    }
+
+    private Command constructorToCommand(String extension, IConstructor command) {
+        return new Command(RASCAL_META_COMMAND, RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
+    }
+
     private void handleParsingErrors(TextDocumentState file) {
         handleParsingErrors(file, file.getCurrentTreeAsync());
     }
-
-    // Private utility methods
 
     private static <T> T last(List<T> l) {
         return l.get(l.size() - 1);
@@ -401,6 +441,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts.put(lang.getExtension(), fact);
         if (client != null) {
             fact.setClient(client);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> executeCommand(String extension, String command) {
+        ILanguageContributions contribs = contributions.get(extension);
+
+        if (contribs != null) {
+            return contribs.executeCommand(command).get();
+        }
+        else {
+            logger.warn("ignoring command execution: " + extension + "," + command);
+            return CompletableFuture.completedFuture(null);
         }
     }
 }

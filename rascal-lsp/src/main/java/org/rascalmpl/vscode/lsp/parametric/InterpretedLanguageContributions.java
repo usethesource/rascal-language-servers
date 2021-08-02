@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +42,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
@@ -52,6 +54,9 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.io.StandardTextReader;
+import io.usethesource.vallang.type.TypeStore;
 
 public class InterpretedLanguageContributions implements ILanguageContributions {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
@@ -60,14 +65,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final ExecutorService exec;
 
     private final String name;
+    private final String extension;
 
     private final CompletableFuture<Evaluator> eval;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<IFunction> outliner;
     private final CompletableFuture<IFunction> summarizer;
+    private final CompletableFuture<IFunction> lenses;
+    private final CompletableFuture<IFunction> commandExecutor;
+
 
     public InterpretedLanguageContributions(LanguageParameter lang, ExecutorService exec) {
         this.name = lang.getName();
+        extension = lang.getExtension();
         this.exec = exec;
 
         try {
@@ -81,6 +91,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.parser = contributions.thenApply(s -> getFunctionFor(s, "parser"));
             this.outliner = contributions.thenApply(s -> getFunctionFor(s, "outliner"));
             this.summarizer = contributions.thenApply(s -> getFunctionFor(s, "summarizer"));
+            this.lenses = contributions.thenApply(s -> getFunctionFor(s, "lenses"));
+            this.commandExecutor = contributions.thenApply(s -> getFunctionFor(s, "executor"));
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -90,6 +102,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
         return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
             .getValue();
+    }
+
+    private static IConstructor parseCommand(Evaluator eval, String command) {
+        TypeStore store = eval.getCurrentModuleEnvironment().getStore();
+
+        try {
+            return (IConstructor) new StandardTextReader().read(VF, store, store.lookupAbstractDataType("Command"), new StringReader(command));
+        } catch (FactTypeUseException | IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static IFunction getFunctionFor(ISet contributions, String cons) {
@@ -103,8 +125,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         throw new UnsupportedOperationException("no " + cons + " is available.");
     }
 
+    @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public String getExtension() {
+        return extension;
     }
 
     @Override
@@ -148,6 +176,22 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         logger.trace("summarize({})", src);
         return execFunction("summarize", summarizer,
             ParametricSummaryBridge.emptySummary(src), src, input);
+    }
+
+    @Override
+    public InterruptibleFuture<ISet> lenses(ITree input) {
+        logger.trace("lensen({})", TreeAdapter.getLocation(input));
+        return execFunction("lenses", lenses, VF.set(), input);
+    }
+
+    @Override
+    public InterruptibleFuture<Void> executeCommand(String command) {
+        logger.trace("executeCommand({})", command);
+        return new InterruptibleFuture<>(eval.thenApply(e -> execFunction("executor", commandExecutor, null, parseCommand(e, command)))
+            .handle((r,e) -> {
+                logger.catching(e);
+                return null;
+            }), () -> {});
     }
 
     private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<IFunction> target, T defaultResult, IValue... args) {

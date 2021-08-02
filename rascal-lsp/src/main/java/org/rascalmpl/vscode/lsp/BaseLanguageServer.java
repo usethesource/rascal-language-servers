@@ -158,7 +158,7 @@ public abstract class BaseLanguageServer {
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
-        private final BaseWorkspaceService lspWorkspaceService = new BaseWorkspaceService();
+        private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
@@ -167,6 +167,7 @@ public abstract class BaseLanguageServer {
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
+            this.lspWorkspaceService = new BaseWorkspaceService(lspDocumentService);
             URIResolverRegistry.getInstance().registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
             URIResolverRegistry.getInstance().registerLogical(new TargetURIResolver(this::resolveProjectLocation));
         }

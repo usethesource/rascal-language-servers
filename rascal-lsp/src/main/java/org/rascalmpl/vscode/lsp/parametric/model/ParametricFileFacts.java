@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -45,6 +46,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
@@ -79,6 +81,7 @@ public class ParametricFileFacts {
     public CompletableFuture<ParametricSummaryBridge> getSummary(ISourceLocation file) {
         return getFile(file).getSummary();
     }
+
 
     public void invalidate(ISourceLocation file) {
         getFile(file).invalidate();

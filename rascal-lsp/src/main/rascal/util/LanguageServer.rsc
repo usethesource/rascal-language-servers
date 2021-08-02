@@ -35,17 +35,19 @@
 module util::LanguageServer
 
 import util::Reflective;
-// extend Content;
+
 import ParseTree;
 
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
-alias Parser        = Tree (str /*input*/, loc /*origin*/);
-alias Summarizer    = Summary (loc /*origin*/, Tree /*input*/);
-alias Outliner      = list[DocumentSymbol] (Tree /*input*/);
-alias Completer     = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
-alias Builder       = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
+alias Parser           = Tree (str /*input*/, loc /*origin*/);
+alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
+alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
+alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
+alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
+alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
+alias CommandExecutor  = void (Command /*command*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
@@ -54,7 +56,8 @@ data LanguageService
     | outliner(Outliner outliner)
     | completer(Completer completer)
     | builder(Builder builder)
-    | command(Command command)
+    | lenses(LensDetector detector)
+    | executor(CommandExecutor executor)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
@@ -67,12 +70,6 @@ data Summary = summary(loc src,
 );
 
 data Completion = completion(str newText, str proposal=newText);
-
-// THERE is a bug in the interpreter that lets this function fail
-// @synopsis{Produces a parser service from a reified grammar}
-// Contribution parserFor(type[Tree] grammar) = parser(Tree (str input, loc src) {
-//     return parse(grammar, input, src);
-// });
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
 data DocumentSymbol
@@ -120,14 +117,8 @@ data DocumentSymbolTag
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
-data Command
-    = action(str label, void (Tree tree, loc selection) action)
-    // | interaction(str label, Content (Tree tree, loc selection) server)
-    | action(str label, void (str selStr, loc selLoc) handler)
-    | toggle(str label, bool() state, void(Tree tree, loc selection) action)
-    | edit(str label, str (Tree tree, loc selection) edit)
-    | group(str label, list[Command] members)
-    | popup(str label, list[Command] members)
+data Command(str title="")
+    = noop()
     ;
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}

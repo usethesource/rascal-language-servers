@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
@@ -34,19 +35,31 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 public class BaseWorkspaceService implements WorkspaceService {
+    private final IBaseTextDocumentService documentService;
+
+    BaseWorkspaceService(IBaseTextDocumentService documentService) {
+        this.documentService = documentService;
+    }
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-        // TODO Auto-generated method stub
+
     }
 
     @Override
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
-        // TODO Auto-generated method stub
+
     }
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        return CompletableFuture.supplyAsync(() -> "Hello!");
+        switch (params.getCommand()) {
+            case "rascal-execute-command":
+                String extension = (String) params.getArguments().get(0);
+                String command = (String) params.getArguments().get(1);
+                return documentService.executeCommand(extension, command).thenApply(v -> command);
+            default:
+                return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
+        }
     }
 }

@@ -330,4 +330,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         );
     }
 
+    @Override
+    public CompletableFuture<Void> executeCommand(String extension, String command) {
+        // there is currently no way the Rascal LSP can receive this, but the Rascal DSL LSP does.
+        logger.warn("ignoring execute command in Rascal LSP: " + extension + "," + command);
+        return CompletableFuture.completedFuture(null);
+    }
 }

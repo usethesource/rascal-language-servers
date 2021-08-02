@@ -128,7 +128,6 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
     return client;
 }
 
-
 export function deactivate() {
     if (childProcess) {
         childProcess.kill('SIGKILL');
@@ -358,3 +357,6 @@ interface LocationContent {
     content: string;
 }
 
+interface EditorCommand {
+    name: string;
+}
