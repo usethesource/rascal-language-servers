@@ -100,8 +100,10 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IWithKeywordParameters;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final String RASCAL_META_COMMAND = "rascal-meta-command";
@@ -259,7 +261,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private Command constructorToCommand(String extension, IConstructor command) {
-        return new Command(RASCAL_META_COMMAND, RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
+        IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
+
+        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {

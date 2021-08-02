@@ -38,8 +38,8 @@ set[LanguageService] picoLanguageContributor() = {
     }),
     outliner(picoOutliner),
     summarizer(picoSummarizer),
-    lenses(lenses),
-    executor(evalCommand)
+    lenses(picoLenses),
+    executor(picoCommands)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -59,9 +59,9 @@ Summary picoSummarizer(loc l, start[Program] input) {
     );
 }
 
-rel[loc,Command] lenses(start[Program] input) = {<input@\loc, noop(title="This is a long title")>};
+rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, noop(title="This is a long title")>};
 
-void evalCommand(noop()) {
+void picoCommands(noop()) {
     println("The command was printed!");
 }
 
