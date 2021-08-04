@@ -35,11 +35,13 @@ import java.util.concurrent.ExecutionException;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
@@ -99,61 +101,37 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void startJob(String name) {
-        // TODO Auto-generated method stub
+    public void applyDocumentsEdits(IList edits) {
+        server.applyDocumentEdits(new DocumentEditsParameter(edits));
     }
 
     @Override
-    public void startJob(String name, int totalWork) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void startJob(String name, int workShare, int totalWork) {
-        // TODO Auto-generated method stub
+    public void jobStart(String name, int workShare, int totalWork) {
 
     }
 
     @Override
-    public void event(String name) {
-        // TODO Auto-generated method stub
+    public void jobStep(String name, int inc) {
 
     }
 
     @Override
-    public void event(String name, int inc) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void event(int inc) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public int endJob(boolean succeeded) {
-        // TODO Auto-generated method stub
+    public int jobEnd(boolean succeeded) {
         return 0;
     }
 
     @Override
-    public boolean isCanceled() {
-        // TODO Auto-generated method stub
+    public boolean jobIsCanceled() {
         return false;
     }
 
     @Override
-    public void todo(int work) {
-        // TODO Auto-generated method stub
+    public void jobTodo(int work) {
 
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
-        // TODO Auto-generated method stub
 
     }
 }

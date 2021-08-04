@@ -26,18 +26,27 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.util.concurrent.CompletableFuture;
+
+import javax.print.attribute.standard.Compression;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
+import io.usethesource.vallang.io.binary.stream.IValueInputStream;
+import io.usethesource.vallang.io.binary.stream.IValueOutputStream;
 import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 /**
  * Server interface for remote implementation of @see IDEServices
@@ -58,18 +67,50 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/receiveRegisterLanguage") 
+    @JsonNotification("rascal/receiveRegisterLanguage")
     default CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/applyDocumentEdits")
+    default CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
+        throw new UnsupportedOperationException();
+    }
+
+    public static class DocumentEditsParameter {
+        private String edits;
+
+        public DocumentEditsParameter(IList edits) {
+            try (
+                ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
+                IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
+            ) {
+                out.write(edits);
+                this.edits = new String(stream.toByteArray(), Charset.forName("UTF8"));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public IList getEdits() {
+            try (
+                ByteArrayInputStream stream = new ByteArrayInputStream(edits.getBytes(Charset.forName("UTF8")));
+                IValueInputStream in = new IValueInputStream(stream, IRascalValueFactory.getInstance(), () -> new TypeStore());
+            ) {
+                return (IList) in.read();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     public static class EditParameter {
         private String module;
-    
+
         public EditParameter(String module) {
             this.module = module;
         }
-    
+
         public String getModule() {
             return module;
         }
@@ -82,11 +123,11 @@ public interface ITerminalIDEServer {
 
     public static class BrowseParameter {
         private String uri;
-    
+
         public BrowseParameter(String uri) {
             this.uri = uri;
         }
-    
+
         public String getUri() {
             return uri;
         }
@@ -99,15 +140,15 @@ public interface ITerminalIDEServer {
 
     public static class SourceLocationParameter {
         private String loc;
-    
+
         public SourceLocationParameter(ISourceLocation loc) {
             this.loc = loc.toString();
         }
-    
+
         public ISourceLocation getLocation() {
             try {
                 return (ISourceLocation) new StandardTextReader().read(
-                    IRascalValueFactory.getInstance(), 
+                    IRascalValueFactory.getInstance(),
                     TypeFactory.getInstance().sourceLocationType(),
                     new StringReader(loc));
             } catch (FactTypeUseException | IOException e) {

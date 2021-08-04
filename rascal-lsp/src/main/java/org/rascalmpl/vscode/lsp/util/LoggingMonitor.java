@@ -39,52 +39,32 @@ public class LoggingMonitor implements IRascalMonitor {
     }
 
     @Override
-    public void startJob(String name) {
-        target.trace(name);
-    }
-
-    @Override
     public void warning(String message, ISourceLocation src) {
         target.warn("{} : {}", src, message);
     }
 
     @Override
-    public void startJob(String name, int totalWork) {
-        startJob(name);
+    public void jobStart(String name, int workShare, int totalWork) {
+        target.trace(name);
     }
 
     @Override
-    public void startJob(String name, int workShare, int totalWork) {
-        startJob(name);
-    }
-
-    @Override
-    public void event(String name) {
+    public void jobStep(String name, int inc) {
         // ignore
     }
 
     @Override
-    public void event(String name, int inc) {
-        // ignore
-    }
-
-    @Override
-    public void event(int inc) {
-        // ignore
-    }
-
-    @Override
-    public int endJob(boolean succeeded) {
+    public int jobEnd(boolean succeeded) {
         return 0;
     }
 
     @Override
-    public boolean isCanceled() {
+    public boolean jobIsCanceled() {
         return false;
     }
 
     @Override
-    public void todo(int work) {
+    public void jobTodo(int work) {
         // ignore
     }
 }
