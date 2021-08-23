@@ -116,7 +116,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public LineColumnOffsetMap getColumnMaps(ISourceLocation file) {
+    public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
         return columns.get(file);
     }
 
