@@ -90,6 +90,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -112,6 +113,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         this.rascalServices = rascal;
         this.columns = new ColumnMaps(this::getContents);
         this.facts = new FileFacts(ownExecuter, rascal, columns);
+    }
+
+    @Override
+    public LineColumnOffsetMap getColumnMaps(ISourceLocation file) {
+        return columns.get(file);
     }
 
     private String getContents(ISourceLocation file) {

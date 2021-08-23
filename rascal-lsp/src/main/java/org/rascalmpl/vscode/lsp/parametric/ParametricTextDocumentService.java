@@ -95,6 +95,7 @@ import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
@@ -123,6 +124,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+    }
+
+    @Override
+    public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
+        return columns.get(file);
     }
 
     private String getContents(ISourceLocation file) {

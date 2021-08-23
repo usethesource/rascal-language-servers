@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.repl.REPLContentServerManager;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
@@ -107,7 +108,7 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-
+        // TODO
     }
 
     @Override

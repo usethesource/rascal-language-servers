@@ -262,7 +262,7 @@ public abstract class BaseLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             this.client = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client);
+            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService);
             getTextDocumentService().connect(this.client);
         }
     }

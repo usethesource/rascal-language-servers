@@ -77,6 +77,11 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/applyDocumentEdits")
+    default CompletableFuture<Void> showHTML(BrowseParameter content) {
+        throw new UnsupportedOperationException();
+    }
+
     public static class DocumentEditsParameter {
         private String edits;
 
@@ -199,4 +204,6 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
     }
+
+
 }

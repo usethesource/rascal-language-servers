@@ -52,6 +52,8 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -67,16 +69,17 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
+    private final IBaseTextDocumentService docService;
 
-    public TerminalIDEServer(IBaseLanguageClient client) {
+    public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         this.languageClient = client;
+        this.docService = docService;
     }
 
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
         logger.trace("browse({})", uri);
-        languageClient.showContent(uri);
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.runAsync(() -> { languageClient.showContent(uri); });
     }
 
     @Override
@@ -113,20 +116,28 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        languageClient.receiveRegisterLanguage(lang);
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.runAsync(() -> {
+            languageClient.receiveRegisterLanguage(lang);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> showHTML(BrowseParameter content) {
+        return CompletableFuture.runAsync(() -> {
+            languageClient.showContent(content);
+        });
     }
 
     @Override
     public CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         IList list = edits.getEdits();
 
-        // TODO propagate failure reasons back to caller?
-        languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(translateDocumentChanges(list))));
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.runAsync(() -> {
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(translateDocumentChanges(list, languageClient))));
+        });
     }
 
-    private List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(IList list) {
+    private List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(IList list, IBaseLanguageClient languageClient) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
 
         for (IValue elem : list) {
@@ -147,7 +158,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits((IList) edit.get("edits")))));
+                            translateTextEdits((IList) edit.get("edits"), docService))));
                     break;
             }
         }
@@ -155,20 +166,22 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         return result;
     }
 
-    private List<TextEdit> translateTextEdits(IList edits) {
+    private List<TextEdit> translateTextEdits(IList edits, IBaseTextDocumentService documentService) {
         return edits.stream()
             .map(e -> (IConstructor) e)
-            .map(c -> new TextEdit(locationToRange((ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue()))
+            .map(c -> new TextEdit(locationToRange((ISourceLocation) c.get("range"), documentService), ((IString) c.get("replacement")).getValue()))
             .collect(Collectors.toList());
     }
 
-    private Range locationToRange(ISourceLocation loc) {
-        // TODO: this is not right for UTF8 characters. we need to implement ColumnMaps
-        // but here it is unclear whether the content comes from an editor or from disk.
-        // need to study on a good solution. Perhaps IBaseLanguageClient should have
-        // a method to convert locs to ranges?
-        return new Range(new Position(loc.getBeginLine(), loc.getBeginColumn()),
-                         new Position(loc.getEndLine(), loc.getEndColumn()));
+    private Range locationToRange(ISourceLocation loc, IBaseTextDocumentService documentService) {
+        LineColumnOffsetMap columnMap = documentService.getColumnMap(loc);
+        int beginLine = loc.getBeginLine();
+        int endLine = loc.getEndLine();
+        int beginColumn = loc.getBeginColumn();
+        int endColumn = loc.getEndColumn();
+
+        return new Range(new Position(beginLine, columnMap.translateColumn(beginLine, beginColumn, false)),
+                         new Position(endLine, columnMap.translateColumn(endLine, endColumn, true)));
     }
 
     private static String getFileURI(IConstructor edit, String label) {

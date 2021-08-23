@@ -38,5 +38,4 @@ public interface IBaseLanguageClient extends LanguageClient {
 
     @JsonNotification("rascal/receiveRegisterLanguage")
     void receiveRegisterLanguage(LanguageParameter lang);
-
 }

@@ -41,13 +41,15 @@ import org.rascalmpl.vscode.lsp.terminal.TerminalIDEServer;
 public class IDEServicesThread extends Thread {
     private final IBaseLanguageClient ideClient;
     private final ServerSocket serverSocket;
+    private final IBaseTextDocumentService docService;
     private static final Logger logger = LogManager.getLogger(IDEServicesThread.class);
 
-    public IDEServicesThread(IBaseLanguageClient client, ServerSocket socket) {
+    public IDEServicesThread(IBaseLanguageClient client, IBaseTextDocumentService docService, ServerSocket socket) {
         super("Terminal IDE Services Thread");
         setDaemon(true);
         this.serverSocket = socket;
         this.ideClient = client;
+        this.docService = docService;
     }
 
     @Override
@@ -58,7 +60,7 @@ public class IDEServicesThread extends Thread {
                     Socket connection = serverSocket.accept();
 
                     Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
-                        .setLocalService(new TerminalIDEServer(ideClient))
+                        .setLocalService(new TerminalIDEServer(ideClient, docService))
                         .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
@@ -91,15 +93,16 @@ public class IDEServicesThread extends Thread {
      * when they are started in the context of the LSP. This way
      * Rascal REPLs get access to @see IDEServices to provide browsers
      * for interactive visualizations, starting editors and resolving IDE project URI.
+     * @param actualLanguageServer
      *
      * @return the port number that the IDE services are running on
      * @throws IOException when a new server socket can not be established.
      */
-    public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client) {
+    public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         try {
             ServerSocket socket = new ServerSocket(0);
 
-            new IDEServicesThread(client, socket).start();
+            new IDEServicesThread(client, docService, socket).start();
 
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
