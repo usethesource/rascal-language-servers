@@ -31,6 +31,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.Charset;
+import java.util.Base64;
+import java.util.Base64.Decoder;
+import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
@@ -80,6 +83,8 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
     public static class DocumentEditsParameter {
+        private final Decoder decoder = Base64.getDecoder();
+        private final Encoder encoder = Base64.getEncoder();
         private String edits;
 
         public DocumentEditsParameter(IList edits) {
@@ -88,7 +93,7 @@ public interface ITerminalIDEServer {
                 IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
             ) {
                 out.write(edits);
-                this.edits = new String(stream.toByteArray(), Charset.forName("UTF8"));
+                this.edits = new String(encoder.encodeToString(stream.toByteArray()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -96,7 +101,7 @@ public interface ITerminalIDEServer {
 
         public IList getEdits() {
             try (
-                ByteArrayInputStream stream = new ByteArrayInputStream(edits.getBytes(Charset.forName("UTF8")));
+                ByteArrayInputStream stream = new ByteArrayInputStream(decoder.decode(edits));
                 IValueInputStream in = new IValueInputStream(stream, IRascalValueFactory.getInstance(), () -> new TypeStore());
             ) {
                 return (IList) in.read();
