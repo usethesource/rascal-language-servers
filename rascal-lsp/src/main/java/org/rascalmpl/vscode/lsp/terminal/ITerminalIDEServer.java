@@ -33,8 +33,6 @@ import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.util.concurrent.CompletableFuture;
 
-import javax.print.attribute.standard.Compression;
-
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -77,11 +75,10 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/applyDocumentEdits")
+    @JsonNotification("rascal/showHTML")
     default CompletableFuture<Void> showHTML(BrowseParameter content) {
         throw new UnsupportedOperationException();
     }
-
     public static class DocumentEditsParameter {
         private String edits;
 
