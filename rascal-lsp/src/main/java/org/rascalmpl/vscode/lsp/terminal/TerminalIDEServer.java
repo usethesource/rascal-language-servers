@@ -92,23 +92,22 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter loc) {
         logger.trace("resolveProjectLocation({})", loc);
+        ISourceLocation input = loc.getLocation();
+        String projectName = input.getAuthority();
+
+        return languageClient.workspaceFolders()
+            .thenApply(fs -> fs.stream().filter(f -> f.getName().equals(projectName)).findAny())
+            .thenApply(x -> x.isPresent() ? buildProjectChildLoc(x.get(), input, loc) : loc);
+    }
+
+    private SourceLocationParameter buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input, SourceLocationParameter fallback) {
         try {
-            ISourceLocation input = loc.getLocation();
-
-            for (WorkspaceFolder folder : languageClient.workspaceFolders().get()) {
-                // TODO check if everything goes ok encoding-wise
-                if (folder.getName().equals(input.getAuthority())) {
-                    ISourceLocation root = URIUtil.createFromURI(folder.getUri());
-                    ISourceLocation newLoc = URIUtil.getChildLocation(root, input.getPath());
-                    return CompletableFuture.completedFuture(new SourceLocationParameter(newLoc));
-                }
-            }
-
-            return CompletableFuture.completedFuture(loc);
-        }
-        catch (URISyntaxException | InterruptedException | ExecutionException e) {
-            logger.error(e);
-            return CompletableFuture.completedFuture(loc);
+            ISourceLocation root = URIUtil.createFromURI(folder.getUri());
+            ISourceLocation newLoc = URIUtil.getChildLocation(root, input.getPath());
+            return new SourceLocationParameter(newLoc);
+        } catch (URISyntaxException e) {
+            logger.catching(e);
+            return fallback;
         }
     }
 
