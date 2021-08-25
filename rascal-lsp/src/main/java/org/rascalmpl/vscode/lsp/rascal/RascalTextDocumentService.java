@@ -316,6 +316,16 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         TextDocumentState f = getFile(params.getTextDocument());
         return f.getCurrentTreeAsync()
+            .handle((r, e) -> {
+                // fallback to tree if a parsing error occurred.
+                if (r == null) {
+                    r = f.getMostRecentTree();
+                }
+                if (r == null) {
+                    throw new RuntimeException(e);
+                }
+                return r;
+            })
             .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
