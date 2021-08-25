@@ -30,7 +30,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
@@ -82,6 +81,123 @@ public interface ITerminalIDEServer {
     default CompletableFuture<Void> showHTML(BrowseParameter content) {
         throw new UnsupportedOperationException();
     }
+
+    @JsonNotification("rascal/jobStart")
+    default void  jobStart(JobStartParameter param) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/jobStep")
+    default void  jobStep(JobStepParameter param) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/jobEnd")
+    default CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/jobIsCanceled")
+    default CompletableFuture<BooleanParameter> jobIsCanceled() {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/jobTodo")
+    default void jobTodo(AmountOfWork param) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/warning")
+    default void warning(WarningMessage param) {
+        throw new UnsupportedOperationException();
+    }
+
+    public static class WarningMessage {
+        private final String location;
+        private final String message;
+
+        public WarningMessage(String message, ISourceLocation src) {
+            this.message = message;
+            this.location = src.toString();
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public ISourceLocation getLocation() {
+            try {
+                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+            } catch (FactTypeUseException | IOException e) {
+                throw new RuntimeException("this should never happen:", e);
+            }
+        }
+    }
+    public static class AmountOfWork {
+        private final int amount;
+
+        public AmountOfWork(int amount) {
+            this.amount = amount;
+        }
+
+        public int getAmount() {
+            return amount;
+        }
+    }
+
+    public static class BooleanParameter {
+        private final boolean truth;
+
+        public BooleanParameter(boolean s) {
+            this.truth = s;
+        }
+
+        public boolean isTrue() {
+            return truth;
+        }
+    }
+    public static class JobStartParameter {
+        private final String name;
+        private final int workShare;
+        private final int totalWork;
+
+        public JobStartParameter(String name, int workShare, int totalWork) {
+            this.name = name;
+            this.workShare = workShare;
+            this.totalWork = totalWork;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int getTotalWork() {
+            return totalWork;
+        }
+
+        public int getWorkShare() {
+            return workShare;
+        }
+    }
+
+    public static class JobStepParameter {
+        private final String name;
+        private final int inc;
+
+        public JobStepParameter(String name, int inc) {
+            this.name = name;
+            this.inc = inc;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int getInc() {
+            return inc;
+        }
+    }
+
     public static class DocumentEditsParameter {
         private final Decoder decoder = Base64.getDecoder();
         private final Encoder encoder = Base64.getEncoder();
@@ -170,7 +286,6 @@ public interface ITerminalIDEServer {
             return "sourceLocationParameter: " + loc;
         }
     }
-
     public static class LanguageParameter {
         private final String pathConfig;
 	    private final String name; // name of the language
@@ -206,6 +321,4 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
     }
-
-
 }

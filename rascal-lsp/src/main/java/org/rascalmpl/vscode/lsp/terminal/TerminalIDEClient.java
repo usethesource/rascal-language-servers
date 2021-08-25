@@ -31,20 +31,31 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.repl.REPLContentServer;
 import org.rascalmpl.repl.REPLContentServerManager;
+import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.AmountOfWork;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BooleanParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStartParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStepParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
+import org.rascalmpl.values.functions.IFunction;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -54,6 +65,7 @@ import io.usethesource.vallang.IString;
  */
 public class TerminalIDEClient implements IDEServices {
     private final ITerminalIDEServer server;
+    private final REPLContentServerManager contentManager = new REPLContentServerManager();
 
     public TerminalIDEClient(int port) throws IOException {
         Socket socket = new Socket(InetAddress.getByName("127.0.0.1"), port);
@@ -102,37 +114,58 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
+    public void showInteractiveContent(IConstructor content) {
+        String id = ((IString) content.get("id")).getValue();
+        Function<IValue, IValue> callback = (t) -> ((IFunction) content.get("callback")).call(t);
+        try {
+            REPLContentServer server = contentManager.addServer(id, callback);
+            browse(URIUtil.assumeCorrect("http", "localhost:" + server.getListeningPort(), "/"));
+        } catch (IOException e) {
+            throw RuntimeExceptionFactory.io(e.getMessage());
+        }
+    }
+
+    @Override
     public void applyDocumentsEdits(IList edits) {
         server.applyDocumentEdits(new DocumentEditsParameter(edits));
     }
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        // TODO
+        server.jobStart(new JobStartParameter(name, workShare, totalWork));
     }
 
     @Override
     public void jobStep(String name, int inc) {
+        server.jobStep(new JobStepParameter(name, inc));
 
     }
 
     @Override
     public int jobEnd(boolean succeeded) {
-        return 0;
+        try {
+            return server.jobEnd(new BooleanParameter(succeeded)).get().getAmount();
+        } catch (InterruptedException | ExecutionException e) {
+            throw RuntimeExceptionFactory.io(e.getMessage());
+        }
     }
 
     @Override
     public boolean jobIsCanceled() {
-        return false;
+        try {
+            return server.jobIsCanceled().get().isTrue();
+        } catch (InterruptedException | ExecutionException e) {
+            throw RuntimeExceptionFactory.io(e.getMessage());
+        }
     }
 
     @Override
     public void jobTodo(int work) {
-
+        server.jobTodo(new AmountOfWork(work));
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
-
+        server.warning(new WarningMessage(message, src));
     }
 }

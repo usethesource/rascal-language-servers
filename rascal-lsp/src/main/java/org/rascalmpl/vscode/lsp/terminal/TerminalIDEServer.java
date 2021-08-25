@@ -30,7 +30,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -41,12 +40,14 @@ import org.eclipse.lsp4j.DeleteFile;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFile;
 import org.eclipse.lsp4j.ResourceOperation;
 import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -136,6 +137,40 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         });
     }
 
+    @Override
+    public void jobStart(JobStartParameter param) {
+        // TODO does this have the intended semantics?
+        languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
+    }
+
+    @Override
+    public void jobStep(JobStepParameter param) {
+        // TODO: what is done with the increment?
+        languageClient.notifyProgress(new ProgressParams(Either.forLeft(param.getName()), Either.forRight(param.getInc())));
+    }
+
+    @Override
+    public CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
+         // TODO I don't know if this will work as such
+        return CompletableFuture.completedFuture(new AmountOfWork(1));
+    }
+
+    @Override
+    public void jobTodo(AmountOfWork param) {
+         // TODO think of how to implement this
+    }
+
+    @Override
+    public CompletableFuture<BooleanParameter> jobIsCanceled() {
+        // TODO think of how to implement this
+        return CompletableFuture.completedFuture(new BooleanParameter(false));
+    }
+
+    @Override
+    public void warning(WarningMessage param) {
+        languageClient.showMessage(new MessageParams(MessageType.Warning, param.getLocation() + ":" + param.getMessage()));
+    }
+
     private List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(IList list, IBaseLanguageClient languageClient) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
 
@@ -186,4 +221,5 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static String getFileURI(IConstructor edit, String label) {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
     }
+
 }
