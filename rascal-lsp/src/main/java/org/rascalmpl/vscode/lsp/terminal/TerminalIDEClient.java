@@ -132,36 +132,37 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        server.jobStart(new JobStartParameter(name, workShare, totalWork));
+        // server.jobStart(new JobStartParameter(name, workShare, totalWork));
     }
 
     @Override
     public void jobStep(String name, int inc) {
-        server.jobStep(new JobStepParameter(name, inc));
-
+        // server.jobStep(new JobStepParameter(name, inc));
     }
 
     @Override
     public int jobEnd(boolean succeeded) {
-        try {
-            return server.jobEnd(new BooleanParameter(succeeded)).get().getAmount();
-        } catch (InterruptedException | ExecutionException e) {
-            throw RuntimeExceptionFactory.io(e.getMessage());
-        }
+        return 0;
+        // try {
+        //     return server.jobEnd(new BooleanParameter(succeeded)).get().getAmount();
+        // } catch (InterruptedException | ExecutionException e) {
+        //     throw RuntimeExceptionFactory.io(e.getMessage());
+        // }
     }
 
     @Override
     public boolean jobIsCanceled() {
-        try {
-            return server.jobIsCanceled().get().isTrue();
-        } catch (InterruptedException | ExecutionException e) {
-            throw RuntimeExceptionFactory.io(e.getMessage());
-        }
+        // try {
+        //     return server.jobIsCanceled().get().isTrue();
+        // } catch (InterruptedException | ExecutionException e) {
+        //     throw RuntimeExceptionFactory.io(e.getMessage());
+        // }
+        return false;
     }
 
     @Override
     public void jobTodo(int work) {
-        server.jobTodo(new AmountOfWork(work));
+        // server.jobTodo(new AmountOfWork(work));
     }
 
     @Override

@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,8 @@ import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
+import org.eclipse.lsp4j.WorkDoneProgressReport;
+import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -71,6 +74,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
+    private final Stack<String> jobs = new Stack<>();
 
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         this.languageClient = client;
@@ -140,19 +144,25 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public void jobStart(JobStartParameter param) {
         // TODO does this have the intended semantics?
+        jobs.push(param.getName());
         languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
     }
 
     @Override
     public void jobStep(JobStepParameter param) {
-        // TODO: what is done with the increment?
-        languageClient.notifyProgress(new ProgressParams(Either.forLeft(param.getName()), Either.forRight(param.getInc())));
+        languageClient.notifyProgress(new ProgressParams(Either.forLeft(jobs.pop()), Either.forLeft(new WorkDoneProgressReport())));
     }
 
     @Override
     public CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
-         // TODO I don't know if this will work as such
-        return CompletableFuture.completedFuture(new AmountOfWork(1));
+        if (jobs.size() > 0) {
+            languageClient.notifyProgress(new ProgressParams(Either.forLeft(jobs.pop()), Either.forLeft(new WorkDoneProgressEnd())));
+            return CompletableFuture.completedFuture(new AmountOfWork(1));
+        }
+        else {
+            // job was ended
+            return CompletableFuture.completedFuture(new AmountOfWork(1));
+        }
     }
 
     @Override
