@@ -58,6 +58,7 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.tartarus.snowball.Among;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -126,10 +127,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<Void> showHTML(BrowseParameter content) {
-        return CompletableFuture.runAsync(() -> {
-            languageClient.showContent(content);
-        });
+    public void showHTML(BrowseParameter content) {
+        languageClient.showContent(content);
     }
 
     @Override
@@ -142,32 +141,47 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public void jobStart(JobStartParameter param) {
+    public CompletableFuture<Void> jobStart(JobStartParameter param) {
         // TODO does this have the intended semantics?
         jobs.push(param.getName());
-        languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
+        return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
     }
 
     @Override
-    public void jobStep(JobStepParameter param) {
-        languageClient.notifyProgress(new ProgressParams(Either.forLeft(jobs.pop()), Either.forLeft(new WorkDoneProgressReport())));
+    public CompletableFuture<Void> jobStep(JobStepParameter param) {
+        return CompletableFuture.supplyAsync(() -> {
+            languageClient.notifyProgress(
+                    new ProgressParams(
+                            Either.forLeft(jobs.pop()),
+                            Either.forLeft(new WorkDoneProgressReport()))
+                    );
+            return null;
+        }
+        );
     }
 
     @Override
     public CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
         if (jobs.size() > 0) {
-            languageClient.notifyProgress(new ProgressParams(Either.forLeft(jobs.pop()), Either.forLeft(new WorkDoneProgressEnd())));
-            return CompletableFuture.completedFuture(new AmountOfWork(1));
+            return CompletableFuture.supplyAsync(() -> {
+                languageClient.notifyProgress(
+                    new ProgressParams(
+                        Either.forLeft(jobs.pop()),
+                        Either.forLeft(new WorkDoneProgressEnd())
+                    ));
+                return new AmountOfWork(1);
+            }
+            );
         }
         else {
-            // job was ended
             return CompletableFuture.completedFuture(new AmountOfWork(1));
         }
     }
 
     @Override
-    public void jobTodo(AmountOfWork param) {
+    public CompletableFuture<Void> jobTodo(AmountOfWork param) {
          // TODO think of how to implement this
+         return CompletableFuture.completedFuture(null);
     }
 
     @Override

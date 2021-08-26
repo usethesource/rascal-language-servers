@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -132,32 +133,33 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        // server.jobStart(new JobStartParameter(name, workShare, totalWork));
+        server.jobStart(new JobStartParameter(name, workShare, totalWork));
     }
 
     @Override
     public void jobStep(String name, int inc) {
-        // server.jobStep(new JobStepParameter(name, inc));
+        server.jobStep(new JobStepParameter(name, inc));
     }
 
     @Override
     public int jobEnd(boolean succeeded) {
-        return 0;
-        // try {
-        //     return server.jobEnd(new BooleanParameter(succeeded)).get().getAmount();
-        // } catch (InterruptedException | ExecutionException e) {
-        //     throw RuntimeExceptionFactory.io(e.getMessage());
-        // }
+        try {
+             server.jobEnd(new BooleanParameter(succeeded)).get().getAmount();
+             return 1;
+        } catch (InterruptedException | ExecutionException e) {
+            throw RuntimeExceptionFactory.io(e.getMessage());
+        }
     }
 
     @Override
     public boolean jobIsCanceled() {
-        // try {
-        //     return server.jobIsCanceled().get().isTrue();
-        // } catch (InterruptedException | ExecutionException e) {
-        //     throw RuntimeExceptionFactory.io(e.getMessage());
-        // }
-        return false;
+        try {
+            return server.jobIsCanceled().get().isTrue();
+        } catch (InterruptedException e) {
+            return true;
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
     }
 
     @Override

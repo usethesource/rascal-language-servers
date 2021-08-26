@@ -67,43 +67,43 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
+    @JsonRequest("rascal/receiveRegisterLanguage")
     default CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/applyDocumentEdits")
+    @JsonRequest("rascal/applyDocumentEdits")
     default CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         throw new UnsupportedOperationException();
     }
 
     @JsonNotification("rascal/showHTML")
-    default CompletableFuture<Void> showHTML(BrowseParameter content) {
+    default void showHTML(BrowseParameter content) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/jobStart")
-    default void  jobStart(JobStartParameter param) {
+    @JsonRequest("rascal/jobStart")
+    default CompletableFuture<Void>  jobStart(JobStartParameter param) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/jobStep")
-    default void  jobStep(JobStepParameter param) {
+    @JsonRequest("rascal/jobStep")
+    default CompletableFuture<Void>  jobStep(JobStepParameter param) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/jobEnd")
+    @JsonRequest("rascal/jobEnd")
     default CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/jobIsCanceled")
+    @JsonRequest("rascal/jobIsCanceled")
     default CompletableFuture<BooleanParameter> jobIsCanceled() {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/jobTodo")
-    default void jobTodo(AmountOfWork param) {
+    @JsonRequest("rascal/jobTodo")
+    default CompletableFuture<Void> jobTodo(AmountOfWork param) {
         throw new UnsupportedOperationException();
     }
 
