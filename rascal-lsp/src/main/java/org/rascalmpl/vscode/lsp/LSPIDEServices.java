@@ -29,32 +29,17 @@ package org.rascalmpl.vscode.lsp;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Stack;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
-import org.eclipse.lsp4j.CreateFile;
-import org.eclipse.lsp4j.DeleteFile;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.ProgressParams;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.RenameFile;
-import org.eclipse.lsp4j.ResourceOperation;
 import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.TextDocumentEdit;
-import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
+import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -63,13 +48,10 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.repl.REPLContentServer;
 import org.rascalmpl.repl.REPLContentServerManager;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
-import org.tartarus.snowball.Among;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -110,10 +92,15 @@ public class LSPIDEServices implements IDEServices {
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
         String projectName = input.getAuthority();
 
-        return languageClient.workspaceFolders()
-            .thenApply(fs -> fs.stream().filter(f -> f.getName().equals(projectName)).findAny())
-            .thenApply(x -> x.isPresent() ? buildProjectChildLoc(x.get(), input) : input)
-            .get();
+        try {
+            return languageClient.workspaceFolders()
+                .thenApply(fs -> fs.stream().filter(f -> f.getName().equals(projectName)).findAny())
+                .thenApply(x -> x.isPresent() ? buildProjectChildLoc(x.get(), input) : input)
+                .get();
+        } catch (InterruptedException | ExecutionException e) {
+            logger.catching(e);
+            return input;
+        }
     }
 
     private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input) {
@@ -179,6 +166,7 @@ public class LSPIDEServices implements IDEServices {
                         Either.forLeft(jobs.pop()),
                         Either.forLeft(new WorkDoneProgressEnd())
                     ));
+                return 1;
         }
         else {
             return 1;
