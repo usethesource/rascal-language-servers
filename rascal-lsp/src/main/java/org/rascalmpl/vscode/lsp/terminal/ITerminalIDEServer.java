@@ -293,7 +293,7 @@ public interface ITerminalIDEServer {
 	    private final String mainModule; // main module to locate mainFunction in
 	    private final String mainFunction; // main function which contributes the language implementation
 
-        LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
+        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
             this.pathConfig = pathConfig.toString();
             this.name = name;
             this.extension = extension;

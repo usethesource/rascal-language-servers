@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -40,7 +39,7 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.repl.REPLContentServer;
 import org.rascalmpl.repl.REPLContentServerManager;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.AmountOfWork;
+import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BooleanParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
@@ -56,7 +55,6 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
-import org.rascalmpl.values.functions.IFunction;
 
 /**
  * This class provides IDE services to a Rascal REPL by

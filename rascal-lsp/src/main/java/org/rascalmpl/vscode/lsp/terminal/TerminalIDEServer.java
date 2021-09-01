@@ -27,44 +27,28 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
-import org.eclipse.lsp4j.CreateFile;
-import org.eclipse.lsp4j.DeleteFile;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.ProgressParams;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.RenameFile;
-import org.eclipse.lsp4j.ResourceOperation;
-import org.eclipse.lsp4j.TextDocumentEdit;
-import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
+import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
-import org.tartarus.snowball.Among;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
-import io.usethesource.vallang.IValue;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
@@ -74,12 +58,12 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
-    private final IBaseTextDocumentService docService;
+    private final DocumentChanges docChanges;
     private final Stack<String> jobs = new Stack<>();
 
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         this.languageClient = client;
-        this.docService = docService;
+        this.docChanges = new DocumentChanges(docService);
     }
 
     @Override
@@ -136,7 +120,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         IList list = edits.getEdits();
 
         return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(translateDocumentChanges(list, languageClient))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(list))));
         });
     }
 
@@ -194,56 +178,4 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public void warning(WarningMessage param) {
         languageClient.showMessage(new MessageParams(MessageType.Warning, param.getLocation() + ":" + param.getMessage()));
     }
-
-    private List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(IList list, IBaseLanguageClient languageClient) {
-        List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
-
-        for (IValue elem : list) {
-            IConstructor edit = (IConstructor) elem;
-
-            switch (edit.getName()) {
-                case "removed":
-                    result.add(Either.forRight(new DeleteFile(getFileURI(edit, "file"))));
-                    break;
-                case "created":
-                    result.add(Either.forRight(new CreateFile(getFileURI(edit, "file"))));
-                    break;
-                case "renamed":
-                    result.add(Either.forRight(new RenameFile(getFileURI(edit, "from"), getFileURI(edit, "to"))));
-                    break;
-                case "changed":
-                    // TODO: file document identifier version is unknown here. that may be problematic
-                    // have to extend the entire/all LSP API with this information _per_ file?
-                    result.add(Either.forLeft(
-                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits((IList) edit.get("edits"), docService))));
-                    break;
-            }
-        }
-
-        return result;
-    }
-
-    private List<TextEdit> translateTextEdits(IList edits, IBaseTextDocumentService documentService) {
-        return edits.stream()
-            .map(e -> (IConstructor) e)
-            .map(c -> new TextEdit(locationToRange((ISourceLocation) c.get("range"), documentService), ((IString) c.get("replacement")).getValue()))
-            .collect(Collectors.toList());
-    }
-
-    private Range locationToRange(ISourceLocation loc, IBaseTextDocumentService documentService) {
-        LineColumnOffsetMap columnMap = documentService.getColumnMap(loc);
-        int beginLine = loc.getBeginLine();
-        int endLine = loc.getEndLine();
-        int beginColumn = loc.getBeginColumn();
-        int endColumn = loc.getEndColumn();
-
-        return new Range(new Position(beginLine, columnMap.translateColumn(beginLine, beginColumn, false)),
-                         new Position(endLine, columnMap.translateColumn(endLine, endColumn, true)));
-    }
-
-    private static String getFileURI(IConstructor edit, String label) {
-        return ((ISourceLocation) edit.get(label)).getURI().toString();
-    }
-
 }

@@ -119,6 +119,7 @@ public class EvaluatorUtil {
                 try {
                     eval.doImport(eval, i);
                 } catch (Exception e) {
+                    logger.catching(e);
                     throw new RuntimeException("Failure to import required module " + i, e);
                 }
             }
