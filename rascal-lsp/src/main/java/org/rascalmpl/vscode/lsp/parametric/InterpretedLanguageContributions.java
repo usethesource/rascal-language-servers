@@ -43,6 +43,8 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
@@ -75,7 +77,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<IFunction> commandExecutor;
 
 
-    public InterpretedLanguageContributions(LanguageParameter lang, ExecutorService exec) {
+    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
         this.name = lang.getName();
         extension = lang.getExtension();
         this.exec = exec;
@@ -83,7 +85,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         try {
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, "evaluator for " + lang.getName(), pcfg, lang.getMainModule());
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule());
             CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator("load contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),

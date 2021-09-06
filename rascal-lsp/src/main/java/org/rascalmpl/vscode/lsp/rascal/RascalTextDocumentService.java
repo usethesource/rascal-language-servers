@@ -80,6 +80,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
@@ -98,7 +99,7 @@ import io.usethesource.vallang.ISourceLocation;
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter;
-    private final RascalLanguageServices rascalServices;
+    private @MonotonicNonNull RascalLanguageServices rascalServices;
 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
@@ -107,12 +108,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private final ColumnMaps columns;
     private final FileFacts facts;
 
-    public RascalTextDocumentService(RascalLanguageServices rascal, ExecutorService exec) {
+    public RascalTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
         this.documents = new ConcurrentHashMap<>();
-        this.rascalServices = rascal;
         this.columns = new ColumnMaps(this::getContents);
-        this.facts = new FileFacts(ownExecuter, rascal, columns);
+        this.facts = new FileFacts(ownExecuter, rascalServices, columns);
     }
 
     @Override
@@ -148,6 +148,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void connect(LanguageClient client) {
         this.client = client;
         facts.setClient(client);
+        this.rascalServices = new RascalLanguageServices(this, (IBaseLanguageClient) client, ownExecuter);
     }
 
     // LSP interface methods

@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
 import org.rascalmpl.library.util.PathConfig;
@@ -53,6 +54,7 @@ import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -73,12 +75,12 @@ public class RascalLanguageServices {
 
     private final ExecutorService exec;
 
-    public RascalLanguageServices(ExecutorService exec) {
+    public RascalLanguageServices(RascalTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, "Rascal outline", null, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, "Rascal summary", null, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, "Rascal compiler", null, "lang::rascalcore::check::Checker");
+        outlineEvaluator = makeFutureEvaluator(exec, docService, client, "Rascal outline", null, "lang::rascal::lsp::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, docService, client, "Rascal summary", null, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, client, "Rascal compiler", null, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {

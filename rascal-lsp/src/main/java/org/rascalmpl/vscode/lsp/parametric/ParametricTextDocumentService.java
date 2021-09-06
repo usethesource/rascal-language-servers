@@ -85,6 +85,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
@@ -444,7 +445,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
 
-        InterpretedLanguageContributions contrib = new InterpretedLanguageContributions(lang, ownExecuter);
+        InterpretedLanguageContributions contrib = new InterpretedLanguageContributions(lang, this, (IBaseLanguageClient) client, ownExecuter);
         ParametricFileFacts fact = new ParametricFileFacts(contrib, this::getFile, columns, ownExecuter);
 
         contributions.put(lang.getExtension(), contrib);

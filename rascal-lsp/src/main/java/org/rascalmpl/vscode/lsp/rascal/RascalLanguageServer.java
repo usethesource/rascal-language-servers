@@ -35,7 +35,7 @@ public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         startLanguageServer(() -> {
             ExecutorService threadPool = Executors.newCachedThreadPool();
-            return new RascalTextDocumentService(new RascalLanguageServices(threadPool), threadPool);
+            return new RascalTextDocumentService(threadPool);
         }, 8888);
     }
 }

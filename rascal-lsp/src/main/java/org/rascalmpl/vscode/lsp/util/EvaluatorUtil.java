@@ -40,13 +40,18 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
+import org.rascalmpl.vscode.lsp.rascal.RascalTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -94,13 +99,13 @@ public class EvaluatorUtil {
         });
     }
 
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, String label, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, IBaseLanguageClient client, String label, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
                     IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
                     IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
-            eval.setMonitor(new LoggingMonitor(customLog));
+            eval.setMonitor(new LSPIDEServices(client, docService, customLog));
 
             eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
             eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
