@@ -64,6 +64,7 @@ import io.usethesource.vallang.IValue;
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
+    private static int instanceCounter = 0;
     private final Logger logger;
 
     private final IBaseLanguageClient languageClient;
@@ -76,6 +77,7 @@ public class LSPIDEServices implements IDEServices {
         this.languageClient = client;
         this.docChanges = new DocumentChanges(docService);
         this.logger = logger;
+        instanceCounter++;
     }
 
     @Override
@@ -146,16 +148,31 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(name)));
+        String id = jobId(name);
+        if (!jobs.contains(id)) {
+            languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
+        }
+        else {
+            logger.warn("Double registration of job ignored: " +  id);
+        }
+    }
+
+    private String jobId(String name) {
+        // every job must be unique but several Threads may be producing these
+        // kinds of jobs. So we add a unique number of spaces to every name
+        // per object instance of this class.
+        return name + String.format("%1$" + instanceCounter + "s");
     }
 
     @Override
     public void jobStep(String name, int workShare) {
-        languageClient.notifyProgress(
-            new ProgressParams(
-                    Either.forLeft(jobs.pop()),
-                    Either.forLeft(new WorkDoneProgressReport()))
-                );
+        if (jobs.size() > 0) {
+            languageClient.notifyProgress(
+                new ProgressParams(
+                        Either.forLeft(jobs.peek()),
+                        Either.forLeft(new WorkDoneProgressReport()))
+                    );
+        }
     }
 
     @Override
