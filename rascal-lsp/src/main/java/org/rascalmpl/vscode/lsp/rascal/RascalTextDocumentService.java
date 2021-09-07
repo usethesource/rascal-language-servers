@@ -106,13 +106,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private final Map<ISourceLocation, TextDocumentState> documents;
     private final ColumnMaps columns;
-    private final FileFacts facts;
+    private @MonotonicNonNull FileFacts facts;
 
     public RascalTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
-        this.facts = new FileFacts(ownExecuter, rascalServices, columns);
     }
 
     @Override
@@ -147,8 +146,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        facts.setClient(client);
         this.rascalServices = new RascalLanguageServices(this, (IBaseLanguageClient) client, ownExecuter);
+        this.facts = new FileFacts(ownExecuter, rascalServices, columns);
+        facts.setClient(client);
     }
 
     // LSP interface methods
@@ -180,7 +180,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that comes in via change
         // but we do trigger the type checker on save
-        facts.invalidate(Locations.toLoc(params.getTextDocument()));
+        if (facts != null) {
+            facts.invalidate(Locations.toLoc(params.getTextDocument()));
+        }
     }
 
     private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
@@ -208,8 +210,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts.reportParseErrors(file.getLocation(),
-                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
+
+            if (facts != null) {
+                facts.reportParseErrors(file.getLocation(),
+                    newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
+            }
             return null;
         });
     }
@@ -223,10 +228,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return facts.getSummary(Locations.toLoc(params.getTextDocument()))
-            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-            .thenApply(Either::forLeft)
-            ;
+        if (facts != null) {
+            return facts.getSummary(Locations.toLoc(params.getTextDocument()))
+                .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
+                .thenApply(Either::forLeft)
+                ;
+        }
+        else {
+            return CompletableFuture.completedFuture(Either.forLeft(Collections.emptyList()));
+        }
     }
 
     @Override
@@ -244,10 +254,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
-        return facts.getSummary(Locations.toLoc(params.getTextDocument()))
-            .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
-            .thenApply(s -> s.getTypeName(params.getPosition()))
-            .thenApply(n -> new Hover(new MarkupContent("plaintext", n)));
+        if (facts != null) {
+            return facts.getSummary(Locations.toLoc(params.getTextDocument()))
+                .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
+                .thenApply(s -> s.getTypeName(params.getPosition()))
+                .thenApply(n -> new Hover(new MarkupContent("plaintext", n)));
+        }
+        else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     // Private utility methods
