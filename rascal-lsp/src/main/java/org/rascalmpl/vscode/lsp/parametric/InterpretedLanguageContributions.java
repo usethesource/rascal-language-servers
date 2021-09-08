@@ -84,6 +84,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
         try {
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
+
             this.eval =
                 EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule());
             CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator("load contributions", eval,

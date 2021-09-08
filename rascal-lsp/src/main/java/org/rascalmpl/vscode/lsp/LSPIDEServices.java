@@ -161,7 +161,7 @@ public class LSPIDEServices implements IDEServices {
         // every job must be unique but several Threads may be producing these
         // kinds of jobs. So we add a unique number of spaces to every name
         // per object instance of this class.
-        return name + String.format("%1$" + instanceCounter + "s");
+        return instanceCounter + ":" + name;
     }
 
     @Override
