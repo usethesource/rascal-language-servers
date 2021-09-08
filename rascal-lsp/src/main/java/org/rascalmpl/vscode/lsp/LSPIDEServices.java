@@ -151,6 +151,7 @@ public class LSPIDEServices implements IDEServices {
         String id = jobId(name);
         if (!jobs.contains(id)) {
             languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
+            jobs.push(id);
         }
         else {
             logger.warn("Double registration of job ignored: " +  id);
