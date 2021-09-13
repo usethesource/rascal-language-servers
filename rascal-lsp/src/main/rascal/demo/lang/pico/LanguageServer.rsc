@@ -24,9 +24,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-module util::TestIDE
+ module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
+import util::IDEServices;
 import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
@@ -59,13 +60,19 @@ Summary picoSummarizer(loc l, start[Program] input) {
     );
 }
 
-rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, noop(title="This is a long title")>};
+data Command
+  = renameAtoB(start[Program] program);
 
-void picoCommands(noop()) {
-    println("The command was printed!");
+rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
+
+list[DocumentEdit] getAtoBEdits(start[Program] input)
+   = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
+
+void picoCommands(renameAtoB(start[Program] input)) {
+    applyDocumentsEdits(getAtoBEdits(input));
 }
 
-void testPicoLanguageContribution() {
+void main() {
     registerLanguage(
         language(
             pathConfig(),
