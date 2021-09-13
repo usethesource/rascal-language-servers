@@ -26,12 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Stack;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -43,12 +43,8 @@ import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
-import org.rascalmpl.repl.REPLContentServer;
-import org.rascalmpl.repl.REPLContentServerManager;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -57,27 +53,25 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
-import io.usethesource.vallang.IValue;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
-    private static int instanceCounter = 0;
+    private static AtomicInteger instanceCounter = new AtomicInteger(0);
     private final Logger logger;
 
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
-    private final Stack<String> jobs = new Stack<>();
-
-    private final REPLContentServerManager contentManager = new REPLContentServerManager();
+    private final Set<String> jobs = new HashSet<>();
+    private final int myInstance;
 
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, Logger logger) {
         this.languageClient = client;
         this.docChanges = new DocumentChanges(docService);
         this.logger = logger;
-        instanceCounter++;
+        this.myInstance = instanceCounter.incrementAndGet();
     }
 
     @Override
@@ -129,19 +123,6 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void showInteractiveContent(IConstructor content) {
-        String id = ((IString) content.get("id")).getValue();
-        Function<IValue, IValue> callback = (t) -> ((IFunction) content.get("callback")).call(t);
-        try {
-            REPLContentServer server = contentManager.addServer(id, callback);
-            browse(URIUtil.assumeCorrect("http", "localhost:" + server.getListeningPort(), "/"));
-        } catch (IOException e) {
-            throw RuntimeExceptionFactory.io(e.getMessage());
-        }
-    }
-
-
-    @Override
     public void applyDocumentsEdits(IList edits) {
         languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
     }
@@ -151,7 +132,7 @@ public class LSPIDEServices implements IDEServices {
         String id = jobId(name);
         if (!jobs.contains(id)) {
             languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
-            jobs.push(id);
+            jobs.add(id);
         }
         else {
             logger.warn("Double registration of job ignored: " +  id);
@@ -162,42 +143,49 @@ public class LSPIDEServices implements IDEServices {
         // every job must be unique but several Threads may be producing these
         // kinds of jobs. So we add a unique number of spaces to every name
         // per object instance of this class.
-        return instanceCounter + ":" + name;
+        return myInstance + ":" + name;
     }
 
     @Override
-    public void jobStep(String name, int workShare) {
-        if (jobs.size() > 0) {
+    public void jobStep(String name, String message, int workShare) {
+        if (jobs.contains(name)) {
             languageClient.notifyProgress(
                 new ProgressParams(
-                        Either.forLeft(jobs.peek()),
+                        Either.forLeft(jobId(name)),
                         Either.forLeft(new WorkDoneProgressReport()))
                     );
         }
+        else {
+            logger.warn("stepping a job that was not started: " + name);
+        }
     }
 
     @Override
-    public int jobEnd(boolean succeeded) {
-        if (jobs.size() > 0) {
-                languageClient.notifyProgress(
-                    new ProgressParams(
-                        Either.forLeft(jobs.pop()),
-                        Either.forLeft(new WorkDoneProgressEnd())
-                    ));
-                return 1;
+    public int jobEnd(String name, boolean succeeded) {
+        String id = jobId(name);
+
+        if (jobs.contains(id)) {
+            jobs.remove(id);
+            languageClient.notifyProgress(
+                new ProgressParams(
+                    Either.forLeft(id),
+                    Either.forLeft(new WorkDoneProgressEnd())
+                ));
+            return 1;
         }
         else {
+            logger.warn("ended a job that does not exist:" + name);
             return 1;
         }
     }
 
     @Override
-    public void jobTodo(int work) {
+    public void jobTodo(String name, int work) {
         // TODO
     }
 
     @Override
-    public boolean jobIsCanceled() {
+    public boolean jobIsCanceled(String name) {
         // TODO
         return false;
     }

@@ -27,7 +27,8 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.net.URISyntaxException;
-import java.util.Stack;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
@@ -59,7 +60,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
-    private final Stack<String> jobs = new Stack<>();
+    private final Set<String> jobs = new HashSet<>();
 
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         this.languageClient = client;
@@ -127,30 +128,43 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<Void> jobStart(JobStartParameter param) {
         // TODO does this have the intended semantics?
-        jobs.push(param.getName());
-        return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
+        if (!jobs.contains(param.getName())) {
+            jobs.add(param.getName());
+            return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
+        }
+        else {
+            logger.debug("job " + param.getName() + " was already running. ignored.");
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     @Override
     public CompletableFuture<Void> jobStep(JobStepParameter param) {
-        return CompletableFuture.supplyAsync(() -> {
-            languageClient.notifyProgress(
-                    new ProgressParams(
-                            Either.forLeft(jobs.pop()),
-                            Either.forLeft(new WorkDoneProgressReport()))
-                    );
-            return null;
+        if (jobs.contains(param.getName())) {
+            return CompletableFuture.supplyAsync(() -> {
+                languageClient.notifyProgress(
+                        new ProgressParams(
+                                Either.forLeft(param.getName()),
+                                Either.forLeft(new WorkDoneProgressReport()))
+                        );
+                return null;
+            }
+            );
         }
-        );
+        else {
+            logger.debug("stepping a job that does not exist: " + param.getName());
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     @Override
-    public CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
-        if (jobs.size() > 0) {
+    public CompletableFuture<AmountOfWork> jobEnd(JobEndParameter param) {
+        if (jobs.contains(param.getName())) {
+            jobs.remove(param.getName());
             return CompletableFuture.supplyAsync(() -> {
                 languageClient.notifyProgress(
                     new ProgressParams(
-                        Either.forLeft(jobs.pop()),
+                        Either.forLeft(param.getName()),
                         Either.forLeft(new WorkDoneProgressEnd())
                     ));
                 return new AmountOfWork(1);
@@ -158,6 +172,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             );
         }
         else {
+            logger.debug("ended an non-existing job: " + param.getName());
             return CompletableFuture.completedFuture(new AmountOfWork(1));
         }
     }

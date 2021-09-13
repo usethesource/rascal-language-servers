@@ -93,7 +93,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonRequest("rascal/jobEnd")
-    default CompletableFuture<AmountOfWork> jobEnd(BooleanParameter param) {
+    default CompletableFuture<AmountOfWork> jobEnd(JobEndParameter param) {
         throw new UnsupportedOperationException();
     }
 
@@ -182,10 +182,12 @@ public interface ITerminalIDEServer {
 
     public static class JobStepParameter {
         private final String name;
+        private final String message;
         private final int inc;
 
-        public JobStepParameter(String name, int inc) {
+        public JobStepParameter(String name, String message, int inc) {
             this.name = name;
+            this.message = message;
             this.inc = inc;
         }
 
@@ -193,8 +195,30 @@ public interface ITerminalIDEServer {
             return name;
         }
 
+        public String getMessage() {
+            return message;
+        }
+
         public int getInc() {
             return inc;
+        }
+    }
+
+    public static class JobEndParameter {
+        private final String name;
+        private final boolean success;
+
+        public JobEndParameter(String name, boolean total) {
+            this.name = name;
+            this.success = total;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public boolean getSuccess() {
+            return success;
         }
     }
 
@@ -241,6 +265,18 @@ public interface ITerminalIDEServer {
         @Override
         public String toString() {
             return "editParameter: " + module;
+        }
+    }
+
+    public static class JobCanceledParameter {
+        private String jobName;
+
+        public JobCanceledParameter(String jobName) {
+            this.jobName = jobName;
+        }
+
+        public String getModule() {
+            return jobName;
         }
     }
 

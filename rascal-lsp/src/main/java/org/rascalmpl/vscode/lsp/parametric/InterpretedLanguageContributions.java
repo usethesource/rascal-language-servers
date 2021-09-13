@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -68,6 +69,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private final String name;
     private final String extension;
+    private final String mainModule;
 
     private final CompletableFuture<Evaluator> eval;
     private final CompletableFuture<IFunction> parser;
@@ -79,6 +81,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
         this.name = lang.getName();
+        this.mainModule = lang.getMainModule();
         extension = lang.getExtension();
         this.exec = exec;
 
@@ -107,8 +110,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             .getValue();
     }
 
-    private static IConstructor parseCommand(Evaluator eval, String command) {
-        TypeStore store = eval.getCurrentModuleEnvironment().getStore();
+    private IConstructor parseCommand(Evaluator eval, String command) {
+        TypeStore store = ((ModuleEnvironment) eval.getModule(mainModule)).getStore();
 
         try {
             return (IConstructor) new StandardTextReader().read(VF, store, store.lookupAbstractDataType("Command"), new StringReader(command));

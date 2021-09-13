@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.gson.JsonPrimitive;

@@ -49,22 +49,22 @@ public class LoggingMonitor implements IRascalMonitor {
     }
 
     @Override
-    public void jobStep(String name, int inc) {
+    public void jobStep(String name, String message, int inc) {
         // ignore
     }
 
     @Override
-    public int jobEnd(boolean succeeded) {
+    public int jobEnd(String name, boolean succeeded) {
         return 0;
     }
 
     @Override
-    public boolean jobIsCanceled() {
+    public boolean jobIsCanceled(String name) {
         return false;
     }
 
     @Override
-    public void jobTodo(int work) {
+    public void jobTodo(String name, int work) {
         // ignore
     }
 }
