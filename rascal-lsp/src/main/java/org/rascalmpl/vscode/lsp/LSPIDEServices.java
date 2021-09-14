@@ -59,7 +59,7 @@ import io.usethesource.vallang.IString;
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
-    private static AtomicInteger instanceCounter = new AtomicInteger(0);
+    private static final AtomicInteger instanceCounter = new AtomicInteger(0);
     private final Logger logger;
 
     private final IBaseLanguageClient languageClient;
