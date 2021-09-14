@@ -233,6 +233,7 @@ public interface ITerminalIDEServer {
                 IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
             ) {
                 out.write(edits);
+                out.close();
                 this.edits = new String(encoder.encodeToString(stream.toByteArray()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
