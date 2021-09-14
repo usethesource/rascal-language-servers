@@ -42,6 +42,7 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -100,17 +101,10 @@ public class DocumentChanges {
 
     private Range locationToRange(ISourceLocation loc) {
         LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
-        int beginLine = loc.getBeginLine();
-        int endLine = loc.getEndLine();
-        int beginColumn = loc.getBeginColumn();
-        int endColumn = loc.getEndColumn();
-
-        return new Range(new Position(beginLine, columnMap.translateColumn(beginLine, beginColumn, false)),
-                         new Position(endLine, columnMap.translateColumn(endLine, endColumn, true)));
+        return Locations.toRange(loc, columnMap);
     }
 
     private static String getFileURI(IConstructor edit, String label) {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
     }
-
 }
