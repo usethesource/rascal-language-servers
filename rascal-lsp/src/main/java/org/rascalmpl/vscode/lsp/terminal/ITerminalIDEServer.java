@@ -30,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
@@ -230,10 +231,12 @@ public interface ITerminalIDEServer {
         public DocumentEditsParameter(IList edits) {
             try (
                 ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
-                IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
+                IValueOutputStream out = new IValueOutputStream(encoder.wrap(stream), IRascalValueFactory.getInstance());
             ) {
                 out.write(edits);
-                this.edits = new String(encoder.encodeToString(stream.toByteArray()));
+                out.close();
+
+                this.edits = stream.toString(StandardCharsets.ISO_8859_1.name());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -241,8 +244,8 @@ public interface ITerminalIDEServer {
 
         public IList getEdits() {
             try (
-                ByteArrayInputStream stream = new ByteArrayInputStream(decoder.decode(edits));
-                IValueInputStream in = new IValueInputStream(stream, IRascalValueFactory.getInstance(), () -> new TypeStore());
+                ByteArrayInputStream stream = new ByteArrayInputStream(edits.getBytes(StandardCharsets.ISO_8859_1.name()));
+                IValueInputStream in = new IValueInputStream(decoder.wrap(stream), IRascalValueFactory.getInstance(), () -> new TypeStore());
             ) {
                 return (IList) in.read();
             } catch (IOException e) {
