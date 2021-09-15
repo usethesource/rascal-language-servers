@@ -133,7 +133,37 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
-      </plugin>
+    </plugin>
+                <plugin>
+                    <groupId>org.rascalmpl</groupId>
+                    <artifactId>rascal-maven-plugin</artifactId>
+                    <version>0.4.5-RC6</version>
+                    <configuration>
+                        <errorsAsWarnings>false</errorsAsWarnings>
+                        <bin>${project.build.outputDirectory}</bin>
+                        <srcs>
+                            <src>${project.basedir}/src/main/rascal</src>
+                        </srcs>
+                        <sourceLookup>|rascal-lsp:///|</sourceLookup>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>it-compile</id>
+                            <phase>compile</phase>
+                            <goals>
+                                <goal>compile</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>it-package</id>
+                            <phase>prepare-package</phase>
+                            <goals>
+                                <goal>package</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin> 
+        
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.1.2</version>
