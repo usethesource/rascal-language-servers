@@ -31,7 +31,7 @@ No settings so far.
 
 Users appreciate release notes as you update your extension.
 
-### 0.0.4
+### 0.1.0
 
 * Added features for progress reporting from both the R-LSP and the P-LSP
 * Added applyEdits functionality from the terminal and the P-LSP
