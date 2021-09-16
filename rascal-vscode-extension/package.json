@@ -1,7 +1,7 @@
 {
   "name": "rascalmpl",
   "displayName": "Rascal Metaprogramming Language",
-  "description": "Provides language support for the Rascal metaprogramming language",
+  "description": "Metaprogramming made easy",
   "publisher": "usethesource",
   "keywords": [
     "metaprogramming",
