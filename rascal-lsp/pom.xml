@@ -64,7 +64,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.4.18-RC2</version>
+      <version>0.4.21</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -137,7 +137,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.4.5-RC6</version>
+                    <version>0.4.6-RC1</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
