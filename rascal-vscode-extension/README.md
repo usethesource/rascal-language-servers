@@ -12,6 +12,8 @@ is easy with Rascal. The Rascal VScode extension is a so-called Language Workben
 * IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
 * A language paramatrized LSP server for languages expressed in Rascal. From a syntax definition you can start running your own LSP in vscode in a few steps.
 
+The Rascal LSP is called R-LSP and the language parametric/generated LSP is called in the P-LSP in the following.
+
 ## Requirements
 
 * Installed JDK 8 
@@ -29,13 +31,21 @@ No settings so far.
 
 Users appreciate release notes as you update your extension.
 
+### 0.0.4
+
+* Added features for progress reporting from both the R-LSP and the P-LSP
+* Added applyEdits functionality from the terminal and the P-LSP
+* Added code lenses for the P-LSP
+* Fixed a number of synchronization issues
+
 ### 0.0.3
 
 * Fixed bug that disabled the IDE generator functionality.
 
 ### 0.0.2
 
-* updated this Readme
+* Updated this Readme
+
 ### 0.0.1
 
 * Initial release of rudimentary support for the Rascal language
