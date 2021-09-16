@@ -10,14 +10,14 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.55.0"
   },
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cwi-swat/rascal-vscode"
+    "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
     "vscode-languageclient": "^7.0.0"
