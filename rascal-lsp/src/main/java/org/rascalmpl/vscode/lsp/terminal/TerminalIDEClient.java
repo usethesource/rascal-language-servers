@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
@@ -42,11 +43,13 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobEndParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStartParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStepParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
@@ -69,6 +72,12 @@ public class TerminalIDEClient implements IDEServices {
             .create();
         launch.startListening();
         server = launch.getRemoteProxy();
+    }
+
+    @Override
+    public PrintWriter stderr() {
+        assert false: "this method should not be used";
+        return new PrintWriter(System.err);
     }
 
     @Override
@@ -149,5 +158,13 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void warning(String message, ISourceLocation src) {
         server.warning(new WarningMessage(message, src));
+    }
+
+    @Override
+    public void registerLocations(IString scheme, IString auth, IMap map) {
+        // register the map both on the LSP server side, for handling links and stuff,
+        // locally here in the terminal, for local IO:
+        server.registerLocations(new RegisterLocationsParameters(scheme, auth, map));
+        IDEServices.super.registerLocations(scheme, auth, map);
     }
 }

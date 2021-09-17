@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.ideservices.BasicIDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -192,5 +193,10 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public void warning(WarningMessage param) {
         languageClient.showMessage(new MessageParams(MessageType.Warning, param.getLocation() + ":" + param.getMessage()));
+    }
+
+    @Override
+    public void registerLocations(RegisterLocationsParameters param) {
+        new BasicIDEServices(null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
     }
 }

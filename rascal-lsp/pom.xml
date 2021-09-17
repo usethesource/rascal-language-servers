@@ -59,7 +59,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.19.4-RC11</version>
+      <version>0.19.5-RC1</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -162,8 +162,8 @@
                             </goals>
                         </execution>
                     </executions>
-                </plugin> 
-        
+                </plugin>
+
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.1.2</version>

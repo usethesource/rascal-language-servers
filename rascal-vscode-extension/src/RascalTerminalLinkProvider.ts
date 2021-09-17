@@ -77,7 +77,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         }
 
         const rsloc:SourceLocation = await this.client.sendRequest("rascal/filesystem/resolveLocation", sloc);
-        const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(sloc.uri));
+        const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
         const te = await vscode.window.showTextDocument(td);
 
         const targetRange = translateRange(rsloc, td);

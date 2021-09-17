@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
@@ -51,6 +52,7 @@ import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
@@ -72,6 +74,12 @@ public class LSPIDEServices implements IDEServices {
         this.docChanges = new DocumentChanges(docService);
         this.logger = logger;
         this.myInstance = instanceCounter.incrementAndGet();
+    }
+
+    @Override
+    public PrintWriter stderr() {
+        assert false: "this should not be used here";
+        return new PrintWriter(System.out);
     }
 
     @Override
@@ -193,5 +201,10 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void warning(String message, ISourceLocation src) {
         logger.warn("{} : {}", src, message);
+    }
+
+    @Override
+    public void registerLocations(IString scheme, IString auth, IMap map) {
+        IDEServices.super.registerLocations(scheme, auth, map);
     }
 }

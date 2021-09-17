@@ -40,7 +40,10 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
 import io.usethesource.vallang.io.binary.stream.IValueInputStream;
@@ -110,6 +113,35 @@ public interface ITerminalIDEServer {
     @JsonNotification("rascal/warning")
     default void warning(WarningMessage param) {
         throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/registerLocations")
+    default void registerLocations(RegisterLocationsParameters param) {
+        throw new UnsupportedOperationException();
+    }
+
+    public static class RegisterLocationsParameters {
+        private final String scheme;
+        private final String authority;
+        private final String mapping;
+
+        public RegisterLocationsParameters(IString scheme, IString authority, IMap mapping) {
+            this.scheme = scheme.getValue();
+            this.authority = authority.getValue();
+            this.mapping = value2string(mapping);
+        }
+
+        public IString getScheme() {
+            return IRascalValueFactory.getInstance().string(scheme);
+        }
+
+        public IString getAuthority() {
+            return IRascalValueFactory.getInstance().string(authority);
+        }
+
+        public IMap getMapping() {
+            return (IMap) string2value(mapping);
+        }
     }
 
     public static class WarningMessage {
@@ -222,33 +254,44 @@ public interface ITerminalIDEServer {
         }
     }
 
+    public static String value2string(IValue value) {
+        final Encoder encoder = Base64.getEncoder();
+
+        try (
+            ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
+            IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
+        ) {
+            out.write(value);
+            out.close();
+            return encoder.encodeToString(stream.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static IValue string2value(String string) {
+        final Decoder decoder = Base64.getDecoder();
+
+        try (
+            ByteArrayInputStream stream = new ByteArrayInputStream(decoder.decode(string));
+            IValueInputStream in = new IValueInputStream(stream, IRascalValueFactory.getInstance(), () -> new TypeStore());
+        ) {
+            return in.read();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static class DocumentEditsParameter {
-        private final Decoder decoder = Base64.getDecoder();
-        private final Encoder encoder = Base64.getEncoder();
+
         private String edits;
 
         public DocumentEditsParameter(IList edits) {
-            try (
-                ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
-                IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
-            ) {
-                out.write(edits);
-                out.close();
-                this.edits = encoder.encodeToString(stream.toByteArray());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            this.edits = value2string(edits);
         }
 
         public IList getEdits() {
-            try (
-                ByteArrayInputStream stream = new ByteArrayInputStream(decoder.decode(edits));
-                IValueInputStream in = new IValueInputStream(stream, IRascalValueFactory.getInstance(), () -> new TypeStore());
-            ) {
-                return (IList) in.read();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            return (IList) string2value(edits);
         }
     }
 
