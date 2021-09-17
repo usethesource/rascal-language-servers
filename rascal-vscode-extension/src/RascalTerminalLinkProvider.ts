@@ -26,6 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
@@ -42,6 +43,11 @@ interface SourceLocation {
  * We only detect Source Locations, as normal markdown links are already detected correctly by vscode
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
+    readonly client: LanguageClient;
+
+    constructor (client:LanguageClient) {
+        this.client = client;
+    }
 
     linkDetector() {
         // sadly java script regex store state, so we have to create a new one everytime
@@ -65,15 +71,16 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
     }
 
     async handleTerminalLink(link: ExtendedLink): Promise<void> {
-        const sloc = link.loc;
+        const sloc:SourceLocation = link.loc;
         if (sloc.uri.startsWith("http")) {
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
+        const rsloc:SourceLocation = await this.client.sendRequest("rascal/filesystem/resolveLocation", sloc);
         const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(sloc.uri));
         const te = await vscode.window.showTextDocument(td);
 
-        const targetRange = translateRange(sloc, td);
+        const targetRange = translateRange(rsloc, td);
         if (targetRange) {
             te.revealRange(targetRange);
             te.selection = new vscode.Selection(

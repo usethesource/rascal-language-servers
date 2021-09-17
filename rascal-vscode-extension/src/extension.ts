@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
 
-    vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider());
+    vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(rascalClient));
 
     console.log('LSP servers started (Rascal and Parametric)');
 }

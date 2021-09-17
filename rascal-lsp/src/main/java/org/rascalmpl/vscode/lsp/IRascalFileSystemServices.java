@@ -50,9 +50,40 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValueFactory;
 
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+    @JsonRequest("rascal/filesystem/resolveLocation")
+    default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                ISourceLocation tmp = loc.toRascalLocation();
+
+                ISourceLocation resolved = reg.logicalToPhysical(tmp);
+
+                if (resolved == null) {
+                    return loc;
+                }
+
+                return SourceLocation.fromRascalLocation(resolved);
+            }
+            catch (URISyntaxException e) {
+                // TODO log this exception
+                return loc;
+            }
+            catch (IOException e) {
+                // This is normal behavior (when its not a logical scheme)
+                return loc;
+            }
+            catch (Throwable e) {
+                // TODO want to log this
+
+                return loc;
+            }
+        });
+    }
 
     @JsonRequest("rascal/filesystem/watch")
     default CompletableFuture<Void> watch(WatchParameters params) {
@@ -289,6 +320,100 @@ public interface IRascalFileSystemServices {
 
         public boolean isRecursive() {
             return recursive;
+        }
+    }
+
+    public static class SourceLocation {
+        private final String uri;
+        private final int[] offsetLength;
+        private final int[] beginLineColumn;
+        private final int[] endLineColumn;
+
+        public static SourceLocation fromRascalLocation(ISourceLocation loc) {
+            if (loc.hasOffsetLength()) {
+                if (loc.hasLineColumn()) {
+                    return new SourceLocation(loc.getURI().toString(), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
+                }
+                else {
+                    return new SourceLocation(loc.getURI().toString(), loc.getOffset(), loc.getLength());
+                }
+            }
+            else {
+                return new SourceLocation(loc.getURI().toString());
+            }
+        }
+
+        public ISourceLocation toRascalLocation() throws URISyntaxException {
+            final IValueFactory VF = IRascalValueFactory.getInstance();
+            ISourceLocation tmp = URIUtil.createFromURI(uri);
+
+            if (hasOffsetLength()) {
+                if (hasLineColumn()) {
+                    tmp = VF.sourceLocation(tmp,getOffset(), getLength(), getBeginLine(), getBeginColumn(), getEndLine(), getEndColumn());
+                }
+                else {
+                    tmp = VF.sourceLocation(tmp, getOffset(), getLength());
+                }
+            }
+
+            return tmp;
+        }
+
+        private SourceLocation(String uri, int offset, int length, int beginLine, int beginColumn, int endLine, int endColumn) {
+            this.uri = uri;
+            this.offsetLength = new int[] {offset, length};
+            this.beginLineColumn = new int [] {beginLine, beginColumn};
+            this.endLineColumn = new int [] {endLine, endColumn};
+        }
+
+        private SourceLocation(String uri, int offset, int length) {
+            this.uri = uri;
+            this.offsetLength = new int[] {offset, length};
+            this.beginLineColumn = null;
+            this.endLineColumn = null;
+        }
+
+        private SourceLocation(String uri) {
+            this.uri = uri;
+            this.offsetLength = null;
+            this.beginLineColumn = null;
+            this.endLineColumn = null;
+        }
+
+        public String getUri() {
+            return uri;
+        }
+
+        public boolean hasOffsetLength() {
+            return offsetLength != null;
+        }
+
+        public boolean hasLineColumn() {
+            return beginLineColumn != null && endLineColumn != null;
+        }
+
+        public int getOffset() {
+            return offsetLength[0];
+        }
+
+        public int getLength() {
+            return offsetLength[1];
+        }
+
+        public int getBeginLine() {
+            return beginLineColumn[0];
+        }
+
+        public int getBeginColumn() {
+            return beginLineColumn[1];
+        }
+
+        public int getEndLine() {
+            return endLineColumn[0];
+        }
+
+        public int getEndColumn() {
+            return endLineColumn[1];
         }
     }
 
