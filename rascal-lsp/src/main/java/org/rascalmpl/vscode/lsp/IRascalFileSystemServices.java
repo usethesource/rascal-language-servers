@@ -349,7 +349,7 @@ public interface IRascalFileSystemServices {
 
             if (hasOffsetLength()) {
                 if (hasLineColumn()) {
-                    tmp = VF.sourceLocation(tmp,getOffset(), getLength(), getBeginLine(), getBeginColumn(), getEndLine(), getEndColumn());
+                    tmp = VF.sourceLocation(tmp,getOffset(), getLength(), getBeginLine(), getEndLine(), getBeginColumn(), getEndColumn());
                 }
                 else {
                     tmp = VF.sourceLocation(tmp, getOffset(), getLength());
