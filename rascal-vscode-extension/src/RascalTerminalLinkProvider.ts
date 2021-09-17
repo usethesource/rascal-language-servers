@@ -130,8 +130,8 @@ function buildLink(match: RegExpExecArray): ExtendedLink {
     }
 
     return <ExtendedLink>{
-        startIndex: linkOffset,
-        length: linkLength,
+        startIndex: linkOffset - 1,
+        length: linkMatch.length,
         loc: sloc
     };
 }
