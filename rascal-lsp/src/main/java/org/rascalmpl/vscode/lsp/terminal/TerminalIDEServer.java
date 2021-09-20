@@ -55,6 +55,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -223,7 +224,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
         for (IValue elem : param.getLocations()) {
-            ISourceLocation loc = (ISourceLocation) elem;
+            ISourceLocation loc = Locations.toPhysicalIfPossible((ISourceLocation) elem);
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
     }

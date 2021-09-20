@@ -28,9 +28,17 @@ No settings so far.
 This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-* This extension only works with Java 8; it has to be ported to Java 11 and higher still.
+**This extension only works with Java 8; it has to be ported to Java 11 and higher still.**
 
+For other things we are working on have a look here:
+   * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
+   * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
+  
 ## Release Notes
+
+### 0.1.2
+
+* Bugfixes for the features below
 
 ### 0.1.1
 

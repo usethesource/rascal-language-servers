@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
- module demo::lang::pico::LanguageServer
+module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
 import util::IDEServices;

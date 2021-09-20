@@ -88,7 +88,7 @@ public class Diagnostics {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange((ISourceLocation) d.get("at"), cm));
+        result.setRange(Locations.toRange(getMessageLocation(d), cm));
         return result;
     }
 
@@ -96,7 +96,7 @@ public class Diagnostics {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange((ISourceLocation) d.get("at"), cm));
+        result.setRange(Locations.toRange(getMessageLocation(d), cm));
         return result;
     }
 
@@ -112,11 +112,11 @@ public class Diagnostics {
         return Locations.toRange(loc, cm);
     }
 
-    public static List<Diagnostic> translateDiagnostics(ICollection<?> messages, ColumnMaps cm) {
+    public static List<Diagnostic> translateDiagnostics(ISourceLocation file, ICollection<?> messages, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
-            .filter(Diagnostics::hasValidLocation)
+            .filter(d -> Diagnostics.hasValidLocation(d, file))
             .map(d -> translateDiagnostic(d, cm))
             .collect(Collectors.toList());
     }
@@ -132,7 +132,7 @@ public class Diagnostics {
 
         for (IValue elem : messages) {
             IConstructor message = (IConstructor) elem;
-            ISourceLocation file = ((ISourceLocation) message.get("at")).top();
+            ISourceLocation file = getMessageLocation(message);
             Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
 
             List<Diagnostic> lst = results.get(file);
@@ -146,10 +146,20 @@ public class Diagnostics {
         return results;
     }
 
-    private static boolean hasValidLocation(IConstructor d) {
-        ISourceLocation loc = (ISourceLocation)d.get("at");
+    private static ISourceLocation getMessageLocation(IConstructor message) {
+        return Locations.toPhysicalIfPossible(((ISourceLocation) message.get("at")));
+    }
+
+    private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {
+        ISourceLocation loc = getMessageLocation(d);
+
         if (loc == null || loc.getScheme().equals("unknown")) {
             logger.error("Dropping diagnostic due to incorrect location on message: {}", d);
+            return false;
+        }
+
+        if (!loc.top().equals(file.top())) {
+            logger.error("Dropping diagnostic, reported for the wrong file: " + loc + ", " + file);
             return false;
         }
         return true;

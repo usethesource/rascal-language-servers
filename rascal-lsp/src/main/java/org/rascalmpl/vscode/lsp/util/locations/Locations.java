@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.util.locations;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 
 import org.eclipse.lsp4j.Location;
@@ -33,11 +34,25 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.ISourceLocation;
 
 public class Locations {
+    public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
+        ISourceLocation physical;
+        try {
+            physical = URIResolverRegistry.getInstance().logicalToPhysical(loc);
+            if (physical == null) {
+                return loc;
+            }
+            return physical;
+        } catch (IOException e) {
+            return loc;
+        }
+    }
+
     public static ISourceLocation toLoc(TextDocumentItem doc) {
         return toLoc(doc.getUri());
     }

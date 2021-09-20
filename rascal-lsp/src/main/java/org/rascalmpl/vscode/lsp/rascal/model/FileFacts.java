@@ -44,6 +44,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -84,7 +85,16 @@ public class FileFacts {
     }
 
     private FileFact getFile(ISourceLocation l) {
-        return files.computeIfAbsent(l, l1 -> new FileFact(l1, exec));
+        ISourceLocation resolved = null;
+        try {
+            resolved = URIResolverRegistry.getInstance().logicalToPhysical(l);
+            if (resolved == null) {
+                resolved = l;
+            }
+        } catch (IOException e) {
+            resolved = l;
+        }
+        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
     }
 
     private class FileFact {
@@ -152,7 +162,7 @@ public class FileFacts {
                 rascal.compileFile(file, pcfg, exec)
                     .thenApply(m -> {
                         Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
-                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(msgs, cm)));
+                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(l, msgs, cm)));
                         return result;
                     })
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
