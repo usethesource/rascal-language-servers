@@ -120,6 +120,39 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/registerDiagnostics")
+    default void registerDiagnostics(RegisterDiagnosticsParameters param) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/unregisterDiagnostics")
+    default void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
+        throw new UnsupportedOperationException();
+    }
+
+    public static class UnRegisterDiagnosticsParameters {
+        private String locations;
+
+        public UnRegisterDiagnosticsParameters(IList locs) {
+            this.locations = value2string(locs);
+        }
+
+        public IList getLocations() {
+            return (IList) string2value(locations);
+        }
+    }
+    public static class RegisterDiagnosticsParameters {
+        private String messages;
+
+        public RegisterDiagnosticsParameters(IList messages) {
+            this.messages = value2string(messages);
+        }
+
+        public IList getMessages() {
+            return (IList) string2value(messages);
+        }
+    }
+
     public static class RegisterLocationsParameters {
         private final String scheme;
         private final String authority;

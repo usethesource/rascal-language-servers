@@ -27,16 +27,22 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.ProgressParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkDoneProgressReport;
@@ -47,10 +53,12 @@ import org.rascalmpl.ideservices.BasicIDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
@@ -62,10 +70,12 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
     private final Set<String> jobs = new HashSet<>();
+    private final IBaseTextDocumentService docService;
 
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
         this.languageClient = client;
         this.docChanges = new DocumentChanges(docService);
+        this.docService = docService;
     }
 
     @Override
@@ -198,5 +208,23 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public void registerLocations(RegisterLocationsParameters param) {
         new BasicIDEServices(null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+    }
+
+    @Override
+    public void registerDiagnostics(RegisterDiagnosticsParameters param) {
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService);
+
+        for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
+            String uri = entry.getKey().getURI().toString();
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
+        }
+    }
+
+    @Override
+    public void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
+        for (IValue elem : param.getLocations()) {
+            ISourceLocation loc = (ISourceLocation) elem;
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+        }
     }
 }

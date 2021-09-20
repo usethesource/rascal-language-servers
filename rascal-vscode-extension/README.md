@@ -16,7 +16,7 @@ The Rascal LSP is called R-LSP and the language parametric/generated LSP is call
 
 ## Requirements
 
-* Installed JDK 8 
+* Installed JDK _8_ 
 * JAVA_HOME set to this JDK
 
 ## Extension Settings
@@ -25,11 +25,20 @@ No settings so far.
 
 ## Known Issues
 
-* This extension is under development, some stuff is still buggy.
+This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version
+Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
+
+* This extension only works with Java 8; it has to be ported to Java 11 and higher still.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.1.1
+
+* Added feature to publish diagnostics while scripting code analyses in the terminal (uses util::IDEServices)
+
+### 0.1.1
+
+* Added feature of clickable logical URI's, like "|java+class://java/util/List|" in the terminal such that they resolve to the code location of the declared entity.
 
 ### 0.1.0
 

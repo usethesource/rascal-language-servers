@@ -43,8 +43,10 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobEndParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStartParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStepParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
 
 import io.usethesource.vallang.IConstructor;
@@ -166,5 +168,15 @@ public class TerminalIDEClient implements IDEServices {
         // locally here in the terminal, for local IO:
         server.registerLocations(new RegisterLocationsParameters(scheme, auth, map));
         IDEServices.super.registerLocations(scheme, auth, map);
+    }
+
+    @Override
+    public void registerDiagnostics(IList messages) {
+        server.registerDiagnostics(new RegisterDiagnosticsParameters(messages));
+    }
+
+    @Override
+    public void unregisterDiagnostics(IList resources) {
+        server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 }

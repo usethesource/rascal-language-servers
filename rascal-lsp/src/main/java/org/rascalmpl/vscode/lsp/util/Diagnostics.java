@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -40,10 +41,13 @@ import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -88,6 +92,14 @@ public class Diagnostics {
         return result;
     }
 
+    public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
+        Diagnostic result = new Diagnostic();
+        result.setSeverity(severityMap.get(d.getName()));
+        result.setMessage(((IString) d.get("msg")).getValue());
+        result.setRange(Locations.toRange((ISourceLocation) d.get("at"), cm));
+        return result;
+    }
+
     private static Range toRange(ParseError pe, ColumnMaps cm) {
         ISourceLocation loc = pe.getLocation();
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
@@ -107,6 +119,31 @@ public class Diagnostics {
             .filter(Diagnostics::hasValidLocation)
             .map(d -> translateDiagnostic(d, cm))
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Indexes all messages per file and translates them to LSP Diagnostic representation
+     * @param messages    as in the `Message` standard library module
+     * @param docService  needed to convert column positions
+     * @return an ordered map of Diagnostics
+     */
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, IBaseTextDocumentService docService) {
+        Map<ISourceLocation, List<Diagnostic>> results = new HashMap<>();
+
+        for (IValue elem : messages) {
+            IConstructor message = (IConstructor) elem;
+            ISourceLocation file = ((ISourceLocation) message.get("at")).top();
+            Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
+
+            List<Diagnostic> lst = results.get(file);
+            if (lst == null) {
+                lst = new LinkedList<>();
+                results.put(file, lst);
+            }
+            lst.add(d);
+        }
+
+        return results;
     }
 
     private static boolean hasValidLocation(IConstructor d) {

@@ -29,14 +29,20 @@ package org.rascalmpl.vscode.lsp;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.ProgressParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
@@ -48,6 +54,8 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 
 import io.usethesource.vallang.IConstructor;
@@ -55,6 +63,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
@@ -68,10 +77,12 @@ public class LSPIDEServices implements IDEServices {
     private final DocumentChanges docChanges;
     private final Set<String> jobs = new HashSet<>();
     private final int myInstance;
+    private final IBaseTextDocumentService docService;
 
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, Logger logger) {
         this.languageClient = client;
         this.docChanges = new DocumentChanges(docService);
+        this.docService = docService;
         this.logger = logger;
         this.myInstance = instanceCounter.incrementAndGet();
     }
@@ -207,4 +218,23 @@ public class LSPIDEServices implements IDEServices {
     public void registerLocations(IString scheme, IString auth, IMap map) {
         IDEServices.super.registerLocations(scheme, auth, map);
     }
+
+    @Override
+    public void registerDiagnostics(IList messages) {
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService);
+
+        for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
+            String uri = entry.getKey().getURI().toString();
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
+        }
+    }
+
+    @Override
+    public void unregisterDiagnostics(IList resources) {
+        for (IValue elem : resources) {
+            ISourceLocation loc = (ISourceLocation) elem;
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+        }
+    }
+
 }
