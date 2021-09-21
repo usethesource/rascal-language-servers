@@ -9,10 +9,17 @@ is easy with Rascal. The Rascal VScode extension is a so-called Language Workben
 
 ## Features
 
-* IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
-* A language paramatrized LSP server for languages expressed in Rascal. From a syntax definition you can start running your own LSP in vscode in a few steps.
+* R-LSP: IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
+* P-LSP: "language parameterized" LSP server for languages expressed in Rascal. From a syntax definition you can start running your own LSP in vscode in a few steps.
+* Rascal terminal: highly integrated terminal REPL that allows you tox:
+   * script and experiment with ad-hoc code analyses and visualizations
+   * register new DSLs with VScode using the P-LSP
+   * experiment and test new DSL features
 
-The Rascal LSP is called R-LSP and the language parametric/generated LSP is called in the P-LSP in the following.
+The Rascal VScode extension currently is bundled with the following libraries:
+   * Rascal standard library
+   * Rascal-LSP LanguageServer library
+   * Java analysis library based on Eclipse JDT
 
 ## Requirements
 
