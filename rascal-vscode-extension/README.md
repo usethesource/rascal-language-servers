@@ -7,6 +7,10 @@ anything that you can do to code and with code, Rascal is designed to make it ea
 In particular the creation of IDEs for new Programming Languages and Domain Specific Languages (DSLs)
 is easy with Rascal. The Rascal VScode extension is a so-called Language Workbench.
 
+Have a look here for more information:
+   * http://www.rascal-mpl.org 
+   * http://www.usethesource.io
+
 ## Features
 
 * R-LSP: IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
