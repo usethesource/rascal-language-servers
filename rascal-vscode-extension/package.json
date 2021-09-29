@@ -82,7 +82,7 @@
       {
         "language": "parametric-rascalmpl",
         "scopeName": "source.parametric-rascalmpl",
-        "path": "./syntaxes/simple.tmGrammar.json"
+        "path": "./syntaxes/parametric.tmGrammar.json"
       }
     ]
   },
