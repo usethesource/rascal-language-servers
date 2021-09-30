@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "rascal-lsp"
+		},
+		{
+			"path": "rascal-vscode-extension"
+		}
+	],
+	"settings": {}
+}
