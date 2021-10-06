@@ -361,7 +361,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     return new SemanticTokens(Collections.emptyList());
                 })
                 .whenComplete((r, e) ->
-                    logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size())
+                    logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 );
     }
 
