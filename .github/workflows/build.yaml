@@ -29,6 +29,10 @@ jobs:
         working-directory: ./rascal-lsp
         run: mvn -B clean verify
 
+      - name: Append build id if pre-release
+        working-directory: ./rascal-vscode-extension
+        run: sed -i "s/\\(\\"version\\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
+
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
         run: |
