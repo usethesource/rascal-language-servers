@@ -81,6 +81,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
                 str prefix := (p is labeled ? "<p.name>: " : "")
             ];
             children += [symbol(clean("<def.defined>"), \struct(), def@\loc, children=rs)];
+            g / 0;
         }
     }
 
