@@ -4,7 +4,7 @@ set -e
 set -x
 
 cd rascal-lsp; 
-mvn package
+mvn clean package
 cd ..
 
 cd rascal-vscode-extension
