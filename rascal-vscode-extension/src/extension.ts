@@ -171,21 +171,35 @@ function startTerminal(client: LanguageClient, uri: vscode.Uri, context: vscode.
         client.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration"),
         client.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() })
     ]).then(cfg => {
-        const classPath = cfg[1];
         let terminal = vscode.window.createTerminal({
             cwd: path.dirname(uri.fsPath),
             shellPath: getJavaExecutable(),
-            shellArgs: [
-                '-cp', buildTerminalJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
-                'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL',
-                '--ideServicesPort',
-                '' + cfg[0].port
-            ].concat(extraArgs || []),
+            shellArgs: buildShellArgs(cfg[1], cfg[0], context, ...extraArgs),
             name: 'Rascal Terminal',
         });
 
         terminal.show(false);
     });
+}
+
+function buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, context: vscode.ExtensionContext, ...extraArgs: string[]) {
+    const shellArgs = [
+            '-cp'
+            , buildTerminalJVMPath(context) + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+    ];
+    if (!deployMode) {
+        // for development mode we always start the terminal with debuging ready to go
+        shellArgs.push(
+            '-Xdebug'
+            , '-Xrunjdwp:transport=dt_socket,address=9001,server=y,suspend=n'
+        );
+    }
+    shellArgs.push(
+        'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
+        , '--ideServicesPort'
+        , '' + ide.port
+    );
+    return shellArgs.concat(extraArgs || []);
 }
 
 
