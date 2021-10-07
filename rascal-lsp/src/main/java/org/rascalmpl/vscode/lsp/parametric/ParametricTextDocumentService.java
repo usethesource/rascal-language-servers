@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -57,6 +58,8 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FoldingRange;
+import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -92,6 +95,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -157,6 +161,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RASCAL_META_COMMAND)));
+        result.setFoldingRangeProvider(true);
     }
 
     @Override
@@ -439,6 +444,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return summary(params.getTextDocument())
             .thenApply(br -> br.getHover(params.getPosition()))
             .thenApply(Hover::new);
+    }
+
+    @Override
+    public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
+        logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
+        TextDocumentState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
+            .exceptionally(e -> {
+                logger.error("Tokenization failed", e);
+                return new ArrayList<>();
+            })
+            .whenComplete((r, e) ->
+                logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
+            );
     }
 
     @Override

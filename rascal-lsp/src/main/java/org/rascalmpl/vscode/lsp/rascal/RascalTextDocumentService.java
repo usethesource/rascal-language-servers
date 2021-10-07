@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+
 import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
@@ -54,6 +56,8 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.FoldingRange;
+import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
@@ -88,6 +92,7 @@ import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -141,6 +146,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setHoverProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
+        result.setFoldingRangeProvider(true);
     }
 
     @Override
@@ -263,6 +269,20 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         else {
             return CompletableFuture.completedFuture(null);
         }
+    }
+
+    @Override
+    public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
+        logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
+        TextDocumentState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
+            .exceptionally(e -> {
+                logger.error("Tokenization failed", e);
+                return new ArrayList<>();
+            })
+            .whenComplete((r, e) ->
+                logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
+            );
     }
 
     // Private utility methods
