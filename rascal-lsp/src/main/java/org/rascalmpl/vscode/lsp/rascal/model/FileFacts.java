@@ -42,8 +42,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -51,7 +49,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -61,11 +58,13 @@ public class FileFacts {
     private volatile @MonotonicNonNull LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
+    private final PathConfigs confs;
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
         this.cm = cm;
+        this.confs = new PathConfigs();
     }
 
     public void setClient(LanguageClient client) {
@@ -99,7 +98,6 @@ public class FileFacts {
 
     private class FileFact {
         private final ISourceLocation file;
-        private final PathConfig pcfg;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
@@ -107,21 +105,13 @@ public class FileFacts {
 
         public FileFact(ISourceLocation file, Executor exec) {
             this.file = file;
-            PathConfig pcfg;
-            try {
-                pcfg = PathConfig.fromSourceProjectMemberRascalManifest(file, RascalConfigMode.COMPILER);
-            } catch (IOException e) {
-                logger.error("Could not figure out path config for: {}, falling back to default", file, e);
-                pcfg = new PathConfig();
-            }
-            this.pcfg = pcfg;
             this.typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Collections.emptyMap()));
             this.summary = new LazyUpdateableReference<>(
                 new InterruptibleFuture<>(CompletableFuture.completedFuture(new SummaryBridge()), () -> {
                 }),
                 r -> {
                     r.interrupt();
-                    InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, this.pcfg)
+                    InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
                         .thenApply(s -> s == null ? null : new SummaryBridge(s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)
@@ -159,7 +149,7 @@ public class FileFacts {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.compileFile(file, pcfg, exec)
+                rascal.compileFile(file, confs.lookupConfig(file), exec)
                     .thenApply(m -> {
                         Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
                         m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(l, msgs, cm)));
