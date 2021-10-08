@@ -398,7 +398,6 @@ public class SemanticTokenizer implements ISemanticTokens {
         private TokenList tokens;
 
         public TokenCollector(TokenList tokens) {
-            super();
             this.tokens = tokens;
             line = 0;
             column = 0;
