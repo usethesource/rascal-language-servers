@@ -47,7 +47,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -69,6 +68,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final String mainModule;
 
     private final CompletableFuture<Evaluator> eval;
+    private final CompletableFuture<TypeStore> store;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<@Nullable IFunction> outliner;
     private final CompletableFuture<@Nullable IFunction> summarizer;
@@ -91,6 +91,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
                 exec).get();
+            this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.parser = contributions.thenApply(s -> getFunctionFor(s, "parser"));
             this.outliner = contributions.thenApply(s -> getFunctionFor(s, "outliner"));
             this.summarizer = contributions.thenApply(s -> getFunctionFor(s, "summarizer"));
@@ -107,14 +108,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             .getValue();
     }
 
-    private IConstructor parseCommand(Evaluator eval, String command) {
-        TypeStore store = ((ModuleEnvironment) eval.getModule(mainModule)).getStore();
-
-        try {
-            return (IConstructor) new StandardTextReader().read(VF, store, store.lookupAbstractDataType("Command"), new StringReader(command));
-        } catch (FactTypeUseException | IOException e) {
-            throw new RuntimeException(e);
-        }
+    private CompletableFuture<IConstructor> parseCommand(String command) {
+        return store.thenApply(commandStore -> {
+            try {
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+            } catch (FactTypeUseException | IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static @Nullable IFunction getFunctionFor(ISet contributions, String cons) {
@@ -144,42 +145,46 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> outline(ITree input) {
+    public CompletableFuture<IList> outline(ITree input) {
         return execFunction("outline",outliner, VF.list(), input);
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
+    public CompletableFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
         logger.trace("summarize({})", src);
         return execFunction("summarize", summarizer,
             ParametricSummaryBridge.emptySummary(src), src, input);
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
+    public CompletableFuture<ISet> lenses(ITree input) {
         logger.trace("lensen({})", TreeAdapter.getLocation(input));
         return execFunction("lenses", lenses, VF.set(), input);
     }
 
     @Override
-    public InterruptibleFuture<Void> executeCommand(String command) {
+    public CompletableFuture<Void> executeCommand(String command) {
         logger.trace("executeCommand({})", command);
-        return new InterruptibleFuture<>(eval.thenApply(e -> execFunction("executor", commandExecutor, null, parseCommand(e, command)))
+        return parseCommand(command)
+            .thenCombineAsync(commandExecutor, (c,e) -> {
+                if (e != null) {
+                    e.call(c);
+                }
+                return null;
+            },exec)
             .handle((r,e) -> {
                 logger.catching(e);
                 return null;
-            }), () -> {});
+            });
     }
 
-    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
-        return InterruptibleFuture.flatten(
-            target.thenApply(s -> {
+    private <T> CompletableFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+        return target.thenApplyAsync(s -> {
                 if (s == null) {
                     logger.trace("Not running {} since it's not defined for: {}", name, this.name);
-                    return InterruptibleFuture.completedFuture(defaultResult);
+                    return defaultResult;
                 }
-                return EvaluatorUtil.runEvaluator(name, eval,e -> s.call(args), defaultResult, exec);
-            })
-        , exec);
+                return s.call(args);
+        }, exec);
     }
 }

@@ -98,11 +98,11 @@ public class ParametricFileFacts {
             summary = new ReplaceableFuture<>(updateSummary(file));
         }
 
-        private InterruptibleFuture<ParametricSummaryBridge> updateSummary(ISourceLocation file) {
-            InterruptibleFuture<ParametricSummaryBridge> result = InterruptibleFuture.flatten(
-                lookupState.apply(file).getCurrentTreeAsync()
-                    .thenApply(t -> contrib.summarize(file, t)), exec)
-                .thenApply(cons -> new ParametricSummaryBridge(cons, columns));
+        private CompletableFuture<ParametricSummaryBridge> updateSummary(ISourceLocation file) {
+            CompletableFuture<ParametricSummaryBridge> result = lookupState.apply(file)
+                    .getCurrentTreeAsync()
+                    .thenComposeAsync(t -> contrib.summarize(file, t), exec)
+                    .thenApply(cons -> new ParametricSummaryBridge(cons, columns));
             // also schedule update of error messages
             result.thenAccept(p -> reportTypeCheckerMessages(p.getMessages()));
             return result;

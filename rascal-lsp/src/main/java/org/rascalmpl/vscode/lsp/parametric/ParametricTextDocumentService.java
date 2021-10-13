@@ -251,12 +251,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
-        InterruptibleFuture<ISet> result = InterruptibleFuture.flatten(
-            file.getCurrentTreeAsync()
-                .thenApply(contrib::lenses), ownExecuter
-        );
 
-        return result.get()
+        return file.getCurrentTreeAsync()
+            .thenCompose(contrib::lenses)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getExtension(), e))
                 .collect(Collectors.toList())
@@ -392,8 +389,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return file.getCurrentTreeAsync()
-            .thenApply(contrib::outline) // TODO: store this interruptible future and also replace it
-            .thenCompose(InterruptibleFuture::get)
+            .thenCompose(contrib::outline) // TODO: store this interruptible future and also replace it
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             .exceptionally(e -> {
                 logger.catching(e);
@@ -475,7 +471,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions.get(extension);
 
         if (contribs != null) {
-            return contribs.executeCommand(command).get();
+            return contribs.executeCommand(command);
         }
         else {
             logger.warn("ignoring command execution: " + extension + "," + command);
