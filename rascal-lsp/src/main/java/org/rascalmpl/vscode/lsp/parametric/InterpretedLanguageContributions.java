@@ -30,11 +30,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -50,7 +48,6 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -73,10 +70,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private final CompletableFuture<Evaluator> eval;
     private final CompletableFuture<IFunction> parser;
-    private final CompletableFuture<IFunction> outliner;
-    private final CompletableFuture<IFunction> summarizer;
-    private final CompletableFuture<IFunction> lenses;
-    private final CompletableFuture<IFunction> commandExecutor;
+    private final CompletableFuture<@Nullable IFunction> outliner;
+    private final CompletableFuture<@Nullable IFunction> summarizer;
+    private final CompletableFuture<@Nullable IFunction> lenses;
+    private final CompletableFuture<@Nullable IFunction> commandExecutor;
 
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
@@ -120,15 +117,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         }
     }
 
-    private static IFunction getFunctionFor(ISet contributions, String cons) {
+    private static @Nullable IFunction getFunctionFor(ISet contributions, String cons) {
         for (IValue elem : contributions) {
             IConstructor contrib = (IConstructor) elem;
             if (cons.equals(contrib.getConstructorType().getName())) {
                 return (IFunction) contrib.get(0);
             }
         }
-
-        throw new UnsupportedOperationException("no " + cons + " is available.");
+        logger.debug("No {} defined", cons);
+        return null;
     }
 
     @Override
@@ -142,34 +139,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-    AtomicBoolean interrupted = new AtomicBoolean(false);
-    AtomicReference<Evaluator> currentEval = new AtomicReference<>(null);
-    /* we want to pass along parse errors to the IDE,
-        so we cannot use the normal exec function call,
-        as that catches all exceptions */
-    return new InterruptibleFuture<>(parser.thenCombineAsync(eval, (p, ev) -> {
-            synchronized(ev) {
-                try {
-                    currentEval.set(ev);
-                    if (interrupted.get()) {
-                        throw new RuntimeException("Interrupted before finishing");
-                    }
-                    return (ITree)p.call(VF.string(input), loc);
-                }
-                finally {
-                    currentEval.set(null);
-                    ev.__setInterrupt(false);
-                }
-            }
-        }, exec),
-        () -> {
-            interrupted.set(true);
-            Evaluator e = currentEval.get();
-            if (e != null) {
-                e.interrupt();
-            }
-        });
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+        return parser.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
     }
 
     @Override

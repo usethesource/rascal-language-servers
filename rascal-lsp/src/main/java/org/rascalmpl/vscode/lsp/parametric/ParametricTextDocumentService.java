@@ -334,11 +334,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> {
-                ILanguageContributions cont = contributions(doc);
-                // TODO: store this interruptible future and also replace it
-                return new TextDocumentState((loc, inp) -> cont.parseSourceFile(loc, inp).get(), l, doc.getText());
-            }
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
         );
     }
 
