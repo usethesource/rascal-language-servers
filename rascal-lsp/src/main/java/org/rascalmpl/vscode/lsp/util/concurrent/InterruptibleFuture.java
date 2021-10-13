@@ -59,6 +59,10 @@ public class InterruptibleFuture<T> {
         return new InterruptibleFuture<>(future.thenAccept(func), interrupt);
     }
 
+    public static <T> InterruptibleFuture<T> completedFuture(T result) {
+        return new InterruptibleFuture<>(CompletableFuture.completedFuture(result), () -> {});
+    }
+
     /**
      * Turn an completable future with a interruptible future inside into a
      * normal interruptible future by inlining them

@@ -171,9 +171,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             }), () -> {});
     }
 
-    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<IFunction> target, T defaultResult, IValue... args) {
+    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         return InterruptibleFuture.flatten(
-            target.thenApply(s -> EvaluatorUtil.runEvaluator(name, eval,e -> s.call(args), defaultResult, exec))
+            target.thenApply(s -> {
+                if (s == null) {
+                    logger.trace("Not running {} since it's not defined for: {}", name, this.name);
+                    return InterruptibleFuture.completedFuture(defaultResult);
+                }
+                return EvaluatorUtil.runEvaluator(name, eval,e -> s.call(args), defaultResult, exec);
+            })
         , exec);
     }
 }
