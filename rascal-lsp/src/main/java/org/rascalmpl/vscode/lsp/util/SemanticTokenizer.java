@@ -33,9 +33,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
@@ -393,6 +393,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         private int column;
         private int startLineCurrentToken;
         private int startColumnCurrentToken;
+        private String currentTokenCategory;
 
         private final boolean showAmb = false;
         private TokenList tokens;
@@ -423,44 +424,40 @@ public class SemanticTokenizer implements ISemanticTokens {
         private void collectAppl(ITree arg, @Nullable String currentCategory) {
             String category = null;
 
-            if (currentCategory == null) {
-                IValue catAnno = arg.asWithKeywordParameters().getParameter("category");
+            IValue catParameter = arg.asWithKeywordParameters().getParameter("category");
 
-                if (catAnno != null) {
-                    category = ((IString) catAnno).getValue();
-                }
+            if (catParameter != null) {
+                category = ((IString) catParameter).getValue();
+            }
 
-                IConstructor prod = TreeAdapter.getProduction(arg);
+            IConstructor prod = TreeAdapter.getProduction(arg);
 
-                if (category == null && ProductionAdapter.isDefault(prod)) {
-                    category = ProductionAdapter.getCategory(prod);
-                }
+            if (category == null && ProductionAdapter.isDefault(prod)) {
+                category = ProductionAdapter.getCategory(prod);
+            }
 
-                if (category == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
-                    category = "keyword.other";
+            if (category == null && currentCategory == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
+                category = "keyword.other";
 
-                    // unless this is an operator
-                    for (IValue child : TreeAdapter.getArgs(arg)) {
-                        int c = TreeAdapter.getCharacter((ITree) child);
-                        if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                            category = null;
-                        }
+                // unless this is an operator
+                for (IValue child : TreeAdapter.getArgs(arg)) {
+                    int c = TreeAdapter.getCharacter((ITree) child);
+                    if (c != '-' && !Character.isJavaIdentifierPart(c)) {
+                        category = null;
                     }
                 }
             }
 
-            if (category != null && currentCategory == null) {
-                startLineCurrentToken = line;
-                startColumnCurrentToken = column;
-            }
-
             // now we go down in the tree to find more tokens and to advance the counters
             for (IValue child : TreeAdapter.getArgs(arg)) {
-                collect((ITree) child, currentCategory != null ? currentCategory : category);
-            }
-
-            if (category != null && currentCategory == null) {
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, category);
+                //Propagate current category to child unless currently in a syntax nonterminal
+                //*AND* the current child is a syntax nonterminal too
+                if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                        ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
+                    collect((ITree) child, null);
+                } else {
+                    collect((ITree) child, category != null ? category : currentCategory);
+                }
             }
         }
 
@@ -479,17 +476,41 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         private void collectChar(ITree ch, @Nullable String currentCategory) {
             int currentChar = TreeAdapter.getCharacter(ch);
+            //First check whether the token category has changed
+            if (currentCategory == null && currentTokenCategory != null) {
+                //character has no semantic category, but there is a running token
+                if (column > startColumnCurrentToken) {
+                    //add token and set column offset
+                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
+                    startColumnCurrentToken = column;
+                    //startLineCurrentToken remains unchanged
+                }
+                currentTokenCategory = currentCategory;
+            }
+            if (currentCategory != null && !currentCategory.equals(currentTokenCategory)) {
+                //character has a semantic category that doesn't match the running token
+                if (column > startColumnCurrentToken) {
+                    //add token and set column offset
+                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
+                    startColumnCurrentToken = column;
+                }
+                currentTokenCategory = currentCategory;
+                //startLineCurrentToken remains unchanged
+            }
+
+            //Token administration done, advance column/line counters
             if (currentChar == '\n') {
                 line++;
 
                 // this splits multi-line tokens automatically across the lines
-                if (currentCategory != null) {
-                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentCategory);
-                    startColumnCurrentToken = 0;
-                    startLineCurrentToken = line;
+                if (currentTokenCategory != null) {
+                    if (column > startColumnCurrentToken) {
+                        tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
+                    }
                 }
+                startColumnCurrentToken = 0;
+                startLineCurrentToken = line;
                 column = 0;
-
             }
             else if (Character.isSupplementaryCodePoint(currentChar)) {
                 column += 2; // lsp counts 16-bit chars instead of 32bit codepoints
