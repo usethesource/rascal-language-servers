@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.io.CharStreams;
@@ -252,13 +253,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
-        return file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync()
             .thenCompose(contrib::lenses)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getExtension(), e))
                 .collect(Collectors.toList())
-            )
-            ;
+            ), () -> null);
+    }
+
+    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+        return future
+            .exceptionally(e -> {
+                logger.error("Operation failed with", e);
+                return defaultValue.get();
+            });
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {
@@ -352,15 +360,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
-        return getFile(doc).getCurrentTreeAsync()
+        return recoverExceptions(getFile(doc).getCurrentTreeAsync()
                 .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
-                .exceptionally(e -> {
-                    logger.error("Tokenization failed", e);
-                    return new SemanticTokens(Collections.emptyList());
-                })
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
-                );
+                )
+            , () -> new SemanticTokens(Collections.emptyList()));
     }
 
     @Override
@@ -388,13 +393,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
-        return file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync()
             .thenCompose(contrib::outline) // TODO: store this interruptible future and also replace it
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
-            .exceptionally(e -> {
-                logger.catching(e);
-                return Collections.emptyList();
-            });
+            , Collections::emptyList);
     }
 
     private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc) {
@@ -406,9 +408,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
 
 
-        return summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument())
             .thenApply(br -> br.getDefinition(params.getPosition()))
-            .thenApply(Either::forLeft);
+            .thenApply(Either::forLeft)
+            , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
@@ -416,40 +419,39 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument())
             .thenApply(br -> br.getImplementations(params.getPosition()))
-            .thenApply(Either::forLeft);
+            .thenApply(Either::forLeft)
+            , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return summary(params.getTextDocument())
-            .thenApply(br -> br.getReferences(params.getPosition()));
+        return recoverExceptions(summary(params.getTextDocument())
+            .thenApply(br -> br.getReferences(params.getPosition()))
+            , Collections::emptyList);
     }
 
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument())
             .thenApply(br -> br.getHover(params.getPosition()))
-            .thenApply(Hover::new);
+            .thenApply(Hover::new)
+            , () -> null);
     }
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
-            .exceptionally(e -> {
-                logger.error("Tokenization failed", e);
-                return new ArrayList<>();
-            })
+        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
-            );
+            ), Collections::emptyList);
     }
 
     @Override
