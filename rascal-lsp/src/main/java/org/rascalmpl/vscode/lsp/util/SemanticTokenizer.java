@@ -406,6 +406,10 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         public void collect(ITree tree) {
             collect(tree, null);
+            //check for final token
+            if (column > startColumnCurrentToken) {
+                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
+            }
         }
 
         private void collect(ITree tree, @Nullable String currentCategory) {
