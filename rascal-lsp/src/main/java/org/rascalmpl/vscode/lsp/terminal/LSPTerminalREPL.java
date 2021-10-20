@@ -145,6 +145,7 @@ public class LSPTerminalREPL extends BaseREPL {
                                 modName = modName.substring(1);
                             }
                             modName = modName.replaceAll("/", "::");
+                            modName = modName.replaceAll("\\\\", "::");
                             dirtyModules.add(modName);
                         }
                     }
