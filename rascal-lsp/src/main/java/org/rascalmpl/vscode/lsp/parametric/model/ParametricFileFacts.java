@@ -131,7 +131,7 @@ public class ParametricFileFacts {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
             }
-            logger.trace("Sending diagnostics for: {}", file);
+            logger.trace("Sending diagnostics for {}. {} messages", file, typeCheckerMessages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
                 union(parseMessages, typeCheckerMessages)));
