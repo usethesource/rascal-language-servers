@@ -103,7 +103,7 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
         documentSelector: [{ scheme: '*', language: language }],
     };
 
-    const client = new LanguageClient(language, title, serverOptions, clientOptions, true);
+    const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
 
     client.onReady().then(() => {
         client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
