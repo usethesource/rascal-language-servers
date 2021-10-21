@@ -146,25 +146,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public CompletableFuture<IList> outline(ITree input) {
+        logger.debug("outline({})", TreeAdapter.getLocation(input));
         return execFunction("outline",outliner, VF.list(), input);
     }
 
     @Override
     public CompletableFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
-        logger.trace("summarize({})", src);
+        logger.debug("summarize({})", src);
         return execFunction("summarize", summarizer,
             ParametricSummaryBridge.emptySummary(src), src, input);
     }
 
     @Override
     public CompletableFuture<ISet> lenses(ITree input) {
-        logger.trace("lensen({})", TreeAdapter.getLocation(input));
+        logger.debug("lenses({})", TreeAdapter.getLocation(input));
         return execFunction("lenses", lenses, VF.set(), input);
     }
 
     @Override
     public CompletableFuture<Void> executeCommand(String command) {
-        logger.trace("executeCommand({})", command);
+        logger.debug("executeCommand({})", command);
         return parseCommand(command)
             .thenCombineAsync(commandExecutor, (c,e) -> {
                 if (e != null) {
