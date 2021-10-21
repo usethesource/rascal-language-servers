@@ -136,7 +136,7 @@ public class ParametricSummaryBridge {
                 result.put(from, Collections.singletonList(to));
             }
             else if (existing.size() == 1) {
-                // we had a singleton list in there, so let's replace it with a regular last
+                // we had a singleton list in there, so let's replace it with a regular list
                 existing = new ArrayList<>(existing);
                 result.put(from, existing);
                 existing.add(to);
