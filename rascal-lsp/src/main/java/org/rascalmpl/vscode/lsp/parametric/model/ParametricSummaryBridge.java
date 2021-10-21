@@ -95,7 +95,7 @@ public class ParametricSummaryBridge {
         this.data = summary.asWithKeywordParameters();
         this.messages = Lazy.defer(() ->
             getKWFieldSet(data, "messages").stream()
-                .map(d -> Diagnostics.translateDiagnostic((IConstructor)d, cm))
+                .map(d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), cm))
                 .collect(Collectors.toList())
         );
         this.definitions = Lazy.defer(
