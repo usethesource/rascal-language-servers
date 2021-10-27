@@ -65,5 +65,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: HaaLeo/publish-vscode-extension@v0
         with:
+          packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
