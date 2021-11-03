@@ -42,6 +42,10 @@ const registeredFileExtensions:Set<string> = new Set();
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
+let parametricClient: LanguageClient | undefined = undefined;
+let rascalClient: LanguageClient;
+let registerLanguageObserved: boolean = false;
+
 class IDEServicesConfiguration {
     public port:integer;
 
@@ -55,8 +59,7 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    const parametricClient = activateParametricLanguageClient(context);
-    const rascalClient = activateRascalLanguageClient(context, parametricClient);
+    rascalClient = activateRascalLanguageClient(context);
 
     registerTerminalCommand(context, rascalClient);
     registerMainRun(context, rascalClient);
@@ -73,27 +76,35 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(rascalClient));
 
-    console.log('LSP servers started (Rascal and Parametric)');
+    console.log('LSP (Rascal) server started');
 }
 
-export function registerLanguage(context: vscode.ExtensionContext, client:LanguageClient, lang:LanguageParameter) {
+export function registerLanguage(context: vscode.ExtensionContext, lang:LanguageParameter) {
+    if (!parametricClient) {
+        parametricClient = activateParametricLanguageClient(context);
+    }
     // first we load the new language into the parametric server
-    client.sendRequest("rascal/sendRegisterLanguage", lang);
-
+    parametricClient.onReady().then(() => {
+        parametricClient!.sendRequest("rascal/sendRegisterLanguage", lang);
+    });
     if (lang.extension && lang.extension !== "") {
         registeredFileExtensions.add(lang.extension);
     }
 }
 
-export function activateRascalLanguageClient(context: vscode.ExtensionContext, parametricServer:LanguageClient):LanguageClient {
-    return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888, parametricServer);
+export function activateRascalLanguageClient(context: vscode.ExtensionContext):LanguageClient {
+    return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888, false);
 }
 
 export function activateParametricLanguageClient(context: vscode.ExtensionContext) {
-    return activateLanguageClient(context, 'parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server', 9999);
+    try {
+        return activateLanguageClient(context, 'parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server', 9999, true);
+    } finally {
+        console.log('LSP (Parametric) server started');
+    }
 }
 
-export function activateLanguageClient(context: vscode.ExtensionContext, language:string, main:string, title:string, devPort:integer, parametricServer?:LanguageClient) :LanguageClient {
+export function activateLanguageClient(context: vscode.ExtensionContext, language:string, main:string, title:string, devPort:integer, isParametricServer:boolean) :LanguageClient {
     const serverOptions: ServerOptions = deployMode
         ? buildRascalServerOptions(context, main)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
@@ -110,10 +121,11 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
            showContentPanel(bp.uri);
         });
 
-        if (parametricServer) {
+        if (!registerLanguageObserved) {
             client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
-                registerLanguage(context, parametricServer, lang);
+                registerLanguage(context, lang);
             });
+            registerLanguageObserved = true;
         }
 
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
