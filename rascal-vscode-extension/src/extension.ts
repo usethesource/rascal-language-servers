@@ -44,7 +44,6 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let parametricClient: LanguageClient | undefined = undefined;
 let rascalClient: LanguageClient;
-let registerLanguageObserved: boolean = false;
 
 class IDEServicesConfiguration {
     public port:integer;
@@ -72,7 +71,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
         }
     }));
-
 
     vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(rascalClient));
 
@@ -121,11 +119,10 @@ export function activateLanguageClient(context: vscode.ExtensionContext, languag
            showContentPanel(bp.uri);
         });
 
-        if (!registerLanguageObserved) {
+        if (!isParametricServer) {
             client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
                 registerLanguage(context, lang);
             });
-            registerLanguageObserved = true;
         }
 
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
