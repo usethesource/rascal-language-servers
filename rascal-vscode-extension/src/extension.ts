@@ -45,6 +45,8 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 let parametricClient: LanguageClient | undefined = undefined;
 let rascalClient: LanguageClient | undefined = undefined;
 
+let rascalActivationHandle: vscode.Disposable | undefined = undefined;
+
 class IDEServicesConfiguration {
     public port:integer;
 
@@ -67,11 +69,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
     if (!rascalClient) {
         //Register a handle to activate the Rascal server upon opening a Rascal file
-        context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
+        rascalActivationHandle = vscode.workspace.onDidOpenTextDocument(document => {
             if (!rascalClient && document.uri.path.endsWith(".rsc")) {
                 rascalClient = activateRascalLanguageClient(context);
             };
-        }));
+        });
+        context.subscriptions.push(rascalActivationHandle);
     }
 
     registerTerminalCommand(context);
@@ -112,7 +115,13 @@ export function registerLanguage(context: vscode.ExtensionContext, lang:Language
 }
 
 export function activateRascalLanguageClient(context: vscode.ExtensionContext):LanguageClient {
-    return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888, false);
+    try {
+        return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888, false);
+    } finally {
+        if (rascalActivationHandle) {
+            rascalActivationHandle.dispose();
+        }
+    }
 }
 
 export function activateParametricLanguageClient(context: vscode.ExtensionContext) {
