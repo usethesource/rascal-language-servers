@@ -96,8 +96,6 @@ export function activate(context: vscode.ExtensionContext) {
         return rascalClient;
     }));
 
-    console.log('LSP (Rascal) server started');
-
     return {registerLanguage};
 }
 
@@ -118,6 +116,7 @@ export function activateRascalLanguageClient(context: vscode.ExtensionContext):L
     try {
         return activateLanguageClient(context, 'rascalmpl', 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer', 'Rascal MPL Language Server', 8888, false);
     } finally {
+        console.log('LSP (Rascal) server started');
         if (rascalActivationHandle) {
             rascalActivationHandle.dispose();
         }
