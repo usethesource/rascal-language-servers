@@ -86,7 +86,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(rascalClient!));
+    vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(() => {
+        if (!rascalClient) {
+            rascalClient = activateRascalLanguageClient(context);
+        }
+        return rascalClient;
+    }));
 
     console.log('LSP (Rascal) server started');
 
