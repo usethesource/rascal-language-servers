@@ -26,7 +26,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onCommand:rascalmpl.createTerminal",
+    "onLanguage:rascalmpl"
   ],
   "main": "./out/extension.js",
   "contributes": {
