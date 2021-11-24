@@ -207,6 +207,9 @@ public abstract class BaseLanguageServer {
                 }
 
                 ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
+                if (projectDir == null) {
+                    throw new RuntimeException("Current project is missing a `MANIFEST/RASCAL.MF` file!");
+                }
                 PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
 
                 return CompletableFuture.completedFuture(pcfg.getClassloaders().stream()
