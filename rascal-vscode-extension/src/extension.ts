@@ -44,6 +44,7 @@ let childProcess: cp.ChildProcessWithoutNullStreams;
 
 let parametricClient: LanguageClient | undefined = undefined;
 let rascalClient: LanguageClient | undefined = undefined;
+let rascalExtensionContext: vscode.ExtensionContext | undefined = undefined;
 
 let rascalActivationHandle: vscode.Disposable | undefined = undefined;
 
@@ -60,6 +61,7 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    rascalExtensionContext = context;
     //if there is an open Rascal file, activate the Rascal server
     for (const editor of vscode.window.visibleTextEditors) {
         if (editor.document.uri.path.endsWith(".rsc")) {
@@ -281,12 +283,12 @@ function calculateDSLMemoryReservation() {
 
 function buildCompilerJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar', 'rascal-core.jar', 'typepal.jar'];
-    return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
+    return jars.map(j => rascalExtensionContext!.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
 }
 
 function buildTerminalJVMPath(context: vscode.ExtensionContext) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar'];
-    return jars.map(j => context.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
+    return jars.map(j => rascalExtensionContext!.asAbsolutePath(path.join('.', 'assets', 'jars', j))).join(path.delimiter);
 }
 
 function buildRascalServerOptions(context: vscode.ExtensionContext, main:string): ServerOptions {
