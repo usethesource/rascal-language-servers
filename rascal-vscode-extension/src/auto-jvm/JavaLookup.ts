@@ -3,31 +3,29 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, downloadTemurin, microsoftSupported, temurinSupported } from './downloaders';
-import { existsSync, readdirSync } from 'fs';
-import { CancellationToken } from 'vscode-jsonrpc';
-import { reporters } from 'mocha';
+import { exists, existsSync, readdirSync } from 'fs';
+import { promisify } from 'util';
 
 
 const currentJVMEngineTarget = 11;
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineTarget}`);
 
-let resolvedJavaPath = "";
-let downloadInProcess: Thenable<string> | undefined;
+let lookupCompleted: Thenable<string> | undefined;
 
-export function getJavaExecutable():Thenable<string> | string {
-    if (resolvedJavaPath !== "") {
-        return resolvedJavaPath;
+const pexec = promisify(cp.exec);
+
+export async function getJavaExecutable(): Promise<string> {
+    if (lookupCompleted) {
+        console.log("Returning: " + lookupCompleted);
+        return lookupCompleted;
     }
-    if (downloadInProcess) {
-        return downloadInProcess;
-    }
-    for (const possibleCandidate in getJavaCandidates()) {
+    for (const possibleCandidate of getJavaCandidates()) {
         try {
-            const versionRun = cp.execSync(possibleCandidate + " -version");
-            const versionsFound = /version "\([0-9.]+\)\./.exec(versionRun.toString());
+            const versionRun = await pexec(`"${possibleCandidate}" -version`);
+            const versionsFound = /version "([0-9]+)\./.exec(versionRun.stderr);
             if (versionsFound && versionsFound.length > 0) {
-                if (Number(versionsFound[0]) >= 11) {
-                    resolvedJavaPath = possibleCandidate;
+                if (Number(versionsFound[1]) >= 11) {
+                    lookupCompleted = Promise.resolve(possibleCandidate);
                     return possibleCandidate;
                 }
             }
@@ -37,16 +35,9 @@ export function getJavaExecutable():Thenable<string> | string {
         }
     }
     // okay, so we don't have a working java interpreter, so we ask the user
-    downloadInProcess = askUserForJVM();
-    downloadInProcess.then(s => {
-        resolvedJavaPath = s;
-        downloadInProcess = undefined;
-    }, () => {
-        // error
-        resolvedJavaPath = "";
-        downloadInProcess = undefined;
-    });
-    return downloadInProcess;
+    lookupCompleted = askUserForJVM();
+    lookupCompleted.then(good => {}, e => { lookupCompleted = undefined; });
+    return lookupCompleted;
 }
 
 function getJavaCandidates(): string[] {
@@ -60,12 +51,12 @@ function getJavaCandidates(): string[] {
         result.push(name);
     }
     if (existsSync(mainJVMPath)) {
-        for (const ent in readdirSync(mainJVMPath, {  })) {
+        for (const ent of readdirSync(mainJVMPath, {  })) {
             let possiblePath = "";
             switch (os.platform()) {
-                case 'win32': possiblePath = path.join(mainJVMPath, ent, "bin", "java.exe"); break;
-                case 'linux': possiblePath = path.join(mainJVMPath, ent, "bin", "java"); break;
-                case 'darwin': possiblePath = path.join(mainJVMPath, ent, "Contents", "Home", "bin", "java"); break;
+                case 'win32': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java.exe"); break;
+                case 'linux': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java"); break;
+                case 'darwin': possiblePath = path.join(mainJVMPath, String(ent), "Contents", "Home", "bin", "java"); break;
             }
             if (existsSync(possiblePath)) {
                 result.push(possiblePath);
@@ -98,11 +89,10 @@ async function startAutoInstall(): Promise<string> {
     const acceptGPL2CE = "Accept GPL+CE";
     const reviewLicense = "Review GPL+CE";
     const readAboutLicense = "Read about GPL+CE";
-    const cancel = "Cancel";
     const opt = await vscode.window.showInformationMessage(
         "Downloading a Java runtime means you accept the \"GPL2 + Classpath Exception\" license. Note: this holds for the runtime engine, not for your own code.",
         { modal: true},
-        acceptGPL2CE, reviewLicense, readAboutLicense, cancel);
+        acceptGPL2CE, reviewLicense, readAboutLicense);
     if (opt === acceptGPL2CE) {
         return downloadJDK();
     }
