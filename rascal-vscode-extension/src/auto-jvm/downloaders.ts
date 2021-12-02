@@ -258,7 +258,9 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
                 }
             }), e => { if (e) { reject(e);}}
             ).on("close", () => {
-                resolve(path.join(mainJVMPath, detectedRootPath, subpath));
+                const jdkPath = path.join(mainJVMPath, detectedRootPath);
+                fs.createWriteStream(path.join(jdkPath, "rascal-auto-download")).close();
+                resolve(path.join(jdkPath, subpath));
             })
             .on("error", e => {
                 reject(e);
@@ -354,7 +356,11 @@ async function fetchUnpackZipInMemory(url: string, subpath: string, mainJVMPath:
         });
 
         zipFile.on("error", (e) => reject(e));
-        zipFile.on("end", () => resolve(path.join(mainJVMPath, detectedRootPath, subpath)));
+        zipFile.on("end", () => {
+            const jdkPath = path.join(mainJVMPath, detectedRootPath);
+            fs.createWriteStream(path.join(jdkPath, "rascal-auto-download")).close();
+            resolve(path.join(jdkPath, subpath));
+        });
 
         zipFile.readEntry(); // start chain
     });
