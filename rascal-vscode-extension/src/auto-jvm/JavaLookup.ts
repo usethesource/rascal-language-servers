@@ -29,11 +29,11 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, downloadTemurin, microsoftSupported, temurinSupported } from './downloaders';
-import { exists, existsSync, readdirSync } from 'fs';
+import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 
 
-const currentJVMEngineTarget = 11;
+const currentJVMEngineTarget = 8;
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineTarget}`);
 
 let lookupCompleted: Thenable<string> | undefined;
@@ -48,9 +48,9 @@ export async function getJavaExecutable(): Promise<string> {
     for (const possibleCandidate of getJavaCandidates()) {
         try {
             const versionRun = await pexec(`"${possibleCandidate}" -version`);
-            const versionsFound = /version "([0-9]+)\./.exec(versionRun.stderr);
+            const versionsFound = /version "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
             if (versionsFound && versionsFound.length > 0) {
-                if (Number(versionsFound[1]) >= 11) {
+                if (Number(versionsFound[1]) === currentJVMEngineTarget) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
                     return possibleCandidate;
                 }
@@ -94,11 +94,11 @@ function getJavaCandidates(): string[] {
 
 export async function askUserForJVM() : Promise<string> {
     const selfInstall = "Install myself & restart vscode";
-    const extensionInstall = "Automatically download Java 11";
+    const extensionInstall = `Automatically download Java ${currentJVMEngineTarget} `;
     const configurePath = "Configure JDK path";
 
     const opt = await vscode.window.showErrorMessage(
-        "Rascal (or a DSL that uses Rascal) requires a Java 11+ runtime. Shall we download it, or will you set it up yourself?",
+        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineTarget} runtime. Shall we download it, or will you set it up yourself?`,
         { modal: true},
         selfInstall, extensionInstall, configurePath
     );
@@ -108,7 +108,7 @@ export async function askUserForJVM() : Promise<string> {
     if (opt === configurePath) {
         return openSettings();
     }
-    throw Error("User setup required for jdk 11");
+    throw Error("User setup required for jdk " + currentJVMEngineTarget);
 }
 
 async function startAutoInstall(): Promise<string> {
@@ -138,7 +138,7 @@ async function startAutoInstall(): Promise<string> {
 
 async function openSettings(): Promise<string> {
     await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:rascalmpl');
-    throw new Error("User setup required for jdk 11");
+    throw Error("User setup required for jdk " + currentJVMEngineTarget);
 }
 
 async function downloadJDK(): Promise<string> {
