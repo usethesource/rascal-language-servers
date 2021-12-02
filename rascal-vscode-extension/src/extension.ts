@@ -220,19 +220,21 @@ function startTerminal(uri: vscode.Uri, ...extraArgs: string[]) {
         rascalClient = activateRascalLanguageClient();
     }
     console.log("Starting:" + uri + extraArgs);
-    Promise.all([
-        rascalClient.then(c => c.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration")),
-        rascalClient.then(c => c.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() }))
-    ]).then(async cfg => {
-        let terminal = vscode.window.createTerminal({
-            cwd: path.dirname(uri.fsPath),
-            shellPath: await getJavaExecutable(),
-            shellArgs: buildShellArgs(cfg[1], cfg[0], ...extraArgs),
-            name: 'Rascal Terminal',
-        });
+    rascalClient.then(c => c.onReady().then(() => {
+        Promise.all([
+            rascalClient!.then(c => c.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration")),
+            rascalClient!.then(c => c.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() }))
+        ]).then(async cfg => {
+            let terminal = vscode.window.createTerminal({
+                cwd: path.dirname(uri.fsPath),
+                shellPath: await getJavaExecutable(),
+                shellArgs: buildShellArgs(cfg[1], cfg[0], ...extraArgs),
+                name: 'Rascal Terminal',
+            });
 
-        terminal.show(false);
-    });
+            terminal.show(false);
+        });
+    }));
 }
 
 function buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
