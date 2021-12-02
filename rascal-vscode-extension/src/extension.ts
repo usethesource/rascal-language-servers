@@ -106,14 +106,18 @@ export function registerLanguage(lang:LanguageParameter) {
     if (!parametricClient) {
         parametricClient = activateParametricLanguageClient();
     }
+    // first we load the new language into the parametric server
     parametricClient.then(pc => {
         // first we load the new language into the parametric server
         pc.onReady().then(() => {
-            pc.sendRequest("rascal/sendRegisterLanguage", lang);
+            pc.sendRequest("rascal/sendRegisterLanguage", lang).then(() => {
+                for (const editor of vscode.window.visibleTextEditors) {
+                    if (editor.document.uri.path.endsWith(lang.extension)) {
+                        vscode.languages.setTextDocumentLanguage(editor.document, ALL_LANGUAGES_ID);
+                    }
+                }
+            });
         });
-        if (lang.extension && lang.extension !== "") {
-            registeredFileExtensions.add(lang.extension);
-        }
     });
 }
 
