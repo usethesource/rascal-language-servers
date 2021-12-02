@@ -117,6 +117,9 @@ export function registerLanguage(lang:LanguageParameter) {
                     }
                 }
             });
+            if (lang.extension && lang.extension !== "") {
+                registeredFileExtensions.add(lang.extension);
+            }
         });
     });
 }
