@@ -107,7 +107,13 @@ export function registerLanguage(lang:LanguageParameter) {
     }
     // first we load the new language into the parametric server
     parametricClient.onReady().then(() => {
-        parametricClient!.sendRequest("rascal/sendRegisterLanguage", lang);
+        parametricClient!.sendRequest("rascal/sendRegisterLanguage", lang).then(() => {
+            for (const editor of vscode.window.visibleTextEditors) {
+                if (editor.document.uri.path.endsWith(lang.extension)) {
+                    vscode.languages.setTextDocumentLanguage(editor.document, ALL_LANGUAGES_ID);
+                }
+            }
+        });
     });
     if (lang.extension && lang.extension !== "") {
         registeredFileExtensions.add(lang.extension);
