@@ -56,6 +56,11 @@ describe('JVM Download', function () {
         };
     }
 
+    describe(`Eclipse Temurin jdk8`, function() {
+        it(`Windows x64`, testTemurin(8, "x64", "windows")).timeout(50000);
+        it(`Linux arm`, testTemurin(8, "arm", "linux")).timeout(50000);
+        it(`Mac x64`, testTemurin(8, "x64", "mac")).timeout(50000);
+    });
     describe(`Eclipse Temurin jdk11`, function() {
         it(`Windows x64`, testTemurin(11, "x64", "windows")).timeout(50000);
         it(`Linux arm`, testTemurin(11, "arm", "linux")).timeout(50000);
@@ -66,9 +71,14 @@ describe('JVM Download', function () {
         it(`Linux x64`, testTemurin(17, "x64", "linux")).timeout(50000);
         it(`Mac aarch64`, testTemurin(17, "aarch64", "mac")).timeout(50000);
     });
+    describe(`Amazon Corretto jdk8`, function() {
+        it(`Windows x64`, testCorretto(8, "x64", "windows")).timeout(50000);
+        it(`Linux aarch64`, testCorretto(8, "aarch64", "linux")).timeout(50000);
+        it(`Mac x64`, testCorretto(8, "x64", "macos")).timeout(50000);
+    });
     describe(`Amazon Corretto jdk11`, function() {
         it(`Windows x64`, testCorretto(11, "x64", "windows")).timeout(50000);
-        it(`Linux arm`, testCorretto(11, "arm", "linux")).timeout(50000);
+        it(`Linux arch64`, testCorretto(11, "aarch64", "linux")).timeout(50000);
         it(`Mac x64`, testCorretto(11, "x64", "macos")).timeout(50000);
     });
     describe(`Amazon Corretto jdk17`, function() {

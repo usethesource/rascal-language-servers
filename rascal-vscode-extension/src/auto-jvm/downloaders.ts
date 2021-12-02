@@ -171,7 +171,11 @@ export async function identifyLatestTemurinLTSRelease(version: number): Promise<
     if (releases.versions.length <= 0) {
         throw new Error("Adoptium returned no releases");
     }
-    return releases.versions[0].semver;
+    const rel =releases.versions[0];
+    if (version === 8) {
+        return `jdk8u${rel.security}-b${rel.build}`;
+    }
+    return `jdk-${rel.semver}`;
 }
 
 function mapTemuringCorrettoArch(): TemurinArchitectures {
@@ -211,7 +215,7 @@ export async function fetchAndUnpackCorretto(arch: CorrettoArchitectures, platfo
 
 export async function fetchAndUnpackTemurin(arch: TemurinArchitectures, platform: TemurinPlatforms, jdk11Release: string, mainJVMPath: string, progress: ProgressFunc): Promise<string> {
     // https://api.adoptium.net/v3/binary/version/jdk-11.0.13%2B8/linux/x64/jdk/hotspot/normal/eclipse?project=jdk
-    const url = `https://api.adoptium.net/v3/binary/version/jdk-${encodeURIComponent(jdk11Release)}/${platform}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`;
+    const url = `https://api.adoptium.net/v3/binary/version/${encodeURIComponent(jdk11Release)}/${platform}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`;
     switch (platform) {
         case "windows": return fetchUnpackZipInMemory(url, path.join("bin", "java.exe"), mainJVMPath, progress);
         case "mac": return fetchUnpackTarGZ(url, path.join("Contents", "Home", "bin", "java"), mainJVMPath, progress);
