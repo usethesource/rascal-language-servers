@@ -43,9 +43,9 @@ interface SourceLocation {
  * We only detect Source Locations, as normal markdown links are already detected correctly by vscode
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
-    readonly getClient: () => LanguageClient;
+    readonly getClient: () => Promise<LanguageClient>;
 
-    constructor (getClient: () => LanguageClient) {
+    constructor (getClient: () => Promise<LanguageClient>) {
         this.getClient = getClient;
     }
 
@@ -76,7 +76,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const rsloc:SourceLocation = await this.getClient().sendRequest("rascal/filesystem/resolveLocation", sloc);
+        const rsloc:SourceLocation = await (await this.getClient()).sendRequest("rascal/filesystem/resolveLocation", sloc);
         const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
         const te = await vscode.window.showTextDocument(td);
 
