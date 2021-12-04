@@ -220,14 +220,15 @@ async function startTerminal(uri: vscode.Uri, ...extraArgs: string[]) {
         rascalClient = activateRascalLanguageClient();
     }
     console.log("Starting:" + uri + extraArgs);
-    await (await rascalClient).onReady();
-    const serverConfig = (await rascalClient).sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-    const compilationPath = (await rascalClient).sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() });
+    const rascal = await rascalClient;
+    await rascal.onReady();
+    const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
+    const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri.toString() });
 
     const terminal = vscode.window.createTerminal({
         cwd: path.dirname(uri.fsPath),
         shellPath: await getJavaExecutable(),
-        shellArgs: buildShellArgs(await compilationPath, await serverConfig, ...extraArgs),
+        shellArgs: buildShellArgs(compilationPath, serverConfig, ...extraArgs),
         name: 'Rascal Terminal',
     });
 
