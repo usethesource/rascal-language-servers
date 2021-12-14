@@ -51,7 +51,7 @@ export async function getJavaExecutable(): Promise<string> {
             const versionRun = await pexec(`"${possibleCandidate}" -version`);
             const versionsFound = /version "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
             if (versionsFound && versionsFound.length > 0) {
-                if (Number(versionsFound[1]) >= currentJVMEngineMin || Number(versionsFound[1]) <= currentJVMEngineMax) {
+                if (Number(versionsFound[1]) >= currentJVMEngineMin && Number(versionsFound[1]) <= currentJVMEngineMax) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
                     return possibleCandidate;
                 }
