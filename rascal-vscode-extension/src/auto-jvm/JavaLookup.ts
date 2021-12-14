@@ -33,8 +33,9 @@ import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 
 
-const currentJVMEngineTarget = 8;
-const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineTarget}`);
+const currentJVMEngineMin = 8;
+const currentJVMEngineMax = 11;
+const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineMax}`);
 
 let lookupCompleted: Thenable<string> | undefined;
 
@@ -50,7 +51,7 @@ export async function getJavaExecutable(): Promise<string> {
             const versionRun = await pexec(`"${possibleCandidate}" -version`);
             const versionsFound = /version "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
             if (versionsFound && versionsFound.length > 0) {
-                if (Number(versionsFound[1]) === currentJVMEngineTarget) {
+                if (Number(versionsFound[1]) >= currentJVMEngineMin || Number(versionsFound[1]) <= currentJVMEngineMax) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
                     return possibleCandidate;
                 }
@@ -94,11 +95,11 @@ function getJavaCandidates(): string[] {
 
 export async function askUserForJVM() : Promise<string> {
     const selfInstall = "Install myself & restart vscode";
-    const extensionInstall = `Automatically download Java ${currentJVMEngineTarget} `;
+    const extensionInstall = `Automatically download Java ${currentJVMEngineMin} `;
     const configurePath = "Configure JDK path";
 
     const opt = await vscode.window.showErrorMessage(
-        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineTarget} runtime. Shall we download it, or will you set it up yourself?`,
+        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineMin} runtime. Shall we download it, or will you set it up yourself?`,
         { modal: true},
         selfInstall, extensionInstall, configurePath
     );
@@ -108,7 +109,7 @@ export async function askUserForJVM() : Promise<string> {
     if (opt === configurePath) {
         return openSettings();
     }
-    throw Error("User setup required for jdk " + currentJVMEngineTarget);
+    throw Error("User setup required for jdk " + currentJVMEngineMin);
 }
 
 async function startAutoInstall(): Promise<string> {
@@ -138,7 +139,7 @@ async function startAutoInstall(): Promise<string> {
 
 async function openSettings(): Promise<string> {
     await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:rascalmpl');
-    throw Error("User setup required for jdk " + currentJVMEngineTarget);
+    throw Error("User setup required for jdk " + currentJVMEngineMin);
 }
 
 async function downloadJDK(): Promise<string> {
@@ -146,13 +147,13 @@ async function downloadJDK(): Promise<string> {
     const msJava = "Microsoft Build of OpenJDK";
     const amazon = "Amazon Corretto";
     let options = [];
-    if (temurinSupported(currentJVMEngineTarget)) {
+    if (temurinSupported(currentJVMEngineMax)) {
         options.push(temurin);
     }
-    if (microsoftSupported(currentJVMEngineTarget)) {
+    if (microsoftSupported(currentJVMEngineMax)) {
         options.push(msJava);
     }
-    if (correttoSupported(currentJVMEngineTarget)) {
+    if (correttoSupported(currentJVMEngineMax)) {
         options.push(amazon);
     }
     const choice = await vscode.window.showQuickPick(options, { canPickMany: false, placeHolder: "Select OpenJDK build"});
@@ -166,9 +167,9 @@ async function downloadJDK(): Promise<string> {
             progress.report({message: message, increment: percIncrement});
         }
         switch (choice) {
-            case temurin: return downloadTemurin(mainJVMPath, currentJVMEngineTarget, actualProgress);
-            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentJVMEngineTarget, actualProgress);
-            case amazon: return downloadCorretto(mainJVMPath, currentJVMEngineTarget, actualProgress);
+            case temurin: return downloadTemurin(mainJVMPath, currentJVMEngineMax, actualProgress);
+            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentJVMEngineMax, actualProgress);
+            case amazon: return downloadCorretto(mainJVMPath, currentJVMEngineMax, actualProgress);
             default:  throw new Error("User setup required");
         }
     });
