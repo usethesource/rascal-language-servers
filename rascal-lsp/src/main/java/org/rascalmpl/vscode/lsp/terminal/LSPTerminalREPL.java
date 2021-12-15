@@ -116,12 +116,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     try {
                         PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
 
-                        StringBuilder versions = new StringBuilder()
-                            .append("Rascal Version: ")
-                            .append(RascalManifest.getRascalVersionNumber())
-                            .append("\nRascal-lsp Version: ")
-                            .append(getRascalLspVersion());
-                        evaluator.getErrorPrinter().println(versions.toString());
+                        evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
+                        evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
                         for (IValue path : pcfg.getSrcs()) {
