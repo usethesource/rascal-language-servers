@@ -27,8 +27,9 @@ The Rascal VScode extension currently is bundled with the following libraries:
 
 ## Requirements
 
-* Installed JDK _8_ 
+* Installed JDK _11_ 
 * JAVA_HOME set to this JDK
+* However, the extension will propose to download the right JDK for you if you do not have it yet.
 
 ## Extension Settings
 
@@ -39,7 +40,7 @@ No settings so far.
 This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-**This extension only works with Java 8; it has to be ported to Java 11 and higher still.**
+**This extension works best with Java 11**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
@@ -54,9 +55,6 @@ For other things we are working on have a look here:
 ### 0.1.1
 
 * Added feature to publish diagnostics while scripting code analyses in the terminal (uses util::IDEServices)
-
-### 0.1.1
-
 * Added feature of clickable logical URI's, like "|java+class://java/util/List|" in the terminal such that they resolve to the code location of the declared entity.
 
 ### 0.1.0
