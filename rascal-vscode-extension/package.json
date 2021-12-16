@@ -20,7 +20,10 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0"
+    "node-fetch": "^2.6.6",
+    "tar": "^6.1.11",
+    "vscode-languageclient": "^7.0.0",
+    "yauzl": "^2.10.0"
   },
   "categories": [
     "Programming Languages"
@@ -93,7 +96,8 @@
     "watch": "npx tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
+    "normalTest": "npx mocha ./out/test/normal-suite/",
+    "test": "node ./out/test/runVSCodeTest.js",
     "license-check": "license-check-and-add check -f license-config.json",
     "license-add": "license-check-and-add add -f license-config.json"
   },
@@ -101,9 +105,14 @@
     "@types/glob": "^7.1.3",
     "@types/mocha": "^8.0.0",
     "@types/node": "^14.14.28",
+    "@types/node-fetch": "^2.5.12",
+    "@types/tar": "^6.1.1",
+    "@types/temp": "^0.9.1",
     "@types/vscode": "^1.52.0",
+    "@types/yauzl": "^2.9.2",
     "@typescript-eslint/eslint-plugin": "^4.1.1",
     "@typescript-eslint/parser": "^4.1.1",
+    "temp": "^0.9.4",
     "eslint": "^7.9.0",
     "glob": "^7.1.6",
     "license-check-and-add": "^4.0.2",

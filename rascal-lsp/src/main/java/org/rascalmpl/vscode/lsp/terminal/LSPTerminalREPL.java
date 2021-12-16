@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.Manifest;
 
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
@@ -80,6 +81,16 @@ public class LSPTerminalREPL extends BaseREPL {
         super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, null);
     }
 
+    private static String getRascalLspVersion() {
+        try {
+            return new Manifest(URIResolverRegistry.getInstance()
+                .getInputStream(URIUtil.correctLocation("lib", "rascal-lsp", "META-INF/MANIFEST.MF")))
+                .getMainAttributes().getValue("Specification-Version");
+        } catch (IOException e) {
+            return "Unknown";
+        }
+    }
+
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
@@ -105,6 +116,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     try {
                         PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
 
+                        evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
+                        evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
                         for (IValue path : pcfg.getSrcs()) {

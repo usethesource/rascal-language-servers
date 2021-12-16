@@ -15,9 +15,9 @@ Have a look here for more information:
 
 * R-LSP: IDE features for the Rascal metaprogramming language (parsing, syntax highlighting, type-checking, REPL terminal)
 * P-LSP: "language parameterized" LSP server for languages expressed in Rascal. From a syntax definition you can start running your own LSP in vscode in a few steps.
-* Rascal terminal: highly integrated terminal REPL that allows you tox:
+* Rascal terminal: highly integrated terminal REPL that allows you to:
    * script and experiment with ad-hoc code analyses and visualizations
-   * register new DSLs with VScode using the P-LSP
+   * register new DSLs with VSCode using the P-LSP
    * experiment and test new DSL features
 
 The Rascal VScode extension currently is bundled with the following libraries:
@@ -37,7 +37,7 @@ No settings so far.
 
 ## Known Issues
 
-This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version
+This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
 **This extension works best with Java 11**
@@ -47,6 +47,30 @@ For other things we are working on have a look here:
    * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
   
 ## Release Notes
+
+### 0.2.0
+
+* Moved to Java 11
+*
+### 0.1.5
+
+* Rascal LSP server now starts lazily to reduce memory overhead.
+* Parametric LSP server now starts lazily to reduce memory overhead.
+* Fixed missing print of Rascal version in the REPL.
+* Added print of Rascal-lsp version in the REPL.
+* Added automatic JDK download if none is available.
+* Added `registerLanguage` to public extension API.
+
+### 0.1.4
+
+* Improved semantic tokenization and highlighting for Rascal and DSLs. Tokenization has been refined to allow differential coloring of nested nonterminals.
+* Added folding regions for Rascal based on its grammar.
+* Added folding regions for DSLs based on the grammar.
+* Fixed REPL autoreloading for changed files.
+
+### 0.1.3
+
+* Bugfixes for the features below.
 
 ### 0.1.2
 
