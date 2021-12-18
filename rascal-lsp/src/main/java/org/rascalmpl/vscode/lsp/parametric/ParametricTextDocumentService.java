@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,6 +93,8 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.extensions.InlayHint;
+import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -261,12 +264,35 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ), () -> null);
     }
 
+    @Override
+    public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
+        final TextDocumentState file = getFile(params.getTextDocument());
+        final ILanguageContributions contrib = contributions(params.getTextDocument());
+
+        return recoverExceptions(
+                recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
+                .thenCompose(contrib::inlayHint)
+                .thenApply(s -> s.stream()
+                    .map(this::rowToInlayHint)
+                    .collect(Collectors.toList())
+            ), () -> null);
+    }
+
+
     private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
         return future
             .exceptionally(e -> {
                 logger.error("Operation failed with", e);
                 return defaultValue.get();
             });
+    }
+
+    private InlayHint rowToInlayHint(IValue v) {
+        ITuple t = (ITuple) v;
+        ISourceLocation loc = (ISourceLocation) t.get(0);
+        IString label = (IString) t.get(1);
+        IString kind = (IString) t.get(2);
+        return new InlayHint(label.getValue(), Locations.toPosition(loc, columns), kind.getValue());
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {

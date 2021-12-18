@@ -48,6 +48,7 @@ alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /
 alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
+alias InlayHinter      = rel[loc src, str label, HintKind kind] (Tree /*input*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
@@ -57,6 +58,7 @@ data LanguageService
     | completer(Completer completer)
     | builder(Builder builder)
     | lenses(LensDetector detector)
+    | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
     ;
 
@@ -119,6 +121,12 @@ data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 data Command(str title="")
     = noop()
+    ;
+
+data InlayKind
+    = \type()
+    | parameter()
+    | other(str name)
     ;
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}

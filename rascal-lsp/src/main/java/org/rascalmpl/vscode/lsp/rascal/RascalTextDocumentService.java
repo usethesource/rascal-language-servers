@@ -87,6 +87,8 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.extensions.InlayHint;
+import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
@@ -386,6 +388,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<Void> executeCommand(String extension, String command) {
         // there is currently no way the Rascal LSP can receive this, but the Rascal DSL LSP does.
         logger.warn("ignoring execute command in Rascal LSP: " + extension + "," + command);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
+        // currently inlay hints not supported by rascal yet
+        logger.warn("ignoring inlay hints for Rascal LSP: {}", params.getTextDocument());
         return CompletableFuture.completedFuture(null);
     }
 }
