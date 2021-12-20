@@ -29,13 +29,19 @@ package org.rascalmpl.vscode.lsp;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Stack;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import com.google.gson.JsonObject;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -47,6 +53,7 @@ import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
@@ -61,6 +68,7 @@ import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import jline.internal.Log;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
@@ -71,8 +79,8 @@ public class LSPIDEServices implements IDEServices {
 
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
-    private final Map<String, ProgressCounter> jobs = new ConcurrentHashMap<>();
     private final IBaseTextDocumentService docService;
+    private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, Logger logger) {
         this.languageClient = client;
@@ -140,39 +148,66 @@ public class LSPIDEServices implements IDEServices {
         languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
     }
 
+    private CompletableFuture<Void> tryRegisterProgress(String id) {
+       return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
+    }
 
-    private static final class ProgressCounter {
-        private final int totalWork;
-        private int done;
-        private ProgressCounter(int totalWork) {
-            this.totalWork = totalWork;
-            this.done = 0;
-        }
+    public CompletableFuture<Void> createProgressBar(String id) {
+        return tryRegisterProgress(id)
+            .thenApply(CompletableFuture::completedFuture)
+            .exceptionally(t -> retry(t, 0, id))
+            .thenCompose(Function.identity());
+    }
+    private CompletableFuture<Void> retry(Throwable first, int retry, String id) {
+        if(retry >= 100) return failedFuture(first);
+        return tryRegisterProgress(id)
+            .thenApply(CompletableFuture::completedFuture)
+            .exceptionally(t -> { first.addSuppressed(t); return retry(first, retry+1, id); })
+            .thenCompose(Function.identity());
+    }
 
-        double percentage() {
-            return ((double)done / totalWork) * 100;
-        }
-
+    public static <T> CompletableFuture<T> failedFuture(Throwable t) {
+        final CompletableFuture<T> cf = new CompletableFuture<>();
+        cf.completeExceptionally(t);
+        return cf;
     }
 
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        String id = jobId(name);
-        ProgressCounter counter = new ProgressCounter(workShare);
-        if (jobs.putIfAbsent(id, counter) == null) {
+        Deque<String> progress = activeProgress.get();
+        String id = getProgressId();
+        if (progress.isEmpty()) {
+            logger.info("Creating new progress bar: {} {} {}", id, name, progress);
+            // we are the first one, so we have to create a new progress bar
             // first we request the progress bar
-            languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
-            // then we initialize it it
+            createProgressBar(id)
+            .thenRun(() -> {
+                logger.info("Valid initialized progress bar: {}", id);
+                // then we initialize it it
+                languageClient.notifyProgress(
+                    new ProgressParams(
+                            Either.forLeft(id),
+                            Either.forRight(buildProgressBeginObject(name))
+                ));
+            });
+        }
+        else {
+            // other wise we have to update the progress bar to a new message
             languageClient.notifyProgress(
                 new ProgressParams(
                         Either.forLeft(id),
-                        Either.forRight(buildProgressBeginObject(name))
+                        Either.forRight(buildProgressStepObject(name))
             ));
+
         }
-        else {
-            logger.warn("Double registration of job ignored: {}", id);
-        }
+        progress.push(name);
+    }
+
+    private String getProgressId() {
+        Thread t = Thread.currentThread();
+        return "T" + Integer.toHexString(t.hashCode()) + "" + Long.toHexString(t.getId()) + "" + Integer.toHexString(System.identityHashCode(activeProgress.get()));
+
     }
 
     private Object buildProgressBeginObject(String name) {
@@ -184,53 +219,47 @@ public class LSPIDEServices implements IDEServices {
     }
 
 
-    private Object buildProgressStepObject(String message, double percentage) {
+    private Object buildProgressStepObject(String message) {
         JsonObject result = new JsonObject();
         result.addProperty("kind", "report");
         result.addProperty("message", message);
-        result.addProperty("percentage", percentage);
+        //result.addProperty("percentage", percentage);
         return result;
-    }
-
-    private String jobId(String name) {
-        // every job must be unique but several Threads may be producing these
-        // kinds of jobs. So we add a unique number of spaces to every name
-        // per object instance of this class.
-        return Thread.currentThread().getId() + ":" + name;
     }
 
     @Override
     public void jobStep(String name, String message, int workShare) {
-        String id = jobId(name);
-        ProgressCounter counter = jobs.get(id);
-        if (counter != null) {
-            counter.done += workShare;
-            languageClient.notifyProgress(
-                new ProgressParams(
-                        Either.forLeft(id),
-                        Either.forRight(buildProgressStepObject(message, counter.percentage()))
-            ));
+        String topName = activeProgress.get().peekFirst();
+        if (!Objects.equals(topName, name)) {
+            logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
+            return;
         }
-        else {
-            logger.warn("stepping a job that was not started: {}", name);
-        }
+        languageClient.notifyProgress(
+            new ProgressParams(
+                    Either.forLeft(getProgressId()),
+                    Either.forRight(buildProgressStepObject(message))
+        ));
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
-        String id = jobId(name);
-        if (jobs.remove(id) != null) {
+        String topName = activeProgress.get().peekFirst();
+        if (!Objects.equals(topName, name)) {
+            logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
+            return 1;
+        }
+        activeProgress.get().pollFirst();
+
+        if (activeProgress.get().isEmpty()) {
+            logger.info("Finished progress bar: {}", name);
+            // bottom of the stack, done with progress
             languageClient.notifyProgress(
                 new ProgressParams(
-                    Either.forLeft(id),
+                    Either.forLeft(getProgressId()),
                     Either.forLeft(new WorkDoneProgressEnd())
                 ));
-            return 1;
         }
-        else {
-            logger.warn("ended a job that does not exist: {}", name);
-            return 1;
-        }
+        return 1;
     }
 
     @Override
