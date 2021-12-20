@@ -126,7 +126,7 @@ data Command(str title="")
 data InlayHint
     = hint(
         loc range, // should point to a cursor position (begin and end column same)
-        str label, // text that should be printed in the ide
+        str label, // text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
         InlayKind kind,
         bool before = false // if the hint precedes or follows the text it's hinting
     );
