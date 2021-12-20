@@ -30,14 +30,13 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-
+import com.google.gson.JsonObject;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -46,7 +45,6 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
-import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -69,13 +67,11 @@ import io.usethesource.vallang.IValue;
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
-    private static final AtomicInteger instanceCounter = new AtomicInteger(0);
     private final Logger logger;
 
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
-    private final Set<String> jobs = new HashSet<>();
-    private final int myInstance;
+    private final Map<String, ProgressCounter> jobs = new ConcurrentHashMap<>();
     private final IBaseTextDocumentService docService;
 
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, Logger logger) {
@@ -83,7 +79,6 @@ public class LSPIDEServices implements IDEServices {
         this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
         this.logger = logger;
-        this.myInstance = instanceCounter.incrementAndGet();
     }
 
     @Override
@@ -145,45 +140,86 @@ public class LSPIDEServices implements IDEServices {
         languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
     }
 
+
+    private static final class ProgressCounter {
+        private final int totalWork;
+        private int done;
+        private ProgressCounter(int totalWork) {
+            this.totalWork = totalWork;
+            this.done = 0;
+        }
+
+        double percentage() {
+            return ((double)done / totalWork) * 100;
+        }
+
+    }
+
+
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
         String id = jobId(name);
-        if (!jobs.contains(id)) {
+        ProgressCounter counter = new ProgressCounter(workShare);
+        if (jobs.putIfAbsent(id, counter) == null) {
+            // first we request the progress bar
             languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
-            jobs.add(id);
+            // then we initialize it it
+            languageClient.notifyProgress(
+                new ProgressParams(
+                        Either.forLeft(id),
+                        Either.forRight(buildProgressBeginObject(name))
+            ));
         }
         else {
-            logger.warn("Double registration of job ignored: " +  id);
+            logger.warn("Double registration of job ignored: {}", id);
         }
+    }
+
+    private Object buildProgressBeginObject(String name) {
+        JsonObject result = new JsonObject();
+        result.addProperty("kind", "begin");
+        result.addProperty("title", name);
+        result.addProperty("cancellable", false);
+        return result;
+    }
+
+
+    private Object buildProgressStepObject(String message, double percentage) {
+        JsonObject result = new JsonObject();
+        result.addProperty("kind", "report");
+        result.addProperty("message", message);
+        result.addProperty("percentage", percentage);
+        return result;
     }
 
     private String jobId(String name) {
         // every job must be unique but several Threads may be producing these
         // kinds of jobs. So we add a unique number of spaces to every name
         // per object instance of this class.
-        return myInstance + ":" + name;
+        return Thread.currentThread().getId() + ":" + name;
     }
 
     @Override
     public void jobStep(String name, String message, int workShare) {
-        if (jobs.contains(name)) {
+        String id = jobId(name);
+        ProgressCounter counter = jobs.get(id);
+        if (counter != null) {
+            counter.done += workShare;
             languageClient.notifyProgress(
                 new ProgressParams(
-                        Either.forLeft(jobId(name)),
-                        Either.forLeft(new WorkDoneProgressReport()))
-                    );
+                        Either.forLeft(id),
+                        Either.forRight(buildProgressStepObject(message, counter.percentage()))
+            ));
         }
         else {
-            logger.warn("stepping a job that was not started: " + name);
+            logger.warn("stepping a job that was not started: {}", name);
         }
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
         String id = jobId(name);
-
-        if (jobs.contains(id)) {
-            jobs.remove(id);
+        if (jobs.remove(id) != null) {
             languageClient.notifyProgress(
                 new ProgressParams(
                     Either.forLeft(id),
@@ -192,7 +228,7 @@ public class LSPIDEServices implements IDEServices {
             return 1;
         }
         else {
-            logger.warn("ended a job that does not exist:" + name);
+            logger.warn("ended a job that does not exist: {}", name);
             return 1;
         }
     }
