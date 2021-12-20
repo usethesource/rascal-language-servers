@@ -91,12 +91,17 @@ function triggerDecorations(editor: vscode.TextEditor, client: LanguageClient) {
         let others: vscode.DecorationOptions[] = [];
         if (hints) {
             hints.forEach(h => {
+                const marginBefore = h.label.startsWith(" ") ? "0.25ex" : "0px";
+                const marginAfter = h.label.endsWith(" ") ? "0.25ex" : "0px";
+                const label = h.label.trim();
                 const decl = <vscode.DecorationOptions> {
                     range: client.protocol2CodeConverter.asRange(h.range),
                     renderOptions: {
                         [h.before ? "before" : "after"]: {
                             // add non-joiner to prevent ligatures
-                            contentText: h.before ? (h.label + "\u{200c}") : ("\u{200c}" + h.label)
+                            contentText: h.before ? (label + "\u{200c}") : ("\u{200c}" + label),
+                            margin: `0px ${marginAfter} 0px ${marginBefore}`
+
                         }
                     }
                 };
