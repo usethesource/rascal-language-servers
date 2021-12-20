@@ -166,9 +166,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<ISet> inlayHint(ITree input) {
+    public CompletableFuture<IList> inlayHint(ITree input) {
         logger.debug("inlayHinter({})", TreeAdapter.getLocation(input));
-        return execFunction("inlayHinter", inlayHinter, VF.set(), input);
+        return execFunction("inlayHinter", inlayHinter, VF.list(), input);
     }
 
     @Override

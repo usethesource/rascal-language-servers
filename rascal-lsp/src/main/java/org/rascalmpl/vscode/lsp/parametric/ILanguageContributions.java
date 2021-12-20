@@ -42,5 +42,5 @@ public interface ILanguageContributions {
     public CompletableFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
     public CompletableFuture<ISet> lenses(ITree input);
     public CompletableFuture<Void> executeCommand(String command);
-    public CompletableFuture<ISet> inlayHint(ITree input);
+    public CompletableFuture<IList> inlayHint(ITree input);
 }

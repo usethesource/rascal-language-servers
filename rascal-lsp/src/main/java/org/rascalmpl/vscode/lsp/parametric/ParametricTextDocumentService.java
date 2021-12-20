@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
+import javax.swing.Icon;
 import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
@@ -106,7 +106,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -288,11 +288,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private InlayHint rowToInlayHint(IValue v) {
-        ITuple t = (ITuple) v;
-        ISourceLocation loc = (ISourceLocation) t.get(0);
-        IString label = (IString) t.get(1);
-        IString kind = (IString) t.get(2);
-        return new InlayHint(label.getValue(), Locations.toPosition(loc, columns), kind.getValue());
+        IConstructor t = (IConstructor) v;
+        ISourceLocation loc = (ISourceLocation) t.get("range");
+        IString label = (IString) t.get("label");
+        IConstructor kind = (IConstructor) t.get("kind");
+        IBool before = (IBool)t.asWithKeywordParameters().getParameter("before");
+
+        String kindName = kind.getName();
+        if (kindName.equals("other")) {
+            kindName = ((IString)kind.get("name")).getValue();
+        }
+        return new InlayHint(label.getValue(), Locations.toRange(loc, columns), kindName, before.getValue());
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {

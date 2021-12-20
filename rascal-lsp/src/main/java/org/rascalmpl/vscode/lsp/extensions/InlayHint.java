@@ -3,7 +3,7 @@ package org.rascalmpl.vscode.lsp.extensions;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
 public class InlayHint {
@@ -11,16 +11,21 @@ public class InlayHint {
     private final String label;
 
     @NonNull
-    private final Position position;
+    private final Range range;
 
     @MonotonicNonNull
     private final String category;
 
+    @NonNull
+    private final boolean before;
 
-    public InlayHint(String label, Position position, @Nullable String category) {
+
+
+    public InlayHint(String label, Range range, @Nullable String category, boolean before) {
         this.label = label;
-        this.position = position;
+        this.range = range;
         this.category = category;
+        this.before = before;
     }
 
     public @Nullable String getCategory() {
@@ -30,8 +35,13 @@ public class InlayHint {
     public String getLabel() {
         return label;
     }
-    public Position getPosition() {
-        return position;
+
+    public Range getRange() {
+        return range;
+    }
+
+    public boolean isBefore() {
+        return before;
     }
 
     @Override
@@ -39,15 +49,16 @@ public class InlayHint {
         if (obj instanceof InlayHint) {
             InlayHint other = (InlayHint)obj;
             return other.label.equals(label)
-                && other.position.equals(position)
+                && other.range.equals(range)
                 && Objects.equals(other.category, category)
+                && other.before == before
                 ;
         }
         return false;
     }
     @Override
     public int hashCode() {
-        return Objects.hash(label, position, category);
+        return Objects.hash(label, range, category, before);
     }
 
 }

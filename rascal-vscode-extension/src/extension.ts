@@ -32,10 +32,11 @@ import * as net from 'net';
 import * as cp from 'child_process';
 import * as os from 'os';
 
-import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
+import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer, TextDocumentIdentifier, Range } from 'vscode-languageclient/node';
 import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { getJavaExecutable } from './auto-jvm/JavaLookup';
+import { addHintApi } from './hintExtension';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -135,9 +136,11 @@ export function activateRascalLanguageClient(): Promise<LanguageClient> {
     }
 }
 
-export function activateParametricLanguageClient(): Promise<LanguageClient> {
+export async function activateParametricLanguageClient(): Promise<LanguageClient> {
     try {
-        return activateLanguageClient('parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server', 9999, true);
+        const result = await activateLanguageClient('parametric-rascalmpl', 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer', 'Language Parametric Rascal Language Server', 9999, true);
+        addHintApi(result, rascalExtensionContext!, ALL_LANGUAGES_ID);
+        return result;
     } finally {
         console.log('LSP (Parametric) server started');
     }

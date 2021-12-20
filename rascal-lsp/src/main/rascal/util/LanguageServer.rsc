@@ -48,7 +48,7 @@ alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /
 alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
-alias InlayHinter      = rel[loc src, str label, HintKind kind] (Tree /*input*/);
+alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
@@ -123,7 +123,15 @@ data Command(str title="")
     = noop()
     ;
 
-data InlayKind
+data InlayHint
+    = hint(
+        loc range, // should point to a cursor position (begin and end column same)
+        str label, // text that should be printed in the ide
+        InlayKind kind,
+        bool before = false // if the hint precedes or follows the text it's hinting
+    );
+
+data InlayKind // this determines style
     = \type()
     | parameter()
     | other(str name)
