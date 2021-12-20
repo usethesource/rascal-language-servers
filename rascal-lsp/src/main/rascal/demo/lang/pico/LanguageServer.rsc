@@ -40,7 +40,8 @@ set[LanguageService] picoLanguageContributor() = {
     outliner(picoOutliner),
     summarizer(picoSummarizer),
     lenses(picoLenses),
-    executor(picoCommands)
+    executor(picoCommands),
+    inlayHinter(picoHinter)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -60,10 +61,15 @@ Summary picoSummarizer(loc l, start[Program] input) {
     );
 }
 
+
 data Command
   = renameAtoB(start[Program] program);
 
 rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
+
+list[InlayHint] picoHinter(start[Program] input) = [
+    hint(s.src, " fits any text", parameter()) | /s:(Type)`string` := input
+];
 
 list[DocumentEdit] getAtoBEdits(start[Program] input)
    = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
