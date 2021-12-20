@@ -28,6 +28,17 @@ import * as vscode from 'vscode';
 import { LanguageClient, Range, TextDocumentIdentifier } from 'vscode-languageclient/node';
 
 
+/*
+This module adds inlayHint support to rascal until it is supported in mainline vscode.
+
+The code inspired by:
+    - vscode-extension-samples (the decorator example) (MIT license)
+    - vscode: vscode.proposed.inlayHints.d.ts (MIT license)
+    - vscode: inlayHintsController.ts (MIT license)
+    - rust-analyzer: Apache License
+    - discussion in https://github.com/microsoft/language-server-protocol/issues/956
+    - discussion in https://github.com/microsoft/language-server-protocol/pull/1249
+*/
 
 function buildThemeBlock(kind: string): vscode.ThemableDecorationAttachmentRenderOptions {
     return {
@@ -101,7 +112,6 @@ function triggerDecorations(editor: vscode.TextEditor, client: LanguageClient) {
                             // add non-joiner to prevent ligatures
                             contentText: h.before ? (label + "\u{200c}") : ("\u{200c}" + label),
                             margin: `0px ${marginAfter} 0px ${marginBefore}`
-
                         }
                     }
                 };
