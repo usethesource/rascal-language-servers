@@ -71,7 +71,7 @@ export function addHintApi(client: LanguageClient, context: vscode.ExtensionCont
     vscode.window.onDidChangeActiveTextEditor(e => {
         activeEditor = e;
         if (e) {
-            triggerDecorations(e, client);
+            setTimeout(() => triggerDecorations(e, client), 500);
         }
     }, null, context.subscriptions);
 

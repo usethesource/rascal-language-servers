@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 
 import io.usethesource.vallang.IConstructor;
@@ -42,5 +43,5 @@ public interface ILanguageContributions {
     public CompletableFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
     public CompletableFuture<ISet> lenses(ITree input);
     public CompletableFuture<Void> executeCommand(String command);
-    public CompletableFuture<IList> inlayHint(ITree input);
+    public CompletableFuture<IList> inlayHint(@Nullable ITree input);
 }
