@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import org.apache.lucene.search.TopDocs;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
