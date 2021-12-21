@@ -173,6 +173,9 @@ public class LSPIDEServices implements IDEServices {
     }
 
 
+    private final ThreadLocal<CompletableFuture<Void>> progressBarRegistration
+        = new ThreadLocal<>();
+
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
         Deque<String> progress = activeProgress.get();
@@ -181,24 +184,30 @@ public class LSPIDEServices implements IDEServices {
             logger.info("Creating new progress bar: {} {} {}", id, name, progress);
             // we are the first one, so we have to create a new progress bar
             // first we request the progress bar
-            createProgressBar(id)
-            .thenRun(() -> {
-                logger.info("Valid initialized progress bar: {}", id);
-                // then we initialize it it
-                languageClient.notifyProgress(
-                    new ProgressParams(
-                            Either.forLeft(id),
-                            Either.forRight(buildProgressBeginObject(name))
-                ));
-            });
+            progressBarRegistration.set(
+                createProgressBar(id)
+                .thenRun(() -> {
+                    logger.info("Valid initialized progress bar: {}", id);
+                    // then we initialize it it
+                    languageClient.notifyProgress(
+                        new ProgressParams(
+                                Either.forLeft(id),
+                                Either.forRight(buildProgressBeginObject(name))
+                    ));
+                })
+            );
         }
         else {
+            CompletableFuture<Void> current = progressBarRegistration.get();
+            if (current == null) {
+                logger.error("Unexpected empty registration");
+                return;
+            }
             // other wise we have to update the progress bar to a new message
-            languageClient.notifyProgress(
+            current.thenRun(() -> languageClient.notifyProgress(
                 new ProgressParams(
-                        Either.forLeft(id),
-                        Either.forRight(buildProgressStepObject(name))
-            ));
+                    Either.forLeft(id),
+                    Either.forRight(buildProgressStepObject(name)))));
 
         }
         progress.push(name);
@@ -234,11 +243,16 @@ public class LSPIDEServices implements IDEServices {
             logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
             return;
         }
-        languageClient.notifyProgress(
+        CompletableFuture<Void> current = progressBarRegistration.get();
+        if (current == null) {
+            logger.error("Unexpected empty registration");
+            return;
+        }
+        current.thenRun(() -> languageClient.notifyProgress(
             new ProgressParams(
                     Either.forLeft(getProgressId()),
                     Either.forRight(buildProgressStepObject(message))
-        ));
+        )));
     }
 
     @Override
@@ -253,11 +267,16 @@ public class LSPIDEServices implements IDEServices {
         if (activeProgress.get().isEmpty()) {
             logger.info("Finished progress bar: {}", name);
             // bottom of the stack, done with progress
-            languageClient.notifyProgress(
-                new ProgressParams(
-                    Either.forLeft(getProgressId()),
-                    Either.forLeft(new WorkDoneProgressEnd())
-                ));
+                CompletableFuture<Void> current = progressBarRegistration.get();
+                if (current == null) {
+                    logger.error("Unexpected empty registration");
+                    return 1;
+                }
+                current.thenRun(() -> languageClient.notifyProgress(
+                    new ProgressParams(
+                        Either.forLeft(getProgressId()),
+                        Either.forLeft(new WorkDoneProgressEnd())
+                )));
         }
         return 1;
     }
