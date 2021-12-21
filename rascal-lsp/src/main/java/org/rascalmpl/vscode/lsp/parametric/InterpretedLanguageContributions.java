@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -68,12 +69,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final String mainModule;
 
     private final CompletableFuture<Evaluator> eval;
+    private final CompletableFuture<IRascalMonitor> monitor;
     private final CompletableFuture<TypeStore> store;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<@Nullable IFunction> outliner;
     private final CompletableFuture<@Nullable IFunction> summarizer;
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
+    private final CompletableFuture<@Nullable IFunction> inlayHinter;
 
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
@@ -87,16 +90,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             this.eval =
                 EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule());
-            CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator("load contributions", eval,
+            CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
                 exec).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
+            this.monitor = eval.thenApply(Evaluator::getMonitor);
             this.parser = contributions.thenApply(s -> getFunctionFor(s, "parser"));
             this.outliner = contributions.thenApply(s -> getFunctionFor(s, "outliner"));
             this.summarizer = contributions.thenApply(s -> getFunctionFor(s, "summarizer"));
             this.lenses = contributions.thenApply(s -> getFunctionFor(s, "lenses"));
             this.commandExecutor = contributions.thenApply(s -> getFunctionFor(s, "executor"));
+            this.inlayHinter = contributions.thenApply(s -> getFunctionFor(s, "inlayHinter"));
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -164,6 +169,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IList> inlayHint(@Nullable ITree input) {
+        logger.debug("inlayHinter({})", input != null ? TreeAdapter.getLocation(input) : null);
+        return execFunction("inlayHinter", inlayHinter, VF.list(), input);
+    }
+
+    @Override
     public CompletableFuture<Void> executeCommand(String command) {
         logger.debug("executeCommand({})", command);
         return parseCommand(command)
@@ -180,12 +191,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private <T> CompletableFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
-        return target.thenApplyAsync(s -> {
+        return target.
+            thenCombineAsync(monitor, (s, m) -> {
                 if (s == null) {
                     logger.trace("Not running {} since it's not defined for: {}", name, this.name);
                     return defaultResult;
                 }
-                return s.call(args);
+                m.jobStart(name + ": " + name);
+                try {
+                    return s.call(args);
+                }
+                finally {
+                    m.jobEnd(name + ": " + name, true);
+                }
         }, exec);
     }
+
 }

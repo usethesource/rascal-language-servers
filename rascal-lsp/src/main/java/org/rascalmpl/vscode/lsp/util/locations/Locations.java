@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -104,6 +103,10 @@ public class Locations {
 
     public static Position toPosition(int line, int column, LineColumnOffsetMap map, boolean atEnd) {
         return new Position(line, map.translateColumn(line, column, atEnd));
+    }
+
+    public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
+        return toPosition(loc.getBeginLine() - 1, loc.getBeginColumn(), cm.get(loc), false);
     }
 
 }

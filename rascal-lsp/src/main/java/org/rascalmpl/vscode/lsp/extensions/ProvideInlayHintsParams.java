@@ -24,24 +24,49 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.extensions;
 
-import java.util.concurrent.CompletableFuture;
+import com.google.common.base.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.rascalmpl.values.parsetrees.ITree;
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IList;
-import io.usethesource.vallang.ISet;
-import io.usethesource.vallang.ISourceLocation;
+public class ProvideInlayHintsParams {
+    @NonNull
+    private TextDocumentIdentifier textDocument;
 
-public interface ILanguageContributions {
-    public String getName();
-    public String getExtension();
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
-    public CompletableFuture<IList> outline(ITree input);
-    public CompletableFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
-    public CompletableFuture<ISet> lenses(ITree input);
-    public CompletableFuture<Void> executeCommand(String command);
-    public CompletableFuture<IList> inlayHint(@Nullable ITree input);
+    @Nullable
+    private Range range;
+
+    public ProvideInlayHintsParams() {}
+
+    public ProvideInlayHintsParams(TextDocumentIdentifier textDocument, @Nullable Range range) {
+        this.textDocument = textDocument;
+        this.range = range;
+    }
+
+    public TextDocumentIdentifier getTextDocument() {
+        return textDocument;
+    }
+
+    public @Nullable Range getRange() {
+        return range;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ProvideInlayHintsParams) {
+            ProvideInlayHintsParams other = (ProvideInlayHintsParams)obj;
+            return Objects.equal(other.textDocument, textDocument) && Objects.equal(other.range, range);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(textDocument, range);
+    }
+
+
 }

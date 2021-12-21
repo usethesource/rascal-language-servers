@@ -40,6 +40,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
@@ -64,16 +65,21 @@ public class EvaluatorUtil {
         return new InterruptibleFuture<>(CompletableFuture.supplyAsync(() -> {
             try {
                 Evaluator actualEval = eval.get();
-
+                actualEval.jobStart(task);
                 synchronized (actualEval) {
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
                             return defaultResult;
                         }
-                        return call.apply(actualEval);
+                        T result = call.apply(actualEval);
+                        actualEval.jobEnd(task, true);
+                        return result;
                     } catch (InterruptException e) {
                         return defaultResult;
+                    } catch (Throw e2) {
+                        actualEval.jobEnd(task, false);
+                        throw e2;
                     } finally {
                         actualEval.__setInterrupt(false);
                         runningEvaluator.set(null);
@@ -100,34 +106,42 @@ public class EvaluatorUtil {
     public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, IBaseLanguageClient client, String label, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
-                    IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                    IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
-            eval.setMonitor(new LSPIDEServices(client, docService, customLog));
+            IRascalMonitor monitor = new LSPIDEServices(client, docService, customLog);
+            try {
+                monitor.jobStart("Loading " + label);
+                Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
+                        IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
+                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
+                eval.setMonitor(monitor);
 
-            eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
-            eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
-            eval.addClassLoader(IValue.class.getClassLoader());
-            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
-            eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+                eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
+                eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
+                eval.addClassLoader(IValue.class.getClassLoader());
+                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
+                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 
-            if (pcfg != null) {
-                for (IValue src : pcfg.getSrcs()) {
-                    eval.addRascalSearchPath((ISourceLocation) src);
+                if (pcfg != null) {
+                    for (IValue src : pcfg.getSrcs()) {
+                        eval.addRascalSearchPath((ISourceLocation) src);
+                    }
                 }
+
+                for (String i : imports) {
+                    try {
+                        eval.doImport(eval, i);
+                    } catch (Exception e) {
+                        logger.catching(e);
+                        throw new RuntimeException("Failure to import required module " + i, e);
+                    }
+                }
+                monitor.jobEnd("Loading " + label, true);
+                return eval;
+            } catch (Exception e){
+                monitor.jobEnd("Loading " + label, false);
+                throw e;
             }
 
-            for (String i : imports) {
-                try {
-                    eval.doImport(eval, i);
-                } catch (Exception e) {
-                    logger.catching(e);
-                    throw new RuntimeException("Failure to import required module " + i, e);
-                }
-            }
-
-            return eval;
         }, exec);
     }
 }
