@@ -155,7 +155,9 @@ public abstract class BaseLanguageServer {
             }
         } catch (Throwable e) {
             logger.fatal("Unexpected exception", e);
-            e.printStackTrace();
+            if (DEPLOY_MODE) {
+                System.exit(1);
+            }
         }
     }
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
