@@ -29,13 +29,21 @@ package org.rascalmpl.vscode.lsp.rascal;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
-        startLanguageServer(() -> {
-            ExecutorService threadPool = Executors.newCachedThreadPool();
-            return new RascalTextDocumentService(threadPool);
-        }, 8888);
+        try {
+            startLanguageServer(() -> {
+                ExecutorService threadPool = Executors.newCachedThreadPool();
+                return new RascalTextDocumentService(threadPool);
+            }, 8888);
+        }
+        catch (Throwable e) {
+            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
+            logger.debug(e.getMessage(), e);
+        }
     }
 }
