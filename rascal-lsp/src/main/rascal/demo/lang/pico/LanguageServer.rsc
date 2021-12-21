@@ -69,7 +69,7 @@ rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, renameAtoB(inp
 
 
 list[InlayHint] picoHinter(start[Program] input) {
-    typeLookup = ( "<name>" : "<tp>" | /(Declaration)`<Id name> : <Type tp>` := input);
+    typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
     return [
         hint(name.src, ": <typeLookup["<name>"]>", \type()) | /(Expression)`<Id name>` := input
     ];
