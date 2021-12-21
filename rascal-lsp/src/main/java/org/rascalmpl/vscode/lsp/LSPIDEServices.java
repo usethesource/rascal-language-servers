@@ -238,7 +238,11 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void jobStep(String name, String message, int workShare) {
-        String topName = activeProgress.get().peekFirst();
+        Deque<String> progressStack = activeProgress.get();
+        while (!progressStack.isEmpty() && !Objects.equals(name, progressStack.peekFirst())) {
+            progressStack.pollFirst(); // drop head if we've missed some ends
+        }
+        String topName = progressStack.peekFirst();
         if (!Objects.equals(topName, name)) {
             logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
             return;
@@ -248,37 +252,40 @@ public class LSPIDEServices implements IDEServices {
             logger.error("Unexpected empty registration");
             return;
         }
+        String id = getProgressId();
         current.thenRun(() -> languageClient.notifyProgress(
             new ProgressParams(
-                    Either.forLeft(getProgressId()),
+                    Either.forLeft(id),
                     Either.forRight(buildProgressStepObject(message))
         )));
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
-        String topName = activeProgress.get().peekFirst();
-        if (!Objects.equals(topName, name)) {
-            logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
-            return 1;
+        Deque<String> progressStack = activeProgress.get();
+        String topName;
+        while ((topName = progressStack.pollFirst()) != null) {
+            if (topName.equals(name)) {
+                break;
+            }
         }
-        activeProgress.get().pollFirst();
 
-        if (activeProgress.get().isEmpty()) {
+        if (progressStack.isEmpty()) {
             logger.info("Finished progress bar: {}", name);
             // bottom of the stack, done with progress
-                CompletableFuture<Void> current = progressBarRegistration.get();
-                if (current == null) {
-                    logger.error("Unexpected empty registration");
-                    return 1;
-                }
-                current
-                .handle((e,r) -> null) // always close, also in case of exception
-                .thenRun(() -> languageClient.notifyProgress(
-                    new ProgressParams(
-                        Either.forLeft(getProgressId()),
-                        Either.forLeft(new WorkDoneProgressEnd())
-                )));
+            CompletableFuture<Void> current = progressBarRegistration.get();
+            if (current == null) {
+                logger.error("Unexpected empty registration");
+                return 1;
+            }
+            String id = getProgressId();
+            current
+            .handle((e,r) -> null) // always close, also in case of exception
+            .thenRun(() -> languageClient.notifyProgress(
+                new ProgressParams(
+                    Either.forLeft(id),
+                    Either.forLeft(new WorkDoneProgressEnd())
+            )));
         }
         return 1;
     }
