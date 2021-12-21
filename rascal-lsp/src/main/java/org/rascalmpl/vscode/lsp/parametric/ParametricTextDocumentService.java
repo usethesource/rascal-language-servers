@@ -39,7 +39,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
 import com.google.common.io.CharStreams;
 
 import org.apache.logging.log4j.LogManager;
@@ -92,6 +91,8 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.extensions.InlayHint;
+import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -103,7 +104,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -261,12 +262,41 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ), () -> null);
     }
 
+    @Override
+    public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
+        final TextDocumentState file = getFile(params.getTextDocument());
+        final ILanguageContributions contrib = contributions(params.getTextDocument());
+
+        return recoverExceptions(
+                recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
+                .thenCompose(contrib::inlayHint)
+                .thenApply(s -> s.stream()
+                    .map(this::rowToInlayHint)
+                    .collect(Collectors.toList())
+            ), () -> null);
+    }
+
+
     private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
         return future
             .exceptionally(e -> {
                 logger.error("Operation failed with", e);
                 return defaultValue.get();
             });
+    }
+
+    private InlayHint rowToInlayHint(IValue v) {
+        IConstructor t = (IConstructor) v;
+        ISourceLocation loc = (ISourceLocation) t.get("range");
+        IString label = (IString) t.get("label");
+        IConstructor kind = (IConstructor) t.get("kind");
+        IBool before = (IBool)t.asWithKeywordParameters().getParameter("before");
+
+        String kindName = kind.getName();
+        if (kindName.equals("other")) {
+            kindName = ((IString)kind.get("name")).getValue();
+        }
+        return new InlayHint(label.getValue(), Locations.toRange(loc, columns), kindName, before == null ? false : before.getValue());
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {

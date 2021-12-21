@@ -26,14 +26,15 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.vscode.lsp.extensions.InlayHint;
+import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
-
 import io.usethesource.vallang.ISourceLocation;
 
 public interface IBaseTextDocumentService extends TextDocumentService {
@@ -43,4 +44,5 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void registerLanguage(LanguageParameter lang);
     CompletableFuture<Void> executeCommand(String extension, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
+    CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params);
 }

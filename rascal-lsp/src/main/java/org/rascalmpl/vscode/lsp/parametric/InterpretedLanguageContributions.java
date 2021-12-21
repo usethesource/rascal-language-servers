@@ -74,6 +74,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> summarizer;
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
+    private final CompletableFuture<@Nullable IFunction> inlayHinter;
 
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
@@ -97,6 +98,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.summarizer = contributions.thenApply(s -> getFunctionFor(s, "summarizer"));
             this.lenses = contributions.thenApply(s -> getFunctionFor(s, "lenses"));
             this.commandExecutor = contributions.thenApply(s -> getFunctionFor(s, "executor"));
+            this.inlayHinter = contributions.thenApply(s -> getFunctionFor(s, "inlayHinter"));
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -164,6 +166,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IList> inlayHint(@Nullable ITree input) {
+        logger.debug("inlayHinter({})", input != null ? TreeAdapter.getLocation(input) : null);
+        return execFunction("inlayHinter", inlayHinter, VF.list(), input);
+    }
+
+    @Override
     public CompletableFuture<Void> executeCommand(String command) {
         logger.debug("executeCommand({})", command);
         return parseCommand(command)
@@ -188,4 +196,5 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 return s.call(args);
         }, exec);
     }
+
 }

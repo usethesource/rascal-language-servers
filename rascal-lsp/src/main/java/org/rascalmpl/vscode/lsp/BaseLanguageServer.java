@@ -59,6 +59,8 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.extensions.InlayHint;
+import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
@@ -227,6 +229,11 @@ public abstract class BaseLanguageServer {
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
             return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang));
+        }
+
+        @Override
+        public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
+            return lspDocumentService.provideInlayHints(params);
         }
 
         @Override
