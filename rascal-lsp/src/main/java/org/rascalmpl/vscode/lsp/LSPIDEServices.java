@@ -272,7 +272,9 @@ public class LSPIDEServices implements IDEServices {
                     logger.error("Unexpected empty registration");
                     return 1;
                 }
-                current.thenRun(() -> languageClient.notifyProgress(
+                current
+                .handle((e,r) -> null) // always close, also in case of exception
+                .thenRun(() -> languageClient.notifyProgress(
                     new ProgressParams(
                         Either.forLeft(getProgressId()),
                         Either.forLeft(new WorkDoneProgressEnd())
