@@ -1,6 +1,6 @@
 # Rascal Metaprogramming Language and Language Workbench
 
-Rascal MPL is a programming language specifically designed to analyze and manipulate code in 
+Rascal MPL is a programming language specifically designed to analyze and manipulate code in
 any data format or programming language. This means code generation, code analysis, code visualization,
 anything that you can do to code and with code, Rascal is designed to make it easy.
 
@@ -8,7 +8,7 @@ In particular the creation of IDEs for new Programming Languages and Domain Spec
 is easy with Rascal. The Rascal VScode extension is a so-called Language Workbench.
 
 Have a look here for more information:
-   * http://www.rascal-mpl.org 
+   * http://www.rascal-mpl.org
    * http://www.usethesource.io
 
 ## Features
@@ -27,8 +27,8 @@ The Rascal VScode extension currently is bundled with the following libraries:
 
 ## Requirements
 
-* Installed JDK _8_ 
-* JAVA_HOME set to this JDK
+* Installed JDK _8_ (11 is also allowed)
+* JDK on PATH *or* configured in JAVA_HOME environment variable
 
 ## Extension Settings
 
@@ -39,13 +39,18 @@ No settings so far.
 This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-**This extension only works with Java 8; it has to be ported to Java 11 and higher still.**
+**This extension works best Java 8; most features work well with Java 11, but higher will cause breakage.**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
    * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
-  
+
 ## Release Notes
+
+### 0.1.6
+
+* Rascal is now properly reporting progress
+* Parametric DSLs can defined inlayHints to annotate a source tree
 
 ### 0.1.5
 
