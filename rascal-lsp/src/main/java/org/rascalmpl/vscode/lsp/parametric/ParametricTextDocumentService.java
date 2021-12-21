@@ -296,7 +296,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         if (kindName.equals("other")) {
             kindName = ((IString)kind.get("name")).getValue();
         }
-        return new InlayHint(label.getValue(), Locations.toRange(loc, columns), kindName, before.getValue());
+        return new InlayHint(label.getValue(), Locations.toRange(loc, columns), kindName, before == null ? false : before.getValue());
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {

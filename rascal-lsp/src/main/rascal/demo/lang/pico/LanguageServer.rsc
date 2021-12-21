@@ -88,7 +88,7 @@ void main() {
             pathConfig(),
             "Pico",
             "pico",
-            "util::TestIDE",
+            "demo::lang::pico::LanguageServer",
             "picoLanguageContributor"
         )
     );
