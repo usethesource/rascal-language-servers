@@ -40,7 +40,7 @@ No settings so far.
 This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-**This extension works best Java 11; higher will cause breakage.**
+**This extension works best with Java 11; higher will cause breakage.**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
