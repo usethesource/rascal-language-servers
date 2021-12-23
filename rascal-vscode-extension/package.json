@@ -97,7 +97,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "normalTest": "npx mocha ./out/test/normal-suite/",
-    "test": "node ./out/test/runVSCodeTest.js",
+    "test": "node ./out/test/runVSCodeTests.js",
     "license-check": "license-check-and-add check -f license-config.json",
     "license-add": "license-check-and-add add -f license-config.json"
   },
