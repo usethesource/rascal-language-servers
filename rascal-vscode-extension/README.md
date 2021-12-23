@@ -28,7 +28,6 @@ The Rascal VScode extension currently is bundled with the following libraries:
 ## Requirements
 
 * Installed JDK _11_ 
-* JAVA_HOME set to this JDK
 * However, the extension will propose to download the right JDK for you if you do not have it yet.
 
 ## Extension Settings
