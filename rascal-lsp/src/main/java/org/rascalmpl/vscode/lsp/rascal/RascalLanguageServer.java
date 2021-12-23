@@ -43,7 +43,7 @@ public class RascalLanguageServer extends BaseLanguageServer {
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.debug(e.getMessage(), e);
+            logger.fatal(e.getMessage(), e);
         }
     }
 }
