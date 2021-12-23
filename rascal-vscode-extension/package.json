@@ -10,7 +10,7 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.1.7-head",
+  "version": "0.2.0-head",
   "engines": {
     "vscode": "^1.55.0"
   },
@@ -112,14 +112,14 @@
     "@types/yauzl": "^2.9.2",
     "@typescript-eslint/eslint-plugin": "^4.1.1",
     "@typescript-eslint/parser": "^4.1.1",
-    "temp": "^0.9.4",
     "eslint": "^7.9.0",
     "glob": "^7.1.6",
     "license-check-and-add": "^4.0.2",
     "mocha": "^8.1.3",
+    "temp": "^0.9.4",
     "ts-loader": "^8.0.3",
     "typescript": "^4.0.2",
-    "vsce": "^1.87.0",
+    "vsce": "^2.5.3",
     "vscode-test": "^1.4.0"
   }
 }

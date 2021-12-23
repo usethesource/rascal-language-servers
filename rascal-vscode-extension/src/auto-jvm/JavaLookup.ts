@@ -33,7 +33,7 @@ import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 
 
-const currentJVMEngineMin = 8;
+const currentJVMEngineMin = 11;
 const currentJVMEngineMax = 11;
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineMax}`);
 
