@@ -26,13 +26,37 @@
  */
 import * as assert from 'assert';
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import * as rascalExtension from '../../extension';
+
+const testFolderLocation = '/../../../src/test/test-workspace';
 
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
 
     test('Never commit debug mode', () => {
         assert.strictEqual(rascalExtension.getRascalExtensionDeploymode(), true);
+    });
+
+    test('Open Rascal file', async () => {
+      //This test has the side effect of activating the Rascal extension
+      const file = vscode.Uri.file(path.join(__dirname + testFolderLocation + '/A.rsc'));
+      const document = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(document);
+
+      vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+    });
+
+    test('Test RegisterLanguage', async () => {
+        vscode.window.showInformationMessage('Starting Pico tests.');
+        const pico = {pathConfig: 'pathConfig()', name: 'Pico', extension: 'pico', mainModule: 'demo::lang::pico::LanguageServer', mainFunction: 'picoLanguageContributor'};
+        rascalExtension.registerLanguage(pico);
+
+        const p1 = vscode.Uri.file(path.join(__dirname + testFolderLocation + '/P1.pico'));
+        const document = await vscode.workspace.openTextDocument(p1);
+        const editor = await vscode.window.showTextDocument(document);
+
+        vscode.commands.executeCommand('workbench.action.closeActiveEditor');
     });
 });
