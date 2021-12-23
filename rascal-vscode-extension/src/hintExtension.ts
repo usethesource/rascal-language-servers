@@ -93,7 +93,8 @@ export function addHintApi(client: LanguageClient, context: vscode.ExtensionCont
     }, null, context.subscriptions);
 }
 
-function triggerDecorations(editor: vscode.TextEditor, client: LanguageClient) {
+async function triggerDecorations(editor: vscode.TextEditor, client: LanguageClient) {
+    await client.onReady();
     client.sendRequest<InlayHint[]>("rascal/provideInlayHints", <ProvideInlayHintParameter>{
         textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(editor.document),
     }).then(hints => {
