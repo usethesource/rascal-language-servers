@@ -100,7 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
         return rascalClient;
     }));
 
-    return {registerLanguage};
+    return {registerLanguage, getRascalExtensionDeploymode};
 }
 
 export function registerLanguage(lang:LanguageParameter) {

@@ -44,6 +44,7 @@ suite('Extension Test Suite', () => {
       const file = vscode.Uri.file(path.join(__dirname + testFolderLocation + '/A.rsc'));
       const document = await vscode.workspace.openTextDocument(file);
       const editor = await vscode.window.showTextDocument(document);
+    const rascalExtension:vscode.Extension<any> = vscode.extensions.getExtension('usethesource.rascalmpl')!;
 
       vscode.commands.executeCommand('workbench.action.closeActiveEditor');
     });
