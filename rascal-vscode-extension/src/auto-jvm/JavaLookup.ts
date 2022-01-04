@@ -48,8 +48,9 @@ export async function getJavaExecutable(): Promise<string> {
     }
     for (const possibleCandidate of getJavaCandidates()) {
         try {
-            const versionRun = await pexec(`"${possibleCandidate}" -version`);
-            const versionsFound = /version "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
+            // we check the availability of javac, since we need a JDK instead of a JRE
+            const versionRun = await pexec(`"${makeJavac(possibleCandidate)}" -version`);
+            const versionsFound = /javac "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
             if (versionsFound && versionsFound.length > 0) {
                 if (Number(versionsFound[1]) >= currentJVMEngineMin && Number(versionsFound[1]) <= currentJVMEngineMax) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
@@ -63,8 +64,18 @@ export async function getJavaExecutable(): Promise<string> {
     }
     // okay, so we don't have a working java interpreter, so we ask the user
     lookupCompleted = askUserForJVM();
-    lookupCompleted.then(good => {}, e => { lookupCompleted = undefined; });
+    lookupCompleted.then(good => {}, e => {
+        console.log("Automatic download failed: ", e);
+        lookupCompleted = undefined;
+    });
     return lookupCompleted;
+}
+
+function makeJavac(javaPath: string): string {
+    if (javaPath.endsWith(".exe")) {
+        return javaPath.replace("java.exe", "javac.exe");
+    }
+    return javaPath + "c";
 }
 
 function getJavaCandidates(): string[] {
@@ -85,7 +96,7 @@ function getJavaCandidates(): string[] {
                 case 'linux': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java"); break;
                 case 'darwin': possiblePath = path.join(mainJVMPath, String(ent), "Contents", "Home", "bin", "java"); break;
             }
-            if (existsSync(possiblePath)) {
+            if (existsSync(makeJavac(possiblePath))) {
                 result.push(possiblePath);
             }
         }
@@ -95,11 +106,11 @@ function getJavaCandidates(): string[] {
 
 export async function askUserForJVM() : Promise<string> {
     const selfInstall = "Install myself & restart vscode";
-    const extensionInstall = `Automatically download Java ${currentJVMEngineMin} `;
+    const extensionInstall = `Automatically download Java ${currentJVMEngineMax} `;
     const configurePath = "Configure JDK path";
 
     const opt = await vscode.window.showErrorMessage(
-        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineMin} runtime. Shall we download it, or will you set it up yourself?`,
+        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineMax} runtime. Shall we download it, or will you set it up yourself?`,
         { modal: true},
         selfInstall, extensionInstall, configurePath
     );
@@ -156,7 +167,7 @@ async function downloadJDK(): Promise<string> {
     if (correttoSupported(currentJVMEngineMax)) {
         options.push(amazon);
     }
-    const choice = await vscode.window.showQuickPick(options, { canPickMany: false, placeHolder: "Select OpenJDK build"});
+    const choice = await vscode.window.showInformationMessage("Select which OpenJDK provider you prefer", {modal:true}, ...options);
 
     const result = await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
