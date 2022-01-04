@@ -73,7 +73,7 @@ export async function getJavaExecutable(): Promise<string> {
 
 function makeJavac(javaPath: string): string {
     if (javaPath.endsWith(".exe")) {
-        return javaPath.replace("java.exe", "javac.exe");
+        return javaPath.replace(/java.exe$/, "javac.exe");
     }
     return javaPath + "c";
 }
