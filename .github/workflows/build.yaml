@@ -38,12 +38,10 @@ jobs:
         run: mvn -B clean verify
 
       - name: Append build id if pre-release
-        if: ${{ !startsWith(github.ref, 'refs/tags/rascal-lsp') }}
         working-directory: ./rascal-vscode-extension
         run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
       - name: Package & compile extension 
-        if: ${{ !startsWith(github.ref, 'refs/tags/rascal-lsp') }}
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
@@ -54,14 +52,12 @@ jobs:
           # disable vs-code test npm run test
 
       - name: package extension
-        if: ${{ !startsWith(github.ref, 'refs/tags/rascal-lsp') }}
         working-directory: rascal-vscode-extension
         run: |
           npm run lsp4j:package
           npx vsce package
 
       - name: upload final vsix 
-        if: ${{ !startsWith(github.ref, 'refs/tags/rascal-lsp') }}
         uses: actions/upload-artifact@v2
         with:
           path: rascal-vscode-extension/*.vsix
@@ -74,24 +70,3 @@ jobs:
           packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
-
-      - name: Attach rascal-lsp artifact
-        working-directory: ./rascal-lsp
-        if: ${{ startsWith(github.ref, 'refs/tags/rascal-lsp') }}
-        id: build-artifact
-        uses: SWAT-engineering/maven-full-artifacts-action@v1
-
-      - name: Deploy rascal-lsp artifact
-        working-directory: ./rascal-lsp
-        if: startsWith(github.ref, 'refs/tags/rascal-lsp')
-        id: deploy-artifact
-        uses: usethesource/releases-maven-action@v1
-        with:
-          maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
-          maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
-          maven-local-port: ${{ secrets.RELEASE_MAVEN_LOCAL_PORT }}
-          ssh-hostname: ${{ secrets.RELEASE_SSH_SERVER }}
-          ssh-known-host: ${{ secrets.RELEASE_SSH_KNOWN_HOSTS }}
-          ssh-username: ${{ secrets.RELEASE_SSH_USERNAME }}
-          ssh-private-key: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
-
