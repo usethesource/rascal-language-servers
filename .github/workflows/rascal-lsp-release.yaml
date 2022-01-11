@@ -1,4 +1,4 @@
-name: CI
+name: Release Rascal-LSP
 on:
   push:
     tags:
@@ -7,8 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      working-directory: ./rascal-lsp
+    defaults:
+      run:
+        working-directory: ./rascal-lsp
 
     steps:
       - uses: actions/checkout@v2
