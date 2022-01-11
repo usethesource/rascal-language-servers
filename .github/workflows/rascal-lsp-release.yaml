@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+    tags:
+      - 'rascal-lsp-[0-9]+.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      working-directory: ./rascal-lsp
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK 
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Package & compile rascal-lsp
+        run: mvn -B clean verify
+
+      - name: Deploy
+        uses: usethesource/releases-maven-action@v1
+        with:
+          maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
+          maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
+          maven-local-port: ${{ secrets.RELEASE_MAVEN_LOCAL_PORT }}
+          ssh-hostname: ${{ secrets.RELEASE_SSH_SERVER }}
+          ssh-known-host: ${{ secrets.RELEASE_SSH_KNOWN_HOSTS }}
+          ssh-username: ${{ secrets.RELEASE_SSH_USERNAME }}
+          ssh-private-key: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
+
+      - name: Report Failure
+        if: failure()
+        uses: act10ns/slack@v1
+        with:
+          status: ${{ job.status }}
+          steps: ${{ toJson(steps) }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.RASCAL_SLACK_WEBHOOK }}
