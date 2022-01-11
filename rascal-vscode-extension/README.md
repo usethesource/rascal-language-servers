@@ -47,6 +47,11 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.1.7
+
+* bumping log4j2 dependency for compliance
+
+
 ### 0.1.6
 
 * Rascal is now properly reporting progress
