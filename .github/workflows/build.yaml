@@ -83,8 +83,8 @@ jobs:
 
       - name: Deploy rascal-lsp artifact
         if: startsWith(github.ref, 'refs/tags/rascal-lsp')
-        working-directory: ./rascal-lsp
         uses: usethesource/releases-maven-action@v1
+        working-directory: ./rascal-lsp
         with:
           maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
           maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
