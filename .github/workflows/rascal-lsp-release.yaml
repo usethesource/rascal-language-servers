@@ -32,7 +32,6 @@ jobs:
       - name: Deploy
         uses: usethesource/releases-maven-action@v1
         with:
-          working-directory: ./rascal-lsp
           maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
           maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
           maven-local-port: ${{ secrets.RELEASE_MAVEN_LOCAL_PORT }}
@@ -40,6 +39,8 @@ jobs:
           ssh-known-host: ${{ secrets.RELEASE_SSH_KNOWN_HOSTS }}
           ssh-username: ${{ secrets.RELEASE_SSH_USERNAME }}
           ssh-private-key: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
+        env:
+          working-directory: ./rascal-lsp
 
       - name: Report Failure
         if: failure()
