@@ -50,7 +50,7 @@ export async function getJavaExecutable(): Promise<string> {
         try {
             // we check the availability of javac, since we need a JDK instead of a JRE
             const versionRun = await pexec(`"${makeJavac(possibleCandidate)}" -version`);
-            const versionsFound = /javac "(?:1\.)?([0-9]+)\./.exec(versionRun.stderr);
+            const versionsFound = /javac (?:1\.)?([0-9]+)\./.exec(versionRun.stdout);
             if (versionsFound && versionsFound.length > 0) {
                 if (Number(versionsFound[1]) >= currentJVMEngineMin && Number(versionsFound[1]) <= currentJVMEngineMax) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
