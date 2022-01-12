@@ -30,7 +30,7 @@ jobs:
         run: mvn -B clean verify
 
       - name: Deploy
-        uses: usethesource/releases-maven-action@v1
+        uses: usethesource/releases-maven-action@v1.6
         with:
           maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
           maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
@@ -39,7 +39,6 @@ jobs:
           ssh-known-host: ${{ secrets.RELEASE_SSH_KNOWN_HOSTS }}
           ssh-username: ${{ secrets.RELEASE_SSH_USERNAME }}
           ssh-private-key: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
-        env:
           working-directory: ./rascal-lsp
 
       - name: Report Failure
