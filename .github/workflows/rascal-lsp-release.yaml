@@ -31,7 +31,7 @@ jobs:
         run: mvn -B clean verify
 
       - name: Deploy
-        uses: usethesource/releases-maven-action@v1.6
+        uses: usethesource/releases-maven-action@v1
         with:
           maven-username: ${{ secrets.RELEASE_MAVEN_USERNAME }}
           maven-password: ${{ secrets.RELEASE_MAVEN_PASSWORD }}
