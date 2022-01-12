@@ -1,5 +1,6 @@
 name: Release Rascal-LSP
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'rascal-lsp-[0-9]+.*'
