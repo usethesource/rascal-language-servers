@@ -28,6 +28,8 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
@@ -79,6 +81,76 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> inlayHinter;
 
 
+    private class MonitorWrapper implements IRascalMonitor {
+        private final IRascalMonitor original;
+        private final String namePrefix;
+        private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
+
+        public MonitorWrapper(IRascalMonitor original, String namePrefix) {
+            this.original = original;
+            this.namePrefix = namePrefix + ": ";
+        }
+
+        @Override
+        public void jobStart(String name, int workShare, int totalWork) {
+            var progressStack = activeProgress.get();
+            if (progressStack.isEmpty()) {
+                progressStack.push(name);
+                name = namePrefix + name;
+            }
+            else {
+                progressStack.push(name);
+            }
+            original.jobStart(name, workShare, totalWork);
+        }
+
+        @Override
+        public void jobStep(String name, String message, int workShare) {
+            if (activeProgress.get().size() == 1) {
+                name = namePrefix + name;
+            }
+            original.jobStep(name, message, workShare);
+        }
+
+        @Override
+        public int jobEnd(String name, boolean succeeded) {
+            Deque<String> progressStack = activeProgress.get();
+            String topName;
+            while ((topName = progressStack.pollFirst()) != null) {
+                if (topName.equals(name)) {
+                    break;
+                }
+            }
+            if (progressStack.isEmpty()) {
+                name = namePrefix + name;
+                activeProgress.remove(); // clear memory
+            }
+            return original.jobEnd(name, succeeded);
+        }
+
+        @Override
+        public boolean jobIsCanceled(String name) {
+            if (activeProgress.get().size() == 1) {
+                name = namePrefix + name;
+            }
+            return original.jobIsCanceled(name);
+        }
+
+        @Override
+        public void jobTodo(String name, int work) {
+            if (activeProgress.get().size() == 1) {
+                name = namePrefix + name;
+            }
+            original.jobTodo(name, work);
+        }
+
+        @Override
+        public void warning(String message, ISourceLocation src) {
+            original.warning(message, src);
+        }
+
+    }
+
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();
@@ -89,7 +161,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule());
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule())
+                .thenApply(e -> {
+                    e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
+                    return e;
+                });
             CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
@@ -197,12 +273,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     logger.trace("Not running {} since it's not defined for: {}", name, this.name);
                     return defaultResult;
                 }
-                m.jobStart(name + ": " + name);
+                m.jobStart(name);
                 try {
                     return s.call(args);
                 }
                 finally {
-                    m.jobEnd(name + ": " + name, true);
+                    m.jobEnd(name, true);
                 }
         }, exec);
     }
