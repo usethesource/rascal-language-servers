@@ -271,6 +271,7 @@ public class LSPIDEServices implements IDEServices {
         }
 
         if (progressStack.isEmpty()) {
+            activeProgress.remove(); // clear the memory to avoid lingering stacks per thread
             logger.info("Finished progress bar: {}", name);
             // bottom of the stack, done with progress
             CompletableFuture<Void> current = progressBarRegistration.get();
