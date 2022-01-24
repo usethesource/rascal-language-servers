@@ -265,22 +265,24 @@ public class LSPIDEServices implements IDEServices {
         }
 
         if (progressStack.isEmpty()) {
-            activeProgress.remove(); // clear the memory to avoid lingering stacks per thread
-            logger.info("Finished progress bar: {}", name);
+            String id = getProgressId();
             // bottom of the stack, done with progress
             CompletableFuture<Void> current = progressBarRegistration.get();
+            activeProgress.remove(); // clear the memory to avoid lingering stacks per thread
+            progressBarRegistration.remove(); // clear the memory to avoid lingering futures per thread
             if (current == null) {
                 logger.error("Unexpected empty registration");
                 return 1;
             }
-            String id = getProgressId();
             current
-            .handle((e,r) -> null) // always close, also in case of exception
-            .thenRun(() -> languageClient.notifyProgress(
-                new ProgressParams(
-                    Either.forLeft(id),
-                    Either.forLeft(new WorkDoneProgressEnd())
-            )));
+                .handle((e,r) -> null) // always close, also in case of exception
+                .thenRun(() -> {
+                    logger.trace("Finished progress bar: {} as {}", name, id);
+                    languageClient.notifyProgress(
+                        new ProgressParams(
+                            Either.forLeft(id),
+                            Either.forLeft(new WorkDoneProgressEnd())));
+                });
         }
         return 1;
     }
