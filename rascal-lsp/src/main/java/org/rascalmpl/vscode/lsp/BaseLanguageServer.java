@@ -215,7 +215,7 @@ public abstract class BaseLanguageServer {
 
                 ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
                 if (projectDir == null) {
-                    throw new RuntimeException("Project of file |" + projectFolder.getUri() + "| is missing a `MANIFEST/RASCAL.MF` file!");
+                    throw new RuntimeException("Project of file |" + projectFolder.getUri() + "| is missing a `META-INF/RASCAL.MF` file!");
                 }
                 PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
 
