@@ -111,8 +111,6 @@ export function microsoftSupported(jdkVersion: number): boolean {
 
 
 export async function downloadTemurin(mainJVMPath: string, jdkVersion: number, progress: ProgressFunc): Promise<string> {
-    // todo: consider getting a newer LTS release like 17?
-    // java 17 has builds for aarch64-osx
     const jdkRelease = await identifyLatestTemurinLTSRelease(jdkVersion);
 
     const arch = mapTemuringCorrettoArch();
@@ -178,7 +176,7 @@ export async function identifyLatestTemurinLTSRelease(version: number): Promise<
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
     }
-    return `jdk-${rel.semver}`;
+    return `jdk-${rel.openjdk_version}`;
 }
 
 function mapTemuringCorrettoArch(): TemurinArchitectures {
