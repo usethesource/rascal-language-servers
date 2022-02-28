@@ -41,6 +41,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void initializeServerCapabilities(ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);
+    void pair(BaseWorkspaceService workspaceService);
     void registerLanguage(LanguageParameter lang);
     CompletableFuture<Void> executeCommand(String extension, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);

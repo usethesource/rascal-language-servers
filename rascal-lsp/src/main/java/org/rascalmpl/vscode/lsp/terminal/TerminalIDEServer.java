@@ -51,6 +51,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.ideservices.BasicIDEServices;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -72,9 +73,11 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private final DocumentChanges docChanges;
     private final Set<String> jobs = new HashSet<>();
     private final IBaseTextDocumentService docService;
+    private final BaseWorkspaceService workspaceService;
 
-    public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService) {
+    public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService) {
         this.languageClient = client;
+        this.workspaceService = workspaceService;
         this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
     }
@@ -98,9 +101,12 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         ISourceLocation input = loc.getLocation();
         String projectName = input.getAuthority();
 
-        return languageClient.workspaceFolders()
-            .thenApply(fs -> fs.stream().filter(f -> f.getName().equals(projectName)).findAny())
-            .thenApply(x -> x.isPresent() ? buildProjectChildLoc(x.get(), input, loc) : loc);
+        for (var folder: workspaceService.currentWorkSpaceFolders()) {
+            if (folder.getName().equals(projectName)) {
+                return CompletableFuture.completedFuture(buildProjectChildLoc(folder, input, loc));
+            }
+        }
+        return CompletableFuture.completedFuture(loc);
     }
 
     private SourceLocationParameter buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input, SourceLocationParameter fallback) {

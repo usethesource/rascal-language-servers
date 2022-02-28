@@ -37,9 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import com.google.common.io.CharStreams;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -84,6 +82,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -100,7 +99,6 @@ import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.ISourceLocation;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -114,6 +112,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private final Map<ISourceLocation, TextDocumentState> documents;
     private final ColumnMaps columns;
     private @MonotonicNonNull FileFacts facts;
+    private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
@@ -150,11 +149,16 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
     }
+    @Override
+    public void pair(BaseWorkspaceService workspaceService) {
+        this.workspaceService = workspaceService;
+
+    }
 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.rascalServices = new RascalLanguageServices(this, (IBaseLanguageClient) client, ownExecuter);
+        this.rascalServices = new RascalLanguageServices(this, workspaceService, (IBaseLanguageClient) client, ownExecuter);
         this.facts = new FileFacts(ownExecuter, rascalServices, columns);
         facts.setClient(client);
     }
@@ -397,4 +401,5 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.warn("ignoring inlay hints for Rascal LSP: {}", params.getTextDocument());
         return CompletableFuture.completedFuture(null);
     }
+
 }

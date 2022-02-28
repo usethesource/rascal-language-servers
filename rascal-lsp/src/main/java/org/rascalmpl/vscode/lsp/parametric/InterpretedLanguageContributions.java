@@ -45,6 +45,7 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
@@ -151,7 +152,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     }
 
-    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, IBaseLanguageClient client, ExecutorService exec) {
+    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();
         extension = lang.getExtension();
@@ -161,7 +162,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule())
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule())
                 .thenApply(e -> {
                     e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
                     return e;

@@ -42,14 +42,16 @@ public class IDEServicesThread extends Thread {
     private final IBaseLanguageClient ideClient;
     private final ServerSocket serverSocket;
     private final IBaseTextDocumentService docService;
+    private final BaseWorkspaceService workspaceService;
     private static final Logger logger = LogManager.getLogger(IDEServicesThread.class);
 
-    public IDEServicesThread(IBaseLanguageClient client, IBaseTextDocumentService docService, ServerSocket socket) {
+    public IDEServicesThread(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, ServerSocket socket) {
         super("Terminal IDE Services Thread");
         setDaemon(true);
         this.serverSocket = socket;
         this.ideClient = client;
         this.docService = docService;
+        this.workspaceService = workspaceService;
     }
 
     @Override
@@ -60,7 +62,7 @@ public class IDEServicesThread extends Thread {
                     Socket connection = serverSocket.accept();
 
                     Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
-                        .setLocalService(new TerminalIDEServer(ideClient, docService))
+                        .setLocalService(new TerminalIDEServer(ideClient, docService, workspaceService))
                         .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
@@ -98,11 +100,11 @@ public class IDEServicesThread extends Thread {
      * @return the port number that the IDE services are running on
      * @throws IOException when a new server socket can not be established.
      */
-    public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService) {
+    public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService) {
         try {
             ServerSocket socket = new ServerSocket(0);
 
-            new IDEServicesThread(client, docService, socket).start();
+            new IDEServicesThread(client, docService, workspaceService, socket).start();
 
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {

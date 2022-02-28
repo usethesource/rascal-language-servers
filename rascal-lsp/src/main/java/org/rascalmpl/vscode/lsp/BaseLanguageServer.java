@@ -36,8 +36,10 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -48,8 +50,11 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.Registration;
+import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.WorkspaceFoldersChangeEvent;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
@@ -169,7 +174,6 @@ public abstract class BaseLanguageServer {
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
-        private List<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
@@ -181,7 +185,7 @@ public abstract class BaseLanguageServer {
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
             try {
-                for (WorkspaceFolder folder : workspaceFolders) {
+                for (WorkspaceFolder folder : lspWorkspaceService.currentWorkSpaceFolders()) {
                     if (folder.getName().equals(loc.getAuthority())) {
                         ISourceLocation root = URIUtil.createFromURI(folder.getUri());
                         return URIUtil.getChildLocation(root, loc.getPath());
@@ -246,10 +250,9 @@ public abstract class BaseLanguageServer {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+            lspWorkspaceService.setInitialWorkspaceFolders(params.getWorkspaceFolders());
+            lspWorkspaceService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            if (params.getWorkspaceFolders() != null) {
-                this.workspaceFolders.addAll(params.getWorkspaceFolders());
-            }
 
             return CompletableFuture.completedFuture(initializeResult);
         }
@@ -271,15 +274,16 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public WorkspaceService getWorkspaceService() {
+        public BaseWorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
         }
 
         @Override
         public void connect(LanguageClient client) {
             this.client = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService);
-            getTextDocumentService().connect(this.client);
+            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService, lspWorkspaceService);
+            lspDocumentService.connect(this.client);
+            lspWorkspaceService.connect(this.client);
         }
     }
 }
