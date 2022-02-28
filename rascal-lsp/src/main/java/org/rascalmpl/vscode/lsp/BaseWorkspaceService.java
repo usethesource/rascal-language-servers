@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.annotation.Nullable;
 import com.google.gson.JsonPrimitive;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
@@ -55,18 +56,21 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     }
 
 
-    public void initializeServerCapabilities(ServerCapabilities capabilities) {
-        var workspaceCap = new WorkspaceFoldersOptions();
-        workspaceCap.setSupported(true);
-        workspaceCap.setChangeNotifications(true);
-        capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
-    }
-
-    public void setInitialWorkspaceFolders(@Nullable List<WorkspaceFolder> workspaceFolders) {
+    public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
         this.workspaceFolders.clear();
-        if (workspaceFolders != null) {
-            this.workspaceFolders.addAll(workspaceFolders);
+        if (currentWorkspaceFolders != null) {
+            this.workspaceFolders.addAll(currentWorkspaceFolders);
         }
+
+        var clientWorkspaceCap = clientCap.getWorkspace();
+
+        if (clientWorkspaceCap != null && Boolean.TRUE.equals(clientWorkspaceCap.getWorkspaceFolders())) {
+            var workspaceCap = new WorkspaceFoldersOptions();
+            workspaceCap.setSupported(true);
+            workspaceCap.setChangeNotifications(true);
+            capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
+        }
+
     }
 
     public List<WorkspaceFolder> workspaceFolders() {
@@ -111,6 +115,8 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
                 return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
         }
     }
+
+
 
 
 }
