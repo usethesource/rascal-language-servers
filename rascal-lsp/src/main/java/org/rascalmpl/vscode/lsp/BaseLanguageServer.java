@@ -247,7 +247,9 @@ public abstract class BaseLanguageServer {
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            this.workspaceFolders.addAll(params.getWorkspaceFolders());
+            if (params.getWorkspaceFolders() != null) {
+                this.workspaceFolders.addAll(params.getWorkspaceFolders());
+            }
 
             return CompletableFuture.completedFuture(initializeResult);
         }
