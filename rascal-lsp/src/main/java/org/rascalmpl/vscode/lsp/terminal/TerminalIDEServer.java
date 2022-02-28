@@ -101,7 +101,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         ISourceLocation input = loc.getLocation();
         String projectName = input.getAuthority();
 
-        for (var folder: workspaceService.currentWorkSpaceFolders()) {
+        for (var folder: workspaceService.workspaceFolders()) {
             if (folder.getName().equals(projectName)) {
                 return CompletableFuture.completedFuture(buildProjectChildLoc(folder, input, loc));
             }

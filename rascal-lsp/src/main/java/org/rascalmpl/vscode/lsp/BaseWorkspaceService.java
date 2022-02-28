@@ -69,7 +69,7 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         }
     }
 
-    public List<WorkspaceFolder> currentWorkSpaceFolders() {
+    public List<WorkspaceFolder> workspaceFolders() {
         return Collections.unmodifiableList(workspaceFolders);
     }
 

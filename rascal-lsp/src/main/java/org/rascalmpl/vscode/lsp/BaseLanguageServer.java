@@ -185,7 +185,7 @@ public abstract class BaseLanguageServer {
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
             try {
-                for (WorkspaceFolder folder : lspWorkspaceService.currentWorkSpaceFolders()) {
+                for (WorkspaceFolder folder : lspWorkspaceService.workspaceFolders()) {
                     if (folder.getName().equals(loc.getAuthority())) {
                         ISourceLocation root = URIUtil.createFromURI(folder.getUri());
                         return URIUtil.getChildLocation(root, loc.getPath());
