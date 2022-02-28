@@ -39,10 +39,8 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -53,7 +51,6 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
@@ -64,7 +61,6 @@ import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
-
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -169,7 +165,6 @@ public abstract class BaseLanguageServer {
         private final Runnable onExit;
         private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
-        private List<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
@@ -181,7 +176,7 @@ public abstract class BaseLanguageServer {
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
             try {
-                for (WorkspaceFolder folder : workspaceFolders) {
+                for (WorkspaceFolder folder : lspWorkspaceService.workspaceFolders()) {
                     if (folder.getName().equals(loc.getAuthority())) {
                         ISourceLocation root = URIUtil.createFromURI(folder.getUri());
                         return URIUtil.getChildLocation(root, loc.getPath());
@@ -246,10 +241,8 @@ public abstract class BaseLanguageServer {
             logger.info("LSP connection started");
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            if (params.getWorkspaceFolders() != null) {
-                this.workspaceFolders.addAll(params.getWorkspaceFolders());
-            }
 
             return CompletableFuture.completedFuture(initializeResult);
         }
@@ -271,15 +264,16 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public WorkspaceService getWorkspaceService() {
+        public BaseWorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
         }
 
         @Override
         public void connect(LanguageClient client) {
             this.client = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService);
-            getTextDocumentService().connect(this.client);
+            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService, lspWorkspaceService);
+            lspDocumentService.connect(this.client);
+            lspWorkspaceService.connect(this.client);
         }
     }
 }

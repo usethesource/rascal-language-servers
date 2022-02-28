@@ -26,30 +26,82 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.CopyOnWriteArrayList;
 import com.google.gson.JsonPrimitive;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
+import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.WorkspaceFoldersOptions;
+import org.eclipse.lsp4j.WorkspaceServerCapabilities;
+import org.eclipse.lsp4j.services.LanguageClient;
+import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
-public class BaseWorkspaceService implements WorkspaceService {
+public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private final IBaseTextDocumentService documentService;
+    private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
+
 
     BaseWorkspaceService(IBaseTextDocumentService documentService) {
         this.documentService = documentService;
+        documentService.pair(this);
+    }
+
+
+    public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
+        this.workspaceFolders.clear();
+        if (currentWorkspaceFolders != null) {
+            this.workspaceFolders.addAll(currentWorkspaceFolders);
+        }
+
+        var clientWorkspaceCap = clientCap.getWorkspace();
+
+        if (clientWorkspaceCap != null && Boolean.TRUE.equals(clientWorkspaceCap.getWorkspaceFolders())) {
+            var workspaceCap = new WorkspaceFoldersOptions();
+            workspaceCap.setSupported(true);
+            workspaceCap.setChangeNotifications(true);
+            capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
+        }
+
+    }
+
+    public List<WorkspaceFolder> workspaceFolders() {
+        return Collections.unmodifiableList(workspaceFolders);
+    }
+
+    @Override
+    public void connect(LanguageClient client) {
+        // reserved for the future
     }
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-
+        // not used yet
     }
 
     @Override
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
+        // todo: use in the future
+    }
 
+    @Override
+    public void didChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams params) {
+        var removed = params.getEvent().getRemoved();
+        if (removed != null) {
+            workspaceFolders.removeAll(removed);
+        }
+        var added = params.getEvent().getAdded();
+        if (added != null) {
+            workspaceFolders.addAll(added);
+        }
     }
 
     @Override
@@ -63,4 +115,8 @@ public class BaseWorkspaceService implements WorkspaceService {
                 return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
         }
     }
+
+
+
+
 }

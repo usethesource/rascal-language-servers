@@ -74,10 +74,13 @@ public class LSPIDEServices implements IDEServices {
     private final IBaseLanguageClient languageClient;
     private final DocumentChanges docChanges;
     private final IBaseTextDocumentService docService;
+    private final BaseWorkspaceService workspaceService;
     private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
-    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, Logger logger) {
+
+    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger) {
         this.languageClient = client;
+        this.workspaceService = workspaceService;
         this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
         this.logger = logger;
@@ -101,17 +104,12 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
-        String projectName = input.getAuthority();
-
-        try {
-            return languageClient.workspaceFolders()
-                .thenApply(fs -> fs.stream().filter(f -> f.getName().equals(projectName)).findAny())
-                .thenApply(x -> x.isPresent() ? buildProjectChildLoc(x.get(), input) : input)
-                .get();
-        } catch (InterruptedException | ExecutionException e) {
-            logger.catching(e);
-            return input;
+        for (var folder : workspaceService.workspaceFolders()) {
+            if (folder.getName().equals(input.getAuthority())) {
+                return buildProjectChildLoc(folder, input);
+            }
         }
+        return input;
     }
 
     private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input) {
