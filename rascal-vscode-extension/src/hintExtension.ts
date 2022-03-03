@@ -67,12 +67,12 @@ const inlayHintDecoratorStyle = {
 ;
 
 export function addHintApi(client: LanguageClient, context: vscode.ExtensionContext, languageId : string) {
+    // keep track of the current editor
+    // to avoid calculating hints to editors that are not visible
     let activeEditor = vscode.window.activeTextEditor;
     vscode.window.onDidChangeActiveTextEditor(e => {
         activeEditor = e;
-        if (e) {
-            setTimeout(() => triggerDecorations(e, client), 500);
-        }
+        setTimeout(trigger, 500);
     }, null, context.subscriptions);
 
     function trigger() {
