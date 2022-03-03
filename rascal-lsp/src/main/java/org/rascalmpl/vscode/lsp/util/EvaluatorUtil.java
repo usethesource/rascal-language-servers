@@ -60,12 +60,11 @@ import io.usethesource.vallang.IValue;
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, Future<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec) {
+    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean throwFailure) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
-        return new InterruptibleFuture<>(CompletableFuture.supplyAsync(() -> {
+        return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
             try {
-                Evaluator actualEval = eval.get();
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
                     boolean jobSuccess = false;
@@ -89,9 +88,15 @@ public class EvaluatorUtil {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
                 logger.error("Full internal error: ", e);
+                if (throwFailure) {
+                    throw e;
+                }
                 return defaultResult;
             } catch (Throwable e) {
                 logger.error("{} failed", task, e);
+                if (throwFailure) {
+                    throw e;
+                }
                 return defaultResult;
             }
         }, exec), () -> {
@@ -107,6 +112,7 @@ public class EvaluatorUtil {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             IRascalMonitor monitor = new LSPIDEServices(client, docService, workspaceService, customLog);
+            boolean jobSuccess = false;
             try {
                 monitor.jobStart("Loading " + label);
                 Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
@@ -135,13 +141,11 @@ public class EvaluatorUtil {
                         throw new RuntimeException("Failure to import required module " + i, e);
                     }
                 }
-                monitor.jobEnd("Loading " + label, true);
+                jobSuccess = true;
                 return eval;
-            } catch (Throwable e){
-                monitor.jobEnd("Loading " + label, false);
-                throw e;
+            } finally {
+                monitor.jobEnd("Loading " + label, jobSuccess);
             }
-
         }, exec);
     }
 }

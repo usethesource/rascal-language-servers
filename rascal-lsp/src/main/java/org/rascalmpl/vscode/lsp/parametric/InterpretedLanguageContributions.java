@@ -170,7 +170,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             CompletableFuture<ISet> contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
-                exec).get();
+                exec, true).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.monitor = eval.thenApply(Evaluator::getMonitor);
             this.parser = contributions.thenApply(s -> getFunctionFor(s, "parser"));
