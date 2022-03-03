@@ -108,14 +108,23 @@ public class LSPTerminalREPL extends BaseREPL {
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-                    String projectName = new RascalManifest().getProjectName(projectDir);
+                    String projectName = "unknown-project";
+                    if (projectDir != null) {
+                        projectName = new RascalManifest().getProjectName(projectDir);
+                    }
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
                     try {
-                        PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
-
+                        PathConfig pcfg;
+                        if (projectDir != null) {
+                            pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+                        }
+                        else {
+                            // TODO: see if we need to do something special for RascalConfigMode flag for this default path config
+                            pcfg = new PathConfig();
+                        }
                         evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());

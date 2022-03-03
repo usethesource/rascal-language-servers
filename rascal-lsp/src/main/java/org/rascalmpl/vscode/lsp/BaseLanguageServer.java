@@ -61,6 +61,7 @@ import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -200,9 +201,22 @@ public abstract class BaseLanguageServer {
             throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
+        private static String[] classLoaderFiles(IList source) {
+            return source.stream()
+                    .map(e -> (ISourceLocation) e)
+                    .filter(e -> e.getScheme().equals("file"))
+                    .map(e -> ((ISourceLocation) e).getPath())
+                    .toArray(String[]::new);
+        }
+
         @Override
         public CompletableFuture<String[]> supplyProjectCompilationClasspath(IBaseLanguageServerExtensions.URIParameter projectFolder) {
             try {
+                if (projectFolder.getUri() == null) {
+                    return CompletableFuture.completedFuture(
+                        classLoaderFiles(PathConfig.getDefaultClassloadersList())
+                    );
+                }
                 ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
                 if (!URIResolverRegistry.getInstance().isDirectory(path)) {
                     path = URIUtil.getParentLocation(path);
@@ -214,11 +228,7 @@ public abstract class BaseLanguageServer {
                 }
                 PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
 
-                return CompletableFuture.completedFuture(pcfg.getClassloaders().stream()
-                    .map(e -> (ISourceLocation) e)
-                    .filter(e -> e.getScheme().equals("file"))
-                    .map(e -> ((ISourceLocation) e).getPath())
-                    .toArray(String[]::new));
+                return CompletableFuture.completedFuture(classLoaderFiles(pcfg.getClassloaders()));
             }
             catch (IOException | URISyntaxException e) {
                 logger.catching(e);
