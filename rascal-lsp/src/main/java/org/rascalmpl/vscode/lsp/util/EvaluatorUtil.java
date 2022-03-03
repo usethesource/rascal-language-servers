@@ -68,20 +68,19 @@ public class EvaluatorUtil {
                 Evaluator actualEval = eval.get();
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
+                    boolean jobSuccess = false;
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
                             return defaultResult;
                         }
                         T result = call.apply(actualEval);
-                        actualEval.jobEnd(task, true);
+                        jobSuccess = true;
                         return result;
                     } catch (InterruptException e) {
                         return defaultResult;
-                    } catch (Throw e2) {
-                        actualEval.jobEnd(task, false);
-                        throw e2;
                     } finally {
+                        actualEval.jobEnd(task, jobSuccess);
                         actualEval.__setInterrupt(false);
                         runningEvaluator.set(null);
                     }
@@ -91,8 +90,8 @@ public class EvaluatorUtil {
                         e.getTrace());
                 logger.error("Full internal error: ", e);
                 return defaultResult;
-            } catch (Exception e) {
-                logger.error(task + " failed", e);
+            } catch (Throwable e) {
+                logger.error("{} failed", task, e);
                 return defaultResult;
             }
         }, exec), () -> {
@@ -138,7 +137,7 @@ public class EvaluatorUtil {
                 }
                 monitor.jobEnd("Loading " + label, true);
                 return eval;
-            } catch (Exception e){
+            } catch (Throwable e){
                 monitor.jobEnd("Loading " + label, false);
                 throw e;
             }
