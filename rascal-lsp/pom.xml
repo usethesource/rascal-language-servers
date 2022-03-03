@@ -141,6 +141,14 @@
                     <compilerArgument>-parameters</compilerArgument> <!-- make sure parameters are compiled by name into the jar -->
                 </configuration>
             </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-release-plugin</artifactId>
+              <version>2.5.3</version>
+              <configuration>
+                <tagNameFormat>rascal-lsp-@{project.version}</tagNameFormat>
+              </configuration>
+            </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
