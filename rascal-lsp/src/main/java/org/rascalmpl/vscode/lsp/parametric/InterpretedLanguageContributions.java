@@ -173,12 +173,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 exec, true).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.monitor = eval.thenApply(Evaluator::getMonitor);
-            this.parser = contributions.thenApply(s -> getFunctionFor(s, "parser"));
-            this.outliner = contributions.thenApply(s -> getFunctionFor(s, "outliner"));
-            this.summarizer = contributions.thenApply(s -> getFunctionFor(s, "summarizer"));
-            this.lenses = contributions.thenApply(s -> getFunctionFor(s, "lenses"));
-            this.commandExecutor = contributions.thenApply(s -> getFunctionFor(s, "executor"));
-            this.inlayHinter = contributions.thenApply(s -> getFunctionFor(s, "inlayHinter"));
+            this.parser = getFunctionFor(contributions, "parser");
+            this.outliner = getFunctionFor(contributions, "outliner");
+            this.summarizer = getFunctionFor(contributions, "summarizer");
+            this.lenses = getFunctionFor(contributions, "lenses");
+            this.commandExecutor = getFunctionFor(contributions, "executor");
+            this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -200,15 +200,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static @Nullable IFunction getFunctionFor(ISet contributions, String cons) {
-        for (IValue elem : contributions) {
-            IConstructor contrib = (IConstructor) elem;
-            if (cons.equals(contrib.getConstructorType().getName())) {
-                return (IFunction) contrib.get(0);
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+        return contributions.thenApply(conts -> {
+            for (IValue elem : conts) {
+                IConstructor contrib = (IConstructor) elem;
+                if (cons.equals(contrib.getConstructorType().getName())) {
+                    return (IFunction) contrib.get(0);
+                }
             }
-        }
-        logger.debug("No {} defined", cons);
-        return null;
+            logger.debug("No {} defined", cons);
+            return null;
+        });
     }
 
     @Override
