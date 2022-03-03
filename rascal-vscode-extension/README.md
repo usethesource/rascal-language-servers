@@ -27,7 +27,7 @@ The Rascal VScode extension currently is bundled with the following libraries:
 
 ## Requirements
 
-* Installed JDK _11_ 
+* Installed JDK _11_
 * However, the extension will propose to download the right JDK for you if you do not have it yet.
 
 ## Extension Settings
@@ -50,10 +50,21 @@ For other things we are working on have a look here:
 ### 0.2.0
 
 * Moved to Java 11
+* Upgrade to newer Rascal type-checker
+* Early support for cross-project rascal dependencies for both REPL & type-checker
+* Rascal features work even without a project open (opening a single rascal file for example)
+* Improved status bar messages for DSLs and making sure to always clear finished tasked
+* Increases performance of project source location operations
+* Automatic java detection ignores JREs
+* Fixed bug that prevented detection of new projects added to the workspace
+
+### 0.1.7
+
+* Security release, bumping log4j dependency
 
 ### 0.1.6
 
-* Rascal is now properly reporting progress 
+* Rascal is now properly reporting progress
 * Parametric DSLs can defined inlayHints to annotate a source tree
 
 ### 0.1.5
