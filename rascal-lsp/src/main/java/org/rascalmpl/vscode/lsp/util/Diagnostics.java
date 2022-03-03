@@ -38,6 +38,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
@@ -73,11 +74,17 @@ public class Diagnostics {
         return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
     }
 
+
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
             IConstructor error = (IConstructor) e;
-            ISourceLocation loc = (ISourceLocation) error.get(0);
-            return new Diagnostic(Locations.toRange(loc, cm), "parse error", DiagnosticSeverity.Error, "parser");
+            if (error.getName().equals("ParseError")) {
+                ISourceLocation loc = (ISourceLocation) error.get(0);
+                return new Diagnostic(Locations.toRange(loc, cm), "parse error", DiagnosticSeverity.Error, "parser");
+            }
+            else {
+                return new Diagnostic(new Range(new Position(0, 0), new Position(0,0)), "Unknown error : " + e.toString());
+            }
         }
         else {
             throw new IllegalArgumentException(e.toString());
