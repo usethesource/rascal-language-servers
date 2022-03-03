@@ -1,9 +1,6 @@
-#! /bin/sh
+#!/usr/bin/env bash
 
-set -e
-set -x
+set -euxo pipefail
 
-cd rascal-vscode-extension
-npx vsce package
-cd ..
+(cd rascal-vscode-extension && npx vsce package )
 
