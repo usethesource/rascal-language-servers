@@ -264,6 +264,7 @@ public class LSPIDEServices implements IDEServices {
 
         if (progressStack.isEmpty()) {
             String id = getProgressId();
+            logger.info("Finishing progress bar: {} - {}", id, name);
             // bottom of the stack, done with progress
             CompletableFuture<Void> current = progressBarRegistration.get();
             activeProgress.remove(); // clear the memory to avoid lingering stacks per thread
@@ -275,7 +276,7 @@ public class LSPIDEServices implements IDEServices {
             current
                 .handle((e,r) -> null) // always close, also in case of exception
                 .thenRun(() -> {
-                    logger.trace("Finished progress bar: {} as {}", name, id);
+                    logger.info("Finished progress bar: {} - {}", id, name);
                     languageClient.notifyProgress(
                         new ProgressParams(
                             Either.forLeft(id),
