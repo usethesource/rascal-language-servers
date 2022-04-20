@@ -62,17 +62,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.22.3</version>
+      <version>0.23.0</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.7.5</version>
+      <version>0.7.6</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.7.5</version>
+      <version>0.7.6</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
