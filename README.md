@@ -12,6 +12,7 @@ The VScode extension can be found [here](https://marketplace.visualstudio.com/it
 
 ### Origin story
 
+* 2022 many contributions come from http://SWAT.engineering next to CWI SWAT.
 * *2021--...* You can consider this project an evolution of
 the [https://github.com/usethesource/rascal-eclipse](rascal-eclipse) project, but it offers more and better features.
 On the other hand the rascal-eclipse project is still much more mature.
