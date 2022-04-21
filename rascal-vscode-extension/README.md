@@ -47,6 +47,14 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.2.1
+
+* Version bumps of rascal dependencies from 0.22.1 to 0.23.0; this includes bugfixes around prefix matching with concrete syntax trees and the use of the `private` modifier (if one alternative is private, they are now all private).
+* Version bumps for typepal and rascal-core with improved typechecking efficiency.
+* Better error reporting for the Rascal LSP server and the parameterized LSP server.
+* Fixes around status progress bars.
+* Fix for packaging of rascal-lsp jar (which helped remove spurious type-checking errors in clients of the LanguageServer library modules)
+
 ### 0.2.0
 
 * Moved to Java 11
