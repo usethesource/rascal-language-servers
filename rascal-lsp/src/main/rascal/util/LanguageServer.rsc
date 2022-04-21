@@ -35,6 +35,7 @@
 module util::LanguageServer
 
 import util::Reflective;
+import util::Maybe;
 
 import ParseTree;
 
@@ -50,6 +51,11 @@ alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 
+// a decorator returns the current decorations for this tree,
+// per invocation you have to repeat all styling for this file,
+// otherwise they are cleared.
+alias Decorator        = map[str baseStyle, lrel[loc range, Maybe[MarkdownString] hoverMessage, set[InstanceDecoration] extraDecorations]] (Tree /*input*/);
+
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
     = parser(Parser parser)
@@ -60,6 +66,7 @@ data LanguageService
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
+    | decorator(map[str styleCategory, set[Decoration] definitions] baseStyles, Decorator decorator)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
@@ -136,6 +143,112 @@ data InlayKind // this determines style
     | parameter()
     | other(str name)
     ;
+
+// Decorations are a subset of css styling, in general you want to define
+// a standardStyle, an optionally defined overrides for dark and light themes
+data Decoration
+    = standardStyle(set[DecoratorOptions] options)
+    | darkStyleOverrides(set[DecoratorOptions] options)
+    | lightStyleOverrides(set[DecoratorOptions] options)
+    | isWholeLine(bool continueRenderingAfterLineEnding)
+    ;
+
+// limited set of operations are possible to be overrideable per range in the tree
+// mirrors https://code.visualstudio.com/api/references/vscode-api#DecorationInstanceRenderOptions
+data InstanceDecoration
+    = instanceStandard(set[InstanceDecorationOptions] options)
+    | instanceDarkOverrides(set[InstanceDecorationOptions] options)
+    | instanceLightOverrides(set[InstanceDecorationOptions] options)
+    ;
+
+data InstanceDecorationOptions
+    = instanceAfter(AttachableDecorationOptions tdaro)
+    | instanceBefore(AttachableDecorationOptions tdaro)
+    ;
+
+// css properties that decorators can change (in relation to the active theme and other decorations)
+// mirrors: https://code.visualstudio.com/api/references/vscode-api#ThemableDecorationRenderOptions
+data DecoratorOptions
+    // option to insert content after & before the decorated text
+    = after(AttachableDecorationOptions tdaro)
+    | before(AttachableDecorationOptions tdaro)
+
+    | backgroundColor(Color col)
+    | color(Color col)
+    | overviewRulerColor(Color col) // use transparant colors
+    | opacity(str opacity)
+
+    | border(str style)
+    | borderColor(Color col)
+    // subparts of border, useful for only overriding a single aspect of a parent definition
+    // try to prefer generic border defititions
+    | borderRadius(str style)
+    | borderSpacing(str style)
+    | borderStyle(str style)
+    | borderWidth(str width)
+
+    | outline(str style)
+    | outlineColor(Color col)
+    // subparts of outline, if possible, use outline.
+    | outlineStyle(str style)
+    | outlineWidth(str style)
+
+    | cursor(str cursor)
+    | fontStyle(str style)
+    | fontWeight(str style)
+    | letterSpacing(str spacing)
+    | textDecoration(str style)
+
+
+    // add custom gutter icons (area left of the line numbers)
+    | gutterIconPath(loc iconPath)
+    | gutterIconSize(GutterIconSize size)
+;
+
+// mirrors https://code.visualstudio.com/api/references/vscode-api#MarkdownString
+data MarkdownString (
+    bool isTrusted = false,
+    bool supportHtml = false,
+    bool supportThemeIconts = false,
+    loc baseUri = |invalid:///|)
+    = markdown(str content)
+    ;
+
+data GutterIconSize
+    = auto()
+    | contain()
+    | cover()
+    | percentage(real n)
+    ;
+
+data Color
+    = htmlColor(str cssColor)
+    | themeColor(str colorId) // https://code.visualstudio.com/docs/getstarted/theme-color-reference
+    ;
+
+// mirroring https://code.visualstudio.com/api/references/vscode-api#ThemableDecorationAttachmentRenderOptions
+data AttachableDecorationOptions
+    = attachBackgroundColor(Color col)
+    | attachColor(Color col)
+
+    | attachBorder(str style)
+    | attachBorderColor(Color col)
+
+    // only an icon or a text is allowed, not both
+    | attachContentIconPath(loc iconToRender)
+    | attachContentText(str text)
+
+    | attachFontStyle(str style)
+    | attachFontWeight(str style)
+    | attachTextDecoration(str style)
+
+    // you get a bit more control of the attachments
+    | attachHeight(str height)
+    | attachWidth(str width)
+    | attachMargin(str margin)
+;
+
+
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 java void registerLanguage(Language lang);
