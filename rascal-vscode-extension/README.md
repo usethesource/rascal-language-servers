@@ -49,7 +49,8 @@ For other things we are working on have a look here:
 
 ### 0.2.1
 
-* Version bumps of rascal dependencies from 0.22.1 to 0.23.0; this includes bugfixes around prefix matching with concrete syntax trees and the use of the `private` modifier (if one alternative is private, they are now all private).
+* Version bump of rascal dependency from 0.23.0 to 0.23.1, which makes browsing the standard libraries possible due to fixing an incompatible type file format.
+* Version bump of rascal dependencies from 0.22.1 to 0.23.0; this includes bugfixes around prefix matching with concrete syntax trees and the use of the `private` modifier (if one alternative is private, they are now all private).
 * Version bumps for typepal and rascal-core with improved typechecking efficiency.
 * Better error reporting for the Rascal LSP server and the parameterized LSP server.
 * Fixes around status progress bars.
