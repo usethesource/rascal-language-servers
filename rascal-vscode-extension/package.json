@@ -20,7 +20,7 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "node-fetch": "^2.6.6",
+    "node-fetch": "^2.6.7",
     "tar": "^6.1.11",
     "vscode-languageclient": "^7.0.0",
     "yauzl": "^2.10.0"
