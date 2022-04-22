@@ -35,6 +35,8 @@ import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -61,7 +63,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonRequest
-    default CompletableFuture<Void> edit(EditParameter edit)  {
+    default CompletableFuture<ShowDocumentResult> edit(ShowDocumentParams edit)  {
         throw new UnsupportedOperationException();
     }
 

@@ -43,6 +43,8 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkDoneProgressReport;
@@ -89,10 +91,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<Void> edit(EditParameter edit) {
+    public CompletableFuture<ShowDocumentResult> edit(ShowDocumentParams edit) {
         logger.trace("edit({})", edit);
-        languageClient.showMessage(new MessageParams(MessageType.Info, "trying to edit: " + edit.getModule()));
-        return CompletableFuture.completedFuture(null);
+        return languageClient.showDocument(edit);
     }
 
     @Override

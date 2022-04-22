@@ -33,6 +33,8 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
 
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
@@ -89,7 +91,10 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void edit(ISourceLocation path) {
-       server.edit(new EditParameter(path.getPath()));
+        ShowDocumentParams params = new ShowDocumentParams(path.getURI().toASCIIString());
+        params.setTakeFocus(true);
+        // TODO: add optional offset & length as range
+       server.edit(params);
     }
 
     @Override
