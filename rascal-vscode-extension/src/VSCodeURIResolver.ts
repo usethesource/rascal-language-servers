@@ -22,8 +22,8 @@ interface VSCodeResolverClient extends WatchEventReceiver {}
 interface ISourceLocationInput {
     readFile(req: ISourceLocationRequest): Promise<ReadFileResult>;
     exists(req: ISourceLocationRequest): Promise<BooleanResult>;
-    lastModified(req: ISourceLocationRequest): Promise<TimeStampResult>;
-    created(req: ISourceLocationRequest): Promise<TimeStampResult>;
+    lastModified(req: ISourceLocationRequest): Promise<TimestampResult>;
+    created(req: ISourceLocationRequest): Promise<TimestampResult>;
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResult>;
     isFile(req: ISourceLocationRequest): Promise<BooleanResult>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
@@ -38,8 +38,8 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     }
     req<ReadFileResult>("readFile", handler.readFile);
     req<BooleanResult>("exists", handler.exists);
-    req<TimeStampResult>("lastModified", handler.lastModified);
-    req<TimeStampResult>("created", handler.created);
+    req<TimestampResult>("lastModified", handler.lastModified);
+    req<TimestampResult>("created", handler.created);
     req<BooleanResult>("isDirectory", handler.isDirectory);
     req<BooleanResult>("isFile", handler.isFile);
     req<DirectoryListingResult>("list", handler.list);
@@ -120,7 +120,7 @@ export interface BooleanResult extends IOResult {
 }
 
 
-export interface TimeStampResult extends IOResult {
+export interface TimestampResult extends IOResult {
     timestamp?: number;
 }
 
@@ -142,10 +142,6 @@ export interface RenameRequest {
     overwrite: boolean;
 }
 
-export interface LastModifiedRequest extends ISourceLocationRequest {
-    timestamp: number;
-}
-
 
 export interface WatchRequest extends ISourceLocationRequest {
     /**
@@ -158,13 +154,13 @@ export interface WatchRequest extends ISourceLocationRequest {
 
 export enum ISourceLocationChangeType {
     created = 1,
-    deleted,
-    modified
+    deleted = 2,
+    modified = 3
 }
 
 export enum ISourceLocationType {
     file = 1,
-    directory
+    directory = 2
 }
 
 export interface ISourceLocationChanged {
@@ -205,7 +201,7 @@ export class VSCodeUriResolverServer implements Disposable {
         });
     }
 
-    port(): number {
+    get port(): number {
         return (this.server.address() as AddressInfo).port;
     }
 
@@ -294,17 +290,17 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.fs.stat(toUri(req));
     }
 
-    private async timeStampResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => number): Promise<TimeStampResult> {
-        return asyncCatcher(async () => <TimeStampResult>{
+    private async timeStampResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => number): Promise<TimestampResult> {
+        return asyncCatcher(async () => <TimestampResult>{
             errorCode: 0,
             timestamp: mapper((await this.stat(req)))
         });
     }
 
-    lastModified(req: ISourceLocationRequest): Promise<TimeStampResult> {
+    lastModified(req: ISourceLocationRequest): Promise<TimestampResult> {
         return this.timeStampResult(req, f => f.mtime);
     }
-    created(req: ISourceLocationRequest): Promise<TimeStampResult> {
+    created(req: ISourceLocationRequest): Promise<TimestampResult> {
         return this.timeStampResult(req, f => f.ctime);
     }
 

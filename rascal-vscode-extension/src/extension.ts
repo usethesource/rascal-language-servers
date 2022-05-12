@@ -37,6 +37,7 @@ import { RascalFileSystemProvider } from './RascalFileSystemProviders';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { getJavaExecutable } from './auto-jvm/JavaLookup';
 import { addHintApi } from './hintExtension';
+import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
@@ -49,6 +50,7 @@ let rascalClient: Promise<LanguageClient> | undefined = undefined;
 let rascalExtensionContext: vscode.ExtensionContext | undefined = undefined;
 
 let rascalActivationHandle: vscode.Disposable | undefined = undefined;
+let vfsServer: VSCodeUriResolverServer;
 
 class IDEServicesConfiguration {
     public port:integer;
@@ -63,6 +65,8 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    vfsServer = new VSCodeUriResolverServer();
+    context.subscriptions.push(vfsServer);
     rascalExtensionContext = context;
     //if there is an open Rascal file, activate the Rascal server
     for (const editor of vscode.window.visibleTextEditors) {
@@ -159,6 +163,9 @@ export async function activateLanguageClient(language:string, main:string, title
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
 
     client.onReady().then(() => {
+        client.sendNotification("rascal/vfs/register", {
+            port: vfsServer.port
+        });
         client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
            showContentPanel(bp.uri);
         });
@@ -185,6 +192,7 @@ export function deactivate() {
     if (childProcess) {
         childProcess.kill('SIGKILL');
     }
+    vfsServer.dispose();
 }
 
 function registerTerminalCommand() {
@@ -247,10 +255,14 @@ function buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...e
             , '-Xrunjdwp:transport=dt_socket,address=9001,server=y,suspend=n'
         );
     }
+    shellArgs.push();
     shellArgs.push(
-        'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
+        '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
+        , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
         , '--ideServicesPort'
         , '' + ide.port
+        , '--vfsPort'
+        , '' + vfsServer.port
     );
     return shellArgs.concat(extraArgs || []);
 }
@@ -306,6 +318,7 @@ async function buildRascalServerOptions(main:string): Promise<ServerOptions> {
     return {
         command: await getJavaExecutable(),
         args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',
+            '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver',
             '-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath,
             main.includes("Parametric") ? calculateDSLMemoryReservation() : calculateRascalMemoryReservation(),
             '-cp', classpath, main],
