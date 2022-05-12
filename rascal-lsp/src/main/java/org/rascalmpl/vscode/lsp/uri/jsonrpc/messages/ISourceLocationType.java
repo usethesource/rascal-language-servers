@@ -1,5 +1,6 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import org.rascalmpl.uri.ISourceLocationWatcher;
 
 public enum ISourceLocationType {
     FILE(1),
@@ -23,12 +24,12 @@ public enum ISourceLocationType {
         return allValues[value - 1];
     }
 
-    public static org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationType translate(ISourceLocationType lsp) {
+    public static ISourceLocationWatcher.ISourceLocationType translate(ISourceLocationType lsp) {
         switch (lsp) {
             case DIRECTORY:
-                return org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationType.DIRECTORY;
+                return ISourceLocationWatcher.ISourceLocationType.DIRECTORY;
             case FILE:
-                return org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationType.FILE;
+                return ISourceLocationWatcher.ISourceLocationType.FILE;
             default:
                 throw new RuntimeException("Forgotten type: " + lsp);
         }

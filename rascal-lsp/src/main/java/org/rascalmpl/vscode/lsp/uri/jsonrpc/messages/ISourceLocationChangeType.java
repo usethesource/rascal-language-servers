@@ -1,5 +1,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import org.rascalmpl.uri.ISourceLocationWatcher;
+
 public enum ISourceLocationChangeType {
     CREATED(1),
     DELETED(2),
@@ -23,15 +25,15 @@ public enum ISourceLocationChangeType {
         return allValues[value - 1];
     }
 
-    public static org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType translate(
+    public static ISourceLocationWatcher.ISourceLocationChangeType translate(
         ISourceLocationChangeType lsp) {
         switch (lsp) {
             case CREATED:
-                return org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType.CREATED;
+                return ISourceLocationWatcher.ISourceLocationChangeType.CREATED;
             case DELETED:
-                return org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType.DELETED;
+                return ISourceLocationWatcher.ISourceLocationChangeType.DELETED;
             case MODIFIED:
-                return org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType.MODIFIED;
+                return ISourceLocationWatcher.ISourceLocationChangeType.MODIFIED;
             default:
                 throw new RuntimeException("Forgotten type: " + lsp);
         }

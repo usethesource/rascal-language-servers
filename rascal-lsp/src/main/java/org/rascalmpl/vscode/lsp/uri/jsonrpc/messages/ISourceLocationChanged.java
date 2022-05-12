@@ -2,6 +2,7 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -59,6 +60,15 @@ public class ISourceLocationChanged {
     @Override
     public int hashCode() {
         return Objects.hash(watchId, location, changeType, type);
+    }
+
+    public ISourceLocationWatcher.ISourceLocationChanged translate() {
+        return ISourceLocationWatcher.makeChange(
+            getSourceLocation(),
+            ISourceLocationChangeType.translate(changeType),
+            ISourceLocationType.translate(type)
+        );
+
     }
 
 

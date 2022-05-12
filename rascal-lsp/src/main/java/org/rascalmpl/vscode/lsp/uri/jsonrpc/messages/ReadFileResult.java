@@ -6,7 +6,7 @@ import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
 public class ReadFileResult extends IOResult {
 
-    public @Nullable String contents;
+    private @Nullable String contents;
 
     public ReadFileResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable String contents) {
         super(errorCode, errorMessage);
