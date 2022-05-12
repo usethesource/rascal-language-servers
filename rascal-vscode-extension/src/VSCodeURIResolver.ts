@@ -1,6 +1,6 @@
 import { integer, NotificationType, URI } from "vscode-languageclient";
 import * as rpc from 'vscode-jsonrpc/node';
-import { Server, createServer, Socket } from "net";
+import { Server, createServer, Socket, AddressInfo } from "net";
 import { Disposable } from "vscode";
 import * as vscode from 'vscode';
 import { send } from "process";
@@ -149,7 +149,8 @@ export interface LastModifiedRequest extends ISourceLocationRequest {
 
 export interface WatchRequest extends ISourceLocationRequest {
     /**
-     * subscription id (as there can be multiple subscribers per watch)
+     * subscription id, this helps the calling in linking up to the original request
+     * as the watches are recursive
      */
     watcher: string;
 }
@@ -167,7 +168,7 @@ export enum ISourceLocationType {
 }
 
 export interface ISourceLocationChanged {
-    watchIds: string[];
+    watchId: string;
     location: ISourceLocation;
     changeType: ISourceLocationChangeType;
     type: ISourceLocationType;
@@ -189,7 +190,7 @@ export class VSCodeUriResolverServer implements Disposable {
         this.activeClients.forEach(c => c.dispose());
     }
 
-    handleNewClient(newClient: Socket) {
+    private handleNewClient(newClient: Socket) {
         const connection = rpc.createMessageConnection(newClient, newClient);
 
         const client = new ResolverClient(connection);
@@ -202,6 +203,10 @@ export class VSCodeUriResolverServer implements Disposable {
             }
             client.dispose();
         });
+    }
+
+    port(): number {
+        return (this.server.address() as AddressInfo).port;
     }
 
 }
@@ -351,14 +356,16 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private activeWatches = new Map<string, WatcherCallbacks>();
 
     watch(newWatch: WatchRequest): Promise<IOResult> {
-        let watcher = this.activeWatches.get(newWatch.uri);
-        if (!watcher) {
-            watcher = new WatcherCallbacks(newWatch.uri, this.watchListener);
+        if (!this.activeWatches.has(newWatch.uri)) {
+            const watcher = new WatcherCallbacks(newWatch.uri, this.watchListener, newWatch.watcher);
             this.activeWatches.set(newWatch.uri, watcher);
             this.toClear.push(watcher);
+            return Promise.resolve({ errorCode: 0 });
         }
-        watcher.addWatcher(newWatch.watcher);
-        return Promise.resolve({ errorCode: 0 });
+        return Promise.resolve({
+            errorCode: 1,
+            errorMessage: 'Watch already defined for: ' + newWatch.uri
+        });
     }
 
 
@@ -366,17 +373,18 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     unwatch(removeWatch: WatchRequest): Promise<IOResult> {
         let watcher = this.activeWatches.get(removeWatch.uri);
         if (watcher) {
-            if (!watcher.removeWatcher(removeWatch.watcher)) {
-                // time to clear it, no more interested
-                this.activeWatches.delete(removeWatch.uri);
-                watcher.dispose();
-                const index = this.toClear.indexOf(watcher);
-                if (index >= 0) {
-                    this.toClear.splice(index, 1);
-                }
+            this.activeWatches.delete(removeWatch.uri);
+            watcher.dispose();
+            const index = this.toClear.indexOf(watcher);
+            if (index >= 0) {
+                this.toClear.splice(index, 1);
             }
+            return Promise.resolve({ errorCode: 0 });
         }
-        return Promise.resolve({ errorCode: 0 });
+        return Promise.resolve({
+            errorCode: 1,
+            errorMessage: 'Watch not defined for: ' + removeWatch.uri
+        });
     }
 
     dispose() {
@@ -392,10 +400,11 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 }
 
 class WatcherCallbacks implements Disposable {
-    private activeWatchers: string[] = [];
-    private toClear: Disposable[] = [];
+    private readonly watchId: string;
+    private readonly toClear: Disposable[] = [];
     private readonly watchListener: WatchEventReceiver;
-    constructor(uri: string, watchListener: WatchEventReceiver) {
+    constructor(uri: string, watchListener: WatchEventReceiver, watchId: string) {
+        this.watchId = watchId;
         this.watchListener = watchListener;
         const newWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(toUri(uri), '**/*')
@@ -409,31 +418,22 @@ class WatcherCallbacks implements Disposable {
 
     private async sendWatchEvent(uri: vscode.Uri, changeType: ISourceLocationChangeType) {
         this.watchListener.emitWatch({
-            watchIds: this.activeWatchers,
+            watchId: this.watchId,
             changeType: changeType,
             location: uri.toString(),
             type: await determineType(uri, changeType)
         });
     }
 
-    addWatcher(watcherId: string) {
-        this.activeWatchers.push(watcherId);
-    }
-
-    removeWatcher(watcherId: string): boolean {
-        const pos = this.activeWatchers.indexOf(watcherId);
-        if (pos >= 0) {
-            this.activeWatchers.splice(pos, 1);
-        }
-        return this.activeWatchers.length > 0;
-    }
-
     dispose() {
         this.toClear.forEach(c => c.dispose());
+        this.toClear.splice(0);
     }
 }
 
 async function determineType(uri: vscode.Uri, changeType: ISourceLocationChangeType): Promise<ISourceLocationType> {
+    // vscode is not offering us information if the change was a directory of a file
+    // so we have to use some heuristics (or actually ask the FS) to find out
     switch (changeType) {
         case ISourceLocationChangeType.created:
             if ((await vscode.workspace.fs.stat(uri)).type === vscode.FileType.Directory) {
