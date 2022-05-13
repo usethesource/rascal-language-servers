@@ -33,4 +33,9 @@ public class DirectoryListingResult extends IOResult {
         return super.hashCode() + 11 * (Arrays.deepHashCode(entries) + 1);
     }
 
+    @Override
+    public String toString() {
+        return "DirectoryListingResult [entries=" + Arrays.toString(entries) + " io=" + super.toString() + "]";
+    }
+
 }

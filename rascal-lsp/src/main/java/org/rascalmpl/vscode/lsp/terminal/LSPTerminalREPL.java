@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
-
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -57,7 +56,7 @@ import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
-
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -78,7 +77,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static final boolean allowColors = true;
 
     public LSPTerminalREPL(Terminal terminal, IDEServices services) throws IOException, URISyntaxException {
-        super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, null);
+        super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
     }
 
     private static String getRascalLspVersion() {
@@ -97,7 +96,7 @@ public class LSPTerminalREPL extends BaseREPL {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
 
                 @Override
-                protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr) {
+                protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr,IDEServices services) {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
@@ -228,6 +227,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
     public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;
+        int vfsPort = -1;
         String loadModule = null;
         boolean runModule = false;
 
@@ -235,6 +235,9 @@ public class LSPTerminalREPL extends BaseREPL {
             switch (args[i]) {
                 case "--ideServicesPort":
                     ideServicesPort = Integer.parseInt(args[++i]);
+                    break;
+                case "--vfsPort":
+                    vfsPort = Integer.parseInt(args[++i]);
                     break;
                 case "--loadModule":
                     loadModule = args[++i];
@@ -247,6 +250,10 @@ public class LSPTerminalREPL extends BaseREPL {
 
         if (ideServicesPort == -1) {
             throw new IllegalArgumentException("missing --ideServicesPort commandline parameter");
+        }
+
+        if (vfsPort != -1) {
+            VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
         try {

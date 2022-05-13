@@ -179,7 +179,7 @@ export class VSCodeUriResolverServer implements Disposable {
             this.handleNewClient(newClient);
         });
         this.server.on('error', console.log);
-        this.server.listen(0, "localhost");
+        this.server.listen(0, "localhost", () => console.log("VFS: started listening on " + JSON.stringify(this.server.address())));
     }
     dispose() {
         this.server.close();

@@ -68,8 +68,15 @@ public class ISourceLocationChanged {
             ISourceLocationChangeType.translate(changeType),
             ISourceLocationType.translate(type)
         );
-
     }
+
+    @Override
+    public String toString() {
+        return "ISourceLocationChanged [changeType=" + changeType + ", location=" + location + ", type=" + type
+            + ", watchId=" + watchId + "]";
+    }
+
+
 
 
 

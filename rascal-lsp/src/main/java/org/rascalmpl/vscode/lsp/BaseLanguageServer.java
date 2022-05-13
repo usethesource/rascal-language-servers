@@ -1,29 +1,29 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+* Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met:
+*
+* 1. Redistributions of source code must retain the above copyright notice,
+* this list of conditions and the following disclaimer.
+*
+* 2. Redistributions in binary form must reproduce the above copyright notice,
+* this list of conditions and the following disclaimer in the documentation
+* and/or other materials provided with the distribution.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+* POSSIBILITY OF SUCH DAMAGE.
+*/
 package org.rascalmpl.vscode.lsp;
 
 import java.io.ByteArrayInputStream;
@@ -61,12 +61,14 @@ import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
- * The main language server class for Rascal is build on top of the Eclipse lsp4j library
- */
+* The main language server class for Rascal is build on top of the Eclipse lsp4j library
+*/
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
     private static final @Nullable PrintStream capturedOut;
@@ -92,17 +94,17 @@ public abstract class BaseLanguageServer {
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
-        throws IOException {
+    throws IOException {
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
         Launcher<IBaseLanguageClient> clientLauncher = new Launcher.Builder<IBaseLanguageClient>()
-            .setLocalService(server)
-            .setRemoteInterface(IBaseLanguageClient.class)
-            .setInput(in)
-            .setOutput(out)
-            .create();
+        .setLocalService(server)
+        .setRemoteInterface(IBaseLanguageClient.class)
+        .setInput(in)
+        .setOutput(out)
+        .create();
 
         server.connect(clientLauncher.getRemoteProxy());
 
@@ -133,7 +135,7 @@ public abstract class BaseLanguageServer {
             Properties properties = new Properties();
             properties.load(prop);
             return properties.getProperty("rascal.lsp.version", "unknown") + " at "
-                    + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
+            + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
         }
         catch (IOException e) {
             logger.debug("Cannot find lsp version", e);
@@ -203,10 +205,10 @@ public abstract class BaseLanguageServer {
 
         private static String[] classLoaderFiles(IList source) {
             return source.stream()
-                    .map(e -> (ISourceLocation) e)
-                    .filter(e -> e.getScheme().equals("file"))
-                    .map(e -> ((ISourceLocation) e).getPath())
-                    .toArray(String[]::new);
+            .map(e -> (ISourceLocation) e)
+            .filter(e -> e.getScheme().equals("file"))
+            .map(e -> ((ISourceLocation) e).getPath())
+            .toArray(String[]::new);
         }
 
         @Override
@@ -214,7 +216,7 @@ public abstract class BaseLanguageServer {
             try {
                 if (projectFolder.getUri() == null) {
                     return CompletableFuture.completedFuture(
-                        classLoaderFiles(PathConfig.getDefaultClassloadersList())
+                    classLoaderFiles(PathConfig.getDefaultClassloadersList())
                     );
                 }
                 ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
@@ -284,6 +286,11 @@ public abstract class BaseLanguageServer {
             this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService, lspWorkspaceService);
             lspDocumentService.connect(this.client);
             lspWorkspaceService.connect(this.client);
+        }
+
+        @Override
+        public void registerVFS(VFSRegister registration) {
+            VSCodeVFSClient.buildAndRegister(registration.getPort());
         }
     }
 }

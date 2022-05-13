@@ -32,4 +32,9 @@ public class BooleanResult extends IOResult {
         return super.hashCode() + 11 * (Objects.hashCode(result) + 1);
     }
 
+    @Override
+    public String toString() {
+        return "BooleanResult [result=" + result + " io=" + super.toString() + "]";
+    }
+
 }

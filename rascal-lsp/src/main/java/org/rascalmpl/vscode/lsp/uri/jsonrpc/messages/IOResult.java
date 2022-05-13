@@ -43,4 +43,9 @@ public class IOResult {
             + 7 * (errorMessage == null ? 4 : errorMessage.hashCode());
     }
 
+    @Override
+    public String toString() {
+        return "IOResult [errorCode=" + errorCode + ", errorMessage=" + errorMessage + "]";
+    }
+
 }

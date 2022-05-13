@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.List;
@@ -66,9 +67,13 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public InputStream getInputStream(ISourceLocation uri) throws IOException {
-        var fileBody = call(s -> s.readFile(param(uri)));
-        // TODO: make this inputstream streaming around the base base64 decoder
-        return new ByteArrayInputStream(Base64.getDecoder().decode(fileBody.getContents()));
+        var fileBody = call(s -> s.readFile(param(uri))).getContents();
+
+        // TODO: do the decoding in a stream, to avoid the extra intermediate
+        // byte array
+        return Base64.getDecoder().wrap(
+            new ByteArrayInputStream(
+                fileBody.getBytes(StandardCharsets.ISO_8859_1)));
     }
 
     @Override
@@ -125,6 +130,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public OutputStream getOutputStream(ISourceLocation uri, boolean append) throws IOException {
+        // we have to collect all bytes into memory (already encoded as base64)
+        // when done with the outputstream, we can write push the base64
+        // to the vscode side
         return new OutputStream() {
             private boolean closed = false;
             private Encoder encoder = Base64.getEncoder();

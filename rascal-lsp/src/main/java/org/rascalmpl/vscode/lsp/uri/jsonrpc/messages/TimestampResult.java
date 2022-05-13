@@ -31,5 +31,10 @@ public class TimestampResult extends IOResult {
         return false;
     }
 
+    @Override
+    public String toString() {
+        return "TimestampResult [timestamp=" + timestamp + "io= " + super.toString() + "]";
+    }
+
 
 }

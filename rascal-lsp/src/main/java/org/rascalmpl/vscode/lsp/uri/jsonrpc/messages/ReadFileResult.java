@@ -33,4 +33,9 @@ public class ReadFileResult extends IOResult {
         return super.hashCode() + 11 * (Objects.hashCode(contents) + 1);
     }
 
+    @Override
+    public String toString() {
+        return "ReadFileResult [contents=" + contents + " io=" + super.toString() + "]";
+    }
+
 }
