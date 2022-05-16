@@ -65,7 +65,7 @@ export function getRascalExtensionDeploymode() : boolean {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    vfsServer = new VSCodeUriResolverServer();
+    vfsServer = new VSCodeUriResolverServer(!deployMode);
     context.subscriptions.push(vfsServer);
     rascalExtensionContext = context;
     //if there is an open Rascal file, activate the Rascal server

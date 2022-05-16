@@ -1,9 +1,8 @@
-import { integer, NotificationType, URI } from "vscode-languageclient";
-import * as rpc from 'vscode-jsonrpc/node';
-import { Server, createServer, Socket, AddressInfo } from "net";
-import { Disposable } from "vscode";
+import { AddressInfo, createServer, Server, Socket } from "net";
 import * as vscode from 'vscode';
-import { send } from "process";
+import { Disposable } from "vscode";
+import * as rpc from 'vscode-jsonrpc/node';
+import { integer, URI } from "vscode-languageclient";
 
 declare type ISourceLocation = URI;
 
@@ -177,9 +176,12 @@ export interface ISourceLocationChanged {
 export class VSCodeUriResolverServer implements Disposable {
     private readonly server: Server;
     private activeClients: ResolverClient[] = [];
-    constructor() {
+    constructor(debug: boolean) {
         this.server = createServer(newClient => {
-            this.handleNewClient(newClient);
+            if (debug) {
+                console.log("VFS: new connection: " + JSON.stringify(newClient));
+            }
+            this.handleNewClient(newClient, debug);
         });
         this.server.on('error', console.log);
         this.server.listen(0, "localhost", () => console.log("VFS: started listening on " + JSON.stringify(this.server.address())));
@@ -189,10 +191,24 @@ export class VSCodeUriResolverServer implements Disposable {
         this.activeClients.forEach(c => c.dispose());
     }
 
-    private handleNewClient(newClient: Socket) {
-        const connection = rpc.createMessageConnection(newClient, newClient);
+    private handleNewClient(newClient: Socket, debug: boolean) {
+        function makeLogger(prefix: string, onlyDebug: boolean): (m:string) => void {
+            if (onlyDebug && !debug) {
+                return (_s) => { return ; };
+            }
+            return (m) => console.log(prefix + ": " + m);
+        }
+        const connection = rpc.createMessageConnection(newClient, newClient, {
+            log: makeLogger("VFS: [TRACE]", true),
+            error: makeLogger("VFS: [ERROR]", false),
+            warn: makeLogger("VFS: [WARN]", true),
+            info: makeLogger("VFS: [INFO]", true),
+        });
+        newClient.on("error", e => {
+            console.log("VFS: [SOCKET-ERROR]: " + e);
+        });
 
-        const client = new ResolverClient(connection);
+        const client = new ResolverClient(connection, debug);
         this.activeClients.push(client);
 
         newClient.on('end', () => {
@@ -257,9 +273,16 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly watchListener: WatchEventReceiver;
     private readonly fs: vscode.FileSystem;
     private toClear: Disposable[] = [];
-    constructor(connection: rpc.MessageConnection){
+    constructor(connection: rpc.MessageConnection, debug: boolean){
         this.fs = vscode.workspace.fs;
         this.connection = connection;
+        if (debug) {
+            connection.trace(rpc.Trace.Verbose, {
+                log: (a) => {
+                    console.log("[VFS]: " + a);
+                }
+            });
+        }
         this.watchListener = buildWatchReceiver(connection);
         connectInputHandler(connection, this);
         connectOutputHandler(connection, this);
