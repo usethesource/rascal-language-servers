@@ -121,6 +121,9 @@ export interface BooleanResult extends IOResult {
 
 
 export interface TimestampResult extends IOResult {
+    /**
+     * Epoch seconds
+     */
     timestamp?: number;
 }
 

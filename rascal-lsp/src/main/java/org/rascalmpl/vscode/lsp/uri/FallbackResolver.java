@@ -18,6 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
@@ -87,12 +88,12 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long lastModified(ISourceLocation uri) throws IOException {
-        return call(s -> s.lastModified(param(uri))).getTimestamp();
+        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(uri))).getTimestamp());
     }
 
     @Override
     public long created(ISourceLocation uri) throws IOException {
-        return call(s -> s.created(param(uri))).getTimestamp();
+        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(uri))).getTimestamp());
     }
 
     @Override
