@@ -157,7 +157,10 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
                 .setLocalService(newClient)
                 .setInput(socket.getInputStream())
                 .setOutput(socket.getOutputStream())
+                .setExecutorService(Executors.newCachedThreadPool())
                 .create();
+
+            clientLauncher.startListening();
 
             VSCodeVFS.INSTANCE.provideServer(clientLauncher.getRemoteProxy());
             VSCodeVFS.INSTANCE.provideClient(newClient);

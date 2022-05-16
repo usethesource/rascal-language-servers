@@ -34,7 +34,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     function req<T> (method: string, h: rpc.RequestHandler1<ISourceLocationRequest, T, void>) {
         connection.onRequest(
             new rpc.RequestType1<ISourceLocationRequest, T, void>("rascal/vfs/input/" + method),
-            h);
+            h.bind(handler));
     }
     req<ReadFileResult>("readFile", handler.readFile);
     req<BooleanResult>("exists", handler.exists);
@@ -57,7 +57,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     function req<Arg> (method: string, h: rpc.RequestHandler1<Arg, IOResult, void>) {
         connection.onRequest(
             new rpc.RequestType1<Arg, IOResult, void>("rascal/vfs/output/" + method),
-            h);
+            h.bind(handler));
     }
     req<WriteFileRequest>("writeFile", handler.writeFile);
     req<ISourceLocationRequest>("mkDirectory", handler.mkDirectory);
@@ -75,7 +75,7 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
     function req<Arg> (method: string, h: rpc.RequestHandler1<Arg, IOResult, void>) {
         connection.onRequest(
             new rpc.RequestType1<Arg, IOResult, void>("rascal/vfs/watcher/" + method),
-            h);
+            h.bind(handler));
     }
     req<WatchRequest>("watch", handler.watch);
     req<WatchRequest>("unwatch", handler.unwatch);
@@ -202,7 +202,9 @@ export class VSCodeUriResolverServer implements Disposable {
             }
             client.dispose();
         });
+        connection.listen();
     }
+
 
     get port(): number {
         return (this.server.address() as AddressInfo).port;
