@@ -137,6 +137,13 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
         return t;
     });
 
+    /**
+    * The watch api in rascal uses closures identity to keep track of watches.
+    * Since we cannot share the instance via the json-rpc bridge, we keep the
+    * closure around in this collection class.
+    * If there are no more callbacks registered, we unregister the watch at the
+    * VSCode side.
+    */
     private static class Watchers {
         private final String id;
         private final List<Consumer<ISourceLocationWatcher.ISourceLocationChanged>> callbacks = new CopyOnWriteArrayList<>();

@@ -28,6 +28,9 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import org.rascalmpl.uri.ISourceLocationWatcher;
 
+/**
+ * @see ISourceLocationWatcher.ISourceLocationChangeType this code is mirroring this type for serialization purposes
+ */
 public enum ISourceLocationChangeType {
     CREATED(1),
     DELETED(2),
