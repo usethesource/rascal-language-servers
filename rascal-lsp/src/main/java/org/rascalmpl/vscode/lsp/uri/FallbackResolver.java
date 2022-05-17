@@ -176,7 +176,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public String[] list(ISourceLocation uri) throws IOException {
         var result = call(s -> s.list(param(uri)));
-        // we store the entries in a cache, for consequent isDirectory/isFile calls
+        // we store the entries in a cache, for consecutive isDirectory/isFile calls
         cachedDirectoryListing.put(uri, Lazy.defer(() -> {
             var entries = result.getEntries();
             var areDirs = result.getAreDirectory();
