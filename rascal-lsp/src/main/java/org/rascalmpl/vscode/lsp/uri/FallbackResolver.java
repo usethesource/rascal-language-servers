@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Base64.Encoder;
 import java.util.List;
 import java.util.Map;
@@ -21,14 +23,19 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
+import org.rascalmpl.vscode.lsp.util.Lazy;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher {
@@ -99,6 +106,13 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public boolean isDirectory(ISourceLocation uri) {
         try {
+            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(uri));
+            if (cached != null) {
+                var result = cached.get().get(URIUtil.getLocationName(uri));
+                if (result != null) {
+                    return result;
+                }
+            }
             return call(s -> s.isDirectory(param(uri))).getResult();
         } catch (IOException e) {
             return false;
@@ -108,15 +122,46 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public boolean isFile(ISourceLocation uri) {
         try {
+            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(uri));
+            if (cached != null) {
+                var result = cached.get().get(URIUtil.getLocationName(uri));
+                if (result != null) {
+                    return !result;
+                }
+            }
             return call(s -> s.isFile(param(uri))).getResult();
         } catch (IOException e) {
             return false;
         }
     }
 
+    /**
+     * Rascal's current implementions sometimes ask for a directory listing
+     * and then iterate over all the entries checking if they are a directory.
+     * This is super slow for this jsonrcp, so we store tha last directory listing
+     * and check insid
+     */
+    private final Cache<ISourceLocation, Lazy<Map<String, Boolean>>> cachedDirectoryListing
+        = Caffeine.newBuilder()
+            .expireAfterAccess(Duration.ofMinutes(2))
+            .maximumSize(10000)
+            .build();
+
     @Override
     public String[] list(ISourceLocation uri) throws IOException {
-        return call(s -> s.list(param(uri))).getEntries();
+        var result = call(s -> s.list(param(uri)));
+        // we store the entries in a cache, for consequent isDirectory/isFile calls
+        cachedDirectoryListing.put(uri, Lazy.defer(() -> {
+            var entries = result.getEntries();
+            var areDirs = result.getAreDirectory();
+            Map<String, Boolean> lookup = new HashMap<>(entries.length);
+            assert entries.length == areDirs.length;
+            for (int i = 0; i < entries.length; i++) {
+                lookup.put(entries[i], areDirs[i]);
+            }
+            return lookup;
+        }));
+        return result.getEntries();
     }
 
     @Override

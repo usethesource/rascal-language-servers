@@ -128,6 +128,7 @@ export interface TimestampResult extends IOResult {
 
 export interface DirectoryListingResult extends IOResult {
     entries?: string[];
+    areDirectory?: boolean[]
 }
 
 
@@ -349,10 +350,13 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
-        return asyncCatcher(async () => <DirectoryListingResult>{
-            errorCode: 0,
-            entries: (await this.fs.readDirectory(toUri(req)))
-                .map(([entry, _type], _index) => entry)
+        return asyncCatcher(async () => {
+            const entries = await this.fs.readDirectory(toUri(req));
+            return <DirectoryListingResult>{
+                errorCode: 0,
+                entries: entries.map(([entry, _type], _index) => entry),
+                areDirectory: entries.map(([_entry, type], _index) => type === vscode.FileType.Directory)
+            };
         });
     }
 
