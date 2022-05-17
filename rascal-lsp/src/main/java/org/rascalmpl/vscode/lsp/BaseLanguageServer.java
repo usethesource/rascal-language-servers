@@ -100,11 +100,11 @@ public abstract class BaseLanguageServer {
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
         Launcher<IBaseLanguageClient> clientLauncher = new Launcher.Builder<IBaseLanguageClient>()
-        .setLocalService(server)
-        .setRemoteInterface(IBaseLanguageClient.class)
-        .setInput(in)
-        .setOutput(out)
-        .create();
+            .setLocalService(server)
+            .setRemoteInterface(IBaseLanguageClient.class)
+            .setInput(in)
+            .setOutput(out)
+            .create();
 
         server.connect(clientLauncher.getRemoteProxy());
 
@@ -135,7 +135,7 @@ public abstract class BaseLanguageServer {
             Properties properties = new Properties();
             properties.load(prop);
             return properties.getProperty("rascal.lsp.version", "unknown") + " at "
-            + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
+                + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
         }
         catch (IOException e) {
             logger.debug("Cannot find lsp version", e);
@@ -205,10 +205,10 @@ public abstract class BaseLanguageServer {
 
         private static String[] classLoaderFiles(IList source) {
             return source.stream()
-            .map(e -> (ISourceLocation) e)
-            .filter(e -> e.getScheme().equals("file"))
-            .map(e -> ((ISourceLocation) e).getPath())
-            .toArray(String[]::new);
+                .map(e -> (ISourceLocation) e)
+                .filter(e -> e.getScheme().equals("file"))
+                .map(e -> ((ISourceLocation) e).getPath())
+                .toArray(String[]::new);
         }
 
         @Override
