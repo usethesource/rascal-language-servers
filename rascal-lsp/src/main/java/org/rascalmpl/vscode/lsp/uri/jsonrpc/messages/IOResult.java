@@ -24,19 +24,54 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class IOResult {
+    @NonNull
+    private int errorCode;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    @Nullable
+    private String errorMessage;
 
+    public IOResult() {
+    }
+
+    public IOResult(@NonNull int errorCode, @Nullable String errorMessage) {
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
+    }
+
+    public int getErrorCode() {
+        return errorCode;
+    }
+
+    public @Nullable String getErrorMessage() {
+        return errorMessage;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof IOResult) {
+            var other = (IOResult)obj;
+            return errorCode == other.errorCode
+                && Objects.equals(errorMessage, other.errorMessage);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return errorCode
+            + 7 * (errorMessage == null ? 4 : errorMessage.hashCode());
+    }
+
+    @Override
+    public String toString() {
+        return "IOResult [errorCode=" + errorCode + ", errorMessage=" + errorMessage + "]";
+    }
 
 }

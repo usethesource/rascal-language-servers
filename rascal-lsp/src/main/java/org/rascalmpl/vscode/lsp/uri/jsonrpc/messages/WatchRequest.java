@@ -24,19 +24,45 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import io.usethesource.vallang.ISourceLocation;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class WatchRequest extends ISourceLocationRequest {
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    @NonNull
+    private String watcher;
 
+    public WatchRequest(ISourceLocation loc, String watcher) {
+        super(loc);
+        this.watcher = watcher;
+    }
+
+    public WatchRequest() {}
+
+    public WatchRequest(String uri, String watcher) {
+        super(uri);
+        this.watcher = watcher;
+    }
+
+    public String getWatcher() {
+        return watcher;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof WatchRequest) {
+            return super.equals(obj)
+                && Objects.equals(watcher, ((WatchRequest)obj).watcher);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * watcher.hashCode();
+    }
 
 }

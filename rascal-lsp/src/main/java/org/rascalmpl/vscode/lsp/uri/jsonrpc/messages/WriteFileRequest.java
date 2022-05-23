@@ -24,19 +24,55 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import io.usethesource.vallang.ISourceLocation;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class WriteFileRequest extends ISourceLocationRequest {
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    @NonNull
+    private String content;
+    @NonNull
+    private boolean append;
 
+    public WriteFileRequest() {}
+
+    public WriteFileRequest(@NonNull String uri, @NonNull String content, @NonNull boolean append) {
+        super(uri);
+        this.content = content;
+        this.append = append;
+    }
+
+    public WriteFileRequest(ISourceLocation loc, @NonNull String content, @NonNull boolean append) {
+        super(loc);
+        this.content = content;
+        this.append = append;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public boolean getAppend() {
+        return append;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof WriteFileRequest) {
+            var other = (WriteFileRequest)obj;
+            return super.equals(obj)
+                && Objects.equals(content, other.content)
+                && append == other.append;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * Objects.hash(content, append);
+    }
 
 }

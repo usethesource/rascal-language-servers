@@ -16,9 +16,24 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
-            "env": {
-                "RASCAL_LSP_DEV": "true"
-            },
+			"env": {
+				"RASCAL_LSP_DEV": "true"
+			},
+			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "Run Extension (extensions enabled)",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"env": {
+				"RASCAL_LSP_DEV": "true"
+			},
 			"preLaunchTask": "${defaultBuildTask}"
 		},
 		{

@@ -24,19 +24,43 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class TimestampResult extends IOResult {
+    private @Nullable Long timestamp;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    public TimestampResult(int errorCode, @Nullable String errorMessage, @Nullable Long timestamp) {
+        super(errorCode, errorMessage);
+        this.timestamp = timestamp;
+    }
+
+    public TimestampResult() {}
+
+    public @Nullable Long getTimestamp() {
+        return timestamp;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * (Objects.hashCode(timestamp) + 1);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof TimestampResult) {
+            return super.equals(obj)
+                && Objects.equals(timestamp, ((TimestampResult)obj).timestamp);
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        return "TimestampResult [timestamp=" + timestamp + "io= " + super.toString() + "]";
+    }
 
 
 }

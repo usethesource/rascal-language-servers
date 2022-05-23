@@ -24,19 +24,44 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class ReadFileResult extends IOResult {
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    private @Nullable String contents;
 
+    public ReadFileResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable String contents) {
+        super(errorCode, errorMessage);
+        this.contents = contents;
+    }
+
+    public ReadFileResult() {}
+
+    public String getContents() {
+        return contents;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ReadFileResult) {
+            return super.equals(obj)
+                && Objects.equals(contents, ((ReadFileResult)obj).contents);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * (Objects.hashCode(contents) + 1);
+    }
+
+    @Override
+    public String toString() {
+        return "ReadFileResult [contents=" + contents + " io=" + super.toString() + "]";
+    }
 
 }

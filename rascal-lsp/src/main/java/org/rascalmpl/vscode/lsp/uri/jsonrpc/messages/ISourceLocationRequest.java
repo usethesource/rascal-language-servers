@@ -24,19 +24,42 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import io.usethesource.vallang.ISourceLocation;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class ISourceLocationRequest {
+    @NonNull
+    private String uri;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    public ISourceLocationRequest() {
+    }
 
+    public ISourceLocationRequest(@NonNull final String uri) {
+        this.uri = uri;
+    }
+
+    public ISourceLocationRequest(ISourceLocation loc) {
+        this(loc.getURI().toString());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ISourceLocationRequest) {
+            return Objects.equals(uri, ((ISourceLocationRequest)obj).uri);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return 7 * uri.hashCode();
+    }
+
+    public String getUri() {
+        return uri;
+    }
 
 }

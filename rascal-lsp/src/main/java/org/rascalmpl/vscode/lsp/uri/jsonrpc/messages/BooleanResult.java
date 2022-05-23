@@ -24,19 +24,43 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class BooleanResult extends IOResult {
+    private @Nullable Boolean result;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    public BooleanResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean result) {
+        super(errorCode, errorMessage);
+        this.result = result;
+    }
 
+    public BooleanResult() {}
+
+    public @Nullable Boolean getResult() {
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof BooleanResult) {
+            return super.equals(obj)
+                && Objects.equals(result, ((BooleanResult)obj).result);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * (Objects.hashCode(result) + 1);
+    }
+
+    @Override
+    public String toString() {
+        return "BooleanResult [result=" + result + " io=" + super.toString() + "]";
+    }
 
 }

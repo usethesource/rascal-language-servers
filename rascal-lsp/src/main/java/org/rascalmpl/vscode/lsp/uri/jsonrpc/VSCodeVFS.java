@@ -24,19 +24,37 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+/**
+ * This singleton keeps track of the current VFS server instance
+ *
+ * The FallbackResolvers uses this, and the LSP client should make sure to setup
+ * the right connection
+ */
+public enum VSCodeVFS {
+    INSTANCE;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    private volatile @MonotonicNonNull VSCodeUriResolverServer server = null;
+    private volatile @MonotonicNonNull VSCodeUriResolverClient client = null;
+
+    public @MonotonicNonNull VSCodeUriResolverServer getServer() {
+        return server;
+    }
+
+    public void provideServer(VSCodeUriResolverServer server) {
+        this.server = server;
+    }
+
+    public @MonotonicNonNull VSCodeUriResolverClient getClient() {
+        return client;
+    }
+
+    public void provideClient(VSCodeUriResolverClient client) {
+        this.client = client;
+    }
 
 
 }
