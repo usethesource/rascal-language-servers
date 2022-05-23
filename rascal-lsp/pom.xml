@@ -33,11 +33,11 @@
   <version>2.1.1-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.6.0</junit.version>
+    <junit.version>5.8.0</junit.version>
     <checkstyle.version>8.29</checkstyle.version>
     <checkstyle-rules.version>4.0.1</checkstyle-rules.version>
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
-    <log4j2.version>2.17.1</log4j2.version>
+    <log4j2.version>2.17.2</log4j2.version>
   </properties>
 
   <scm>
@@ -231,7 +231,7 @@
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <version>2.4.1</version>
+          <version>3.3.0</version>
           <executions>
               <execution>
                   <phase>package</phase>
@@ -286,7 +286,7 @@
         <!-- check and possible add license header
           run mvn license:format to automatically update all license headers
           and add missing ones -->
-        <version>4.0</version>
+        <version>4.1</version>
         <configuration>
           <licenseSets>
             <licenseSet>
@@ -311,6 +311,26 @@
             <goals>
               <goal>check</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>enforce-maven</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>3.8.2</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
           </execution>
         </executions>
       </plugin>
