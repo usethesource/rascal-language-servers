@@ -161,8 +161,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
      */
     private final Cache<ISourceLocation, Lazy<Map<String, Boolean>>> cachedDirectoryListing
         = Caffeine.newBuilder()
-            .expireAfterAccess(Duration.ofMinutes(2))
-            .maximumSize(10000)
+            .expireAfterWrite(Duration.ofSeconds(5))
+            .maximumSize(1000)
             .build();
 
     @Override
@@ -228,6 +228,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                 }
                 closed = true;
                 call(s -> s.writeFile(new WriteFileRequest(uri, result.toString(), append)));
+                cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
             }
         };
     }
@@ -235,11 +236,14 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public void mkDirectory(ISourceLocation uri) throws IOException {
         call(s -> s.mkDirectory(param(uri)));
+        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
     }
 
     @Override
     public void remove(ISourceLocation uri) throws IOException {
         call(s -> s.remove(param(uri)));
+        cachedDirectoryListing.invalidate(uri);
+        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
     }
 
     @Override
