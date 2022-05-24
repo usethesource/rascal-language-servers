@@ -255,7 +255,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public CompletableFuture<Void> executeCommand(String command) {
-        logger.debug("executeCommand({})", command);
+        logger.debug("executeCommand({}...) (full command value in TRACE level", () -> command.substring(0, Math.min(10, command.length())));
+        logger.trace("Full command: {}", command);
         return parseCommand(command)
             .thenCombineAsync(commandExecutor, (c,e) -> {
                 if (e != null) {
@@ -264,7 +265,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 return null;
             },exec)
             .handle((r,e) -> {
-                logger.catching(e);
+                if (e != null) {
+                    logger.catching(e);
+                }
                 return null;
             });
     }
