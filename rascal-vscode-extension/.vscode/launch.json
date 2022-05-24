@@ -17,7 +17,8 @@
 				"${workspaceFolder}/out/**/*.js"
 			],
 			"env": {
-				"RASCAL_LSP_DEV": "true"
+				"RASCAL_LSP_DEV": "true",
+				"RASCAL_LSP_DEV_DEPLOY": "false"
 			},
 			"preLaunchTask": "${defaultBuildTask}"
 		},

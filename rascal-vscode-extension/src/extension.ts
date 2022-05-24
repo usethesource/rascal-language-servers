@@ -39,6 +39,7 @@ import { getJavaExecutable } from './auto-jvm/JavaLookup';
 import { addHintApi } from './hintExtension';
 import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 
+const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
 const registeredFileExtensions:Set<string> = new Set();
@@ -151,7 +152,7 @@ export async function activateParametricLanguageClient(): Promise<LanguageClient
 }
 
 export async function activateLanguageClient(language:string, main:string, title:string, devPort:integer, isParametricServer:boolean) : Promise<LanguageClient> {
-    const serverOptions: ServerOptions = deployMode
+    const serverOptions: ServerOptions = (deployMode || testDeployMode)
         ? await buildRascalServerOptions(main)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
@@ -179,6 +180,7 @@ export async function activateLanguageClient(language:string, main:string, title
         let schemesReply:Promise<string[]> = client.sendRequest("rascal/filesystem/schemes");
 
         schemesReply.then( schemes => {
+            vfsServer.ignoreSchemes(schemes);
             new RascalFileSystemProvider(client).registerSchemes(schemes);
         });
     });
@@ -248,7 +250,7 @@ function buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...e
             '-cp'
             , buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
     ];
-    if (!deployMode) {
+    if (!deployMode && !testDeployMode) {
         // for development mode we always start the terminal with debuging ready to go
         shellArgs.push(
             '-Xdebug'

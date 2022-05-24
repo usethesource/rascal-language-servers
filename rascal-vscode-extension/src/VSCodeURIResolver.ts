@@ -203,6 +203,7 @@ export interface ISourceLocationChanged {
 export class VSCodeUriResolverServer implements Disposable {
     private readonly server: Server;
     private activeClients: ResolverClient[] = [];
+    private rascalNativeSchemes: Set<string> = new Set();
     constructor(debug: boolean) {
         this.server = createServer(newClient => {
             if (debug) {
@@ -213,6 +214,11 @@ export class VSCodeUriResolverServer implements Disposable {
         this.server.on('error', console.log);
         this.server.listen(0, "localhost", () => console.log("VFS: started listening on " + JSON.stringify(this.server.address())));
     }
+
+    ignoreSchemes(toIgnore: string[]) {
+        toIgnore.forEach(v => this.rascalNativeSchemes.add(v));
+    }
+
     dispose() {
         this.server.close();
         this.activeClients.forEach(c => c.dispose());
@@ -235,7 +241,7 @@ export class VSCodeUriResolverServer implements Disposable {
             console.log("VFS: [SOCKET-ERROR]: " + e);
         });
 
-        const client = new ResolverClient(connection, debug);
+        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes);
         this.activeClients.push(client);
 
         newClient.on('end', () => {
@@ -295,12 +301,20 @@ async function asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Pr
 }
 
 
+async function buildIOError(message: string, errorCode = -1): Promise<IOResult> {
+    return {
+        errorCode: errorCode,
+        errorMessage: message
+    };
+}
 class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly connection: rpc.MessageConnection;
     private readonly watchListener: WatchEventReceiver;
     private readonly fs: vscode.FileSystem;
+    private readonly rascalNativeSchemes: Set<string>;
     private toClear: Disposable[] = [];
-    constructor(connection: rpc.MessageConnection, debug: boolean){
+    constructor(connection: rpc.MessageConnection, debug: boolean, rascalNativeSchemes: Set<string>){
+        this.rascalNativeSchemes = rascalNativeSchemes;
         this.fs = vscode.workspace.fs;
         this.connection = connection;
         if (debug) {
@@ -319,6 +333,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
     async readFile(req: ISourceLocationRequest): Promise<ReadFileResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot read a from a rascal uri: " + req.uri);
+        }
         return asyncCatcher(async () => <ReadFileResult>{
             errorCode: 0,
             contents: Buffer.from(
@@ -326,7 +343,16 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             ).toString("base64")
         });
     }
+
+    isRascalNative(req: ISourceLocationRequest) : boolean {
+        const scheme = req.uri.substring(0, req.uri.indexOf(":"));
+        return this.rascalNativeSchemes.has(scheme);
+    }
+
     async exists(req: ISourceLocationRequest): Promise<BooleanResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot exist on a rascal uri: " + req.uri);
+        }
         try {
             await this.stat(req);
             return {
@@ -342,6 +368,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
     private async stat(req: ISourceLocationRequest): Promise<vscode.FileStat> {
+        const uri = toUri(req);
+        if (this.rascalNativeSchemes.has(uri.scheme)) {
+            throw new Error("Cannot stat a URI that's actually on the rascal side: " + req.uri);
+        }
         return this.fs.stat(toUri(req));
     }
 
@@ -375,7 +405,12 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
-    list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
+
+
+    async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot list on a rascal uri: " + req.uri);
+        }
         return asyncCatcher(async () => {
             const entries = await this.fs.readDirectory(toUri(req));
             return <DirectoryListingResult>{
@@ -388,28 +423,41 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
 
-    writeFile(req: WriteFileRequest): Promise<IOResult> {
+    async writeFile(req: WriteFileRequest): Promise<IOResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot writeFile on a rascal uri: " + req.uri);
+        }
         return asyncVoidCatcher(
             this.fs.writeFile(toUri(req), Buffer.from(req.content, "base64"))
         );
     }
-    mkDirectory(req: ISourceLocationRequest): Promise<IOResult> {
+    async mkDirectory(req: ISourceLocationRequest): Promise<IOResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot mkDirectory on a rascal uri: " + req.uri);
+        }
         return asyncVoidCatcher(this.fs.createDirectory(toUri(req)));
     }
-    remove(req: ISourceLocationRequest): Promise<IOResult> {
+    async remove(req: ISourceLocationRequest): Promise<IOResult> {
+        if (this.isRascalNative(req)) {
+            return buildIOError("Cannot remove on a rascal uri: " + req.uri);
+        }
         return asyncVoidCatcher(this.fs.delete(toUri(req)));
     }
     rename(req: RenameRequest): Promise<IOResult> {
-        return asyncVoidCatcher(this.fs.rename(
-            toUri(req.from),
-            toUri(req.to),
-            { overwrite: req.overwrite })
-        );
+        const from = toUri(req.from);
+        const to = toUri(req.to);
+        if (this.rascalNativeSchemes.has(from.scheme) || this.rascalNativeSchemes.has(to.scheme)) {
+            return buildIOError("Cannot rename on a rascal uri: " + req.from + " and " + req.to);
+        }
+        return asyncVoidCatcher(this.fs.rename(from, to, { overwrite: req.overwrite }));
     }
 
     private activeWatches = new Map<string, WatcherCallbacks>();
 
     watch(newWatch: WatchRequest): Promise<IOResult> {
+        if (this.isRascalNative(newWatch)) {
+            return buildIOError("Cannot watch on a rascal uri: " + newWatch.uri);
+        }
         if (!this.activeWatches.has(newWatch.uri)) {
             const watcher = new WatcherCallbacks(newWatch.uri, this.watchListener, newWatch.watcher);
             this.activeWatches.set(newWatch.uri, watcher);
@@ -425,6 +473,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
     unwatch(removeWatch: WatchRequest): Promise<IOResult> {
+        if (this.isRascalNative(removeWatch)) {
+            return buildIOError("Cannot watch on a rascal uri: " + removeWatch.uri);
+        }
         let watcher = this.activeWatches.get(removeWatch.uri);
         if (watcher) {
             this.activeWatches.delete(removeWatch.uri);
