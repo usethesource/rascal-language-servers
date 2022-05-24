@@ -225,11 +225,21 @@ function registerImportModule() {
     rascalExtensionContext!.subscriptions.push(command);
 }
 
+function isRascalFileOrDsl(uri: vscode.Uri): boolean {
+    const ext = path.extname(uri.path);
+    return ext === "rsc" || registeredFileExtensions.has(ext);
+}
+
 async function startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
     if (!rascalClient) {
         rascalClient = activateRascalLanguageClient();
     }
     console.log("Starting:" + uri + extraArgs);
+    if (uri && !isRascalFileOrDsl(uri)) {
+        // do not try to figure out a rascal project path for
+        // no rascal files (or DSLs in rascal)
+        uri = undefined;
+    }
     const rascal = await rascalClient;
     await rascal.onReady();
     const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
