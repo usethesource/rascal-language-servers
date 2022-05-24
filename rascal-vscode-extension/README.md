@@ -47,6 +47,13 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.2.2
+
+* Virtual file systems of VSCode are now available in rascal
+* Bumped dependencies of java and nodejs
+* rascal version bumped to 0.23.2
+* Improved REPL integration for browsing and editing files from the command line
+
 ### 0.2.1
 
 * Version bump of rascal dependency from 0.23.0 to 0.23.1, which makes browsing the standard libraries possible due to fixing an incompatible type file format.
