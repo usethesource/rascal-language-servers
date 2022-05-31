@@ -39,7 +39,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -76,13 +78,21 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     private static <T extends IOResult> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
         try {
-            var result = target.apply(getServer()).join();
+            var waitingForServer = target.apply(getServer());
+            var result = waitingForServer.get(5, TimeUnit.MINUTES);
             if (result.getErrorCode() != 0) {
                 throw new IOException("" + result.getErrorCode() + ": " + result.getErrorMessage());
             }
             return result;
         }
-        catch (CompletionException ce) {
+        catch (TimeoutException te) {
+            throw new IOException("VSCode took too long to reply, interruption to avoid deadlocks");
+        }
+        catch(InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new UnsupportedOperationException("Thread should have been interrupted");
+        }
+        catch (CompletionException | ExecutionException ce) {
             throw new IOException(ce.getCause());
         }
     }
