@@ -49,6 +49,8 @@ alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+alias Documenter          = rel[loc, str] (loc /*origin*/, Tree /*input*/);
+alias LocMapper        = rel[loc, loc] (loc /*origin*/, Tree /*input*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
@@ -60,6 +62,15 @@ data LanguageService
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
+    | documenter(Documenter hover)
+    | definer(LocMapper define)
+    | referrer(LocMapper reference)
+    | implementer(LocMapper implementations)
+    | disabledSummary( // tell rascal that the summary should not be run to calculate these
+        bool documentation = false,
+        bool definitions = false,
+        bool references = false,
+        bool implementations = false)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}

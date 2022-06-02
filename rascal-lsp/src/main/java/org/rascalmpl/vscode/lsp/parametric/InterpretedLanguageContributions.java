@@ -30,8 +30,11 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -51,8 +54,10 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -80,6 +85,30 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
     private final CompletableFuture<@Nullable IFunction> inlayHinter;
+    private final CompletableFuture<@Nullable IFunction> documenter;
+    private final CompletableFuture<@Nullable IFunction> definer;
+    private final CompletableFuture<@Nullable IFunction> referrer;
+    private final CompletableFuture<@Nullable IFunction> implementer;
+    private final CompletableFuture<@Nullable DisabledSummary> summaryConfig;
+
+    private static class DisabledSummary {
+        final boolean documentation;
+        final boolean definitions;
+        final boolean references;
+        final boolean implementations;
+
+        public DisabledSummary(IConstructor d) {
+            documentation = getBool(d, "documentation");
+            definitions = getBool(d, "definitions");
+            references = getBool(d, "references");
+            implementations = getBool(d, "implementations");
+        }
+
+        private static boolean getBool(IConstructor d, String parameter) {
+            var val = d.asWithKeywordParameters().getParameter(parameter);
+            return val instanceof IBool && ((IBool)val).getValue();
+        }
+    }
 
 
     private class MonitorWrapper implements IRascalMonitor {
@@ -179,6 +208,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.lenses = getFunctionFor(contributions, "lenses");
             this.commandExecutor = getFunctionFor(contributions, "executor");
             this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
+            this.documenter = getFunctionFor(contributions, "documenter");
+            this.definer = getFunctionFor(contributions, "definer");
+            this.referrer = getFunctionFor(contributions, "referrer");
+            this.implementer = getFunctionFor(contributions, "implementer");
+            this.summaryConfig = contributions.thenApply(c -> {
+                for (IValue elem: c) {
+                    IConstructor contrib = (IConstructor) elem;
+                    if ("disabledSummary".equals(contrib.getConstructorType().getName())) {
+                        return new DisabledSummary(contrib);
+                    }
+                }
+                return null;
+            });
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -254,8 +296,85 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IRelation<ISet>> documentation(ISourceLocation loc, ITree input) {
+        logger.debug("documentation({})", loc);
+        return execFunction("documentation", documenter, VF.set().asRelation(), loc, input);
+    }
+
+    @Override
+    public CompletableFuture<IRelation<ISet>> defines(ISourceLocation loc, ITree input) {
+        logger.debug("defines({})", loc);
+        return execFunction("defines", definer, VF.set().asRelation(), loc, input);
+    }
+
+    @Override
+    public CompletableFuture<IRelation<ISet>> implementations(ISourceLocation loc, ITree input) {
+        logger.debug("implementer({})", loc);
+        return execFunction("implementer", implementer, VF.set().asRelation(), loc, input);
+    }
+    @Override
+    public CompletableFuture<IRelation<ISet>> references(ISourceLocation loc, ITree input) {
+        logger.debug("references({})", loc);
+        return execFunction("references", referrer, VF.set().asRelation(), loc, input);
+    }
+
+    private static CompletableFuture<Boolean> nonNull(CompletableFuture<?> x) {
+        return x.thenApply(Objects::nonNull);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDedicatedDefines() {
+        return nonNull(definer);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+        return nonNull(documenter);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDedicatedReferences() {
+        return nonNull(referrer);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDedicatedImplementations() {
+        return nonNull(implementer);
+    }
+
+    private CompletableFuture<Boolean> summaryConfigFunc(Predicate<DisabledSummary> f) {
+        return summaryConfig.thenApply(ds -> {
+            if (ds == null) {
+                return true;
+            }
+            return f.test(ds);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> askSummaryForDocumentation() {
+        return summaryConfigFunc(s -> !s.documentation);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> askSummaryForDefinitions() {
+        return summaryConfigFunc(s -> !s.definitions);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> askSummaryForReferences() {
+        return summaryConfigFunc(s -> !s.references);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> askSummaryForImplementations() {
+        return summaryConfigFunc(s -> !s.implementations);
+    }
+
+
+    @Override
     public CompletableFuture<Void> executeCommand(String command) {
-        logger.debug("executeCommand({}...) (full command value in TRACE level", () -> command.substring(0, Math.min(10, command.length())));
+        logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
         return parseCommand(command)
             .thenCombineAsync(commandExecutor, (c,e) -> {
@@ -288,5 +407,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 }
         }, exec);
     }
+
 
 }
