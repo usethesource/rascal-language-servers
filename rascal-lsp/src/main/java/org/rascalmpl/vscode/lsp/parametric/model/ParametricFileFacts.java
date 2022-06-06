@@ -38,6 +38,7 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -81,9 +82,26 @@ public class ParametricFileFacts {
         return getFile(file).getSummary();
     }
 
+    public CompletableFuture<ParametricSummaryBridge> calcSummaryIfNeeded(ISourceLocation file) {
+        return getFile(file).calcSummaryIfNeedd();
+    }
 
     public void invalidate(ISourceLocation file) {
-        getFile(file).invalidate();
+        var current = files.get(file);
+        if (current != null) {
+            current.invalidate();
+        }
+    }
+
+    public void calculate(ISourceLocation file) {
+        getFile(file).calculate();
+    }
+
+    public void close(ISourceLocation loc) {
+        var present = files.remove(loc);
+        if (present != null) {
+            present.invalidate();
+        }
     }
 
     private class FileFact {
@@ -91,10 +109,13 @@ public class ParametricFileFacts {
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<ParametricSummaryBridge> summary;
+        private final CompletableFuture<ParametricSummaryBridge> INVALID_SUMMARY_MARKER;
+        private volatile boolean validSummary = false;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            summary = new ReplaceableFuture<>(updateSummary(file));
+            INVALID_SUMMARY_MARKER = CompletableFuture.completedFuture(new ParametricSummaryBridge(file));
+            summary = new ReplaceableFuture<>(INVALID_SUMMARY_MARKER);
         }
 
         private CompletableFuture<ParametricSummaryBridge> updateSummary(ISourceLocation file) {
@@ -113,11 +134,26 @@ public class ParametricFileFacts {
         }
 
         public void invalidate() {
-            summary.replace(updateSummary(file));
+            validSummary = false;
+            summary.replace(INVALID_SUMMARY_MARKER);
+        }
+
+        public CompletableFuture<ParametricSummaryBridge> calculate() {
+            var result = summary.replace(updateSummary(file));
+            validSummary = true;
+            return result;
         }
 
         public CompletableFuture<ParametricSummaryBridge> getSummary() {
             return summary.get();
+        }
+
+        public CompletableFuture<ParametricSummaryBridge> calcSummaryIfNeedd() {
+            var result = summary.get();
+            if (!validSummary) {
+                return calculate();
+            }
+            return result;
         }
 
         public void reportParseErrors(List<Diagnostic> msgs) {
@@ -148,4 +184,5 @@ public class ParametricFileFacts {
         result.addAll(b);
         return result;
     }
+
 }
