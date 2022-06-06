@@ -183,7 +183,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
         handleParsingErrors(open(params.getTextDocument()));
-        invalidateFacts(params.getTextDocument());
     }
 
     @Override
@@ -200,10 +199,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
         }
+        facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void invalidateFacts(TextDocumentItem doc) {
-        facts(doc).invalidate(Locations.toLoc(doc));
+    private void triggerSummary(TextDocumentIdentifier doc) {
+        facts(doc).calculate(Locations.toLoc(doc));
     }
 
     private void invalidateFacts(TextDocumentIdentifier doc) {
@@ -213,9 +213,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
         logger.debug("Save: {}", params.getTextDocument());
-        // on save we don't get new file contents, that comes in via change
+        // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the type checker on save
-        // facts.invalidate(Locations.toLoc(params.getTextDocument()));
+        triggerSummary(params.getTextDocument());
     }
 
     private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
@@ -434,16 +434,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , Collections::emptyList);
     }
 
-    private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc) {
-        return facts(doc).getSummary(Locations.toLoc(doc));
+    private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc, boolean force) {
+        var f = facts(doc);
+        var l = Locations.toLoc(doc);
+        if (force) {
+            return f.calcSummaryIfNeeded(l);
+        }
+        return f.getSummary(l);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-
-
-        return recoverExceptions(summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument(), true)
             .thenApply(br -> br.getDefinition(params.getPosition()))
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
@@ -455,7 +458,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument(), true)
             .thenApply(br -> br.getImplementations(params.getPosition()))
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
@@ -465,7 +468,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument(), true)
             .thenApply(br -> br.getReferences(params.getPosition()))
             , Collections::emptyList);
     }
@@ -474,7 +477,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument())
+        return recoverExceptions(summary(params.getTextDocument(), false)
             .thenApply(br -> br.getHover(params.getPosition()))
             .thenApply(Hover::new)
             , () -> null);
