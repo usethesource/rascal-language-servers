@@ -47,6 +47,14 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.2.4
+
+* reduced frequency of summary calls for DSLs
+
+### 0.2.3
+
+* updated typepal dependency to reduce debug prints
+
 ### 0.2.2
 
 * Virtual file systems of VSCode are now available in rascal
