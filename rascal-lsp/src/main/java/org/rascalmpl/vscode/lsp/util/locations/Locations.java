@@ -35,7 +35,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import io.usethesource.vallang.ISourceLocation;
 
 public class Locations {
@@ -108,5 +108,6 @@ public class Locations {
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
         return toPosition(loc.getBeginLine() - 1, loc.getBeginColumn(), cm.get(loc), false);
     }
+
 
 }

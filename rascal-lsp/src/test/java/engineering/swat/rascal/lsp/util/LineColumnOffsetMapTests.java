@@ -56,4 +56,27 @@ public class LineColumnOffsetMapTests {
         assertEquals(8, map.translateColumn(0, 6, false));
     }
 
+    @Test
+    void noUnicodeCharsInverse() {
+        LineColumnOffsetMap map = ArrayLineOffsetMap.build("1234\n1234");
+        assertEquals(2, map.translateInverseColumn(0, 2, false));
+    }
+
+    @Test
+    void singleWideCharInverse() {
+        LineColumnOffsetMap map = ArrayLineOffsetMap.build("12🎉45\n1234🎉");
+        assertEquals(3, map.translateInverseColumn(0, 3, false));
+        assertEquals(3, map.translateInverseColumn(0, 4, false));
+        assertEquals(4, map.translateInverseColumn(0, 5, false));
+    }
+
+
+    @Test
+    void doubleCharsInverse() {
+        LineColumnOffsetMap map = ArrayLineOffsetMap.build("12🎉4🎉6\n1234");
+        assertEquals(5, map.translateInverseColumn(0, 6, false));
+        assertEquals(5, map.translateInverseColumn(0, 7, true));
+        assertEquals(6, map.translateInverseColumn(0, 8, false));
+    }
+
 }

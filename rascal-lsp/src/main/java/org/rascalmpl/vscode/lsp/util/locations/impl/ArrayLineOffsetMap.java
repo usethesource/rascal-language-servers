@@ -34,10 +34,12 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 public class ArrayLineOffsetMap implements LineColumnOffsetMap {
     private final IntArray lines;
     private final ArrayList<IntArray> wideColumnOffsets;
+    private final ArrayList<IntArray> wideColumnOffsetsInverse;
 
-    public ArrayLineOffsetMap(IntArray lines, ArrayList<IntArray> wideColumnOffsets) {
+    public ArrayLineOffsetMap(IntArray lines, ArrayList<IntArray> wideColumnOffsets, ArrayList<IntArray> wideColumnOffsetsInverse) {
         this.lines = lines;
         this.wideColumnOffsets = wideColumnOffsets;
+        this.wideColumnOffsetsInverse = wideColumnOffsetsInverse;
     }
 
     @Override
@@ -46,20 +48,31 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
         if (lineIndex < 0) {
             return column;
         }
-        IntArray lineOffsets = wideColumnOffsets.get(lineIndex);
+        return column + translateColumnForLine(wideColumnOffsets.get(lineIndex), column, isEnd);
+    }
+
+    private int translateColumnForLine(IntArray lineOffsets, int column, boolean isEnd) {
         int columnIndex = lineOffsets.search(column);
         if (columnIndex >= 0) {
             // exact hit
             if (isEnd) {
                 // for a end cursor, we want to count this char twice as well
-                columnIndex++;
+                return columnIndex + 1;
             }
+            return columnIndex;
         }
         else {
-            columnIndex = Math.abs(columnIndex + 1);
+            return Math.abs(columnIndex + 1);
         }
-        // now we know how many
-        return column + columnIndex;
+    }
+
+    @Override
+    public int translateInverseColumn(int line, int column, boolean isEnd) {
+        int lineIndex = lines.search(line);
+        if (lineIndex < 0) {
+            return column;
+        }
+        return column - translateColumnForLine(wideColumnOffsetsInverse.get(lineIndex), column, isEnd);
     }
 
 
@@ -70,6 +83,7 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
         char prev = '\0';
         GrowingIntArray linesWithSurrogate = new GrowingIntArray();
         ArrayList<IntArray> linesMap = new ArrayList<>(0);
+        ArrayList<IntArray> inverseLinesMap = new ArrayList<>(0);
         GrowingIntArray currentLine = new GrowingIntArray();
 
         for(int i = 0, n = contents.length() ; i < n ; i++) {
@@ -81,6 +95,7 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
                 if (!currentLine.isEmpty()) {
                     linesWithSurrogate.add(line);
                     linesMap.add(currentLine.build());
+                    inverseLinesMap.add(currentLine.buildInverse());
                     currentLine = new GrowingIntArray();
                 }
                 line++;
@@ -100,16 +115,21 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
             // handle last line
             linesWithSurrogate.add(line);
             linesMap.add(currentLine.build());
+            inverseLinesMap.add(currentLine.buildInverse());
         }
         if (linesMap.isEmpty()) {
             return EMPTY_MAP;
         }
-        return new ArrayLineOffsetMap(linesWithSurrogate.build(), linesMap);
+        return new ArrayLineOffsetMap(linesWithSurrogate.build(), linesMap, inverseLinesMap);
     }
 
     private static LineColumnOffsetMap EMPTY_MAP = new LineColumnOffsetMap(){
         @Override
         public int translateColumn(int line, int column, boolean atEnd) {
+            return column;
+        }
+        @Override
+        public int translateInverseColumn(int line, int column, boolean isEnd) {
             return column;
         }
     };
@@ -123,6 +143,14 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
             growIfNeeded();
             data[filled] = v;
             filled++;
+        }
+
+        public IntArray buildInverse() {
+            int[] result = new int[filled];
+            for (int i = 0; i < filled; i++) {
+                result[i] = data[i] + i;
+            }
+            return new IntArray(result, filled);
         }
 
         public boolean isEmpty() {

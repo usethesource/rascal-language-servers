@@ -109,6 +109,11 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return result;
     }
 
+    @Override
+    public @Nullable T lookup(Position at) {
+        return lookup(new Range(at, at));
+    }
+
     public void put(Range from, T to) {
         data.put(from, to);
     }
@@ -121,4 +126,25 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return data.computeIfAbsent(exact, compute);
     }
 
+    public static <T> IRangeMap<T> emptyMap() {
+        return new IRangeMap<>() {
+
+            @Override
+            public void put(Range area, T value) {
+                throw new UnsupportedOperationException("Empty class map is not mutable");
+            }
+
+            @Override
+            public @Nullable T lookup(Range from) {
+                return null;
+            }
+
+            @Override
+            public @Nullable T lookup(Position at) {
+                return null;
+            }
+
+        };
+
+    }
 }

@@ -29,9 +29,9 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -39,17 +39,15 @@ public interface ILanguageContributions {
     public String getName();
     public String getExtension();
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
-    public CompletableFuture<IList> outline(ITree input);
-    public CompletableFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
-    public CompletableFuture<ISet> lenses(ITree input);
-    public CompletableFuture<Void> executeCommand(String command);
-    public CompletableFuture<IList> inlayHint(@Nullable ITree input);
-    public CompletableFuture<IRelation<ISet>> documentation(ISourceLocation loc, ITree input);
-    public CompletableFuture<IRelation<ISet>> defines(ISourceLocation loc, ITree input);
-    public CompletableFuture<IRelation<ISet>> references(ISourceLocation loc, ITree input);
-    public CompletableFuture<IRelation<ISet>> implementations(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IList> outline(ITree input);
+    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<ISet> lenses(ITree input);
+    public InterruptibleFuture<Void> executeCommand(String command);
+    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
+    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
-    public CompletableFuture<Boolean> hasDedicatedDocumentation();
     public CompletableFuture<Boolean> hasDedicatedDefines();
     public CompletableFuture<Boolean> hasDedicatedReferences();
     public CompletableFuture<Boolean> hasDedicatedImplementations();
