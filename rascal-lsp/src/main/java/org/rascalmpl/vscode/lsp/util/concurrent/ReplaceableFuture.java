@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.util.concurrent;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -34,6 +35,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Diagnostic;
+import org.rascalmpl.vscode.lsp.util.Lazy;
 
 /**
  * A wrapper around CompletableFuture's that allow for us to replace the results of a still running future, and call an
@@ -110,5 +113,9 @@ public class ReplaceableFuture<T> {
         CompletableFuture<T> result = replace(with.get());
         interrupt.set(with::interrupt);
         return new InterruptibleFuture<>(result, with::interrupt);
+    }
+
+    public static <T> ReplaceableFuture<T> completed(T result) {
+        return new ReplaceableFuture<>(CompletableFuture.completedFuture(result));
     }
 }
