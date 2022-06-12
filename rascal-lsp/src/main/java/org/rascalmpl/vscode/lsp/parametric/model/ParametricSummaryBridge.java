@@ -95,7 +95,9 @@ public class ParametricSummaryBridge {
         references = contrib
             .hasDedicatedReferences()
             .thenCombine(contrib.askSummaryForReferences(), LazyReferences::new);
-        hovers = contrib.askSummaryForDocumentation().thenApply(RelationDocumentLookupMap::new);
+        hovers = contrib
+            .hasDedicatedDocumentation()
+            .thenCombine(contrib.askSummaryForDocumentation(), RelationDocumentLookupMap::new);
         messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
     }
 
@@ -160,8 +162,6 @@ public class ParametricSummaryBridge {
                 .thenApply(l -> l.lookup(new Range(cursor, cursor)))
                 .thenApply(r -> r == null ? this.empty : r);
         }
-
-
     }
 
 
@@ -266,8 +266,8 @@ public class ParametricSummaryBridge {
 
     private class RelationDocumentLookupMap extends RelationLookupMap<Either<String, MarkedString>> {
 
-        RelationDocumentLookupMap(boolean checkSummary) {
-            super(false, checkSummary, "documentation", (x,y, z) -> null);
+        RelationDocumentLookupMap(boolean dedicatedCall, boolean checkSummary) {
+            super(dedicatedCall, checkSummary, "documentation", contrib::documentation );
         }
         @Override
         protected Either<String, MarkedString> mapValue(IValue v) {

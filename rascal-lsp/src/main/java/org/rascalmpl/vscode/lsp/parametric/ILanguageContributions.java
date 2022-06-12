@@ -34,6 +34,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 
 public interface ILanguageContributions {
     public String getName();
@@ -44,10 +45,12 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> lenses(ITree input);
     public InterruptibleFuture<Void> executeCommand(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
+    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
+    public CompletableFuture<Boolean> hasDedicatedDocumentation();
     public CompletableFuture<Boolean> hasDedicatedDefines();
     public CompletableFuture<Boolean> hasDedicatedReferences();
     public CompletableFuture<Boolean> hasDedicatedImplementations();

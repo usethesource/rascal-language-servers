@@ -59,6 +59,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -76,7 +77,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final String mainModule;
 
     private final CompletableFuture<Evaluator> eval;
-    private final CompletableFuture<IRascalMonitor> monitor;
     private final CompletableFuture<TypeStore> store;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<@Nullable IFunction> outliner;
@@ -84,6 +84,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
     private final CompletableFuture<@Nullable IFunction> inlayHinter;
+    private final CompletableFuture<@Nullable IFunction> documenter;
     private final CompletableFuture<@Nullable IFunction> definer;
     private final CompletableFuture<@Nullable IFunction> referrer;
     private final CompletableFuture<@Nullable IFunction> implementer;
@@ -199,13 +200,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 ValueFactoryFactory.getValueFactory().set(),
                 exec, true).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
-            this.monitor = eval.thenApply(Evaluator::getMonitor);
             this.parser = getFunctionFor(contributions, "parser");
             this.outliner = getFunctionFor(contributions, "outliner");
             this.summarizer = getFunctionFor(contributions, "summarizer");
             this.lenses = getFunctionFor(contributions, "lenses");
             this.commandExecutor = getFunctionFor(contributions, "executor");
             this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
+            this.documenter = getFunctionFor(contributions, "documenter");
             this.definer = getFunctionFor(contributions, "definer");
             this.referrer = getFunctionFor(contributions, "referrer");
             this.implementer = getFunctionFor(contributions, "implementer");
@@ -293,20 +294,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
+        logger.debug("documentation({})", TreeAdapter.getLocation(cursor));
+        return execFunction("", documenter, VF.set(), loc, input, cursor);
+    }
+
+    @Override
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("defines({})", loc);
-        return execFunction("defines", definer, VF.set(), loc, input);
+        logger.debug("defines({})", TreeAdapter.getLocation(cursor));
+        return execFunction("defines", definer, VF.set(), loc, input, cursor);
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("implementer({})", loc);
-        return execFunction("implementer", implementer, VF.set(), loc, input);
+        logger.debug("implementer({})", TreeAdapter.getLocation(cursor));
+        return execFunction("implementer", implementer, VF.set(), loc, input, cursor);
     }
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("references({})", loc);
-        return execFunction("references", referrer, VF.set(), loc, input);
+        logger.debug("references({})", TreeAdapter.getLocation(cursor));
+        return execFunction("references", referrer, VF.set(), loc, input, cursor);
     }
 
     private static CompletableFuture<Boolean> nonNull(CompletableFuture<?> x) {
@@ -326,6 +333,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasDedicatedImplementations() {
         return nonNull(implementer);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+        return nonNull(documenter);
     }
 
     private CompletableFuture<Boolean> summaryConfigFunc(Predicate<DisabledSummary> f) {
@@ -362,16 +374,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<Void> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
-        var result= parseCommand(command).thenCombine(commandExecutor,
+        return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
             (c, e) -> EvaluatorUtil.<Void>runEvaluator("executeCommand", eval, ev -> e.call(c), null, exec, false)
-        );
-        return InterruptibleFuture.flatten(result, exec);
+        ), exec);
     }
 
     private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
-        var result= target.thenApply(s -> EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true)
-        );
-        return InterruptibleFuture.flatten(result, exec);
+        return InterruptibleFuture.flatten(target.thenApply(
+            s -> EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true)),
+            exec);
     }
 
 

@@ -50,8 +50,11 @@ alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 // these single mappers get caller for every request that a user makes, they should be quick as possible
-// carefull use of memo can help with caching
-alias SingleMapper     = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+// carefull use of memo can help with caching dependencies
+alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
@@ -63,9 +66,10 @@ data LanguageService
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
-    | definer(SingleMapper define)
-    | referrer(SingleMapper reference) // this
-    | implementer(SingleMapper implementations)
+    | documenter(Documenter define)
+    | definer(Definer define)
+    | referrer(Referrer reference) // this
+    | implementer(Implementer implementations)
     | disabledSummary( // tell rascal that the summary should not be run to calculate these
         bool documentation = false,
         bool definitions = false,
