@@ -88,19 +88,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> definer;
     private final CompletableFuture<@Nullable IFunction> referrer;
     private final CompletableFuture<@Nullable IFunction> implementer;
-    private final CompletableFuture<@Nullable DisabledSummary> summaryConfig;
+    private final CompletableFuture<@Nullable SummaryConfig> summaryConfig;
 
-    private static class DisabledSummary {
+    private static class SummaryConfig {
         final boolean documentation;
         final boolean definitions;
         final boolean references;
         final boolean implementations;
 
-        public DisabledSummary(IConstructor d) {
-            documentation = getBool(d, "documentation");
-            definitions = getBool(d, "definitions");
-            references = getBool(d, "references");
-            implementations = getBool(d, "implementations");
+        public SummaryConfig(IConstructor d) {
+            documentation = getBool(d, "providesDocumentation");
+            definitions = getBool(d, "providesDefinitions");
+            references = getBool(d, "providesReferences");
+            implementations = getBool(d, "providesImplementations");
         }
 
         private static boolean getBool(IConstructor d, String parameter) {
@@ -213,8 +213,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.summaryConfig = contributions.thenApply(c -> {
                 for (IValue elem: c) {
                     IConstructor contrib = (IConstructor) elem;
-                    if ("disabledSummary".equals(contrib.getConstructorType().getName())) {
-                        return new DisabledSummary(contrib);
+                    if ("summarizer".equals(contrib.getConstructorType().getName())) {
+                        return new SummaryConfig(contrib);
                     }
                 }
                 return null;
@@ -340,7 +340,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return nonNull(documenter);
     }
 
-    private CompletableFuture<Boolean> summaryConfigFunc(Predicate<DisabledSummary> f) {
+    private CompletableFuture<Boolean> summaryConfigFunc(Predicate<SummaryConfig> f) {
         return summaryConfig.thenApply(ds -> {
             if (ds == null) {
                 return true;
@@ -351,22 +351,23 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return summaryConfigFunc(s -> !s.definitions);
+        return summaryConfigFunc(s -> s.definitions);
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForReferences() {
-        return summaryConfigFunc(s -> !s.references);
+        return summaryConfigFunc(s -> s.references);
     }
+
 
     @Override
     public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return summaryConfigFunc(s -> !s.implementations);
+        return summaryConfigFunc(s -> s.implementations);
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return summaryConfigFunc(s -> !s.documentation);
+        return summaryConfigFunc(s -> s.documentation);
     }
 
 

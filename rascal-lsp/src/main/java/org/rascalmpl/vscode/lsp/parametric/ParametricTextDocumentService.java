@@ -430,7 +430,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(contrib::outline) // TODO: store this interruptible future and also replace it
+            .thenApply(contrib::outline)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);

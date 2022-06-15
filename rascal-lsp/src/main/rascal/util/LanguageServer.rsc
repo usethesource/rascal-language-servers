@@ -59,7 +59,11 @@ alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lex
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
     = parser(Parser parser)
-    | summarizer(Summarizer summarizer)
+    | summarizer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true)
     | outliner(Outliner outliner)
     | completer(Completer completer)
     | builder(Builder builder)
@@ -70,11 +74,6 @@ data LanguageService
     | definer(Definer define)
     | referrer(Referrer reference) // this
     | implementer(Implementer implementations)
-    | disabledSummary( // tell rascal that the summary should not be run to calculate these
-        bool documentation = false,
-        bool definitions = false,
-        bool references = false,
-        bool implementations = false)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
