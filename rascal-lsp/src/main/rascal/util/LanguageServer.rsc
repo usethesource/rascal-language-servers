@@ -49,17 +49,31 @@ alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 alias CommandExecutor  = void (Command /*command*/);
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+// these single mappers get caller for every request that a user makes, they should be quick as possible
+// carefull use of memo can help with caching dependencies
+alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 data LanguageService
     = parser(Parser parser)
-    | summarizer(Summarizer summarizer)
+    | summarizer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true)
     | outliner(Outliner outliner)
     | completer(Completer completer)
     | builder(Builder builder)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
+    | documenter(Documenter documenter)
+    | definer(Definer definer)
+    | referrer(Referrer reference)
+    | implementer(Implementer implementer)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}

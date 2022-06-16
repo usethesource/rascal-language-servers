@@ -34,22 +34,22 @@ import lang::pico::\syntax::Main;
 import IO;
 
 set[LanguageService] picoLanguageContributor() = {
-    parser(Tree (str input, loc src) {
-        return parse(#start[Program], input, src);
-    }),
+    parser(parser(#start[Program])),
     outliner(picoOutliner),
-    summarizer(picoSummarizer),
+    summarizer(picoSummarizer, providesImplementations = false),
     lenses(picoLenses),
     executor(picoCommands),
-    inlayHinter(picoHinter)
+    inlayHinter(picoHinter),
+    definer(lookupDef)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
-  = [symbol("<input.src>", \file(), input.src, children=[
+  = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
 Summary picoSummarizer(loc l, start[Program] input) {
+    println("Running summary for pico!");
     rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var  := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
@@ -60,6 +60,9 @@ Summary picoSummarizer(loc l, start[Program] input) {
         documentation = (uses o defs) o docs
     );
 }
+
+set[loc] lookupDef(loc l, start[Program] input, Tree cursor) =
+    { d.src | /IdType d := input, cursor := d.id};
 
 
 data Command

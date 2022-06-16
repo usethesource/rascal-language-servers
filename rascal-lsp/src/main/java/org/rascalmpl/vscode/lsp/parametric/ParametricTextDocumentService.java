@@ -38,8 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import com.google.common.io.CharStreams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -100,10 +98,11 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
+import com.google.common.io.CharStreams;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -260,7 +259,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenCompose(contrib::lenses)
+            .thenApply(contrib::lenses)
+            .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getExtension(), e))
                 .collect(Collectors.toList())
@@ -274,7 +274,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
-                .thenCompose(contrib::inlayHint)
+                .thenApply(contrib::inlayHint)
+                .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
                     .collect(Collectors.toList())
@@ -429,25 +430,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenCompose(contrib::outline) // TODO: store this interruptible future and also replace it
+            .thenApply(contrib::outline)
+            .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
     }
 
-    private CompletableFuture<ParametricSummaryBridge> summary(TextDocumentIdentifier doc, boolean force) {
-        var f = facts(doc);
-        var l = Locations.toLoc(doc);
-        if (force) {
-            return f.calcSummaryIfNeeded(l);
-        }
-        return f.getSummary(l);
+    private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
+        return facts(doc).getSummary(Locations.toLoc(doc));
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        return recoverExceptions(summary(params.getTextDocument(), true)
-            .thenApply(br -> br.getDefinition(params.getPosition()))
+        return recoverExceptions(summary(params.getTextDocument())
+            .getDefinition(params.getPosition())
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
@@ -458,8 +455,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument(), true)
-            .thenApply(br -> br.getImplementations(params.getPosition()))
+        return recoverExceptions(summary(params.getTextDocument())
+            .getImplementations(params.getPosition())
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -468,8 +465,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument(), true)
-            .thenApply(br -> br.getReferences(params.getPosition()))
+        return recoverExceptions(summary(params.getTextDocument())
+            .getReferences(params.getPosition())
+            .thenApply(l -> l) // hack to help compiler see type
             , Collections::emptyList);
     }
 
@@ -477,8 +475,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
 
-        return recoverExceptions(summary(params.getTextDocument(), false)
-            .thenApply(br -> br.getHover(params.getPosition()))
+        return recoverExceptions(summary(params.getTextDocument())
+            .getHover(params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }
@@ -512,7 +510,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions.get(extension);
 
         if (contribs != null) {
-            return contribs.executeCommand(command);
+            return contribs.executeCommand(command).get();
         }
         else {
             logger.warn("ignoring command execution: " + extension + "," + command);

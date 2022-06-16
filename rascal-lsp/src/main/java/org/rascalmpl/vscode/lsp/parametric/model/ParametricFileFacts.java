@@ -34,19 +34,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
@@ -78,12 +74,8 @@ public class ParametricFileFacts {
         return files.computeIfAbsent(l, FileFact::new);
     }
 
-    public CompletableFuture<ParametricSummaryBridge> getSummary(ISourceLocation file) {
+    public ParametricSummaryBridge getSummary(ISourceLocation file) {
         return getFile(file).getSummary();
-    }
-
-    public CompletableFuture<ParametricSummaryBridge> calcSummaryIfNeeded(ISourceLocation file) {
-        return getFile(file).calcSummaryIfNeedd();
     }
 
     public void invalidate(ISourceLocation file) {
@@ -108,24 +100,11 @@ public class ParametricFileFacts {
         private final ISourceLocation file;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
-        private final ReplaceableFuture<ParametricSummaryBridge> summary;
-        private final CompletableFuture<ParametricSummaryBridge> INVALID_SUMMARY_MARKER;
-        private volatile boolean validSummary = false;
+        private final ParametricSummaryBridge summary;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            INVALID_SUMMARY_MARKER = CompletableFuture.completedFuture(new ParametricSummaryBridge(file));
-            summary = new ReplaceableFuture<>(INVALID_SUMMARY_MARKER);
-        }
-
-        private CompletableFuture<ParametricSummaryBridge> updateSummary(ISourceLocation file) {
-            CompletableFuture<ParametricSummaryBridge> result = lookupState.apply(file)
-                    .getCurrentTreeAsync()
-                    .thenComposeAsync(t -> contrib.summarize(file, t), exec)
-                    .thenApply(cons -> new ParametricSummaryBridge(cons, columns));
-            // also schedule update of error messages
-            result.thenAccept(p -> reportTypeCheckerMessages(p.getMessages()));
-            return result;
+            this.summary = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
         }
 
         private void reportTypeCheckerMessages(List<Diagnostic> messages) {
@@ -134,26 +113,16 @@ public class ParametricFileFacts {
         }
 
         public void invalidate() {
-            validSummary = false;
-            summary.replace(INVALID_SUMMARY_MARKER);
+            summary.invalidate();
         }
 
-        public CompletableFuture<ParametricSummaryBridge> calculate() {
-            var result = summary.replace(updateSummary(file));
-            validSummary = true;
-            return result;
+        public void calculate() {
+            summary.calculateSummary();
+            summary.getMessages().thenAccept(this::reportTypeCheckerMessages);
         }
 
-        public CompletableFuture<ParametricSummaryBridge> getSummary() {
-            return summary.get();
-        }
-
-        public CompletableFuture<ParametricSummaryBridge> calcSummaryIfNeedd() {
-            var result = summary.get();
-            if (!validSummary) {
-                return calculate();
-            }
-            return result;
+        public ParametricSummaryBridge getSummary() {
+            return summary;
         }
 
         public void reportParseErrors(List<Diagnostic> msgs) {

@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.util.concurrent;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -55,8 +56,18 @@ public class InterruptibleFuture<T> {
         return new InterruptibleFuture<>(future.thenApply(func), interrupt);
     }
 
+    public <U> InterruptibleFuture<U> thenApplyAsync(Function<T, U> func, Executor exec) {
+        return new InterruptibleFuture<>(future.thenApplyAsync(func, exec), interrupt);
+    }
+
     public InterruptibleFuture<Void> thenAccept(Consumer<T> func) {
         return new InterruptibleFuture<>(future.thenAccept(func), interrupt);
+    }
+
+    public <U, V> InterruptibleFuture<V> thenCombineAsync(
+        CompletableFuture<? extends U> other,
+        BiFunction<? super T, ? super U, ? extends V> fn, Executor executor) {
+        return new InterruptibleFuture<>(future.thenCombineAsync(other, fn, executor), interrupt);
     }
 
     public static <T> InterruptibleFuture<T> completedFuture(T result) {

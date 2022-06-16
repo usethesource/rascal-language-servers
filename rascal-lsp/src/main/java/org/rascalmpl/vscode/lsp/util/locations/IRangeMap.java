@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util.locations;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 
 /**
@@ -40,9 +41,16 @@ public interface IRangeMap<T> {
     void put(Range area, T value);
 
     /**
-     * Lookup a cursor position/selection and find the smallest range where it's contained in.
+     * Lookup a cursor selection and find the smallest range where it's contained in.
      *
      * @return either the value or null if not found
      */
     @Nullable T lookup(Range from);
+
+    /**
+     * Lookup a cursor position and find the smallest range where it's contained in.
+     *
+     * @return either the value or null if not found
+     */
+    @Nullable T lookup(Position at);
 }
