@@ -105,7 +105,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
         private static boolean getBool(IConstructor d, String parameter) {
             var val = d.asWithKeywordParameters().getParameter(parameter);
-            return val instanceof IBool && ((IBool)val).getValue();
+            return !(val instanceof IBool) || ((IBool)val).getValue();
         }
     }
 

@@ -33,6 +33,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Location;
@@ -66,7 +68,7 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricSummaryBridge {
-
+    private static final Logger logger = LogManager.getLogger(ParametricSummaryBridge.class);
     private final Executor exec;
     private final ColumnMaps columns;
     private final ILanguageContributions contrib;
@@ -115,8 +117,14 @@ public class ParametricSummaryBridge {
         protected final boolean dedicatedCall;
         protected final boolean checkSummary;
         protected final T empty;
+        protected final String logName;
+        private final boolean requestSummaryIfNeeded;
 
-        LazyRangeMapCalculation(boolean dedicatedCall, boolean checkSummary, T empty) {
+
+        LazyRangeMapCalculation(String logName, boolean dedicatedCall, boolean checkSummary, boolean requestSummaryIfNeeded, T empty) {
+            logger.debug("{} init, dedicated: {} checkSummary: {}", logName, dedicatedCall, checkSummary);
+            this.requestSummaryIfNeeded = requestSummaryIfNeeded;
+            this.logName = logName;
             this.dedicatedCall = dedicatedCall;
             this.checkSummary = checkSummary;
             this.empty = empty;
@@ -128,6 +136,7 @@ public class ParametricSummaryBridge {
         public void invalidate() {
             var last = lastFuture;
             if (last != null) {
+                logger.trace("{}: Interrupting {}", logName, last);
                 last.interrupt();
                 lastFuture = null;
             }
@@ -135,8 +144,10 @@ public class ParametricSummaryBridge {
 
         public void newSummary(InterruptibleFuture<IConstructor> summary) {
             if (!checkSummary) {
+                logger.trace("{}: Ignoring new summary, since summaries don't provide info for us", logName);
                 return;
             }
+            logger.trace("{}: deriving when new summary ({}) is ready", logName, summary);
             replaceFuture(mapSummary(summary.thenApply(IConstructor::asWithKeywordParameters)));
         }
 
@@ -150,13 +161,26 @@ public class ParametricSummaryBridge {
 
         public InterruptibleFuture<T> lookup(Position cursor) {
             var activeSummary = lastFuture;
-            if (activeSummary == null || !checkSummary) {
-                if (dedicatedCall) {
-                    return requestDedicated(cursor);
-                }
+            if (activeSummary == null && dedicatedCall) {
+                logger.trace("{} requesting dedicated for: {}", logName, cursor);
+                return requestDedicated(cursor);
+            }
+            if (!checkSummary || (activeSummary == null && !requestSummaryIfNeeded)) {
+                logger.trace("{}: nothing in summary, no dedicated call, so returning empty future", logName);
                 // else we can't do a thing anyway
                 return InterruptibleFuture.completedFuture(empty);
             }
+            if (activeSummary == null/* implied:&& requestSummaryIfNeeded */ ) {
+                logger.trace("{} requesting summary since we need it for: {}", logName, cursor);
+                calculateSummary();
+                activeSummary = lastFuture;
+                if (activeSummary == null) {
+                    logger.error("{} something went wrong with requesting a new summary for {}", logName, cursor);
+                    return InterruptibleFuture.completedFuture(empty);
+                }
+            }
+
+            logger.trace("{}: using summary to lookup {} (in summary: {})", logName, cursor, activeSummary);
             return activeSummary
                 .thenApplyAsync(Lazy::get, exec)
                 .thenApply(l -> l.lookup(new Range(cursor, cursor)))
@@ -174,8 +198,8 @@ public class ParametricSummaryBridge {
         private final String kwField;
         private final DedicatedLookupFunction dedicatedCalcFunc;
 
-        RelationLookupMap(boolean dedicatedCall, boolean checkSummary, String kwField, DedicatedLookupFunction dedicatedCalcFunc) {
-            super(dedicatedCall, checkSummary, Collections.emptyList());
+        RelationLookupMap(String logName, boolean dedicatedCall, boolean checkSummary, boolean requestSummaryIfNeeded, String kwField, DedicatedLookupFunction dedicatedCalcFunc) {
+            super(logName, dedicatedCall, checkSummary, requestSummaryIfNeeded, Collections.emptyList());
             this.kwField = kwField;
             this.dedicatedCalcFunc = dedicatedCalcFunc;
         }
@@ -183,6 +207,8 @@ public class ParametricSummaryBridge {
         @Override
         InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapSummary(
             InterruptibleFuture<IWithKeywordParameters<? extends IConstructor>> newSummary) {
+            logger.trace("{}: Mapping summary by getting {}", logName, kwField);
+
             return newSummary.thenApply(s ->
                 Lazy.defer(() -> translateRelation(getKWFieldSet(s, kwField)))
             );
@@ -203,10 +229,12 @@ public class ParametricSummaryBridge {
                         var line = cursor.getLine() + 1;
                         var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
                         var cursorTree = TreeAdapter.locateLexical(t, line, translatedOffset);
+                        logger.trace("{}: looked up cursor to: {}, now calling dedicated function", () -> logName, () -> TreeAdapter.yield(cursorTree));
                         return dedicatedCalcFunc.lookup(file, t, cursorTree);
         }, exec);
             return InterruptibleFuture.flatten(result, exec)
                 .thenApply(s -> {
+                    logger.trace("{}: dedicated returned: {}", logName, s);
                     if (s == null || s.isEmpty()) {
                         return Collections.emptyList();
                     }
@@ -229,6 +257,7 @@ public class ParametricSummaryBridge {
 
 
         IRangeMap<List<T>> translateRelation(IRelation<ISet> binaryRel) {
+            logger.trace("{}: summary contain rel of size:{}", () -> logName, () -> binaryRel.asContainer().size());
             TreeMapLookup<List<T>> result = new TreeMapLookup<>();
             for (IValue v: binaryRel) {
                 ITuple row = (ITuple)v;
@@ -255,8 +284,8 @@ public class ParametricSummaryBridge {
 
     private class RelationLocationLookupMap extends RelationLookupMap<Location> {
 
-        RelationLocationLookupMap(boolean dedicatedCall, boolean checkSummary, String kwField, DedicatedLookupFunction dedicatedCalcFunc) {
-            super(dedicatedCall, checkSummary, kwField, dedicatedCalcFunc);
+        RelationLocationLookupMap(boolean dedicatedCall, boolean checkSummary,boolean requestSummaryIfNeeded, String kwField, DedicatedLookupFunction dedicatedCalcFunc) {
+            super(kwField, dedicatedCall, checkSummary, requestSummaryIfNeeded, kwField, dedicatedCalcFunc);
         }
         @Override
         protected Location mapValue(IValue v) {
@@ -267,7 +296,7 @@ public class ParametricSummaryBridge {
     private class RelationDocumentLookupMap extends RelationLookupMap<Either<String, MarkedString>> {
 
         RelationDocumentLookupMap(boolean dedicatedCall, boolean checkSummary) {
-            super(dedicatedCall, checkSummary, "documentation", contrib::documentation );
+            super("documentation", dedicatedCall, checkSummary, false, "documentation", contrib::documentation );
         }
         @Override
         protected Either<String, MarkedString> mapValue(IValue v) {
@@ -278,19 +307,19 @@ public class ParametricSummaryBridge {
 
     private class LazyDefinitions extends RelationLocationLookupMap {
         public LazyDefinitions(boolean dedicatedCall, boolean askSummary) {
-            super(dedicatedCall, askSummary, "definitions", contrib::defines);
+            super(dedicatedCall, askSummary, true, "definitions", contrib::defines);
         }
     }
 
     private class LazyImplementations extends RelationLocationLookupMap {
         public LazyImplementations(boolean dedicatedCall, boolean askSummary) {
-            super(dedicatedCall, askSummary, "implementations", contrib::implementations);
+            super(dedicatedCall, askSummary, true, "implementations", contrib::implementations);
         }
     }
 
     private class LazyReferences extends RelationLocationLookupMap {
         public LazyReferences(boolean dedicatedCall, boolean askSummary) {
-            super(dedicatedCall, askSummary, "references", contrib::references);
+            super(dedicatedCall, askSummary, true, "references", contrib::references);
         }
     }
 
@@ -307,6 +336,7 @@ public class ParametricSummaryBridge {
     }
 
     public void calculateSummary() {
+        logger.trace("Requesting Summary calculation for: {}", file);
         var summary = InterruptibleFuture.flatten(lookupState.apply(file)
             .getCurrentTreeAsync()
             .thenApplyAsync(t -> contrib.summarize(file, t), exec)

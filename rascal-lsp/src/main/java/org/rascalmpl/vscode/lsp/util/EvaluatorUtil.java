@@ -138,6 +138,7 @@ public class EvaluatorUtil {
                         eval.doImport(eval, i);
                     } catch (Exception e) {
                         logger.catching(e);
+                        logger.error("Failure to import, RascalResolver: {}", eval.getRascalResolver());
                         throw new RuntimeException("Failure to import required module " + i, e);
                     }
                 }

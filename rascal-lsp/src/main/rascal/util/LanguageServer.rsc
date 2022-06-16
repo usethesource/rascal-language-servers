@@ -70,10 +70,10 @@ data LanguageService
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
-    | documenter(Documenter define)
-    | definer(Definer define)
-    | referrer(Referrer reference) // this
-    | implementer(Implementer implementations)
+    | documenter(Documenter documenter)
+    | definer(Definer definer)
+    | referrer(Referrer reference)
+    | implementer(Implementer implementer)
     ;
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
