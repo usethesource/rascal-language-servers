@@ -382,7 +382,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         return InterruptibleFuture.flatten(target.thenApply(
-            s -> EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true)),
+            s -> {
+                if (s == null) {
+                    return InterruptibleFuture.completedFuture(defaultResult);
+                }
+
+                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true);
+            }),
             exec);
     }
 
