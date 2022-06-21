@@ -90,9 +90,16 @@ public class ParametricFileFacts {
     }
 
     public void close(ISourceLocation loc) {
-        var present = files.remove(loc);
+        var present = files.get(loc);
         if (present != null) {
             present.invalidate(true);
+            present.summary.getMessages().thenAccept(m -> {
+                if (m.isEmpty()) {
+                    // only if there are no messages for this class, can we remove it
+                    // else vscode comes back and we've dropped the messages in our internal data
+                    files.remove(loc);
+                }
+            });
         }
     }
 
