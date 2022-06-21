@@ -80,6 +80,7 @@ public class ParametricSummaryBridge {
     private final CompletableFuture<LazyRangeMapCalculation<List<Location>>> implementations;
     private final CompletableFuture<LazyRangeMapCalculation<List<Location>>> references;
     private final CompletableFuture<LazyRangeMapCalculation<List<Either<String, MarkedString>>>> hovers;
+    private volatile boolean internalSummaryCalc = true;
 
     public ParametricSummaryBridge(Executor exec, ISourceLocation file, ColumnMaps columns,
         ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState) {
@@ -103,11 +104,11 @@ public class ParametricSummaryBridge {
         messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
     }
 
-    public void invalidate() {
-        definitions.thenAccept(LazyRangeMapCalculation::invalidate);
-        implementations.thenAccept(LazyRangeMapCalculation::invalidate);
-        references.thenAccept(LazyRangeMapCalculation::invalidate);
-        hovers.thenAccept(LazyRangeMapCalculation::invalidate);
+    public void invalidate(boolean isClosing) {
+        definitions.thenAccept(d -> d.invalidate(isClosing));
+        implementations.thenAccept(d -> d.invalidate(isClosing));
+        references.thenAccept(d -> d.invalidate(isClosing));
+        hovers.thenAccept(d -> d.invalidate(isClosing));
     }
 
     private abstract class LazyRangeMapCalculation<T> {
@@ -133,9 +134,9 @@ public class ParametricSummaryBridge {
                     Lazy.defer(TreeMapLookup::emptyMap)));
         }
 
-        public void invalidate() {
+        public void invalidate(boolean isClosing) {
             var last = lastFuture;
-            if (last != null) {
+            if (last != null && (!isClosing || internalSummaryCalc)) {
                 logger.trace("{}: Interrupting {}", logName, last);
                 last.interrupt();
                 lastFuture = null;
@@ -172,7 +173,7 @@ public class ParametricSummaryBridge {
             }
             if (activeSummary == null/* implied:&& requestSummaryIfNeeded */ ) {
                 logger.trace("{} requesting summary since we need it for: {}", logName, cursor);
-                calculateSummary();
+                calculateSummary(true);
                 activeSummary = lastFuture;
                 if (activeSummary == null) {
                     logger.error("{} something went wrong with requesting a new summary for {}", logName, cursor);
@@ -336,7 +337,12 @@ public class ParametricSummaryBridge {
     }
 
     public void calculateSummary() {
+        calculateSummary(false);
+    }
+
+    private void calculateSummary(boolean internal) {
         logger.trace("Requesting Summary calculation for: {}", file);
+        this.internalSummaryCalc = internal;
         var summary = InterruptibleFuture.flatten(lookupState.apply(file)
             .getCurrentTreeAsync()
             .thenApplyAsync(t -> contrib.summarize(file, t), exec)

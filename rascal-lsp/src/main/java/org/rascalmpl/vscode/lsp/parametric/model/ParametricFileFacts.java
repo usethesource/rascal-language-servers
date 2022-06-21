@@ -81,7 +81,7 @@ public class ParametricFileFacts {
     public void invalidate(ISourceLocation file) {
         var current = files.get(file);
         if (current != null) {
-            current.invalidate();
+            current.invalidate(false);
         }
     }
 
@@ -92,7 +92,7 @@ public class ParametricFileFacts {
     public void close(ISourceLocation loc) {
         var present = files.remove(loc);
         if (present != null) {
-            present.invalidate();
+            present.invalidate(true);
         }
     }
 
@@ -112,8 +112,8 @@ public class ParametricFileFacts {
             sendDiagnostics();
         }
 
-        public void invalidate() {
-            summary.invalidate();
+        public void invalidate(boolean isClosing) {
+            summary.invalidate(isClosing);
         }
 
         public void calculate() {
