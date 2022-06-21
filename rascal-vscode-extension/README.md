@@ -39,23 +39,13 @@ No settings so far.
 This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
 Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-**This extension works best with Java 11; higher or lower will cause breakage.**
-
-However, the extension helps you with downloading the right Java version if you do not have it.
+**This extension works best with Java 11; higher will cause breakage.**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
    * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
 
 ## Release Notes
-
-### 0.2.5
-
-* dependency on rascal bumped to 0.24.2
-* this includes new more portable external process creation API in util::ShellExec
-* faster and less often parser generation by ParseTree::parser and parsers functions
-* bugfix in type reification with parameterized data-types such as Maybe[&T] which influenced
-parsing parameterized constructor values back from text.
 
 ### 0.2.4
 
