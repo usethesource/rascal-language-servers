@@ -230,6 +230,9 @@ public class ParametricSummaryBridge {
                         var line = cursor.getLine() + 1;
                         var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
                         var cursorTree = TreeAdapter.locateLexical(t, line, translatedOffset);
+                        if (cursorTree == null) {
+                            throw new RuntimeException("Couldn't find " + cursor + " in " + t);
+                        }
                         logger.trace("{}: looked up cursor to: {}, now calling dedicated function", () -> logName, () -> TreeAdapter.yield(cursorTree));
                         return dedicatedCalcFunc.lookup(file, t, cursorTree);
         }, exec);
