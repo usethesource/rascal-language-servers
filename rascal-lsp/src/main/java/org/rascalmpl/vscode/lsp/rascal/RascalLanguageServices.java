@@ -129,6 +129,7 @@ public class RascalLanguageServices {
 
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFileList(IList files, PathConfig pcfg,
         Executor exec) {
+        logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
             e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
             buildEmptyResult(files), exec, false);

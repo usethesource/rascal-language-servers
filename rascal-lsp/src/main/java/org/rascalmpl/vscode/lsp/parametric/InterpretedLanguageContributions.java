@@ -301,7 +301,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("defines({})", TreeAdapter.getLocation(cursor));
+        logger.debug("defines({}, {})", loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
         return execFunction("defines", definer, VF.set(), loc, input, cursor);
     }
 
