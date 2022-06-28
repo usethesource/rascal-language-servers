@@ -47,6 +47,8 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### NEXT-VERSION
+
 
 ### 0.3.0
 
