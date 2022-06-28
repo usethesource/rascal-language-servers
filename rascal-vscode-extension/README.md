@@ -47,6 +47,12 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+
+### 0.3.0
+
+* Rascal DSLs get more flexibility (and performance) in how they contribute the information back to VS Code. Summaries work as base, but developers can defined custom functions for specific requests from VS Code.
+* Rascal DSLs can parse without waiting for other request to finish
+* Now using Rascal 0.24.2
 ### 0.2.4
 
 * reduced frequency of summary calls for DSLs
