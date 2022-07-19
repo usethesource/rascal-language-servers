@@ -41,6 +41,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -51,11 +52,14 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.library.lang.json.io.JsonValueReader;
+import org.rascalmpl.library.lang.json.io.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.extensions.InlayHint;
 import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -63,8 +67,16 @@ import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.TypeFactory;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -104,11 +116,32 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
+            .configureGson(BaseLanguageServer::configureGson)
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
 
         return clientLauncher;
+    }
+
+    private static void configureGson(GsonBuilder builder) {
+        JsonValueWriter valueWriter = new JsonValueWriter();
+        JsonValueReader valueReader = new JsonValueReader(IRascalValueFactory.getInstance());
+        valueWriter.setDatesAsInt(true);
+        valueWriter.setNodesAsObjects(true);
+        valueReader.setNodesAsObjects(true);
+
+        builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
+            @Override
+            public IValue read(JsonReader reader) throws IOException {
+                return valueReader.read(reader, TypeFactory.getInstance().valueType());
+            }
+
+            @Override
+            public void write(JsonWriter writer, IValue value) throws IOException {
+                valueWriter.write(writer, value);
+            }
+        });
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})

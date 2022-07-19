@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -102,7 +103,9 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import com.google.common.io.CharStreams;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -112,7 +115,6 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
-    private static final String RASCAL_META_COMMAND = "rascal-meta-command";
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
 
@@ -161,7 +163,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RASCAL_META_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_META_COMMAND)));
         result.setFoldingRangeProvider(true);
     }
 
@@ -316,7 +318,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Command constructorToCommand(String extension, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
+        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), BaseWorkspaceService.RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -354,10 +356,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(TextDocumentIdentifier doc) {
-        return facts(doc.getUri());
-    }
-
-    private ParametricFileFacts facts(TextDocumentItem doc) {
         return facts(doc.getUri());
     }
 
@@ -506,7 +504,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<Void> executeCommand(String extension, String command) {
+    public CompletableFuture<IValue> executeCommand(String extension, String command) {
         ILanguageContributions contribs = contributions.get(extension);
 
         if (contribs != null) {
