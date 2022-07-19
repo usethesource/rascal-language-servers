@@ -125,21 +125,21 @@ public abstract class BaseLanguageServer {
     }
 
     private static void configureGson(GsonBuilder builder) {
-        JsonValueWriter valueWriter = new JsonValueWriter();
-        JsonValueReader valueReader = new JsonValueReader(IRascalValueFactory.getInstance());
-        valueWriter.setDatesAsInt(true);
-        valueWriter.setNodesAsObjects(true);
-        valueReader.setNodesAsObjects(true);
+        JsonValueWriter writer = new JsonValueWriter();
+        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance());
+        writer.setDatesAsInt(true);
+        writer.setNodesAsObjects(true);
+        reader.setNodesAsObjects(true);
 
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
             @Override
-            public IValue read(JsonReader reader) throws IOException {
-                return valueReader.read(reader, TypeFactory.getInstance().valueType());
+            public IValue read(JsonReader source) throws IOException {
+                return reader.read(source, TypeFactory.getInstance().valueType());
             }
 
             @Override
-            public void write(JsonWriter writer, IValue value) throws IOException {
-                valueWriter.write(writer, value);
+            public void write(JsonWriter target, IValue value) throws IOException {
+                writer.write(target, value);
             }
         });
     }
