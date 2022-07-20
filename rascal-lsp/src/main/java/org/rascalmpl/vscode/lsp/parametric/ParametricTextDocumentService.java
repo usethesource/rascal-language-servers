@@ -359,6 +359,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return facts(doc.getUri());
     }
 
+    private ParametricFileFacts facts(TextDocumentItem doc) {
+        return facts(doc.getUri());
+    }
+
     private ParametricFileFacts facts(ISourceLocation doc) {
         return facts(doc.getPath());
     }
@@ -369,10 +373,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return fact;
         }
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
-    }
-
-    private ParametricFileFacts facts(TextDocumentItem doc) {
-        return facts(doc.getUri());
     }
 
     private TextDocumentState open(TextDocumentItem doc) {
