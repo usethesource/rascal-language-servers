@@ -371,6 +371,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
+    private ParametricFileFacts facts(TextDocumentItem doc) {
+        return facts(doc.getUri());
+    }
+
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
             l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
