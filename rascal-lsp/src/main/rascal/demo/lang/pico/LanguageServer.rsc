@@ -81,8 +81,9 @@ list[InlayHint] picoHinter(start[Program] input) {
 list[DocumentEdit] getAtoBEdits(start[Program] input)
    = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
 
-void picoCommands(renameAtoB(start[Program] input)) {
+value picoCommands(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
+    return true;
 }
 
 void main() {

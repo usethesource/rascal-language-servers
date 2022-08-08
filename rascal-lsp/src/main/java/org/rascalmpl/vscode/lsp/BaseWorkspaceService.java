@@ -46,6 +46,8 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+    public static final String RASCAL_META_COMMAND = "rascal-meta-command";
+
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
@@ -107,10 +109,10 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         switch (params.getCommand()) {
-            case "rascal-meta-command":
+            case RASCAL_META_COMMAND:
                 String extension = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                 String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-                return documentService.executeCommand(extension, command).thenApply(v -> command);
+                return documentService.executeCommand(extension, command).thenApply(v -> v);
             default:
                 return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
         }

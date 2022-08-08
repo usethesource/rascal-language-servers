@@ -59,7 +59,6 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -372,11 +371,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
 
     @Override
-    public InterruptibleFuture<Void> executeCommand(String command) {
+    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (c, e) -> EvaluatorUtil.<Void>runEvaluator("executeCommand", eval, ev -> e.call(c), null, exec, false)
+            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, true)
         ), exec);
     }
 

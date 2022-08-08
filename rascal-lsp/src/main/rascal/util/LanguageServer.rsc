@@ -47,7 +47,7 @@ alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
 alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
 alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
-alias CommandExecutor  = void (Command /*command*/);
+alias CommandExecutor  = value (Command /*command*/);
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 // these single mappers get caller for every request that a user makes, they should be quick as possible
 // carefull use of memo can help with caching dependencies
