@@ -231,11 +231,12 @@ public class ParametricSummaryBridge {
                         var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
                         var cursorTree = TreeAdapter.locateLexical(t, line, translatedOffset);
                         if (cursorTree == null) {
-                            throw new RuntimeException("Couldn't find " + cursor + " in " + t);
+                            logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
+                            return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
                         }
                         logger.trace("{}: looked up cursor to: {}, now calling dedicated function", () -> logName, () -> TreeAdapter.yield(cursorTree));
                         return dedicatedCalcFunc.lookup(file, t, cursorTree);
-        }, exec);
+                    }, exec);
             return InterruptibleFuture.flatten(result, exec)
                 .thenApply(s -> {
                     logger.trace("{}: dedicated returned: {}", logName, s);
