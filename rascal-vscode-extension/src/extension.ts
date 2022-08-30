@@ -92,9 +92,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     rascalExtensionContext!.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
         const ext = path.extname(e.fileName);
-
-        if (ext !== "" && e.languageId !== ALL_LANGUAGES_ID && registeredFileExtensions.has(ext.substring(1))) {
-            vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
+        if (ext !== "" && e.languageId !== ALL_LANGUAGES_ID && !e.isClosed && registeredFileExtensions.has(ext.substring(1))) {
+            // we delay setting the language, as sometimes VSCode quickly opens and closes the document
+            // also it looks like there is a bug where calling `setTextDocumentLanguage` closes and opens it, but at opening
+            // it's not applied yet.
+            // so we wait 1ms just to be sure we're not triggering an endless loop.
+            setTimeout(() => {
+                if (!e.isClosed && e.languageId !== ALL_LANGUAGES_ID) {
+                    vscode.languages.setTextDocumentLanguage(e, ALL_LANGUAGES_ID);
+                }
+            }, 1);
         }
     }));
 
