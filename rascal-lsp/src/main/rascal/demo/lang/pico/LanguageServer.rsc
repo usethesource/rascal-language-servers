@@ -76,7 +76,7 @@ loc atEnd(loc l) = l[begin = l.end][offset=l.offset+l.length - 1][length = 1];
 list[InlayHint] picoHinter(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
     return [
-        hint(atEnd(name.src), " : <typeLookup["<name>"]>", \parameter()) | /(Expression)`<Id name>` := input, "<name>" in typeLookup
+        hint(atEnd(name.src), " : <typeLookup["<name>"]>", \type()) | /(Expression)`<Id name>` := input, "<name>" in typeLookup
     ];
 }
 
