@@ -12,7 +12,7 @@
   "icon": "assets/images/rascal-logo.png",
   "version": "0.3.1-head",
   "engines": {
-    "vscode": "^1.55.0"
+    "vscode": "^1.70.0"
   },
   "license": "BSD-2-Clause",
   "repository": {
@@ -22,7 +22,7 @@
   "dependencies": {
     "node-fetch": "^2.6.7",
     "tar": "^6.1.11",
-    "vscode-languageclient": "^7.0.0",
+    "vscode-languageclient": "^8.0.0",
     "yauzl": "^2.10.0"
   },
   "categories": [
@@ -108,7 +108,7 @@
     "@types/node-fetch": "^2.5.12",
     "@types/tar": "^6.1.1",
     "@types/temp": "^0.9.1",
-    "@types/vscode": "^1.52.0",
+    "@types/vscode": "^1.70.0",
     "@types/yauzl": "^2.9.2",
     "@typescript-eslint/eslint-plugin": "^4.1.1",
     "@typescript-eslint/parser": "^4.1.1",

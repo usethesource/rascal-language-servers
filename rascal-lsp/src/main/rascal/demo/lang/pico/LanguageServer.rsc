@@ -71,10 +71,12 @@ data Command
 rel[loc,Command] picoLenses(start[Program] input) = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
 
 
+loc atEnd(loc l) = l[begin = l.end][offset=l.offset+l.length - 1][length = 1];
+
 list[InlayHint] picoHinter(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
     return [
-        hint(name.src, ": <typeLookup["<name>"]>", \type()) | /(Expression)`<Id name>` := input
+        hint(atEnd(name.src), " : <typeLookup["<name>"]>", \parameter()) | /(Expression)`<Id name>` := input, "<name>" in typeLookup
     ];
 }
 
@@ -83,7 +85,7 @@ list[DocumentEdit] getAtoBEdits(start[Program] input)
 
 value picoCommands(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
-    return true;
+    return ("result": true);
 }
 
 void main() {

@@ -26,13 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
-import org.rascalmpl.vscode.lsp.extensions.InlayHint;
-import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 
@@ -49,11 +46,6 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
 
     @JsonRequest("rascal/supplyProjectCompilationClasspath")
     default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/provideInlayHints")
-    default CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
         throw new UnsupportedOperationException();
     }
 
