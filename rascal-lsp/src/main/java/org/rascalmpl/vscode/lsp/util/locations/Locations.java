@@ -91,8 +91,8 @@ public class Locations {
     public static Range toRange(ISourceLocation sloc, LineColumnOffsetMap map) {
         if (sloc.hasLineColumn()) {
             return new Range(
-                toPosition(sloc.getBeginLine() - 1, sloc.getBeginColumn(), map, false),
-                toPosition(sloc.getEndLine() - 1, sloc.getEndColumn(), map, true)
+                toPosition(sloc, map, false),
+                toPosition(sloc, map, true)
             );
         }
         else {
@@ -100,12 +100,19 @@ public class Locations {
         }
     }
 
-    public static Position toPosition(int line, int column, LineColumnOffsetMap map, boolean atEnd) {
-        return new Position(line, map.translateColumn(line, column, atEnd));
+    public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
+        return toPosition(loc, cm, false);
     }
 
-    public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
-        return toPosition(loc.getBeginLine() - 1, loc.getBeginColumn(), cm.get(loc), false);
+    public static Position toPosition(ISourceLocation loc, ColumnMaps cm, boolean atEnd) {
+        return toPosition(loc, cm.get(loc), atEnd);
+    }
+
+    public static Position toPosition(ISourceLocation loc, LineColumnOffsetMap map, boolean atEnd) {
+        var line = atEnd ? loc.getEndLine() : loc.getBeginLine();
+        var column = atEnd? loc.getEndColumn() : loc.getBeginColumn();
+        line -= 1; // lines in LSP are 0 based, IValue are 1 based
+        return new Position(line, map.translateColumn(line, column, atEnd));
     }
 
 

@@ -104,6 +104,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import com.google.common.io.CharStreams;
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -299,15 +300,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var label = ((IString) t.get("label")).getValue();
         var kind = (IConstructor) t.get("kind");
         var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
+        var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
 
 
         // translate to lsp
-        var spaceBefore = label.startsWith(" ");
-        var spaceAfter = label.endsWith(" ");
-        var result = new InlayHint( Locations.toPosition(loc, columns), Either.forLeft(label.trim()));
+        var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
         result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
-        result.setPaddingLeft(spaceBefore);
-        result.setPaddingRight(spaceAfter);
+        result.setPaddingLeft(label.startsWith(" "));
+        result.setPaddingRight(label.endsWith(" "));
         if (toolTip != null && toolTip.length() > 0) {
             result.setTooltip(toolTip.getValue());
         }
