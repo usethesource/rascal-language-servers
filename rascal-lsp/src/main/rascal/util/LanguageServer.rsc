@@ -139,16 +139,16 @@ data Command(str title="")
 
 data InlayHint
     = hint(
-        loc range, // should point to a cursor position (begin and end column same)
+        loc position, // where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
         str label, // text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
         InlayKind kind,
-        bool before = false // if the hint precedes or follows the text it's hinting
+        str toolTip = "", // optionally show extra information when hovering over the inlayhint
+        bool atEnd = false // instead of appearing at the beginning of the position, appear at the end
     );
 
 data InlayKind // this determines style
     = \type()
     | parameter()
-    | other(str name)
     ;
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}

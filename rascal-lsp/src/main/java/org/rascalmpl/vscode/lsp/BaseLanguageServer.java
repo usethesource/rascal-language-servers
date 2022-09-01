@@ -45,13 +45,19 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.DidChangeNotebookDocumentParams;
+import org.eclipse.lsp4j.DidCloseNotebookDocumentParams;
+import org.eclipse.lsp4j.DidOpenNotebookDocumentParams;
+import org.eclipse.lsp4j.DidSaveNotebookDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.eclipse.lsp4j.services.NotebookDocumentService;
 import org.rascalmpl.library.lang.json.io.JsonValueReader;
 import org.rascalmpl.library.lang.json.io.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
@@ -60,8 +66,6 @@ import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.extensions.InlayHint;
-import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
@@ -277,13 +281,9 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
-            return lspDocumentService.provideInlayHints(params);
-        }
-
-        @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-            logger.info("LSP connection started");
+            logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
+            logger.debug("LSP client capabilities: {}", params.getCapabilities());
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
             lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
@@ -311,6 +311,17 @@ public abstract class BaseLanguageServer {
         @Override
         public BaseWorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
+        }
+
+        @Override
+        public NotebookDocumentService getNotebookDocumentService() {
+            return null; // can be removed after lsp4j v0.16.0 is released (https://github.com/eclipse/lsp4j/issues/658)
+        }
+
+        @Override
+        public void setTrace(SetTraceParams params) {
+            logger.trace("Got trace request: {}", params);
+            // TODO: handle this trace level
         }
 
         @Override

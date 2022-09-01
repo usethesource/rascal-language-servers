@@ -38,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -61,6 +60,9 @@ import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
+import org.eclipse.lsp4j.InlayHint;
+import org.eclipse.lsp4j.InlayHintKind;
+import org.eclipse.lsp4j.InlayHintParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
@@ -90,8 +92,6 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
-import org.rascalmpl.vscode.lsp.extensions.InlayHint;
-import org.rascalmpl.vscode.lsp.extensions.ProvideInlayHintsParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -103,9 +103,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import com.google.common.io.CharStreams;
-
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -165,6 +163,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_META_COMMAND)));
         result.setFoldingRangeProvider(true);
+        result.setInlayHintProvider(true);
     }
 
     @Override
@@ -257,6 +256,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
+        logger.trace("codeLens for: {}", params.getTextDocument().getUri());
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
@@ -270,10 +270,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<List<? extends InlayHint>> provideInlayHints(ProvideInlayHintsParams params) {
+    public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
+        logger.trace("inlayHint for: {}", params.getTextDocument().getUri());
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
-
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
                 .thenApply(contrib::inlayHint)
@@ -294,17 +294,24 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private InlayHint rowToInlayHint(IValue v) {
-        IConstructor t = (IConstructor) v;
-        ISourceLocation loc = (ISourceLocation) t.get("range");
-        IString label = (IString) t.get("label");
-        IConstructor kind = (IConstructor) t.get("kind");
-        IBool before = (IBool)t.asWithKeywordParameters().getParameter("before");
+        // unpack rascal value
+        var t = (IConstructor) v;
+        var loc =(ISourceLocation) t.get("position");
+        var label = ((IString) t.get("label")).getValue();
+        var kind = (IConstructor) t.get("kind");
+        var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
+        var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
 
-        String kindName = kind.getName();
-        if (kindName.equals("other")) {
-            kindName = ((IString)kind.get("name")).getValue();
+
+        // translate to lsp
+        var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
+        result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
+        result.setPaddingLeft(label.startsWith(" "));
+        result.setPaddingRight(label.endsWith(" "));
+        if (toolTip != null && toolTip.length() > 0) {
+            result.setTooltip(toolTip.getValue());
         }
-        return new InlayHint(label.getValue(), Locations.toRange(loc, columns), kindName, before == null ? false : before.getValue());
+        return result;
     }
 
     private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {
@@ -519,4 +526,5 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return CompletableFuture.completedFuture(null);
         }
     }
+
 }

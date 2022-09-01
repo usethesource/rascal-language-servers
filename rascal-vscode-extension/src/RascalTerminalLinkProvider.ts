@@ -67,7 +67,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         while ((match = matcher.exec(context.line)) !== null && !token.isCancellationRequested) {
             result.push(buildLink(match));
         }
-        return result === [] ? null : result;
+        return result.length === 0 ? null : result;
     }
 
     async handleTerminalLink(link: ExtendedLink): Promise<void> {
