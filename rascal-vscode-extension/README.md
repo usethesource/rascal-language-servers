@@ -47,7 +47,15 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
-### NEXT-VERSION
+### 0.4.0
+
+* Now using rascal 0.24.6
+* Better support pom.xml dependency resolution
+* Rascal LSP commands can return values that are available in typescript
+* Bugfix for handling def/ref/hover request in the "start" region of a rascal parse tree
+* Moved to LSP 3.17 using the native inlayHint implementation
+* Updated java & node dependencies to latest releases
+* Improved performance of DSL init (specifically the time spent on generating parsers)
 
 
 ### 0.3.0
