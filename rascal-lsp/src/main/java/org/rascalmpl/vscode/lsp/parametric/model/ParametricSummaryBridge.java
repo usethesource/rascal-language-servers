@@ -76,11 +76,10 @@ public class ParametricSummaryBridge {
     private final ISourceLocation file;
 
     private final ReplaceableFuture<Lazy<List<Diagnostic>>> messages;
-    private final CompletableFuture<LazyRangeMapCalculation<List<Location>>> definitions;
-    private final CompletableFuture<LazyRangeMapCalculation<List<Location>>> implementations;
-    private final CompletableFuture<LazyRangeMapCalculation<List<Location>>> references;
-    private final CompletableFuture<LazyRangeMapCalculation<List<Either<String, MarkedString>>>> hovers;
-    private volatile boolean internalSummaryCalc = true;
+    private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> definitions;
+    private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> implementations;
+    private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> references;
+    private volatile CompletableFuture<LazyRangeMapCalculation<List<Either<String, MarkedString>>>> hovers;
 
     public ParametricSummaryBridge(Executor exec, ISourceLocation file, ColumnMaps columns,
         ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState) {
@@ -89,6 +88,11 @@ public class ParametricSummaryBridge {
         this.columns = columns;
         this.contrib = contrib;
         this.lookupState = lookupState;
+        messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
+        reloadContributions();
+    }
+
+    public void reloadContributions() {
         definitions = contrib
             .hasDedicatedDefines()
             .thenCombine(contrib.askSummaryForDefinitions(), LazyDefinitions::new);
@@ -101,7 +105,6 @@ public class ParametricSummaryBridge {
         hovers = contrib
             .hasDedicatedDocumentation()
             .thenCombine(contrib.askSummaryForDocumentation(), RelationDocumentLookupMap::new);
-        messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
     }
 
     public void invalidate(boolean isClosing) {
@@ -120,6 +123,7 @@ public class ParametricSummaryBridge {
         protected final T empty;
         protected final String logName;
         private final boolean requestSummaryIfNeeded;
+        private volatile boolean internalSummaryCalc = true;
 
 
         LazyRangeMapCalculation(String logName, boolean dedicatedCall, boolean checkSummary, boolean requestSummaryIfNeeded, T empty) {
@@ -143,12 +147,13 @@ public class ParametricSummaryBridge {
             }
         }
 
-        public void newSummary(InterruptibleFuture<IConstructor> summary) {
+        public void newSummary(InterruptibleFuture<IConstructor> summary, boolean internal) {
             if (!checkSummary) {
                 logger.trace("{}: Ignoring new summary, since summaries don't provide info for us", logName);
                 return;
             }
             logger.trace("{}: deriving when new summary ({}) is ready", logName, summary);
+            internalSummaryCalc = internal;
             replaceFuture(mapSummary(summary.thenApply(IConstructor::asWithKeywordParameters)));
         }
 
@@ -346,15 +351,14 @@ public class ParametricSummaryBridge {
 
     private void calculateSummary(boolean internal) {
         logger.trace("Requesting Summary calculation for: {}", file);
-        this.internalSummaryCalc = internal;
         var summary = InterruptibleFuture.flatten(lookupState.apply(file)
             .getCurrentTreeAsync()
             .thenApplyAsync(t -> contrib.summarize(file, t), exec)
             , exec);
-        definitions.thenAccept(d -> d.newSummary(summary));
-        references.thenAccept(d -> d.newSummary(summary));
-        implementations.thenAccept(d -> d.newSummary(summary));
-        hovers.thenAccept(d -> d.newSummary(summary));
+        definitions.thenAccept(d -> d.newSummary(summary, internal));
+        references.thenAccept(d -> d.newSummary(summary, internal));
+        implementations.thenAccept(d -> d.newSummary(summary, internal));
+        hovers.thenAccept(d -> d.newSummary(summary, internal));
         messages.replace(summary.thenApply(s -> Lazy.defer(() -> {
             var sum = s.asWithKeywordParameters();
             if (sum.hasParameter("messages")) {

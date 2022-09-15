@@ -138,6 +138,19 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
+    public void unregisterLanguage(IConstructor language) {
+        LanguageParameter param = new LanguageParameter(
+            language.get(0).toString(),
+            ((IString) language.get(1)).getValue(),
+            ((IString) language.get(2)).getValue(),
+            ((IString) language.get(3)).getValue(),
+            ((IString) language.get(4)).getValue()
+        );
+
+        languageClient.receiveUnregisterLanguage(param);
+    }
+
+    @Override
     public void applyDocumentsEdits(IList edits) {
         languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
     }

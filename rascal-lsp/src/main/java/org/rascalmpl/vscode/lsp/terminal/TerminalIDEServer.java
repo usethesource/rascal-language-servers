@@ -131,6 +131,15 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
+    public CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
+        // we forward the request from the terminal to register a language
+        // straight into the client:
+        return CompletableFuture.runAsync(() -> {
+            languageClient.receiveUnregisterLanguage(lang);
+        });
+    }
+
+    @Override
     public void showHTML(BrowseParameter content) {
         languageClient.showContent(content);
     }

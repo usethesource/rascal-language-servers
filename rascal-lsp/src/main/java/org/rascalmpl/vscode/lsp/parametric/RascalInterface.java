@@ -46,6 +46,10 @@ public class RascalInterface {
         services.registerLanguage(lang);
     }
 
+    public void unregisterLanguage(IConstructor lang) {
+        services.unregisterLanguage(lang);
+    }
+
     public ISourceLocation resolveProjectLocation(ISourceLocation project) {
         return services.resolveProjectLocation(project);
     }

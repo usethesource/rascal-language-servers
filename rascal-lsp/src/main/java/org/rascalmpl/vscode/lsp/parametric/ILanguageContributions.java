@@ -55,6 +55,12 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasDedicatedReferences();
     public CompletableFuture<Boolean> hasDedicatedImplementations();
 
+    public CompletableFuture<Boolean> hasOutline();
+    public CompletableFuture<Boolean> hasSummarize();
+    public CompletableFuture<Boolean> hasLenses();
+    public CompletableFuture<Boolean> hasExecuteCommand();
+    public CompletableFuture<Boolean> hasInlayHint();
+
     public CompletableFuture<Boolean> askSummaryForDocumentation();
     public CompletableFuture<Boolean> askSummaryForDefinitions();
     public CompletableFuture<Boolean> askSummaryForReferences();

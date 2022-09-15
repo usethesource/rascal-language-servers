@@ -36,11 +36,15 @@ import IO;
 set[LanguageService] picoLanguageContributor() = {
     parser(parser(#start[Program])),
     outliner(picoOutliner),
-    summarizer(picoSummarizer, providesImplementations = false),
     lenses(picoLenses),
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef)
+};
+
+set[LanguageService] picoLanguageContributorSlowSummary() = {
+    parser(parser(#start[Program])),
+    summarizer(picoSummarizer, providesImplementations = false)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -54,7 +58,9 @@ Summary picoSummarizer(loc l, start[Program] input) {
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
+
     return summary(l,
+        messages = {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>},
         references = (uses o defs)<1,0>,
         definitions = uses o defs,
         documentation = (uses o defs) o docs
@@ -94,6 +100,15 @@ void main() {
             "pico",
             "demo::lang::pico::LanguageServer",
             "picoLanguageContributor"
+        )
+    );
+    registerLanguage(
+        language(
+            pathConfig(),
+            "Pico",
+            "pico",
+            "demo::lang::pico::LanguageServer",
+            "picoLanguageContributorSlowSummary"
         )
     );
 }

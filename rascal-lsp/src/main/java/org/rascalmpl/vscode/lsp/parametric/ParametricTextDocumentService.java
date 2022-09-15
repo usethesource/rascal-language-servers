@@ -124,7 +124,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final ColumnMaps columns;
 
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
-    private final Map<String, ILanguageContributions> contributions = new ConcurrentHashMap<>();
+    private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
     public ParametricTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
@@ -504,13 +504,45 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void registerLanguage(LanguageParameter lang) {
         logger.trace("registerLanguage({})", lang.getName());
 
-        InterpretedLanguageContributions contrib = new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter);
-        ParametricFileFacts fact = new ParametricFileFacts(contrib, this::getFile, columns, ownExecuter);
 
-        contributions.put(lang.getExtension(), contrib);
-        facts.put(lang.getExtension(), fact);
+        var multiplexer = contributions.computeIfAbsent(lang.getExtension(),
+            t -> new LanguageContributionsMultiplexer(lang.getName(), lang.getExtension(), ownExecuter)
+        );
+
+        multiplexer.addContributor(buildContributionKey(lang),
+            new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
+
+        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
+            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
+        );
+        fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
+        }
+    }
+
+    private static String buildContributionKey(LanguageParameter lang) {
+        return lang.getMainFunction() + "::" + lang.getMainFunction();
+    }
+
+    @Override
+    public void unregisterLanguage(LanguageParameter lang) {
+        var extension = lang.getExtension();
+        if (lang.getMainModule() == null || lang.getMainModule().isEmpty()) {
+            // clear the whole language
+            logger.trace("unregisterLanguage({}) completly", lang.getName());
+            facts.remove(extension);
+            contributions.remove(extension);
+            return;
+        }
+        logger.trace("unregisterLanguage({}) only {}", lang.getName(), lang.getMainModule());
+        if (!contributions.get(extension).removeContributor(buildContributionKey(lang))) {
+            logger.error("unregisterLanguage cleared everything, so removing all");
+            facts.remove(extension);
+            contributions.remove(extension);
+        }
+        else {
+            facts.get(extension).reloadContributions();
         }
     }
 
