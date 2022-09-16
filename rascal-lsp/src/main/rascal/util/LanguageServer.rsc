@@ -153,3 +153,11 @@ data InlayKind // this determines style
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 java void registerLanguage(Language lang);
+
+
+@javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
+java void unregisterLanguage(Language lang);
+
+void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
+    unregisterLanguage(language(pathConfig(), name, extension, mainModule, mainFunction));
+}

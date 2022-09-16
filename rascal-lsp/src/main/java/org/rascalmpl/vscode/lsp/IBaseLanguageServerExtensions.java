@@ -43,6 +43,10 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
+    @JsonRequest("rascal/sendUnregisterLanguage")
+    default CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+        throw new UnsupportedOperationException();
+    }
 
     @JsonRequest("rascal/supplyProjectCompilationClasspath")
     default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {

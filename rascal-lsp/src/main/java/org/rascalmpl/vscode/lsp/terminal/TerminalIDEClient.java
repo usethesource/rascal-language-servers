@@ -121,6 +121,21 @@ public class TerminalIDEClient implements IDEServices {
         );
     }
 
+
+    @Override
+    public void unregisterLanguage(IConstructor language) {
+        server.receiveUnregisterLanguage(
+            new LanguageParameter(
+                language.get(0).toString(),
+                ((IString) language.get(1)).getValue(),
+                ((IString) language.get(2)).getValue(),
+                ((IString) language.get(3)).getValue(),
+                ((IString) language.get(4)).getValue()
+            )
+        );
+    }
+
+
     @Override
     public void applyDocumentsEdits(IList edits) {
         server.applyDocumentEdits(new DocumentEditsParameter(edits));

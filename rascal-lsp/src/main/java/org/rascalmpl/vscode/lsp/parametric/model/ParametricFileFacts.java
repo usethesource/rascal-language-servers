@@ -74,6 +74,10 @@ public class ParametricFileFacts {
         return files.computeIfAbsent(l, FileFact::new);
     }
 
+    public void reloadContributions() {
+        files.values().forEach(FileFact::reloadContributions);
+    }
+
     public ParametricSummaryBridge getSummary(ISourceLocation file) {
         return getFile(file).getSummary();
     }
@@ -112,6 +116,10 @@ public class ParametricFileFacts {
         public FileFact(ISourceLocation file) {
             this.file = file;
             this.summary = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
+        }
+
+        public void reloadContributions() {
+            summary.reloadContributions();
         }
 
         private void reportTypeCheckerMessages(List<Diagnostic> messages) {

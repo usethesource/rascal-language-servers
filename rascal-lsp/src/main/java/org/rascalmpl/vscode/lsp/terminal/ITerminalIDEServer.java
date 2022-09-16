@@ -77,6 +77,11 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonRequest("rascal/receiveUnregisterLanguage")
+    default CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
+        throw new UnsupportedOperationException();
+    }
+
     @JsonRequest("rascal/applyDocumentEdits")
     default CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         throw new UnsupportedOperationException();

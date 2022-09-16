@@ -41,7 +41,7 @@ import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
 const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 const ALL_LANGUAGES_ID = 'parametric-rascalmpl';
-const registeredFileExtensions:Set<string> = new Set();
+const registeredFileExtensions:Map<string, Set<string>> = new Map();
 
 let childProcess: cp.ChildProcessWithoutNullStreams;
 
@@ -111,7 +111,7 @@ export function activate(context: vscode.ExtensionContext) {
         return rascalClient;
     }));
 
-    return {registerLanguage, getRascalExtensionDeploymode};
+    return {registerLanguage, getRascalExtensionDeploymode, unregisterLanguage};
 }
 
 export function registerLanguage(lang:LanguageParameter) {
@@ -128,9 +128,42 @@ export function registerLanguage(lang:LanguageParameter) {
             }
         });
         if (lang.extension && lang.extension !== "") {
-            registeredFileExtensions.add(lang.extension);
+            let registries = registeredFileExtensions.get(lang.extension);
+            if (!registries) {
+                registries = new Set();
+                registeredFileExtensions.set(lang.extension, registries);
+            }
+            registries.add(languageKey(lang));
         }
     });
+}
+
+export async function unregisterLanguage(lang: LanguageParameter) {
+    if (!parametricClient) {
+        return ; // nothing to do here
+    }
+    (await parametricClient).sendRequest("rascal/sendUnregisterLanguage", lang);
+
+    if (lang.extension && lang.extension !== "") {
+        if (lang.mainModule && lang.mainFunction) {
+            // partial clear
+            const registries = registeredFileExtensions.get(lang.extension);
+            if (registries) {
+                registries.delete(languageKey(lang));
+                if (registries.size === 0) {
+                    registeredFileExtensions.delete(lang.extension)
+                }
+            }
+        }
+        else {
+            // complete clear
+            registeredFileExtensions.delete(lang.extension)
+        }
+    }
+}
+
+function languageKey(lang: LanguageParameter) {
+    return `${lang.mainModule}::${lang.mainFunction}`;
 }
 
 export function activateRascalLanguageClient(): Promise<LanguageClient> {
@@ -177,6 +210,9 @@ export async function activateLanguageClient(language:string, main:string, title
     if (!isParametricServer) {
         client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
             registerLanguage(lang);
+        });
+        client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
+            unregisterLanguage(lang);
         });
     }
 
