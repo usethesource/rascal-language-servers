@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -44,6 +45,37 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private final ExecutorService ownExecuter;
     private final String name;
     private final String extension;
+
+    private static final <T> CompletableFuture<T> failedInitialization() {
+        return CompletableFuture.failedFuture(new RuntimeException("No contributions registered"));
+    }
+
+    private volatile @MonotonicNonNull ILanguageContributions parser = null;
+    private volatile CompletableFuture<ILanguageContributions> outline = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> summarizer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> lenses = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> executor = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> inlayHinter = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> definer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> documenter = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> referrer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> implementer = failedInitialization();
+
+    private volatile CompletableFuture<Boolean> hasDedicatedDocumentation = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDedicatedDefines = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDedicatedReferences = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDedicatedImplementations = failedInitialization();
+
+    private volatile CompletableFuture<Boolean> hasOutline = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasSummarize = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasLenses = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasExecuteCommand = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
+
+    private volatile CompletableFuture<Boolean> askSummaryForDocumentation = failedInitialization();
+    private volatile CompletableFuture<Boolean> askSummaryForDefinitions = failedInitialization();
+    private volatile CompletableFuture<Boolean> askSummaryForReferences = failedInitialization();
+    private volatile CompletableFuture<Boolean> askSummaryForImplementations = failedInitialization();
 
     public LanguageContributionsMultiplexer(String name, String extension, ExecutorService ownService) {
         this.name = name;
@@ -79,6 +111,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         var newEntry = new KeyedLanguageContribution(contribKey, contrib);
         contributions.remove(newEntry); // we use the fact that the equals only checks the key
         contributions.addIfAbsent(newEntry);
+        calculateRouting();
     }
 
     /**
@@ -86,20 +119,45 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
      */
     public boolean removeContributor(String contribKey) {
         contributions.removeIf(e -> e.key.equals(contribKey));
-        return !contributions.isEmpty();
+        if (contributions.isEmpty()) {
+            return false;
+        }
+        calculateRouting();
+        return true;
     }
 
+    private synchronized void calculateRouting() {
+        // after contributions have changed, we calculate the routing
+        // this is to avoid doing this lookup every time we get a request
+        // we calculate the "route" once, and then just chain onto the completed
+        // future
+        parser = firstOrFail();
+        outline = findFirstOrDefault(ILanguageContributions::hasOutline);
+        summarizer = findFirstOrDefault(ILanguageContributions::hasSummarize);
+        lenses = findFirstOrDefault(ILanguageContributions::hasLenses);
+        executor = findFirstOrDefault(ILanguageContributions::hasExecuteCommand);
+        inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHint);
+        definer = findFirstOrDefault(ILanguageContributions::hasDedicatedDefines);
+        documenter = findFirstOrDefault(ILanguageContributions::hasDedicatedDocumentation);
+        referrer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
+        implementer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
 
+        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
+        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
+        hasDedicatedDefines = anyTrue(ILanguageContributions::hasDedicatedDefines);
+        hasDedicatedReferences = anyTrue(ILanguageContributions::hasDedicatedReferences);
+        hasDedicatedImplementations = anyTrue(ILanguageContributions::hasDedicatedImplementations);
 
+        hasOutline = anyTrue(ILanguageContributions::hasOutline);
+        hasSummarize = anyTrue(ILanguageContributions::hasSummarize);
+        hasLenses = anyTrue(ILanguageContributions::hasLenses);
+        hasExecuteCommand = anyTrue(ILanguageContributions::hasExecuteCommand);
+        hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
 
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getExtension() {
-        return extension;
+        askSummaryForDocumentation = anyTrue(ILanguageContributions::askSummaryForDocumentation);
+        askSummaryForDefinitions = anyTrue(ILanguageContributions::askSummaryForDefinitions);
+        askSummaryForReferences = anyTrue(ILanguageContributions::askSummaryForReferences);
+        askSummaryForImplementations = anyTrue(ILanguageContributions::askSummaryForImplementations);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -110,10 +168,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return it.next().contrib;
     }
 
-    @Override
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        return firstOrFail().parseSourceFile(loc, input);
-    }
+
 
     private CompletableFuture<ILanguageContributions> findFirstOrDefault(Function<ILanguageContributions, CompletableFuture<Boolean>> filter) {
         return CompletableFuture.supplyAsync(() -> {
@@ -134,142 +189,156 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         }, ownExecuter);
     }
 
-    private <T> InterruptibleFuture<T> deferFirstContrib(Function<ILanguageContributions, CompletableFuture<Boolean>> filter, Function<ILanguageContributions, InterruptibleFuture<T>> call) {
-        return InterruptibleFuture.flatten(findFirstOrDefault(filter).thenApply(call), ownExecuter);
+    private static boolean swallowExceptions(Throwable ex) {
+        return false;
+    }
+
+    private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
+        var result = CompletableFuture.completedFuture(false);
+        // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
+        // pretty soon the future will be completed.
+        for (var c: contributions) {
+            var checkCurrent = predicate.apply(c.contrib)
+                .exceptionally(LanguageContributionsMultiplexer::swallowExceptions);
+            result = result.thenCombine(checkCurrent, Boolean::logicalOr);
+        }
+        return result;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String getExtension() {
+        return extension;
+    }
+
+
+    @Override
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+        var p = parser;
+        if (p == null) {
+            return failedInitialization();
+        }
+        return p.parseSourceFile(loc, input);
+    }
+
+
+    private <T> InterruptibleFuture<T> flatten(CompletableFuture<ILanguageContributions> target, Function<ILanguageContributions, InterruptibleFuture<T>> call) {
+        return InterruptibleFuture.flatten(target.thenApply(call), ownExecuter);
     }
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        return deferFirstContrib(ILanguageContributions::hasOutline, c -> c.outline(input));
+        return flatten(outline, c -> c.outline(input));
     }
 
     @Override
     public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        return deferFirstContrib(ILanguageContributions::hasSummarize, c -> c.summarize(loc, input));
+        return flatten(summarizer, c -> c.summarize(loc, input));
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        return deferFirstContrib(ILanguageContributions::hasLenses, c -> c.lenses(input));
+        return flatten(lenses, c -> c.lenses(input));
     }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
-        return deferFirstContrib(ILanguageContributions::hasExecuteCommand, c -> c.executeCommand(command));
+        return flatten(executor, c -> c.executeCommand(command));
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        return deferFirstContrib(ILanguageContributions::hasInlayHint, c -> c.inlayHint(input));
+        return flatten(inlayHinter, c -> c.inlayHint(input));
     }
 
     @Override
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        return deferFirstContrib(ILanguageContributions::hasDedicatedDocumentation, c -> c.documentation(loc, input, cursor));
+        return flatten(documenter, c -> c.documentation(loc, input, cursor));
     }
 
     @Override
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        return deferFirstContrib(ILanguageContributions::hasDedicatedDefines, c -> c.defines(loc, input, cursor));
+        return flatten(definer, c -> c.defines(loc, input, cursor));
     }
 
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        return deferFirstContrib(ILanguageContributions::hasDedicatedReferences, c -> c.references(loc, input, cursor));
+        return flatten(referrer, c -> c.references(loc, input, cursor));
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        return deferFirstContrib(ILanguageContributions::hasDedicatedReferences, c -> c.implementations(loc, input, cursor));
+        return flatten(implementer, c -> c.implementations(loc, input, cursor));
     }
 
-
-
-    private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
-        return CompletableFuture.supplyAsync(() -> {
-            // note, it would be possible to construct a fancy variant of
-            // anyOf, that short-circuits this whole lookup
-            // but that would make the code less readable, and in most cases
-            // this returns very quickly with a result, as the "has" functions
-            // are all completed when the evaluator has loaded
-            for (var c: contributions) {
-                try {
-                    if (predicate.apply(c.contrib).get().booleanValue()) {
-                        return true;
-                    }
-                } catch(InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (Exception ignored) {
-                    continue;
-                }
-            }
-            return false;
-        }, ownExecuter);
-    }
 
     @Override
     public CompletableFuture<Boolean> hasDedicatedDocumentation() {
-        return anyTrue(ILanguageContributions::hasDedicatedDocumentation);
+        return hasDedicatedDocumentation;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDedicatedDefines() {
-        return anyTrue(ILanguageContributions::hasDedicatedDefines);
+        return hasDedicatedDefines;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDedicatedReferences() {
-        return anyTrue(ILanguageContributions::hasDedicatedReferences);
+        return hasDedicatedReferences;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDedicatedImplementations() {
-        return anyTrue(ILanguageContributions::hasDedicatedImplementations);
+        return hasDedicatedImplementations;
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return anyTrue(ILanguageContributions::askSummaryForDocumentation);
+        return askSummaryForDocumentation;
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return anyTrue(ILanguageContributions::askSummaryForDefinitions);
+        return askSummaryForDefinitions;
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForReferences() {
-        return anyTrue(ILanguageContributions::askSummaryForReferences);
+        return askSummaryForReferences;
     }
 
     @Override
     public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return anyTrue(ILanguageContributions::askSummaryForImplementations);
+        return askSummaryForImplementations;
     }
 
     @Override
     public CompletableFuture<Boolean> hasOutline() {
-        return anyTrue(ILanguageContributions::hasOutline);
+        return hasOutline;
     }
 
     @Override
     public CompletableFuture<Boolean> hasSummarize() {
-        return anyTrue(ILanguageContributions::hasSummarize);
+        return hasSummarize;
     }
 
     @Override
     public CompletableFuture<Boolean> hasLenses() {
-        return anyTrue(ILanguageContributions::hasLenses);
+        return hasLenses;
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecuteCommand() {
-        return anyTrue(ILanguageContributions::hasExecuteCommand);
+        return hasExecuteCommand;
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
-        return anyTrue(ILanguageContributions::hasInlayHint);
+        return hasInlayHint;
     }
 
 }
