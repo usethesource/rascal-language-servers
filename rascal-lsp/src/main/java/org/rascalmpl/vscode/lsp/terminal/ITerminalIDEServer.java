@@ -35,6 +35,7 @@ import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
@@ -89,6 +90,16 @@ public interface ITerminalIDEServer {
 
     @JsonNotification("rascal/showHTML")
     default void showHTML(BrowseParameter content) {
+        throw new UnsupportedOperationException();
+    }
+
+	@JsonNotification("window/showMessage")
+	default void showMessage(MessageParams messageParams) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("window/logMessage")
+	default void logMessage(MessageParams messageParams) {
         throw new UnsupportedOperationException();
     }
 

@@ -37,14 +37,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-
-import com.google.gson.JsonObject;
 
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
@@ -59,6 +58,9 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+
+import com.google.gson.JsonObject;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -338,6 +340,39 @@ public class LSPIDEServices implements IDEServices {
             ISourceLocation loc = (ISourceLocation) elem;
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
+    }
+
+    @Override
+    public void logMessage(IConstructor msg) {
+        languageClient.logMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
+    }
+
+    @Override
+    public void showMessage(IConstructor msg) {
+        languageClient.showMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
+    }
+
+    private String getMessageString(IConstructor msg) {
+        return ((IString) msg.get("msg")).getValue();
+    }
+
+    private MessageType getMessageType(IConstructor msg) {
+        MessageType type = null;
+        switch (msg.getName()) {
+            case "error":
+                type = MessageType.Error;
+                break;
+            case "warning":
+                type = MessageType.Warning;
+                break;
+            case "info":
+                type = MessageType.Info;
+                break;
+            default:
+                type = MessageType.Log;
+                break;
+        }
+        return type;
     }
 
 }
