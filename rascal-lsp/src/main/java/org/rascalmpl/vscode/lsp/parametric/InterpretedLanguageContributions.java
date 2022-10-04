@@ -184,7 +184,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule())
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, false, lang.getMainModule())
                 .thenApply(e -> {
                     e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
                     return e;

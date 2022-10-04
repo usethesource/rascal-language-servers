@@ -108,7 +108,7 @@ public class EvaluatorUtil {
         });
     }
 
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, boolean addRascalCore, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             IRascalMonitor monitor = new LSPIDEServices(client, docService, workspaceService, customLog);
@@ -123,8 +123,10 @@ public class EvaluatorUtil {
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                if (addRascalCore) {
+                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
+                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 
                 if (pcfg != null) {

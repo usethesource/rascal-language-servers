@@ -81,9 +81,9 @@ public class RascalLanguageServices {
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, "lang::rascalcore::check::Checker");
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
