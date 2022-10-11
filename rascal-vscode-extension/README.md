@@ -47,6 +47,14 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.5.0
+
+* Now using rascal 0.24.7
+* Rascal DSLs can now use multiple evaluators if they want (see discussion in [#181](https://github.com/usethesource/rascal-language-servers/issues/181))
+* Rascal DSLs do not get typepal on the PathConfig/evaluator search path by default. Only rascal & rascal-lsp.
+* `unregisterLanguage` was added to clear all or parts of a language
+* Rascal REPLs get a progressbar while starting. This provides more feedback that something is happening, especially until the  [performance regression on windows](https://github.com/usethesource/rascal-language-servers/issues/187) is fixed.
+
 ### 0.4.0
 
 * Now using rascal 0.24.6
