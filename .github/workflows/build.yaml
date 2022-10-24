@@ -32,22 +32,9 @@ jobs:
         working-directory: ./rascal-lsp
         run: mvn -B clean verify
 
-      - name: Commit-date
-        id: commit-time
-        run: echo "stamp=$(git log -1 --date=format:\"%Y%m%d%H%M\" --format=%cd)" >> $GITHUB_OUTPUT
-
-      - name: Get current time
-        uses: josStorer/get-current-time@v2.0.2
-        id: current-time
-        with:
-          format: YYYYMMDDHHmm
-          utcOffset: "00:00"
-
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
-        run: sed -i "s/\\(\"version\":.*\\)\.0\"/\\1.$stamp\"/" package.json
-        env:
-          stamp: "${{ steps.commit-time.outputs.stamp }}"
+        run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -65,11 +52,16 @@ jobs:
           npm run lsp4j:package
           npx vsce package
 
-      - name: Publish (pre-)release to Visual Studio Marketplace
-        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+      - name: upload final vsix 
+        uses: actions/upload-artifact@v3
+        with:
+          path: rascal-vscode-extension/*.vsix
+          retention-days: 20
+
+      - name: Publish release to Visual Studio Marketplace
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
-          preRelease: ${{ github.ref == 'refs/heads/main' }}
