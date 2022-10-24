@@ -14,24 +14,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up JDK 
-        uses: actions/setup-java@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
           java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
-          node-version: 14
-
-      - name: Cache Maven packages
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          node-version: 16
+          cache: 'npm'
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
@@ -58,15 +52,16 @@ jobs:
           npx vsce package
 
       - name: upload final vsix 
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           path: rascal-vscode-extension/*.vsix
           retention-days: 20
 
-      - name: Publish release to Visual Studio Marketplace
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: HaaLeo/publish-vscode-extension@v0
+      - name: Publish (pre-)release to Visual Studio Marketplace
+        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+        uses: HaaLeo/publish-vscode-extension@v1
         with:
           packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
+          preRelease: ${{ github.ref == 'refs/heads/main' }}
