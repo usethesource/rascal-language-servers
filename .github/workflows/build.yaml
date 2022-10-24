@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: 16
           cache: 'npm'
+          cache-dependency-path: cache-dependency-path/package-lock.json
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
