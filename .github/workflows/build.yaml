@@ -45,7 +45,7 @@ jobs:
 
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
-        run: sed -i "s/\\(\"version\":.*\\)\.0\"/\\1.$stamp\\"/" package.json
+        run: sed -i "s/\\(\"version\":.*\\)\.0\"/\\1.$stamp\"/" package.json
         env:
           stamp: "${{ steps.commit-time.outputs.stamp }}"
 
