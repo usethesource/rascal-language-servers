@@ -47,6 +47,10 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.5.1
+
+* upgraded to latest version of rascal (0.26.2) to fix an issue that become more present with the multiple evaluators feature
+
 ### 0.5.0
 
 * Now using rascal 0.24.7
