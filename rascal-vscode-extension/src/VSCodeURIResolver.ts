@@ -209,6 +209,7 @@ export class VSCodeUriResolverServer implements Disposable {
             if (debug) {
                 console.log("VFS: new connection: " + JSON.stringify(newClient));
             }
+            newClient.setNoDelay(true);
             this.handleNewClient(newClient, debug);
         });
         this.server.on('error', console.log);

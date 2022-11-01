@@ -403,6 +403,7 @@ function connectToRascalLanguageServerSocket(port: number): Promise<net.Socket> 
         client.on('error', retry);
         client.once('connect', () => {
             client.setTimeout(0);
+            client.setNoDelay(true);
             client.removeAllListeners();
             return connected(client);
         });
