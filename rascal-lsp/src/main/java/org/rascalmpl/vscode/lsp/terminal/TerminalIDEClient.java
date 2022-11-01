@@ -68,6 +68,7 @@ public class TerminalIDEClient implements IDEServices {
 
     public TerminalIDEClient(int port) throws IOException {
         Socket socket = new Socket(InetAddress.getByName("127.0.0.1"), port);
+        socket.setTcpNoDelay(true);
         Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
             .setRemoteInterface(ITerminalIDEServer.class)
             .setLocalService(this)
