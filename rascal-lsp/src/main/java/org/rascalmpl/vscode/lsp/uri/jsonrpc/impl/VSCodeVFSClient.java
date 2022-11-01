@@ -183,6 +183,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
 
             logger.debug("Connecting to VFS: {}", port);
             var socket = new Socket(InetAddress.getLoopbackAddress(), port);
+            socket.setTcpNoDelay(true);
             var newClient = new VSCodeVFSClient(socket);
             Launcher<VSCodeUriResolverServer> clientLauncher = new Launcher.Builder<VSCodeUriResolverServer>()
                 .setRemoteInterface(VSCodeUriResolverServer.class)
