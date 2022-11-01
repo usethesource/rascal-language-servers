@@ -103,6 +103,7 @@ public abstract class BaseLanguageServer {
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
     throws IOException {
+        client.setTcpNoDelay(true);
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 

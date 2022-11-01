@@ -60,6 +60,7 @@ public class IDEServicesThread extends Thread {
             while(true) {
                 try {
                     Socket connection = serverSocket.accept();
+                    connection.setTcpNoDelay(true);
 
                     Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
                         .setLocalService(new TerminalIDEServer(ideClient, docService, workspaceService))
