@@ -30,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
@@ -382,19 +383,20 @@ public interface ITerminalIDEServer {
     }
 
     public static class SourceLocationParameter {
-        private String loc;
+        private String scheme;
+        private String authority;
+        private String path;
 
         public SourceLocationParameter(ISourceLocation loc) {
-            this.loc = loc.toString();
+            this.scheme = loc.getScheme();
+            this.authority = loc.getAuthority();
+            this.path = loc.getPath();
         }
 
         public ISourceLocation getLocation() {
             try {
-                return (ISourceLocation) new StandardTextReader().read(
-                    IRascalValueFactory.getInstance(),
-                    TypeFactory.getInstance().sourceLocationType(),
-                    new StringReader(loc));
-            } catch (FactTypeUseException | IOException e) {
+                return IRascalValueFactory.getInstance().sourceLocation(scheme, authority, path);
+            } catch (URISyntaxException e) {
                 // this should really never happen
                 assert false;
                 throw new RuntimeException(e);
@@ -403,7 +405,7 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "sourceLocationParameter: " + loc;
+            return "sourceLocationParameter: " + scheme + "://" + authority + "/" + path;
         }
     }
     public static class LanguageParameter {
