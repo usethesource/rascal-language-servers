@@ -32,16 +32,16 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -386,16 +386,20 @@ public interface ITerminalIDEServer {
         private String scheme;
         private String authority;
         private String path;
+        private @Nullable String query;
+        private @Nullable String fragment;
 
         public SourceLocationParameter(ISourceLocation loc) {
             this.scheme = loc.getScheme();
             this.authority = loc.getAuthority();
             this.path = loc.getPath();
+            this.query = loc.hasQuery() ? null : loc.getQuery();
+            this.fragment = loc.hasFragment() ? null : loc.getFragment();
         }
 
         public ISourceLocation getLocation() {
             try {
-                return IRascalValueFactory.getInstance().sourceLocation(scheme, authority, path);
+                return IRascalValueFactory.getInstance().sourceLocation(scheme, authority, path, query, fragment);
             } catch (URISyntaxException e) {
                 // this should really never happen
                 assert false;
@@ -405,7 +409,8 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "sourceLocationParameter: " + scheme + "://" + authority + "/" + path;
+            return "SourceLocationParameter [scheme=" + scheme + ", authority=" + authority + ", path=" + path
+                + ", query=" + query + ", fragment=" + fragment + "]";
         }
     }
     public static class LanguageParameter {
