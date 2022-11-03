@@ -57,6 +57,10 @@
         "extensions": [
           ".rsc"
         ],
+        "icon": {
+            "light": "./assets/images/rascal-logo.svg",
+            "dark": "./assets/images/rascal-logo.svg"
+        },
         "configuration": "./language-configuration.json"
       },
       {
