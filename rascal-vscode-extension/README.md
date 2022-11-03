@@ -47,6 +47,11 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.5.2
+
+* fixed efficiency issue in use of the `project:///` scheme for browsing file hierarchies, like for example in getASTs function for Java.
+* new logo
+
 ### 0.5.1
 
 * upgraded to latest version of rascal (0.26.2) to fix an issue that become more present with the multiple evaluators feature
