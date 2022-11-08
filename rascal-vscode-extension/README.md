@@ -47,6 +47,10 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.5.3
+
+* Upgraded to rascal 0.26.5 as a bugfix for [unsetRec issue](https://github.com/usethesource/rascal/issues/1705).
+
 ### 0.5.2
 
 * fixed efficiency issue in use of the `project:///` scheme for browsing file hierarchies, like for example in getASTs function for Java.
