@@ -24,23 +24,46 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { RascalExtension } from './RascalExtension';
+import { LanguageClient } from 'vscode-languageclient/node';
+import { activateLanguageClient } from './RascalLSPConnection';
+import { LanguageParameter, TermLanguageServer } from './TermLanguageServer';
+import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 
-const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
-const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 
+export class RascalLanguageServer implements vscode.Disposable {
+    public readonly rascalClient: Promise<LanguageClient>;
 
-export function activate(context: vscode.ExtensionContext) {
-    const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
-    const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
-    context.subscriptions.push(extension);
-    return extension.backwardsCompatibleExternalConsumers();
+    constructor(
+        context: vscode.ExtensionContext,
+        vfsServer: VSCodeUriResolverServer,
+        absoluteJarPath: string,
+        termExtension: TermLanguageServer,
+        deployMode = true) {
+        this.rascalClient = activateLanguageClient({
+            deployMode: deployMode,
+            devPort: 8888,
+            isParametricServer: false,
+            jarPath: absoluteJarPath,
+            language: "rascalmpl",
+            title: 'Rascal MPL Language Server',
+            vfsServer: vfsServer
+        });
+
+        this.rascalClient.then(client => {
+            client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
+                termExtension.registerLanguage(lang);
+            });
+            client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
+                termExtension.unregisterLanguage(lang);
+            });
+        });
+    }
+    dispose() {
+        this.rascalClient.then(c => c.dispose());
+    }
+
 }
 
-
-export function deactivate() {}
