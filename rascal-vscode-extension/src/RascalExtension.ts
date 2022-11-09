@@ -102,34 +102,34 @@ export class RascalExtension implements vscode.Disposable {
     }
 
     private startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
-    return vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        cancellable: false,
-        title: "Rascal terminal"
-    }, async (progress) => {
-        progress.report({message: "Starting rascal-lsp"});
-        const rascal = await this.rascal.rascalClient;
-        console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
-        if (uri && !uri.path.endsWith(".rsc")) {
-            // do not try to figure out a rascal project path when the focus is not a rascal file
-            uri = undefined;
-        }
-        progress.report({increment: 25, message: "Requesting IDE configuration"});
-        const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-        progress.report({increment: 25, message: "Calculating project class path"});
-        const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
-        progress.report({increment: 25, message: "Creating terminal"});
-        const terminal = vscode.window.createTerminal({
-            cwd: path.dirname(uri?.fsPath || ""),
-            shellPath: await getJavaExecutable(),
-            shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
-            name: 'Rascal Terminal',
-        });
+        return vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            cancellable: false,
+            title: "Rascal terminal"
+        }, async (progress) => {
+            progress.report({message: "Starting rascal-lsp"});
+            const rascal = await this.rascal.rascalClient;
+            console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
+            if (uri && !uri.path.endsWith(".rsc")) {
+                // do not try to figure out a rascal project path when the focus is not a rascal file
+                uri = undefined;
+            }
+            progress.report({increment: 25, message: "Requesting IDE configuration"});
+            const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
+            progress.report({increment: 25, message: "Calculating project class path"});
+            const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
+            progress.report({increment: 25, message: "Creating terminal"});
+            const terminal = vscode.window.createTerminal({
+                cwd: path.dirname(uri?.fsPath || ""),
+                shellPath: await getJavaExecutable(),
+                shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
+                name: 'Rascal Terminal',
+            });
 
-        terminal.show(false);
-        progress.report({increment: 25, message: "Finished creating terminal"});
-    });
-}
+            terminal.show(false);
+            progress.report({increment: 25, message: "Finished creating terminal"});
+        });
+    }
 
     private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
