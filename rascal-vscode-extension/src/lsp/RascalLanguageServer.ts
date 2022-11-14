@@ -27,9 +27,9 @@
 import * as vscode from 'vscode';
 
 import { LanguageClient } from 'vscode-languageclient/node';
+import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, TermLanguageServer } from './TermLanguageServer';
-import { VSCodeUriResolverServer } from '../VSCodeURIResolver';
 
 
 export class RascalLanguageServer implements vscode.Disposable {

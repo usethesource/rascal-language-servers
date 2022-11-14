@@ -33,7 +33,7 @@ import { getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, TermLanguageServer } from './lsp/TermLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { VSCodeUriResolverServer } from './VSCodeURIResolver';
+import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;

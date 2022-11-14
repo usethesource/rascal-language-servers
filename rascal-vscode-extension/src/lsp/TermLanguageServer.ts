@@ -29,7 +29,7 @@ import * as vscode from 'vscode';
 
 import { LanguageClient } from 'vscode-languageclient/node';
 import { activateLanguageClient } from './RascalLSPConnection';
-import { VSCodeUriResolverServer } from './VSCodeURIResolver';
+import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 
 export class TermLanguageServer implements vscode.Disposable {

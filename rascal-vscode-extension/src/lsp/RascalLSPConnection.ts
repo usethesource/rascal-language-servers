@@ -30,9 +30,9 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
-import { getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalFileSystemProvider } from './RascalFileSystemProviders';
-import { VSCodeUriResolverServer } from './VSCodeURIResolver';
+import { getJavaExecutable } from '../auto-jvm/JavaLookup';
+import { RascalFileSystemProvider } from '../fs/RascalFileSystemProviders';
+import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 
 
