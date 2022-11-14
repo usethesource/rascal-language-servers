@@ -24,21 +24,45 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { RascalExtension } from './RascalExtension';
+import { LanguageClient } from 'vscode-languageclient/node';
+import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { activateLanguageClient } from './RascalLSPConnection';
+import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 
-const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
-const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 
+export class RascalLanguageServer implements vscode.Disposable {
+    public readonly rascalClient: Promise<LanguageClient>;
 
-export function activate(context: vscode.ExtensionContext) {
-    const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
-    const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
-    context.subscriptions.push(extension);
-    return extension.externalLanguageRegistry();
+    constructor(
+        context: vscode.ExtensionContext,
+        vfsServer: VSCodeUriResolverServer,
+        absoluteJarPath: string,
+        dslLSP: ParameterizedLanguageServer,
+        deployMode = true) {
+        this.rascalClient = activateLanguageClient({
+            deployMode: deployMode,
+            devPort: 8888,
+            isParametricServer: false,
+            jarPath: absoluteJarPath,
+            language: "rascalmpl",
+            title: 'Rascal MPL Language Server',
+            vfsServer: vfsServer
+        });
+
+        this.rascalClient.then(client => {
+            client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
+                dslLSP.registerLanguage(lang);
+            });
+            client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
+                dslLSP.unregisterLanguage(lang);
+            });
+        });
+    }
+    dispose() {
+        this.rascalClient.then(c => c.dispose());
+    }
+
 }
 
-
-export function deactivate() {}
