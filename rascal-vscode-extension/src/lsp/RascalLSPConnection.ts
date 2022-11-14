@@ -36,9 +36,6 @@ import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 
 
 
-// deploymode = (deployMode || testDeployMode)
-// jarPath = rascalExtensionContext!.asAbsolutePath(path.join('.', 'assets', 'jars', j)))
-// push return onto subscription stack!
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1 } :
         {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer} )
@@ -53,7 +50,6 @@ export async function activateLanguageClient(
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
-    //rascalExtensionContext!.subscriptions.push(client);
 
     await client.start();
     client.sendNotification("rascal/vfs/register", {

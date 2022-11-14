@@ -24,13 +24,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { LanguageClient } from 'vscode-languageclient/node';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, TermLanguageServer } from './TermLanguageServer';
-import { VSCodeUriResolverServer } from './VSCodeURIResolver';
+import { VSCodeUriResolverServer } from '../VSCodeURIResolver';
 
 
 export class RascalLanguageServer implements vscode.Disposable {

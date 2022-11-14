@@ -24,8 +24,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -39,7 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
     const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
     context.subscriptions.push(extension);
-    return extension.backwardsCompatibleExternalConsumers();
+    return extension.externalLanguageRegistry();
 }
 
 

@@ -24,17 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { integer } from 'vscode-languageclient/node';
 import { getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalLanguageServer } from './RascalLanguageServer';
+import { RascalLanguageServer } from './lsp/RascalLanguageServer';
+import { LanguageParameter, TermLanguageServer } from './lsp/TermLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { LanguageParameter, TermLanguageServer } from './TermLanguageServer';
 import { VSCodeUriResolverServer } from './VSCodeURIResolver';
 
 export class RascalExtension implements vscode.Disposable {
@@ -62,7 +60,7 @@ export class RascalExtension implements vscode.Disposable {
         this.rascal.dispose();
     }
 
-    backwardsCompatibleExternalConsumers() {
+    externalLanguageRegistry() {
         return {
             registerLanguage: (lang:LanguageParameter) => this.terms.registerLanguage(lang),
             unregisterLanguage: (lang:LanguageParameter) => this.terms.unregisterLanguage(lang),
