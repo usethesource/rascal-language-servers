@@ -31,21 +31,21 @@ import * as vscode from 'vscode';
 import { integer } from 'vscode-languageclient/node';
 import { getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
-import { LanguageParameter, TermLanguageServer } from './lsp/TermLanguageServer';
+import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
-    private readonly terms:TermLanguageServer;
+    private readonly dsls:ParameterizedLanguageServer;
     private readonly rascal: RascalLanguageServer;
 
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly isDeploy = true) {
         this.vfsServer = new VSCodeUriResolverServer(!isDeploy);
 
-        this.terms = new TermLanguageServer(context, this.vfsServer, jarRootPath, false, isDeploy);
-        this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.terms, isDeploy);
+        this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, false, isDeploy);
+        this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, isDeploy);
 
         this.registerTerminalCommand();
         this.registerMainRun();
@@ -56,14 +56,14 @@ export class RascalExtension implements vscode.Disposable {
 
     dispose() {
         this.vfsServer.dispose();
-        this.terms.dispose();
+        this.dsls.dispose();
         this.rascal.dispose();
     }
 
     externalLanguageRegistry() {
         return {
-            registerLanguage: (lang:LanguageParameter) => this.terms.registerLanguage(lang),
-            unregisterLanguage: (lang:LanguageParameter) => this.terms.unregisterLanguage(lang),
+            registerLanguage: (lang:LanguageParameter) => this.dsls.registerLanguage(lang),
+            unregisterLanguage: (lang:LanguageParameter) => this.dsls.unregisterLanguage(lang),
             getRascalExtensionDeploymode: () => this.isDeploy,
         };
     }

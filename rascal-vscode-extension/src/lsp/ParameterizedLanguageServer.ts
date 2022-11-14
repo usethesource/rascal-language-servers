@@ -31,8 +31,7 @@ import { LanguageClient } from 'vscode-languageclient/node';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
-
-export class TermLanguageServer implements vscode.Disposable {
+export class ParameterizedLanguageServer implements vscode.Disposable {
     private readonly registeredFileExtensions:Map<string, Set<string>> = new Map();
     private parametricClient: Promise<LanguageClient> | undefined = undefined;
 

@@ -29,7 +29,7 @@ import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
-import { LanguageParameter, TermLanguageServer } from './TermLanguageServer';
+import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 
 
 export class RascalLanguageServer implements vscode.Disposable {
@@ -39,7 +39,7 @@ export class RascalLanguageServer implements vscode.Disposable {
         context: vscode.ExtensionContext,
         vfsServer: VSCodeUriResolverServer,
         absoluteJarPath: string,
-        termExtension: TermLanguageServer,
+        dslLSP: ParameterizedLanguageServer,
         deployMode = true) {
         this.rascalClient = activateLanguageClient({
             deployMode: deployMode,
@@ -53,10 +53,10 @@ export class RascalLanguageServer implements vscode.Disposable {
 
         this.rascalClient.then(client => {
             client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
-                termExtension.registerLanguage(lang);
+                dslLSP.registerLanguage(lang);
             });
             client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
-                termExtension.unregisterLanguage(lang);
+                dslLSP.unregisterLanguage(lang);
             });
         });
     }
