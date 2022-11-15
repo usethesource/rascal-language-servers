@@ -45,8 +45,10 @@ interface AdoptiumVersion {
     security: number;
     patch: number;
     pre: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     adopt_build_number: number;
     semver: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     openjdk_version: string;
     build: number;
     optional: string;

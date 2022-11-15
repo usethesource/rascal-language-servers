@@ -94,7 +94,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         if (!this.dedicatedInstance) {
             for (const editor of vscode.window.visibleTextEditors) {
                 const ext = path.extname(editor.document.uri.path);
-                if (ext !== "" && lang.extension == ext.substring(1)) {
+                if (ext !== "" && lang.extension === ext.substring(1)) {
                     vscode.languages.setTextDocumentLanguage(editor.document, this.languageId);
                 }
             }
@@ -122,13 +122,13 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
                     if (registries) {
                         registries.delete(languageKey(lang));
                         if (registries.size === 0) {
-                            this.registeredFileExtensions.delete(lang.extension)
+                            this.registeredFileExtensions.delete(lang.extension);
                         }
                     }
                 }
                 else {
                     // complete clear
-                    this.registeredFileExtensions.delete(lang.extension)
+                    this.registeredFileExtensions.delete(lang.extension);
                 }
             }
         }
