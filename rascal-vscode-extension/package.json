@@ -32,7 +32,7 @@
     "onCommand:rascalmpl.createTerminal",
     "onLanguage:rascalmpl"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -95,15 +95,18 @@
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
-    "vscode:prepublish": "npm run compile",
-    "compile": "npx tsc -p ./",
-    "watch": "npx tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "vscode:prepublish": "npm run package",
+    "compile": "npx webpack",
+    "watch": "npx webpack --watch",
+    "package": "npx webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "npx tsc -p . --outDir out",
+    "watch-tests": "npx tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "npx eslint src --ext ts",
     "normalTest": "npx mocha ./out/test/normal-suite/",
     "test": "node ./out/test/runVSCodeTests.js",
-    "license-check": "license-check-and-add check -f license-config.json",
-    "license-add": "license-check-and-add add -f license-config.json"
+    "license-check": "npx license-check-and-add check -f license-config.json",
+    "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",
@@ -121,9 +124,11 @@
     "license-check-and-add": "^4.0.2",
     "mocha": "^10.0.0",
     "temp": "^0.9.4",
-    "ts-loader": "^9.3.1",
-    "typescript": "^4.7.4",
+    "ts-loader": "^9.4.1",
+    "typescript": "^4.8.4",
     "vsce": "^2.11.0",
-    "@vscode/test-electron": "^2.1.5"
+    "@vscode/test-electron": "^2.1.5",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0"
   }
 }
