@@ -6,11 +6,11 @@
 		{
 			"type": "npm",
 			"script": "watch",
-      "problemMatcher": "$ts-webpack-watch",
+			"problemMatcher": "$ts-webpack-watch",
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never",
-        "group": "watchers"
+				"group": "watchers"
 			},
 			"group": {
 				"kind": "build",
@@ -24,7 +24,7 @@
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never",
-        "group": "watchers"
+				"group": "watchers"
 			},
 			"group": "build"
 		}
