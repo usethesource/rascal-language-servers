@@ -43,6 +43,7 @@ jobs:
           npm run license-check
           npm run compile
           npm run lint 
+          npm run compile-tests
           npm run normalTest
           # disable vs-code test npm run test
 
