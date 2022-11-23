@@ -47,7 +47,7 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
-### 0.5.3
+### 0.5.5
 
 This release is about including a new version of the rascal project, 0.27.2:
 
