@@ -33,7 +33,7 @@ import java.util.Deque;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Predicate;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,6 +54,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;

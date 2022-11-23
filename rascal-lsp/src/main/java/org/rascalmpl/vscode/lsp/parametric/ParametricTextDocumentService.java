@@ -366,10 +366,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return facts(doc.getUri());
     }
 
-    private ParametricFileFacts facts(TextDocumentItem doc) {
-        return facts(doc.getUri());
-    }
-
     private ParametricFileFacts facts(ISourceLocation doc) {
         return facts(doc.getPath());
     }

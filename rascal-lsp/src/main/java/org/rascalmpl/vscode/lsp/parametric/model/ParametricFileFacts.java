@@ -30,10 +30,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {

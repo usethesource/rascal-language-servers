@@ -32,16 +32,17 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.Base64;
-import java.util.Objects;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;

@@ -52,6 +52,7 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
+import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
@@ -73,6 +74,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -123,11 +125,9 @@ public abstract class BaseLanguageServer {
 
     private static void configureGson(GsonBuilder builder) {
         JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance());
+        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor());
         writer.setDatesAsInt(true);
-        writer.setNodesAsObjects(true);
-        reader.setNodesAsObjects(true);
-
+        
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
             @Override
             public IValue read(JsonReader source) throws IOException {

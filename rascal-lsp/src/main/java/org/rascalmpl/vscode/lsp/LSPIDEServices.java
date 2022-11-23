@@ -37,10 +37,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-
-import com.google.gson.JsonObject;
 
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -59,6 +56,9 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+
+import com.google.gson.JsonObject;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;

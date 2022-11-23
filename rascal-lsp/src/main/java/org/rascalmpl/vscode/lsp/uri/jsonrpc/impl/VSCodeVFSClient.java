@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.impl;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {

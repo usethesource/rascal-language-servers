@@ -33,14 +33,12 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
 
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobEndParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStartParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStepParameter;
