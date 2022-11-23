@@ -49,7 +49,13 @@ For other things we are working on have a look here:
 
 ### 0.5.3
 
-* Upgraded to rascal 0.26.5 as a bugfix for [unsetRec issue](https://github.com/usethesource/rascal/issues/1705).
+This release is about including a new version of the rascal project, 0.27.2:
+
+* fixes [issue](https://github.com/usethesource/rascal/issues/1719) with variable scope leakages for optimized visit statements
+* fixes an issue with [unsetRec issue](https://github.com/usethesource/rascal/issues/1705).
+* adds util::Validator for validating complex untyped hierarchical structures (such as obtained from XML, JSON or YAML)
+* added vis::Charts for eight basic chart types
+* redesign of lang::json::IO with more natural mapping to JSON objects, but more precarious constraints for mapping back. See util::Validator for bridging the new gap if you have a complex ADT with lots of overloading and many constructors per type. The default mapping only supports simple enums and single constructors per ADT.
 
 ### 0.5.2
 
