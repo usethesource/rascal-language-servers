@@ -63,13 +63,16 @@ The list below was copied from the rascal-eclipse release; have to adapt while w
 - [ ] write release notes in README.md (used on the marketplace pages)
 - [ ] release rascal project (when resolving SNAPSHOT dependencies choose the right versions of vallang etc, and make sure to bump the new rascal SNAPSHOT release one minor version)
 - [ ] release rascal-language-servers project (take care to choose the right release versions of typepal and rascal-core you release earlier and choose their new SNAPSHOT dependencies to the latest)
-   - [ ] release rascal-lsp (`cd rascal-lsp; mvn clean compile; mvn release:prepare`)
-   - [ ] Set proper version information in package.json; probably by removing `-head` from the current version
-   - [ ] `git commit -am "[release] set release version]"`
+   - [ ] Set the proper version inside `rascal-lsp/pom.xml` (in most cases, remove `-SNAPSHOT)
+   - [ ] Set proper version information in `rascal-vscode-extension/package.json` (in most cases by removing `-head` from the current version)
+   - [ ] `git commit -am "[release] set release version"`
    - [ ] `git tag vNewVersion`
-   - [ ] `git push --tags`
-   - [ ] Set next version in package.json with `head` suffix; e.g. `v0.2.0-head`
+   - [ ] `git tag rascal-lsp-vNewVersion` (fill the rascal-lsp version that is released here)
+   - [ ] Set next version in package.json with `head` suffix; e.g. `0.2.0-head`
+   - [ ] Set next version in pom.xml with `snapshot` suffix; e.g. `2.2.0-SNAPSHOT`
    - [ ] `git commit -am "[release] prepare for next release`
+   - [ ] `git push`
+   - [ ] `git push --tags`
 - [ ] test the released vsix file from the VScode marketplace
 
 
