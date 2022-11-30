@@ -68,9 +68,11 @@ jobs:
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
 
-      - name: rewrite package.json for NPM package
+      - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
-        run: node src/rewritePackageForNPMPublish.js
+        run: |
+          node src/rewritePackageForNPMPublish.js
+          mv README-lib.md README.md
 
       - name: publish to NPM
         working-directory: rascal-vscode-extension
