@@ -24,6 +24,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-// make sure that everything you might neeed to run `ParameterizedLanguageServer` is exported in this file
+// make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
 export { ParameterizedLanguageServer, LanguageParameter } from "./ParameterizedLanguageServer";
 export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";
