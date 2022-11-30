@@ -43,7 +43,7 @@ packageContents["description"] = "This package is intended for if you want to re
 packageContents.scripts = {
   "precompile" : packageContents.scripts["lsp4j:package"],
   "compile" : packageContents.scripts["compile-lib"],
-  "prepare": "npm run build",
+  "prepare": "npm run compile",
 };
 
 // we add wich files we actually want to add
