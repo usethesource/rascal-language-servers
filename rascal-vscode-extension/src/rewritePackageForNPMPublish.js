@@ -33,7 +33,6 @@ delete packageContents.contributes;
 delete packageContents.categories;
 delete packageContents.activationEvents;
 
-
 // then we change some stuff
 packageContents["name"] = "@usethesource/rascal-vscode-dsl-runtime";
 packageContents["displayName"] = "Rascal Metaprogramming Language - VSCode DSL Runtime library";
