@@ -27,6 +27,7 @@ jobs:
           node-version: 16
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
@@ -66,3 +67,17 @@ jobs:
           packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
+
+      - name: build NPM package
+        working-directory: rascal-vscode-extension
+        run: |
+          node src/rewritePackageForNPMPublish.js
+          npm compile
+
+      - name: rewrite package.json for NPM package
+        working-directory: rascal-vscode-extension
+        run: node src/rewritePackageForNPMPublish.js
+
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
