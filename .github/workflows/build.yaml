@@ -72,7 +72,8 @@ jobs:
         working-directory: rascal-vscode-extension
         run: node src/rewritePackageForNPMPublish.js
 
-      - run: npm publish
+      - name: publish to NPM
+        run: npm publish
         working-directory: rascal-vscode-extension
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
