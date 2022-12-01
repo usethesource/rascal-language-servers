@@ -35,7 +35,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         startLanguageServer(() -> {
             ExecutorService threadPool = Executors.newCachedThreadPool();
-            return new ParametricTextDocumentService(threadPool, args.length >= 1 ? args[1] : "");
+            return new ParametricTextDocumentService(threadPool, args.length >= 1 ? args[0] : "");
         }, 9999);
     }
 }
