@@ -37,11 +37,11 @@ import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 
 export async function activateLanguageClient(
-    { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1 } :
-        {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer} )
+    { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false } :
+        {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean} )
     : Promise<LanguageClient> {
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, language)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -117,16 +117,31 @@ interface BrowseParameter {
     title:string;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean): Promise<ServerOptions> {
-    const mainClass = isParametricServer ?'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer' : 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, language: string): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath, isParametricServer);
+    const commandArgs = [
+        '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration'
+        , '-Dlog4j2.level=DEBUG'
+        , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
+        , '-Drascal.lsp.deploy=true'
+        , '-Drascal.compilerClasspath=' + classpath
+    ];
+    let mainClass: string;
+    if (isParametricServer) {
+        mainClass = 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer';
+        commandArgs.push(calculateDSLMemoryReservation(dedicated));
+    }
+    else {
+        mainClass = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
+        commandArgs.push(calculateRascalMemoryReservation());
+    }
+    commandArgs.push('-cp', classpath, mainClass);
+    if (isParametricServer && dedicated) {
+        commandArgs.push(language);
+    }
     return {
         command: await getJavaExecutable(),
-        args: ['-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration', '-Dlog4j2.level=DEBUG',
-            '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver',
-            '-Drascal.lsp.deploy=true', '-Drascal.compilerClasspath=' + classpath,
-            isParametricServer ? calculateDSLMemoryReservation() : calculateRascalMemoryReservation(),
-            '-cp', classpath, mainClass],
+        args: commandArgs
     };
 }
 
@@ -157,7 +172,7 @@ function calculateRascalMemoryReservation() {
     return "-Xmx800M";
 }
 
-function calculateDSLMemoryReservation() {
+function calculateDSLMemoryReservation(_dedicated: boolean) {
     // this is a hard one, if you register many DSLs, it can grow quite a bit
     // 400MB per language is a reasonable estimate (for average sized languages)
     if (os.totalmem() >= gb(32)) {

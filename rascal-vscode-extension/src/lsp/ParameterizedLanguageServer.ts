@@ -74,6 +74,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
             jarPath: this.absoluteJarPath,
             deployMode: this.deployMode,
             devPort: 9999,
+            dedicated: this.dedicatedInstance
         });
     }
 

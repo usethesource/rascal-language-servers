@@ -116,6 +116,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
 
+    private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
@@ -126,8 +127,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
-    public ParametricTextDocumentService(ExecutorService exec) {
+    public ParametricTextDocumentService(ExecutorService exec, String dedicatedLanguageName) {
         this.ownExecuter = exec;
+        this.dedicatedLanguageName = dedicatedLanguageName;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
     }
@@ -161,7 +163,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_META_COMMAND)));
+        String commandName = BaseWorkspaceService.RASCAL_META_COMMAND;
+        if (!dedicatedLanguageName.isEmpty()) {
+            commandName += "-" + dedicatedLanguageName;
+        }
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(commandName)));
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
