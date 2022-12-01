@@ -40,7 +40,6 @@ packageContents["description"] = "This package is intended for if you want to re
 
 // make new scripts block with just the things we need to publish to npm
 packageContents.scripts = {
-  "precompile" : packageContents.scripts["lsp4j:package"],
   "compile" : packageContents.scripts["compile-lib"],
   "prepare": "npm run compile",
 };
