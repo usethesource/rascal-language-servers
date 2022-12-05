@@ -26,9 +26,13 @@
  */
 const fs = require("fs");
 
+/*******
+ * This file takes the regular package.json and rewrites it so that it's ready for publishing on the npm registry
+ */
+
 let packageContents = JSON.parse(fs.readFileSync("package.json"));
 
-// first we remove some stuff
+// first we remove some VS Code specific
 delete packageContents.contributes;
 delete packageContents.icon;
 delete packageContents.categories;
@@ -46,7 +50,7 @@ packageContents.scripts = {
   "prepare": "npm run compile",
 };
 
-// we add wich files we actually want to add
+// configure the package.json to point to the right files
 packageContents["main"] = "lib/lsp/library.js";
 packageContents["types"] = "lib/lsp/library.d.ts";
 packageContents["files"] = ["lib/**/*", "assets/**/*"];
