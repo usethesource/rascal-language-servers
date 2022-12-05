@@ -1,4 +1,4 @@
-# Rascal Metaprogramming Language - VSCode DSL Runtime library
+# Rascal Metaprogramming Language - VSCode DSL LSP Server
 
 This package enables writing your own VS Code extension while using
 [Rascal's VS Code LSP abstraction](https://github.com/usethesource/rascal-language-servers).

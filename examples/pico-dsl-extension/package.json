@@ -56,6 +56,6 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
-    "@usethesource/rascal-vscode-dsl-runtime": "0.5.8"
+    "@usethesource/rascal-vscode-dsl-lsp-server": "0.5.8"
   }
 }

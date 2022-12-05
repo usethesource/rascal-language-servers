@@ -39,8 +39,8 @@ delete packageContents.categories;
 delete packageContents.activationEvents;
 
 // then we change some stuff
-packageContents["name"] = "@usethesource/rascal-vscode-dsl-runtime";
-packageContents["displayName"] = "Rascal Metaprogramming Language - VSCode DSL Runtime library";
+packageContents["name"] = "@usethesource/rascal-vscode-dsl-lsp-server";
+packageContents["displayName"] = "Rascal Metaprogramming Language - VSCode DSL LSP Server";
 packageContents["description"] = "This package is intended for if you want to release your Rascal DSL as a separate VS Code extension, you are responsible for the initial setup, but this package will provide you a LSP server ready for action.";
 packageContents["homepage"] = "https://github.com/usethesource/rascal-language-servers/";
 
