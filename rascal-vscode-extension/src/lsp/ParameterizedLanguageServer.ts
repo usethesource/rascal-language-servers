@@ -39,11 +39,12 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         context: vscode.ExtensionContext,
         private readonly vfsServer: VSCodeUriResolverServer,
         private readonly absoluteJarPath: string,
-        private readonly dedicatedInstance = false,
         private readonly deployMode = true,
         private readonly languageId = 'parametric-rascalmpl',
-        private readonly title = 'Language Parametric Rascal Language Server') {
-        if (!dedicatedInstance) {
+        private readonly title = 'Language Parametric Rascal Language Server',
+        private readonly dedicatedLanguage: LanguageParameter | undefined = undefined
+        ) {
+        if (dedicatedLanguage === undefined) {
             // if we are not a dedicated instance, we have to monitor files being opened up and assign our own language ID
             context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
                 const ext = path.extname(e.fileName);
@@ -60,6 +61,10 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
                 }
             }));
         }
+        else {
+            // trigger creating of dedicated instance
+            this.getLanguageClient();
+        }
     }
     dispose() {
         this.parametricClient?.then(c => c.dispose());
@@ -74,7 +79,8 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
             jarPath: this.absoluteJarPath,
             deployMode: this.deployMode,
             devPort: 9999,
-            dedicated: this.dedicatedInstance
+            dedicated: this.dedicatedLanguage !== undefined,
+            lspArg: JSON.stringify(this.dedicatedLanguage)
         });
     }
 
@@ -92,7 +98,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         // first we load the new language into the parametric server
         await (await client).sendRequest("rascal/sendRegisterLanguage", lang);
 
-        if (!this.dedicatedInstance) {
+        if (this.dedicatedLanguage === undefined) {
             for (const editor of vscode.window.visibleTextEditors) {
                 const ext = path.extname(editor.document.uri.path);
                 if (ext !== "" && lang.extension === ext.substring(1)) {
@@ -115,7 +121,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         const client = this.getLanguageClient();
         (await client).sendRequest("rascal/sendUnregisterLanguage", lang);
 
-        if (!this.dedicatedInstance) {
+        if (this.dedicatedLanguage === undefined) {
             if (lang.extension && lang.extension !== "") {
                 if (lang.mainModule && lang.mainFunction) {
                     // partial clear

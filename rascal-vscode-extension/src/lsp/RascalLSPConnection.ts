@@ -37,11 +37,11 @@ import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 
 export async function activateLanguageClient(
-    { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false } :
-        {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean} )
+    { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
+        {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, language)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -117,7 +117,7 @@ interface BrowseParameter {
     title:string;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, language: string): Promise<ServerOptions> {
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg : string | undefined): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath, isParametricServer);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration'
@@ -136,8 +136,8 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
         commandArgs.push(calculateRascalMemoryReservation());
     }
     commandArgs.push('-cp', classpath, mainClass);
-    if (isParametricServer && dedicated) {
-        commandArgs.push(language);
+    if (isParametricServer && dedicated && lspArg !== undefined) {
+        commandArgs.push(lspArg);
     }
     return {
         command: await getJavaExecutable(),

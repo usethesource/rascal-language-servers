@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -127,11 +128,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
-    public ParametricTextDocumentService(ExecutorService exec, String dedicatedLanguageName) {
+    private final @Nullable LanguageParameter dedicatedLanguage;
+
+    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         this.ownExecuter = exec;
-        this.dedicatedLanguageName = dedicatedLanguageName;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+        if (dedicatedLanguage == null) {
+            this.dedicatedLanguageName = "";
+            this.dedicatedLanguage = null;
+        }
+        else {
+            this.dedicatedLanguageName = dedicatedLanguage.getName();
+            this.dedicatedLanguage = dedicatedLanguage;
+        }
     }
 
     @Override
@@ -181,6 +191,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void connect(LanguageClient client) {
         this.client = client;
         facts.values().forEach(v -> v.setClient(client));
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            this.registerLanguage(dedicatedLanguage);
+        }
     }
 
     // LSP interface methods
@@ -504,19 +518,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        logger.trace("registerLanguage({})", lang.getName());
+        logger.info("registerLanguage({})", lang.getName());
 
 
         var multiplexer = contributions.computeIfAbsent(lang.getExtension(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), lang.getExtension(), ownExecuter)
         );
+        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
+            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
+        );
 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
 
-        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
-            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
-        );
         fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
