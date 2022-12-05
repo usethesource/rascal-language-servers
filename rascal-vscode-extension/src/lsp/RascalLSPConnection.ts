@@ -139,7 +139,7 @@ function buildCompilerJVMPath(jarPath:string, isParametricServer: boolean) :stri
 }
 
 function gb(amount: integer) {
-    return amount * (1024 * 1024);
+    return amount * (1024 * 1024 * 1024);
 }
 
 function calculateRascalMemoryReservation() {
