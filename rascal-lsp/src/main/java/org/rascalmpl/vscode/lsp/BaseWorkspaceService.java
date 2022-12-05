@@ -108,14 +108,12 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        switch (params.getCommand()) {
-            case RASCAL_META_COMMAND:
+        if (params.getCommand().startsWith(RASCAL_META_COMMAND)) {
                 String extension = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                 String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
                 return documentService.executeCommand(extension, command).thenApply(v -> v);
-            default:
-                return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
         }
+        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
     }
 
 

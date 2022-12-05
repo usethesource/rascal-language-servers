@@ -48,7 +48,9 @@ export class RascalLanguageServer implements vscode.Disposable {
             jarPath: absoluteJarPath,
             language: "rascalmpl",
             title: 'Rascal MPL Language Server',
-            vfsServer: vfsServer
+            vfsServer: vfsServer,
+            dedicated: false,
+            lspArg: undefined
         });
 
         this.rascalClient.then(client => {

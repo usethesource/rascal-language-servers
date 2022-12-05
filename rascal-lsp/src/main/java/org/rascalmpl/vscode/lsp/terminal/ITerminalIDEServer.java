@@ -448,5 +448,13 @@ public interface ITerminalIDEServer {
         public String getMainModule() {
             return mainModule;
         }
+
+        @Override
+        public String toString() {
+            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extension=" + extension
+                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ")";
+        }
+
+
     }
 }

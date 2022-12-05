@@ -24,28 +24,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import com.google.gson.GsonBuilder;
-
-public class ParametricLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
-        }
-
-        startLanguageServer(() -> {
-            ExecutorService threadPool = Executors.newCachedThreadPool();
-            return new ParametricTextDocumentService(threadPool, dedicatedLanguage);
-        }, 9999);
-    }
-}
+// make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
+export { ParameterizedLanguageServer, LanguageParameter } from "./ParameterizedLanguageServer";
+export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";

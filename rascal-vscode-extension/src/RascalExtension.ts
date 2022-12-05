@@ -44,7 +44,7 @@ export class RascalExtension implements vscode.Disposable {
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly isDeploy = true) {
         this.vfsServer = new VSCodeUriResolverServer(!isDeploy);
 
-        this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, false, isDeploy);
+        this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
         this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, isDeploy);
 
         this.registerTerminalCommand();
