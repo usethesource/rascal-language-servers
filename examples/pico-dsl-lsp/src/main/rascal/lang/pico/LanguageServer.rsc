@@ -39,7 +39,7 @@ Summary picoSummarizer(loc l, start[Program] input) {
 }
 
 // run this from a REPL while developing the DSL
-int main(int testArgument=0) {
+int main() {
     // we register a new language to Rascal's LSP multiplexer
     // the multiplexer starts a new evaluator and loads this module and function
     registerLanguage(
