@@ -111,7 +111,7 @@ public class TerminalIDEClient implements IDEServices {
 
             server.edit(params);
         } catch (IOException e) {
-            logger.catching(e);
+            logger.info("ignored edit of {} because {}", path, e);
         }
     }
 

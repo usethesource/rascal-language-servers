@@ -114,7 +114,7 @@ public class LSPIDEServices implements IDEServices {
 
             languageClient.showDocument(params);
         } catch (IOException e) {
-            logger.catching(e);
+            logger.info("ignored edit of {}, because {}", path, e);
         }
     }
 
