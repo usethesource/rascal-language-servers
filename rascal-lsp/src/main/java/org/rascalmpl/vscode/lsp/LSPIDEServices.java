@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -51,11 +52,13 @@ import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import com.google.gson.JsonObject;
 
@@ -79,7 +82,6 @@ public class LSPIDEServices implements IDEServices {
     private final BaseWorkspaceService workspaceService;
     private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
-
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
@@ -101,7 +103,19 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void edit(ISourceLocation path) {
-        languageClient.showDocument(new ShowDocumentParams(path.getURI().toString()));
+        try {
+            ISourceLocation physical = URIResolverRegistry.getInstance().logicalToPhysical(path);
+            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toString());
+            params.setTakeFocus(true);
+
+            if (physical.hasOffsetLength()) {
+                params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
+            }
+
+            languageClient.showDocument(params);
+        } catch (IOException e) {
+            logger.catching(e);
+        }
     }
 
     @Override
