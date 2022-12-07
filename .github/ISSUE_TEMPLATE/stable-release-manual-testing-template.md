@@ -67,7 +67,7 @@ The list below was copied from the rascal-eclipse release; have to adapt while w
    - [ ] Set proper version information in `rascal-vscode-extension/package.json` (in most cases by removing `-head` from the current version)
    - [ ] `git commit -am "[release] set release version"`
    - [ ] `git tag vNewVersion`
-   - [ ] `git tag rascal-lsp-vNewVersion` (fill the rascal-lsp version that is released here)
+   - [ ] `git tag rascal-lsp-NewVersion` (fill the rascal-lsp version that is released here, so for example rascal-lsp-2.12.0)
    - [ ] Set next version in package.json with `head` suffix; e.g. `0.2.0-head`
    - [ ] Set next version in pom.xml with `snapshot` suffix; e.g. `2.2.0-SNAPSHOT`
    - [ ] `git commit -am "[release] prepare for next release`
