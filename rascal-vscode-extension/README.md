@@ -48,10 +48,18 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.6.0
+
+* bumped rascal to 0.28.0 for the addition of vis::Graphs and fixes in util::Sampling and vis::Charts.
+* fixed issues with the IDEServices::edit function, in the VScode terminal context and VScode parameterized DSL LSP server context, with logical locations and locations with line/column information (both previously unsupported), for use in interactive visualizations (for example).
+* allow vscode extensions to use rascal-vscode independently of installed rascal; this means DSL implementations can run their own native extension when they are finished being developed. 
+* as a result, rascal-vscode is now also an independent npm package.
+
 ### 0.5.6
 
 * fixes [issue](https://github.com/usethesource/rascal/issues/203) which was caused by an issue in the rascal project.
 * bumped rascal to 0.27.3 for the above fix.
+
 ### 0.5.5
 
 This release is about including a new version of the rascal project, 0.27.2:
