@@ -105,7 +105,7 @@ public class LSPIDEServices implements IDEServices {
     public void edit(ISourceLocation path) {
         try {
             ISourceLocation physical = URIResolverRegistry.getInstance().logicalToPhysical(path);
-            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toString());
+            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
             params.setTakeFocus(true);
 
             if (physical.hasOffsetLength()) {

@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
@@ -37,6 +38,8 @@ import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.library.Prelude;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobEndParameter;
@@ -48,12 +51,17 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsPar
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -63,6 +71,8 @@ import io.usethesource.vallang.IString;
  */
 public class TerminalIDEClient implements IDEServices {
     private final ITerminalIDEServer server;
+    private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
+    private final ColumnMaps columns = new ColumnMaps(this::getContents);
 
     public TerminalIDEClient(int port) throws IOException {
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
@@ -90,10 +100,29 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void edit(ISourceLocation path) {
-        ShowDocumentParams params = new ShowDocumentParams(path.getURI().toASCIIString());
-        params.setTakeFocus(true);
-        // TODO: add optional offset & length as range
-       server.edit(params);
+        try {
+            ISourceLocation physical = URIResolverRegistry.getInstance().logicalToPhysical(path);
+            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
+            params.setTakeFocus(true);
+
+            if (physical.hasOffsetLength()) {
+                params.setSelection(Locations.toRange(physical, columns));
+            }
+
+            server.edit(params);
+        } catch (IOException e) {
+            logger.catching(e);
+        }
+    }
+
+    private String getContents(ISourceLocation file) {
+        try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file.top())) {
+            return Prelude.consumeInputStream(src);
+        }
+        catch (IOException e) {
+            logger.error("Error opening file {} to get contents", file, e);
+            return "";
+        }
     }
 
     @Override

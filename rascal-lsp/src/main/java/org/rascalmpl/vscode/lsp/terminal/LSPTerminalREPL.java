@@ -96,7 +96,7 @@ public class LSPTerminalREPL extends BaseREPL {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
 
                 @Override
-                protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr,IDEServices services) {
+                protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
