@@ -34,7 +34,8 @@ import { promisify } from 'util';
 
 
 const currentJVMEngineMin = 11;
-const currentJVMEngineMax = 11;
+const currentJVMEngineMax = 17;
+const currentPreferredJVMEngine = 11;
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineMax}`);
 
 let lookupCompleted: Thenable<string> | undefined;
@@ -106,11 +107,11 @@ function getJavaCandidates(): string[] {
 
 export async function askUserForJVM() : Promise<string> {
     const selfInstall = "Install myself & restart vscode";
-    const extensionInstall = `Automatically download Java ${currentJVMEngineMax} `;
+    const extensionInstall = `Automatically download Java ${currentPreferredJVMEngine} `;
     const configurePath = "Configure JDK path";
 
     const opt = await vscode.window.showErrorMessage(
-        `Rascal (or a DSL that uses Rascal) requires a Java ${currentJVMEngineMax} runtime. Shall we download it, or will you set it up yourself?`,
+        `Rascal (or a DSL that uses Rascal) requires at least Java ${currentJVMEngineMin} runtime (max ${currentJVMEngineMax}). Shall we download it, or will you set it up yourself?`,
         { modal: true},
         selfInstall, extensionInstall, configurePath
     );
@@ -145,7 +146,7 @@ async function startAutoInstall(): Promise<string> {
         await vscode.env.openExternal(vscode.Uri.parse(url));
         return startAutoInstall();
     }
-    throw new Error("User setup required for jdk 11");
+    throw new Error(`User setup required for jdk ${currentJVMEngineMin}`);
 }
 
 async function openSettings(): Promise<string> {
@@ -158,13 +159,13 @@ async function downloadJDK(): Promise<string> {
     const msJava = "Microsoft Build of OpenJDK";
     const amazon = "Amazon Corretto";
     let options = [];
-    if (temurinSupported(currentJVMEngineMax)) {
+    if (temurinSupported(currentPreferredJVMEngine)) {
         options.push(temurin);
     }
-    if (microsoftSupported(currentJVMEngineMax)) {
+    if (microsoftSupported(currentPreferredJVMEngine)) {
         options.push(msJava);
     }
-    if (correttoSupported(currentJVMEngineMax)) {
+    if (correttoSupported(currentPreferredJVMEngine)) {
         options.push(amazon);
     }
     const choice = await vscode.window.showInformationMessage("Select which OpenJDK provider you prefer", {modal:true}, ...options);
@@ -178,9 +179,9 @@ async function downloadJDK(): Promise<string> {
             progress.report({message: message, increment: percIncrement});
         }
         switch (choice) {
-            case temurin: return downloadTemurin(mainJVMPath, currentJVMEngineMax, actualProgress);
-            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentJVMEngineMax, actualProgress);
-            case amazon: return downloadCorretto(mainJVMPath, currentJVMEngineMax, actualProgress);
+            case temurin: return downloadTemurin(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case amazon: return downloadCorretto(mainJVMPath, currentPreferredJVMEngine, actualProgress);
             default:  throw new Error("User setup required");
         }
     });
