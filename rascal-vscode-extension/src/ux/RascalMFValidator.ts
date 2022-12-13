@@ -109,7 +109,7 @@ export class RascalMFValidator implements vscode.Disposable {
 enum FixKind {
     ADD_NEW_LINE = 1,
     FIX_PROJECT_NAME,
-    REQUIRED_LIBRARIES_TYPO
+    REQUIRE_LIBRARIES_TYPO
 
 }
 
@@ -163,25 +163,25 @@ function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagno
             let fixType: FixKind | undefined = undefined;
 
             switch (kvPair[0].trim()) {
-                case "Require-Libraries":
-                    fixType = FixKind.REQUIRED_LIBRARIES_TYPO;
+                case "Required-Libraries":
+                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
                     break;
                 case "Require-Library":
-                    fixType = FixKind.REQUIRED_LIBRARIES_TYPO;
+                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
                     break;
                 case "Required-Library":
-                    fixType = FixKind.REQUIRED_LIBRARIES_TYPO;
+                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
                     break;
             }
 
             switch (fixType) {
-                case FixKind.REQUIRED_LIBRARIES_TYPO:
+                case FixKind.REQUIRE_LIBRARIES_TYPO:
                     const originalLabel = kvPair[0];
                     const diag = new vscode.Diagnostic(
                         new vscode.Range(l, 0, l, originalLabel.length),
-                        `"${originalLabel} should be Required-Libraries`
+                        `"${originalLabel} should be Require-Libraries`
                     );
-                    diag.code = FixKind.REQUIRED_LIBRARIES_TYPO;
+                    diag.code = FixKind.REQUIRE_LIBRARIES_TYPO;
                     diagnostics.push(diag);
             }
         }
@@ -223,12 +223,12 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     fixedProjectName.edit.replace(document.uri, diag.range, calculateProjectName(document.uri));
                     result.push(fixedProjectName);
                     break;
-                case FixKind.REQUIRED_LIBRARIES_TYPO:
+                case FixKind.REQUIRE_LIBRARIES_TYPO:
                     const typo = new vscode.CodeAction("Fix typo", vscode.CodeActionKind.QuickFix);
                     typo.diagnostics = [diag];
                     typo.isPreferred = true;
                     typo.edit = new vscode.WorkspaceEdit();
-                    typo.edit.replace(document.uri, diag.range, "Required-Libraries");
+                    typo.edit.replace(document.uri, diag.range, "Require-Libraries");
                     result.push(typo);
                     break;
 
