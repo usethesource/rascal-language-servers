@@ -115,14 +115,12 @@ enum FixKind {
 
 function checkMissingLastLine(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
     const lastLine = mfBody.lineAt(mfBody.lineCount - 1);
-    if (!hasNewline(lastLine)) {
-        if (!lastLine.isEmptyOrWhitespace) {
-            const diag = new vscode.Diagnostic(lastLine.range,
-                "MF files ignore the last line if not terminated by a newline. Please add a newline.",
-                vscode.DiagnosticSeverity.Error);
-            diag.code = FixKind.ADD_NEW_LINE;
-            diagnostics.push(diag);
-        }
+    if (lastLine.text !== "") {
+        const diag = new vscode.Diagnostic(lastLine.range,
+            `${MF_FILE} should end with a empty newline (no spaces, no comments), else the previous line is ignored`,
+            vscode.DiagnosticSeverity.Error);
+        diag.code = FixKind.ADD_NEW_LINE;
+        diagnostics.push(diag);
     }
 }
 
@@ -211,8 +209,7 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     addNewline.isPreferred = true;
                     addNewline.edit = new vscode.WorkspaceEdit();
                     const lastLine = document.lineAt(document.lineCount - 1);
-                    addNewline.edit.replace(document.uri, lastLine.range,
-                        lastLine.text + (document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n"));
+                    addNewline.edit.insert(document.uri, lastLine.rangeIncludingLineBreak.end, (document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n"));
                     result.push(addNewline);
                     break;
                 case FixKind.FIX_PROJECT_NAME:
