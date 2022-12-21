@@ -192,7 +192,7 @@ function hasNewline(tl: vscode.TextLine) {
     return tl.range.end.character !== tl.rangeIncludingLineBreak.end.character;
 }
 
-function buildMFChildPath(uri: vscode.Uri) {
+export function buildMFChildPath(uri: vscode.Uri) {
     return uri.with({
         path: posix.join(uri.path, MF_DIR, MF_FILE)
     });

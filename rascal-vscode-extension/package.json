@@ -91,7 +91,18 @@
         "scopeName": "source.parametric-rascalmpl",
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "rascalLibraries",
+          "name": "Rascal Libraries",
+          "icon": "./assets/images/rascal-logo.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    }
+
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",

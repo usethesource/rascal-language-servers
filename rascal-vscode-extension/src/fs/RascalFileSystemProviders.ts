@@ -76,7 +76,8 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
-        return this.client.sendRequest<[string, vscode.FileType][]>("rascal/filesystem/readDirectory", {uri: uri.toString()});
+        return this.client.sendRequest<FileWithType[]>("rascal/filesystem/readDirectory", {uri: uri.toString()})
+            .then(c => c.map(ft => [ft.name, ft.type]));
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
@@ -115,4 +116,9 @@ interface WatchParameters {
     uri: string;
     recursive: boolean;
     excludes:Array<string>;
+}
+
+interface FileWithType {
+    name: string;
+    type: vscode.FileType
 }

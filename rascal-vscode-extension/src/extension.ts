@@ -28,6 +28,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { RascalExtension } from './RascalExtension';
+import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 
 const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
     const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
+	vscode.window.registerTreeDataProvider('rascalLibraries', new RascalLibraryProvider(extension));
     return extension.externalLanguageRegistry();
 }
 
