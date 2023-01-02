@@ -71,7 +71,7 @@ export function temurinSupported(jdkVersion: number): boolean {
         case 'arm64':
             switch (os.platform()) {
                 case 'linux': return true;
-                case 'darwin': return jdkVersion === 17;
+                case 'darwin': return true;
                 default: return false;
             }
         default: return false;
