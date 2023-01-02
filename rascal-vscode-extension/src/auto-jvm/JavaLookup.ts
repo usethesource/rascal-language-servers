@@ -36,7 +36,7 @@ import { promisify } from 'util';
 const currentJVMEngineMin = 11;
 const currentJVMEngineMax = 17;
 const currentPreferredJVMEngine = 11;
-const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineMax}`);
+const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentPreferredJVMEngine}`);
 
 let lookupCompleted: Thenable<string> | undefined;
 
