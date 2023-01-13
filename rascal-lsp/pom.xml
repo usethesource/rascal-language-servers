@@ -156,7 +156,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.11.4</version>
+                    <version>0.14.6</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
@@ -164,6 +164,7 @@
                             <src>${project.basedir}/src/main/rascal</src>
                         </srcs>
                         <sourceLookup>|lib://rascal-lsp|</sourceLookup>
+                        <enableStandardLibrary>false</enableStandardLibrary>
                     </configuration>
                     <executions>
                         <execution> <?m2e ignore?>
