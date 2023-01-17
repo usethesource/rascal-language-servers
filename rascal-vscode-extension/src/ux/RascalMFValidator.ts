@@ -94,12 +94,14 @@ export class RascalMFValidator implements vscode.Disposable {
 
     private async verifyRascalMF(file: vscode.Uri) {
         try {
-            const mfBody = await vscode.workspace.openTextDocument(file);
-            const diagnostics: vscode.Diagnostic[] = [];
-            checkMissingLastLine(mfBody, diagnostics);
-            checkIncorrectProjectName(mfBody, diagnostics);
-            checkCommonTypo(mfBody, diagnostics);
-            this.diagnostics.set(file, diagnostics);
+            if (!/\/target\/classes\//.test(file.path)) {
+                const mfBody = await vscode.workspace.openTextDocument(file);
+                const diagnostics: vscode.Diagnostic[] = [];
+                checkMissingLastLine(mfBody, diagnostics);
+                checkIncorrectProjectName(mfBody, diagnostics);
+                checkCommonTypo(mfBody, diagnostics);
+                this.diagnostics.set(file, diagnostics);
+            }
         }
         catch (error) {
         }
