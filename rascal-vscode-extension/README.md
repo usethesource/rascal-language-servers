@@ -48,6 +48,9 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.6.2
+
+* Bugfix for RASCAL.MF validator ([#225](https://github.com/usethesource/rascal/issues/225))
 ### 0.6.1
 
 * bumped rascal to 0.28.3 for performance fixes around maven and various bugfixes
