@@ -48,6 +48,10 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.6.3
+
+* bugfix for writes to VS Code virtual file systems initiated from rascal (only first 8KB of the write was correctly transferred)
+
 ### 0.6.2
 
 * Bugfix for RASCAL.MF validator ([#225](https://github.com/usethesource/rascal/issues/225))
