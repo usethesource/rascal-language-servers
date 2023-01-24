@@ -27,14 +27,13 @@
 package org.rascalmpl.vscode.lsp.uri;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Base64.Encoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -44,8 +43,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.uri.URIUtil;
@@ -56,6 +53,8 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher {
@@ -204,32 +203,11 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public OutputStream getOutputStream(ISourceLocation uri, boolean append) throws IOException {
-        // we have to collect all bytes into memory (already encoded as base64)
-        // when done with the outputstream, we can write push the base64
-        // to the vscode side
-        return new OutputStream() {
+        // we have to collect all bytes into memory, there exist no streaming Base64 encoder in java jre
+        // otherwise we could just store that base64 string.
+        // when done with the outputstream, we can generate the base64 string and send it towards the LSP client
+        return new ByteArrayOutputStream() {
             private boolean closed = false;
-            private Encoder encoder = Base64.getEncoder();
-            private StringBuilder result = new StringBuilder();
-
-            @Override
-            public void write(int b) throws IOException {
-                result.append(encoder.encodeToString(new byte[]{(byte)(b & 0xff)}));
-            }
-
-            @Override
-            public void write(byte[] b) throws IOException {
-                result.append(encoder.encodeToString(b));
-            }
-
-            @Override
-            @SuppressWarnings("deprecation") // using deprecated string constructor
-            public void write(byte[] b, int off, int len) throws IOException {
-                // since the encoder does not support byte array ranges, we have
-                // to inline the `encodeToString` logic
-                ByteBuffer encoded = encoder.encode(ByteBuffer.wrap(b, off, len));
-                result.append(new String(encoded.array(), 0, 0, encoded.limit()));
-            }
 
             @Override
             public void close() throws IOException {
@@ -237,7 +215,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     return;
                 }
                 closed = true;
-                call(s -> s.writeFile(new WriteFileRequest(uri, result.toString(), append)));
+                var contents = Base64.getEncoder().encodeToString(this.toByteArray());
+                call(s -> s.writeFile(new WriteFileRequest(uri, contents, append)));
                 cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
             }
         };
