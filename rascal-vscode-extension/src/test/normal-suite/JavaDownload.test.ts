@@ -37,7 +37,7 @@ describe('JVM Download', function () {
     function testTemurin(version: number, arch: jd.TemurinArchitectures, platform: jd.TemurinPlatforms) {
         return async function() {
             const newPath = await jd.fetchAndUnpackTemurin(arch,
-                platform, await jd.identifyLatestTemurinLTSRelease(version), join(tempDir, "temurin", arch, platform), () => {});
+                platform, await jd.identifyLatestTemurinLTSRelease(version, arch, platform), join(tempDir, "temurin", arch, platform), () => {});
             assert.ok(statSync(newPath).isFile());
         };
     }
@@ -64,6 +64,7 @@ describe('JVM Download', function () {
             it(`Mac x64`, testTemurin(11, "x64", "mac")).timeout(downloadTimeout);
             it(`Linux arm`, testTemurin(11, "arm", "linux")).timeout(downloadTimeout);
         }
+        it(`Mac aarch64`, testTemurin(11, "aarch64", "mac")).timeout(downloadTimeout);
         it(`Windows x64`, testTemurin(11, "x64", "windows")).timeout(downloadTimeout);
     });
     describe(`Eclipse Temurin jdk17`, function() {
