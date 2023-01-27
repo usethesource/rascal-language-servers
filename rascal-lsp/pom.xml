@@ -198,7 +198,7 @@
                                     <src>${project.basedir}/src/main/rascal</src>
                                 </srcs>
                                 <ignores>
-                                    <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
+                                    <ignore>${project.basedir}/src/main/rascal/lang</ignore>
                                 </ignores>
                             </configuration>
                         </execution>
