@@ -181,6 +181,27 @@
                                 <goal>package</goal>
                             </goals>
                         </execution>
+                        <execution>
+                            <id>default-cli</id>
+                            <phase>compile</phase>
+                            <goals>
+                                <goal>tutor</goal>
+                            </goals>
+                            <configuration>
+                                <enableStandardLibrary>false</enableStandardLibrary>
+                                <errorsAsWarnings>false</errorsAsWarnings>
+                                <bin>${project.build.outputDirectory}</bin>
+                                <license>${project.basedir}/../LICENSE</license>
+                                <sources>|http://github.com/usethesource/rascal-language-servers/rascal-lsp|</sources>
+                                <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
+                                <srcs>
+                                    <src>${project.basedir}/src/main/rascal</src>
+                                </srcs>
+                                <ignores>
+                                    <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
+                                </ignores>
+                            </configuration>
+                        </execution>
                     </executions>
                 </plugin>
 
