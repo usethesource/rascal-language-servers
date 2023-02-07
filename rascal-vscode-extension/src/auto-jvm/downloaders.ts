@@ -26,13 +26,15 @@
  */
 import * as os from 'os';
 import * as path from 'path';
-import fetch, { Response } from 'node-fetch';
+import { default as nfetch, RequestInfo, Response } from 'node-fetch';
 import * as tar from 'tar';
 import {pipeline, Transform} from 'stream';
 import {promisify} from 'util';
 import * as fs from 'fs';
 import { mkdir } from 'fs/promises';
 import * as yauzl from 'yauzl';
+import * as winca from 'win-ca';
+import * as macca from 'mac-ca'; // just importing is is enough
 
 type ProgressFunc = (percIncrement: number, message: string) => void;
 
@@ -109,6 +111,21 @@ export function microsoftSupported(jdkVersion: number): boolean {
             }
         default: return false;
     }
+}
+
+let injected = false;
+
+async function fetch(url: RequestInfo): Promise<Response> {
+    if (!injected) {
+        await winca({
+            async: true,
+            fallback: true,
+            save: false,
+            inject: 'append'
+        });
+        injected = true;
+    }
+    return nfetch(url);
 }
 
 
