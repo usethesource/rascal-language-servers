@@ -36,10 +36,9 @@ No settings so far.
 
 ## Known Issues
 
-This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
-Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
+This extension is slowly but surely stabilizing, some stuff is still buggy. Please consider it an beta preview version.  Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. The Rascal support does not include an interactive visual debugger yet, or debugger support for domain specific languages.
 
-**This extension works best with Java 11; higher will cause breakage.**
+**This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
