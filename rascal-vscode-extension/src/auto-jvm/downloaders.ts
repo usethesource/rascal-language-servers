@@ -117,12 +117,14 @@ let injected = false;
 
 async function fetch(url: RequestInfo): Promise<Response> {
     if (!injected) {
-        await winca({
-            async: true,
-            fallback: true,
-            save: false,
-            inject: 'append'
-        });
+        if (process.platform === 'win32') {
+            await winca({
+                async: true,
+                fallback: true,
+                save: false,
+                inject: 'append'
+            });
+        }
         injected = true;
     }
     return nfetch(url);
