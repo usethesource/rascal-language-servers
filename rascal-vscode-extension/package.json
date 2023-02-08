@@ -123,6 +123,7 @@
     "@typescript-eslint/eslint-plugin": "^5.31.1",
     "@typescript-eslint/parser": "^5.31.1",
     "@vscode/test-electron": "^2.1.5",
+    "copy-webpack-plugin": "^11.0.0",
     "eslint": "^8.20.0",
     "glob": "^8.0.3",
     "license-check-and-add": "^4.0.2",

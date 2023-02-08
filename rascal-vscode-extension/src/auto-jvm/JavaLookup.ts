@@ -102,7 +102,7 @@ function getJavaCandidates(): string[] {
             }
         }
     }
-    return result;
+    return [];//result;
 }
 
 export async function askUserForJVM() : Promise<string> {
