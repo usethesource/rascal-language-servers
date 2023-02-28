@@ -76,7 +76,7 @@ async function showContentPanel(url: string): Promise<void> {
     const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
     const tabsForThisPanel = allOpenTabs.filter(t => t.input instanceof vscode.TabInputWebview && t.label === externalURL);
     
-    vscode.window.tabGroups.close(tabsForThisPanel);
+    await vscode.window.tabGroups.close(tabsForThisPanel);
 
     const panel = vscode.window.createWebviewPanel(
         "text/html",
