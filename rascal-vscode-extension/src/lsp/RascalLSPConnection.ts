@@ -72,23 +72,24 @@ export async function activateLanguageClient(
 
 async function showContentPanel(url: string): Promise<void> {
     // dispose of old panel in case it existed
-    vscode.env.asExternalUri(vscode.Uri.parse(url))).then(freshURL => {
+    vscode.env.asExternalUri(vscode.Uri.parse(url)).then(freshURL => {
+        const freshString = freshURL.toString();
+        const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
+        const tabsForThisPanel = allOpenTabs.filter(t => t.input instanceof vscode.TabInputWebview && t.label === freshString);
+        
+        vscode.window.tabGroups.close(tabsForThisPanel);
 
-    });
-    const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
-    const tabsForThisPanel = allOpenTabs.filter(t => t.input instanceof vscode.TabInputWebview && t.label === url);
-    await vscode.window.tabGroups.close(tabsForThisPanel);
+        const panel = vscode.window.createWebviewPanel(
+            "text/html",
+            freshString,
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+            }
+        );
 
-    const panel = vscode.window.createWebviewPanel(
-        "text/html",
-        url,
-        vscode.ViewColumn.One,
-        {
-            enableScripts: true,
-        }
-    );
-
-    loadURLintoPanel(panel, url);
+        loadURLintoPanel(panel, freshString);
+    })
 }
 
 
