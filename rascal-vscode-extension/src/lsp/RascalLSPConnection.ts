@@ -84,6 +84,10 @@ async function showContentPanel(url: string): Promise<void> {
         vscode.ViewColumn.One,
         {
             enableScripts: true,
+            portMapping: [...Array(200).keys()].map(i => <vscode.WebviewPortMapping>{
+                webviewPort: 9050 + i,
+                extensionHostPort: 9050 + i
+            })
         }
     );
 
