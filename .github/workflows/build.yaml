@@ -136,4 +136,4 @@ jobs:
           SONAR_BINARY_CACHE: "$HOME/.sonar/cache"
         run: |
           npm install -g sonarqube-scanner
-          sonar-scanner -Dsonar.projectBaseDir="rascal-vscode-extension/" -Dsonar.organization=usethesource -Dsonar.host.url=https://sonarcloud.io
+          sonar-scanner -Dsonar.projectBaseDir=rascal-vscode-extension/ -Dsonar.organization=usethesource -Dsonar.host.url=https://sonarcloud.io -Dsonar.projectKey=usethesource_rascal-language-servers
