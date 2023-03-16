@@ -112,7 +112,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         working-directory: ./rascal-lsp
-        run: mvn -B -DskipTests -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
+        run: mvn -B -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
 
       - name: setup node
         uses: actions/setup-node@v3
@@ -122,18 +122,18 @@ jobs:
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
+      - name: Install dependencies and compile
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
           npm run compile
           npm run lint 
 
-      - run: npm install -g sonarqube-scanner
       - name: sonar-scanner
-        working-directory: ./rascal-vscode-extension
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_BINARY_CACHE: "$HOME/.sonar/cache"
-        run: sonar-scanner -Dsonar.organization=usethesource -Dsonar.host.url=https://sonarcloud.io
+        run: |
+          npm install -g sonarqube-scanner
+          sonar-scanner -Dsonar.projectBaseDir="rascal-vscode-extension/" -Dsonar.organization=usethesource -Dsonar.host.url=https://sonarcloud.io
