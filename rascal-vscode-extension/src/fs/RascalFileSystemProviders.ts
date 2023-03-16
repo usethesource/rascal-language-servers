@@ -24,11 +24,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { create } from 'node:domain';
-import { normalize } from 'node:path';
 import * as vscode from 'vscode';
-import { TextEncoder } from 'util';
-import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
+import {LanguageClient } from 'vscode-languageclient/node';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: LanguageClient;
@@ -58,7 +55,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         // TODO: fix this
-        this.client.sendRequest<void>("rascal/filesystem/watch", {
+        this.client.sendRequest<void>("rascal/filesystem/watch", <WatchParameters>{
             uri: uri.toString(),
             recursive:options.recursive,
             excludes: options.excludes

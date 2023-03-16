@@ -63,7 +63,7 @@ export type MSPlatforms = "macOS" | "linux" | "windows";
 
 const ppipeline = promisify(pipeline);
 
-export function temurinSupported(jdkVersion: number): boolean {
+export function temurinSupported(_jdkVersion: number): boolean {
     switch(os.arch()) {
         case 'x32': return true;
         case 'x64': return true;

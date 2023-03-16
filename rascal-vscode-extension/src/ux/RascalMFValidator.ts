@@ -84,11 +84,11 @@ export class RascalMFValidator implements vscode.Disposable {
     dispose() {
         try {
             this.diagnostics.dispose();
-        } catch (_e) {}
+        } catch (_e) { /* ignoring errors */ }
         for (const d of this.toDispose) {
-        try {
-            d.dispose();
-        } catch (_e) {}
+            try {
+                d.dispose();
+            } catch (_e) { /* ignoring errors */ }
         }
     }
 
@@ -103,7 +103,8 @@ export class RascalMFValidator implements vscode.Disposable {
                 this.diagnostics.set(file, diagnostics);
             }
         }
-        catch (error) {
+        catch (_error) {
+            // ignoring errors
         }
     }
 }
@@ -178,10 +179,6 @@ function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagno
 }
 
 
-function hasNewline(tl: vscode.TextLine) {
-    return tl.range.end.character !== tl.rangeIncludingLineBreak.end.character;
-}
-
 function buildMFChildPath(uri: vscode.Uri) {
     return uri.with({
         path: posix.join(uri.path, MF_DIR, MF_FILE)
@@ -189,11 +186,11 @@ function buildMFChildPath(uri: vscode.Uri) {
 }
 
 class FixMFErrors implements vscode.CodeActionProvider {
-    provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
+    provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
         const result: vscode.CodeAction[] = [];
         for (const diag of context.diagnostics) {
             switch (diag.code) {
-                case FixKind.addNewLine:
+                case FixKind.addNewLine: {
                     const addNewline = new vscode.CodeAction("Add newline", vscode.CodeActionKind.QuickFix);
                     addNewline.diagnostics = [diag];
                     addNewline.isPreferred = true;
@@ -202,7 +199,8 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     addNewline.edit.insert(document.uri, lastLine.rangeIncludingLineBreak.end, (document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n"));
                     result.push(addNewline);
                     break;
-                case FixKind.fixProjectName:
+                }
+                case FixKind.fixProjectName: {
                     const fixedProjectName = new vscode.CodeAction("Fix project-name", vscode.CodeActionKind.QuickFix);
                     fixedProjectName.diagnostics = [diag];
                     fixedProjectName.isPreferred = true;
@@ -210,7 +208,8 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     fixedProjectName.edit.replace(document.uri, diag.range, calculateProjectName(document.uri));
                     result.push(fixedProjectName);
                     break;
-                case FixKind.requireLibrariesTypo:
+                }
+                case FixKind.requireLibrariesTypo: {
                     const typo = new vscode.CodeAction("Fix typo", vscode.CodeActionKind.QuickFix);
                     typo.diagnostics = [diag];
                     typo.isPreferred = true;
@@ -218,7 +217,7 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     typo.edit.replace(document.uri, diag.range, "Require-Libraries");
                     result.push(typo);
                     break;
-
+                }
             }
         }
         return result;
