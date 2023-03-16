@@ -41,7 +41,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -f ./rascal-lsp/pom.xml -B -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
+        run: mvn -f ./rascal-lsp/pom.xml -Pcoverage -B -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
 
   eslint:
     name: eslint
