@@ -66,4 +66,4 @@ jobs:
           eslint: true
           eslint_dir: ./rascal-vscode-extension
           eslint_args: "src"
-          eslint_extension: ts
+          eslint_extensions: ts
