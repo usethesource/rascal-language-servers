@@ -61,7 +61,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         }
         const matcher = this.linkDetector();
         let match: RegExpExecArray | null;
-        let result: ExtendedLink[] = [];
+        const result: ExtendedLink[] = [];
         while ((match = matcher.exec(context.line)) !== null && !token.isCancellationRequested) {
             result.push(buildLink(match));
         }

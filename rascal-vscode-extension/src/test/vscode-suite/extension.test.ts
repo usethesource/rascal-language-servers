@@ -31,17 +31,22 @@ suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
 
     suiteSetup(async function() {
-		await vscode.extensions.getExtension('usethesource.rascalmpl')!.activate();
+        const extension = await vscode.extensions.getExtension('usethesource.rascalmpl');
+        if (!extension) {
+            throw new Error("Could not initialize extension");
+        }
+		extension.activate();
 	});
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion
     const rascalExtension:vscode.Extension<any> = vscode.extensions.getExtension('usethesource.rascalmpl')!;
 
     test("Rascal extension is started", () => {
         assert.strictEqual(rascalExtension.isActive, true);
     });
-    
+
     test('Never commit debug mode', () => {
         assert.strictEqual(rascalExtension.exports.getRascalExtensionDeploymode(), true);
     });
-    
+
 });

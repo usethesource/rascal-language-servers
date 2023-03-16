@@ -207,6 +207,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
 
 
+    @SuppressWarnings("java:S899") // it's fine to ignore the result of createNewFile
     private static File getHistoryFile() throws IOException {
         File home = new File(System.getProperty("user.home"));
         File rascal = new File(home, ".rascal");

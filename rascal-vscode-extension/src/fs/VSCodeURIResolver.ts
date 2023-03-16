@@ -40,6 +40,7 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 /**
  * Rascal side should implement this on the other side of the stream
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars
 interface VSCodeResolverClient extends WatchEventReceiver {}
 
 
@@ -273,7 +274,7 @@ async function asyncCatcher<T>(build: () => Promise<T>): Promise<T | IOResult> {
     try {
         return await build();
     }
-    catch (e: any) {
+    catch (e: unknown) {
         return <IOResult>{
             errorCode: 1,
             errorMessage: "" + e
@@ -293,7 +294,7 @@ async function asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Pr
             errorCode: 0
         };
     }
-    catch (e: any) {
+    catch (e: unknown) {
         return {
             errorCode: 1,
             errorMessage: "" + e
@@ -477,7 +478,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (this.isRascalNative(removeWatch)) {
             return buildIOError("Cannot watch on a rascal uri: " + removeWatch.uri);
         }
-        let watcher = this.activeWatches.get(removeWatch.uri);
+        const watcher = this.activeWatches.get(removeWatch.uri);
         if (watcher) {
             this.activeWatches.delete(removeWatch.uri);
             watcher.dispose();
@@ -498,7 +499,8 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.toClear.forEach(c => c.dispose());
         try {
             this.connection.end();
-        } catch (_e: any) {
+        } catch (_e: unknown) {
+            // ignore errors here, ase we are disposing anyway
         }
     }
 
@@ -551,10 +553,11 @@ async function determineType(uri: vscode.Uri, changeType: ISourceLocationChangeT
         case ISourceLocationChangeType.modified:
             // no modified events for directories according to documentation
             return ISourceLocationType.file;
-        case ISourceLocationChangeType.deleted:
+        case ISourceLocationChangeType.deleted: {
             // we have to guess, since we cannot ask anymore.
             const filePart = uri.path.substring(uri.path.lastIndexOf('/'));
             return filePart.lastIndexOf('.') > 0 ? ISourceLocationType.file : ISourceLocationType.directory;
+        }
 
     }
 }
