@@ -96,7 +96,7 @@ public class EvaluatorUtil {
                 return defaultResult;
             }
             catch (StaticError e) {
-                logger.error("Static Rascal error in {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage());
+                logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
                 // logger.error("Full internal error: ", e);
                 if (throwFailure) {
                     throw e;
