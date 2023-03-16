@@ -6,6 +6,7 @@ on:
     tags:
       - 'v[0-9]+.*'
   pull_request:
+    types: [opened, synchronize, reopened]
     branches:
       - main
 
@@ -89,3 +90,50 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access=public
+
+  lint:
+    name: lint tasks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Build and analyze java
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        working-directory: ./rascal-lsp
+        run: mvn -B -DskipTests verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        working-directory: ./rascal-vscode-extension
+        run: |
+          npm ci
+          npm run compile
+          npm run lint 
+
+      - run: npm install -g sonarqube-scanner
+      - name: sonar-scanner
+        working-directory: ./rascal-vscode-extension
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_BINARY_CACHE: ~/.sonar/cache
+        run: sonar-scanner -Dsonar.organization=usethesource -Dsonar.host.url=https://sonarcloud.io
