@@ -44,7 +44,7 @@ jobs:
         run: mvn -f ./rascal-lsp/pom.xml -B -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
 
   eslint:
-    name: SonarCloud 
+    name: eslint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -65,3 +65,5 @@ jobs:
         with:
           eslint: true
           eslint_dir: ./rascal-vscode-extension
+          eslint_args: "src"
+          eslint_extension: ts
