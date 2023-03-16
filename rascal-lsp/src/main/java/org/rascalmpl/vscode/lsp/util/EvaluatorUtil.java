@@ -39,7 +39,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.rascalmpl.checker.StaticChecker;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
