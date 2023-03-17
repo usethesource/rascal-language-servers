@@ -39,10 +39,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.checker.StaticChecker;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
+import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
@@ -83,15 +85,25 @@ public class EvaluatorUtil {
                         runningEvaluator.set(null);
                     }
                 }
-            } catch (Throw e) {
+            }
+            catch (Throw e) {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
-                logger.error("Full internal error: ", e);
+                // logger.error("Full internal error: ", e);
                 if (throwFailure) {
                     throw e;
                 }
                 return defaultResult;
-            } catch (Throwable e) {
+            }
+            catch (StaticError e) {
+                logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
+                // logger.error("Full internal error: ", e);
+                if (throwFailure) {
+                    throw e;
+                }
+                return defaultResult;
+            } 
+            catch (Throwable e) {
                 logger.error("{} failed", task, e);
                 if (throwFailure) {
                     throw e;

@@ -36,10 +36,9 @@ No settings so far.
 
 ## Known Issues
 
-This extension is under development, some stuff is still buggy. Please consider it an alpha-quality try-out version.
-Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
+This extension is slowly but surely stabilizing, some stuff is still buggy. Please consider it an beta preview version.  Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. The Rascal support does not include an interactive visual debugger yet, or debugger support for domain specific languages.
 
-**This extension works best with Java 11; higher will cause breakage.**
+**This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
@@ -48,11 +47,26 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.6.3
+
+* bugfix for writes to VS Code virtual file systems initiated from rascal (only first 8KB of the write was correctly transferred)
+
+### 0.6.2
+
+* Bugfix for RASCAL.MF validator ([#225](https://github.com/usethesource/rascal/issues/225))
+### 0.6.1
+
+* bumped rascal to 0.28.3 for performance fixes around maven and various bugfixes
+* typechecking with latest 0.14.6 version of rascal-maven-plugin (and using linked rascal-library) to avoid outdated typepal files
+* now allowing jdk 17 as runtime, we'll still install 11 as default, but jdk 17 seems to work.
+* Bugfix for automatic jdk downloader on aarch64 osx (Apple M1 for example)
+* RASCAL.MF files are now checked for common errors and incorrect configurations
+
 ### 0.6.0
 
 * bumped rascal to 0.28.0 for the addition of vis::Graphs and fixes in util::Sampling and vis::Charts.
 * fixed issues with the IDEServices::edit function, in the VScode terminal context and VScode parameterized DSL LSP server context, with logical locations and locations with line/column information (both previously unsupported), for use in interactive visualizations (for example).
-* allow vscode extensions to use rascal-vscode independently of installed rascal; this means DSL implementations can run their own native extension when they are finished being developed. 
+* allow vscode extensions to use rascal-vscode independently of installed rascal; this means DSL implementations can run their own native extension when they are finished being developed.
 * as a result, rascal-vscode is now also an independent npm package.
 
 ### 0.5.6

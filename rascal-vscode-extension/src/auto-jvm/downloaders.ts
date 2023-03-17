@@ -63,7 +63,7 @@ export type MSPlatforms = "macOS" | "linux" | "windows";
 
 const ppipeline = promisify(pipeline);
 
-export function temurinSupported(jdkVersion: number): boolean {
+export function temurinSupported(_jdkVersion: number): boolean {
     switch(os.arch()) {
         case 'x32': return true;
         case 'x64': return true;
@@ -71,7 +71,7 @@ export function temurinSupported(jdkVersion: number): boolean {
         case 'arm64':
             switch (os.platform()) {
                 case 'linux': return true;
-                case 'darwin': return jdkVersion === 17;
+                case 'darwin': return true;
                 default: return false;
             }
         default: return false;
@@ -113,7 +113,6 @@ export function microsoftSupported(jdkVersion: number): boolean {
 
 
 export async function downloadTemurin(mainJVMPath: string, jdkVersion: number, progress: ProgressFunc): Promise<string> {
-    const jdkRelease = await identifyLatestTemurinLTSRelease(jdkVersion);
 
     const arch = mapTemuringCorrettoArch();
     let platform: TemurinPlatforms;
@@ -123,6 +122,7 @@ export async function downloadTemurin(mainJVMPath: string, jdkVersion: number, p
         case 'win32': platform = "windows";  break;
         default: throw new Error("Unsupported platform: " + os.platform());
     }
+    const jdkRelease = await identifyLatestTemurinLTSRelease(jdkVersion, arch, platform);
     return fetchAndUnpackTemurin(arch, platform, jdkRelease, mainJVMPath, progress);
 }
 
@@ -162,9 +162,9 @@ export async function downloadMicrosoftJDK(mainJVMPath: string, jdkVersion: numb
 
 
 // locate newest java <version> release
-export async function identifyLatestTemurinLTSRelease(version: number): Promise<string> {
+export async function identifyLatestTemurinLTSRelease(version: number, arch: TemurinArchitectures, platform: TemurinPlatforms): Promise<string> {
     const releaseRange = encodeURIComponent(`[${version}.0,${version}.999]`);
-    const releasesRaw = await fetch(`https://api.adoptium.net/v3/info/release_versions?heap_size=normal&image_type=jdk&jvm_impl=hotspot&lts=true&page=0&page_size=1&project=jdk&release_type=ga&sort_method=DATE&sort_order=DESC&vendor=eclipse&version=${releaseRange}`);
+    const releasesRaw = await fetch(`https://api.adoptium.net/v3/info/release_versions?architecture=${arch}&os=${platform}&heap_size=normal&image_type=jdk&jvm_impl=hotspot&lts=true&page=0&page_size=1&project=jdk&release_type=ga&sort_method=DATE&sort_order=DESC&vendor=eclipse&version=${releaseRange}`);
 
     if (!releasesRaw.ok) {
         throw new Error(`unexpected response ${releasesRaw.statusText}`);

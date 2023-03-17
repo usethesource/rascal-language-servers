@@ -36,7 +36,7 @@ import { promisify } from 'util';
 const currentJVMEngineMin = 11;
 const currentJVMEngineMax = 17;
 const currentPreferredJVMEngine = 11;
-const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentJVMEngineMax}`);
+const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentPreferredJVMEngine}`);
 
 let lookupCompleted: Thenable<string> | undefined;
 
@@ -51,7 +51,7 @@ export async function getJavaExecutable(): Promise<string> {
         try {
             // we check the availability of javac, since we need a JDK instead of a JRE
             const versionRun = await pexec(`"${makeJavac(possibleCandidate)}" -version`);
-            const versionsFound = /javac (?:1\.)?([0-9]+)\./.exec(versionRun.stdout);
+            const versionsFound = /javac (?:1\.)?(\d+)\./.exec(versionRun.stdout);
             if (versionsFound && versionsFound.length > 0) {
                 if (Number(versionsFound[1]) >= currentJVMEngineMin && Number(versionsFound[1]) <= currentJVMEngineMax) {
                     lookupCompleted = Promise.resolve(possibleCandidate);
@@ -65,7 +65,10 @@ export async function getJavaExecutable(): Promise<string> {
     }
     // okay, so we don't have a working java interpreter, so we ask the user
     lookupCompleted = askUserForJVM();
-    lookupCompleted.then(good => {}, e => {
+    lookupCompleted.then(_good => {
+        // ignore success, this callback is only for failures
+
+    }, e => {
         console.log("Automatic download failed: ", e);
         lookupCompleted = undefined;
     });
@@ -80,7 +83,7 @@ function makeJavac(javaPath: string): string {
 }
 
 function getJavaCandidates(): string[] {
-    let result = [];
+    const result = [];
     const { JAVA_HOME } = process.env;
     const name = os.platform() === 'win32' ? 'java.exe' : 'java';
     if (JAVA_HOME) {
@@ -158,7 +161,7 @@ async function downloadJDK(): Promise<string> {
     const temurin = "Eclipse Temurin";
     const msJava = "Microsoft Build of OpenJDK";
     const amazon = "Amazon Corretto";
-    let options = [];
+    const options = [];
     if (temurinSupported(currentPreferredJVMEngine)) {
         options.push(temurin);
     }
@@ -174,7 +177,7 @@ async function downloadJDK(): Promise<string> {
         location: vscode.ProgressLocation.Notification,
         title: `Downloading ${choice} JDK:`,
         cancellable: false
-    }, async (progress, cancelled ) => {
+    }, async (progress, _cancelled ) => {
         function actualProgress(percIncrement: number, message: string) {
             progress.report({message: message, increment: percIncrement});
         }

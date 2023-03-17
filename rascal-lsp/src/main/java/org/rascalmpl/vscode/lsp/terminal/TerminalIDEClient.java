@@ -75,6 +75,7 @@ public class TerminalIDEClient implements IDEServices {
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
 
     public TerminalIDEClient(int port) throws IOException {
+        @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
         Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
@@ -131,7 +132,11 @@ public class TerminalIDEClient implements IDEServices {
             return server.resolveProjectLocation(new SourceLocationParameter(input))
                 .get()
                 .getLocation();
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return input;
+        } catch (ExecutionException e) {
+            logger.error("Failed to resolve project location: {}", input, e.getCause());
             return input;
         }
     }
@@ -184,7 +189,10 @@ public class TerminalIDEClient implements IDEServices {
         try {
              server.jobEnd(new JobEndParameter(name, succeeded)).get().getAmount();
              return 1;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return 0;
+        } catch (ExecutionException e) {
             throw RuntimeExceptionFactory.io(e.getMessage());
         }
     }
@@ -194,6 +202,7 @@ public class TerminalIDEClient implements IDEServices {
         try {
             return server.jobIsCanceled().get().isTrue();
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return true;
         } catch (ExecutionException e) {
             throw new RuntimeException(e.getCause());

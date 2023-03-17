@@ -84,32 +84,35 @@ export class RascalMFValidator implements vscode.Disposable {
     dispose() {
         try {
             this.diagnostics.dispose();
-        } catch (_e) {}
+        } catch (_e) { /* ignoring errors */ }
         for (const d of this.toDispose) {
-        try {
-            d.dispose();
-        } catch (_e) {}
+            try {
+                d.dispose();
+            } catch (_e) { /* ignoring errors */ }
         }
     }
 
     private async verifyRascalMF(file: vscode.Uri) {
         try {
-            const mfBody = await vscode.workspace.openTextDocument(file);
-            const diagnostics: vscode.Diagnostic[] = [];
-            checkMissingLastLine(mfBody, diagnostics);
-            checkIncorrectProjectName(mfBody, diagnostics);
-            checkCommonTypo(mfBody, diagnostics);
-            this.diagnostics.set(file, diagnostics);
+            if (!/\/target\/classes\//.test(file.path)) {
+                const mfBody = await vscode.workspace.openTextDocument(file);
+                const diagnostics: vscode.Diagnostic[] = [];
+                checkMissingLastLine(mfBody, diagnostics);
+                checkIncorrectProjectName(mfBody, diagnostics);
+                checkCommonTypo(mfBody, diagnostics);
+                this.diagnostics.set(file, diagnostics);
+            }
         }
-        catch (error) {
+        catch (_error) {
+            // ignoring errors
         }
     }
 }
 
 enum FixKind {
-    ADD_NEW_LINE = 1,
-    FIX_PROJECT_NAME,
-    REQUIRE_LIBRARIES_TYPO
+    addNewLine = 1,
+    fixProjectName,
+    requireLibrariesTypo
 
 }
 
@@ -119,7 +122,7 @@ function checkMissingLastLine(mfBody: vscode.TextDocument, diagnostics: vscode.D
         const diag = new vscode.Diagnostic(lastLine.range,
             `${MF_FILE} should end with a empty newline (no spaces, no comments), else the previous line is ignored`,
             vscode.DiagnosticSeverity.Error);
-        diag.code = FixKind.ADD_NEW_LINE;
+        diag.code = FixKind.addNewLine;
         diagnostics.push(diag);
     }
 }
@@ -141,7 +144,7 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
                 );
                 const diag = new vscode.Diagnostic(targetRange,
                     `Incorrect project-name, it should equal the directory name (${expectedName})`, vscode.DiagnosticSeverity.Error);
-                diag.code = FixKind.FIX_PROJECT_NAME;
+                diag.code = FixKind.fixProjectName;
                 diagnostics.push(diag);
             }
         }
@@ -153,43 +156,26 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
     }
 }
 
+const commonTypos = new Set<string>(['required-libraries', 'require-library', 'required-library']);
+
 function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
     for (let l = 0; l < mfBody.lineCount; l++) {
         const line = mfBody.lineAt(l);
         const kvPair = line.text.split(":");
         if (kvPair.length >= 2) {
-            let fixType: FixKind | undefined = undefined;
-
-            switch (kvPair[0].trim()) {
-                case "Required-Libraries":
-                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
-                    break;
-                case "Require-Library":
-                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
-                    break;
-                case "Required-Library":
-                    fixType = FixKind.REQUIRE_LIBRARIES_TYPO;
-                    break;
-            }
-
-            switch (fixType) {
-                case FixKind.REQUIRE_LIBRARIES_TYPO:
-                    const originalLabel = kvPair[0];
-                    const diag = new vscode.Diagnostic(
-                        new vscode.Range(l, 0, l, originalLabel.length),
-                        `"${originalLabel} should be Require-Libraries`
-                    );
-                    diag.code = FixKind.REQUIRE_LIBRARIES_TYPO;
-                    diagnostics.push(diag);
+            const key = kvPair[0].trim();
+            if (commonTypos.has(key.toLocaleLowerCase())) {
+                const originalLabel = kvPair[0];
+                const diag = new vscode.Diagnostic(
+                    new vscode.Range(l, 0, l, originalLabel.length),
+                    `"${originalLabel} should be Require-Libraries`
+                );
+                diag.code = FixKind.requireLibrariesTypo;
+                diagnostics.push(diag);
             }
         }
     }
 
-}
-
-
-function hasNewline(tl: vscode.TextLine) {
-    return tl.range.end.character !== tl.rangeIncludingLineBreak.end.character;
 }
 
 export function buildMFChildPath(uri: vscode.Uri) {
@@ -199,11 +185,11 @@ export function buildMFChildPath(uri: vscode.Uri) {
 }
 
 class FixMFErrors implements vscode.CodeActionProvider {
-    provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
+    provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
         const result: vscode.CodeAction[] = [];
         for (const diag of context.diagnostics) {
             switch (diag.code) {
-                case FixKind.ADD_NEW_LINE:
+                case FixKind.addNewLine: {
                     const addNewline = new vscode.CodeAction("Add newline", vscode.CodeActionKind.QuickFix);
                     addNewline.diagnostics = [diag];
                     addNewline.isPreferred = true;
@@ -212,7 +198,8 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     addNewline.edit.insert(document.uri, lastLine.rangeIncludingLineBreak.end, (document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n"));
                     result.push(addNewline);
                     break;
-                case FixKind.FIX_PROJECT_NAME:
+                }
+                case FixKind.fixProjectName: {
                     const fixedProjectName = new vscode.CodeAction("Fix project-name", vscode.CodeActionKind.QuickFix);
                     fixedProjectName.diagnostics = [diag];
                     fixedProjectName.isPreferred = true;
@@ -220,7 +207,8 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     fixedProjectName.edit.replace(document.uri, diag.range, calculateProjectName(document.uri));
                     result.push(fixedProjectName);
                     break;
-                case FixKind.REQUIRE_LIBRARIES_TYPO:
+                }
+                case FixKind.requireLibrariesTypo: {
                     const typo = new vscode.CodeAction("Fix typo", vscode.CodeActionKind.QuickFix);
                     typo.diagnostics = [diag];
                     typo.isPreferred = true;
@@ -228,7 +216,7 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     typo.edit.replace(document.uri, diag.range, "Require-Libraries");
                     result.push(typo);
                     break;
-
+                }
             }
         }
         return result;

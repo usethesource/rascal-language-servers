@@ -184,8 +184,10 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
             }
 
             logger.debug("Connecting to VFS: {}", port);
+            @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
             var socket = new Socket(InetAddress.getLoopbackAddress(), port);
             socket.setTcpNoDelay(true);
+            @SuppressWarnings("java:S2095") // we don't have to close the client, we are passing it off to the VSCodeVFS singleton
             var newClient = new VSCodeVFSClient(socket);
             Launcher<VSCodeUriResolverServer> clientLauncher = new Launcher.Builder<VSCodeUriResolverServer>()
                 .setRemoteInterface(VSCodeUriResolverServer.class)

@@ -93,7 +93,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             Collections.emptyList());
 
         cps.setMultilineTokenSupport(true);
-
+        cps.setAugmentsSyntaxTokens(false); // ignore tokens from client side
         return cps;
     }
 
