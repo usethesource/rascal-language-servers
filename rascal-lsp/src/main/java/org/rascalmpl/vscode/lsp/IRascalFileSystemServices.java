@@ -39,7 +39,7 @@ import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.library.Prelude;
@@ -122,15 +122,40 @@ public interface IRascalFileSystemServices {
         }
     }
 
+    private static boolean readonly(ISourceLocation loc) throws IOException {
+        if (reg.getRegisteredOutputSchemes().contains(loc.getScheme())) {
+            return false;
+        }
+        if (reg.getRegisteredLogicalSchemes().contains(loc.getScheme())) {
+            var resolved = reg.logicalToPhysical(loc);
+            if (resolved != null && resolved != loc) {
+                return readonly(resolved);
+            }
+            return true;
+        }
+        return true;
+    }
+
     @JsonRequest("rascal/filesystem/stat")
     default CompletableFuture<FileStat> stat(URIParameter uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
-                return new FileStat(reg.isDirectory(loc) ? FileType.Directory : FileType.File, reg.created(loc),
-                        reg.lastModified(loc),
-                        reg.supportsReadableFileChannel(loc) ? reg.getReadableFileChannel(loc).size()
-                                : Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue());
+                var created = reg.created(loc);
+                var lastModified = reg.lastModified(loc);
+                if (reg.isDirectory(loc)) {
+                    return new FileStat(FileType.Directory, created, lastModified, 0, null);
+                }
+                long size = 0;
+                if (reg.supportsReadableFileChannel(loc)) {
+                    try (var c = reg.getReadableFileChannel(loc)) {
+                        size = c.size();
+                    }
+                }
+                else {
+                    size = Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue();
+                }
+                return new FileStat(FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
             } catch (IOException | URISyntaxException e) {
                 throw new CompletionException(e);
             }
@@ -456,12 +481,16 @@ public interface IRascalFileSystemServices {
         long mtime;
         long size;
 
-        public FileStat(FileType type, long ctime, long mtime, long size) {
+        @Nullable FilePermission permissions;
+
+        public FileStat(FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
             this.type = type;
             this.ctime = ctime;
             this.mtime = mtime;
             this.size = size;
+            this.permissions = permissions;
         }
+
     }
 
     public static enum FileType {
@@ -478,6 +507,21 @@ public interface IRascalFileSystemServices {
             return value;
         }
     };
+
+    // this enum models the enum inside vscode, which in the future might become an enum flag
+    // in that case we have to solve that
+    public static enum FilePermission {
+        Readonly(1);
+        private final int value;
+        private FilePermission(int val) {
+            assert val == 1;
+            this.value = val;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
 
     public static class FileWithType {
         private final String name;

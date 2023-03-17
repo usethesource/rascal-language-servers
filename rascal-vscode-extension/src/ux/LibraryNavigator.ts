@@ -1,14 +1,40 @@
+/*
+ * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
 import * as vscode from 'vscode';
-import { RascalExtension } from '../RascalExtension';
 import { buildMFChildPath } from './RascalMFValidator';
 import {posix} from 'path'; // posix path join is always correct, also on windows
+import { LanguageClient } from 'vscode-languageclient/node';
 
 export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibNode> {
     private changeEmitter = new vscode.EventEmitter<RascalLibNode | undefined>();
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
-    constructor(private readonly rascal: RascalExtension) {
-        vscode.workspace.onDidChangeWorkspaceFolders(e => {
+    constructor(private readonly rascalClient: Promise<LanguageClient>) {
+        vscode.workspace.onDidChangeWorkspaceFolders(_e => {
             this.changeEmitter.fire(undefined);
         });
     }
@@ -18,7 +44,7 @@ export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibN
     }
     getChildren(element?: RascalLibNode | undefined): vscode.ProviderResult<RascalLibNode[]> {
         if (element === undefined) {
-            return getRascalProjects();
+            return getRascalProjects(this.rascalClient);
         }
         return element.getChildren();
     }
@@ -31,40 +57,41 @@ export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibN
 abstract class RascalLibNode extends vscode.TreeItem {
     constructor(resourceUriOrLabel: vscode.Uri | string, collapsibleState: vscode.TreeItemCollapsibleState | undefined, readonly parent: RascalLibNode | undefined) {
         /* overloaded constructors are strange in typescript */
-        super(<any>resourceUriOrLabel, collapsibleState);
+        super(<never>resourceUriOrLabel, collapsibleState);
     }
 
     abstract getChildren(): vscode.ProviderResult<RascalLibNode[]>;
 
 }
 
+interface ProjectLibFolder {
+    libName: string;
+    uri: string;
+}
 
 class RascalProjectRoot extends RascalLibNode {
-    constructor(readonly name: string, readonly loc: vscode.Uri) {
+    constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<LanguageClient>) {
         super(name, vscode.TreeItemCollapsibleState.Collapsed, undefined);
         this.id = `$project__${name}`;
         this.iconPath = new vscode.ThemeIcon("outline-view-icon");
     }
 
-    getChildren(): vscode.ProviderResult<RascalLibNode[]> {
-        return [
-            new RascalLibraryRoot("rascal", this.loc, this),
-            new RascalLibraryRoot("rascal-lsp", this.loc, this),
-        ];
+    async getChildren(): Promise<RascalLibNode[]> {
+        const libs = await (await this.rascalClient).sendRequest<ProjectLibFolder[]>("rascal/supplyProjectLibFolders", { uri: this.loc.toString() });
+        return libs.map(l => new RascalLibraryRoot(l.libName, vscode.Uri.parse(l.uri), this));
     }
 }
 
 class RascalLibraryRoot extends RascalLibNode {
-    private readonly rascalLoc: vscode.Uri;
-    constructor(readonly libName: string, readonly projectLoc: vscode.Uri, parent: RascalLibNode) {
+    constructor(libName: string, readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
         super(`lib://${libName}`, vscode.TreeItemCollapsibleState.Collapsed, parent);
-        this.rascalLoc = vscode.Uri.from({ scheme: "lib", authority: libName, path: "/"});
         this.id = `$lib__${parent.id}__${libName}`;
+        this.resourceUri = actualLocation;
         this.iconPath = new vscode.ThemeIcon("library");
     }
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
-        return getChildren(this.rascalLoc, this);
+        return getChildren(this.actualLocation, this);
     }
 }
 
@@ -99,6 +126,7 @@ class RascalFSDirEntry extends RascalLibNode {
     }
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         return getChildren(this.resourceUri!, this);
     }
 }
@@ -114,13 +142,13 @@ class RascalFSFileEntry extends RascalLibNode {
     }
 }
 
-async function getRascalProjects(): Promise<RascalLibNode[]> {
+async function getRascalProjects(rascalClient: Promise<LanguageClient>): Promise<RascalLibNode[]> {
     const result: RascalLibNode[] = [];
     for (const wf of vscode.workspace.workspaceFolders || []) {
         try {
             await vscode.workspace.fs.stat(buildMFChildPath(wf.uri));
             const projectName = posix.basename(wf.uri.path);
-            result.push(new RascalProjectRoot(projectName, wf.uri));
+            result.push(new RascalProjectRoot(projectName, wf.uri, rascalClient));
         }
         catch (_missingFile) {
             // ignore

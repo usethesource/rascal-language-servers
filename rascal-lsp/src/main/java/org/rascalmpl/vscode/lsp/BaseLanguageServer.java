@@ -35,7 +35,11 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -53,6 +57,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
 import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
@@ -61,10 +66,12 @@ import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ProjectLibFolder;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
@@ -73,6 +80,7 @@ import com.google.gson.stream.JsonWriter;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
@@ -127,7 +135,7 @@ public abstract class BaseLanguageServer {
         JsonValueWriter writer = new JsonValueWriter();
         JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor());
         writer.setDatesAsInt(true);
-        
+
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
             @Override
             public IValue read(JsonReader source) throws IOException {
@@ -193,6 +201,8 @@ public abstract class BaseLanguageServer {
     }
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
+        private static final IValueFactory VF = ValueFactoryFactory.getValueFactory();
+        private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
@@ -203,8 +213,8 @@ public abstract class BaseLanguageServer {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = new BaseWorkspaceService(lspDocumentService);
-            URIResolverRegistry.getInstance().registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
-            URIResolverRegistry.getInstance().registerLogical(new TargetURIResolver(this::resolveProjectLocation));
+            reg.registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
+            reg.registerLogical(new TargetURIResolver(this::resolveProjectLocation));
         }
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
@@ -242,23 +252,14 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(IBaseLanguageServerExtensions.URIParameter projectFolder) {
+        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
             try {
                 if (projectFolder.getUri() == null) {
                     return CompletableFuture.completedFuture(
-                    classLoaderFiles(PathConfig.getDefaultClassloadersList())
+                        classLoaderFiles(PathConfig.getDefaultClassloadersList())
                     );
                 }
-                ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
-                if (!URIResolverRegistry.getInstance().isDirectory(path)) {
-                    path = URIUtil.getParentLocation(path);
-                }
-
-                ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
-                if (projectDir == null) {
-                    throw new RuntimeException("Project of file |" + projectFolder.getUri() + "| is missing a `META-INF/RASCAL.MF` file!");
-                }
-                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
+                PathConfig pcfg = findPathConfig(projectFolder.getLocation());
 
                 return CompletableFuture.completedFuture(classLoaderFiles(pcfg.getClassloaders()));
             }
@@ -266,6 +267,69 @@ public abstract class BaseLanguageServer {
                 logger.catching(e);
                 throw new RuntimeException(e);
             }
+        }
+
+        private static PathConfig findPathConfig(ISourceLocation path) throws IOException {
+            if (!reg.isDirectory(path)) {
+                path = URIUtil.getParentLocation(path);
+            }
+
+            ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
+            if (projectDir == null) {
+                throw new RuntimeException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
+            }
+            return PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
+        }
+
+        @Override
+        public CompletableFuture<ProjectLibFolder[]> supplyProjectLibFolders(URIParameter projectFolder) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    if (projectFolder.getUri() == null) {
+                        return new ProjectLibFolder[0];
+                    }
+                    PathConfig pcfg = findPathConfig(projectFolder.getLocation());
+                    // in the future we want to have lib paths that are pointing to something stable
+                    // but right now our lib path are relative to the project they belong too
+                    // so for now we re-do the mapping here.
+                    // we check the javaCompilerPath RASCAL.MF files, and see if they are present in the lib path
+                    // if that is the case, we add it to this mapping
+
+                    var result = new ArrayList<ProjectLibFolder>();
+                    var seen = new HashSet<String>();
+                    seen.add("");
+                    for (IValue vl : pcfg.getLibs()) {
+                        var l = (ISourceLocation) vl;
+                        if (l.getScheme().equals("lib")) {
+                            var libName = l.getAuthority();
+                            if (!seen.contains(libName)) {
+                                // we have to lookup the corresponding jar/folder on the class loaders
+                                pcfg.getClassloaders().stream()
+                                    .map(ISourceLocation.class::cast)
+                                    .map(RascalManifest::jarify)
+                                    .filter(p -> !p.getScheme().equals("lib"))
+                                    .filter(p -> new RascalManifest().getProjectName(p).equals(libName))
+                                    .findFirst()
+                                    .ifPresent(foundPath -> {
+                                        result.add(new ProjectLibFolder(libName, foundPath));
+                                        seen.add(libName);
+                                    });
+                            }
+                        } else {
+                            l = RascalManifest.jarify(l);
+                            var libName = new RascalManifest().getProjectName(l);
+                            if (!seen.contains(libName)) {
+                                result.add(new ProjectLibFolder(libName, l));
+                                seen.add(libName);
+                            }
+                        }
+                    }
+                    return result.toArray(new ProjectLibFolder[0]);
+                } catch (IOException | URISyntaxException e) {
+                    logger.catching(e);
+                    throw new RuntimeException(e);
+                }
+            });
         }
 
         @Override

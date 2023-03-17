@@ -24,26 +24,23 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
-import * as vscode from 'vscode';
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import { RascalExtension } from './RascalExtension';
-import { RascalMFValidator } from './ux/RascalMFValidator';
+import io.usethesource.vallang.ISourceLocation;
 
-const testDeployMode = (process.env.RASCAL_LSP_DEV_DEPLOY || "false") === "true";
-const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
+public class ProjectLibFolder {
+    private String libName;
+    private String uri;
+
+    public ProjectLibFolder(String libName, String uri) {
+        this.libName = libName;
+        this.uri = uri;
+    }
+
+    public ProjectLibFolder(String libName, ISourceLocation uri) {
+        this.libName = libName;
+        this.uri = uri.getURI().toString();
+    }
 
 
-export function activate(context: vscode.ExtensionContext) {
-    const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
-    const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
-    context.subscriptions.push(extension);
-    context.subscriptions.push(new RascalMFValidator());
-    return extension.externalLanguageRegistry();
-}
-
-
-export function deactivate() {
-    // no deactivation logic yet, since we push everything as a disposable
-    // although maybe we should do something here with the closing of connections to the REPLs that are still running
 }

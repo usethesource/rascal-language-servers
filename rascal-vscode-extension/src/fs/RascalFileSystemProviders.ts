@@ -51,6 +51,10 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
         schemes
             .filter(s => !this.protectedSchemes.includes(s))
             .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
+        // we add support for schemes that look inside a jar
+        schemes
+            .filter(s => s !== "jar" && s !== "zip" && s !== "compressed")
+            .forEach(s => vscode.workspace.registerFileSystemProvider("jar+" + s, this));
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {

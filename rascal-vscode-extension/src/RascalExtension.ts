@@ -34,6 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { RascalLibraryProvider } from './ux/LibraryNavigator';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -51,6 +52,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
 
+        vscode.window.registerTreeDataProvider('rascalLibraries', new RascalLibraryProvider(this.rascal.rascalClient));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
