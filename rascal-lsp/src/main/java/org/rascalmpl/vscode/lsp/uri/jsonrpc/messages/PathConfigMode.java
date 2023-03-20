@@ -26,21 +26,26 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import io.usethesource.vallang.ISourceLocation;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 
-public class ProjectLibFolder {
-    private String libName;
-    private String uri;
+public enum PathConfigMode {
+    INTERPRETER(0),
+    COMPILER(1);
 
-    public ProjectLibFolder(String libName, String uri) {
-        this.libName = libName;
-        this.uri = uri;
+    private final int value;
+
+    PathConfigMode(int value) {
+        this.value = value;
+    }
+    public int getValue() {
+        return value;
     }
 
-    public ProjectLibFolder(String libName, ISourceLocation uri) {
-        this.libName = libName;
-        this.uri = uri.getURI().toString();
+    public RascalConfigMode mapConfigMode() {
+        switch (this) {
+            case INTERPRETER: return RascalConfigMode.INTERPETER;
+            case COMPILER: return RascalConfigMode.COMPILER;
+            default: throw new RuntimeException("Missing case: " + this);
+        }
     }
-
-
 }

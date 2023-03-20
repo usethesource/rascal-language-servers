@@ -44,6 +44,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+import javax.management.RuntimeErrorException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -71,12 +72,13 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ProjectLibFolder;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigMode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -259,7 +261,7 @@ public abstract class BaseLanguageServer {
                         classLoaderFiles(PathConfig.getDefaultClassloadersList())
                     );
                 }
-                PathConfig pcfg = findPathConfig(projectFolder.getLocation());
+                PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.COMPILER);
 
                 return CompletableFuture.completedFuture(classLoaderFiles(pcfg.getClassloaders()));
             }
@@ -269,7 +271,7 @@ public abstract class BaseLanguageServer {
             }
         }
 
-        private static PathConfig findPathConfig(ISourceLocation path) throws IOException {
+        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode) throws IOException {
             if (!reg.isDirectory(path)) {
                 path = URIUtil.getParentLocation(path);
             }
@@ -278,53 +280,14 @@ public abstract class BaseLanguageServer {
             if (projectDir == null) {
                 throw new RuntimeException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
             }
-            return PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
+            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode);
         }
 
         @Override
-        public CompletableFuture<ProjectLibFolder[]> supplyProjectLibFolders(URIParameter projectFolder) {
+        public CompletableFuture<IConstructor> supplyPathConfig(URIParameter projectFolder) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    if (projectFolder.getUri() == null) {
-                        return new ProjectLibFolder[0];
-                    }
-                    PathConfig pcfg = findPathConfig(projectFolder.getLocation());
-                    // in the future we want to have lib paths that are pointing to something stable
-                    // but right now our lib path are relative to the project they belong too
-                    // so for now we re-do the mapping here.
-                    // we check the javaCompilerPath RASCAL.MF files, and see if they are present in the lib path
-                    // if that is the case, we add it to this mapping
-
-                    var result = new ArrayList<ProjectLibFolder>();
-                    var seen = new HashSet<String>();
-                    seen.add("");
-                    for (IValue vl : pcfg.getLibs()) {
-                        var l = (ISourceLocation) vl;
-                        if (l.getScheme().equals("lib")) {
-                            var libName = l.getAuthority();
-                            if (!seen.contains(libName)) {
-                                // we have to lookup the corresponding jar/folder on the class loaders
-                                pcfg.getClassloaders().stream()
-                                    .map(ISourceLocation.class::cast)
-                                    .map(RascalManifest::jarify)
-                                    .filter(p -> !p.getScheme().equals("lib"))
-                                    .filter(p -> new RascalManifest().getProjectName(p).equals(libName))
-                                    .findFirst()
-                                    .ifPresent(foundPath -> {
-                                        result.add(new ProjectLibFolder(libName, foundPath));
-                                        seen.add(libName);
-                                    });
-                            }
-                        } else {
-                            l = RascalManifest.jarify(l);
-                            var libName = new RascalManifest().getProjectName(l);
-                            if (!seen.contains(libName)) {
-                                result.add(new ProjectLibFolder(libName, l));
-                                seen.add(libName);
-                            }
-                        }
-                    }
-                    return result.toArray(new ProjectLibFolder[0]);
+                    return PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), RascalConfigMode.INTERPETER).asConstructor();
                 } catch (IOException | URISyntaxException e) {
                     logger.catching(e);
                     throw new RuntimeException(e);

@@ -64,9 +64,13 @@ abstract class RascalLibNode extends vscode.TreeItem {
 
 }
 
-interface ProjectLibFolder {
-    libName: string;
-    uri: string;
+interface PathConfig {
+    srcs : string[];
+    libs: string[];
+    ignores: string[];
+    javaCompilerPath: string[];
+    classloaders: string[];
+    bin: string;
 }
 
 class RascalProjectRoot extends RascalLibNode {
@@ -77,16 +81,42 @@ class RascalProjectRoot extends RascalLibNode {
     }
 
     async getChildren(): Promise<RascalLibNode[]> {
-        const libs = await (await this.rascalClient).sendRequest<ProjectLibFolder[]>("rascal/supplyProjectLibFolders", { uri: this.loc.toString() });
-        return libs.map(l => new RascalLibraryRoot(l.libName, vscode.Uri.parse(l.uri), this));
+        const paths = await (await this.rascalClient).sendRequest<PathConfig>("rascal/supplyPathConfig", { uri: this.loc.toString() });
+        function buildPathNode(name: "srcs" | "libs" | "ignores" | "javaCompilerPath" | "classloaders", root: RascalLibNode) {
+            return new RascalPathNode(name, paths[name], root);
+        }
+        return [
+            buildPathNode("srcs", this),
+            buildPathNode("libs", this),
+            buildPathNode("ignores", this),
+            buildPathNode("javaCompilerPath", this),
+            buildPathNode("classloaders", this)
+        ];
+        //return libs.map(l => new RascalLibraryRoot(l.libName, vscode.Uri.parse(l.uri), this));
+    }
+}
+
+class RascalPathNode extends RascalLibNode {
+    constructor(pathConfigPart: string, readonly subPaths: string[], parent: RascalLibNode) {
+        super(pathConfigPart, vscode.TreeItemCollapsibleState.Collapsed, parent);
+        this.id = `$lib__${parent.id}__${pathConfigPart}`;
+        this.iconPath = new vscode.ThemeIcon("list-tree");
+    }
+
+    getChildren(): vscode.ProviderResult<RascalLibNode[]> {
+        return this.subPaths.map(s => {
+            if (s.startsWith("/")) {
+                return vscode.Uri.file(s);
+            }
+            return vscode.Uri.parse(s);
+        })
+        .map(u => new RascalLibraryRoot(u, this));
     }
 }
 
 class RascalLibraryRoot extends RascalLibNode {
-    constructor(libName: string, readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
-        super(`lib://${libName}`, vscode.TreeItemCollapsibleState.Collapsed, parent);
-        this.id = `$lib__${parent.id}__${libName}`;
-        this.resourceUri = actualLocation;
+    constructor(readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
+        super(actualLocation.toString(), vscode.TreeItemCollapsibleState.Collapsed, parent);
         this.iconPath = new vscode.ThemeIcon("library");
     }
 
@@ -98,9 +128,7 @@ class RascalLibraryRoot extends RascalLibNode {
 async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < RascalLibNode[] > {
     const result: RascalLibNode[] = [];
     try {
-        console.log(loc);
         const children = await vscode.workspace.fs.readDirectory(loc);
-        console.log(children);
         for (const [f, t] of children) {
             if (t === vscode.FileType.Directory) {
                 result.push(new RascalFSDirEntry(f, loc, parent));
@@ -121,7 +149,7 @@ async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < Ra
 
 class RascalFSDirEntry extends RascalLibNode {
     constructor(readonly dirName: string, parentDir: vscode.Uri, parent: RascalLibNode) {
-        super(parentDir.with({path: posix.join(parentDir.path, dirName)}), vscode.TreeItemCollapsibleState.Collapsed, parent);
+        super(parentDir.with({path: posix.join(makeAbsolute(parentDir.path), dirName)}), vscode.TreeItemCollapsibleState.Collapsed, parent);
         //this.iconPath = new vscode.ThemeIcon("file-directory");
     }
 
@@ -133,7 +161,7 @@ class RascalFSDirEntry extends RascalLibNode {
 
 class RascalFSFileEntry extends RascalLibNode {
     constructor(readonly fileName: string, readonly parentDir: vscode.Uri, parent: RascalLibNode) {
-        super(parentDir.with({path: posix.join(parentDir.path, fileName)}), vscode.TreeItemCollapsibleState.None, parent);
+        super(parentDir.with({path: posix.join(makeAbsolute(parentDir.path), fileName)}), vscode.TreeItemCollapsibleState.None, parent);
         this.command = <vscode.Command>{command:"vscode.open", title: "Open Rascal file", arguments: [this.resourceUri]};
     }
 
@@ -155,5 +183,12 @@ async function getRascalProjects(rascalClient: Promise<LanguageClient>): Promise
         }
     }
     return result;
+}
+
+function makeAbsolute(path: string): string {
+    if (!posix.isAbsolute(path)) {
+        return posix.sep + path;
+    }
+    return path;
 }
 

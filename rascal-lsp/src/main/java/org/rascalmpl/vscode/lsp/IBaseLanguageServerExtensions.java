@@ -31,8 +31,8 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ProjectLibFolder;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import io.usethesource.vallang.IConstructor;
 
 public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalFileSystemServices {
     @JsonRequest("rascal/supplyIDEServicesConfiguration")
@@ -54,8 +54,8 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/supplyProjectLibFolders")
-    default CompletableFuture<ProjectLibFolder[]> supplyProjectLibFolders(URIParameter projectFolder) {
+    @JsonRequest("rascal/supplyPathConfig")
+    default CompletableFuture<IConstructor> supplyPathConfig(URIParameter projectFolder) {
         throw new UnsupportedOperationException();
     }
 

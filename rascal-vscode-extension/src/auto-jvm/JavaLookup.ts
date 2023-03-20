@@ -44,7 +44,6 @@ const pexec = promisify(cp.exec);
 
 export async function getJavaExecutable(): Promise<string> {
     if (lookupCompleted) {
-        console.log("Returning: " + lookupCompleted);
         return lookupCompleted;
     }
     for (const possibleCandidate of getJavaCandidates()) {
