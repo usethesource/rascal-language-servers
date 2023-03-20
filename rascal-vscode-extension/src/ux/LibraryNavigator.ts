@@ -82,17 +82,13 @@ class RascalProjectRoot extends RascalLibNode {
 
     async getChildren(): Promise<RascalLibNode[]> {
         const paths = await (await this.rascalClient).sendRequest<PathConfig>("rascal/supplyPathConfig", { uri: this.loc.toString() });
-        function buildPathNode(name: "srcs" | "libs" | "ignores" | "javaCompilerPath" | "classloaders", root: RascalLibNode) {
-            return new RascalPathNode(name, paths[name], root);
-        }
         return [
-            buildPathNode("srcs", this),
-            buildPathNode("libs", this),
-            buildPathNode("ignores", this),
-            buildPathNode("javaCompilerPath", this),
-            buildPathNode("classloaders", this)
+            new RascalPathNode("Sources", paths.srcs, this),
+            new RascalPathNode("Libraries", paths.libs, this),
+            new RascalPathNode("Classloaders", paths.classloaders, this),
+            new RascalPathNode("Java Compiler Path", paths.javaCompilerPath, this),
+            new RascalPathNode("Ignores", paths.ignores, this),
         ];
-        //return libs.map(l => new RascalLibraryRoot(l.libName, vscode.Uri.parse(l.uri), this));
     }
 }
 
@@ -110,18 +106,36 @@ class RascalPathNode extends RascalLibNode {
             }
             return vscode.Uri.parse(s);
         })
-        .map(u => new RascalLibraryRoot(u, this));
+        .map(u => {
+            if (u.scheme === "file" && vscode.workspace.workspaceFolders) {
+                // we might have an actual project link
+                // so check if the current path is a subpath of any of the current workspace folders
+                for (const wf of vscode.workspace.workspaceFolders) {
+                    if (u.path.startsWith(wf.uri.path)) {
+                        const newPath = u.path.substring(wf.uri.path.length);
+                        return new RascalLibraryRoot(`project://${wf.name}${newPath}`, u, this);
+                    }
+                }
+            }
+            return new RascalLibraryRoot(u.toString(), u, this);
+        });
     }
 }
 
 class RascalLibraryRoot extends RascalLibNode {
-    constructor(readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
-        super(actualLocation.toString(), vscode.TreeItemCollapsibleState.Collapsed, parent);
+    constructor(label: string, readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
+        super(label, vscode.TreeItemCollapsibleState.Collapsed, parent);
+        this.resourceUri = actualLocation;
         this.iconPath = new vscode.ThemeIcon("library");
     }
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
-        return getChildren(this.actualLocation, this);
+        let loc = this.actualLocation;
+        if (loc.scheme === "file" && loc.path.endsWith(".jar")) {
+            // we want to be able to jump into the jar, so let's change it to a rascal uri
+            loc = loc.with({scheme: 'jar+file', path: loc.path + "!/"});
+        }
+        return getChildren(loc, this);
     }
 }
 
