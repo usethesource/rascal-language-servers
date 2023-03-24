@@ -38,13 +38,12 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
-import javax.management.RuntimeErrorException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,11 +53,11 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
 import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
@@ -72,13 +71,12 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigMode;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -283,11 +281,24 @@ public abstract class BaseLanguageServer {
             return PathConfig.fromSourceProjectRascalManifest(projectDir, mode);
         }
 
+        private static URI[] toURIArray(IList src) {
+            return src.stream()
+                .map(ISourceLocation.class::cast)
+                .map(ISourceLocation::getURI)
+                .toArray(URI[]::new);
+        }
+
         @Override
-        public CompletableFuture<IConstructor> supplyPathConfig(URIParameter projectFolder) {
+        public CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    return PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), RascalConfigMode.INTERPETER).asConstructor();
+                    var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), projectFolder.getMode().mapConfigMode());
+                    Two<String, URI[]>[] result = new Two[4];
+                    result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
+                    result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
+                    result[2] = new Two<>("Java Compiler Path", toURIArray(pcfg.getJavaCompilerPath()));
+                    result[3] = new Two<>("Classloaders", toURIArray(pcfg.getClassloaders()));
+                    return result;
                 } catch (IOException | URISyntaxException e) {
                     logger.catching(e);
                     throw new RuntimeException(e);

@@ -64,15 +64,10 @@ abstract class RascalLibNode extends vscode.TreeItem {
 
 }
 
-interface PathConfig {
-    srcs : string[];
-    libs: string[];
-    ignores: string[];
-    javaCompilerPath: string[];
-    classloaders: string[];
-    bin: string;
+enum PathConfigMode {
+    interpreter = 0,
+    compiler = 1
 }
-
 class RascalProjectRoot extends RascalLibNode {
     constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<LanguageClient>) {
         super(name, vscode.TreeItemCollapsibleState.Collapsed, undefined);
@@ -81,14 +76,8 @@ class RascalProjectRoot extends RascalLibNode {
     }
 
     async getChildren(): Promise<RascalLibNode[]> {
-        const paths = await (await this.rascalClient).sendRequest<PathConfig>("rascal/supplyPathConfig", { uri: this.loc.toString() });
-        return [
-            new RascalPathNode("Sources", paths.srcs, this),
-            new RascalPathNode("Libraries", paths.libs, this),
-            new RascalPathNode("Classloaders", paths.classloaders, this),
-            new RascalPathNode("Java Compiler Path", paths.javaCompilerPath, this),
-            new RascalPathNode("Ignores", paths.ignores, this),
-        ];
+        const paths = await (await this.rascalClient).sendRequest<[string, string[]][]>("rascal/supplyPathConfig", { uri: this.loc.toString(), mode: PathConfigMode.interpreter});
+        return paths.map(([n, u]) => new RascalPathNode(n, u, this));
     }
 }
 
