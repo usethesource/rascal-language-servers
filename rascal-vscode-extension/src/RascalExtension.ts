@@ -100,7 +100,7 @@ export class RascalExtension implements vscode.Disposable {
                 try {
                     let projectName = await vscode.window.showInputBox({
                         prompt: "Please write the name of your project",
-                        title: "Create new Rascal project"
+                        title: "New Rascal project"
                     });
 
                     let filePath = await vscode.window.showOpenDialog({
@@ -124,7 +124,7 @@ export class RascalExtension implements vscode.Disposable {
                         await vscode.commands.executeCommand("vscode.openFolder", destUri, true);
                     }
                 } catch (e) {
-                    console.log(e)
+                    console.log(e);
                 }
             })
         )
