@@ -28,12 +28,17 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { writeFileSync } from 'fs';
+
 import { integer } from 'vscode-languageclient/node';
 import { getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+
+const vsfs = vscode.workspace.fs;
+const URI = vscode.Uri;
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -50,6 +55,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+        this.createProject();
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
@@ -87,6 +93,42 @@ export class RascalExtension implements vscode.Disposable {
         );
     }
 
+    private createProject() {
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand("rascalmpl.createProject", 
+            async () => {
+                try {
+                    let projectName = await vscode.window.showInputBox({
+                        prompt: "Please write the name of your project",
+                        title: "Create new Rascal project"
+                    });
+
+                    let filePath = await vscode.window.showOpenDialog({
+                        canSelectFiles: false,
+                        canSelectFolders: true,
+                        canSelectMany: false
+                    });
+
+                    if (projectName && filePath) {
+                        console.log("project name: " + projectName);
+                        console.log("path: " + filePath);
+
+                        const dest = filePath[0].path;
+                        const destUri = URI.file(dest);
+
+                        console.log("bla: "+dest);
+
+                        newRascalProject(dest, projectName);
+
+                        // Open a workspace window
+                        await vscode.commands.executeCommand("vscode.openFolder", destUri, true);
+                    }
+                } catch (e) {
+                    console.log(e)
+                }
+            })
+        )
+    }
 
     private registerImportModule() {
         this.context.subscriptions.push(
@@ -182,4 +224,111 @@ function calculateRascalREPLMemory() {
         return "-Xmx2400M";
     }
     return "-Xmx800M";
+}
+
+async function newRascalProject(dest: string, name: string) {
+        
+    const baseDest = URI.file(dest);
+    vsfs.createDirectory(baseDest);
+
+    const metaPath = URI.joinPath(baseDest, "META-INF");
+    vsfs.createDirectory(metaPath);
+
+    const srcPath = URI.joinPath(baseDest, "src/main/rascal/");
+    vsfs.createDirectory(srcPath);
+
+    const rascalMFPath = URI.joinPath(metaPath, "RASCAL.MF")
+    writeFileSync(rascalMFPath.fsPath, rascalMF(name));
+
+    const pomPath = URI.joinPath(baseDest, "pom.xml");
+    writeFileSync(pomPath.fsPath, pomXML(name));
+
+    const mainPath = URI.joinPath(srcPath, "Main.rsc");
+    writeFileSync(mainPath.fsPath, emptyModule());
+
+}
+
+function rascalMF(name: string): string {
+    return `Manifest-Version: 0.0.1
+    Project-Name: ${name}
+    Source: src/main/rascal
+    Require-Libraries: 
+    `;
+}
+
+function pomXML(name: string, group="org.rascalmpl", version="0.1.0-SNAPSHOT"): string {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <modelVersion>4.0.0</modelVersion>
+    
+      <groupId>${group}</groupId>
+      <artifactId>${name}</artifactId>
+      <version>${version}</version>
+    
+      <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+      </properties>
+    
+      <repositories>
+        <repository>
+            <id>usethesource</id>
+            <url>https://releases.usethesource.io/maven/</url>
+        </repository>
+      </repositories>
+    
+      <pluginRepositories>
+        <pluginRepository>
+           <id>usethesource</id>
+           <url>https://releases.usethesource.io/maven/</url>
+        </pluginRepository>
+      </pluginRepositories>
+    
+      <dependencies>
+        <dependency>
+          <groupId>org.rascalmpl</groupId>
+          <artifactId>rascal</artifactId>
+          <version><getRascalVersion()></version>
+        </dependency>
+      </dependencies>
+    
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.8.0</version>
+            <configuration>
+              <compilerArgument>-parameters</compilerArgument> 
+              <release>11</release>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.rascalmpl</groupId>
+            <artifactId>rascal-maven-plugin</artifactId>
+            <version>0.8.2</version>
+            <configuration>
+              <errorsAsWarnings>true</errorsAsWarnings>
+              <bin>\${project.build.outputDirectory}</bin>
+              <srcs>
+                <src>$\{project.basedir}/src/main/rascal</src>
+              </srcs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </project>
+    `;
+}
+
+function emptyModule(): string {
+    return `module Main
+    
+import IO;
+    
+int main(int testArgument=0) {
+    println("argument: <testArgument>");
+    return testArgument;
+}
+`;
 }
