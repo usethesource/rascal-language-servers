@@ -98,25 +98,16 @@ export class RascalExtension implements vscode.Disposable {
             vscode.commands.registerCommand("rascalmpl.createProject", 
             async () => {
                 try {
-                    let projectName = await vscode.window.showInputBox({
-                        prompt: "Please write the name of your project",
-                        title: "New Rascal project"
-                    });
-
-                    let filePath = await vscode.window.showOpenDialog({
+                    const filePath = await vscode.window.showOpenDialog({
                         canSelectFiles: false,
                         canSelectFolders: true,
                         canSelectMany: false
                     });
 
-                    if (projectName && filePath) {
-                        console.log("project name: " + projectName);
-                        console.log("path: " + filePath);
-
+                    if (filePath) {
                         const dest = filePath[0].path;
                         const destUri = URI.file(dest);
-
-                        console.log("bla: "+dest);
+                        const projectName = dest.split("/").at(-1) as string;
 
                         newRascalProject(dest, projectName);
 
@@ -127,7 +118,7 @@ export class RascalExtension implements vscode.Disposable {
                     console.log(e);
                 }
             })
-        )
+        );
     }
 
     private registerImportModule() {
@@ -232,33 +223,33 @@ async function newRascalProject(dest: string, name: string) {
     vsfs.createDirectory(baseDest);
 
     const metaPath = URI.joinPath(baseDest, "META-INF");
-    vsfs.createDirectory(metaPath);
+    await vsfs.createDirectory(metaPath);
 
     const srcPath = URI.joinPath(baseDest, "src/main/rascal/");
-    vsfs.createDirectory(srcPath);
+    await vsfs.createDirectory(srcPath);
 
-    const rascalMFPath = URI.joinPath(metaPath, "RASCAL.MF")
+    const rascalMFPath = URI.joinPath(metaPath, "RASCAL.MF");
     writeFileSync(rascalMFPath.fsPath, rascalMF(name));
 
     const pomPath = URI.joinPath(baseDest, "pom.xml");
     writeFileSync(pomPath.fsPath, pomXML(name));
 
     const mainPath = URI.joinPath(srcPath, "Main.rsc");
-    writeFileSync(mainPath.fsPath, emptyModule());
+    writeFileSync(mainPath.fsPath, emptyModule);
 
 }
 
 function rascalMF(name: string): string {
-    return `Manifest-Version: 0.0.1
-    Project-Name: ${name}
-    Source: src/main/rascal
-    Require-Libraries: 
-    `;
+    return "Manifest-Version: 0.0.1\n" +
+            `Project-Name: ${name}\n` +
+            "Source: src/main/rascal\n" +
+            "Require-Libraries: \n"
+            ;
 }
 
 function pomXML(name: string, group="org.rascalmpl", version="0.1.0-SNAPSHOT"): string {
     return `<?xml version="1.0" encoding="UTF-8"?>
-    <project xmlns="http://maven.apache.org/POM/4.0.0\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
       <modelVersion>4.0.0</modelVersion>
     
@@ -321,14 +312,9 @@ function pomXML(name: string, group="org.rascalmpl", version="0.1.0-SNAPSHOT"): 
     `;
 }
 
-function emptyModule(): string {
-    return `module Main
-    
-import IO;
-    
-int main(int testArgument=0) {
-    println("argument: <testArgument>");
-    return testArgument;
-}
-`;
-}
+const emptyModule = "module Main\n" +
+                    "import IO;\n\n"+
+                    "int main(int testArgument=0) {\n" +
+                    `   println("argument: <testArgument>");\n` +
+                    "   return testArgument;\n"+
+                    "}";
