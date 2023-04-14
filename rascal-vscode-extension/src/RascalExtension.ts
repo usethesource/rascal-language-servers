@@ -101,7 +101,8 @@ export class RascalExtension implements vscode.Disposable {
                     const filePath = await vscode.window.showOpenDialog({
                         canSelectFiles: false,
                         canSelectFolders: true,
-                        canSelectMany: false
+                        canSelectMany: false,
+                        title: "New Rascal project",
                     });
 
                     if (filePath) {
@@ -115,7 +116,7 @@ export class RascalExtension implements vscode.Disposable {
                         await vscode.commands.executeCommand("vscode.openFolder", destUri, true);
                     }
                 } catch (e) {
-                    console.log(e);
+                    console.error(e);
                 }
             })
         );
