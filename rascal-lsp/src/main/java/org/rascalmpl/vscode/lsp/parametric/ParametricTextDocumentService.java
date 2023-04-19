@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -113,6 +114,7 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
+@SuppressWarnings({"deprecation"})
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;

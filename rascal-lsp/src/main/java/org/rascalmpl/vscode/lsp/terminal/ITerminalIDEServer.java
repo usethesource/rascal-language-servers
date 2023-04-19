@@ -304,7 +304,7 @@ public interface ITerminalIDEServer {
             IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
         ) {
             out.write(value);
-            out.close();
+            // out.close(); removed this because of a compiler warning. seems superfluous anyway.
             return encoder.encodeToString(stream.toByteArray());
         } catch (IOException e) {
             throw new RuntimeException(e);

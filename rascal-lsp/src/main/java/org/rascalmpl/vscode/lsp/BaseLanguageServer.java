@@ -235,9 +235,9 @@ public abstract class BaseLanguageServer {
 
         private static String[] classLoaderFiles(IList source) {
             return source.stream()
-                .map(e -> (ISourceLocation) e)
+                .map(ISourceLocation.class::cast)
                 .filter(e -> e.getScheme().equals("file"))
-                .map(e -> ((ISourceLocation) e).getPath())
+                .map(e -> e.getPath())
                 .toArray(String[]::new);
         }
 
