@@ -33,8 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -53,7 +51,7 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer implements ISemanticTokens {
-    private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
+    // private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {

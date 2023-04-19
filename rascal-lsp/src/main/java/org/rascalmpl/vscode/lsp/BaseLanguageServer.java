@@ -125,7 +125,7 @@ public abstract class BaseLanguageServer {
 
     private static void configureGson(GsonBuilder builder) {
         JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor());
+        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
         writer.setDatesAsInt(true);
         
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
