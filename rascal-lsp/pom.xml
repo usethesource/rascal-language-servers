@@ -142,8 +142,6 @@
                     <compilerArguments>
                         <parameters/>
                         <Werror/>
-                        <Xlint:all/>
-                        <Xlint:-processing/>
                     </compilerArguments>
                 </configuration>
             </plugin>
