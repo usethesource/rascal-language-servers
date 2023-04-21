@@ -125,7 +125,7 @@ public abstract class BaseLanguageServer {
 
     private static void configureGson(GsonBuilder builder) {
         JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor());
+        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
         writer.setDatesAsInt(true);
         
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
@@ -235,9 +235,9 @@ public abstract class BaseLanguageServer {
 
         private static String[] classLoaderFiles(IList source) {
             return source.stream()
-                .map(e -> (ISourceLocation) e)
+                .map(ISourceLocation.class::cast)
                 .filter(e -> e.getScheme().equals("file"))
-                .map(e -> ((ISourceLocation) e).getPath())
+                .map(e -> e.getPath())
                 .toArray(String[]::new);
         }
 

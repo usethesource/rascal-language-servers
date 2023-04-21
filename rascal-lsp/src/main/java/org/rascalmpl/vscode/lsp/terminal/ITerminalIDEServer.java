@@ -298,17 +298,16 @@ public interface ITerminalIDEServer {
 
     public static String value2string(IValue value) {
         final Encoder encoder = Base64.getEncoder();
+        ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
 
-        try (
-            ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
-            IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
-        ) {
+        try (IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());) {
             out.write(value);
-            out.close();
-            return encoder.encodeToString(stream.toByteArray());
-        } catch (IOException e) {
+        } 
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        return encoder.encodeToString(stream.toByteArray());
     }
 
     public static IValue string2value(String string) {

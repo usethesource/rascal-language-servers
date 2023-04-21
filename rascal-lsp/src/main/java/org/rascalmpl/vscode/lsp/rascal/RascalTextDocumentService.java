@@ -100,6 +100,7 @@ import com.google.common.io.CharStreams;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
+@SuppressWarnings({"deprecation"})
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter;
