@@ -114,7 +114,8 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
-@SuppressWarnings({"deprecation"})
+// suppress required due to forced usage of deprecated `SymbolInformation` class in `Either` until LSP4J cleans it up:
+@SuppressWarnings({"deprecation"}) 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
