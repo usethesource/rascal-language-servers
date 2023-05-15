@@ -54,7 +54,6 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        // TODO: fix this
         this.client.sendRequest<void>("rascal/filesystem/watch", <WatchParameters>{
             uri: uri.toString(),
             recursive:options.recursive,
