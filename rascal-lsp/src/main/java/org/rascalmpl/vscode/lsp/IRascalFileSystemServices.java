@@ -40,6 +40,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.library.Prelude;
@@ -54,6 +56,7 @@ import io.usethesource.vallang.IValueFactory;
 
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+    static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IDEServicesThread.class);
 
     @JsonRequest("rascal/filesystem/resolveLocation")
     default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {
@@ -70,7 +73,7 @@ public interface IRascalFileSystemServices {
                 return SourceLocation.fromRascalLocation(resolved);
             }
             catch (URISyntaxException e) {
-                // TODO log this exception
+                IRascalFileSystemServices__logger.warn("Could not resolve location {} due to {}.", loc, e.getMessage());
                 return loc;
             }
             catch (IOException e) {
@@ -78,8 +81,7 @@ public interface IRascalFileSystemServices {
                 return loc;
             }
             catch (Throwable e) {
-                // TODO want to log this
-
+                IRascalFileSystemServices__logger.warn("Could not resolve location {} due to {}.", loc, e.getMessage());
                 return loc;
             }
         });
