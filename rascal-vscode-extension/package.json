@@ -30,6 +30,7 @@
   ],
   "activationEvents": [
     "onCommand:rascalmpl.createTerminal",
+    "onCommand:rascalmpl.createProject",
     "onLanguage:rascalmpl"
   ],
   "main": "./dist/extension.js",
@@ -46,6 +47,10 @@
       {
         "command": "rascalmpl.importMain",
         "title": "Start Rascal Terminal and Import this module"
+      },
+      {
+        "command": "rascalmpl.createProject",
+        "title": "Create new Rascal project"
       }
     ],
     "languages": [
@@ -112,7 +117,7 @@
   "devDependencies": {
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.1",
-    "@types/node": "^16.x",
+    "@types/node": "^16.18.23",
     "@types/node-fetch": "^2.5.12",
     "@types/tar": "^6.1.1",
     "@types/temp": "^0.9.1",
