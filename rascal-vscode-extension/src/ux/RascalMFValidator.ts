@@ -148,7 +148,7 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
                 diag.code = FixKind.fixProjectName;
                 diagnostics.push(diag);
             }
-            if (/[^a-z0-9-]/.test(prName)) {
+            if (/[^a-z0-9-_]/.test(prName)) {
                 const diag = new vscode.Diagnostic(targetRange,
                     "Incorrect project-name, it should have only lowercase characters, digits and dashes from [a-z0-9\\-]", vscode.DiagnosticSeverity.Error);
                 diag.code = FixKind.removeInvalidCharsProjectName;
