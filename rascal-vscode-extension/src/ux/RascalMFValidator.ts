@@ -112,7 +112,8 @@ export class RascalMFValidator implements vscode.Disposable {
 enum FixKind {
     addNewLine = 1,
     fixProjectName,
-    requireLibrariesTypo
+    requireLibrariesTypo,
+    removeInvalidCharsProjectName
 
 }
 
@@ -135,16 +136,22 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
         if (kvPair.length === 2 && kvPair[0].trim() === "Project-Name") {
             hasProjectName = true;
             const prName = kvPair[1].split("#")[0].trim();
+            const offset = line.text.indexOf(prName);
+            const targetRange = new vscode.Range(
+                l, offset,
+                l, offset + prName.length
+            );
             const expectedName = calculateProjectName(mfBody.uri);
             if (prName !== expectedName) {
-                const offset = line.text.indexOf(prName);
-                const targetRange = new vscode.Range(
-                    l, offset,
-                    l, offset + prName.length
-                );
                 const diag = new vscode.Diagnostic(targetRange,
                     `Incorrect project-name, it should equal the directory name (${expectedName})`, vscode.DiagnosticSeverity.Error);
                 diag.code = FixKind.fixProjectName;
+                diagnostics.push(diag);
+            }
+            if (/[^a-z0-9-_]/.test(prName)) {
+                const diag = new vscode.Diagnostic(targetRange,
+                    "Incorrect project-name, it should have only lowercase characters, digits and dashes from [a-z0-9\\-]", vscode.DiagnosticSeverity.Error);
+                diag.code = FixKind.removeInvalidCharsProjectName;
                 diagnostics.push(diag);
             }
         }
@@ -206,6 +213,15 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     fixedProjectName.isPreferred = true;
                     fixedProjectName.edit = new vscode.WorkspaceEdit();
                     fixedProjectName.edit.replace(document.uri, diag.range, calculateProjectName(document.uri));
+                    result.push(fixedProjectName);
+                    break;
+                }
+                case FixKind.removeInvalidCharsProjectName: {
+                    const fixedProjectName = new vscode.CodeAction("Remove invalid chars in project-name", vscode.CodeActionKind.QuickFix);
+                    fixedProjectName.diagnostics = [diag];
+                    fixedProjectName.isPreferred = true;
+                    fixedProjectName.edit = new vscode.WorkspaceEdit();
+                    fixedProjectName.edit.replace(document.uri, diag.range, document.getText(diag.range).replace(/[^a-z0-9-]/g,"-"));
                     result.push(fixedProjectName);
                     break;
                 }
