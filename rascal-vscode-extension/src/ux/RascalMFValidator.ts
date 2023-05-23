@@ -128,6 +128,8 @@ function checkMissingLastLine(mfBody: vscode.TextDocument, diagnostics: vscode.D
     }
 }
 
+const INVALID_PROJECT_NAME = /[^a-z0-9-_]/;
+
 function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
     let hasProjectName = false;
     for (let l = 0; l < mfBody.lineCount; l++) {
@@ -148,9 +150,9 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
                 diag.code = FixKind.fixProjectName;
                 diagnostics.push(diag);
             }
-            if (/[^a-z0-9-_]/.test(prName)) {
+            if (INVALID_PROJECT_NAME.test(prName)) {
                 const diag = new vscode.Diagnostic(targetRange,
-                    "Incorrect project-name, it should have only lowercase characters, digits and dashes from [a-z0-9\\-]", vscode.DiagnosticSeverity.Error);
+                    "Incorrect project-name, it should have only lowercase characters, digits, dashes, and underscores (" + INVALID_PROJECT_NAME +")", vscode.DiagnosticSeverity.Error);
                 diag.code = FixKind.removeInvalidCharsProjectName;
                 diagnostics.push(diag);
             }
@@ -221,7 +223,7 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     fixedProjectName.diagnostics = [diag];
                     fixedProjectName.isPreferred = true;
                     fixedProjectName.edit = new vscode.WorkspaceEdit();
-                    fixedProjectName.edit.replace(document.uri, diag.range, document.getText(diag.range).replace(/[^a-z0-9-]/g,"-"));
+                    fixedProjectName.edit.replace(document.uri, diag.range, document.getText(diag.range).replace(new RegExp(INVALID_PROJECT_NAME, "g"), "-"));
                     result.push(fixedProjectName);
                     break;
                 }
