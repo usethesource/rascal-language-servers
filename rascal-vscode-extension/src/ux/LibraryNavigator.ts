@@ -95,19 +95,7 @@ class RascalPathNode extends RascalLibNode {
             }
             return vscode.Uri.parse(s);
         })
-        .map(u => {
-            if (u.scheme === "file" && vscode.workspace.workspaceFolders) {
-                // we might have an actual project link
-                // so check if the current path is a subpath of any of the current workspace folders
-                for (const wf of vscode.workspace.workspaceFolders) {
-                    if (u.path.startsWith(wf.uri.path)) {
-                        const newPath = u.path.substring(wf.uri.path.length);
-                        return new RascalLibraryRoot(`project://${wf.name}${newPath}`, u, this);
-                    }
-                }
-            }
-            return new RascalLibraryRoot(u.toString(), u, this);
-        });
+        .map(u => new RascalLibraryRoot(u.toString(), u, this));
     }
 }
 
@@ -152,7 +140,7 @@ async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < Ra
 
 class RascalFSDirEntry extends RascalLibNode {
     constructor(readonly dirName: string, parentDir: vscode.Uri, parent: RascalLibNode) {
-        super(parentDir.with({path: posix.join(makeAbsolute(parentDir.path), dirName)}), vscode.TreeItemCollapsibleState.Collapsed, parent);
+        super(vscode.Uri.joinPath(parentDir, dirName), vscode.TreeItemCollapsibleState.Collapsed, parent);
         //this.iconPath = new vscode.ThemeIcon("file-directory");
     }
 
