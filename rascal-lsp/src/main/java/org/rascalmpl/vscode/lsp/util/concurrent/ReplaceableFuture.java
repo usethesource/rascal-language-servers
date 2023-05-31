@@ -31,8 +31,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -40,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * specific closure if it is replaced by a newer version.
  */
 public class ReplaceableFuture<T> {
-    private static final Logger logger = LogManager.getLogger(ReplaceableFuture.class);
+    // private static final Logger logger = LogManager.getLogger(ReplaceableFuture.class);
 
     private final AtomicReference<Runnable> interrupt;
     private final AtomicReference<CompletableFuture<T>> actual;

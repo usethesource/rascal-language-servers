@@ -67,6 +67,7 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
+@SuppressWarnings({"deprecation"})
 public class ParametricSummaryBridge {
     private static final Logger logger = LogManager.getLogger(ParametricSummaryBridge.class);
     private final Executor exec;

@@ -10,7 +10,7 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.6.4-head",
+  "version": "0.8.0-head",
   "engines": {
     "vscode": "^1.67.0"
   },
@@ -121,8 +121,7 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
-    "@types/glob": "^7.2.0",
-    "@types/mocha": "^9.1.1",
+    "@types/mocha": "^10.0.1",
     "@types/node": "^16.x",
     "@types/node-fetch": "^2.5.12",
     "@types/tar": "^6.1.1",
@@ -133,14 +132,14 @@
     "@typescript-eslint/parser": "^5.31.1",
     "@vscode/test-electron": "^2.1.5",
     "eslint": "^8.20.0",
-    "glob": "^8.0.3",
+    "glob": "^10.2.6",
     "license-check-and-add": "^4.0.2",
-    "mocha": "^10.0.0",
+    "mocha": "^10.2.0",
     "temp": "^0.9.4",
     "ts-loader": "^9.4.1",
-    "typescript": "^4.8.4",
+    "typescript": "^5.0.4",
     "vsce": "^2.11.0",
     "webpack": "^5.76.0",
-    "webpack-cli": "^4.10.0"
+    "webpack-cli": "^5.1.1"
   }
 }

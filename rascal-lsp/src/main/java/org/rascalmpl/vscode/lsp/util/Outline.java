@@ -42,6 +42,7 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IWithKeywordParameters;
 
+@SuppressWarnings({"deprecation"})
 public class Outline {
 
     private static String capitalize(String kindName) {

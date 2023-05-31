@@ -47,6 +47,18 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.7.0
+
+* Fixes issues with IDEServices::registerDiagnostics where only the first error would be registered.
+* Fixes issue with Rascal library loading where Rascal source files where loaded in a different order from the path than their accompanied .class files.
+* util::Reflective::newRascalProject now guarantees syntax regex for project folders and project names.
+* XML, HTML and JSON parsers now provide source origin location with every node.
+* Improved support for Windows PATHs in dependency resolution code of Rascal
+* Fixed UTF8 encoding issue in the Lucene library
+* Documentation improvements
+* Several minor issues.
+* Added more validation features for RASCAL.MF files.
+
 ### 0.6.3
 
 * bugfix for writes to VS Code virtual file systems initiated from rascal (only first 8KB of the write was correctly transferred)
@@ -54,6 +66,7 @@ For other things we are working on have a look here:
 ### 0.6.2
 
 * Bugfix for RASCAL.MF validator ([#225](https://github.com/usethesource/rascal/issues/225))
+
 ### 0.6.1
 
 * bumped rascal to 0.28.3 for performance fixes around maven and various bugfixes
