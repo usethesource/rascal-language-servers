@@ -152,7 +152,7 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
             }
             if (INVALID_PROJECT_NAME.test(prName)) {
                 const diag = new vscode.Diagnostic(targetRange,
-                    "Can not handle project name (" + INVALID_PROJECT_NAME + ") that is not all lowercase, digits, or dashes, i.e. in [a-z0-9\\-\\_]", vscode.DiagnosticSeverity.Error);
+                    "Can not handle project name (" + prName + ") that is not all lowercase, digits, or dashes, i.e. in [a-z0-9\\-\\_]", vscode.DiagnosticSeverity.Error);
                 diag.code = FixKind.removeInvalidCharsProjectName;
                 diagnostics.push(diag);
             }
