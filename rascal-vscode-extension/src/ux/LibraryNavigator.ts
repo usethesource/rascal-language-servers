@@ -152,7 +152,7 @@ class RascalFSDirEntry extends RascalLibNode {
 
 class RascalFSFileEntry extends RascalLibNode {
     constructor(readonly fileName: string, readonly parentDir: vscode.Uri, parent: RascalLibNode) {
-        super(parentDir.with({path: posix.join(makeAbsolute(parentDir.path), fileName)}), vscode.TreeItemCollapsibleState.None, parent);
+        super(vscode.Uri.joinPath(parentDir, fileName), vscode.TreeItemCollapsibleState.None, parent);
         this.command = <vscode.Command>{command:"vscode.open", title: "Open Rascal file", arguments: [this.resourceUri]};
     }
 
@@ -175,11 +175,3 @@ async function getRascalProjects(rascalClient: Promise<LanguageClient>): Promise
     }
     return result;
 }
-
-function makeAbsolute(path: string): string {
-    if (!posix.isAbsolute(path)) {
-        return posix.sep + path;
-    }
-    return path;
-}
-
