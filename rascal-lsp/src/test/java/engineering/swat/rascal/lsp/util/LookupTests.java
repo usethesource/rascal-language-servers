@@ -121,4 +121,17 @@ public class LookupTests {
         assertSame("hit2", target.lookup(cursor(1,12)));
     }
 
+    @Test
+    public void testOverlappingRanges() {
+        TreeMapLookup<String> target = new TreeMapLookup<>();
+        target.put(new Range(new Position(0,1), new Position(4,5)), "big1");
+        target.put(new Range(new Position(1,1), new Position(1,5)), "small1");
+        target.put(new Range(new Position(4,1), new Position(4,4)), "small2");
+        assertSame("big1", target.lookup(cursor(0,12)));
+        assertSame("big1", target.lookup(cursor(1,12)));
+        assertSame("small1", target.lookup(cursor(1,4)));
+        assertSame("small2", target.lookup(cursor(4,4)));
+        assertSame("big1", target.lookup(cursor(4,5)));
+    }
+
 }
