@@ -112,6 +112,11 @@
       <artifactId>log4j-jul</artifactId>
       <version>${log4j2.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.eclipse.lsp4j</groupId>
+      <artifactId>org.eclipse.lsp4j.debug</artifactId>
+      <version>0.21.0</version>
+    </dependency>
   </dependencies>
   <build>
       <resources>
