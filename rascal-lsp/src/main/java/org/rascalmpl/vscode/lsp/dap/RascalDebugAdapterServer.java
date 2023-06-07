@@ -55,8 +55,8 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     }
 
     @Override
-    public CompletableFuture<Void> launch(Map<String, Object> args) {
-        System.out.println("launch message received!");
+    public CompletableFuture<Void> attach(Map<String, Object> args) {
+        System.out.println("attach message received!");
         CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
             return null;
         });
