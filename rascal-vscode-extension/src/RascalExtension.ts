@@ -34,6 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { activateDebugAdapterClient, registerDebugAdapter } from './dap/RascalDAPConnection';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -50,6 +51,8 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+
+        registerDebugAdapter();
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
@@ -76,7 +79,8 @@ export class RascalExtension implements vscode.Disposable {
         );
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.createDebugTerminal", () => {
-                this.startTerminal(vscode.window.activeTextEditor?.document.uri, "--debug");
+                activateDebugAdapterClient();
+                //this.startTerminal(vscode.window.activeTextEditor?.document.uri, "--debug");
             })
         );
     }
