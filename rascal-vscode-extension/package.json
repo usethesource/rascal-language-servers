@@ -84,6 +84,35 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "breakpoints": [
+      {
+          "language": "rascalmpl"
+      }
+    ],
+    "debuggers": [
+      {
+          "type": "rascalmpl",
+          "label": "rascalmpl",
+          "initialConfigurations": [
+              {
+                  "type": "rascalmpl",
+                  "request": "attach",
+                  "name": "Start Debugging Rascal"
+              }
+          ],
+          "configurationSnippets": [
+              {
+                  "label": "Start Debugging Rascal",
+                  "description": "Start Debugging Rascal",
+                  "body": {
+                    "type": "rascalmpl",
+                    "request": "attach",
+                    "name": "Start Debugging Rascal"
+                }
+              }
+          ]
+      }
+  ],
     "grammars": [
       {
         "language": "rascalmpl",
