@@ -112,7 +112,7 @@ public class FileFacts {
                 r -> {
                     r.interrupt();
                     InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
-                        .thenApply(s -> s == null ? null : new SummaryBridge(s, cm));
+                        .thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)
                     CompletableFuture<@Nullable SummaryBridge> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());

@@ -27,7 +27,9 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.junit.jupiter.api.Test;
@@ -119,6 +121,44 @@ public class LookupTests {
     public void testSimpleLookupEnd2() {
         TreeMapLookup<String> target = buildTreeLookup2();
         assertSame("hit2", target.lookup(cursor(1,12)));
+    }
+
+    @Test
+    public void testOverlappingRanges() {
+        TreeMapLookup<String> target = new TreeMapLookup<>();
+        target.put(new Range(new Position(0,1), new Position(4,5)), "big1");
+        target.put(new Range(new Position(1,1), new Position(1,5)), "small1");
+        target.put(new Range(new Position(4,1), new Position(4,4)), "small2");
+        assertSame("big1", target.lookup(cursor(0,12)));
+        assertSame("big1", target.lookup(cursor(1,12)));
+        assertSame("small1", target.lookup(cursor(1,4)));
+        assertSame("small2", target.lookup(cursor(4,4)));
+        assertSame("big1", target.lookup(cursor(4,5)));
+    }
+
+    @Test
+    public void randomRanges() {
+        TreeMapLookup<String> target = new TreeMapLookup<>();
+        Map<Range, String> ranges = new HashMap<>();
+        Random r = new Random();
+        for (int i = 0; i < 1000; i++) {
+            int startLine = r.nextInt(10);
+            int startColumn = r.nextInt(10);
+            int endLine = startLine + r.nextInt(3);
+            int endColumn;
+            if (endLine == startLine) {
+                endColumn = startColumn + r.nextInt(3);
+            }
+            else {
+                endColumn = r.nextInt(10);
+            }
+            ranges.put(range(startLine, startColumn, endLine, endColumn), "" + i);
+        }
+        ranges.forEach(target::put);
+        for (var e: ranges.entrySet()) {
+            var found = target.lookup(e.getKey());
+            assertSame(e.getValue(), found, "Entry " + e + "should be found");
+        }
     }
 
 }
