@@ -79,8 +79,8 @@ export class RascalExtension implements vscode.Disposable {
         );
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.createDebugTerminal", () => {
-                activateDebugAdapterClient();
-                //this.startTerminal(vscode.window.activeTextEditor?.document.uri, "--debug");
+                //activateDebugAdapterClient();
+                this.startTerminal(vscode.window.activeTextEditor?.document.uri, "--debug");
             })
         );
     }
