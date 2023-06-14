@@ -36,7 +36,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.jar.Manifest;
+
+import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
+import org.rascalmpl.debug.DebugHandler;
+import org.rascalmpl.debug.IRascalEventListener;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -54,6 +59,8 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.dap.RascalDebugAdapterLauncher;
+import org.rascalmpl.vscode.lsp.dap.RascalDebugEventTrigger;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
@@ -75,6 +82,7 @@ public class LSPTerminalREPL extends BaseREPL {
     private static final OutputStream stdout = System.out;
     private static final boolean prettyPrompt = true;
     private static final boolean allowColors = true;
+    private static boolean debugMode = false;
 
     public LSPTerminalREPL(Terminal terminal, IDEServices services) throws IOException, URISyntaxException {
         super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
@@ -94,6 +102,8 @@ public class LSPTerminalREPL extends BaseREPL {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
+                private AbstractInterpreterEventTrigger eventTrigger;
+                private DebugHandler debugHandler;
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
@@ -114,6 +124,17 @@ public class LSPTerminalREPL extends BaseREPL {
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
+
+                    if(debugMode){
+                        initializeRascalDebugMode(evaluator);
+                        Thread t = new Thread() {
+                            public void run() {
+                                RascalDebugAdapterLauncher.startDebugServer(eventTrigger, debugHandler);
+                            }
+                        };
+                        t.setDaemon(true);
+                        t.start();
+                    }
 
                     try {
                         PathConfig pcfg;
@@ -151,6 +172,19 @@ public class LSPTerminalREPL extends BaseREPL {
                     evaluator.setMonitor(services);
 
                     return evaluator;
+                }
+
+                private void initializeRascalDebugMode(Evaluator eval) {
+                    eventTrigger = new RascalDebugEventTrigger(this);
+                    debugHandler = new DebugHandler();
+                    debugHandler.setEventTrigger(eventTrigger);
+                    /*debugHandler.setTerminateAction(new Runnable() {
+                        @Override
+                        public void run() {
+                            doDisconnect();
+                        }
+                    });*/
+                    eval.addSuspendTriggerListener(debugHandler);
                 }
 
                 private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {
@@ -245,6 +279,9 @@ public class LSPTerminalREPL extends BaseREPL {
                     break;
                 case "--runModule":
                     runModule = true;
+                    break;
+                case "--debug":
+                    debugMode = true;
                     break;
             }
         }
