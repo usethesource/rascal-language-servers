@@ -40,6 +40,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     IDebugProtocolClient client;
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
+    final public static int mainThreadID = 1;
 
     public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler) {
         this.eventTrigger = (RascalDebugEventTrigger) eventTrigger;
@@ -88,14 +89,16 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                     // TODO : handle errors
                 }
                 ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
+                BreakpointsManager.getInstance().clearBreakpointsOfFile(loc.getPath(), debugHandler);
                 for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
                     System.out.println(" - breakpoint line : " + breakpoint.getLine());
                     ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
                     if(treeBreakableLocation != null) {
                         ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
-                        debugHandler.processMessage(DebugMessageFactory.requestSetBreakpoint(breakableLocation));
+                        BreakpointsManager.getInstance().addBreakpoint(breakableLocation, i, debugHandler);
                     }
                     Breakpoint b = new Breakpoint();
+                    b.setId(i);
                     b.setLine(breakpoint.getLine());
                     b.setColumn(breakpoint.getColumn());
                     b.setVerified(treeBreakableLocation != null);
@@ -183,7 +186,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         CompletableFuture<ThreadsResponse> future = CompletableFuture.supplyAsync(() -> {
             ThreadsResponse response = new ThreadsResponse();
             Thread t = new Thread();
-            t.setId(1);
+            t.setId(mainThreadID);
             t.setName("Main Thread");
             response.setThreads(new Thread[]{
                 t
