@@ -1,7 +1,9 @@
 package org.rascalmpl.vscode.lsp.dap;
 
+import io.usethesource.vallang.ISourceLocation;
 import org.eclipse.lsp4j.debug.Breakpoint;
 import org.eclipse.lsp4j.debug.BreakpointEventArguments;
+import org.eclipse.lsp4j.debug.StoppedEventArguments;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.IRascalEventListener;
@@ -39,11 +41,18 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void fireSuspendByBreakpointEvent(Object data) {
-        /*BreakpointEventArguments requestArgs = new BreakpointEventArguments();
-        requestArgs.setReason("breakpoint");
-        //Breakpoint breakp = new Breakpoint();
-        requestArgs.setBreakpoint(null);
-		client.breakpoint(null);*/
+        ISourceLocation location = (ISourceLocation) data;
+        int breakpointID = BreakpointsManager.getInstance().getBreakpointID(location);
+        if(breakpointID < 0){
+            System.out.println("Unknown breakpoint");
+            return;
+        }
+        StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
+        stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
+        stoppedEventArguments.setDescription("Paused on breakpoint.");
+        stoppedEventArguments.setReason("breakpoint");
+        stoppedEventArguments.setHitBreakpointIds(new Integer[]{breakpointID});
+        client.stopped(stoppedEventArguments);
 	}
 
 }
