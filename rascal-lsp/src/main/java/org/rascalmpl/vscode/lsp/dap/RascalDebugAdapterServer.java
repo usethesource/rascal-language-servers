@@ -193,7 +193,246 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
             });
             return response;
         });
+
         return future;
+    }
+
+    @Override
+    public CompletableFuture<StackTraceResponse> stackTrace(StackTraceArguments args) {
+        //TODO : handle stack trace request
+        StackTraceResponse response = new StackTraceResponse();
+        response.setTotalFrames(1);
+        StackFrame frame = new StackFrame();
+        frame.setId(0);
+        frame.setName("Temporary Frame Name");
+        frame.setLine(currentSuspensionLocation.getBeginLine()+test);
+        test++;
+        frame.setColumn(currentSuspensionLocation.getBeginColumn());
+        frame.setSource(BreakpointsManager.getInstance().getBreakpointSource(currentSuspensionLocation));
+        response.setStackFrames(new StackFrame[]{
+            frame
+        });
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override
+    public CompletableFuture<ScopesResponse> scopes(ScopesArguments args) {
+        //TODO : handle scopes request
+        ScopesResponse response = new ScopesResponse();
+        response.setScopes(new Scope[]{});
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override
+    public CompletableFuture<VariablesResponse> variables(VariablesArguments args) {
+        //TODO : handle variables request
+        System.out.println("variables request");
+        return IDebugProtocolServer.super.variables(args);
+    }
+
+    @Override
+    public CompletableFuture<ContinueResponse> continue_(ContinueArguments args) {
+        ContinueResponse response = new ContinueResponse();
+        response.setAllThreadsContinued(true);
+
+        debugHandler.processMessage(DebugMessageFactory.requestResumption());
+
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override
+    public CompletableFuture<Void> next(NextArguments args) {
+        System.out.println("next request");
+        debugHandler.processMessage(DebugMessageFactory.requestStepOver());
+
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> cancel(CancelArguments args) {
+        System.out.println("cancel request");
+        return IDebugProtocolServer.super.cancel(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> restart(RestartArguments args) {
+        System.out.println("restart request");
+        return IDebugProtocolServer.super.restart(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> disconnect(DisconnectArguments args) {
+        System.out.println("disconnect request");
+        return IDebugProtocolServer.super.disconnect(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> terminate(TerminateArguments args) {
+        System.out.println("terminate request");
+        return IDebugProtocolServer.super.terminate(args);
+    }
+
+    @Override
+    public CompletableFuture<BreakpointLocationsResponse> breakpointLocations(BreakpointLocationsArguments args) {
+        System.out.println("breakpoint locations request");
+        return IDebugProtocolServer.super.breakpointLocations(args);
+    }
+
+    @Override
+    public CompletableFuture<SetFunctionBreakpointsResponse> setFunctionBreakpoints(SetFunctionBreakpointsArguments args) {
+        System.out.println("set function breakpoints request");
+        return IDebugProtocolServer.super.setFunctionBreakpoints(args);
+    }
+
+    @Override
+    public CompletableFuture<SetExceptionBreakpointsResponse> setExceptionBreakpoints(SetExceptionBreakpointsArguments args) {
+        System.out.println("set exception breakpoints request");
+        return IDebugProtocolServer.super.setExceptionBreakpoints(args);
+    }
+
+    @Override
+    public CompletableFuture<DataBreakpointInfoResponse> dataBreakpointInfo(DataBreakpointInfoArguments args) {
+        System.out.println("data breakpoint info request");
+        return IDebugProtocolServer.super.dataBreakpointInfo(args);
+    }
+
+    @Override
+    public CompletableFuture<SetDataBreakpointsResponse> setDataBreakpoints(SetDataBreakpointsArguments args) {
+        System.out.println("set data breakpoints request");
+        return IDebugProtocolServer.super.setDataBreakpoints(args);
+    }
+
+    @Override
+    public CompletableFuture<SetInstructionBreakpointsResponse> setInstructionBreakpoints(SetInstructionBreakpointsArguments args) {
+        System.out.println("set instruction breakpoints request");
+        return IDebugProtocolServer.super.setInstructionBreakpoints(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> stepIn(StepInArguments args) {
+        System.out.println( "step in request");
+        return IDebugProtocolServer.super.stepIn(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> stepOut(StepOutArguments args) {
+        System.out.println("step out request");
+        return IDebugProtocolServer.super.stepOut(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> stepBack(StepBackArguments args) {
+        System.out.println("step back request");
+        return IDebugProtocolServer.super.stepBack(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> reverseContinue(ReverseContinueArguments args) {
+        System.out.println("reverse continue request");
+        return IDebugProtocolServer.super.reverseContinue(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> restartFrame(RestartFrameArguments args) {
+        System.out.println("restart frame request");
+        return IDebugProtocolServer.super.restartFrame(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> goto_(GotoArguments args) {
+        System.out.println("goto request");
+        return IDebugProtocolServer.super.goto_(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> pause(PauseArguments args) {
+        System.out.println("pause request");
+        return IDebugProtocolServer.super.pause(args);
+    }
+
+    @Override
+    public CompletableFuture<SetVariableResponse> setVariable(SetVariableArguments args) {
+        System.out.println("set variable request");
+        return IDebugProtocolServer.super.setVariable(args);
+    }
+
+    @Override
+    public CompletableFuture<SourceResponse> source(SourceArguments args) {
+        System.out.println("source request");
+        return IDebugProtocolServer.super.source(args);
+    }
+
+    @Override
+    public CompletableFuture<Void> terminateThreads(TerminateThreadsArguments args) {
+        System.out.println("terminate threads request");
+        return IDebugProtocolServer.super.terminateThreads(args);
+    }
+
+    @Override
+    public CompletableFuture<ModulesResponse> modules(ModulesArguments args) {
+        System.out.println("modules request");
+        return IDebugProtocolServer.super.modules(args);
+    }
+
+    @Override
+    public CompletableFuture<LoadedSourcesResponse> loadedSources(LoadedSourcesArguments args) {
+        System.out.println("loaded sources request");
+        return IDebugProtocolServer.super.loadedSources(args);
+    }
+
+    @Override
+    public CompletableFuture<EvaluateResponse> evaluate(EvaluateArguments args) {
+        System.out.println("evaluate request");
+        return IDebugProtocolServer.super.evaluate(args);
+    }
+
+    @Override
+    public CompletableFuture<SetExpressionResponse> setExpression(SetExpressionArguments args) {
+        System.out.println("set expression request");
+        return IDebugProtocolServer.super.setExpression(args);
+    }
+
+    @Override
+    public CompletableFuture<StepInTargetsResponse> stepInTargets(StepInTargetsArguments args) {
+        System.out.println("step in targets request");
+        return IDebugProtocolServer.super.stepInTargets(args);
+    }
+
+    @Override
+    public CompletableFuture<GotoTargetsResponse> gotoTargets(GotoTargetsArguments args) {
+        System.out.println("goto targets request");
+        return IDebugProtocolServer.super.gotoTargets(args);
+    }
+
+    @Override
+    public CompletableFuture<CompletionsResponse> completions(CompletionsArguments args) {
+        System.out.println("completions request");
+        return IDebugProtocolServer.super.completions(args);
+    }
+
+    @Override
+    public CompletableFuture<ExceptionInfoResponse> exceptionInfo(ExceptionInfoArguments args) {
+        System.out.println("exception info request");
+        return IDebugProtocolServer.super.exceptionInfo(args);
+    }
+
+    @Override
+    public CompletableFuture<ReadMemoryResponse> readMemory(ReadMemoryArguments args) {
+        System.out.println("read memory request");
+        return IDebugProtocolServer.super.readMemory(args);
+    }
+
+    @Override
+    public CompletableFuture<WriteMemoryResponse> writeMemory(WriteMemoryArguments args) {
+        System.out.println("write memory request");
+        return IDebugProtocolServer.super.writeMemory(args);
+    }
+
+    @Override
+    public CompletableFuture<DisassembleResponse> disassemble(DisassembleArguments args) {
+        System.out.println("disassemble request");
+        return IDebugProtocolServer.super.disassemble(args);
     }
 }
 
