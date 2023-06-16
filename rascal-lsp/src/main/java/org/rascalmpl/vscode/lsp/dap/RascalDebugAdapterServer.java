@@ -6,16 +6,8 @@ import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import org.eclipse.lsp4j.debug.Breakpoint;
-import org.eclipse.lsp4j.debug.Capabilities;
-import org.eclipse.lsp4j.debug.ConfigurationDoneArguments;
-import org.eclipse.lsp4j.debug.ExceptionBreakpointsFilter;
-import org.eclipse.lsp4j.debug.InitializeRequestArguments;
-import org.eclipse.lsp4j.debug.SetBreakpointsArguments;
-import org.eclipse.lsp4j.debug.SetBreakpointsResponse;
-import org.eclipse.lsp4j.debug.SourceBreakpoint;
+import org.eclipse.lsp4j.debug.*;
 import org.eclipse.lsp4j.debug.Thread;
-import org.eclipse.lsp4j.debug.ThreadsResponse;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolServer;
 import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
@@ -28,6 +20,7 @@ import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 
 import io.usethesource.vallang.IList;
@@ -41,6 +34,8 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
     final public static int mainThreadID = 1;
+    public static ISourceLocation currentSuspensionLocation = null;
+    public int test = 0;
 
     public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler) {
         this.eventTrigger = (RascalDebugEventTrigger) eventTrigger;
@@ -91,11 +86,10 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                 ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
                 BreakpointsManager.getInstance().clearBreakpointsOfFile(loc.getPath(), debugHandler);
                 for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
-                    System.out.println(" - breakpoint line : " + breakpoint.getLine());
                     ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
                     if(treeBreakableLocation != null) {
                         ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
-                        BreakpointsManager.getInstance().addBreakpoint(breakableLocation, i, debugHandler);
+                        BreakpointsManager.getInstance().addBreakpoint(breakableLocation, new BreakpointInfo(i, args.getSource()), debugHandler);
                     }
                     Breakpoint b = new Breakpoint();
                     b.setId(i);
@@ -176,6 +170,20 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     public CompletableFuture<Void> configurationDone(ConfigurationDoneArguments args) {
         CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
             return null;
+        });
+
+        future.thenAccept(result -> {
+            ProcessEventArguments eventArgs = new ProcessEventArguments();
+            eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
+            eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            eventArgs.setIsLocalProcess(true);
+            eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
+            client.process(eventArgs);
+
+            ThreadEventArguments thread = new ThreadEventArguments();
+            thread.setThreadId(mainThreadID);
+            thread.setReason(ThreadEventArgumentsReason.STARTED);
+            client.thread(thread);
         });
 
         return future;
