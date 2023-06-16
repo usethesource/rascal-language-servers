@@ -1,13 +1,14 @@
 package org.rascalmpl.vscode.lsp.dap;
 
 import io.usethesource.vallang.ISourceLocation;
+import org.eclipse.lsp4j.debug.Source;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
 
 import java.util.HashMap;
 
 public class BreakpointsManager {
-    private final HashMap<String, HashMap<ISourceLocation, Integer>> breakpoints;
+    private final HashMap<String, HashMap<ISourceLocation, BreakpointInfo>> breakpoints;
 
     private static BreakpointsManager instance;
 
@@ -28,20 +29,24 @@ public class BreakpointsManager {
             handler.processMessage(DebugMessageFactory.requestDeleteBreakpoint(breakpointLocation));
         }
         breakpoints.get(filePath).clear();
-        System.out.println("Cleared breakpoints at "+filePath);
     }
 
-    public void addBreakpoint(ISourceLocation location, int breakpointId, DebugHandler handler){
+    public void addBreakpoint(ISourceLocation location, BreakpointInfo breakpointInfo, DebugHandler handler){
         String path = location.getPath();
         if(!breakpoints.containsKey(path)) breakpoints.put(path, new HashMap<>());
-        breakpoints.get(path).put(location, breakpointId);
+        breakpoints.get(path).put(location, breakpointInfo);
         handler.processMessage(DebugMessageFactory.requestSetBreakpoint(location));
-        System.out.println("Add breakpoint at "+path);
     }
 
     public int getBreakpointID(ISourceLocation location){
         String path = location.getPath();
         if(!breakpoints.containsKey(path) || !breakpoints.get(path).containsKey(location)) return -1;
-        return breakpoints.get(path).get(location);
+        return breakpoints.get(path).get(location).getId();
+    }
+
+    public Source getBreakpointSource(ISourceLocation location){
+        String path = location.getPath();
+        if(!breakpoints.containsKey(path) || !breakpoints.get(path).containsKey(location)) return null;
+        return breakpoints.get(path).get(location).getSource();
     }
 }
