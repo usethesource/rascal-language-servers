@@ -207,20 +207,50 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<StackTraceResponse> stackTrace(StackTraceArguments args) {
-        //TODO : handle stack trace request
+        if(args.getThreadId() != mainThreadID) {
+            return CompletableFuture.completedFuture(new StackTraceResponse());
+        }
         StackTraceResponse response = new StackTraceResponse();
-        response.setTotalFrames(1);
+        Stack<IRascalFrame> stack = evaluator.getCurrentStack();
+        response.setTotalFrames(stack.size());
+        currentStackFrames = stack.toArray(IRascalFrame[]::new);
+        StackFrame[] stackFrames = new StackFrame[stack.size()+1];
+        IRascalFrame currentFrame = stack.peek();
+        ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
+            evaluator.getCurrentPointOfExecution()
+            : URIUtil.rootLocation("stdin");
         StackFrame frame = new StackFrame();
         frame.setId(0);
-        frame.setName("Temporary Frame Name");
-        frame.setLine(currentSuspensionLocation.getBeginLine()+test);
-        test++;
-        frame.setColumn(currentSuspensionLocation.getBeginColumn());
-        frame.setSource(BreakpointsManager.getInstance().getBreakpointSource(currentSuspensionLocation));
-        response.setStackFrames(new StackFrame[]{
-            frame
-        });
+        frame.setName(currentFrame.getName());
+        frame.setLine(currentLoc.getBeginLine());
+        frame.setColumn(currentLoc.getBeginColumn());
+        frame.setSource(getSourceFromISourceLocation(currentLoc));
+        stackFrames[0] = frame;
+        for(int i = 1; i<stackFrames.length; i++) {
+            IRascalFrame f = stack.pop();
+            ISourceLocation loc = f.getCallerLocation();
+            frame = new StackFrame();
+            frame.setId(i);
+            frame.setName(f.getName());
+            if(loc != null){
+                frame.setLine(loc.getBeginLine());
+                frame.setColumn(loc.getBeginColumn());
+                frame.setSource(getSourceFromISourceLocation(loc));
+            }
+            stackFrames[i] = frame;
+        }
+        response.setStackFrames(stackFrames);
+
         return CompletableFuture.completedFuture(response);
+    }
+
+    public Source getSourceFromISourceLocation(ISourceLocation loc) {
+        //TODO: handle location conversion to source
+        Source source = new Source();
+        source.setName(loc.getPath());
+        source.setPath(loc.getPath());
+        source.setSourceReference(0);
+        return source;
     }
 
     @Override
