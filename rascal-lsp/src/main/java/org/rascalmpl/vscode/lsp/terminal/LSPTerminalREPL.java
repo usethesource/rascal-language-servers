@@ -127,13 +127,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
                     if(debugMode){
                         initializeRascalDebugMode(evaluator);
-                        Thread t = new Thread() {
-                            public void run() {
-                                RascalDebugAdapterLauncher.startDebugServer(eventTrigger, debugHandler);
-                            }
-                        };
-                        t.setDaemon(true);
-                        t.start();
+                        RascalDebugAdapterLauncher.startDebugServer(eventTrigger, debugHandler, evaluator);
                     }
 
                     try {
