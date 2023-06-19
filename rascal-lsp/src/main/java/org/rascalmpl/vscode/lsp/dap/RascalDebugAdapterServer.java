@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.debug.*;
@@ -13,6 +14,11 @@ import org.eclipse.lsp4j.debug.services.IDebugProtocolServer;
 import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
+import org.rascalmpl.debug.IRascalFrame;
+import org.rascalmpl.exceptions.StackTrace;
+import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.env.Environment;
+import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -33,13 +39,15 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     IDebugProtocolClient client;
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
+    final private Evaluator evaluator;
     final public static int mainThreadID = 1;
     public static ISourceLocation currentSuspensionLocation = null;
-    public int test = 0;
+    private IRascalFrame[] currentStackFrames;
 
-    public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler) {
+    public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {
         this.eventTrigger = (RascalDebugEventTrigger) eventTrigger;
         this.debugHandler = debugHandler;
+        this.evaluator = evaluator;
     }
 
     public void connect(IDebugProtocolClient client) {
@@ -54,6 +62,10 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
             capabilities.setSupportsConfigurationDoneRequest(true);
             capabilities.setExceptionBreakpointFilters(new ExceptionBreakpointsFilter[]{});
+            capabilities.setSupportsStepBack(false);
+            capabilities.setSupportsRestartFrame(false);
+            capabilities.setSupportsSetVariable(false);
+            capabilities.setSupportsRestartRequest(false);
 
             return capabilities;
         });
