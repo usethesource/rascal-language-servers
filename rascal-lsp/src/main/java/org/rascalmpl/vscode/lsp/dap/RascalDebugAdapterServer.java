@@ -361,8 +361,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> stepIn(StepInArguments args) {
-        System.out.println( "step in request");
-        return IDebugProtocolServer.super.stepIn(args);
+        debugHandler.processMessage(DebugMessageFactory.requestStepInto());
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

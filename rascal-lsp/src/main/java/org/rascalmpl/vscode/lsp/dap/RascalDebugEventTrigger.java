@@ -48,9 +48,6 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
             return;
         }
 
-        // TODO: better way to keep track of current suspended location
-        RascalDebugAdapterServer.currentSuspensionLocation = location;
-
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
         stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
         stoppedEventArguments.setDescription("Paused on breakpoint.");
@@ -60,20 +57,16 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 	}
 
     @Override
-    public void fireResumeEvent(RascalEvent.Detail detail) {
-        // TODO: implement logic on resume event
-    }
+    public void fireResumeEvent(RascalEvent.Detail detail) {}
 
     @Override
-    public void fireResumeByStepOverEvent() {
-        // TODO: implement logic on step over
-        System.out.println("Step over event");
-    }
+    public void fireResumeByStepOverEvent() {}
+
+    @Override
+    public void fireResumeByStepIntoEvent() {}
 
     @Override
     public void fireSuspendByStepEndEvent() {
-        //TODO: implement logic on step end
-        System.out.println("Step end event");
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
         stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
         stoppedEventArguments.setDescription("Paused on step end.");
@@ -82,8 +75,5 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
     }
 
     @Override
-    public void fireSuspendEvent(RascalEvent.Detail detail) {
-        //TODO implement logic on suspend event
-        System.out.println("Suspend event : " + detail);
-    }
+    public void fireSuspendEvent(RascalEvent.Detail detail) {}
 }
