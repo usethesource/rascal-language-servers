@@ -1,16 +1,19 @@
 package org.rascalmpl.vscode.lsp.dap;
 
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.io.StandardTextWriter;
 import io.usethesource.vallang.type.Type;
+import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 
 import java.io.IOException;
 import java.io.Writer;
 
 public class ReferencedVariable{
+    private static final int MAX_SIZE_STRING_NAME = 128;
     private int referenceID;
-    private Type type;
-    private String name;
-    private IValue value;
+    private final Type type;
+    private final String name;
+    private final IValue value;
 
     public ReferencedVariable(Type type, String name, IValue value){
         this.referenceID = -1;
@@ -40,8 +43,17 @@ public class ReferencedVariable{
     }
 
     public String getDisplayValue(){
-        //TODO: add max size
-        return value.toString();
+        // took from Rascal Eclipse debug.core.model.RascalValue
+        Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
+        try {
+            new StandardTextWriter(true, 2).write(value, w);
+            return w.toString();
+        } catch (LimitedResultWriter.IOLimitReachedException e) {
+            return w.toString();
+        }
+        catch (IOException e) {
+            return "error during serialization...";
+        }
     }
 
     public boolean hasSubFields(){
