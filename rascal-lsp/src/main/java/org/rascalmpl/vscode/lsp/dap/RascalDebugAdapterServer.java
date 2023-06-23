@@ -3,8 +3,8 @@ package org.rascalmpl.vscode.lsp.dap;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.debug.*;
@@ -15,10 +15,7 @@ import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
 import org.rascalmpl.debug.IRascalFrame;
-import org.rascalmpl.exceptions.StackTrace;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.interpreter.env.Environment;
-import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -36,18 +33,23 @@ import io.usethesource.vallang.IValue;
 
 public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
+    final public static int mainThreadID = 1;
+    final private static int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
+
     IDebugProtocolClient client;
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
     final private Evaluator evaluator;
-    final public static int mainThreadID = 1;
+    final private SuspendedStateManager suspendedStateManager;
     public static ISourceLocation currentSuspensionLocation = null;
-    private IRascalFrame[] currentStackFrames;
+
 
     public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {
         this.eventTrigger = (RascalDebugEventTrigger) eventTrigger;
         this.debugHandler = debugHandler;
         this.evaluator = evaluator;
+        this.suspendedStateManager = new SuspendedStateManager(evaluator);
+        this.eventTrigger.setSuspendedStateManager(suspendedStateManager);
     }
 
     public void connect(IDebugProtocolClient client) {
@@ -73,6 +75,8 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return future;
     }
 
+
+    // TODO: Breakpoints not working anymore after editing the source file
     @Override
     public CompletableFuture<SetBreakpointsResponse> setBreakpoints(SetBreakpointsArguments args) {
         CompletableFuture<SetBreakpointsResponse> future = CompletableFuture.supplyAsync(() -> {
@@ -217,41 +221,41 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return future;
     }
 
+    //TODO: fix main stackFrame source issue
     @Override
     public CompletableFuture<StackTraceResponse> stackTrace(StackTraceArguments args) {
         if(args.getThreadId() != mainThreadID) {
             return CompletableFuture.completedFuture(new StackTraceResponse());
         }
         StackTraceResponse response = new StackTraceResponse();
-        Stack<IRascalFrame> stack = evaluator.getCurrentStack();
-        response.setTotalFrames(stack.size());
-        currentStackFrames = stack.toArray(IRascalFrame[]::new);
-        StackFrame[] stackFrames = new StackFrame[stack.size()+1];
-        IRascalFrame currentFrame = stack.peek();
+        IRascalFrame[] stackFrames = suspendedStateManager.getCurrentStackFrames();
+        response.setTotalFrames(stackFrames.length);
+        StackFrame[] stackFramesResponse = new StackFrame[stackFrames.length];
+        IRascalFrame currentFrame = suspendedStateManager.getCurrentStackFrame();
         ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
             evaluator.getCurrentPointOfExecution()
             : URIUtil.rootLocation("stdin");
         StackFrame frame = new StackFrame();
-        frame.setId(0);
+        frame.setId(stackFrames.length-1);
         frame.setName(currentFrame.getName());
         frame.setLine(currentLoc.getBeginLine());
         frame.setColumn(currentLoc.getBeginColumn());
         frame.setSource(getSourceFromISourceLocation(currentLoc));
-        stackFrames[0] = frame;
-        for(int i = 1; i<stackFrames.length; i++) {
-            IRascalFrame f = stack.pop();
+        stackFramesResponse[0] = frame;
+        for(int i = 1; i < stackFramesResponse.length; i++) {
+            IRascalFrame f = stackFrames[stackFrames.length-i-1];
             ISourceLocation loc = f.getCallerLocation();
             frame = new StackFrame();
-            frame.setId(i);
+            frame.setId(stackFrames.length-i-1);
             frame.setName(f.getName());
             if(loc != null){
                 frame.setLine(loc.getBeginLine());
                 frame.setColumn(loc.getBeginColumn());
                 frame.setSource(getSourceFromISourceLocation(loc));
             }
-            stackFrames[i] = frame;
+            stackFramesResponse[i] = frame;
         }
-        response.setStackFrames(stackFrames);
+        response.setStackFrames(stackFramesResponse);
 
         return CompletableFuture.completedFuture(response);
     }
@@ -261,23 +265,46 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         Source source = new Source();
         source.setName(loc.getPath());
         source.setPath(loc.getPath());
+        //TODO: handle source reference
         source.setSourceReference(0);
         return source;
     }
 
     @Override
     public CompletableFuture<ScopesResponse> scopes(ScopesArguments args) {
-        //TODO : handle scopes request
+        int frameId = args.getFrameId();
+        IRascalFrame frame = suspendedStateManager.getCurrentStackFrames()[frameId];
         ScopesResponse response = new ScopesResponse();
-        response.setScopes(new Scope[]{});
+        Scope scope = new Scope();
+        scope.setName("Locals");
+        scope.setNamedVariables(frame.getFrameVariables().size());
+        scope.setPresentationHint("locals");
+        scope.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
+        scope.setVariablesReference(frameId+1);
+        response.setScopes(new Scope[]{scope});
         return CompletableFuture.completedFuture(response);
     }
 
     @Override
     public CompletableFuture<VariablesResponse> variables(VariablesArguments args) {
-        //TODO : handle variables request
-        System.out.println("variables request");
-        return IDebugProtocolServer.super.variables(args);
+        //TODO: Handle pagination
+        int reference = args.getVariablesReference();
+        VariablesResponse response = new VariablesResponse();
+        List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference);
+        Variable[] variablesResponse = new Variable[variables.size()];
+        int i = 0;
+        for(ReferencedVariable var : variables){
+            Variable variable = new Variable();
+            variable.setName(var.getName());
+            variable.setType(var.getType().toString());
+            variable.setValue(var.getDisplayValue());
+            variable.setVariablesReference(var.getReferenceID());
+            variablesResponse[i] = variable;
+            i++;
+        }
+
+        response.setVariables(variablesResponse);
+        return CompletableFuture.completedFuture(response);
     }
 
     @Override
@@ -292,9 +319,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> next(NextArguments args) {
-        System.out.println("next request");
         debugHandler.processMessage(DebugMessageFactory.requestStepOver());
-
 
         return CompletableFuture.completedFuture(null);
     }
