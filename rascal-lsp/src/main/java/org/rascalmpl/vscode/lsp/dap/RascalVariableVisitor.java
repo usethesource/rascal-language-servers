@@ -1,7 +1,9 @@
 package org.rascalmpl.vscode.lsp.dap;
 
 import io.usethesource.vallang.*;
+import io.usethesource.vallang.impl.reference.ValueFactory;
 import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.visitors.IValueVisitor;
 
 import java.util.ArrayList;
@@ -130,7 +132,24 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
     @Override
     public List<ReferencedVariable> visitDateTime(IDateTime o) throws RuntimeException {
-        return new ArrayList<>();
+        List<ReferencedVariable> result = new ArrayList<>();
+
+        if(o.isDate() || o.isDateTime()){
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "year", ValueFactory.getInstance().integer(o.getYear())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "month", ValueFactory.getInstance().integer(o.getMonthOfYear())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "day", ValueFactory.getInstance().integer(o.getDayOfMonth())));
+        }
+
+        if(o.isTime() || o.isDateTime()){
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "hour", ValueFactory.getInstance().integer(o.getHourOfDay())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "minute", ValueFactory.getInstance().integer(o.getMinuteOfHour())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "second", ValueFactory.getInstance().integer(o.getSecondOfMinute())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "millisecond", ValueFactory.getInstance().integer(o.getMillisecondsOfSecond())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "timezoneOffsetHours", ValueFactory.getInstance().integer(o.getTimezoneOffsetHours())));
+            result.add(new ReferencedVariable(TypeFactory.getInstance().integerType(), "timezoneOffsetMinutes", ValueFactory.getInstance().integer(o.getTimezoneOffsetMinutes())));
+        }
+
+        return result;
     }
 
     private void addNewVariableToResult(ReferencedVariable newVar, List<ReferencedVariable> resultList){
