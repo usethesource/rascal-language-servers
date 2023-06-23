@@ -2,7 +2,6 @@ package org.rascalmpl.vscode.lsp.dap;
 
 import io.usethesource.vallang.*;
 import io.usethesource.vallang.type.Type;
-import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.visitors.IValueVisitor;
 
 import java.util.ArrayList;
@@ -71,7 +70,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         List<ReferencedVariable> result = new ArrayList<>();
         Type toUse = visitedType.isTuple() ? visitedType : o.getType();
         for (int i = 0; i < o.arity(); i++) {
-            ReferencedVariable newVar = new ReferencedVariable(toUse.getFieldType(i), toUse.hasFieldNames() ? toUse.getFieldName(i) : "[" + i + "]", o.get(i));
+            ReferencedVariable newVar = new ReferencedVariable(toUse.getFieldType(i), toUse.hasFieldNames() ? toUse.getFieldName(i) : Integer.toString(i), o.get(i));
             if(newVar.hasSubFields()){
                 stateManager.addNewReferencedVariable(newVar);
             }
@@ -82,7 +81,16 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
     @Override
     public List<ReferencedVariable> visitNode(INode o) throws RuntimeException {
-        return new ArrayList<>();
+        List<ReferencedVariable> result = new ArrayList<>();
+
+        for (int i = 0; i < o.arity(); i++) {
+            ReferencedVariable newVar = new ReferencedVariable(o.get(i).getType(), Integer.toString(i), o.get(i));
+            if(newVar.hasSubFields()){
+                stateManager.addNewReferencedVariable(newVar);
+            }
+            result.add(newVar);
+        }
+        return result;
     }
 
     @Override
