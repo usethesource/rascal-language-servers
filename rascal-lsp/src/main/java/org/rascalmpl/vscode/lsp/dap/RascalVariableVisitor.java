@@ -2,6 +2,7 @@ package org.rascalmpl.vscode.lsp.dap;
 
 import io.usethesource.vallang.*;
 import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.visitors.IValueVisitor;
 
 import java.util.ArrayList;
@@ -96,7 +97,17 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
     @Override
     public List<ReferencedVariable> visitMap(IMap o) throws RuntimeException {
-        return new ArrayList<>();
+        List<ReferencedVariable> result = new ArrayList<>();
+
+        for (io.usethesource.vallang.IValue key : o) {
+            //TODO: key.toString() should have a limit in length
+            ReferencedVariable newVar = new ReferencedVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), key.toString(), o.get(key));
+            if(newVar.hasSubFields()){
+                stateManager.addNewReferencedVariable(newVar);
+            }
+            result.add(newVar);
+        }
+        return result;
     }
 
     @Override
