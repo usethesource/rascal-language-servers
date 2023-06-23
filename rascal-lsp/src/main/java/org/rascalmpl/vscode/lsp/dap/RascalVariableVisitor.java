@@ -38,10 +38,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         List<ReferencedVariable> result = new ArrayList<>();
         for (int i = 0; i < o.length(); i++) {
             ReferencedVariable newVar = new ReferencedVariable(visitedType.isList() ? visitedType.getElementType() : o.getElementType(),Integer.toString(i), o.get(i));
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
         }
         return result;
     }
@@ -52,10 +49,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         int i = 0;
         for(IValue value: o){
             ReferencedVariable newVar = new ReferencedVariable(visitedType.isSet() ? visitedType.getElementType() : o.getElementType(),Integer.toString(i), value);
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
             i++;
         }
         return result;
@@ -72,10 +66,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         Type toUse = visitedType.isTuple() ? visitedType : o.getType();
         for (int i = 0; i < o.arity(); i++) {
             ReferencedVariable newVar = new ReferencedVariable(toUse.getFieldType(i), toUse.hasFieldNames() ? toUse.getFieldName(i) : Integer.toString(i), o.get(i));
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
         }
         return result;
     }
@@ -86,10 +77,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
         for (int i = 0; i < o.arity(); i++) {
             ReferencedVariable newVar = new ReferencedVariable(o.get(i).getType(), Integer.toString(i), o.get(i));
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
         }
         return result;
     }
@@ -100,19 +88,13 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
         for (int i = 0; i < o.arity(); i++) {
             ReferencedVariable newVar = new ReferencedVariable(o.getConstructorType().getFieldType(i), o.getConstructorType().hasFieldNames() ? o.getConstructorType().getFieldName(i) : Integer.toString(i), o.get(i));
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
         }
         if (o.mayHaveKeywordParameters()) {
             Map<String, IValue> parameters = o.asWithKeywordParameters().getParameters();
             parameters.forEach((name, value) -> {
                 ReferencedVariable newVar = new ReferencedVariable(value.getType(), '['+name+']', value);
-                if(newVar.hasSubFields()){
-                    stateManager.addNewReferencedVariable(newVar);
-                }
-                result.add(newVar);
+                addNewVariableToResult(newVar, result);
             });
         }
 
@@ -131,10 +113,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         for (io.usethesource.vallang.IValue key : o) {
             //TODO: key.toString() should have a limit in length
             ReferencedVariable newVar = new ReferencedVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), key.toString(), o.get(key));
-            if(newVar.hasSubFields()){
-                stateManager.addNewReferencedVariable(newVar);
-            }
-            result.add(newVar);
+            addNewVariableToResult(newVar, result);
         }
         return result;
     }
@@ -152,5 +131,12 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
     @Override
     public List<ReferencedVariable> visitDateTime(IDateTime o) throws RuntimeException {
         return new ArrayList<>();
+    }
+
+    private void addNewVariableToResult(ReferencedVariable newVar, List<ReferencedVariable> resultList){
+        if(newVar.hasSubFields()){
+            stateManager.addNewReferencedVariable(newVar);
+        }
+        resultList.add(newVar);
     }
 }
