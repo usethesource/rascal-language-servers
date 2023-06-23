@@ -6,6 +6,7 @@ import io.usethesource.vallang.visitors.IValueVisitor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVariable>, RuntimeException> {
 
@@ -95,7 +96,27 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
 
     @Override
     public List<ReferencedVariable> visitConstructor(IConstructor o) throws RuntimeException {
-        return new ArrayList<>();
+        List<ReferencedVariable> result = new ArrayList<>();
+
+        for (int i = 0; i < o.arity(); i++) {
+            ReferencedVariable newVar = new ReferencedVariable(o.getConstructorType().getFieldType(i), o.getConstructorType().hasFieldNames() ? o.getConstructorType().getFieldName(i) : Integer.toString(i), o.get(i));
+            if(newVar.hasSubFields()){
+                stateManager.addNewReferencedVariable(newVar);
+            }
+            result.add(newVar);
+        }
+        if (o.mayHaveKeywordParameters()) {
+            Map<String, IValue> parameters = o.asWithKeywordParameters().getParameters();
+            parameters.forEach((name, value) -> {
+                ReferencedVariable newVar = new ReferencedVariable(value.getType(), '['+name+']', value);
+                if(newVar.hasSubFields()){
+                    stateManager.addNewReferencedVariable(newVar);
+                }
+                result.add(newVar);
+            });
+        }
+
+        return result;
     }
 
     @Override
