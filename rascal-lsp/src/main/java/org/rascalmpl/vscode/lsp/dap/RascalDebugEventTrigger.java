@@ -12,6 +12,7 @@ import org.rascalmpl.debug.RascalEvent;
 public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     private IDebugProtocolClient client;
+    private SuspendedStateManager suspendedStateManager;
 
     public RascalDebugEventTrigger(Object source) {
         super(source);
@@ -19,6 +20,9 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     public void setDebugProtocolClient(IDebugProtocolClient client) {
         this.client = client;
+    }
+    public void setSuspendedStateManager(SuspendedStateManager suspendedStateManager) {
+        this.suspendedStateManager = suspendedStateManager;
     }
 
     @Override
@@ -44,9 +48,10 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
         ISourceLocation location = (ISourceLocation) data;
         int breakpointID = BreakpointsManager.getInstance().getBreakpointID(location);
         if(breakpointID < 0){
-            System.out.println("Unknown breakpoint");
             return;
         }
+
+        suspendedStateManager.suspended();
 
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
         stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
@@ -67,6 +72,9 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void fireSuspendByStepEndEvent() {
+
+        suspendedStateManager.suspended();
+
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
         stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
         stoppedEventArguments.setDescription("Paused on step end.");
