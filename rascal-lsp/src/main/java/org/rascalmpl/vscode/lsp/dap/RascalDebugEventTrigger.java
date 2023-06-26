@@ -83,5 +83,16 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
     }
 
     @Override
+    public void fireSuspendByClientRequestEvent() {
+        suspendedStateManager.suspended();
+
+        StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
+        stoppedEventArguments.setThreadId(RascalDebugAdapterServer.mainThreadID);
+        stoppedEventArguments.setDescription("Paused by client.");
+        stoppedEventArguments.setReason("pause");
+        client.stopped(stoppedEventArguments);
+    }
+
+    @Override
     public void fireSuspendEvent(RascalEvent.Detail detail) {}
 }

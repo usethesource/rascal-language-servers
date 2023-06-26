@@ -423,8 +423,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> pause(PauseArguments args) {
-        System.out.println("pause request");
-        return IDebugProtocolServer.super.pause(args);
+        debugHandler.processMessage(DebugMessageFactory.requestSuspension());
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
