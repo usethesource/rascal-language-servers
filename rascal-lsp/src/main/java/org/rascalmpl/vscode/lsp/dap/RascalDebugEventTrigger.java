@@ -3,6 +3,7 @@ package org.rascalmpl.vscode.lsp.dap;
 import io.usethesource.vallang.ISourceLocation;
 import org.eclipse.lsp4j.debug.Breakpoint;
 import org.eclipse.lsp4j.debug.BreakpointEventArguments;
+import org.eclipse.lsp4j.debug.OutputEventArguments;
 import org.eclipse.lsp4j.debug.StoppedEventArguments;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
@@ -27,19 +28,16 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void addRascalEventListener(IRascalEventListener listener) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'addRascalEventListener'");
     }
 
     @Override
     public void removeRascalEventListener(IRascalEventListener listener) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'removeRascalEventListener'");
     }
 
     @Override
     protected void fireEvent(RascalEvent event) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'fireEvent'");
     }
 
@@ -72,7 +70,6 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void fireSuspendByStepEndEvent() {
-
         suspendedStateManager.suspended();
 
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();
