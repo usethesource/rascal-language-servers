@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.debug.*;
 import org.eclipse.lsp4j.debug.Thread;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
@@ -23,6 +25,7 @@ import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 
@@ -393,8 +396,13 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> stepOut(StepOutArguments args) {
-        System.out.println("step out request");
-        return IDebugProtocolServer.super.stepOut(args);
+        //TODO: implementation of step out request.
+        final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
+        logger.debug("Step out request not implemented in debug adapter");
+
+        debugHandler.processMessage(DebugMessageFactory.requestStepOver());
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
