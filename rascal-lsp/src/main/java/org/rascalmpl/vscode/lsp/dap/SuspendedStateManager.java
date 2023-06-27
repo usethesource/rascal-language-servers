@@ -42,7 +42,7 @@ public class SuspendedStateManager {
         return referenceCounter;
     }
 
-    public List<ReferencedVariable> getVariablesByParentReferenceID(int referenceID){
+    public List<ReferencedVariable> getVariablesByParentReferenceID(int referenceID, int startIndex, int maxCount){
         List<ReferencedVariable> variableList = new ArrayList<>();
 
         if(referenceID < 0) return variableList;
@@ -50,7 +50,17 @@ public class SuspendedStateManager {
         // referenceID is a stack frame reference id
         if(scopes.containsKey(referenceID)){
             IRascalFrame frame = scopes.get(referenceID);
-            this.getReferencedVariableListFromFrame(frame, variableList);
+            List<String> frameVariables = new ArrayList<>(frame.getFrameVariables());
+            frameVariables.sort(String::compareTo);
+            int endIndex = maxCount == -1 ? frameVariables.size() : Math.min(frameVariables.size(), startIndex + maxCount);
+            for (String varname : frameVariables.subList(startIndex, endIndex)) {
+                IRascalResult result = frame.getFrameVariable(varname);
+                ReferencedVariable refResult = new ReferencedVariable(result.getStaticType(), varname, result.getValue());
+                if(refResult.hasSubFields()){
+                    addNewReferencedVariable(refResult);
+                }
+                variableList.add(refResult);
+            }
             return variableList;
         }
 
@@ -59,17 +69,6 @@ public class SuspendedStateManager {
         // referenceID is a variable ID
         ReferencedVariable var = variables.get(referenceID);
         return var.getValue().accept(new RascalVariableVisitor(this, var.getType()));
-    }
-
-    public void getReferencedVariableListFromFrame(IRascalFrame parentFrame, List<ReferencedVariable> variableList){
-        for (String varname : parentFrame.getFrameVariables()) {
-            IRascalResult result = parentFrame.getFrameVariable(varname);
-            ReferencedVariable refResult = new ReferencedVariable(result.getStaticType(), varname, result.getValue());
-            if(refResult.hasSubFields()){
-                addNewReferencedVariable(refResult);
-            }
-            variableList.add(refResult);
-        }
     }
 
     public void addNewReferencedVariable(ReferencedVariable variable){

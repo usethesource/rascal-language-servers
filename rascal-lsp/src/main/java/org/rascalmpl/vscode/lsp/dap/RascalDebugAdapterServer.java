@@ -310,10 +310,12 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<VariablesResponse> variables(VariablesArguments args) {
-        //TODO: Handle pagination
         int reference = args.getVariablesReference();
+        int minIndex = args.getStart() != null ? args.getStart() : 0;
+        int maxCount = args.getCount() != null ? args.getCount() : -1;
+
         VariablesResponse response = new VariablesResponse();
-        List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference);
+        List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference, minIndex, maxCount);
         Variable[] variablesResponse = new Variable[variables.size()];
         int i = 0;
         for(ReferencedVariable var : variables){
