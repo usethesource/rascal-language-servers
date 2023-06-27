@@ -577,7 +577,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return contribs.executeCommand(command).get();
         }
         else {
-            logger.warn("ignoring command execution: " + extension + "," + command);
+            logger.warn("ignoring command execution (no contributor configured for this extension): {}, {} ", extension, command);
             return CompletableFuture.completedFuture(null);
         }
     }
