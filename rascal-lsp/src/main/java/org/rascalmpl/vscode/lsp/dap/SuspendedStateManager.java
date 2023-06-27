@@ -42,14 +42,14 @@ public class SuspendedStateManager {
         // referenceID is a stack frame reference id
         if(referenceID-1 < currentStackFrames.length){
             IRascalFrame frame = currentStackFrames[referenceID-1];
-            for (String varname : frame.getFrameVariables()) {
-                IRascalResult result = frame.getFrameVariable(varname);
-                ReferencedVariable refResult = new ReferencedVariable(result.getStaticType(), varname, result.getValue());
-                if(refResult.hasSubFields()){
-                    addNewReferencedVariable(refResult);
-                }
-                variableList.add(refResult);
+            this.getReferencedVariableListFromFrame(frame, variableList);
+
+            for(String imp : frame.getImports()) {
+                IRascalFrame module = evaluator.getModule(imp);
+
+                if(module != null) this.getReferencedVariableListFromFrame(module, variableList);
             }
+
             return variableList;
         }
 
@@ -58,6 +58,17 @@ public class SuspendedStateManager {
         // referenceID is a variable ID
         ReferencedVariable var = variables.get(referenceID);
         return var.getValue().accept(new RascalVariableVisitor(this, var.getType()));
+    }
+
+    public void getReferencedVariableListFromFrame(IRascalFrame parentFrame, List<ReferencedVariable> variableList){
+        for (String varname : parentFrame.getFrameVariables()) {
+            IRascalResult result = parentFrame.getFrameVariable(varname);
+            ReferencedVariable refResult = new ReferencedVariable(result.getStaticType(), varname, result.getValue());
+            if(refResult.hasSubFields()){
+                addNewReferencedVariable(refResult);
+            }
+            variableList.add(refResult);
+        }
     }
 
     public void addNewReferencedVariable(ReferencedVariable variable){
