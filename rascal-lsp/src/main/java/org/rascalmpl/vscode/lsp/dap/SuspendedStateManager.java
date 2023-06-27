@@ -11,19 +11,22 @@ public class SuspendedStateManager {
     private Evaluator evaluator;
     private IRascalFrame[] currentStackFrames;
     private HashMap<Integer, ReferencedVariable> variables;
+    private HashMap<Integer, IRascalFrame> scopes;
     private int referenceCounter;
 
 
     public SuspendedStateManager(Evaluator evaluator){
         this.evaluator = evaluator;
         this.variables = new HashMap<>();
+        this.scopes = new HashMap<>();
     }
 
     public void suspended(){
         Stack<IRascalFrame> stack = evaluator.getCurrentStack();
         currentStackFrames = stack.toArray(IRascalFrame[]::new);
-        referenceCounter = currentStackFrames.length+1;
+        referenceCounter = 0;//currentStackFrames.length+1;
         this.variables.clear();
+        this.scopes.clear();
     }
 
     public IRascalFrame[] getCurrentStackFrames(){
@@ -34,22 +37,20 @@ public class SuspendedStateManager {
         return currentStackFrames[currentStackFrames.length - 1];
     }
 
+    public int addScope(IRascalFrame frame){
+        scopes.put(++referenceCounter, frame);
+        return referenceCounter;
+    }
+
     public List<ReferencedVariable> getVariablesByParentReferenceID(int referenceID){
         List<ReferencedVariable> variableList = new ArrayList<>();
 
         if(referenceID < 0) return variableList;
 
         // referenceID is a stack frame reference id
-        if(referenceID-1 < currentStackFrames.length){
-            IRascalFrame frame = currentStackFrames[referenceID-1];
+        if(scopes.containsKey(referenceID)){
+            IRascalFrame frame = scopes.get(referenceID);
             this.getReferencedVariableListFromFrame(frame, variableList);
-
-            for(String imp : frame.getImports()) {
-                IRascalFrame module = evaluator.getModule(imp);
-
-                if(module != null) this.getReferencedVariableListFromFrame(module, variableList);
-            }
-
             return variableList;
         }
 
@@ -72,9 +73,8 @@ public class SuspendedStateManager {
     }
 
     public void addNewReferencedVariable(ReferencedVariable variable){
-        variable.setReferenceID(referenceCounter);
+        variable.setReferenceID(++referenceCounter);
         variables.put(referenceCounter, variable);
-        referenceCounter++;
     }
 
 }

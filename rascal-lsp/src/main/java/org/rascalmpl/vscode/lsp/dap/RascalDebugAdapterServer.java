@@ -3,6 +3,7 @@ package org.rascalmpl.vscode.lsp.dap;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -276,15 +277,34 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     @Override
     public CompletableFuture<ScopesResponse> scopes(ScopesArguments args) {
         int frameId = args.getFrameId();
+
+        List<Scope> scopes = new ArrayList<>();
+
         IRascalFrame frame = suspendedStateManager.getCurrentStackFrames()[frameId];
         ScopesResponse response = new ScopesResponse();
-        Scope scope = new Scope();
-        scope.setName("Locals");
-        scope.setNamedVariables(frame.getFrameVariables().size());
-        scope.setPresentationHint("locals");
-        scope.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
-        scope.setVariablesReference(frameId+1);
-        response.setScopes(new Scope[]{scope});
+        Scope scopeLocals = new Scope();
+        scopeLocals.setName("Locals");
+        scopeLocals.setNamedVariables(frame.getFrameVariables().size());
+        scopeLocals.setPresentationHint("locals");
+        scopeLocals.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
+        scopeLocals.setVariablesReference(suspendedStateManager.addScope(frame));
+        scopes.add(scopeLocals);
+
+        for(String importName : frame.getImports()){
+            IRascalFrame module = evaluator.getModule(importName);
+
+            if(module != null && module.getFrameVariables().size() > 0){
+                Scope scopeModule = new Scope();
+                scopeModule.setName("Module " + importName);
+                scopeModule.setNamedVariables(module.getFrameVariables().size());
+                scopeModule.setPresentationHint("module");
+                scopeModule.setExpensive(module.getFrameVariables().size()>expensiveScopeMinSize);
+                scopeModule.setVariablesReference(suspendedStateManager.addScope(module));
+                scopes.add(scopeModule);
+            }
+        }
+
+        response.setScopes(scopes.toArray(new Scope[scopes.size()]));
         return CompletableFuture.completedFuture(response);
     }
 
