@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 @license{
-  Copyright (c) 2021 NWO-I Centrum Wiskunde & Informatica
+  Copyright (c) 2021-2023 NWO-I Centrum Wiskunde & Informatica
   All rights reserved. This program and the accompanying materials
   are made available under the terms of the Eclipse Public License v1.0
   which accompanies this distribution, and is available at
@@ -38,6 +38,19 @@ import util::Reflective;
 
 import ParseTree;
 
+@synopsis{Definition of a language server by its meta-data}
+@description{
+The ((registerLanguage)) function takes this as its parameter to generate and run
+a fresh language protocol server.
+}
+@benefits{
+* each registered language is run in its own Rascal run-time environment.
+* reloading a language is always done in a fresh environment.
+}
+@pitfalls{
+* even though ((registerLanguage)) is called in a given run-time environment,
+the registered language runs in another instance of the JVM and of Rascal.
+}
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
@@ -152,12 +165,15 @@ data InlayKind // this determines style
     ;
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
+@synopsis{Generates and instantiates a new language server for the given language}
 java void registerLanguage(Language lang);
 
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
+@synopsis{Spins down and removes a previously registered language server}
 java void unregisterLanguage(Language lang);
 
+@synopsis{Spins down and removes a previously registered language server}
 void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
     unregisterLanguage(language(pathConfig(), name, extension, mainModule, mainFunction));
 }
