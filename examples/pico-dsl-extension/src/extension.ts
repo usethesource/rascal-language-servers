@@ -6,7 +6,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// jar that contains the `pico-lsp` project
 	const picoLSPJar = `|jar+file://${context.extensionUri.path}/assets/jars/pico-lsp.jar!|`;
 	const language = <LanguageParameter>{
-		pathConfig: `pathConfig(srcs=[${picoLSPJar}])`, 
+		pathConfig: `pathConfig(srcs=[${picoLSPJar}])`,
 		name: "Pico", 
 		extension: "pico", 
 		mainModule: "lang::pico::LanguageServer", 
@@ -28,10 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function calcJarPath(context: vscode.ExtensionContext) {
-	if (context.extensionMode === vscode.ExtensionMode.Development) {
-		return context.asAbsolutePath(join('.', 'dist', 'rascal-lsp'));
-	}
-	return context.asAbsolutePath(join('.', 'rascal-lsp'));
+	return context.asAbsolutePath(join('.', 'dist', 'rascal-lsp'));
 }
 
 export function deactivate() {}
