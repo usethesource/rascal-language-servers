@@ -32,6 +32,9 @@ jobs:
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
         run: mvn -B clean verify
+        env:
+          MAVEN_OPTS: "-Xmx6G"
+
 
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
