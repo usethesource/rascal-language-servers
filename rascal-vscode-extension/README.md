@@ -47,6 +47,10 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.8.1
+
+* Bugfix release for regression in typechecker introduced in v0.8.0
+
 ### 0.8.0
 
 * This release comes with rascal 0.32.0 which features:
