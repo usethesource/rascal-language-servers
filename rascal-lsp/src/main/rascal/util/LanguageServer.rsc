@@ -54,22 +54,56 @@ the registered language runs in another instance of the JVM and of Rascal.
 data Language
     = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
 
+@synopsis{Function profile for parser contributions to a language server}
 alias Parser           = Tree (str /*input*/, loc /*origin*/);
+
+@synopsis{Function profile for summarizer contributions to a language server}
 alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
+
+@synopsis{Function profile for outliner contributions to a language server}
 alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
-alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
-alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
+
+//alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
+//alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
+
+@synopsis{Function profile for lenses contributions to a language server}
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
+
+@synopsis{Function profile for executor contributions to a language server}
 alias CommandExecutor  = value (Command /*command*/);
+
+@synopsis{Function profile for inlay contributions to a language server}
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+
 // these single mappers get caller for every request that a user makes, they should be quick as possible
 // carefull use of memo can help with caching dependencies
+@synopsis{Function profile for documentation contributions to a language server}
 alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+
+@synopsis{Function profile for definer contributions to a language server}
 alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+
+@synopsis{Function profile for referrer contributions to a language server}
 alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+
+@synopsis{Function profile for implementer contributions to a language server}
 alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
+@description{
+Each LanguageService provides one aspect of definining the language server protocol.
+* a `parser` maps source code to a parse tree and indexes each part based on offset and length
+* a `summarizer` indexes a file as a ((Summary)), offering precomputed relations for looking up
+documentation, definitions, references, implementations and compiler errors and warnings.
+* a `outliner` maps a source file to a pretty hierarchy for visualization in the "outline" view
+* a `lenses` discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
+* an `inlayHinter` is like lenses but inbetween words
+* a `executor` executes the commands registered by `lenses` and `inlayHinters`
+* a `documenter` is a fast and location specific version of the `documentation` relation in a ((Summary)).
+* a `definer` is a fast and location specific version of the `definitions` relation in a ((Summary)).
+* a `referrer` is a fast and location specific version of the `references` relation in a ((Summary)).
+* an `implementer` is a fast and location specific version of the `implementations` relation in a ((Summary)).
+}
 data LanguageService
     = parser(Parser parser)
     | summarizer(Summarizer summarizer
@@ -78,8 +112,8 @@ data LanguageService
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outliner(Outliner outliner)
-    | completer(Completer completer)
-    | builder(Builder builder)
+// TODO | completer(Completer completer)
+// TODO | builder(Builder builder)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
@@ -166,6 +200,23 @@ data InlayKind // this determines style
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Generates and instantiates a new language server for the given language}
+@description{
+We register languages by uploading the meta-data of the implementation to a "lanuage-parametric" language server.
+1. The meta-data is used to instantiate a fresh run-time to execute the main-module.
+2. The extension is registered with the IDE to link to this new runtime.
+3. Each specific extension is mapped to a specific part of the language server protocol.
+
+By registering a language twice, more things can happen:
+* existing contributions are re-loaded and overwritten with the newest version.
+* new contributions to an existing language (`Language` constructor instance), will be added to the existing LSP server instance. You can use this to load expensive features later or more lazily.
+* errors appear during loading or first execution of the contribution. The specific contribution is then usually aborted and unregistered.
+
+Because registerLanguage has effect in a different OS process, errors and warnings are not printed in the calling execution context.
+In general look at the "Parametric Rascal Language Server" log tab in the IDE to see what is going on.
+
+However since language contributions are just Rascal functions, it is advised to simply test them first right there in the terminal.
+Use `util::Reflective::getProjectPathConfig` for a representative configuration.
+}
 java void registerLanguage(Language lang);
 
 
