@@ -35,6 +35,16 @@
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-lsp</artifactId>
       <version>2.12.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.rascalmpl</groupId>
+          <artifactId>typepal</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.rascalmpl</groupId>
+          <artifactId>rascal-core</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 
@@ -63,7 +73,25 @@
           <srcs>
             <src>${project.basedir}/src/main/rascal</src>
           </srcs>
+          <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
+        <executions>
+            <execution>
+              <id>it-compile</id>
+              <phase>compile</phase>
+              <goals>
+                <goal>compile</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>it-package</id>
+              <phase>prepare-package</phase>
+              <goals>
+                <goal>package</goal>
+              </goals>
+            </execution>
+          </executions>
+
       </plugin>
     </plugins>
   </build>
