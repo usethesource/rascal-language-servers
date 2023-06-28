@@ -78,6 +78,15 @@ jobs:
           registryUrl: https://marketplace.visualstudio.com
           extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }} # copy exact same vsix from the previous step
 
+      - name: Prepare Draft Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          draft: true
+          files: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
         run: |

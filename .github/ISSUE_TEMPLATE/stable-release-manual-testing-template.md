@@ -74,5 +74,6 @@ The list below was copied from the rascal-eclipse release; have to adapt while w
    - [ ] `git push`
    - [ ] `git push --tags`
 - [ ] test the released vsix file from the VScode marketplace
+- [ ] Make Github release, copying the release notes from the vscode extension readme
 
 
