@@ -35,6 +35,7 @@ First a "pre-release" of the supporting compiler/typechecker tools must be done,
 # Manual feature tests
 
 - [ ] Build VScode extension locally download and install latest .vsix file in VScode for testing purposes
+- [ ] Make sure to restart VS Code after installation, and clear the target folders of the projects used for the below tests.
 
 The list below was copied from the rascal-eclipse release; have to adapt while we go:
 
