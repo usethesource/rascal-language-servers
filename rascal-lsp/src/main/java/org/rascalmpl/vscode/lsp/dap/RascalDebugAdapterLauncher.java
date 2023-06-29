@@ -12,15 +12,14 @@ import org.rascalmpl.interpreter.Evaluator;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URISyntaxException;
-import java.util.concurrent.ExecutionException;
 
 public class RascalDebugAdapterLauncher {
 
+    static ServerSocket serverSocket;
 
     public static void startDebugServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {
         try {
-            ServerSocket serverSocket = new ServerSocket(8889);
+            serverSocket = new ServerSocket(8889);
             RascalDebugAdapterServer server = new RascalDebugAdapterServer(eventTrigger, debugHandler, evaluator);
 
             Thread t = new Thread() {
@@ -43,6 +42,16 @@ public class RascalDebugAdapterLauncher {
             t.start();
 
         } catch (Throwable e) {
+            final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
+            logger.fatal(e.getMessage(), e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void stopDebugServer() {
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
             final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
             logger.fatal(e.getMessage(), e);
             throw new RuntimeException(e);

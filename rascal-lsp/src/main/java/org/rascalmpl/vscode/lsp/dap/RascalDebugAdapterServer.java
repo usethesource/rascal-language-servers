@@ -173,6 +173,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 		return null;
 	}
 
+    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<Void> attach(Map<String, Object> args) {
         CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
@@ -186,6 +187,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return future;
     }
 
+    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<Void> configurationDone(ConfigurationDoneArguments args) {
         CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
@@ -225,6 +227,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return future;
     }
 
+    //TODO : make better completablefuture response
     //TODO: fix main stackFrame source issue
     @Override
     public CompletableFuture<StackTraceResponse> stackTrace(StackTraceArguments args) {
@@ -274,6 +277,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return source;
     }
 
+    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<ScopesResponse> scopes(ScopesArguments args) {
         int frameId = args.getFrameId();
@@ -308,6 +312,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return CompletableFuture.completedFuture(response);
     }
 
+    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<VariablesResponse> variables(VariablesArguments args) {
         int reference = args.getVariablesReference();
@@ -363,8 +368,10 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> disconnect(DisconnectArguments args) {
-        System.out.println("disconnect request");
-        return IDebugProtocolServer.super.disconnect(args);
+        debugHandler.processMessage(DebugMessageFactory.requestTermination());
+        RascalDebugAdapterLauncher.stopDebugServer();
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -490,8 +497,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<EvaluateResponse> evaluate(EvaluateArguments args) {
-        System.out.println("evaluate request");
-        return IDebugProtocolServer.super.evaluate(args);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

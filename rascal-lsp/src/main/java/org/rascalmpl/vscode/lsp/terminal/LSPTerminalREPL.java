@@ -172,12 +172,12 @@ public class LSPTerminalREPL extends BaseREPL {
                     eventTrigger = new RascalDebugEventTrigger(this);
                     debugHandler = new DebugHandler();
                     debugHandler.setEventTrigger(eventTrigger);
-                    /*debugHandler.setTerminateAction(new Runnable() {
+                    debugHandler.setTerminateAction(new Runnable() {
                         @Override
                         public void run() {
-                            doDisconnect();
+                            eval.removeSuspendTriggerListener(debugHandler);
                         }
-                    });*/
+                    });
                     eval.addSuspendTriggerListener(debugHandler);
                 }
 
