@@ -66,7 +66,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Capabilities> initialize(InitializeRequestArguments args) {
-        CompletableFuture<Capabilities> future = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             Capabilities capabilities = new Capabilities();
 
             capabilities.setSupportsConfigurationDoneRequest(true);
@@ -78,8 +78,6 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
             return capabilities;
         });
-
-        return future;
     }
 
 
@@ -176,7 +174,6 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 		return null;
 	}
 
-    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<Void> attach(Map<String, Object> args) {
         CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
@@ -223,44 +220,43 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         });
     }
 
-    //TODO : make better completablefuture response
-    //TODO: fix main stackFrame source issue
     @Override
     public CompletableFuture<StackTraceResponse> stackTrace(StackTraceArguments args) {
         if(args.getThreadId() != mainThreadID) {
             return CompletableFuture.completedFuture(new StackTraceResponse());
         }
-        StackTraceResponse response = new StackTraceResponse();
-        IRascalFrame[] stackFrames = suspendedStateManager.getCurrentStackFrames();
-        response.setTotalFrames(stackFrames.length);
-        StackFrame[] stackFramesResponse = new StackFrame[stackFrames.length];
-        IRascalFrame currentFrame = suspendedStateManager.getCurrentStackFrame();
-        ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
-            evaluator.getCurrentPointOfExecution()
-            : URIUtil.rootLocation("stdin");
-        StackFrame frame = new StackFrame();
-        frame.setId(stackFrames.length-1);
-        frame.setName(currentFrame.getName());
-        frame.setLine(currentLoc.getBeginLine());
-        frame.setColumn(currentLoc.getBeginColumn());
-        frame.setSource(getSourceFromISourceLocation(currentLoc));
-        stackFramesResponse[0] = frame;
-        for(int i = 1; i < stackFramesResponse.length; i++) {
-            IRascalFrame f = stackFrames[stackFrames.length-i-1];
-            ISourceLocation loc = stackFrames[stackFrames.length-i].getCallerLocation();
-            frame = new StackFrame();
-            frame.setId(stackFrames.length-i-1);
-            frame.setName(f.getName());
-            if(loc != null){
-                frame.setLine(loc.getBeginLine());
-                frame.setColumn(loc.getBeginColumn());
-                frame.setSource(getSourceFromISourceLocation(loc));
+        return CompletableFuture.supplyAsync(() -> {
+            StackTraceResponse response = new StackTraceResponse();
+            IRascalFrame[] stackFrames = suspendedStateManager.getCurrentStackFrames();
+            response.setTotalFrames(stackFrames.length);
+            StackFrame[] stackFramesResponse = new StackFrame[stackFrames.length];
+            IRascalFrame currentFrame = suspendedStateManager.getCurrentStackFrame();
+            ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
+                evaluator.getCurrentPointOfExecution()
+                : URIUtil.rootLocation("stdin");
+            StackFrame frame = new StackFrame();
+            frame.setId(stackFrames.length-1);
+            frame.setName(currentFrame.getName());
+            frame.setLine(currentLoc.getBeginLine());
+            frame.setColumn(currentLoc.getBeginColumn());
+            frame.setSource(getSourceFromISourceLocation(currentLoc));
+            stackFramesResponse[0] = frame;
+            for(int i = 1; i < stackFramesResponse.length; i++) {
+                IRascalFrame f = stackFrames[stackFrames.length-i-1];
+                ISourceLocation loc = stackFrames[stackFrames.length-i].getCallerLocation();
+                frame = new StackFrame();
+                frame.setId(stackFrames.length-i-1);
+                frame.setName(f.getName());
+                if(loc != null){
+                    frame.setLine(loc.getBeginLine());
+                    frame.setColumn(loc.getBeginColumn());
+                    frame.setSource(getSourceFromISourceLocation(loc));
+                }
+                stackFramesResponse[i] = frame;
             }
-            stackFramesResponse[i] = frame;
-        }
-        response.setStackFrames(stackFramesResponse);
-
-        return CompletableFuture.completedFuture(response);
+            response.setStackFrames(stackFramesResponse);
+            return response;
+        });
     }
 
     public Source getSourceFromISourceLocation(ISourceLocation loc) {
@@ -274,198 +270,126 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return source;
     }
 
-    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<ScopesResponse> scopes(ScopesArguments args) {
-        int frameId = args.getFrameId();
+        return CompletableFuture.supplyAsync(() -> {
+            int frameId = args.getFrameId();
 
-        List<Scope> scopes = new ArrayList<>();
+            List<Scope> scopes = new ArrayList<>();
 
-        IRascalFrame frame = suspendedStateManager.getCurrentStackFrames()[frameId];
-        ScopesResponse response = new ScopesResponse();
-        Scope scopeLocals = new Scope();
-        scopeLocals.setName("Locals");
-        scopeLocals.setNamedVariables(frame.getFrameVariables().size());
-        scopeLocals.setPresentationHint("locals");
-        scopeLocals.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
-        scopeLocals.setVariablesReference(suspendedStateManager.addScope(frame));
-        scopes.add(scopeLocals);
+            IRascalFrame frame = suspendedStateManager.getCurrentStackFrames()[frameId];
+            ScopesResponse response = new ScopesResponse();
+            Scope scopeLocals = new Scope();
+            scopeLocals.setName("Locals");
+            scopeLocals.setNamedVariables(frame.getFrameVariables().size());
+            scopeLocals.setPresentationHint("locals");
+            scopeLocals.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
+            scopeLocals.setVariablesReference(suspendedStateManager.addScope(frame));
+            scopes.add(scopeLocals);
 
-        for(String importName : frame.getImports()){
-            IRascalFrame module = evaluator.getModule(importName);
+            for(String importName : frame.getImports()){
+                IRascalFrame module = evaluator.getModule(importName);
 
-            if(module != null && module.getFrameVariables().size() > 0){
-                Scope scopeModule = new Scope();
-                scopeModule.setName("Module " + importName);
-                scopeModule.setNamedVariables(module.getFrameVariables().size());
-                scopeModule.setPresentationHint("module");
-                scopeModule.setExpensive(module.getFrameVariables().size()>expensiveScopeMinSize);
-                scopeModule.setVariablesReference(suspendedStateManager.addScope(module));
-                scopes.add(scopeModule);
+                if(module != null && module.getFrameVariables().size() > 0){
+                    Scope scopeModule = new Scope();
+                    scopeModule.setName("Module " + importName);
+                    scopeModule.setNamedVariables(module.getFrameVariables().size());
+                    scopeModule.setPresentationHint("module");
+                    scopeModule.setExpensive(module.getFrameVariables().size()>expensiveScopeMinSize);
+                    scopeModule.setVariablesReference(suspendedStateManager.addScope(module));
+                    scopes.add(scopeModule);
+                }
             }
-        }
 
-        response.setScopes(scopes.toArray(new Scope[scopes.size()]));
-        return CompletableFuture.completedFuture(response);
+            response.setScopes(scopes.toArray(new Scope[scopes.size()]));
+            return response;
+        });
     }
 
-    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<VariablesResponse> variables(VariablesArguments args) {
-        int reference = args.getVariablesReference();
-        int minIndex = args.getStart() != null ? args.getStart() : 0;
-        int maxCount = args.getCount() != null ? args.getCount() : -1;
+        return CompletableFuture.supplyAsync(() -> {
+            int reference = args.getVariablesReference();
+            int minIndex = args.getStart() != null ? args.getStart() : 0;
+            int maxCount = args.getCount() != null ? args.getCount() : -1;
 
-        VariablesResponse response = new VariablesResponse();
-        List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference, minIndex, maxCount);
-        Variable[] variablesResponse = new Variable[variables.size()];
-        int i = 0;
-        for(ReferencedVariable var : variables){
-            Variable variable = new Variable();
-            variable.setName(var.getName());
-            variable.setType(var.getType().toString());
-            variable.setValue(var.getDisplayValue());
-            variable.setVariablesReference(var.getReferenceID());
-            variablesResponse[i] = variable;
-            i++;
-        }
+            VariablesResponse response = new VariablesResponse();
+            List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference, minIndex, maxCount);
+            Variable[] variablesResponse = new Variable[variables.size()];
+            int i = 0;
+            for(ReferencedVariable var : variables){
+                Variable variable = new Variable();
+                variable.setName(var.getName());
+                variable.setType(var.getType().toString());
+                variable.setValue(var.getDisplayValue());
+                variable.setVariablesReference(var.getReferenceID());
+                variablesResponse[i] = variable;
+                i++;
+            }
 
-        response.setVariables(variablesResponse);
-        return CompletableFuture.completedFuture(response);
+            response.setVariables(variablesResponse);
+            return response;
+        });
     }
 
     @Override
     public CompletableFuture<ContinueResponse> continue_(ContinueArguments args) {
-        ContinueResponse response = new ContinueResponse();
-        response.setAllThreadsContinued(true);
+        return CompletableFuture.supplyAsync(() -> {
+            ContinueResponse response = new ContinueResponse();
+            response.setAllThreadsContinued(true);
 
-        debugHandler.processMessage(DebugMessageFactory.requestResumption());
+            debugHandler.processMessage(DebugMessageFactory.requestResumption());
 
-        return CompletableFuture.completedFuture(response);
+            return response;
+        });
     }
 
     @Override
     public CompletableFuture<Void> next(NextArguments args) {
-        debugHandler.processMessage(DebugMessageFactory.requestStepOver());
-
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<Void> cancel(CancelArguments args) {
-        System.out.println("cancel request");
-        return IDebugProtocolServer.super.cancel(args);
-    }
-
-    @Override
-    public CompletableFuture<Void> restart(RestartArguments args) {
-        System.out.println("restart request");
-        return IDebugProtocolServer.super.restart(args);
+        return CompletableFuture.supplyAsync(() -> {
+            debugHandler.processMessage(DebugMessageFactory.requestStepOver());
+            return null;
+        });
     }
 
     @Override
     public CompletableFuture<Void> disconnect(DisconnectArguments args) {
-        debugHandler.processMessage(DebugMessageFactory.requestTermination());
-        RascalDebugAdapterLauncher.stopDebugServer();
+        return CompletableFuture.supplyAsync(() -> {
+            debugHandler.processMessage(DebugMessageFactory.requestTermination());
+            // TODO: fix, serversocket closed before client is notified (it shows an error message on vscode)
+            RascalDebugAdapterLauncher.stopDebugServer();
 
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<Void> terminate(TerminateArguments args) {
-        System.out.println("terminate request");
-        return IDebugProtocolServer.super.terminate(args);
-    }
-
-    @Override
-    public CompletableFuture<BreakpointLocationsResponse> breakpointLocations(BreakpointLocationsArguments args) {
-        System.out.println("breakpoint locations request");
-        return IDebugProtocolServer.super.breakpointLocations(args);
-    }
-
-    @Override
-    public CompletableFuture<SetFunctionBreakpointsResponse> setFunctionBreakpoints(SetFunctionBreakpointsArguments args) {
-        System.out.println("set function breakpoints request");
-        return IDebugProtocolServer.super.setFunctionBreakpoints(args);
-    }
-
-    @Override
-    public CompletableFuture<SetExceptionBreakpointsResponse> setExceptionBreakpoints(SetExceptionBreakpointsArguments args) {
-        System.out.println("set exception breakpoints request");
-        return IDebugProtocolServer.super.setExceptionBreakpoints(args);
-    }
-
-    @Override
-    public CompletableFuture<DataBreakpointInfoResponse> dataBreakpointInfo(DataBreakpointInfoArguments args) {
-        System.out.println("data breakpoint info request");
-        return IDebugProtocolServer.super.dataBreakpointInfo(args);
-    }
-
-    @Override
-    public CompletableFuture<SetDataBreakpointsResponse> setDataBreakpoints(SetDataBreakpointsArguments args) {
-        System.out.println("set data breakpoints request");
-        return IDebugProtocolServer.super.setDataBreakpoints(args);
-    }
-
-    @Override
-    public CompletableFuture<SetInstructionBreakpointsResponse> setInstructionBreakpoints(SetInstructionBreakpointsArguments args) {
-        System.out.println("set instruction breakpoints request");
-        return IDebugProtocolServer.super.setInstructionBreakpoints(args);
+            return null;
+        });
     }
 
     @Override
     public CompletableFuture<Void> stepIn(StepInArguments args) {
-        debugHandler.processMessage(DebugMessageFactory.requestStepInto());
+        return CompletableFuture.supplyAsync(() -> {
+            debugHandler.processMessage(DebugMessageFactory.requestStepInto());
 
-        return CompletableFuture.completedFuture(null);
+            return null;
+        });
     }
 
     @Override
     public CompletableFuture<Void> stepOut(StepOutArguments args) {
-        //TODO: implementation of step out request.
-        final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-        logger.debug("Step out request not implemented in debug adapter");
+        return CompletableFuture.supplyAsync(() -> {
+            //TODO: implementation of step out request.
+            logger.debug("Step out request not implemented in debug adapter");
+            debugHandler.processMessage(DebugMessageFactory.requestStepOver());
 
-        debugHandler.processMessage(DebugMessageFactory.requestStepOver());
-
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<Void> stepBack(StepBackArguments args) {
-        System.out.println("step back request");
-        return IDebugProtocolServer.super.stepBack(args);
-    }
-
-    @Override
-    public CompletableFuture<Void> reverseContinue(ReverseContinueArguments args) {
-        System.out.println("reverse continue request");
-        return IDebugProtocolServer.super.reverseContinue(args);
-    }
-
-    @Override
-    public CompletableFuture<Void> restartFrame(RestartFrameArguments args) {
-        System.out.println("restart frame request");
-        return IDebugProtocolServer.super.restartFrame(args);
-    }
-
-    @Override
-    public CompletableFuture<Void> goto_(GotoArguments args) {
-        System.out.println("goto request");
-        return IDebugProtocolServer.super.goto_(args);
+            return null;
+        });
     }
 
     @Override
     public CompletableFuture<Void> pause(PauseArguments args) {
-        debugHandler.processMessage(DebugMessageFactory.requestSuspension());
+        return CompletableFuture.supplyAsync(() -> {
+            debugHandler.processMessage(DebugMessageFactory.requestSuspension());
 
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<SetVariableResponse> setVariable(SetVariableArguments args) {
-        System.out.println("set variable request");
-        return IDebugProtocolServer.super.setVariable(args);
+            return null;
+        });
     }
 
     @Override
@@ -475,74 +399,8 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     }
 
     @Override
-    public CompletableFuture<Void> terminateThreads(TerminateThreadsArguments args) {
-        System.out.println("terminate threads request");
-        return IDebugProtocolServer.super.terminateThreads(args);
-    }
-
-    @Override
-    public CompletableFuture<ModulesResponse> modules(ModulesArguments args) {
-        System.out.println("modules request");
-        return IDebugProtocolServer.super.modules(args);
-    }
-
-    @Override
-    public CompletableFuture<LoadedSourcesResponse> loadedSources(LoadedSourcesArguments args) {
-        System.out.println("loaded sources request");
-        return IDebugProtocolServer.super.loadedSources(args);
-    }
-
-    @Override
     public CompletableFuture<EvaluateResponse> evaluate(EvaluateArguments args) {
         return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<SetExpressionResponse> setExpression(SetExpressionArguments args) {
-        System.out.println("set expression request");
-        return IDebugProtocolServer.super.setExpression(args);
-    }
-
-    @Override
-    public CompletableFuture<StepInTargetsResponse> stepInTargets(StepInTargetsArguments args) {
-        System.out.println("step in targets request");
-        return IDebugProtocolServer.super.stepInTargets(args);
-    }
-
-    @Override
-    public CompletableFuture<GotoTargetsResponse> gotoTargets(GotoTargetsArguments args) {
-        System.out.println("goto targets request");
-        return IDebugProtocolServer.super.gotoTargets(args);
-    }
-
-    @Override
-    public CompletableFuture<CompletionsResponse> completions(CompletionsArguments args) {
-        System.out.println("completions request");
-        return IDebugProtocolServer.super.completions(args);
-    }
-
-    @Override
-    public CompletableFuture<ExceptionInfoResponse> exceptionInfo(ExceptionInfoArguments args) {
-        System.out.println("exception info request");
-        return IDebugProtocolServer.super.exceptionInfo(args);
-    }
-
-    @Override
-    public CompletableFuture<ReadMemoryResponse> readMemory(ReadMemoryArguments args) {
-        System.out.println("read memory request");
-        return IDebugProtocolServer.super.readMemory(args);
-    }
-
-    @Override
-    public CompletableFuture<WriteMemoryResponse> writeMemory(WriteMemoryArguments args) {
-        System.out.println("write memory request");
-        return IDebugProtocolServer.super.writeMemory(args);
-    }
-
-    @Override
-    public CompletableFuture<DisassembleResponse> disassemble(DisassembleArguments args) {
-        System.out.println("disassemble request");
-        return IDebugProtocolServer.super.disassemble(args);
     }
 }
 
