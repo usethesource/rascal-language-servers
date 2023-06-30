@@ -3,6 +3,8 @@ package org.rascalmpl.vscode.lsp.dap;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.io.StandardTextWriter;
 import io.usethesource.vallang.type.Type;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 
 import java.io.IOException;
@@ -49,9 +51,13 @@ public class ReferencedVariable{
             new StandardTextWriter(true, 2).write(value, w);
             return w.toString();
         } catch (LimitedResultWriter.IOLimitReachedException e) {
+            final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
+            logger.error(e.getMessage(), e);
             return w.toString();
         }
         catch (IOException e) {
+            final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
+            logger.error(e.getMessage(), e);
             return "error during serialization...";
         }
     }

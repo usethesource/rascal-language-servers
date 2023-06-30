@@ -43,10 +43,4 @@ public class BreakpointsManager {
         if(!breakpoints.containsKey(path) || !breakpoints.get(path).containsKey(location)) return -1;
         return breakpoints.get(path).get(location).getId();
     }
-
-    public Source getBreakpointSource(ISourceLocation location){
-        String path = location.getPath();
-        if(!breakpoints.containsKey(path) || !breakpoints.get(path).containsKey(location)) return null;
-        return breakpoints.get(path).get(location).getSource();
-    }
 }

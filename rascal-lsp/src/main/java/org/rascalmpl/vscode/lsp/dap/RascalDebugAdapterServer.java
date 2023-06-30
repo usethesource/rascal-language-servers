@@ -45,6 +45,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     final private DebugHandler debugHandler;
     final private Evaluator evaluator;
     final private SuspendedStateManager suspendedStateManager;
+    final private Logger logger;
     public static ISourceLocation currentSuspensionLocation = null;
 
 
@@ -54,6 +55,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         this.evaluator = evaluator;
         this.suspendedStateManager = new SuspendedStateManager(evaluator);
         this.eventTrigger.setSuspendedStateManager(suspendedStateManager);
+        this.logger = LogManager.getLogger(RascalDebugAdapterServer.class);
     }
 
     public void connect(IDebugProtocolClient client) {
@@ -100,8 +102,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                         contents.append(buffer, 0, bufferlen);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    // TODO : handle errors
+                    logger.error(e.getMessage(), e);
+                    response.setBreakpoints(new Breakpoint[0]);
+                    return response;
                 }
                 ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
                 BreakpointsManager.getInstance().clearBreakpointsOfFile(loc.getPath(), debugHandler);
@@ -120,8 +123,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                     i++;
                 }
             } catch (URISyntaxException e) {
-                e.printStackTrace();
-                // TODO : handle failed breakpoint path
+                logger.error(e.getMessage(), e);
+                response.setBreakpoints(new Breakpoint[0]);
+                return response;
             }
             response.setBreakpoints(breakpoints);
             return response;

@@ -41,7 +41,7 @@ public class RascalDebugAdapterLauncher {
             t.setDaemon(true);
             t.start();
 
-        } catch (Throwable e) {
+        } catch (IOException e) {
             final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
             logger.fatal(e.getMessage(), e);
             throw new RuntimeException(e);
