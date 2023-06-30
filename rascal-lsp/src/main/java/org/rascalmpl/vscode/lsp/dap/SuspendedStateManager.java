@@ -14,6 +14,8 @@ public class SuspendedStateManager {
     private HashMap<Integer, IRascalFrame> scopes;
     private int referenceCounter;
 
+    private boolean isSuspended;
+
 
     public SuspendedStateManager(Evaluator evaluator){
         this.evaluator = evaluator;
@@ -27,6 +29,15 @@ public class SuspendedStateManager {
         referenceCounter = 0;//currentStackFrames.length+1;
         this.variables.clear();
         this.scopes.clear();
+        this.isSuspended = true;
+    }
+
+    public void resumed(){
+        this.isSuspended = false;
+    }
+
+    public boolean isSuspended() {
+        return isSuspended;
     }
 
     public IRascalFrame[] getCurrentStackFrames(){

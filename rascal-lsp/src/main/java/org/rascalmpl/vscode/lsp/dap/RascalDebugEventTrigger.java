@@ -60,13 +60,19 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 	}
 
     @Override
-    public void fireResumeEvent(RascalEvent.Detail detail) {}
+    public void fireResumeEvent(RascalEvent.Detail detail) {
+        suspendedStateManager.resumed();
+    }
 
     @Override
-    public void fireResumeByStepOverEvent() {}
+    public void fireResumeByStepOverEvent() {
+        suspendedStateManager.resumed();
+    }
 
     @Override
-    public void fireResumeByStepIntoEvent() {}
+    public void fireResumeByStepIntoEvent() {
+        suspendedStateManager.resumed();
+    }
 
     @Override
     public void fireSuspendByStepEndEvent() {
