@@ -1,5 +1,6 @@
 package org.rascalmpl.vscode.lsp.dap;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URISyntaxException;
@@ -82,10 +83,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     }
 
 
-    // TODO: Breakpoints not working anymore after editing the source file
     @Override
     public CompletableFuture<SetBreakpointsResponse> setBreakpoints(SetBreakpointsArguments args) {
-        CompletableFuture<SetBreakpointsResponse> future = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             SetBreakpointsResponse response = new SetBreakpointsResponse();
             Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             int i = 0;
@@ -130,7 +130,6 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
             response.setBreakpoints(breakpoints);
             return response;
         });
-        return future;
     }
 
     private static final String breakable = "breakable";
@@ -180,9 +179,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     //TODO : make better completablefuture response
     @Override
     public CompletableFuture<Void> attach(Map<String, Object> args) {
-        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
-            return null;
-        });
+        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 
         future.thenAccept(result -> {
             client.initialized();
@@ -191,12 +188,9 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         return future;
     }
 
-    //TODO : make better completablefuture response
     @Override
     public CompletableFuture<Void> configurationDone(ConfigurationDoneArguments args) {
-        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
-            return null;
-        });
+        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 
         future.thenAccept(result -> {
             ProcessEventArguments eventArgs = new ProcessEventArguments();
@@ -217,7 +211,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<ThreadsResponse> threads() {
-        CompletableFuture<ThreadsResponse> future = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             ThreadsResponse response = new ThreadsResponse();
             Thread t = new Thread();
             t.setId(mainThreadID);
@@ -227,8 +221,6 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
             });
             return response;
         });
-
-        return future;
     }
 
     //TODO : make better completablefuture response
@@ -255,7 +247,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         stackFramesResponse[0] = frame;
         for(int i = 1; i < stackFramesResponse.length; i++) {
             IRascalFrame f = stackFrames[stackFrames.length-i-1];
-            ISourceLocation loc = f.getCallerLocation();
+            ISourceLocation loc = stackFrames[stackFrames.length-i].getCallerLocation();
             frame = new StackFrame();
             frame.setId(stackFrames.length-i-1);
             frame.setName(f.getName());
@@ -274,7 +266,8 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     public Source getSourceFromISourceLocation(ISourceLocation loc) {
         //TODO: handle location conversion to source
         Source source = new Source();
-        source.setName(loc.getPath());
+        File file = new File(loc.getPath());
+        source.setName(file.getName());
         source.setPath(loc.getPath());
         //TODO: handle source reference
         source.setSourceReference(0);
