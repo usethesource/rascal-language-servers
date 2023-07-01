@@ -32,10 +32,18 @@
   http://www.eclipse.org/legal/epl-v10.html
 }
 @contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
+@synopsis{Bridges {DSL,PL,Modeling} language features to the language server protocol.}
+@description{
+Using the ((registerLanguage)) function you can connect any parsers, checkers,
+source-to-source transformers, visualizers, etc. that are made with Rascal, to the 
+Language Server Protocol. 
+}
+@benefits{
+* Turn your language implementation into an interactive IDE at almost zero cost.
+}
 module util::LanguageServer
 
 import util::Reflective;
-
 import ParseTree;
 
 @synopsis{Definition of a language server by its meta-data}
