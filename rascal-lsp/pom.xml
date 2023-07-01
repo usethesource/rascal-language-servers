@@ -314,10 +314,14 @@
           and add missing ones -->
         <version>4.1</version>
         <configuration>
+          <headerDefinitions>
+            <headerDefinition>rascal_style.xml</headerDefinition>
+          </headerDefinitions>
           <licenseSets>
             <licenseSet>
-              <header>../LICENSE.txt</header>
+                <header>../LICENSE.txt</header>
               <excludes>
+                <exclude>rascal_style.xml</exclude>
                 <exclude>**/README</exclude>
                 <exclude>src/test/resources/**</exclude>
                 <exclude>src/main/resources/**</exclude>
@@ -331,7 +335,7 @@
           </licenseSets>
           <mapping>
             <java>SLASHSTAR_STYLE</java>
-            <rsc>SLASHSTAR_STYLE</rsc>
+            <rsc>RASCAL_STYLE</rsc>
           </mapping>
         </configuration>
         <executions>
