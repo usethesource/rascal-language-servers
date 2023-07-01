@@ -162,7 +162,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.19.4</version>
+                    <version>0.19.8</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
@@ -198,7 +198,7 @@
                                 <errorsAsWarnings>false</errorsAsWarnings>
                                 <bin>${project.build.outputDirectory}</bin>
                                 <license>${project.basedir}/LICENSE</license>
-                                <sources>|http://github.com/usethesource/rascal-language-servers/rascal-lsp|</sources>
+                                <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
                                 <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
                                 <srcs>
                                     <src>${project.basedir}/src/main/rascal</src>
