@@ -126,8 +126,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
                     if(debugMode){
+                        debugHandler = RascalDebugAdapterLauncher.startDebugServer(evaluator);
                         initializeRascalDebugMode(evaluator);
-                        RascalDebugAdapterLauncher.startDebugServer(eventTrigger, debugHandler, evaluator);
                     }
 
                     try {
@@ -169,9 +169,6 @@ public class LSPTerminalREPL extends BaseREPL {
                 }
 
                 private void initializeRascalDebugMode(Evaluator eval) {
-                    eventTrigger = new RascalDebugEventTrigger(this);
-                    debugHandler = new DebugHandler();
-                    debugHandler.setEventTrigger(eventTrigger);
                     debugHandler.setTerminateAction(new Runnable() {
                         @Override
                         public void run() {

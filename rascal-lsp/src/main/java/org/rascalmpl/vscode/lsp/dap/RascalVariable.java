@@ -3,14 +3,14 @@ package org.rascalmpl.vscode.lsp.dap;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
 
-public class ReferencedVariable{
+public class RascalVariable {
     private int referenceID;
     private final Type type;
     private final String name;
     private final IValue value;
     private final String displayValue;
 
-    public ReferencedVariable(Type type, String name, IValue value){
+    public RascalVariable(Type type, String name, IValue value){
         this.referenceID = -1;
         this.type = type;
         this.name = name;

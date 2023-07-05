@@ -6,18 +6,18 @@ import org.rascalmpl.interpreter.result.IRascalResult;
 
 import java.util.*;
 
-public class SuspendedStateManager {
+public class SuspendedState {
 
-    private Evaluator evaluator;
+    private final Evaluator evaluator;
     private IRascalFrame[] currentStackFrames;
-    private HashMap<Integer, ReferencedVariable> variables;
-    private HashMap<Integer, IRascalFrame> scopes;
-    private int referenceCounter;
+    private final HashMap<Integer, RascalVariable> variables;
+    private final HashMap<Integer, IRascalFrame> scopes;
+    private int referenceIDCounter;
 
     private boolean isSuspended;
 
 
-    public SuspendedStateManager(Evaluator evaluator){
+    public SuspendedState(Evaluator evaluator){
         this.evaluator = evaluator;
         this.variables = new HashMap<>();
         this.scopes = new HashMap<>();
@@ -26,7 +26,7 @@ public class SuspendedStateManager {
     public void suspended(){
         Stack<IRascalFrame> stack = evaluator.getCurrentStack();
         currentStackFrames = stack.toArray(IRascalFrame[]::new);
-        referenceCounter = 0;//currentStackFrames.length+1;
+        referenceIDCounter = 0;
         this.variables.clear();
         this.scopes.clear();
         this.isSuspended = true;
@@ -49,12 +49,12 @@ public class SuspendedStateManager {
     }
 
     public int addScope(IRascalFrame frame){
-        scopes.put(++referenceCounter, frame);
-        return referenceCounter;
+        scopes.put(++referenceIDCounter, frame);
+        return referenceIDCounter;
     }
 
-    public List<ReferencedVariable> getVariablesByParentReferenceID(int referenceID, int startIndex, int maxCount){
-        List<ReferencedVariable> variableList = new ArrayList<>();
+    public List<RascalVariable> getVariables(int referenceID, int startIndex, int maxCount){
+        List<RascalVariable> variableList = new ArrayList<>();
 
         if(referenceID < 0) return variableList;
 
@@ -66,9 +66,9 @@ public class SuspendedStateManager {
             int endIndex = maxCount == -1 ? frameVariables.size() : Math.min(frameVariables.size(), startIndex + maxCount);
             for (String varname : frameVariables.subList(startIndex, endIndex)) {
                 IRascalResult result = frame.getFrameVariable(varname);
-                ReferencedVariable refResult = new ReferencedVariable(result.getStaticType(), varname, result.getValue());
+                RascalVariable refResult = new RascalVariable(result.getStaticType(), varname, result.getValue());
                 if(refResult.hasSubFields()){
-                    addNewReferencedVariable(refResult);
+                    addVariable(refResult);
                 }
                 variableList.add(refResult);
             }
@@ -78,13 +78,13 @@ public class SuspendedStateManager {
         if(!variables.containsKey(referenceID)) return variableList;
 
         // referenceID is a variable ID
-        ReferencedVariable var = variables.get(referenceID);
+        RascalVariable var = variables.get(referenceID);
         return var.getValue().accept(new RascalVariableVisitor(this, var.getType()));
     }
 
-    public void addNewReferencedVariable(ReferencedVariable variable){
-        variable.setReferenceID(++referenceCounter);
-        variables.put(referenceCounter, variable);
+    public void addVariable(RascalVariable variable){
+        variable.setReferenceID(++referenceIDCounter);
+        variables.put(referenceIDCounter, variable);
     }
 
 }

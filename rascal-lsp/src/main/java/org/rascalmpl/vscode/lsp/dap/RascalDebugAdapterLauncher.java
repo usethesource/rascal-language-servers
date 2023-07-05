@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.debug.launch.DSPLauncher;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.interpreter.Evaluator;
 
@@ -17,16 +16,16 @@ public class RascalDebugAdapterLauncher {
 
     static ServerSocket serverSocket;
 
-    public static void startDebugServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {
+    public static DebugHandler startDebugServer(Evaluator evaluator) {
         try {
             serverSocket = new ServerSocket(8889);
-            RascalDebugAdapterServer server = new RascalDebugAdapterServer(eventTrigger, debugHandler, evaluator);
+            DebugHandler debugHandler = new DebugHandler();
+            RascalDebugAdapter server = new RascalDebugAdapter(debugHandler, evaluator);
 
             Thread t = new Thread() {
                 public void run() {
-                    Socket socket = null;
                     try {
-                        socket = serverSocket.accept();
+                        Socket socket = serverSocket.accept();
 
                         Launcher<IDebugProtocolClient> launcher = DSPLauncher.createServerLauncher(server, socket.getInputStream(), socket.getOutputStream());
                         server.connect(launcher.getRemoteProxy());
@@ -40,7 +39,7 @@ public class RascalDebugAdapterLauncher {
             };
             t.setDaemon(true);
             t.start();
-
+            return debugHandler;
         } catch (IOException e) {
             final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
             logger.fatal(e.getMessage(), e);

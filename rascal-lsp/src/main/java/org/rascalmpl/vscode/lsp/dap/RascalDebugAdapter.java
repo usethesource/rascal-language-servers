@@ -15,7 +15,6 @@ import org.eclipse.lsp4j.debug.*;
 import org.eclipse.lsp4j.debug.Thread;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolServer;
-import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
 import org.rascalmpl.debug.IRascalFrame;
@@ -27,7 +26,6 @@ import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 
@@ -36,7 +34,7 @@ import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-public class RascalDebugAdapterServer implements IDebugProtocolServer {
+public class RascalDebugAdapter implements IDebugProtocolServer {
 
     final public static int mainThreadID = 1;
     final private int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
@@ -45,17 +43,21 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
     final private Evaluator evaluator;
-    final private SuspendedStateManager suspendedStateManager;
+    final private SuspendedState suspendedState;
     final private Logger logger;
+    final private BreakpointsCollection breakpointsCollection;
 
 
-    public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {
-        this.eventTrigger = (RascalDebugEventTrigger) eventTrigger;
+    public RascalDebugAdapter(DebugHandler debugHandler, Evaluator evaluator) {
         this.debugHandler = debugHandler;
         this.evaluator = evaluator;
-        this.suspendedStateManager = new SuspendedStateManager(evaluator);
-        this.eventTrigger.setSuspendedStateManager(suspendedStateManager);
-        this.logger = LogManager.getLogger(RascalDebugAdapterServer.class);
+
+        this.suspendedState = new SuspendedState(evaluator);
+        this.logger = LogManager.getLogger(RascalDebugAdapter.class);
+        this.breakpointsCollection = new BreakpointsCollection(debugHandler);
+
+        this.eventTrigger = new RascalDebugEventTrigger(this, breakpointsCollection, suspendedState);
+        debugHandler.setEventTrigger(eventTrigger);
     }
 
     public void connect(IDebugProtocolClient client) {
@@ -104,12 +106,12 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                     return response;
                 }
                 ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
-                BreakpointsManager.getInstance().clearBreakpointsOfFile(loc.getPath(), debugHandler);
+                breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
                 for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
                     ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
                     if(treeBreakableLocation != null) {
                         ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
-                        BreakpointsManager.getInstance().addBreakpoint(breakableLocation, new BreakpointInfo(i, args.getSource()), debugHandler);
+                        breakpointsCollection.addBreakpoint(breakableLocation, args.getSource());
                     }
                     Breakpoint b = new Breakpoint();
                     b.setId(i);
@@ -226,10 +228,10 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
         }
         return CompletableFuture.supplyAsync(() -> {
             StackTraceResponse response = new StackTraceResponse();
-            IRascalFrame[] stackFrames = suspendedStateManager.getCurrentStackFrames();
+            IRascalFrame[] stackFrames = suspendedState.getCurrentStackFrames();
             response.setTotalFrames(stackFrames.length);
             StackFrame[] stackFramesResponse = new StackFrame[stackFrames.length];
-            IRascalFrame currentFrame = suspendedStateManager.getCurrentStackFrame();
+            IRascalFrame currentFrame = suspendedState.getCurrentStackFrame();
             ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
                 evaluator.getCurrentPointOfExecution()
                 : URIUtil.rootLocation("stdin");
@@ -276,14 +278,14 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
             List<Scope> scopes = new ArrayList<>();
 
-            IRascalFrame frame = suspendedStateManager.getCurrentStackFrames()[frameId];
+            IRascalFrame frame = suspendedState.getCurrentStackFrames()[frameId];
             ScopesResponse response = new ScopesResponse();
             Scope scopeLocals = new Scope();
             scopeLocals.setName("Locals");
             scopeLocals.setNamedVariables(frame.getFrameVariables().size());
             scopeLocals.setPresentationHint("locals");
             scopeLocals.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
-            scopeLocals.setVariablesReference(suspendedStateManager.addScope(frame));
+            scopeLocals.setVariablesReference(suspendedState.addScope(frame));
             scopes.add(scopeLocals);
 
             for(String importName : frame.getImports()){
@@ -295,7 +297,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
                     scopeModule.setNamedVariables(module.getFrameVariables().size());
                     scopeModule.setPresentationHint("module");
                     scopeModule.setExpensive(module.getFrameVariables().size()>expensiveScopeMinSize);
-                    scopeModule.setVariablesReference(suspendedStateManager.addScope(module));
+                    scopeModule.setVariablesReference(suspendedState.addScope(module));
                     scopes.add(scopeModule);
                 }
             }
@@ -313,10 +315,10 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
             int maxCount = args.getCount() != null ? args.getCount() : -1;
 
             VariablesResponse response = new VariablesResponse();
-            List<ReferencedVariable> variables = suspendedStateManager.getVariablesByParentReferenceID(reference, minIndex, maxCount);
+            List<RascalVariable> variables = suspendedState.getVariables(reference, minIndex, maxCount);
             Variable[] variablesResponse = new Variable[variables.size()];
             int i = 0;
-            for(ReferencedVariable var : variables){
+            for(RascalVariable var : variables){
                 Variable variable = new Variable();
                 variable.setName(var.getName());
                 variable.setType(var.getType().toString());
@@ -357,7 +359,7 @@ public class RascalDebugAdapterServer implements IDebugProtocolServer {
             debugHandler.processMessage(DebugMessageFactory.requestTermination());
             // TODO: fix, serversocket closed before client is notified (it shows an error message on vscode)
             RascalDebugAdapterLauncher.stopDebugServer();
-            if(suspendedStateManager.isSuspended()){
+            if(suspendedState.isSuspended()){
                 debugHandler.processMessage(DebugMessageFactory.requestResumption());
             }
 
