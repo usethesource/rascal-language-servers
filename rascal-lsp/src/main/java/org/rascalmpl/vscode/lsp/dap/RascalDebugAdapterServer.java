@@ -39,15 +39,14 @@ import io.usethesource.vallang.IValue;
 public class RascalDebugAdapterServer implements IDebugProtocolServer {
 
     final public static int mainThreadID = 1;
-    final private static int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
+    final private int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
 
-    IDebugProtocolClient client;
+    private IDebugProtocolClient client;
     final private RascalDebugEventTrigger eventTrigger;
     final private DebugHandler debugHandler;
     final private Evaluator evaluator;
     final private SuspendedStateManager suspendedStateManager;
     final private Logger logger;
-    public static ISourceLocation currentSuspensionLocation = null;
 
 
     public RascalDebugAdapterServer(AbstractInterpreterEventTrigger eventTrigger, DebugHandler debugHandler, Evaluator evaluator) {

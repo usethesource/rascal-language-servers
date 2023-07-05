@@ -113,8 +113,7 @@ public class RascalVariableVisitor implements IValueVisitor<List<ReferencedVaria
         List<ReferencedVariable> result = new ArrayList<>();
 
         for (io.usethesource.vallang.IValue key : o) {
-            //TODO: key.toString() should have a limit in length
-            ReferencedVariable newVar = new ReferencedVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), key.toString(), o.get(key));
+            ReferencedVariable newVar = new ReferencedVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), RascalVariableUtils.getDisplayString(key), o.get(key));
             addNewVariableToResult(newVar, result);
         }
         return result;
