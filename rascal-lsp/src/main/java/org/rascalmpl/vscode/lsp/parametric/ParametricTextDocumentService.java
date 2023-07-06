@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,7 +114,7 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 // suppress required due to forced usage of deprecated `SymbolInformation` class in `Either` until LSP4J cleans it up:
-@SuppressWarnings({"deprecation"}) 
+@SuppressWarnings({"deprecation"})
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
@@ -175,13 +175,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
-        String commandName = BaseWorkspaceService.RASCAL_META_COMMAND;
-        if (!dedicatedLanguageName.isEmpty()) {
-            commandName += "-" + dedicatedLanguageName;
-        }
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(commandName)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
+    }
+
+    private String getRascalMetaCommandName() {
+        // if we run in dedicated mode, we prefix the commands with our language name
+        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
+        if (!dedicatedLanguageName.isEmpty()) {
+            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
+        }
+        return BaseWorkspaceService.RASCAL_META_COMMAND;
     }
 
     @Override
@@ -347,7 +352,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Command constructorToCommand(String extension, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), BaseWorkspaceService.RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
+        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(extension, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -572,7 +577,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return contribs.executeCommand(command).get();
         }
         else {
-            logger.warn("ignoring command execution: " + extension + "," + command);
+            logger.warn("ignoring command execution (no contributor configured for this extension): {}, {} ", extension, command);
             return CompletableFuture.completedFuture(null);
         }
     }

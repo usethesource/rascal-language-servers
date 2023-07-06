@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,7 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
             }
             return Integer.compare(aEnd.getLine(), bEnd.getLine());
         }
-        return Integer.compare(aStart.getLine(), aStart.getLine());
+        return Integer.compare(aStart.getLine(), bStart.getLine());
     }
 
     private static boolean rangeContains(Range a, Range b) {
@@ -101,12 +101,18 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
 
     @Override
     public @Nullable T lookup(Range from) {
-        T result = contains(data.floorEntry(from), from);
-        if (result == null) {
-            // could be that it's at the start of the entry
-            result = contains(data.ceilingEntry(from), from);
+        // since we allow for overlapping ranges, it might be that we have to
+        // search all the way to the "bottom" of the tree to see if we are
+        // contained in something larger than the closest key
+        var previousKeys = data.headMap(from, true).descendingMap();
+        for (var candidate : previousKeys.entrySet()) {
+            T result = contains(candidate, from);
+            if (result != null) {
+                return result;
+            }
         }
-        return result;
+        // could be that it's at the start of the entry (so the entry it not in the head map)
+        return contains(data.ceilingEntry(from), from);
     }
 
     @Override

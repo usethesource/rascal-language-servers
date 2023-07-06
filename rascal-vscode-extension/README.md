@@ -47,6 +47,36 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.8.1
+
+* Bugfix release for regression in typechecker introduced in v0.8.0
+
+### 0.8.0
+
+* This release comes with rascal 0.32.0 which features:
+   * In ParseTree, `storeParsers` and `loadParsers` offer a way to skip loading and executing a parser generator after deployment. Parsers can be stored in an opaque binary format that is very quickly loaded again and wrapped as a Rascal function with the same interface as what the `parsers` function generates.
+   * The interpreter uses `ModuleName.parsers` to parse modules with concrete syntax for every module file `ModuleName.rsc` that is in the same jar file.
+   * 8 to 12% improvement in generated parser efficiency
+   * several issues with respect to URI syntax resolved
+   * fixes for #1805, #1804 and #1793; related to the consistency of the documentation (broken links and broken code examples)
+   * M3 now has a default `implicitDeclarations` set which programming languages can fill with entities that are defined by language but do not have a source position anywhere (not even in the standard library).
+   * M3 now has "specifications" (read test functions) that check what it means for a typical abstract syntax tree to be correct and how correct M3 relations relate to one another. For example, in an M3 model something should not be used if it is not declared, unless there are compilation errors.
+   * Project names in the `project://` scheme are now always to be lowercase letters, hyphens (`-`) or underscores (`_`), as in `|project://my-project-name/src/main/rascal|`
+* This release is based on rascal-maven-plugin 0.19.2 and rascal-tutor 0.11.4, which come with:
+   * API functions now have their signature first, before the other documentation sections are printed
+   * API modules have a link to their github source pages
+   * All packages must report their FUNDING sources now
+   * All packages must report their CITATION preferences now
+   * All packages must report their LICENSE now
+   * All packages automatically report their dependencies now as sourced from pom.xml
+   * All code examples, if tagged with `error`, must also throw an error.
+   * Fixed all code examples that were falsely tagged with `error`
+* Finally, these are the changes local to the rascal-language-servers and rascal-lsp projects:
+   * PR #262 fixed three important issues with the LSP server interactions that had effect on the quality of the hover help and the references feature. In particular when more source files were involved (e.g. in the Rascal case) sometimes seemingly random results are shown, or none. This fix removes the root cause of the confusion and also rationalizes some code around the mapping from cursor locations to locations in the summaries. 
+   * util::LanguageServer is now minimally documented and will appear on rascal-mpl.shortly in the Packages section under the `rascal-mpl` package.
+   * Checks in RASCAL.MF files have been extended and improved.
+   * Loading of classes from dependent projects has improved in the VScode terminal and the language-parametrized LSP; there was a bug which caused arbitrary jar files to be loaded instead of the ones declared in the `pom.xml`. Usually the last dependency in the pom file "won". This also means that `lib://myDependency` would sometimes implicitly resolve to `lib://myLaterDependency` and throw IO exceptions and `exists` tests set to `false`.
+
 ### 0.7.0
 
 * Fixes issues with IDEServices::registerDiagnostics where only the first error would be registered.

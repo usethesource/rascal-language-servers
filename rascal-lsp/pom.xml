@@ -1,6 +1,6 @@
 <!--
 
-    Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+    Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.14.0-SNAPSHOT</version>
+  <version>2.17.1-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>5.9.0</junit.version>
@@ -62,7 +62,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.30.0</version>
+      <version>0.33.0</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -145,8 +145,8 @@
                     <release>11</release>
                     <showWarnings>true</showWarnings>
                     <compilerArguments>
-                        <parameters/>
-                        <Werror/>
+                        <parameters />
+                        <Werror />
                     </compilerArguments>
                 </configuration>
             </plugin>
@@ -167,7 +167,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.16.0</version>
+                    <version>0.19.9</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
@@ -203,7 +203,7 @@
                                 <errorsAsWarnings>false</errorsAsWarnings>
                                 <bin>${project.build.outputDirectory}</bin>
                                 <license>${project.basedir}/LICENSE</license>
-                                <sources>|http://github.com/usethesource/rascal-language-servers/rascal-lsp|</sources>
+                                <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
                                 <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
                                 <srcs>
                                     <src>${project.basedir}/src/main/rascal</src>
@@ -319,22 +319,28 @@
           and add missing ones -->
         <version>4.1</version>
         <configuration>
+          <headerDefinitions>
+            <headerDefinition>rascal_style.xml</headerDefinition>
+          </headerDefinitions>
           <licenseSets>
             <licenseSet>
-              <header>../LICENSE.txt</header>
+                <header>../LICENSE.txt</header>
               <excludes>
+                <exclude>rascal_style.xml</exclude>
                 <exclude>**/README</exclude>
                 <exclude>src/test/resources/**</exclude>
                 <exclude>src/main/resources/**</exclude>
                 <exclude>**/*.tpl</exclude>
                 <exclude>META-INF/**</exclude>
                 <exclude>.editorconfig</exclude>
+                <exclude>CITATION</exclude>
+                <exclude>FUNDING</exclude>
               </excludes>
             </licenseSet>
           </licenseSets>
           <mapping>
             <java>SLASHSTAR_STYLE</java>
-            <rsc>SLASHSTAR_STYLE</rsc>
+            <rsc>RASCAL_STYLE</rsc>
           </mapping>
         </configuration>
         <executions>

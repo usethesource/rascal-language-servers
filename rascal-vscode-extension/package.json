@@ -10,7 +10,7 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.8.0-head",
+  "version": "0.9.0-head",
   "engines": {
     "vscode": "^1.67.0"
   },

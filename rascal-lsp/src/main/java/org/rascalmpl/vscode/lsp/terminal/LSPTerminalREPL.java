@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -143,6 +143,10 @@ public class LSPTerminalREPL extends BaseREPL {
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
+                        if (services instanceof TerminalIDEClient) {
+                            ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
+                        }
+                        
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
                             reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));
