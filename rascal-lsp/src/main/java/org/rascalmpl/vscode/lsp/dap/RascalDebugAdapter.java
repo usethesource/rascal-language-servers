@@ -89,42 +89,42 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             int i = 0;
             StringBuilder contents = new StringBuilder();
+            // TODO : handle different path format (ex: module std:/IO.rsc)
+            String path = args.getSource().getPath();
+            ISourceLocation loc;
             try {
-                // TODO : handle different path format (ex: module std:/IO.rsc)
-                // TODO : handle error of lower case harddrive name
-                String path = args.getSource().getPath().replace("c:", "C:");
-                ISourceLocation loc = URIUtil.createFileLocation(path);
-                try(Reader reader = URIResolverRegistry.getInstance().getCharacterReader(loc)) {
-                    char[] buffer = new char[1024];
-                    int bufferlen = 0;
-                    while((bufferlen = reader.read(buffer)) > 0){
-                        contents.append(buffer, 0, bufferlen);
-                    }
-                } catch (IOException e) {
-                    logger.error(e.getMessage(), e);
-                    response.setBreakpoints(new Breakpoint[0]);
-                    return response;
-                }
-                ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
-                breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
-                for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
-                    ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
-                    if(treeBreakableLocation != null) {
-                        ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
-                        breakpointsCollection.addBreakpoint(breakableLocation, args.getSource());
-                    }
-                    Breakpoint b = new Breakpoint();
-                    b.setId(i);
-                    b.setLine(breakpoint.getLine());
-                    b.setColumn(breakpoint.getColumn());
-                    b.setVerified(treeBreakableLocation != null);
-                    breakpoints[i] = b;
-                    i++;
-                }
+                loc = URIUtil.createFileLocation(path);
             } catch (URISyntaxException e) {
                 logger.error(e.getMessage(), e);
                 response.setBreakpoints(new Breakpoint[0]);
                 return response;
+            }
+            try(Reader reader = URIResolverRegistry.getInstance().getCharacterReader(loc)) {
+                char[] buffer = new char[1024];
+                int bufferlen = 0;
+                while((bufferlen = reader.read(buffer)) > 0){
+                    contents.append(buffer, 0, bufferlen);
+                }
+            } catch (IOException e) {
+                logger.error(e.getMessage(), e);
+                response.setBreakpoints(new Breakpoint[0]);
+                return response;
+            }
+            ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
+            breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
+            for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
+                ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
+                if(treeBreakableLocation != null) {
+                    ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
+                    breakpointsCollection.addBreakpoint(breakableLocation, args.getSource());
+                }
+                Breakpoint b = new Breakpoint();
+                b.setId(i);
+                b.setLine(breakpoint.getLine());
+                b.setColumn(breakpoint.getColumn());
+                b.setVerified(treeBreakableLocation != null);
+                breakpoints[i] = b;
+                i++;
             }
             response.setBreakpoints(breakpoints);
             return response;
