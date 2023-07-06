@@ -3,20 +3,20 @@ package org.rascalmpl.vscode.lsp.dap;
 import io.usethesource.vallang.ISourceLocation;
 import org.eclipse.lsp4j.debug.StoppedEventArguments;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
-import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
-import org.rascalmpl.debug.IRascalEventListener;
-import org.rascalmpl.debug.RascalEvent;
+import org.rascalmpl.debug.*;
 
 public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     private IDebugProtocolClient client;
     private final SuspendedState suspendedState;
     private final BreakpointsCollection breakpointsCollection;
+    private final DebugHandler debugHandler;
 
-    public RascalDebugEventTrigger(Object source, BreakpointsCollection breakpointsCollection, SuspendedState suspendedState) {
+    public RascalDebugEventTrigger(Object source, BreakpointsCollection breakpointsCollection, SuspendedState suspendedState, DebugHandler debugHandler) {
         super(source);
         this.breakpointsCollection = breakpointsCollection;
         this.suspendedState = suspendedState;
+        this.debugHandler = debugHandler;
     }
 
     public void setDebugProtocolClient(IDebugProtocolClient client) {
@@ -73,7 +73,12 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void fireSuspendByStepEndEvent() {
-        //TODO: issue with step over last instruction
+        ISourceLocation currentLocation = suspendedState.getCurrentLocation();
+        if(currentLocation.getPath().length() == 1) {
+            debugHandler.processMessage(DebugMessageFactory.requestResumption());
+            return;
+        }
+
         suspendedState.suspended();
 
         StoppedEventArguments stoppedEventArguments = new StoppedEventArguments();

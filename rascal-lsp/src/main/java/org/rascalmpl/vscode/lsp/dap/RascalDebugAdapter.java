@@ -56,7 +56,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
         this.logger = LogManager.getLogger(RascalDebugAdapter.class);
         this.breakpointsCollection = new BreakpointsCollection(debugHandler);
 
-        this.eventTrigger = new RascalDebugEventTrigger(this, breakpointsCollection, suspendedState);
+        this.eventTrigger = new RascalDebugEventTrigger(this, breakpointsCollection, suspendedState, debugHandler);
         debugHandler.setEventTrigger(eventTrigger);
     }
 

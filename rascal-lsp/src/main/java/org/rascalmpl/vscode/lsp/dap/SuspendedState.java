@@ -1,8 +1,10 @@
 package org.rascalmpl.vscode.lsp.dap;
 
+import io.usethesource.vallang.ISourceLocation;
 import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.result.IRascalResult;
+import org.rascalmpl.uri.URIUtil;
 
 import java.util.*;
 
@@ -30,6 +32,12 @@ public class SuspendedState {
         this.variables.clear();
         this.scopes.clear();
         this.isSuspended = true;
+    }
+
+    public ISourceLocation getCurrentLocation(){
+        return evaluator.getCurrentPointOfExecution() != null ?
+            evaluator.getCurrentPointOfExecution()
+            : URIUtil.rootLocation("stdin");
     }
 
     public void resumed(){
