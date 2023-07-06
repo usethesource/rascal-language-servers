@@ -357,8 +357,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     public CompletableFuture<Void> disconnect(DisconnectArguments args) {
         return CompletableFuture.supplyAsync(() -> {
             debugHandler.processMessage(DebugMessageFactory.requestTermination());
-            // TODO: fix, serversocket closed before client is notified (it shows an error message on vscode)
-            RascalDebugAdapterLauncher.stopDebugServer();
             if(suspendedState.isSuspended()){
                 debugHandler.processMessage(DebugMessageFactory.requestResumption());
             }

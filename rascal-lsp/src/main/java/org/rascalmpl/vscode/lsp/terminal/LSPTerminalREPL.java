@@ -102,7 +102,6 @@ public class LSPTerminalREPL extends BaseREPL {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
-                private AbstractInterpreterEventTrigger eventTrigger;
                 private DebugHandler debugHandler;
 
                 @Override
@@ -146,7 +145,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         if (services instanceof TerminalIDEClient) {
                             ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
                         }
-                        
+
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
                             reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));
@@ -177,6 +176,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         @Override
                         public void run() {
                             eval.removeSuspendTriggerListener(debugHandler);
+                            debugHandler = null;
                         }
                     });
                     eval.addSuspendTriggerListener(debugHandler);
