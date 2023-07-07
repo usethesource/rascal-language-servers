@@ -35,18 +35,20 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.jar.Manifest;
 
-import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
+import io.usethesource.vallang.impl.reference.ValueFactory;
+import io.usethesource.vallang.type.TypeFactory;
 import org.rascalmpl.debug.DebugHandler;
-import org.rascalmpl.debug.IRascalEventListener;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
+import org.rascalmpl.interpreter.result.IRascalResult;
+import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -60,7 +62,6 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.dap.RascalDebugAdapterLauncher;
-import org.rascalmpl.vscode.lsp.dap.RascalDebugEventTrigger;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
@@ -82,7 +83,6 @@ public class LSPTerminalREPL extends BaseREPL {
     private static final OutputStream stdout = System.out;
     private static final boolean prettyPrompt = true;
     private static final boolean allowColors = true;
-    private static boolean debugMode = false;
 
     public LSPTerminalREPL(Terminal terminal, IDEServices services) throws IOException, URISyntaxException {
         super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
@@ -105,6 +105,48 @@ public class LSPTerminalREPL extends BaseREPL {
                 private DebugHandler debugHandler;
 
                 @Override
+                protected SortedSet<String> getCommandLineOptions() {
+                    SortedSet<String> options = super.getCommandLineOptions();
+                    options.add("debugging");
+                    return options;
+                }
+
+                @Override
+                public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
+                    switch(statement) {
+                        case ":set debugging true":
+                            if(!isDebugging()){
+                                setDebugging(true);
+                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging started in VS Code"), this.eval);
+                            } else {
+                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging session already running"), this.eval);
+                            }
+                        case ":set debugging false":
+                            if(isDebugging()){
+                                setDebugging(false);
+                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging stopped in VS Code"), this.eval);
+                            } else {
+                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("No debugging session running"), this.eval);
+                            }
+                        default:
+                            return super.evalStatement(statement, lastLine);
+                    }
+                }
+
+                private void setDebugging(boolean value){
+                    if(value){
+                        if(this.debugHandler == null){
+                            this.debugHandler = RascalDebugAdapterLauncher.startDebugServer(this.eval);
+                            initializeRascalDebugMode(this.eval);
+                        }
+                    }
+                }
+
+                private boolean isDebugging(){
+                    return this.debugHandler != null;
+                }
+
+                @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
@@ -123,11 +165,6 @@ public class LSPTerminalREPL extends BaseREPL {
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
-
-                    if(debugMode){
-                        debugHandler = RascalDebugAdapterLauncher.startDebugServer(evaluator);
-                        initializeRascalDebugMode(evaluator);
-                    }
 
                     try {
                         PathConfig pcfg;
@@ -274,9 +311,6 @@ public class LSPTerminalREPL extends BaseREPL {
                     break;
                 case "--runModule":
                     runModule = true;
-                    break;
-                case "--debug":
-                    debugMode = true;
                     break;
             }
         }
