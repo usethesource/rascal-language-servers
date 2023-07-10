@@ -139,6 +139,11 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/startDebuggingSession")
+    default void startDebuggingSession(int serverPort) {
+        throw new UnsupportedOperationException();
+    }
+
     public static class UnRegisterDiagnosticsParameters {
         private String locations;
 
@@ -302,7 +307,7 @@ public interface ITerminalIDEServer {
 
         try (IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());) {
             out.write(value);
-        } 
+        }
         catch (IOException e) {
             throw new RuntimeException(e);
         }

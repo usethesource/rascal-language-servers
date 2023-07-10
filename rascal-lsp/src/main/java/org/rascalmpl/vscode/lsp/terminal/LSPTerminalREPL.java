@@ -138,6 +138,8 @@ public class LSPTerminalREPL extends BaseREPL {
                         if(this.debugHandler == null){
                             this.debugHandler = RascalDebugAdapterLauncher.startDebugServer(this.eval);
                             initializeRascalDebugMode(this.eval);
+                            TerminalIDEClient ideClient = (TerminalIDEClient) services;
+                            ideClient.startDebuggingSession(8889);
                         }
                     }
                 }

@@ -41,4 +41,7 @@ public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/receiveUnregisterLanguage")
     void receiveUnregisterLanguage(LanguageParameter lang);
 
+    @JsonNotification("rascal/startDebuggingSession")
+    void startDebuggingSession(int serverPort);
+
 }
