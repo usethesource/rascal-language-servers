@@ -2,11 +2,18 @@ import { DebugAdapterDescriptor, DebugAdapterDescriptorFactory, DebugAdapterExec
 
 export class RascalDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactory {
 
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    constructor(){}
+    serverPort: number;
 
-    createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
-        return new DebugAdapterServer(8889, "127.0.0.1");
+    constructor(){
+        this.serverPort = 0;
+    }
+
+    public setServerPort(serverPort: number){
+        this.serverPort = serverPort;
+    }
+
+    public createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
+        return new DebugAdapterServer(this.serverPort, "127.0.0.1");
     }
 
 }
