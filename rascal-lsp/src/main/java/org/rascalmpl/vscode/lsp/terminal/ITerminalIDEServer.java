@@ -144,6 +144,11 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/registerDebugServerPort")
+    default void registerDebugServerPort(int processID, int serverPort) {
+        throw new UnsupportedOperationException();
+    }
+
     public static class UnRegisterDiagnosticsParameters {
         private String locations;
 

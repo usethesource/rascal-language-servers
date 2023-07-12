@@ -44,4 +44,7 @@ public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/startDebuggingSession")
     void startDebuggingSession(int serverPort);
 
+    @JsonNotification("rascal/registerDebugServerPort")
+    void registerDebugServerPort(int processID, int serverPort);
+
 }

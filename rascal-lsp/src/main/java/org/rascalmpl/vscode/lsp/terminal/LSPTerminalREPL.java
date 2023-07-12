@@ -41,7 +41,6 @@ import java.util.jar.Manifest;
 
 import io.usethesource.vallang.impl.reference.ValueFactory;
 import io.usethesource.vallang.type.TypeFactory;
-import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -61,7 +60,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
-import org.rascalmpl.vscode.lsp.dap.RascalDebugAdapterLauncher;
+import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
@@ -102,7 +101,7 @@ public class LSPTerminalREPL extends BaseREPL {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
-                private DebugHandler debugHandler;
+                private DebugSocketServer debugServer;
 
                 @Override
                 protected SortedSet<String> getCommandLineOptions() {
@@ -115,37 +114,20 @@ public class LSPTerminalREPL extends BaseREPL {
                 public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
                     switch(statement) {
                         case ":set debugging true":
-                            if(!isDebugging()){
-                                setDebugging(true);
+                            if(!debugServer.isClientConnected()){
+                                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
                                 return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging started in VS Code"), this.eval);
-                            } else {
-                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging session already running"), this.eval);
                             }
+                            return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging session already running"), this.eval);
                         case ":set debugging false":
-                            if(isDebugging()){
-                                setDebugging(false);
+                            if(debugServer.isClientConnected()){
+                                //TODO: disconnect debug session
                                 return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging stopped in VS Code"), this.eval);
-                            } else {
-                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("No debugging session running"), this.eval);
                             }
+                            return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("No debugging session running"), this.eval);
                         default:
                             return super.evalStatement(statement, lastLine);
                     }
-                }
-
-                private void setDebugging(boolean value){
-                    if(value){
-                        if(this.debugHandler == null){
-                            this.debugHandler = RascalDebugAdapterLauncher.startDebugServer(this.eval);
-                            initializeRascalDebugMode(this.eval);
-                            TerminalIDEClient ideClient = (TerminalIDEClient) services;
-                            ideClient.startDebuggingSession(8889);
-                        }
-                    }
-                }
-
-                private boolean isDebugging(){
-                    return this.debugHandler != null;
                 }
 
                 @Override
@@ -167,6 +149,8 @@ public class LSPTerminalREPL extends BaseREPL {
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
+
+                    initializeRascalDebugServer(evaluator, (TerminalIDEClient) services);
 
                     try {
                         PathConfig pcfg;
@@ -210,15 +194,9 @@ public class LSPTerminalREPL extends BaseREPL {
                     return evaluator;
                 }
 
-                private void initializeRascalDebugMode(Evaluator eval) {
-                    debugHandler.setTerminateAction(new Runnable() {
-                        @Override
-                        public void run() {
-                            eval.removeSuspendTriggerListener(debugHandler);
-                            debugHandler = null;
-                        }
-                    });
-                    eval.addSuspendTriggerListener(debugHandler);
+                private void initializeRascalDebugServer(Evaluator eval, TerminalIDEClient terminal) {
+                    debugServer = new DebugSocketServer();
+                    debugServer.startSocketServer(eval, terminal);
                 }
 
                 private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {

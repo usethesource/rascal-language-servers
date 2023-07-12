@@ -249,4 +249,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public void startDebuggingSession(int serverPort) {
         languageClient.startDebuggingSession(serverPort);
     }
+
+    @Override
+    public void registerDebugServerPort(int processID, int serverPort) {
+        languageClient.registerDebugServerPort(processID, serverPort);
+    }
 }

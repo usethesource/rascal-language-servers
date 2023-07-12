@@ -252,6 +252,10 @@ public class TerminalIDEClient implements IDEServices {
         server.startDebuggingSession(serverPort);
     }
 
+    public void registerDebugServerPort(int processID, int serverPort){
+        server.registerDebugServerPort(processID, serverPort);
+    }
+
     public void registerErrorPrinter(PrintWriter errorPrinter) {
         this.err = errorPrinter;
     }

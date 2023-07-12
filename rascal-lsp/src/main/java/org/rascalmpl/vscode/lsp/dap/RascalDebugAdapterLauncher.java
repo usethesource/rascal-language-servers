@@ -9,35 +9,27 @@ import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.interpreter.Evaluator;
 
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
 
 public class RascalDebugAdapterLauncher {
 
-    static ServerSocket serverSocket;
-
-    public static DebugHandler startDebugServer(Evaluator evaluator) {
+    public static void start(Evaluator evaluator, Socket clientSocket, DebugSocketServer socketServer) {
         try {
+            final DebugHandler debugHandler = new DebugHandler();
 
-            if(serverSocket == null) serverSocket = new ServerSocket(8889);
-            DebugHandler debugHandler = new DebugHandler();
-            RascalDebugAdapter server = new RascalDebugAdapter(debugHandler, evaluator);
-
-            Thread t = new Thread(() -> {
-                try {
-                    Socket clientSocket = serverSocket.accept();
-                    Launcher<IDebugProtocolClient> launcher = DSPLauncher.createServerLauncher(server, clientSocket.getInputStream(), clientSocket.getOutputStream());
-                    server.connect(launcher.getRemoteProxy());
-                    launcher.startListening();
-                } catch (IOException e) {
-                    final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
-                    logger.fatal(e.getMessage(), e);
-                    throw new RuntimeException(e);
+            debugHandler.setTerminateAction(new Runnable() {
+                @Override
+                public void run() {
+                    evaluator.removeSuspendTriggerListener(debugHandler);
+                    socketServer.disconnectClient();
                 }
             });
-            t.setDaemon(true);
-            t.start();
-            return debugHandler;
+            evaluator.addSuspendTriggerListener(debugHandler);
+
+            RascalDebugAdapter server = new RascalDebugAdapter(debugHandler, evaluator);
+            Launcher<IDebugProtocolClient> launcher = DSPLauncher.createServerLauncher(server, clientSocket.getInputStream(), clientSocket.getOutputStream());
+            server.connect(launcher.getRemoteProxy());
+            launcher.startListening();
         } catch (IOException e) {
             final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
             logger.fatal(e.getMessage(), e);
