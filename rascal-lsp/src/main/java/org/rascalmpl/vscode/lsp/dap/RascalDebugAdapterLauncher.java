@@ -13,7 +13,7 @@ import java.net.Socket;
 
 public class RascalDebugAdapterLauncher {
 
-    public static void start(Evaluator evaluator, Socket clientSocket, DebugSocketServer socketServer) {
+    public static IDebugProtocolClient start(Evaluator evaluator, Socket clientSocket, DebugSocketServer socketServer) {
         try {
             final DebugHandler debugHandler = new DebugHandler();
 
@@ -30,6 +30,7 @@ public class RascalDebugAdapterLauncher {
             Launcher<IDebugProtocolClient> launcher = DSPLauncher.createServerLauncher(server, clientSocket.getInputStream(), clientSocket.getOutputStream());
             server.connect(launcher.getRemoteProxy());
             launcher.startListening();
+            return launcher.getRemoteProxy();
         } catch (IOException e) {
             final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
             logger.fatal(e.getMessage(), e);

@@ -2,6 +2,8 @@ package org.rascalmpl.vscode.lsp.dap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.lsp4j.debug.TerminatedEventArguments;
+import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.vscode.lsp.terminal.TerminalIDEClient;
 
@@ -13,6 +15,7 @@ public class DebugSocketServer {
 
     private ServerSocket serverSocket;
     private Socket clientSocket;
+    private IDebugProtocolClient debugClient;
 
     public void startSocketServer(Evaluator evaluator, TerminalIDEClient terminal){
         try{
@@ -25,7 +28,7 @@ public class DebugSocketServer {
                         Socket newClient = serverSocket.accept();
                         if(clientSocket == null || clientSocket.isClosed()){
                             clientSocket = newClient;
-                            RascalDebugAdapterLauncher.start(evaluator, clientSocket, this);
+                            debugClient = RascalDebugAdapterLauncher.start(evaluator, clientSocket, this);
                         } else {
                             newClient.close();
                         }
@@ -55,7 +58,16 @@ public class DebugSocketServer {
         return serverSocket.getLocalPort();
     }
 
+    public void terminateDebugSession(){
+        if(debugClient != null){
+            TerminatedEventArguments args = new TerminatedEventArguments();
+            args.setRestart(false);
+            debugClient.terminated(args);
+        }
+    }
+
     public void disconnectClient(){
         clientSocket = null;
+        debugClient = null;
     }
 }

@@ -121,7 +121,7 @@ public class LSPTerminalREPL extends BaseREPL {
                             return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging session already running"), this.eval);
                         case ":set debugging false":
                             if(debugServer.isClientConnected()){
-                                //TODO: disconnect debug session
+                                debugServer.terminateDebugSession();
                                 return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging stopped in VS Code"), this.eval);
                             }
                             return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("No debugging session running"), this.eval);
