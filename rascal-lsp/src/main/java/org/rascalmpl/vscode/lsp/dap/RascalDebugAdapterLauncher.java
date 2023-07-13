@@ -21,7 +21,14 @@ public class RascalDebugAdapterLauncher {
                 @Override
                 public void run() {
                     evaluator.removeSuspendTriggerListener(debugHandler);
-                    socketServer.disconnectClient();
+                    try {
+                        Thread.sleep(1000);
+                        socketServer.disconnectClient();
+                    } catch (InterruptedException e) {
+                        final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
+                        logger.fatal(e.getMessage(), e);
+                        throw new RuntimeException(e);
+                    }
                 }
             });
             evaluator.addSuspendTriggerListener(debugHandler);

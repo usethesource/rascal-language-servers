@@ -67,6 +67,14 @@ public class DebugSocketServer {
     }
 
     public void disconnectClient(){
+        if(clientSocket != null && !clientSocket.isClosed()){
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                final Logger logger = LogManager.getLogger(DebugSocketServer.class);
+                logger.error(e.getMessage(), e);
+            }
+        }
         clientSocket = null;
         debugClient = null;
     }

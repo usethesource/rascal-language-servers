@@ -177,34 +177,26 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> attach(Map<String, Object> args) {
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        client.initialized();
 
-        future.thenAccept(result -> {
-            client.initialized();
-        });
-
-        return future;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> configurationDone(ConfigurationDoneArguments args) {
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        ProcessEventArguments eventArgs = new ProcessEventArguments();
+        eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
+        eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        eventArgs.setIsLocalProcess(true);
+        eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
+        client.process(eventArgs);
 
-        future.thenAccept(result -> {
-            ProcessEventArguments eventArgs = new ProcessEventArguments();
-            eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
-            eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-            eventArgs.setIsLocalProcess(true);
-            eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
-            client.process(eventArgs);
+        ThreadEventArguments thread = new ThreadEventArguments();
+        thread.setThreadId(mainThreadID);
+        thread.setReason(ThreadEventArgumentsReason.STARTED);
+        client.thread(thread);
 
-            ThreadEventArguments thread = new ThreadEventArguments();
-            thread.setThreadId(mainThreadID);
-            thread.setReason(ThreadEventArgumentsReason.STARTED);
-            client.thread(thread);
-        });
-
-        return future;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -355,14 +347,16 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> disconnect(DisconnectArguments args) {
-        return CompletableFuture.supplyAsync(() -> {
-            debugHandler.processMessage(DebugMessageFactory.requestTermination());
-            if(suspendedState.isSuspended()){
-                debugHandler.processMessage(DebugMessageFactory.requestResumption());
+        new java.lang.Thread(new Runnable() {
+            public void run() {
+                debugHandler.processMessage(DebugMessageFactory.requestTermination());
+                if(suspendedState.isSuspended()){
+                    debugHandler.processMessage(DebugMessageFactory.requestResumption());
+                }
             }
+        }).start();
 
-            return null;
-        });
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -392,17 +386,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
             return null;
         });
-    }
-
-    @Override
-    public CompletableFuture<SourceResponse> source(SourceArguments args) {
-        System.out.println("source request");
-        return IDebugProtocolServer.super.source(args);
-    }
-
-    @Override
-    public CompletableFuture<EvaluateResponse> evaluate(EvaluateArguments args) {
-        return CompletableFuture.completedFuture(null);
     }
 }
 
