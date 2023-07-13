@@ -3,8 +3,10 @@ package org.rascalmpl.vscode.lsp.dap;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,11 +48,13 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     final private SuspendedState suspendedState;
     final private Logger logger;
     final private BreakpointsCollection breakpointsCollection;
+    final private HashMap<String, String> rascalModulesPathsToVSCodePaths;
 
 
     public RascalDebugAdapter(DebugHandler debugHandler, Evaluator evaluator) {
         this.debugHandler = debugHandler;
         this.evaluator = evaluator;
+        this.rascalModulesPathsToVSCodePaths = new HashMap<>();
 
         this.suspendedState = new SuspendedState(evaluator);
         this.logger = LogManager.getLogger(RascalDebugAdapter.class);
@@ -89,15 +93,13 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             int i = 0;
             StringBuilder contents = new StringBuilder();
-            // TODO : handle different path format (ex: module std:/IO.rsc)
-            String path = args.getSource().getPath();
-            ISourceLocation loc;
-            try {
-                loc = URIUtil.createFileLocation(path);
-            } catch (URISyntaxException e) {
-                logger.error(e.getMessage(), e);
+            ISourceLocation loc = getLocationFromPath(args.getSource().getPath());
+            if(loc == null){
                 response.setBreakpoints(new Breakpoint[0]);
                 return response;
+            }
+            if(args.getSource().getPath().contains(":/")){
+                this.rascalModulesPathsToVSCodePaths.put(loc.getPath(), args.getSource().getPath());
             }
             try(Reader reader = URIResolverRegistry.getInstance().getCharacterReader(loc)) {
                 char[] buffer = new char[1024];
@@ -129,6 +131,25 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             response.setBreakpoints(breakpoints);
             return response;
         });
+    }
+
+    private ISourceLocation getLocationFromPath(String path){
+        if(path.startsWith("/") || path.contains(":\\")){
+            try {
+                return URIUtil.createFileLocation(path);
+            } catch (URISyntaxException e) {
+                logger.error(e.getMessage(), e);
+                return null;
+            }
+        } else {
+            URI uri = URI.create(path);
+            try {
+                return URIUtil.createFromURI(uri.toString().replace(":/", ":///"));
+            } catch (URISyntaxException e) {
+                logger.error(e.getMessage(), e);
+                return null;
+            }
+        }
     }
 
     private static final String breakable = "breakable";
@@ -253,13 +274,15 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     }
 
     public Source getSourceFromISourceLocation(ISourceLocation loc) {
-        //TODO: handle location conversion to source
         Source source = new Source();
         File file = new File(loc.getPath());
         source.setName(file.getName());
-        source.setPath(loc.getPath());
-        //TODO: handle source reference
-        source.setSourceReference(0);
+        String path = loc.getPath();
+        if(this.rascalModulesPathsToVSCodePaths.containsKey(path)){
+            path = this.rascalModulesPathsToVSCodePaths.get(path);
+        }
+        source.setPath(path);
+        source.setSourceReference(-1);
         return source;
     }
 
