@@ -43,7 +43,7 @@ import io.usethesource.vallang.IValue;
  */
 public class RascalDebugAdapter implements IDebugProtocolServer {
 
-    final public static int mainThreadID = 1;
+    final public static int mainThreadID = 1; // hard coded arbitrary thread ID of Rascal Program for Debug Adapter Protocol
     final private int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
 
     private IDebugProtocolClient client;
@@ -96,7 +96,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
         return CompletableFuture.supplyAsync(() -> {
             SetBreakpointsResponse response = new SetBreakpointsResponse();
             Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
-            int i = 0;
             StringBuilder contents = new StringBuilder();
             ISourceLocation loc = getLocationFromPath(args.getSource().getPath());
             if(loc == null){
@@ -119,7 +118,8 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             }
             ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
             breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
-            for (SourceBreakpoint breakpoint : args.getBreakpoints()) {
+            for(int i = 0; i<args.getBreakpoints().length; i++){
+                SourceBreakpoint breakpoint = args.getBreakpoints()[i];
                 ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
                 if(treeBreakableLocation != null) {
                     ISourceLocation breakableLocation = TreeAdapter.getLocation(treeBreakableLocation);
@@ -131,7 +131,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
                 b.setColumn(breakpoint.getColumn());
                 b.setVerified(treeBreakableLocation != null);
                 breakpoints[i] = b;
-                i++;
             }
             response.setBreakpoints(breakpoints);
             return response;
