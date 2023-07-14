@@ -77,6 +77,9 @@ public class SuspendedState {
                 RascalVariable refResult = new RascalVariable(result.getStaticType(), varname, result.getValue());
                 if(refResult.hasSubFields()){
                     addVariable(refResult);
+                    VariableSubElementsCounter counter = result.getValue().accept(new VariableSubElementsCounterVisitor());
+                    refResult.setIndexedVariables(counter.getIndexedVariables());
+                    refResult.setNamedVariables(counter.getNamedVariables());
                 }
                 variableList.add(refResult);
             }
@@ -87,7 +90,7 @@ public class SuspendedState {
 
         // referenceID is a variable ID
         RascalVariable var = variables.get(referenceID);
-        return var.getValue().accept(new RascalVariableVisitor(this, var.getType()));
+        return var.getValue().accept(new VariableSubfieldsVisitor(this, var.getType(), startIndex, maxCount));
     }
 
     public void addVariable(RascalVariable variable){

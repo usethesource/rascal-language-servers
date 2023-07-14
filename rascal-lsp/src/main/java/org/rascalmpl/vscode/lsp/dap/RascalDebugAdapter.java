@@ -339,6 +339,8 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
                 variable.setType(var.getType().toString());
                 variable.setValue(var.getDisplayValue());
                 variable.setVariablesReference(var.getReferenceID());
+                variable.setNamedVariables(var.getNamedVariables());
+                variable.setIndexedVariables(var.getIndexedVariables());
                 variablesResponse[i] = variable;
                 i++;
             }

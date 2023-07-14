@@ -9,6 +9,8 @@ public class RascalVariable {
     private final String name;
     private final IValue value;
     private final String displayValue;
+    private int namedVariables = 0;
+    private int indexedVariables = 0;
 
     public RascalVariable(Type type, String name, IValue value){
         this.referenceID = -1;
@@ -16,6 +18,14 @@ public class RascalVariable {
         this.name = name;
         this.value = value;
         this.displayValue = RascalVariableUtils.getDisplayString(value);
+    }
+
+    public void setNamedVariables(int namedVariables) {
+        this.namedVariables = namedVariables;
+    }
+
+    public void setIndexedVariables(int indexedVariables) {
+        this.indexedVariables = indexedVariables;
     }
 
     public int getReferenceID(){
@@ -46,5 +56,13 @@ public class RascalVariable {
         if(type == null) return false;
 
         return type.isList() || type.isMap() || type.isSet() || type.isAliased() || type.isNode() || type.isConstructor() || type.isRelation() || type.isTuple() || type.isDateTime();
+    }
+
+    public int getNamedVariables() {
+        return namedVariables;
+    }
+
+    public int getIndexedVariables() {
+        return indexedVariables;
     }
 }
