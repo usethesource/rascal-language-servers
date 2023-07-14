@@ -2,6 +2,10 @@ import { debug, DebugConfiguration, DebugSession, Terminal, window } from "vscod
 import { RascalDebugAdapterDescriptorFactory } from "./RascalDebugAdapterDescriptorFactory";
 import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProvider";
 
+
+/**
+ * Debug Client that stores running debug sessions and available REPL ports for debug sessions.
+ */
 export class RascalDebugClient {
     rascalDescriptorFactory: RascalDebugAdapterDescriptorFactory;
     debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug

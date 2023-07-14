@@ -1,5 +1,8 @@
-import { DebugAdapterDescriptor, DebugAdapterDescriptorFactory, DebugAdapterExecutable, DebugAdapterServer, DebugSession, ProviderResult, QuickPickOptions, window } from "vscode";
+import { DebugAdapterDescriptor, DebugAdapterDescriptorFactory, DebugAdapterExecutable, DebugAdapterServer, DebugSession, ProviderResult} from "vscode";
 
+/**
+ * Class creating a DebugAdapterServer connection when starting a debug session
+ */
 export class RascalDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactory {
 
     createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {

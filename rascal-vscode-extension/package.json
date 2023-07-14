@@ -46,10 +46,6 @@
       {
         "command": "rascalmpl.importMain",
         "title": "Start Rascal Terminal and Import this module"
-      },
-      {
-        "command": "rascalmpl.createDebugTerminal",
-        "title": "Create Rascal Terminal with Debugger"
       }
     ],
     "languages": [
@@ -97,17 +93,17 @@
               {
                   "type": "rascalmpl",
                   "request": "attach",
-                  "name": "Start Debugging Rascal"
+                  "name": "Rascal Debug"
               }
           ],
           "configurationSnippets": [
               {
-                  "label": "Start Debugging Rascal",
-                  "description": "Start Debugging Rascal",
+                  "label": "Rascal Debug",
+                  "description": "Rascal Debug",
                   "body": {
                     "type": "rascalmpl",
                     "request": "attach",
-                    "name": "Start Debugging Rascal"
+                    "name": "Rascal Debug"
                 }
               }
           ]

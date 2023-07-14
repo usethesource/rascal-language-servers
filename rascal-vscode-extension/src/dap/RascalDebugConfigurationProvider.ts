@@ -1,6 +1,9 @@
 import {CancellationToken, DebugConfiguration, DebugConfigurationProvider, ProviderResult, WorkspaceFolder, window} from "vscode";
 import { RascalDebugClient } from "./RascalDebugClient";
 
+/**
+ * Class used by Vscode when starting debug sessions to add configuration information before it launchs
+ */
 export class RascalDebugConfigurationProvider implements DebugConfigurationProvider {
 
     debugClient: RascalDebugClient;
@@ -16,6 +19,12 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
 
     async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken | undefined): Promise<DebugConfiguration> {
         return new Promise((resolve, reject) => {
+            if(token !== undefined){
+                token.onCancellationRequested((e) => {
+                    reject(e);
+                });
+            }
+
             if (debugConfiguration.type === undefined) {
                 debugConfiguration.type = "rascalmpl";
                 debugConfiguration.name = "Rascal Debug";
