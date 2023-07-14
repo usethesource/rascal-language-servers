@@ -4,6 +4,7 @@ import io.usethesource.vallang.ISourceLocation;
 import org.eclipse.lsp4j.debug.StoppedEventArguments;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.debug.*;
+import org.rascalmpl.vscode.lsp.dap.breakpoint.BreakpointsCollection;
 
 public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 

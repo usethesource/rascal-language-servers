@@ -1,4 +1,4 @@
-package org.rascalmpl.vscode.lsp.dap;
+package org.rascalmpl.vscode.lsp.dap.breakpoint;
 
 import io.usethesource.vallang.ISourceLocation;
 import org.eclipse.lsp4j.debug.Source;

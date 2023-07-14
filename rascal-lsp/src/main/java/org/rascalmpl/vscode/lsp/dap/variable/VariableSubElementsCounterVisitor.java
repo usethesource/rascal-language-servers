@@ -1,9 +1,7 @@
-package org.rascalmpl.vscode.lsp.dap;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
 import io.usethesource.vallang.*;
 import io.usethesource.vallang.visitors.IValueVisitor;
-
-import java.util.List;
 
 public class VariableSubElementsCounterVisitor implements IValueVisitor<VariableSubElementsCounter, RuntimeException> {
 

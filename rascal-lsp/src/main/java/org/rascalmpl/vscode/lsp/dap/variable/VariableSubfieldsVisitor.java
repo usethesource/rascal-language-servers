@@ -1,10 +1,11 @@
-package org.rascalmpl.vscode.lsp.dap;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
 import io.usethesource.vallang.*;
 import io.usethesource.vallang.impl.reference.ValueFactory;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.visitors.IValueVisitor;
+import org.rascalmpl.vscode.lsp.dap.SuspendedState;
 
 import java.util.ArrayList;
 import java.util.List;

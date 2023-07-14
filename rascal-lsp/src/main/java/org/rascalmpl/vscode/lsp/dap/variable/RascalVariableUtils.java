@@ -1,4 +1,4 @@
-package org.rascalmpl.vscode.lsp.dap;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.io.StandardTextWriter;

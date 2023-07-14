@@ -5,6 +5,10 @@ import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.dap.variable.RascalVariable;
+import org.rascalmpl.vscode.lsp.dap.variable.VariableSubElementsCounter;
+import org.rascalmpl.vscode.lsp.dap.variable.VariableSubElementsCounterVisitor;
+import org.rascalmpl.vscode.lsp.dap.variable.VariableSubfieldsVisitor;
 
 import java.util.*;
 

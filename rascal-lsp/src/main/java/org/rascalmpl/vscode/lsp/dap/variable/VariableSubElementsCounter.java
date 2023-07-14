@@ -1,4 +1,4 @@
-package org.rascalmpl.vscode.lsp.dap;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
 public class VariableSubElementsCounter {
     private int namedVariables;
