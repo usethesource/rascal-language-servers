@@ -3,6 +3,9 @@ package org.rascalmpl.vscode.lsp.dap.variable;
 import io.usethesource.vallang.*;
 import io.usethesource.vallang.visitors.IValueVisitor;
 
+/**
+    Visitor used to get the number of sub elements of a variable
+ **/
 public class VariableSubElementsCounterVisitor implements IValueVisitor<VariableSubElementsCounter, RuntimeException> {
 
     @Override

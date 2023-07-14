@@ -11,6 +11,9 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * This class starts a socket server that listens for incoming debug connections from IDEs.
+ */
 public class DebugSocketServer {
 
     private ServerSocket serverSocket;
@@ -66,7 +69,7 @@ public class DebugSocketServer {
         }
     }
 
-    public void disconnectClient(){
+    public void closeClientSocket(){
         if(clientSocket != null && !clientSocket.isClosed()){
             try {
                 clientSocket.close();

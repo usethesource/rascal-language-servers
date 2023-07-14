@@ -23,7 +23,7 @@ public class RascalDebugAdapterLauncher {
                     evaluator.removeSuspendTriggerListener(debugHandler);
                     try {
                         Thread.sleep(2000);
-                        socketServer.disconnectClient();
+                        socketServer.closeClientSocket();
                     } catch (InterruptedException e) {
                         final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
                         logger.fatal(e.getMessage(), e);

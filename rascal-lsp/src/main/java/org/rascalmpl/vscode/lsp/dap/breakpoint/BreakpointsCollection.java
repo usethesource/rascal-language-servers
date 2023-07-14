@@ -7,6 +7,10 @@ import org.rascalmpl.debug.DebugMessageFactory;
 
 import java.util.HashMap;
 
+/**
+    Store breakpoints set by user
+ **/
+
 public class BreakpointsCollection {
     private final HashMap<String, HashMap<ISourceLocation, BreakpointInfo>> breakpoints;
     private final DebugHandler debugHandler;

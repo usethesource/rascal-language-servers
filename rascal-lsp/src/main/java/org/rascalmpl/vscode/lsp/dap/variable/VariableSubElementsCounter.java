@@ -1,5 +1,8 @@
 package org.rascalmpl.vscode.lsp.dap.variable;
 
+/**
+    Get by visiting Rascal Values, used to indicate the number of sub elements of a variable to the IDE
+ **/
 public class VariableSubElementsCounter {
     private int namedVariables;
     private int indexedVariables;

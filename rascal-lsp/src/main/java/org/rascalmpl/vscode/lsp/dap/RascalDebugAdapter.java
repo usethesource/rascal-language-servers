@@ -38,6 +38,9 @@ import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
+/**
+ * This class implements the Debug Adapter Protocol (DAP) for Rascal.
+ */
 public class RascalDebugAdapter implements IDebugProtocolServer {
 
     final public static int mainThreadID = 1;

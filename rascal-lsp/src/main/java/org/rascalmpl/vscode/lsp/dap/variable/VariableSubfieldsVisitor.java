@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ *  Visitor that collects a specific amount of variables from starting index that are subfields of a given variable
+ */
 public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariable>, RuntimeException> {
 
     private final SuspendedState stateManager;

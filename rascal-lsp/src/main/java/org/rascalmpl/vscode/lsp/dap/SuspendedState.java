@@ -12,6 +12,9 @@ import org.rascalmpl.vscode.lsp.dap.variable.VariableSubfieldsVisitor;
 
 import java.util.*;
 
+/**
+ * Class used to store the state of the Rascal Evaluator when it is suspended
+ */
 public class SuspendedState {
 
     private final Evaluator evaluator;

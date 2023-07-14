@@ -6,6 +6,9 @@ import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.debug.*;
 import org.rascalmpl.vscode.lsp.dap.breakpoint.BreakpointsCollection;
 
+/**
+ * This class handled events triggered by the Rascal interpreter (suspension, resume, ...)
+ */
 public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     private IDebugProtocolClient client;
