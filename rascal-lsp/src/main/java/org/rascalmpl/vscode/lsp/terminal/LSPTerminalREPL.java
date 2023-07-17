@@ -116,15 +116,21 @@ public class LSPTerminalREPL extends BaseREPL {
                         case ":set debugging true":
                             if(!debugServer.isClientConnected()){
                                 ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
-                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging started in VS Code"), this.eval);
+                                getOutputWriter().println("Debugging session started.");
+                                return ResultFactory.nothing();
                             }
-                            return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging session already running"), this.eval);
+
+                            getOutputWriter().println("Debugging session was already running.");
+                            return ResultFactory.nothing();
                         case ":set debugging false":
                             if(debugServer.isClientConnected()){
                                 debugServer.terminateDebugSession();
-                                return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("Debugging stopped in VS Code"), this.eval);
+                                getOutputWriter().println("Debugging session stopped.");
+                                return ResultFactory.nothing();
                             }
-                            return ResultFactory.makeResult(TypeFactory.getInstance().stringType(), ValueFactory.getInstance().string("No debugging session running"), this.eval);
+
+                            getOutputWriter().println("Debugging session was not running.");
+                            return ResultFactory.nothing();
                         default:
                             return super.evalStatement(statement, lastLine);
                     }
