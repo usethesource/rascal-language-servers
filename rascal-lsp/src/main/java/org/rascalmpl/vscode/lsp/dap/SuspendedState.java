@@ -44,12 +44,12 @@ import java.util.*;
 public class SuspendedState {
 
     private final Evaluator evaluator;
-    private IRascalFrame[] currentStackFrames;
+    private volatile IRascalFrame[] currentStackFrames;
     private final Map<Integer, RascalVariable> variables;
     private final Map<Integer, IRascalFrame> scopes;
-    private int referenceIDCounter;
+    private volatile int referenceIDCounter;
 
-    private boolean isSuspended;
+    private volatile boolean isSuspended;
 
 
     public SuspendedState(Evaluator evaluator){
@@ -89,7 +89,7 @@ public class SuspendedState {
         return currentStackFrames[currentStackFrames.length - 1];
     }
 
-    public int addScope(IRascalFrame frame){
+    public synchronized int addScope(IRascalFrame frame){
         scopes.put(++referenceIDCounter, frame);
         return referenceIDCounter;
     }
@@ -97,7 +97,9 @@ public class SuspendedState {
     public List<RascalVariable> getVariables(int referenceID, int startIndex, int maxCount){
         List<RascalVariable> variableList = new ArrayList<>();
 
-        if(referenceID < 0) return variableList;
+        if(referenceID < 0){
+            return variableList;
+        }
 
         // referenceID is a stack frame reference id
         if(scopes.containsKey(referenceID)){
@@ -126,7 +128,7 @@ public class SuspendedState {
         return var.getValue().accept(new VariableSubfieldsVisitor(this, var.getType(), startIndex, maxCount));
     }
 
-    public void addVariable(RascalVariable variable){
+    public synchronized void addVariable(RascalVariable variable){
         variable.setReferenceID(++referenceIDCounter);
         variables.put(referenceIDCounter, variable);
     }
