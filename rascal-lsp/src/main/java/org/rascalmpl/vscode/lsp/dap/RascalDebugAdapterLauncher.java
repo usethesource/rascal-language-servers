@@ -48,6 +48,7 @@ public class RascalDebugAdapterLauncher {
                 public void run() {
                     evaluator.removeSuspendTriggerListener(debugHandler);
                     try {
+                        // Wait for the server to send and to the client to receive the disconnect response, then close the socket
                         Thread.sleep(2000);
                         socketServer.closeClientSocket();
                     } catch (InterruptedException e) {

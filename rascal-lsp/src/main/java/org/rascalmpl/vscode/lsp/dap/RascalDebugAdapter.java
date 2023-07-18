@@ -404,6 +404,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> disconnect(DisconnectArguments args) {
+        // start Runnable to request termination (which blocks the thread waiting that all messages are sent and received between vscode and debug adapter, then close the socket)
         new java.lang.Thread(new Runnable() {
             public void run() {
                 debugHandler.processMessage(DebugMessageFactory.requestTermination());
