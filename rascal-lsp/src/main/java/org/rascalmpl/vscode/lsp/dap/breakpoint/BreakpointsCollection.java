@@ -32,13 +32,14 @@ import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
     Store breakpoints set by user
  **/
 
 public class BreakpointsCollection {
-    private final HashMap<String, HashMap<ISourceLocation, BreakpointInfo>> breakpoints;
+    private final Map<String, Map<ISourceLocation, BreakpointInfo>> breakpoints;
     private final DebugHandler debugHandler;
     private int breakpointIDCounter = 0;
 

@@ -45,8 +45,8 @@ public class SuspendedState {
 
     private final Evaluator evaluator;
     private IRascalFrame[] currentStackFrames;
-    private final HashMap<Integer, RascalVariable> variables;
-    private final HashMap<Integer, IRascalFrame> scopes;
+    private final Map<Integer, RascalVariable> variables;
+    private final Map<Integer, IRascalFrame> scopes;
     private int referenceIDCounter;
 
     private boolean isSuspended;

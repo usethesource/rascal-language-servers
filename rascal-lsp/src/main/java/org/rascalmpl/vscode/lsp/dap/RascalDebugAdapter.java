@@ -79,7 +79,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     final private SuspendedState suspendedState;
     final private Logger logger;
     final private BreakpointsCollection breakpointsCollection;
-    final private HashMap<String, String> rascalModulesPathsToVSCodePaths;
+    final private Map<String, String> rascalModulesPathsToVSCodePaths;
 
 
     public RascalDebugAdapter(DebugHandler debugHandler, Evaluator evaluator) {
