@@ -36,6 +36,7 @@
     <junit.version>5.9.0</junit.version>
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     <log4j2.version>2.18.0</log4j2.version>
+    <lsp4j.version>0.15.0</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -89,7 +90,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>0.15.0</version>
+      <version>${lsp4j.version}</version>
       <type>jar</type>
     </dependency>
     <dependency>
@@ -115,7 +116,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j.debug</artifactId>
-      <version>0.21.0</version>
+      <version>${lsp4j.version}</version>
     </dependency>
   </dependencies>
   <build>
