@@ -121,7 +121,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     public CompletableFuture<SetBreakpointsResponse> setBreakpoints(SetBreakpointsArguments args) {
         return CompletableFuture.supplyAsync(() -> {
             SetBreakpointsResponse response = new SetBreakpointsResponse();
-            Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             StringBuilder contents = new StringBuilder();
             ISourceLocation loc = getLocationFromPath(args.getSource().getPath());
             if(loc == null){
@@ -144,6 +143,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             }
             ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
             breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
+            Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             for(int i = 0; i<args.getBreakpoints().length; i++){
                 SourceBreakpoint breakpoint = args.getBreakpoints()[i];
                 ITree treeBreakableLocation = locateBreakableTree(parseTree, breakpoint.getLine());
@@ -235,19 +235,21 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
     @Override
     public CompletableFuture<Void> configurationDone(ConfigurationDoneArguments args) {
-        ProcessEventArguments eventArgs = new ProcessEventArguments();
-        eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
-        eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-        eventArgs.setIsLocalProcess(true);
-        eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
-        client.process(eventArgs);
+        return CompletableFuture.supplyAsync(() -> {
+            ProcessEventArguments eventArgs = new ProcessEventArguments();
+            eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
+            eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            eventArgs.setIsLocalProcess(true);
+            eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
+            client.process(eventArgs);
 
-        ThreadEventArguments thread = new ThreadEventArguments();
-        thread.setThreadId(mainThreadID);
-        thread.setReason(ThreadEventArgumentsReason.STARTED);
-        client.thread(thread);
+            ThreadEventArguments thread = new ThreadEventArguments();
+            thread.setThreadId(mainThreadID);
+            thread.setReason(ThreadEventArgumentsReason.STARTED);
+            client.thread(thread);
 
-        return CompletableFuture.completedFuture(null);
+            return null;
+        });
     }
 
     @Override
@@ -278,29 +280,27 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             ISourceLocation currentLoc = evaluator.getCurrentPointOfExecution() != null ?
                 evaluator.getCurrentPointOfExecution()
                 : URIUtil.rootLocation("stdin");
-            StackFrame frame = new StackFrame();
-            frame.setId(stackFrames.length-1);
-            frame.setName(currentFrame.getName());
-            frame.setLine(currentLoc.getBeginLine());
-            frame.setColumn(currentLoc.getBeginColumn());
-            frame.setSource(getSourceFromISourceLocation(currentLoc));
-            stackFramesResponse[0] = frame;
+            stackFramesResponse[0] = createStackFrame(stackFrames.length - 1, currentLoc, currentFrame.getName());
             for(int i = 1; i < stackFramesResponse.length; i++) {
-                IRascalFrame f = stackFrames[stackFrames.length-i-1];
+                IRascalFrame f = stackFrames[stackFrames.length - i - 1];
                 ISourceLocation loc = stackFrames[stackFrames.length-i].getCallerLocation();
-                frame = new StackFrame();
-                frame.setId(stackFrames.length-i-1);
-                frame.setName(f.getName());
-                if(loc != null){
-                    frame.setLine(loc.getBeginLine());
-                    frame.setColumn(loc.getBeginColumn());
-                    frame.setSource(getSourceFromISourceLocation(loc));
-                }
-                stackFramesResponse[i] = frame;
+                stackFramesResponse[i] = createStackFrame(stackFrames.length - i - 1, loc, f.getName());
             }
             response.setStackFrames(stackFramesResponse);
             return response;
         });
+    }
+
+    private StackFrame createStackFrame(int id, ISourceLocation loc, String name){
+        StackFrame frame = new StackFrame();
+        frame.setId(id);
+        frame.setName(name);
+        if(loc != null){
+            frame.setLine(loc.getBeginLine());
+            frame.setColumn(loc.getBeginColumn());
+            frame.setSource(getSourceFromISourceLocation(loc));
+        }
+        return frame;
     }
 
     public Source getSourceFromISourceLocation(ISourceLocation loc) {
@@ -325,31 +325,37 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
             IRascalFrame frame = suspendedState.getCurrentStackFrames()[frameId];
             ScopesResponse response = new ScopesResponse();
-            Scope scopeLocals = new Scope();
-            scopeLocals.setName("Locals");
-            scopeLocals.setNamedVariables(frame.getFrameVariables().size());
-            scopeLocals.setPresentationHint("locals");
-            scopeLocals.setExpensive(frame.getFrameVariables().size()>expensiveScopeMinSize);
-            scopeLocals.setVariablesReference(suspendedState.addScope(frame));
-            scopes.add(scopeLocals);
+            scopes.add(createScope("Locals",
+                frame.getFrameVariables().size(),
+                "locals",
+                frame.getFrameVariables().size()>expensiveScopeMinSize,
+                suspendedState.addScope(frame)));
 
             for(String importName : frame.getImports()){
                 IRascalFrame module = evaluator.getModule(importName);
 
                 if(module != null && module.getFrameVariables().size() > 0){
-                    Scope scopeModule = new Scope();
-                    scopeModule.setName("Module " + importName);
-                    scopeModule.setNamedVariables(module.getFrameVariables().size());
-                    scopeModule.setPresentationHint("module");
-                    scopeModule.setExpensive(module.getFrameVariables().size()>expensiveScopeMinSize);
-                    scopeModule.setVariablesReference(suspendedState.addScope(module));
-                    scopes.add(scopeModule);
+                    scopes.add(createScope("Module " + importName,
+                        module.getFrameVariables().size(),
+                        "module",
+                        module.getFrameVariables().size()>expensiveScopeMinSize,
+                        suspendedState.addScope(module)));
                 }
             }
 
             response.setScopes(scopes.toArray(new Scope[scopes.size()]));
             return response;
         });
+    }
+
+    private Scope createScope(String name, int namedVariables, String presentationHint, boolean expensive, int variablesReference){
+        Scope scope = new Scope();
+        scope.setName(name);
+        scope.setNamedVariables(namedVariables);
+        scope.setPresentationHint(presentationHint);
+        scope.setExpensive(expensive);
+        scope.setVariablesReference(variablesReference);
+        return scope;
     }
 
     @Override
@@ -361,9 +367,8 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
             VariablesResponse response = new VariablesResponse();
             List<RascalVariable> variables = suspendedState.getVariables(reference, minIndex, maxCount);
-            Variable[] variablesResponse = new Variable[variables.size()];
-            int i = 0;
-            for(RascalVariable var : variables){
+
+            response.setVariables(variables.stream().map(var -> {
                 Variable variable = new Variable();
                 variable.setName(var.getName());
                 variable.setType(var.getType().toString());
@@ -371,11 +376,8 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
                 variable.setVariablesReference(var.getReferenceID());
                 variable.setNamedVariables(var.getNamedVariables());
                 variable.setIndexedVariables(var.getIndexedVariables());
-                variablesResponse[i] = variable;
-                i++;
-            }
-
-            response.setVariables(variablesResponse);
+                return variable;
+            }).toArray(Variable[]::new));
             return response;
         });
     }
