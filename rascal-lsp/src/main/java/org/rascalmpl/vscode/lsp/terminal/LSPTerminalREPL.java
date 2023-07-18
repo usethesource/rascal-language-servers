@@ -156,7 +156,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
-                    initializeRascalDebugServer(evaluator, (TerminalIDEClient) services);
+                    debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
 
                     try {
                         PathConfig pcfg;
@@ -198,11 +198,6 @@ public class LSPTerminalREPL extends BaseREPL {
                     evaluator.setMonitor(services);
 
                     return evaluator;
-                }
-
-                private void initializeRascalDebugServer(Evaluator eval, TerminalIDEClient terminal) {
-                    debugServer = new DebugSocketServer();
-                    debugServer.startSocketServer(eval, terminal);
                 }
 
                 private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {

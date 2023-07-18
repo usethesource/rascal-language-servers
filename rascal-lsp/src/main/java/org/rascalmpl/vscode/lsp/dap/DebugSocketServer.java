@@ -42,37 +42,39 @@ import java.net.Socket;
  */
 public class DebugSocketServer {
 
-    private ServerSocket serverSocket;
-    private Socket clientSocket;
+    static final Logger logger = LogManager.getLogger(DebugSocketServer.class);
+    private final ServerSocket serverSocket;
+    private volatile Socket clientSocket;
     private IDebugProtocolClient debugClient;
 
-    public void startSocketServer(Evaluator evaluator, TerminalIDEClient terminal){
-        try{
+    public DebugSocketServer(Evaluator evaluator, TerminalIDEClient terminal){
+        try {
             serverSocket = new ServerSocket(0);
-            registerDebugServerPort(terminal);
-
-            Thread t = new Thread(() -> {
-                while(true){
-                    try {
-                        Socket newClient = serverSocket.accept();
-                        if(clientSocket == null || clientSocket.isClosed()){
-                            clientSocket = newClient;
-                            debugClient = RascalDebugAdapterLauncher.start(evaluator, clientSocket, this);
-                        } else {
-                            newClient.close();
-                        }
-                    } catch (IOException e) {
-                        final Logger logger = LogManager.getLogger(DebugSocketServer.class);
-                        logger.error(e.getMessage(), e);
-                    }
-                }
-            });
-            t.setDaemon(true);
-            t.start();
-
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        registerDebugServerPort(terminal);
+        startListening(evaluator);
+    }
+
+    private void startListening(Evaluator evaluator){
+        Thread t = new Thread(() -> {
+            while(true){
+                try {
+                    Socket newClient = serverSocket.accept();
+                    if(clientSocket == null || clientSocket.isClosed()){
+                        clientSocket = newClient;
+                        debugClient = RascalDebugAdapterLauncher.start(evaluator, clientSocket, this);
+                    } else {
+                        newClient.close();
+                    }
+                } catch (IOException e) {
+                    logger.error(e.getMessage(), e);
+                }
+            }
+        });
+        t.setDaemon(true);
+        t.start();
     }
 
     private void registerDebugServerPort(TerminalIDEClient terminal){
@@ -92,6 +94,7 @@ public class DebugSocketServer {
             TerminatedEventArguments args = new TerminatedEventArguments();
             args.setRestart(false);
             debugClient.terminated(args);
+            debugClient = null;
         }
     }
 
@@ -100,7 +103,6 @@ public class DebugSocketServer {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                final Logger logger = LogManager.getLogger(DebugSocketServer.class);
                 logger.error(e.getMessage(), e);
             }
         }
