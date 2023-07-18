@@ -55,17 +55,17 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void addRascalEventListener(IRascalEventListener listener) {
-        throw new UnsupportedOperationException("Unimplemented method 'addRascalEventListener'");
+        throw new UnsupportedOperationException("Method 'addRascalEventListener' shouldn't be called");
     }
 
     @Override
     public void removeRascalEventListener(IRascalEventListener listener) {
-        throw new UnsupportedOperationException("Unimplemented method 'removeRascalEventListener'");
+        throw new UnsupportedOperationException("Method 'removeRascalEventListener' shouldn't be called");
     }
 
     @Override
     protected void fireEvent(RascalEvent event) {
-        throw new UnsupportedOperationException("Unimplemented method 'fireEvent'");
+        throw new UnsupportedOperationException("Method 'fireEvent' shouldn't be called");
     }
 
     @Override
