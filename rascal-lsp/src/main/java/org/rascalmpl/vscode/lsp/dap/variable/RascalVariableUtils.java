@@ -39,7 +39,7 @@ public class RascalVariableUtils {
 
     private static final int MAX_SIZE_STRING_NAME = 128;
 
-    // took from Rascal Eclipse debug.core.model.RascalValue
+    // copied from Rascal Eclipse debug.core.model.RascalValue
     public static String getDisplayString(IValue value) {
         Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
         try {

@@ -34,6 +34,7 @@ import io.usethesource.vallang.visitors.IValueVisitor;
 import org.rascalmpl.vscode.lsp.dap.SuspendedState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -56,17 +57,17 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
 
     @Override
     public List<RascalVariable> visitString(IString o) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
     public List<RascalVariable> visitReal(IReal o) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
     public List<RascalVariable> visitRational(IRational o) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
@@ -95,7 +96,7 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
 
     @Override
     public List<RascalVariable> visitSourceLocation(ISourceLocation o) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
@@ -153,7 +154,7 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
 
     @Override
     public List<RascalVariable> visitInteger(IInteger o) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
@@ -172,12 +173,12 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
 
     @Override
     public List<RascalVariable> visitBoolean(IBool boolValue) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
     public List<RascalVariable> visitExternal(IExternalValue externalValue) throws RuntimeException {
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
     @Override
