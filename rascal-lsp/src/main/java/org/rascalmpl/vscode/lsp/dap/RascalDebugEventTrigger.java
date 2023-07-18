@@ -70,6 +70,9 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
 
     @Override
     public void fireSuspendByBreakpointEvent(Object data) {
+        if(!(data instanceof ISourceLocation)){
+            return;
+        }
         ISourceLocation location = (ISourceLocation) data;
         int breakpointID = breakpointsCollection.getBreakpointID(location);
         if(breakpointID < 0){
