@@ -33,6 +33,8 @@ import org.rascalmpl.debug.DebugMessageFactory;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
     Store breakpoints set by user
@@ -41,16 +43,19 @@ import java.util.Map;
 public class BreakpointsCollection {
     private final Map<String, Map<ISourceLocation, BreakpointInfo>> breakpoints;
     private final DebugHandler debugHandler;
-    private int breakpointIDCounter = 0;
+    private final AtomicInteger breakpointIDCounter = new AtomicInteger(0);
 
     public BreakpointsCollection(DebugHandler debugHandler){
-        this.breakpoints = new HashMap<>();
+        this.breakpoints = new ConcurrentHashMap<>();
         this.debugHandler = debugHandler;
     }
 
     public void clearBreakpointsOfFile(String filePath){
-        if(!breakpoints.containsKey(filePath)) return;
-        for (ISourceLocation breakpointLocation : breakpoints.get(filePath).keySet()) {
+        Map<ISourceLocation, BreakpointInfo> fileBreakpoints = breakpoints.get(filePath);
+        if(fileBreakpoints == null){
+            return;
+        }
+        for (ISourceLocation breakpointLocation : fileBreakpoints.keySet()) {
             debugHandler.processMessage(DebugMessageFactory.requestDeleteBreakpoint(breakpointLocation));
         }
         breakpoints.get(filePath).clear();
@@ -58,15 +63,21 @@ public class BreakpointsCollection {
 
     public void addBreakpoint(ISourceLocation location, Source source){
         String path = location.getPath();
-        if(!breakpoints.containsKey(path)) breakpoints.put(path, new HashMap<>());
-        BreakpointInfo breakpoint = new BreakpointInfo(++breakpointIDCounter, source);
-        breakpoints.get(path).put(location, breakpoint);
+        BreakpointInfo breakpoint = new BreakpointInfo(breakpointIDCounter.incrementAndGet(), source);
+        breakpoints.computeIfAbsent(path, k -> new HashMap<>()).put(location, breakpoint);
         debugHandler.processMessage(DebugMessageFactory.requestSetBreakpoint(location));
     }
 
     public int getBreakpointID(ISourceLocation location){
         String path = location.getPath();
-        if(!breakpoints.containsKey(path) || !breakpoints.get(path).containsKey(location)) return -1;
-        return breakpoints.get(path).get(location).getId();
+        Map<ISourceLocation, BreakpointInfo> fileBreakpoints = breakpoints.get(path);
+        if(fileBreakpoints == null){
+            return -1;
+        }
+        BreakpointInfo breakpointInfo = fileBreakpoints.get(location);
+        if(breakpointInfo == null){
+            return -1;
+        }
+        return breakpointInfo.getId();
     }
 }
