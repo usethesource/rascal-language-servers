@@ -61,7 +61,7 @@ public class PathConfigs {
 
     private PathConfig buildPathConfig(ISourceLocation projectRoot) {
         try {
-            logger.trace("Building pcfg from: {}", projectRoot);
+            logger.debug("Building pcfg from: {}", projectRoot);
             URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
@@ -70,7 +70,7 @@ public class PathConfigs {
                 });
             }
             var result = actualBuild(projectRoot);
-            logger.trace("new pcfg: {}", result);
+            logger.debug("new pcfg: {}", result);
             return result;
         }
         catch (IOException e) {
