@@ -44,39 +44,34 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
     }
 
     async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken | undefined): Promise<DebugConfiguration> {
-        return new Promise((resolve, reject) => {
-            if(token !== undefined){
-                token.onCancellationRequested((e) => {
-                    reject(e);
-                });
-            }
+        
+        if(token !== undefined){
+            token.onCancellationRequested((e) => {
+                throw Error(e);
+            });
+        }
 
-            if (debugConfiguration.type === undefined) {
-                debugConfiguration.type = "rascalmpl";
-                debugConfiguration.name = "Rascal Debug";
-                debugConfiguration.request = "attach";
-            }
+        if (debugConfiguration.type === undefined) {
+            debugConfiguration.type = "rascalmpl";
+            debugConfiguration.name = "Rascal Debug";
+            debugConfiguration.request = "attach";
+        }
 
-            if (!debugConfiguration.serverPort){
-                window.activeTerminal?.processId.then((value: number|undefined) => {
-                    const port = this.debugClient.getServerPort(value);
-                    if(port === undefined) {
-                        reject("Active terminal has not a debug server port registered !");
-                    } else {
-                        if(this.debugClient.isConnectedToDebugServer(port)){
-                            reject("This REPL has already a running debug session !");
-                        } else {
-                            debugConfiguration.serverPort = port;
-                            resolve(debugConfiguration);
-                        }
-                    }
-                }, (reason: any) => {
-                    reject(reason);
-                });
+        if (!debugConfiguration.serverPort){
+            const terminalProcessID = await window.activeTerminal?.processId;
+            const port = this.debugClient.getServerPort(terminalProcessID);
+            if(port === undefined) {
+                throw Error("Active terminal has not a debug server port registered !");
             } else {
-                resolve(debugConfiguration);
+                if(this.debugClient.isConnectedToDebugServer(port)){
+                    throw Error("This REPL has already a running debug session !");
+                } else {
+                    debugConfiguration.serverPort = port;
+                }
             }
-        });
+        }
+
+        return debugConfiguration;
     }
 
 }
