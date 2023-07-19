@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *  Visitor that collects a specific amount of variables from starting index that are subfields of a given variable
@@ -84,13 +85,14 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
     @Override
     public List<RascalVariable> visitSet(ISet o) throws RuntimeException {
         List<RascalVariable> result = new ArrayList<>();
-        Object[] elements = o.stream().toArray();
-        int max = count == -1 ? o.size() : Math.min(o.size(), startIndex+count);
-        for(int i = startIndex; i< max; i++){
-            IValue value = (IValue) elements[i];
-            RascalVariable newVar = new RascalVariable(visitedType.isSet() ? visitedType.getElementType() : o.getElementType(),Integer.toString(i), value);
+
+        AtomicInteger i = new AtomicInteger(startIndex);
+        o.stream().skip(startIndex).limit(count == -1 ? o.size()-startIndex : count).forEach(value -> {
+            RascalVariable newVar = new RascalVariable(visitedType.isSet() ? visitedType.getElementType() : o.getElementType(),Integer.toString(i.get()), value);
             addVariableToResult(newVar, result);
-        }
+            i.getAndIncrement();
+        });
+
         return result;
     }
 
@@ -135,18 +137,15 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
             }
         }
 
-        int remaining = count == -1 ? 1 : (startIndex+count) - o.arity();
-        if (o.mayHaveKeywordParameters() && remaining > 0) {
+        if (o.mayHaveKeywordParameters() && (count == -1 || (startIndex+count) - o.arity() > 0)) {
             Map<String, IValue> parameters = o.asWithKeywordParameters().getParameters();
+            int remaining = count == -1 ? parameters.size() : (startIndex+count) - o.arity();
             int startParametersIndex = startIndex<o.arity() ? 0 : startIndex-o.arity();
-            Object[] keys = parameters.keySet().toArray();
-            int max = count == -1 ? parameters.size() : Math.min(parameters.size(), startParametersIndex+remaining);
-            for(int i = startParametersIndex; i< max; i++){
-                String name = (String) keys[i];
+            parameters.keySet().stream().skip(startParametersIndex).limit(remaining).forEach(name -> {
                 IValue value = parameters.get(name);
                 RascalVariable newVar = new RascalVariable(value.getType(), '['+name+']', value);
                 addVariableToResult(newVar, result);
-            }
+            });
         }
 
         return result;
@@ -161,13 +160,12 @@ public class VariableSubfieldsVisitor implements IValueVisitor<List<RascalVariab
     public List<RascalVariable> visitMap(IMap o) throws RuntimeException {
         List<RascalVariable> result = new ArrayList<>();
 
-        Object[] pairs = o.stream().toArray();
-        int max = count == -1 ? o.size() : Math.min(o.size(), startIndex+count);
-        for(int i = startIndex; i< max; i++){
-            ITuple pair = (ITuple) pairs[i];
-            RascalVariable newVar = new RascalVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), RascalVariableUtils.getDisplayString(pair.get(0)), pair.get(1));
+        o.stream().skip(startIndex).limit(count == -1 ? o.size()-startIndex : count).forEach(pair -> {
+            ITuple tuple = (ITuple) pair;
+            RascalVariable newVar = new RascalVariable(visitedType.isMap() ? visitedType.getValueType() : o.getValueType(), RascalVariableUtils.getDisplayString(tuple.get(0)), tuple.get(1));
             addVariableToResult(newVar, result);
-        }
+        });
+
         return result;
     }
 
