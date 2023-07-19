@@ -47,6 +47,7 @@ import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
 import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -121,7 +122,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     public CompletableFuture<SetBreakpointsResponse> setBreakpoints(SetBreakpointsArguments args) {
         return CompletableFuture.supplyAsync(() -> {
             SetBreakpointsResponse response = new SetBreakpointsResponse();
-            StringBuilder contents = new StringBuilder();
             ISourceLocation loc = getLocationFromPath(args.getSource().getPath());
             if(loc == null){
                 response.setBreakpoints(new Breakpoint[0]);
@@ -130,18 +130,16 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             if(args.getSource().getPath().contains(":/")){
                 this.rascalModulesPathsToVSCodePaths.put(loc.getPath(), args.getSource().getPath());
             }
+
+            String contents;
             try(Reader reader = URIResolverRegistry.getInstance().getCharacterReader(loc)) {
-                char[] buffer = new char[1024];
-                int bufferlen = 0;
-                while((bufferlen = reader.read(buffer)) > 0){
-                    contents.append(buffer, 0, bufferlen);
-                }
+                contents = Prelude.consumeInputStream(reader);
             } catch (IOException e) {
                 logger.error(e.getMessage(), e);
                 response.setBreakpoints(new Breakpoint[0]);
                 return response;
             }
-            ITree parseTree = RascalServices.parseRascalModule(loc, contents.toString().toCharArray());
+            ITree parseTree = RascalServices.parseRascalModule(loc, contents.toCharArray());
             breakpointsCollection.clearBreakpointsOfFile(loc.getPath());
             Breakpoint[] breakpoints = new Breakpoint[args.getBreakpoints().length];
             for(int i = 0; i<args.getBreakpoints().length; i++){
