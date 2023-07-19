@@ -39,7 +39,7 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
     }
 
     provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken | undefined): ProviderResult<DebugConfiguration[]> {
-        const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal Debug", request: "attach"};
+        const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal debugger", request: "attach"};
         return [conf];
     }
 
@@ -53,7 +53,7 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
 
         if (debugConfiguration.type === undefined) {
             debugConfiguration.type = "rascalmpl";
-            debugConfiguration.name = "Rascal Debug";
+            debugConfiguration.name = "Rascal debugger";
             debugConfiguration.request = "attach";
         }
 

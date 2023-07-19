@@ -87,23 +87,24 @@
     ],
     "debuggers": [
       {
+          "languages": ["rascalmpl"],
           "type": "rascalmpl",
-          "label": "rascalmpl",
+          "label": "Rascal debugger",
           "initialConfigurations": [
               {
                   "type": "rascalmpl",
                   "request": "attach",
-                  "name": "Rascal Debug"
+                  "name": "Rascal debugger"
               }
           ],
           "configurationSnippets": [
               {
-                  "label": "Rascal Debug",
-                  "description": "Rascal Debug",
+                  "label": "Rascal debugger",
+                  "description": "Rascal debugger",
                   "body": {
                     "type": "rascalmpl",
                     "request": "attach",
-                    "name": "Rascal Debug"
+                    "name": "Rascal debugger"
                 }
               }
           ]
