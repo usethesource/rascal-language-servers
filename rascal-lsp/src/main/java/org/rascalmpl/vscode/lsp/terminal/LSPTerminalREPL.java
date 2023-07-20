@@ -38,6 +38,8 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.usethesource.vallang.impl.reference.ValueFactory;
 import io.usethesource.vallang.type.TypeFactory;
@@ -112,28 +114,28 @@ public class LSPTerminalREPL extends BaseREPL {
 
                 @Override
                 public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
-                    switch(statement) {
-                        case ":set debugging true":
+                    Pattern regex = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
+                    Matcher matcher = regex.matcher(statement);
+                    if (matcher.find()) {
+                        if(matcher.group(1).equals("true")){
                             if(!debugServer.isClientConnected()){
                                 ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
                                 getOutputWriter().println("Debugging session started.");
                                 return ResultFactory.nothing();
                             }
-
                             getOutputWriter().println("Debugging session was already running.");
                             return ResultFactory.nothing();
-                        case ":set debugging false":
-                            if(debugServer.isClientConnected()){
-                                debugServer.terminateDebugSession();
-                                getOutputWriter().println("Debugging session stopped.");
-                                return ResultFactory.nothing();
-                            }
-
-                            getOutputWriter().println("Debugging session was not running.");
+                        }
+                        if(debugServer.isClientConnected()){
+                            debugServer.terminateDebugSession();
+                            getOutputWriter().println("Debugging session stopped.");
                             return ResultFactory.nothing();
-                        default:
-                            return super.evalStatement(statement, lastLine);
+                        }
+                        getOutputWriter().println("Debugging session was not running.");
+                        return ResultFactory.nothing();
                     }
+
+                    return super.evalStatement(statement, lastLine);
                 }
 
                 @Override
