@@ -122,6 +122,11 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     public CompletableFuture<SetBreakpointsResponse> setBreakpoints(SetBreakpointsArguments args) {
         return CompletableFuture.supplyAsync(() -> {
             SetBreakpointsResponse response = new SetBreakpointsResponse();
+            String extension = args.getSource().getName().substring(args.getSource().getName().lastIndexOf('.') + 1);
+            if (!extension.equals("rsc")) {
+                response.setBreakpoints(new Breakpoint[0]);
+                return response;
+            }
             ISourceLocation loc = getLocationFromPath(args.getSource().getPath());
             if(loc == null){
                 response.setBreakpoints(new Breakpoint[0]);
