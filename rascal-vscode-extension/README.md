@@ -46,6 +46,12 @@ For other things we are working on have a look here:
 
 
 ## Release Notes
+### 0.8.2
+
+* Upgraded to rascal 0.33.3:
+  * Fixed a bug around ModuleParserStorage (see `lang::rascal::grammar::storage::ModuleParserStorage`)
+  * Bugfixes with the lib resolver
+  * New feature: `IO::findResources` that replaces some functionality that people used the `lib://` scheme for.
 
 ### 0.8.1
 
@@ -72,7 +78,7 @@ For other things we are working on have a look here:
    * All code examples, if tagged with `error`, must also throw an error.
    * Fixed all code examples that were falsely tagged with `error`
 * Finally, these are the changes local to the rascal-language-servers and rascal-lsp projects:
-   * PR #262 fixed three important issues with the LSP server interactions that had effect on the quality of the hover help and the references feature. In particular when more source files were involved (e.g. in the Rascal case) sometimes seemingly random results are shown, or none. This fix removes the root cause of the confusion and also rationalizes some code around the mapping from cursor locations to locations in the summaries. 
+   * PR #262 fixed three important issues with the LSP server interactions that had effect on the quality of the hover help and the references feature. In particular when more source files were involved (e.g. in the Rascal case) sometimes seemingly random results are shown, or none. This fix removes the root cause of the confusion and also rationalizes some code around the mapping from cursor locations to locations in the summaries.
    * util::LanguageServer is now minimally documented and will appear on rascal-mpl.shortly in the Packages section under the `rascal-mpl` package.
    * Checks in RASCAL.MF files have been extended and improved.
    * Loading of classes from dependent projects has improved in the VScode terminal and the language-parametrized LSP; there was a bug which caused arbitrary jar files to be loaded instead of the ones declared in the `pom.xml`. Usually the last dependency in the pom file "won". This also means that `lib://myDependency` would sometimes implicitly resolve to `lib://myLaterDependency` and throw IO exceptions and `exists` tests set to `false`.
