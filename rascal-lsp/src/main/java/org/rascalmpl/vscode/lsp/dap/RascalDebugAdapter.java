@@ -32,10 +32,11 @@ import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -80,13 +81,12 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     final private SuspendedState suspendedState;
     final private Logger logger;
     final private BreakpointsCollection breakpointsCollection;
-    final private Map<String, String> rascalModulesPathsToVSCodePaths;
+    final private Pattern emptyAuthorityPathPattern = Pattern.compile("^\\w+:/\\w+[^/]");
 
 
     public RascalDebugAdapter(DebugHandler debugHandler, Evaluator evaluator) {
         this.debugHandler = debugHandler;
         this.evaluator = evaluator;
-        this.rascalModulesPathsToVSCodePaths = new HashMap<>();
 
         this.suspendedState = new SuspendedState(evaluator);
         this.logger = LogManager.getLogger(RascalDebugAdapter.class);
@@ -126,9 +126,6 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             if(loc == null){
                 response.setBreakpoints(new Breakpoint[0]);
                 return response;
-            }
-            if(args.getSource().getPath().contains(":/")){
-                this.rascalModulesPathsToVSCodePaths.put(loc.getPath(), args.getSource().getPath());
             }
 
             String contents;
@@ -172,7 +169,12 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
         } else {
             URI uri = URI.create(path);
             try {
-                return URIUtil.createFromURI(uri.toString().replace(":/", ":///"));
+                String finalUri = uri.toString();
+                Matcher matcher = emptyAuthorityPathPattern.matcher(finalUri);
+                if(matcher.find()){
+                    finalUri = finalUri.replaceFirst(":/", ":///");
+                }
+                return URIUtil.createFromURI(finalUri);
             } catch (URISyntaxException e) {
                 logger.error(e.getMessage(), e);
                 return null;
@@ -306,8 +308,8 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
         File file = new File(loc.getPath());
         source.setName(file.getName());
         String path = loc.getPath();
-        if(this.rascalModulesPathsToVSCodePaths.containsKey(path)){
-            path = this.rascalModulesPathsToVSCodePaths.get(path);
+        if(!loc.getScheme().equals("file")){
+            path = loc.getScheme() + "://" + loc.getAuthority() + path;
         }
         source.setPath(path);
         source.setSourceReference(-1);
