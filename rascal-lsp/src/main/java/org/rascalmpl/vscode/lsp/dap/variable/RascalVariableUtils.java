@@ -41,6 +41,9 @@ public class RascalVariableUtils {
 
     // copied from Rascal Eclipse debug.core.model.RascalValue
     public static String getDisplayString(IValue value) {
+        if(value == null) {
+            return "null";
+        }
         Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
         try {
             new StandardTextWriter(true, 2).write(value, w);
