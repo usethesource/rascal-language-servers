@@ -20,10 +20,10 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "node-fetch": "^2.6.7",
-    "tar": "^6.1.11",
-    "vscode-languageclient": "^8.0.0",
-    "yauzl": "^2.10.0"
+    "node-fetch": "2.x",
+    "tar": "6.x",
+    "vscode-languageclient": "8.x",
+    "yauzl": "2.x"
   },
   "categories": [
     "Programming Languages"
@@ -110,25 +110,25 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.1",
-    "@types/node": "^16.x",
-    "@types/node-fetch": "^2.5.12",
-    "@types/tar": "^6.1.1",
-    "@types/temp": "^0.9.1",
+    "@types/mocha": "10.x",
+    "@types/node": "16.x",
+    "@types/node-fetch": "2.x",
+    "@types/tar": "6.x",
+    "@types/temp": "0.x",
     "@types/vscode": "1.67.0",
-    "@types/yauzl": "^2.9.2",
-    "@typescript-eslint/eslint-plugin": "^5.31.1",
-    "@typescript-eslint/parser": "^5.31.1",
-    "@vscode/test-electron": "^2.1.5",
-    "eslint": "^8.20.0",
-    "glob": "^10.2.6",
-    "license-check-and-add": "^4.0.2",
-    "mocha": "^10.2.0",
-    "temp": "^0.9.4",
-    "ts-loader": "^9.4.1",
-    "typescript": "^5.0.4",
-    "vsce": "^2.11.0",
-    "webpack": "^5.76.0",
-    "webpack-cli": "^5.1.1"
+    "@types/yauzl": "2.x",
+    "@typescript-eslint/eslint-plugin": "5.x",
+    "@typescript-eslint/parser": "5.x",
+    "@vscode/test-electron": "2.x",
+    "eslint": "8.x",
+    "glob": "10.x",
+    "license-check-and-add": "4.x",
+    "mocha": "10.x",
+    "temp": "0.x",
+    "ts-loader": "9.x",
+    "typescript": "5.x",
+    "@vscode/vsce": "2.x",
+    "webpack": "5.x",
+    "webpack-cli": "5.x"
   }
 }
