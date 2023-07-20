@@ -104,6 +104,7 @@ public class LSPTerminalREPL extends BaseREPL {
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
                 private DebugSocketServer debugServer;
+                private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
 
                 @Override
                 protected SortedSet<String> getCommandLineOptions() {
@@ -114,8 +115,7 @@ public class LSPTerminalREPL extends BaseREPL {
 
                 @Override
                 public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
-                    Pattern regex = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
-                    Matcher matcher = regex.matcher(statement);
+                    Matcher matcher = debuggingCommandPattern.matcher(statement);
                     if (matcher.find()) {
                         if(matcher.group(1).equals("true")){
                             if(!debugServer.isClientConnected()){
