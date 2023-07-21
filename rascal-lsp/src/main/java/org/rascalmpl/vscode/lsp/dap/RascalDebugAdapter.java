@@ -243,7 +243,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
         return CompletableFuture.supplyAsync(() -> {
             ProcessEventArguments eventArgs = new ProcessEventArguments();
             eventArgs.setSystemProcessId((int) ProcessHandle.current().pid());
-            eventArgs.setName(LSPTerminalREPL.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            eventArgs.setName("Rascal REPL");
             eventArgs.setIsLocalProcess(true);
             eventArgs.setStartMethod(ProcessEventArgumentsStartMethod.ATTACH);
             client.process(eventArgs);
