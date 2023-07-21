@@ -38,7 +38,7 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
         this.debugClient = debugClient;
     }
 
-    provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken | undefined): ProviderResult<DebugConfiguration[]> {
+    provideDebugConfigurations(_folder: WorkspaceFolder | undefined, _token?: CancellationToken | undefined): ProviderResult<DebugConfiguration[]> {
         const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal debugger", request: "attach"};
         return [conf];
     }
