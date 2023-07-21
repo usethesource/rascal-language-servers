@@ -80,6 +80,36 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "breakpoints": [
+      {
+          "language": "rascalmpl"
+      }
+    ],
+    "debuggers": [
+      {
+          "languages": ["rascalmpl"],
+          "type": "rascalmpl",
+          "label": "Rascal debugger",
+          "initialConfigurations": [
+              {
+                  "type": "rascalmpl",
+                  "request": "attach",
+                  "name": "Rascal debugger"
+              }
+          ],
+          "configurationSnippets": [
+              {
+                  "label": "Rascal debugger",
+                  "description": "Rascal debugger",
+                  "body": {
+                    "type": "rascalmpl",
+                    "request": "attach",
+                    "name": "Rascal debugger"
+                }
+              }
+          ]
+      }
+  ],
     "grammars": [
       {
         "language": "rascalmpl",

@@ -35,13 +35,21 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import io.usethesource.vallang.impl.reference.ValueFactory;
+import io.usethesource.vallang.type.TypeFactory;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
+import org.rascalmpl.interpreter.result.IRascalResult;
+import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -54,6 +62,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
@@ -94,6 +103,40 @@ public class LSPTerminalREPL extends BaseREPL {
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
+                private DebugSocketServer debugServer;
+                private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
+
+                @Override
+                protected SortedSet<String> getCommandLineOptions() {
+                    SortedSet<String> options = super.getCommandLineOptions();
+                    options.add("debugging");
+                    return options;
+                }
+
+                @Override
+                public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
+                    Matcher matcher = debuggingCommandPattern.matcher(statement);
+                    if (matcher.find()) {
+                        if(matcher.group(1).equals("true")){
+                            if(!debugServer.isClientConnected()){
+                                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
+                                getOutputWriter().println("Debugging session started.");
+                                return ResultFactory.nothing();
+                            }
+                            getOutputWriter().println("Debugging session was already running.");
+                            return ResultFactory.nothing();
+                        }
+                        if(debugServer.isClientConnected()){
+                            debugServer.terminateDebugSession();
+                            getOutputWriter().println("Debugging session stopped.");
+                            return ResultFactory.nothing();
+                        }
+                        getOutputWriter().println("Debugging session was not running.");
+                        return ResultFactory.nothing();
+                    }
+
+                    return super.evalStatement(statement, lastLine);
+                }
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
@@ -115,6 +158,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
+                    debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+
                     try {
                         PathConfig pcfg;
                         if (projectDir != null) {
@@ -131,7 +176,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         if (services instanceof TerminalIDEClient) {
                             ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
                         }
-                        
+
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
                             reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));

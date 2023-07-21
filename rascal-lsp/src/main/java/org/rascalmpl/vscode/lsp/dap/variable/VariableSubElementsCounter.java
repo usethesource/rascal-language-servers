@@ -24,34 +24,34 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+/**
+    Get by visiting Rascal Values, used to indicate the number of sub elements of a variable to the IDE
+ **/
+public class VariableSubElementsCounter {
+    private int namedVariables;
+    private int indexedVariables;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+    public VariableSubElementsCounter(int namedVariables, int indexedVariables){
+        this.namedVariables = namedVariables;
+        this.indexedVariables = indexedVariables;
+    }
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    public int getNamedVariables() {
+        return namedVariables;
+    }
 
-    @JsonNotification("rascal/receiveUnregisterLanguage")
-    void receiveUnregisterLanguage(LanguageParameter lang);
+    public int getIndexedVariables() {
+        return indexedVariables;
+    }
 
-    /**
-     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
-     */
-    @JsonNotification("rascal/startDebuggingSession")
-    void startDebuggingSession(int serverPort);
+    public void setNamedVariables(int namedVariables) {
+        this.namedVariables = namedVariables;
+    }
 
-    /**
-     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
-     * It is then used to make the link between a terminal process ID and the corresponding debug server port
-     */
-    @JsonNotification("rascal/registerDebugServerPort")
-    void registerDebugServerPort(int processID, int serverPort);
+    public void setIndexedVariables(int indexedVariables) {
+        this.indexedVariables = indexedVariables;
+    }
 
 }

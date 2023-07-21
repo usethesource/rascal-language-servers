@@ -78,6 +78,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -96,7 +97,6 @@ import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import com.google.common.io.CharStreams;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -131,8 +131,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         if (ideState != null) {
             return ideState.getCurrentContent();
         }
+
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
-            return CharStreams.toString(src);
+            return Prelude.consumeInputStream(src);
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);

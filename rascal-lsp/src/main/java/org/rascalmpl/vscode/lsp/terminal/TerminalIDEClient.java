@@ -248,6 +248,14 @@ public class TerminalIDEClient implements IDEServices {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
+    public void startDebuggingSession(int serverPort){
+        server.startDebuggingSession(serverPort);
+    }
+
+    public void registerDebugServerPort(int processID, int serverPort){
+        server.registerDebugServerPort(processID, serverPort);
+    }
+
     public void registerErrorPrinter(PrintWriter errorPrinter) {
         this.err = errorPrinter;
     }

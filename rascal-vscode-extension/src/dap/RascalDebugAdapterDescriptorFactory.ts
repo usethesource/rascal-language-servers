@@ -24,34 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+import { DebugAdapterDescriptor, DebugAdapterDescriptorFactory, DebugAdapterExecutable, DebugAdapterServer, DebugSession, ProviderResult} from "vscode";
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+/**
+ * Class creating a DebugAdapterServer connection when starting a debug session
+ */
+export class RascalDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactory {
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
-
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
-
-    @JsonNotification("rascal/receiveUnregisterLanguage")
-    void receiveUnregisterLanguage(LanguageParameter lang);
-
-    /**
-     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
-     */
-    @JsonNotification("rascal/startDebuggingSession")
-    void startDebuggingSession(int serverPort);
-
-    /**
-     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
-     * It is then used to make the link between a terminal process ID and the corresponding debug server port
-     */
-    @JsonNotification("rascal/registerDebugServerPort")
-    void registerDebugServerPort(int processID, int serverPort);
+    createDebugAdapterDescriptor(session: DebugSession, _executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
+        return new DebugAdapterServer(session.configuration.serverPort, "127.0.0.1");
+    }
 
 }

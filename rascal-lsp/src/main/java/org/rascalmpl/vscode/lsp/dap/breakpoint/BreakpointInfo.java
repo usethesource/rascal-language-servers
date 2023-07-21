@@ -24,34 +24,24 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.dap.breakpoint;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.eclipse.lsp4j.debug.Source;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+public class BreakpointInfo {
+    private final int id;
+    private final Source source;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+    public BreakpointInfo(int id, Source source) {
+        this.id = id;
+        this.source = source;
+    }
 
-    @JsonNotification("rascal/receiveUnregisterLanguage")
-    void receiveUnregisterLanguage(LanguageParameter lang);
+    public int getId() {
+        return id;
+    }
 
-    /**
-     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
-     */
-    @JsonNotification("rascal/startDebuggingSession")
-    void startDebuggingSession(int serverPort);
-
-    /**
-     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
-     * It is then used to make the link between a terminal process ID and the corresponding debug server port
-     */
-    @JsonNotification("rascal/registerDebugServerPort")
-    void registerDebugServerPort(int processID, int serverPort);
-
+    public Source getSource() {
+        return source;
+    }
 }

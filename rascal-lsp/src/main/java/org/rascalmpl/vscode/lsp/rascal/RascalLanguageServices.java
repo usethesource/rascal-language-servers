@@ -56,6 +56,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
@@ -165,13 +166,7 @@ public class RascalLanguageServices {
 
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        return CompletableFuture.supplyAsync(() -> parseContents(loc, input.toCharArray()), exec);
-    }
-
-    private ITree parseContents(ISourceLocation loc, char[] input) {
-        IActionExecutor<ITree> actions = new NoActionExecutor();
-        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
-            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+        return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);
     }
 
     public List<CodeLensSuggestion> locateCodeLenses(ITree tree) {

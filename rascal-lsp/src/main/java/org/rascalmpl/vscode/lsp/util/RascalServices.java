@@ -24,34 +24,22 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.util;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
+import org.rascalmpl.parser.Parser;
+import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
+import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
+import org.rascalmpl.parser.uptr.UPTRNodeFactory;
+import org.rascalmpl.parser.uptr.action.NoActionExecutor;
+import org.rascalmpl.values.parsetrees.ITree;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+import io.usethesource.vallang.ISourceLocation;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
-
-    @JsonNotification("rascal/receiveUnregisterLanguage")
-    void receiveUnregisterLanguage(LanguageParameter lang);
-
-    /**
-     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
-     */
-    @JsonNotification("rascal/startDebuggingSession")
-    void startDebuggingSession(int serverPort);
-
-    /**
-     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
-     * It is then used to make the link between a terminal process ID and the corresponding debug server port
-     */
-    @JsonNotification("rascal/registerDebugServerPort")
-    void registerDebugServerPort(int processID, int serverPort);
-
+public class RascalServices {
+    public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
+        IActionExecutor<ITree> actions = new NoActionExecutor();
+        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
+            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+    }
 }

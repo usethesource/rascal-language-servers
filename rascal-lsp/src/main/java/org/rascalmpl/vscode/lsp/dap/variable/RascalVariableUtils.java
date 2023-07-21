@@ -24,34 +24,36 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.dap.variable;
 
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.io.StandardTextWriter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 
-public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+import java.io.IOException;
+import java.io.Writer;
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
-    void receiveRegisterLanguage(LanguageParameter lang);
+public class RascalVariableUtils {
 
-    @JsonNotification("rascal/receiveUnregisterLanguage")
-    void receiveUnregisterLanguage(LanguageParameter lang);
+    private static final int MAX_SIZE_STRING_NAME = 128;
 
-    /**
-     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
-     */
-    @JsonNotification("rascal/startDebuggingSession")
-    void startDebuggingSession(int serverPort);
-
-    /**
-     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
-     * It is then used to make the link between a terminal process ID and the corresponding debug server port
-     */
-    @JsonNotification("rascal/registerDebugServerPort")
-    void registerDebugServerPort(int processID, int serverPort);
-
+    // copied from Rascal Eclipse debug.core.model.RascalValue
+    public static String getDisplayString(IValue value) {
+        if(value == null) {
+            return "null";
+        }
+        Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
+        try {
+            new StandardTextWriter(true, 2).write(value, w);
+            return w.toString();
+        } catch (LimitedResultWriter.IOLimitReachedException e) {
+            return w.toString();
+        } catch (IOException e) {
+            final Logger logger = LogManager.getLogger(RascalVariableUtils.class);
+            logger.error(e.getMessage(), e);
+            return "error during serialization...";
+        }
+    }
 }

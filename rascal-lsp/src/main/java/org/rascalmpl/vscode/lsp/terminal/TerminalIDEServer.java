@@ -244,4 +244,14 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
     }
+
+    @Override
+    public void startDebuggingSession(int serverPort) {
+        languageClient.startDebuggingSession(serverPort);
+    }
+
+    @Override
+    public void registerDebugServerPort(int processID, int serverPort) {
+        languageClient.registerDebugServerPort(processID, serverPort);
+    }
 }
