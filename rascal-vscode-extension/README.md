@@ -46,6 +46,11 @@ For other things we are working on have a look here:
 
 
 ## Release Notes
+### 0.8.3
+
+* upgraded to rascal 0.33.5:
+  * Fixed a second bug aroung ModuleParserStorage
+  * Preparing for debugger API
 ### 0.8.2
 
 * Upgraded to rascal 0.33.3:
