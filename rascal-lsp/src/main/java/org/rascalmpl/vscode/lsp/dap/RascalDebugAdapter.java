@@ -434,9 +434,7 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
     @Override
     public CompletableFuture<Void> stepOut(StepOutArguments args) {
         return CompletableFuture.supplyAsync(() -> {
-            //TODO: implementation of step out request.
-            logger.debug("Step out request not implemented in debug adapter");
-            debugHandler.processMessage(DebugMessageFactory.requestStepOver());
+            debugHandler.processMessage(DebugMessageFactory.requestStepOut());
 
             return null;
         });
