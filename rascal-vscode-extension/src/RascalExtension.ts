@@ -41,7 +41,7 @@ export class RascalExtension implements vscode.Disposable {
     private readonly rascal: RascalLanguageServer;
 
 
-    constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly isDeploy = true) {
+    constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
         this.vfsServer = new VSCodeUriResolverServer(!isDeploy);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
@@ -118,6 +118,7 @@ export class RascalExtension implements vscode.Disposable {
             const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
             progress.report({increment: 25, message: "Creating terminal"});
             const terminal = vscode.window.createTerminal({
+                iconPath: this.icon,
                 cwd: path.dirname(uri?.fsPath || ""),
                 shellPath: await getJavaExecutable(),
                 shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),

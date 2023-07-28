@@ -36,7 +36,8 @@ const deployMode = (process.env.RASCAL_LSP_DEV || "false") !== "true";
 
 export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
-    const extension = new RascalExtension(context, jars, (deployMode || testDeployMode));
+    const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo.svg");
+    const extension = new RascalExtension(context, jars, icon, (deployMode || testDeployMode));
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     return extension.externalLanguageRegistry();
