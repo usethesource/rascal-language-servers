@@ -38,14 +38,6 @@
       {
         "command": "rascalmpl.createTerminal",
         "title": "Create Rascal Terminal"
-      },
-      {
-        "command": "rascalmpl.runMain",
-        "title": "Start Rascal Terminal, Import module and Run main function"
-      },
-      {
-        "command": "rascalmpl.importMain",
-        "title": "Start Rascal Terminal and Import this module"
       }
     ],
     "languages": [
