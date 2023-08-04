@@ -28,14 +28,22 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, downloadTemurin, microsoftSupported, temurinSupported } from './downloaders';
+import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, 
+    downloadTemurin, microsoftSupported, temurinSupported, 
+    identifyLatestTemurinLTSRelease, mapTemuringCorrettoArch, mapTemurinPlatform, 
+    mapCorrettoPlatform, identifyLatestCorrettoRelease, mapMSArchitectures, 
+    mapMSPlatforms, identifyLatestMicrofotJDKRelease } from './downloaders';
 import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
+import { readReleaseInfo } from './ReleaseInfo';
 
 
 const currentJVMEngineMin = 11;
 const currentJVMEngineMax = 17;
 const currentPreferredJVMEngine = 11;
+const temurin = "Eclipse Temurin";
+const msJava = "Microsoft Build of OpenJDK";
+const amazon = "Amazon Corretto";
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentPreferredJVMEngine}`);
 
 let lookupCompleted: Thenable<string> | undefined;
@@ -93,7 +101,8 @@ function getJavaCandidates(): string[] {
         result.push(name);
     }
     if (existsSync(mainJVMPath)) {
-        for (const ent of readdirSync(mainJVMPath, {  })) {
+        const jvms = readdirSync(mainJVMPath, {  }).sort().reverse();
+        for (const ent of jvms) {
             let possiblePath = "";
             switch (os.platform()) {
                 case 'win32': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java.exe"); break;
@@ -158,9 +167,6 @@ async function openSettings(): Promise<string> {
 }
 
 async function downloadJDK(): Promise<string> {
-    const temurin = "Eclipse Temurin";
-    const msJava = "Microsoft Build of OpenJDK";
-    const amazon = "Amazon Corretto";
     const options = [];
     if (temurinSupported(currentPreferredJVMEngine)) {
         options.push(temurin);
@@ -173,7 +179,17 @@ async function downloadJDK(): Promise<string> {
     }
     const choice = await vscode.window.showInformationMessage("Select which OpenJDK provider you prefer", {modal:true}, ...options);
 
-    const result = await vscode.window.withProgress({
+    if(!choice){
+        throw new Error("User setup required");
+    }
+
+    const result = await downloadJDKWithProgress(choice);
+    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, rascal will now start`);
+    return result;
+}
+
+async function downloadJDKWithProgress(choice: string) {
+    return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Downloading ${choice} JDK:`,
         cancellable: false
@@ -188,10 +204,57 @@ async function downloadJDK(): Promise<string> {
             default:  throw new Error("User setup required");
         }
     });
-    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, rascal will now start`);
-    return result;
 }
 
+export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
+    if (existsSync(mainJVMsPath)) {
+        for (const ent of readdirSync(mainJVMsPath, {  }).sort().reverse()) {
+            const releaseFilePath = path.join(mainJVMsPath, ent.toString(), "release");
+            const releaseInfo = readReleaseInfo(releaseFilePath);
+            if(!releaseInfo.implementor){
+                continue;
+            }
+            switch (releaseInfo.implementor){
+                case "Eclipse Adoptium": {
+                    if(!releaseInfo.full_version){
+                        break;
+                    }
+                    const latest = await identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, mapTemuringCorrettoArch(), mapTemurinPlatform());
+                    if("jdk-"+releaseInfo.full_version !== latest){
+                        askUserForJVMUpdate(temurin);
+                    }
+                    return;
+                }
+                case "Microsoft": {
+                    if(!releaseInfo.java_version){
+                        break;
+                    }
+                    const latest = await identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, mapMSArchitectures(), mapMSPlatforms());
+                    if(releaseInfo.java_version !== latest){
+                        askUserForJVMUpdate(msJava);
+                    }
+                    return;
+                }
+                case "Amazon.com Inc.": {
+                    if(!releaseInfo.implementor_version){
+                        break;
+                    }
+                    const latest = await identifyLatestCorrettoRelease(currentPreferredJVMEngine, mapTemuringCorrettoArch(), mapCorrettoPlatform());
+                    if(releaseInfo.implementor_version.slice(9) !== latest){
+                        askUserForJVMUpdate(amazon);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+}
 
-
-
+export async function askUserForJVMUpdate(jdktype: string){
+    vscode.window.showInformationMessage(`A new release is available for ${jdktype} openJDK. Would you like to install it ?`, ...["yes", "no"]).then(async ans => {
+        if(ans === "yes"){
+            await downloadJDKWithProgress(jdktype);
+            vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VSCode session.`);
+        }
+    });
+}

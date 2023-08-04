@@ -115,49 +115,50 @@ export function microsoftSupported(jdkVersion: number): boolean {
 export async function downloadTemurin(mainJVMPath: string, jdkVersion: number, progress: ProgressFunc): Promise<string> {
 
     const arch = mapTemuringCorrettoArch();
-    let platform: TemurinPlatforms;
-    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
-        case 'darwin': platform="mac"; break;
-        case 'linux': platform = "linux";  break;
-        case 'win32': platform = "windows";  break;
-        default: throw new Error("Unsupported platform: " + os.platform());
-    }
+    const platform = mapTemurinPlatform();
     const jdkRelease = await identifyLatestTemurinLTSRelease(jdkVersion, arch, platform);
     return fetchAndUnpackTemurin(arch, platform, jdkRelease, mainJVMPath, progress);
 }
 
 export async function downloadCorretto(mainJVMPath: string, jdkVersion: number, progress: ProgressFunc): Promise<string> {
     const arch = mapTemuringCorrettoArch();
-    let platform: CorrettoPlatforms;
-    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
-        case 'darwin': platform="macos"; break;
-        case 'linux': platform = "linux";  break;
-        case 'win32': platform = "windows";  break;
-        default: throw new Error("Unsupported platform: " + os.platform());
-    }
-
+    const platform = mapCorrettoPlatform();
     return fetchAndUnpackCorretto(arch, platform, jdkVersion, mainJVMPath, progress);
 }
 
+export function mapCorrettoPlatform(): CorrettoPlatforms{
+    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
+        case 'darwin': return "macos";
+        case 'linux': return "linux";
+        case 'win32': return "windows";
+        default: throw new Error("Unsupported platform: " + os.platform());
+    }
+}
 
 
 export async function downloadMicrosoftJDK(mainJVMPath: string, jdkVersion: number, progress: ProgressFunc): Promise<string> {
-    let arch: MSArchitectures;
-    switch (os.arch()) { // warning, nodejs arch gives the compile-time arch, not the runtime cpu one.
-        case "arm64": arch = "aarch64"; break;
-        case "x32": // fall through since vscode might be running 32bit version of node
-        case "x64": arch = "x64"; break;
-        default: throw new Error("Unsupported architecture: " + os.arch());
-    }
-    let platform: MSPlatforms;
-    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
-        case 'darwin': platform="macOS"; break;
-        case 'linux': platform = "linux";  break;
-        case 'win32': platform = "windows";  break;
-        default: throw new Error("Unsupported platform: " + os.platform());
-    }
+    const arch = mapMSArchitectures();
+    const platform = mapMSPlatforms();
     return fetchAndUnpackMicrosoftJDK(arch, platform, jdkVersion, mainJVMPath, progress);
 
+}
+
+export function mapMSArchitectures() : MSArchitectures{
+    switch (os.arch()) { // warning, nodejs arch gives the compile-time arch, not the runtime cpu one.
+        case "arm64": return "aarch64";
+        case "x32": // fall through since vscode might be running 32bit version of node
+        case "x64": return  "x64";
+        default: throw new Error("Unsupported architecture: " + os.arch());
+    }
+}
+
+export function mapMSPlatforms() : MSPlatforms{
+    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
+        case 'darwin': return "macOS";
+        case 'linux': return "linux";
+        case 'win32': return "windows";
+        default: throw new Error("Unsupported platform: " + os.platform());
+    }
 }
 
 
@@ -181,13 +182,48 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
     return `jdk-${rel.openjdk_version}`;
 }
 
-function mapTemuringCorrettoArch(): TemurinArchitectures {
+export async function identifyLatestCorrettoRelease(version: number, arch: TemurinArchitectures, platform: CorrettoPlatforms): Promise<string> {
+    const url = `https://corretto.aws/downloads/latest/amazon-corretto-${version}-${arch}-${platform}-jdk.${platform === "windows" ? "zip" : "tar.gz"}`;
+    const response = await fetch(url);
+    const fileUrl = response.url;
+    const versionPattern = /resources\/((\d*\.?)+)\//;
+    const match = fileUrl.match(versionPattern);
+    if(!match){
+        throw new Error(`unexpected response url ${response}`);
+    }
+    return match[1];
+}
+
+
+// Does not identify +x versions
+export async function identifyLatestMicrofotJDKRelease(version: number, arch: MSArchitectures, platform: MSPlatforms): Promise<string> {
+    const url = `https://aka.ms/download-jdk/microsoft-jdk-${version}-${platform}-${arch}.${platform === "windows" ? "zip" : "tar.gz"}`;
+    const response = await fetch(url);
+    const fileUrl = response.url;
+    const versionPattern = /jdk-((\d*\.?)+)-/;
+    const match = fileUrl.match(versionPattern);
+    if(!match){
+        throw new Error(`unexpected response url ${response}`);
+    }
+    return match[1];
+}
+
+export function mapTemuringCorrettoArch(): TemurinArchitectures {
     switch (os.arch()) { // warning, nodejs arch gives the compile-time arch, not the runtime cpu one.
         case "arm": return "arm";
         case "arm64": return "aarch64";
         case "x32": // fall through since vscode might be running 32bit version of node
         case "x64": return "x64";
         default: throw new Error("Unsupported architecture: " + os.arch());
+    }
+}
+
+export function mapTemurinPlatform() : TemurinPlatforms {
+    switch (os.platform()) { // again, it's the compile-time platform, not the runtime one
+        case 'darwin': return "mac";
+        case 'linux': return "linux";
+        case 'win32': return "windows";
+        default: throw new Error("Unsupported platform: " + os.platform());
     }
 }
 

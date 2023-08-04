@@ -29,7 +29,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { integer } from 'vscode-languageclient/node';
-import { getJavaExecutable } from './auto-jvm/JavaLookup';
+import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
@@ -50,6 +50,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+        checkForJVMUpdate();
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
