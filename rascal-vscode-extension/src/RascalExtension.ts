@@ -51,6 +51,8 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
 
+        this.registerCopyLocation();
+
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
@@ -97,6 +99,30 @@ export class RascalExtension implements vscode.Disposable {
                 this.startTerminal(text.document.uri, "--loadModule", moduleName);
             })
         );
+    }
+
+
+    private registerCopyLocation() {
+        this.context.subscriptions.push(
+            vscode.commands.registerTextEditorCommand("rascalmpl.copyLocation", (text, _edit, moduleName) => {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    const fileName = editor.document.uri.fsPath;
+                    const selection = editor.selection;
+
+                    let offset = editor.document.offsetAt(selection.start);
+                    let length = editor.document.getText(selection).length;
+                    let startLine = selection.start.line;
+                    let startColumn = selection.start.character;
+                    let endLine = selection.end.line;
+                    let endColumn = selection.end.character;
+
+                    const location = `|file://${fileName}|(${offset},${length},<${startLine+1},${startColumn}>,<${endLine+1},${endColumn}>)`;
+
+                    vscode.env.clipboard.writeText(location);
+                }
+            })
+        )
     }
 
     private startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {

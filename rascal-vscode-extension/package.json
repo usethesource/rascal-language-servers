@@ -46,8 +46,25 @@
       {
         "command": "rascalmpl.importMain",
         "title": "Start Rascal Terminal and Import this module"
+      },
+      {
+        "command": "rascalmpl.copyLocation",
+        "title": "Copy Location of Selection to Clipboard"
       }
     ],
+    "keybindings": [
+      {
+        "command": "rascalmpl.copyLocation",
+        "key": "shift+alt+l",
+        "mac": "shift+cmd+l"
+      }
+    ],
+    "menus": {
+      "editor/context": [{
+        "command": "rascalmpl.copyLocation",
+        "group": "editor/context"
+      }]
+    },
     "languages": [
       {
         "id": "rascalmpl",
