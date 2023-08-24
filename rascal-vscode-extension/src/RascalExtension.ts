@@ -179,10 +179,10 @@ function gb(amount: integer) {
 
 function calculateRascalREPLMemory() {
     const config = vscode.workspace.getConfiguration();
-    if (config.has('rascal.interpreter.defaultHeapSize')) {
-        const defaultHeapSize = config.get('rascal.interpreter.defaultHeapSize');
-        if (defaultHeapSize !== null) {
-            return `-Xmx${defaultHeapSize}M`;
+    if (config.has('rascal.interpreter.maxHeapSize')) {
+        const maxHeapSize = config.get('rascal.interpreter.maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
         }
     }
     
@@ -201,10 +201,10 @@ function calculateRascalREPLMemory() {
 
 function calculateRascalREPLStackSize() {
     const config = vscode.workspace.getConfiguration();
-    if (config.has('rascal.interpreter.defaultStackSize')) {
-        const defaultStackSize = config.get('rascal.interpreter.defaultStackSize');
-        if (defaultStackSize !== null) {
-            return `-Xss${defaultStackSize}M`;
+    if (config.has('rascal.interpreter.stackSize')) {
+        const stackSize = config.get('rascal.interpreter.stackSize');
+        if (stackSize !== null) {
+            return `-Xss${stackSize}M`;
         }
     }
 

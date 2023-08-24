@@ -125,15 +125,15 @@
   "configuration": {
       "title": "Rascal",
       "properties": {
-        "rascal.interpreter.defaultHeapSize": {
+        "rascal.interpreter.maxHeapSize": {
           "type": ["number", "null"],
           "default": null,
-          "description": "Provides the default heap space, in MB, for the Rascal interpreter"
+          "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
-        "rascal.interpreter.defaultStackSize": {
+        "rascal.interpreter.stackSize": {
           "type": ["number", "null"],
           "default": null,
-          "description": "Provides the default stack size, in MB, for the Rascal interpreter"
+          "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
       }
     }
