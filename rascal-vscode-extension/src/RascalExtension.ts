@@ -133,9 +133,15 @@ export class RascalExtension implements vscode.Disposable {
     private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
                 calculateRascalREPLMemory()
-                , '-cp'
-                , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
         ];
+        const replStackSize = calculateRascalREPLStackSize();
+        if (replStackSize.length !== 0) {
+            shellArgs.push(replStackSize);
+        }
+        shellArgs.push(
+            '-cp'
+            , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+        );
         if (!this.isDeploy) {
             // for development mode we always start the terminal with debuging ready to go
             shellArgs.push(
@@ -172,6 +178,14 @@ function gb(amount: integer) {
 }
 
 function calculateRascalREPLMemory() {
+    const config = vscode.workspace.getConfiguration();
+    if (config.has('rascal.interpreter.maxHeapSize')) {
+        const maxHeapSize = config.get('rascal.interpreter.maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
+        }
+    }
+    
     if (os.totalmem() >= gb(32)) {
         return "-Xmx9000M";
     }
@@ -182,5 +196,17 @@ function calculateRascalREPLMemory() {
     if (os.totalmem() >= gb(8)) {
         return "-Xmx2400M";
     }
-    return "-Xmx800M";
+    return "-Xmx800M";    
+}
+
+function calculateRascalREPLStackSize() {
+    const config = vscode.workspace.getConfiguration();
+    if (config.has('rascal.interpreter.stackSize')) {
+        const stackSize = config.get('rascal.interpreter.stackSize');
+        if (stackSize !== null) {
+            return `-Xss${stackSize}M`;
+        }
+    }
+
+    return "";    
 }

@@ -121,7 +121,22 @@
         "scopeName": "source.parametric-rascalmpl",
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
-    ]
+    ],
+  "configuration": {
+      "title": "Rascal",
+      "properties": {
+        "rascal.interpreter.maxHeapSize": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
+        },
+        "rascal.interpreter.stackSize": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+        }
+      }
+    }
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
