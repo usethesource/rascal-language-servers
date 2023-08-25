@@ -377,18 +377,30 @@ public interface ITerminalIDEServer {
 
     public static class BrowseParameter {
         private String uri;
+        private String title;
+        private int viewColumn;
 
-        public BrowseParameter(String uri) {
+        public BrowseParameter(String uri, String title, int viewColumn) {
             this.uri = uri;
+            this.title = title;
+            this.viewColumn = viewColumn;
         }
 
         public String getUri() {
             return uri;
         }
 
+        public String getTitle() {
+            return title;
+        }
+
+        public int getViewColumn() {
+            return viewColumn;
+        }
+
         @Override
         public String toString() {
-            return "browseParameter:" + uri;
+            return "BrowseParameter:\n\tbrowseParameter:" + uri + "\n\ttitle: " + title + "\n\tviewColumn: " + viewColumn;
         }
     }
 

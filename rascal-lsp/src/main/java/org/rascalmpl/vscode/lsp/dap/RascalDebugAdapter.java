@@ -58,7 +58,6 @@ import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.dap.breakpoint.BreakpointsCollection;
 import org.rascalmpl.vscode.lsp.dap.variable.RascalVariable;
-import org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 
 import io.usethesource.vallang.IList;
