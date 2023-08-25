@@ -56,7 +56,7 @@ export async function activateLanguageClient(
         port: vfsServer.port
     });
     client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
-        showContentPanel(bp.uri, bp.title, 1);
+        showContentPanel(bp.uri, bp.title, bp.viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
