@@ -242,7 +242,11 @@ public class LSPTerminalREPL extends BaseREPL {
                                 continue;
                             }
 
-                            services.browse(URIUtil.assumeCorrect(metadata.get("url")), "", 1);
+                            services.browse(
+                                URIUtil.assumeCorrect(metadata.get("url")), 
+                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"), 
+                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1 
+                            );
                         }
                 }
             };
