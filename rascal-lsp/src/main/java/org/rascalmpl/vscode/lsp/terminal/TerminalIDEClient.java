@@ -95,8 +95,8 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        server.browse(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override

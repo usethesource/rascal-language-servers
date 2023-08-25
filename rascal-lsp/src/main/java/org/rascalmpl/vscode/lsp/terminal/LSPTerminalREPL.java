@@ -41,8 +41,6 @@ import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.usethesource.vallang.impl.reference.ValueFactory;
-import io.usethesource.vallang.type.TypeFactory;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -244,7 +242,11 @@ public class LSPTerminalREPL extends BaseREPL {
                                 continue;
                             }
 
-                            services.browse(URIUtil.assumeCorrect(metadata.get("url")));
+                            services.browse(
+                                URIUtil.assumeCorrect(metadata.get("url")), 
+                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"), 
+                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1 
+                            );
                         }
                 }
             };

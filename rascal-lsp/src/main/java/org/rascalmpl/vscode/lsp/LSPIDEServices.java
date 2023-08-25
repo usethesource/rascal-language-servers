@@ -97,8 +97,8 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        languageClient.showContent(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        languageClient.showContent(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
