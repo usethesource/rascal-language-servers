@@ -29,12 +29,13 @@ POSSIBILITY OF SUCH DAMAGE.
 @synopsis{Bridges {DSL,PL,Modeling} language features to the language server protocol.}
 @description{
 Using the ((registerLanguage)) function you can connect any parsers, checkers,
-source-to-source transformers, visualizers, etc. that are made with Rascal, to the 
-Language Server Protocol. 
+source-to-source transformers, visualizers, etc. that are made with Rascal, to the
+Language Server Protocol.
 }
 @benefits{
 * Turn your language implementation into an interactive IDE at almost zero cost.
 }
+@bootstrapParser
 module util::LanguageServer
 
 import util::Reflective;
