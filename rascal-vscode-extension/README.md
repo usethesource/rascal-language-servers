@@ -46,6 +46,18 @@ For other things we are working on have a look here:
 
 
 ## Release Notes
+
+### 0.9.0
+
+* added experimental Rascal debugger based on the debugging protocol
+* Webviews opened from Rascal can now have a title and view column
+* There is now a setting to influence how much memory a REPL gets allocated (`rascal.interpreter.defaultHeapSize` & `rascal.interpreter.defaultStackSize`).
+* The Rascal REPL now has a icon (it requires a bugfix in vscode 1.80 to correctly show)
+* upgraded to rascal 0.33.7:
+  * Better support for ModuleParserStorage
+  * Changes to support the new webview capabilities
+  * Various bugfixes
+
 ### 0.8.3
 
 * upgraded to rascal 0.33.5:
