@@ -36,7 +36,7 @@ No settings so far.
 
 ## Known Issues
 
-This extension is slowly but surely stabilizing, some stuff is still buggy. Please consider it an beta preview version.  Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. The Rascal support does not include an interactive visual debugger yet, or debugger support for domain specific languages.
+This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. The Rascal support does includes very fresh and experimental interactive visual debugger, but no debugging support for domain specific languages. If you use flybytes as a DSL back-end, a debugger will automatically off-of the JVM bytecode debugging interfaces.
 
 **This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
