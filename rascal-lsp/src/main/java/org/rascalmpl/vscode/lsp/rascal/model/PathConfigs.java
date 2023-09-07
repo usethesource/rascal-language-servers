@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -65,16 +66,51 @@ public class PathConfigs {
             URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
-                reg.watch(manifest, false, changedManifest -> {
-                    currentPathConfigs.replace(projectRoot, actualBuild(projectRoot));
-                });
+                recalcPathConfigIfChanged(projectRoot, reg, manifest);
             }
+            registerMavenWatches(reg, projectRoot);
+
             var result = actualBuild(projectRoot);
             logger.debug("new pcfg: {}", result);
             return result;
         }
         catch (IOException e) {
             throw new RuntimeException("Could not build pathconfig", e);
+        }
+    }
+
+    private void recalcPathConfigIfChanged(ISourceLocation projectRoot, URIResolverRegistry reg, ISourceLocation targetFile)
+        throws IOException {
+        reg.watch(targetFile, false, changedManifest ->
+            currentPathConfigs.replace(projectRoot, actualBuild(projectRoot))
+        );
+    }
+
+    private void registerMavenWatches(URIResolverRegistry reg, ISourceLocation projectRoot) throws IOException {
+        var mainPom = URIUtil.getChildLocation(projectRoot, "pom.xml");
+        if (reg.exists(mainPom)) {
+            recalcPathConfigIfChanged(projectRoot, reg, mainPom);
+            if (hasParentSection(reg, mainPom)) {
+                var parentPom = URIUtil.getChildLocation(URIUtil.getParentLocation(projectRoot), "pom.xml");
+                if (!mainPom.equals(parentPom) && reg.exists(mainPom)) {
+                    recalcPathConfigIfChanged(projectRoot, reg, parentPom);
+                }
+            }
+        }
+    }
+
+    private static boolean hasParentSection(URIResolverRegistry reg, ISourceLocation mainPom) {
+        try (var pom = new BufferedReader(reg.getCharacterReader(mainPom))) {
+            String line;
+            while ((line = pom.readLine()) != null) {
+                if (line.contains("<parent>")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch (IOException ignored) {
+            return false;
         }
     }
 
