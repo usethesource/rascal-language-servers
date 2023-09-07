@@ -36,9 +36,13 @@ No settings so far.
 
 ## Known Issues
 
-This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. The Rascal support does includes very fresh and experimental interactive visual debugger, but no debugging support for domain specific languages. If you use flybytes as a DSL back-end, a debugger will automatically off-of the JVM bytecode debugging interfaces.
+This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. 
 
 **This extension works best with Java 11; but running it on Java 17 reportedly works as well**
+
+The Rascal type-checker has a known issue that makes **new binary library code backward incompatible** after every release, always. This means that you
+should update your dependency on the `rascal` project to at least 0.33.7 and maximally 0.33.8 in your own projects to avoid spurious error messages. Until
+we release a fix for the type-checker, all rascal projects and library packages on http://www.rascal-mpl.org are released synchronously.
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
@@ -57,6 +61,7 @@ For other things we are working on have a look here:
   * Better support for ModuleParserStorage
   * Changes to support the new webview capabilities
   * Various bugfixes
+* This release includes an "easter egg"; an experimental debugger for Rascal which is currently under test.
 
 ### 0.8.3
 
