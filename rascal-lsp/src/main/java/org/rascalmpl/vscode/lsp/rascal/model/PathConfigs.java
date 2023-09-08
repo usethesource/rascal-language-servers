@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import org.apache.logging.log4j.LogManager;
@@ -81,6 +82,7 @@ public class PathConfigs {
 
     private void recalcPathConfigIfChanged(ISourceLocation projectRoot, URIResolverRegistry reg, ISourceLocation targetFile)
         throws IOException {
+        logger.debug("Watching {} for changes, as it will invalidate the PathConfig for {}", targetFile, projectRoot);
         reg.watch(targetFile, false, changedManifest ->
             currentPathConfigs.replace(projectRoot, actualBuild(projectRoot))
         );
@@ -92,18 +94,20 @@ public class PathConfigs {
             recalcPathConfigIfChanged(projectRoot, reg, mainPom);
             if (hasParentSection(reg, mainPom)) {
                 var parentPom = URIUtil.getChildLocation(URIUtil.getParentLocation(projectRoot), "pom.xml");
-                if (!mainPom.equals(parentPom) && reg.exists(mainPom)) {
+                if (!mainPom.equals(parentPom) && reg.exists(parentPom)) {
                     recalcPathConfigIfChanged(projectRoot, reg, parentPom);
                 }
             }
         }
     }
 
+    private static final Pattern detectParent = Pattern.compile("<\\s*parent\\s*>");
+
     private static boolean hasParentSection(URIResolverRegistry reg, ISourceLocation mainPom) {
         try (var pom = new BufferedReader(reg.getCharacterReader(mainPom))) {
             String line;
             while ((line = pom.readLine()) != null) {
-                if (line.contains("<parent>")) {
+                if (detectParent.matcher(line).matches()) {
                     return true;
                 }
             }
