@@ -119,7 +119,7 @@ export class RascalExtension implements vscode.Disposable {
             progress.report({increment: 25, message: "Creating terminal"});
             const terminal = vscode.window.createTerminal({
                 iconPath: this.icon,
-                cwd: path.dirname(uri?.fsPath || ""),
+                cwd: undefined, // otherwise the |cwd:///| source folder entry starts interfering by accident
                 shellPath: await getJavaExecutable(),
                 shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
                 name: 'Rascal Terminal',
