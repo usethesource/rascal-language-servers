@@ -36,14 +36,14 @@ No settings so far.
 
 ## Known Issues
 
-This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>. 
+This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
 **This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
 The Rascal type-checker has a known issue that makes **new binary library code backward incompatible** after every release, always. This means that you
 should update your dependency on the `rascal` project to at least 0.33.7 and maximally 0.33.8 in your own projects to avoid spurious error messages. For the
 same reason you have to set your use of the `rascal-maven-plugin` to 0.22.1. Until
-we release a fix for the type-checker, all rascal projects and library packages on http://www.rascal-mpl.org are released synchronously. Consequently, after you 
+we release a fix for the type-checker, all rascal projects and library packages on http://www.rascal-mpl.org are released synchronously. Consequently, after you
 installed an update, it is immediately necessary to bump your dependencies on `rascal` and `rascal-maven-plugin`.
 
 For other things we are working on have a look here:
@@ -53,10 +53,14 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.9.1
+
+* Bugfix for working directory of REPLs
+
 ### 0.9.0
 
 * Webviews opened from Rascal can now have a title and view column
-* There is now a setting to influence how much memory a REPL gets allocated (`rascal.interpreter.defaultHeapSize` & `rascal.interpreter.defaultStackSize`).
+* There is now a setting to influence how much memory a REPL gets allocated (`rascal.interpreter.maxHeapSize` & `rascal.interpreter.stackSize`).
 * The Rascal REPL now has a icon (it requires a bugfix in vscode 1.80 to correctly show)
 * upgraded to rascal 0.33.7:
   * Better support for ModuleParserStorage
