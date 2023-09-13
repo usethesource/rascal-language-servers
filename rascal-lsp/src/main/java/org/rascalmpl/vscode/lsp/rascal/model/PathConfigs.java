@@ -29,17 +29,22 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -49,6 +54,7 @@ import io.usethesource.vallang.ISourceLocation;
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
     private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
+    private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
@@ -67,7 +73,7 @@ public class PathConfigs {
             URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
-                recalcPathConfigIfChanged(projectRoot, reg, manifest);
+                updater.watchFile(projectRoot, manifest);
             }
             registerMavenWatches(reg, projectRoot);
 
@@ -80,22 +86,63 @@ public class PathConfigs {
         }
     }
 
-    private void recalcPathConfigIfChanged(ISourceLocation projectRoot, URIResolverRegistry reg, ISourceLocation targetFile)
-        throws IOException {
-        logger.debug("Watching {} for changes, as it will invalidate the PathConfig for {}", targetFile, projectRoot);
-        reg.watch(targetFile, false, changedManifest ->
-            currentPathConfigs.replace(projectRoot, actualBuild(projectRoot))
-        );
+    private static class PathConfigUpdater extends Thread {
+        private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+
+        public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
+            super("Path Config updater");
+            setDaemon(true);
+            this.currentPathConfigs = currentPathConfigs;
+        }
+
+        // we detect changes to roots, and keep track of the last changed time
+        // the thread will clear them if the time is longer than the timeout
+        private final Map<ISourceLocation, Long> changedRoots = new ConcurrentHashMap<>();
+        public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
+            if (!isAlive() && !isInterrupted()) {
+                start();
+            }
+            URIResolverRegistry.getInstance().watch(sourceFile, false, ignored ->
+                changedRoots.put(projectRoot, System.nanoTime())
+            );
+        }
+
+        private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                } catch (InterruptedException e) {
+                    return;
+                }
+
+                List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
+                    .filter(e -> System.nanoTime() - e.getValue() >= UPDATE_DELAY)
+                    .map(Entry::getKey)
+                    .collect(Collectors.toList());
+
+                for (var root : stabilizedRoots) {
+                    // right before we calculate the path config,
+                    // we clear it from the list, as the path config calculation
+                    // can take some time
+                    changedRoots.remove(root);
+                    currentPathConfigs.replace(root, actualBuild(root));
+                }
+            }
+        }
+
     }
 
     private void registerMavenWatches(URIResolverRegistry reg, ISourceLocation projectRoot) throws IOException {
         var mainPom = URIUtil.getChildLocation(projectRoot, "pom.xml");
         if (reg.exists(mainPom)) {
-            recalcPathConfigIfChanged(projectRoot, reg, mainPom);
+            updater.watchFile(projectRoot, mainPom);
             if (hasParentSection(reg, mainPom)) {
                 var parentPom = URIUtil.getChildLocation(URIUtil.getParentLocation(projectRoot), "pom.xml");
                 if (!mainPom.equals(parentPom) && reg.exists(parentPom)) {
-                    recalcPathConfigIfChanged(projectRoot, reg, parentPom);
+                    updater.watchFile(projectRoot, parentPom);
                 }
             }
         }
