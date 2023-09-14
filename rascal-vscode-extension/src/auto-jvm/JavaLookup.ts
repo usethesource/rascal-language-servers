@@ -28,11 +28,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, 
-    downloadTemurin, microsoftSupported, temurinSupported, 
-    identifyLatestTemurinLTSRelease, mapTemuringCorrettoArch, mapTemurinPlatform, 
-    mapCorrettoPlatform, identifyLatestCorrettoRelease, mapMSArchitectures, 
-    mapMSPlatforms, identifyLatestMicrofotJDKRelease } from './downloaders';
+import * as dl from './downloaders';
 import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 import { readReleaseInfo } from './ReleaseInfo';
@@ -168,13 +164,13 @@ async function openSettings(): Promise<string> {
 
 async function downloadJDK(): Promise<string> {
     const options = [];
-    if (temurinSupported(currentPreferredJVMEngine)) {
+    if (dl.temurinSupported(currentPreferredJVMEngine)) {
         options.push(temurin);
     }
-    if (microsoftSupported(currentPreferredJVMEngine)) {
+    if (dl.microsoftSupported(currentPreferredJVMEngine)) {
         options.push(msJava);
     }
-    if (correttoSupported(currentPreferredJVMEngine)) {
+    if (dl.correttoSupported(currentPreferredJVMEngine)) {
         options.push(amazon);
     }
     const choice = await vscode.window.showInformationMessage("Select which OpenJDK provider you prefer", {modal:true}, ...options);
@@ -198,9 +194,9 @@ async function downloadJDKWithProgress(choice: string) {
             progress.report({message: message, increment: percIncrement});
         }
         switch (choice) {
-            case temurin: return downloadTemurin(mainJVMPath, currentPreferredJVMEngine, actualProgress);
-            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentPreferredJVMEngine, actualProgress);
-            case amazon: return downloadCorretto(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case temurin: return dl.downloadTemurin(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case msJava: return dl.downloadMicrosoftJDK(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case amazon: return dl.downloadCorretto(mainJVMPath, currentPreferredJVMEngine, actualProgress);
             default:  throw new Error("User setup required");
         }
     });
@@ -219,7 +215,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     if(!releaseInfo.full_version){
                         break;
                     }
-                    const latest = await identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, mapTemuringCorrettoArch(), mapTemurinPlatform());
+                    const latest = await dl.identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapTemurinPlatform());
                     if("jdk-"+releaseInfo.full_version !== latest){
                         askUserForJVMUpdate(temurin);
                     }
@@ -229,7 +225,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     if(!releaseInfo.java_version){
                         break;
                     }
-                    const latest = await identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, mapMSArchitectures(), mapMSPlatforms());
+                    const latest = await dl.identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, dl.mapMSArchitectures(), dl.mapMSPlatforms());
                     if(releaseInfo.java_version !== latest){
                         askUserForJVMUpdate(msJava);
                     }
@@ -239,7 +235,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     if(!releaseInfo.implementor_version){
                         break;
                     }
-                    const latest = await identifyLatestCorrettoRelease(currentPreferredJVMEngine, mapTemuringCorrettoArch(), mapCorrettoPlatform());
+                    const latest = await dl.identifyLatestCorrettoRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapCorrettoPlatform());
                     if(releaseInfo.implementor_version.slice(9) !== latest){
                         askUserForJVMUpdate(amazon);
                     }
