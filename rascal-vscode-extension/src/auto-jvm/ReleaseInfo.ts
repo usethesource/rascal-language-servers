@@ -58,7 +58,7 @@ export function readReleaseInfo(path:string) : ReleaseInfo {
         lines.forEach(line => {
             const keyValue = line.split("=");
             if(keyValue.length === 2){
-                releaseInfo[keyValue[0].toLowerCase()] = keyValue[1].replaceAll('"', '').replace("\r", "");
+                releaseInfo[keyValue[0].toLowerCase()] = keyValue[1].substring(1, keyValue[1].length-2).trim();
             }
         });
     }
