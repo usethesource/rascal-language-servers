@@ -180,7 +180,7 @@ async function downloadJDK(): Promise<string> {
     }
 
     const result = await downloadJDKWithProgress(choice);
-    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, rascal will now start`);
+    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, Rascal will now start`);
     return result;
 }
 
