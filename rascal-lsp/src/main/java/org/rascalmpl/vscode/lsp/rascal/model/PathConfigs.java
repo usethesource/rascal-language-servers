@@ -123,12 +123,16 @@ public class PathConfigs {
                     .map(Entry::getKey)
                     .collect(Collectors.toList());
 
-                for (var root : stabilizedRoots) {
-                    // right before we calculate the path config,
-                    // we clear it from the list, as the path config calculation
-                    // can take some time
-                    changedRoots.remove(root);
-                    currentPathConfigs.replace(root, actualBuild(root));
+                try {
+                    for (var root : stabilizedRoots) {
+                        // right before we calculate the path config,
+                        // we clear it from the list, as the path config calculation
+                        // can take some time
+                        changedRoots.remove(root);
+                        currentPathConfigs.replace(root, actualBuild(root));
+                    }
+                } catch (Exception e) {
+                    logger.error("Unexpected error while building PathConfigs", e) ;
                 }
             }
         }
