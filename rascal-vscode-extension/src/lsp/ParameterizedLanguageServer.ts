@@ -151,6 +151,12 @@ export interface LanguageParameter {
     extension:string; 		// extension for files in this language
     mainModule: string; 	// main module to locate mainFunction in
     mainFunction: string; 	// main function which contributes the language implementation
+    precompiledParser: ParserSpecification | undefined; // optionally configure a precompiled parser function
+}
+
+export interface ParserSpecification {
+    parserFile: string; // which file contains the grammars
+    startTerminal: string; // which terminal to extract from the list of parsers in that file
 }
 
 function languageKey(lang: LanguageParameter) {
