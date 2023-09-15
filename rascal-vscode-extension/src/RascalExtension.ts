@@ -122,7 +122,7 @@ export class RascalExtension implements vscode.Disposable {
                 iconPath: this.icon,
                 shellPath: await getJavaExecutable(),
                 shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
-                name: `Rascal Terminal (project: ${projectRoot?.name || "unknown"})`,
+                name: `Rascal Terminal (${projectRoot?.name || "no project"})`,
             });
 
             terminal.show(false);
@@ -185,7 +185,7 @@ function calculateRascalREPLMemory() {
             return `-Xmx${maxHeapSize}M`;
         }
     }
-    
+
     if (os.totalmem() >= gb(32)) {
         return "-Xmx9000M";
     }
@@ -196,7 +196,7 @@ function calculateRascalREPLMemory() {
     if (os.totalmem() >= gb(8)) {
         return "-Xmx2400M";
     }
-    return "-Xmx800M";    
+    return "-Xmx800M";
 }
 
 function calculateRascalREPLStackSize() {
@@ -208,5 +208,5 @@ function calculateRascalREPLStackSize() {
         }
     }
 
-    return "";    
+    return "";
 }
