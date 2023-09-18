@@ -104,7 +104,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
                     = parserClass.getDeclaredConstructor().newInstance();
                 return (ITree)parser.parse(
                     parserMethodName, loc.getURI(), input.toCharArray(), new NoActionExecutor(),
-                    new DefaultNodeFlattener<IConstructor, ITree, ISourceLocation>(),
+                    new DefaultNodeFlattener<>(),
                     new UPTRNodeFactory(allowAmbiguity),
                     (IRecoverer<IConstructor>) null
                 );
@@ -137,49 +137,53 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
 
+    private static UnsupportedOperationException disabledFunction() {
+        return new UnsupportedOperationException("ParserOnly contribution");
+    }
+
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        throw new UnsupportedOperationException("ParserOnly contribution");
+        throw disabledFunction();
     }
 
     @Override
