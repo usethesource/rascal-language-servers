@@ -144,19 +144,36 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
 }
 
-
+/**
+ * Define a DSL that the DSL multiplexer has to load
+ */
 export interface LanguageParameter {
-    pathConfig: string 		// rascal pathConfig constructor as a string
-    name: string; 			// name of the language
-    extension:string; 		// extension for files in this language
-    mainModule: string; 	// main module to locate mainFunction in
-    mainFunction: string; 	// main function which contributes the language implementation
-    precompiledParser: ParserSpecification | undefined; // optionally configure a precompiled parser function
+    /** rascal pathConfig constructor as a string */
+    pathConfig: string
+    /** name of the language */
+    name: string;
+    /** extension for files in this language */
+    extension:string;
+    /** main module to locate mainFunction in */
+    mainModule: string;
+    /** main function which contributes the language implementation */
+    mainFunction: string;
+    /** optionally configure a precompiled parser function */
+    precompiledParser: ParserSpecification | undefined;
 }
 
+/**
+ * Define precompiled parser to load before the modules have loaded.
+ * This helps reduce the time an IDE is shown without syntax highlighting
+ */
 export interface ParserSpecification {
-    parserFile: string; // which file contains the grammars
-    startTerminal: string; // which terminal to extract from the list of parsers in that file
+    /** absolute path to the file containing the precompiled parsers */
+    parserFile: string;
+    /** terminal to use from the defined parsers */
+    terminalName: string;
+    /** is the terminal a `start` terminal, default: true */
+    terminalIsStart: boolean | undefined;
+
 }
 
 function languageKey(lang: LanguageParameter) {
