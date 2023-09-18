@@ -534,6 +534,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var fact = facts.computeIfAbsent(lang.getExtension(), t ->
             new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
         );
+        if (lang.getPrecompiledParser() != null) {
+            multiplexer.addContributor(buildContributionKey(lang), new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+        }
 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));

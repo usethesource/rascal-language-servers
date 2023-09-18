@@ -173,6 +173,8 @@ export interface ParserSpecification {
     terminalName: string;
     /** is the terminal a `start` terminal, default: true */
     terminalIsStart: boolean | undefined;
+    /** allow ambiguities during parsing, default: false */
+    allowAmbiguity: boolean | undefined;
 
 }
 

@@ -441,13 +441,15 @@ public interface ITerminalIDEServer {
 	    private final String extension; // extension for files in this language
 	    private final String mainModule; // main module to locate mainFunction in
 	    private final String mainFunction; // main function which contributes the language implementation
+        private final @Nullable ParserSpecification precompiledParser;
 
-        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
+        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
             this.pathConfig = pathConfig.toString();
             this.name = name;
             this.extension = extension;
             this.mainModule = mainModule;
             this.mainFunction = mainFunction;
+            this.precompiledParser = precompiledParser;
         }
 
         public String getPathConfig() {
@@ -470,12 +472,56 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
 
+        public @Nullable ParserSpecification getPrecompiledParser() {
+            return precompiledParser;
+        }
+
         @Override
         public String toString() {
             return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extension=" + extension
-                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ")";
+                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ", precompiledParser=" + precompiledParser + ")";
+        }
+    }
+
+    public static class ParserSpecification {
+        /** absolute path to the file containing the precompiled parsers */
+        private final String parserFile;
+        /** terminal to use from the defined parsers */
+        private final String terminalName;
+        /** is the terminal a `start` terminal, default: true */
+        private final @Nullable Boolean terminalIsStart;
+        /** allowAmbiguity (default is false) */
+        private final @Nullable Boolean allowAmbiguity;
+
+
+        public ParserSpecification(String parserFile, String terminalName, @Nullable Boolean terminalIsStart, @Nullable Boolean allowAmbiguity) {
+            this.parserFile = parserFile;
+            this.terminalName = terminalName;
+            this.terminalIsStart = terminalIsStart;
+            this.allowAmbiguity = allowAmbiguity;
         }
 
+        public String getParserFile() {
+            return parserFile;
+        }
+
+        public String getTerminalName() {
+            return terminalName;
+        }
+
+        public boolean getTerminalIsStart() {
+            return terminalIsStart == null || terminalIsStart;
+        }
+
+        public boolean getAllowAmbiguity() {
+            return allowAmbiguity != null && allowAmbiguity;
+        }
+
+        @Override
+        public String toString() {
+            return "ParserSpecification [parserFile=" + parserFile + ", terminalName=" + terminalName
+                + ", terminalIsStart=" + terminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+        }
 
     }
 }
