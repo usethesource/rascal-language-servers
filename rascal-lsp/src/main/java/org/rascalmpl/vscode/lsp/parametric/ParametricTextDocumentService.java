@@ -535,7 +535,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
         );
         if (lang.getPrecompiledParser() != null) {
-            multiplexer.addContributor(buildContributionKey(lang), new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+            logger.debug("Got precompiled defintion: {}", lang.getPrecompiledParser());
+            multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
         }
 
         multiplexer.addContributor(buildContributionKey(lang),

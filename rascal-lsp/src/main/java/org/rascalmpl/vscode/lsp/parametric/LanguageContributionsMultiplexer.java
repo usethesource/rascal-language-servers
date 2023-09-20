@@ -119,6 +119,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
      */
     public boolean removeContributor(String contribKey) {
         contributions.removeIf(e -> e.key.equals(contribKey));
+        contributions.removeIf(e -> e.key.equals(contribKey + "$parser"));
         if (contributions.isEmpty()) {
             return false;
         }

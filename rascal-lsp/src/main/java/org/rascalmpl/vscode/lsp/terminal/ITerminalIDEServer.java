@@ -35,14 +35,13 @@ import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
-
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -472,7 +471,7 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
 
-        public @Nullable ParserSpecification getPrecompiledParser() {
+        public @MonotonicNonNull ParserSpecification getPrecompiledParser() {
             return precompiledParser;
         }
 
@@ -485,32 +484,39 @@ public interface ITerminalIDEServer {
 
     public static class ParserSpecification {
         /** absolute path to the file containing the precompiled parsers */
-        private final String parserFile;
+        private final String parserLocation;
         /** terminal to use from the defined parsers */
-        private final String terminalName;
+        private final String nonTerminalName;
         /** is the terminal a `start` terminal, default: true */
-        private final @Nullable Boolean terminalIsStart;
+        private final @Nullable Boolean nonTerminalIsStart;
         /** allowAmbiguity (default is false) */
         private final @Nullable Boolean allowAmbiguity;
 
 
-        public ParserSpecification(String parserFile, String terminalName, @Nullable Boolean terminalIsStart, @Nullable Boolean allowAmbiguity) {
-            this.parserFile = parserFile;
-            this.terminalName = terminalName;
-            this.terminalIsStart = terminalIsStart;
+        public ParserSpecification(String parserLocation, String nonTerminalName, @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity) {
+            this.parserLocation = parserLocation;
+            this.nonTerminalName = nonTerminalName;
+            this.nonTerminalIsStart = nonTerminalIsStart;
             this.allowAmbiguity = allowAmbiguity;
         }
 
-        public String getParserFile() {
-            return parserFile;
+        public ISourceLocation getParserLocation() {
+            try {
+                return (ISourceLocation) new StandardTextReader().read(
+                    IRascalValueFactory.getInstance(),
+                    TypeFactory.getInstance().sourceLocationType(),
+                    new StringReader(parserLocation));
+            } catch (FactTypeUseException | IOException e) {
+                throw new RuntimeException("Error parsing: " + parserLocation + " as a rascal location", e);
+            }
         }
 
-        public String getTerminalName() {
-            return terminalName;
+        public String getNonTerminalName() {
+            return nonTerminalName;
         }
 
-        public boolean getTerminalIsStart() {
-            return terminalIsStart == null || terminalIsStart;
+        public boolean getNonTerminalIsStart() {
+            return nonTerminalIsStart == null || nonTerminalIsStart;
         }
 
         public boolean getAllowAmbiguity() {
@@ -519,8 +525,8 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "ParserSpecification [parserFile=" + parserFile + ", terminalName=" + terminalName
-                + ", terminalIsStart=" + terminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+            return "ParserSpecification [parserLocation=" + parserLocation + ", nonTerminalName=" + nonTerminalName
+                + ", nonTerminalIsStart=" + nonTerminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
         }
 
     }

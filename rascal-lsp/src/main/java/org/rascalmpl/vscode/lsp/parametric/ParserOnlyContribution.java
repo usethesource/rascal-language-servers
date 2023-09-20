@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
@@ -45,10 +44,12 @@ import org.rascalmpl.parser.gtd.recovery.IRecoverer;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -79,7 +80,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
         }
         this.parserClass = clzz;
         this.loadingParserError = err;
-        this.parserMethodName = (spec.getTerminalIsStart() ? "start__" : "") + spec.getTerminalName();
+        this.parserMethodName = (spec.getNonTerminalIsStart() ? "start__" : "") + spec.getNonTerminalName();
         this.allowAmbiguity = spec.getAllowAmbiguity();
     }
 
@@ -133,57 +134,56 @@ public class ParserOnlyContribution implements ILanguageContributions {
             Collections.singletonList(Evaluator.class.getClassLoader()),
             IRascalValueFactory.getInstance(),
             new Configuration());
-        return (Class<IGTD<IConstructor, ITree, ISourceLocation>>)bridge.loadClass(new FileInputStream(spec.getParserFile()));
+        return (Class<IGTD<IConstructor, ITree, ISourceLocation>>)bridge.loadClass(URIResolverRegistry.getInstance().getInputStream(spec.getParserLocation()));
     }
 
 
-    private static UnsupportedOperationException disabledFunction() {
-        return new UnsupportedOperationException("ParserOnly contribution");
-    }
+
+    private static final IValueFactory VF = IRascalValueFactory.getInstance();
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        throw disabledFunction();
+        return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override

@@ -158,21 +158,29 @@ export interface LanguageParameter {
     mainModule: string;
     /** main function which contributes the language implementation */
     mainFunction: string;
-    /** optionally configure a precompiled parser function */
+    /**
+     * optionally configure a precompiled parser function
+     *
+     * warning: this feature is temporary, make sure to always define a regular parser
+     * such that when we drop support for this feature, your DSLs will continue to work.
+     * */
     precompiledParser: ParserSpecification | undefined;
 }
 
 /**
  * Define precompiled parser to load before the modules have loaded.
  * This helps reduce the time an IDE is shown without syntax highlighting
+ *
+* warning: this feature is temporary, make sure to always define a regular parser
+* such that when we drop support for this feature, your DSLs will continue to work.
  */
 export interface ParserSpecification {
-    /** absolute path to the file containing the precompiled parsers */
-    parserFile: string;
-    /** terminal to use from the defined parsers */
-    terminalName: string;
-    /** is the terminal a `start` terminal, default: true */
-    terminalIsStart: boolean | undefined;
+    /** a rascal source location (for example |jar+file:///....!/lang.parser|) pointing to the file that contains the precompiled parsers */
+    parserLocation: string;
+    /** non-terminal to use from the defined parsers */
+    nonTerminalName: string;
+    /** is the non-terminal a `start` non-terminal, default: true */
+    nonTerminalIsStart: boolean | undefined;
     /** allow ambiguities during parsing, default: false */
     allowAmbiguity: boolean | undefined;
 
