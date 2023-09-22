@@ -32,6 +32,7 @@ import * as dl from './downloaders';
 import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 import { readReleaseInfo } from './ReleaseInfo';
+import { readdir, stat } from 'fs/promises';
 
 
 const currentJVMEngineMin = 11;
@@ -203,10 +204,11 @@ async function downloadJDKWithProgress(choice: string) {
 }
 
 export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
-    if (existsSync(mainJVMsPath)) {
-        for (const ent of readdirSync(mainJVMsPath, {  }).sort().reverse()) {
+    if (await stat(mainJVMsPath)) {
+        const files = await readdir(mainJVMsPath, {  });
+        for (const ent of files.sort().reverse()) {
             const releaseFilePath = path.join(mainJVMsPath, ent.toString(), "release");
-            const releaseInfo = readReleaseInfo(releaseFilePath);
+            const releaseInfo = await readReleaseInfo(releaseFilePath);
             if(!releaseInfo.implementor){
                 continue;
             }

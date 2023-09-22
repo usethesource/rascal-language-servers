@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { existsSync, readFileSync } from "fs";
+import { readFile, stat } from "fs/promises";
 
 export interface ReleaseInfo {
     implementor?: string,
@@ -49,11 +49,11 @@ export interface ReleaseInfo {
     image_type?: string,
 }
 
-export function readReleaseInfo(path:string) : ReleaseInfo {
+export async function readReleaseInfo(path:string) : Promise<ReleaseInfo> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const releaseInfo: any = {};
-    if(existsSync(path)){
-        const content = readFileSync(path, {  }).toString();
+    if(await stat(path)){
+        const content = await readFile(path, "utf-8");
         const lines = content.split('\n');
         lines.forEach(line => {
             const keyValue = line.split("=");
