@@ -500,14 +500,14 @@ public interface ITerminalIDEServer {
             this.allowAmbiguity = allowAmbiguity;
         }
 
-        public ISourceLocation getParserLocation() {
+        public ISourceLocation getParserLocation() throws FactTypeUseException {
             try {
                 return (ISourceLocation) new StandardTextReader().read(
                     IRascalValueFactory.getInstance(),
                     TypeFactory.getInstance().sourceLocationType(),
                     new StringReader(parserLocation));
-            } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException("Error parsing: " + parserLocation + " as a rascal location", e);
+            } catch (IOException e) {
+                throw new RuntimeException("Unexpected IO exception from a StringReader", e);
             }
         }
 

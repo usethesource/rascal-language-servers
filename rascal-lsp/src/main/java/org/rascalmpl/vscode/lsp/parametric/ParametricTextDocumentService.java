@@ -112,6 +112,7 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.exceptions.FactParseError;
 
 // suppress required due to forced usage of deprecated `SymbolInformation` class in `Either` until LSP4J cleans it up:
 @SuppressWarnings({"deprecation"})
@@ -535,8 +536,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
         );
         if (lang.getPrecompiledParser() != null) {
-            logger.debug("Got precompiled defintion: {}", lang.getPrecompiledParser());
-            multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+            try {
+                var location = lang.getPrecompiledParser().getParserLocation();
+                if (URIResolverRegistry.getInstance().exists(location)) {
+                    logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+                }
+                else {
+                    logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
+                }
+            }
+            catch (FactParseError e) {
+                logger.error("Error parsing location in precompiled parser specification (we expect a rascal loc)", e);
+            }
         }
 
         multiplexer.addContributor(buildContributionKey(lang),
