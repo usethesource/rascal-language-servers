@@ -209,11 +209,16 @@ public interface ITerminalIDEServer {
         }
 
         public ISourceLocation getLocation() {
-            try {
-                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
-            } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException("this should never happen:", e);
-            }
+            return buildLocation(location);
+        }
+
+    }
+
+    private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
+        try {
+            return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+        } catch (IOException e) {
+            throw new RuntimeException("this should never happen:", e);
         }
     }
     public static class AmountOfWork {
@@ -501,14 +506,7 @@ public interface ITerminalIDEServer {
         }
 
         public ISourceLocation getParserLocation() throws FactTypeUseException {
-            try {
-                return (ISourceLocation) new StandardTextReader().read(
-                    IRascalValueFactory.getInstance(),
-                    TypeFactory.getInstance().sourceLocationType(),
-                    new StringReader(parserLocation));
-            } catch (IOException e) {
-                throw new RuntimeException("Unexpected IO exception from a StringReader", e);
-            }
+            return buildLocation(parserLocation);
         }
 
         public String getNonTerminalName() {
