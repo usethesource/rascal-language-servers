@@ -90,8 +90,9 @@ public class SuspendedState {
     }
 
     public synchronized int addScope(IRascalFrame frame){
-        scopes.put(++referenceIDCounter, frame);
-        return referenceIDCounter;
+        int nextReferenceId = ++referenceIDCounter;
+        scopes.put(nextReferenceId, frame);
+        return nextReferenceId;
     }
 
     public List<RascalVariable> getVariables(int referenceID, int startIndex, int maxCount){
@@ -129,8 +130,9 @@ public class SuspendedState {
     }
 
     public synchronized void addVariable(RascalVariable variable){
-        variable.setReferenceID(++referenceIDCounter);
-        variables.put(referenceIDCounter, variable);
+        int nextReferenceID = ++referenceIDCounter;
+        variable.setReferenceID(nextReferenceID);
+        variables.put(nextReferenceID, variable);
     }
 
 }
