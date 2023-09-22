@@ -101,6 +101,9 @@ public abstract class BaseLanguageServer {
         System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
     }
 
+    // hide implicit constructor
+    protected BaseLanguageServer() {}
+
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
@@ -127,7 +130,7 @@ public abstract class BaseLanguageServer {
         JsonValueWriter writer = new JsonValueWriter();
         JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
         writer.setDatesAsInt(true);
-        
+
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
             @Override
             public IValue read(JsonReader source) throws IOException {
@@ -242,7 +245,7 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(IBaseLanguageServerExtensions.URIParameter projectFolder) {
+        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
             try {
                 if (projectFolder.getUri() == null) {
                     return CompletableFuture.completedFuture(

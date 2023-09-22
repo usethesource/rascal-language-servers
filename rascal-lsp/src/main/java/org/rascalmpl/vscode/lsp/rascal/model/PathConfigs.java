@@ -35,7 +35,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -115,6 +114,7 @@ public class PathConfigs {
                 try {
                     Thread.sleep(TimeUnit.SECONDS.toMillis(1));
                 } catch (InterruptedException e) {
+                    // inside of a thread run, we have to stop in case of an interrupt.
                     return;
                 }
 
