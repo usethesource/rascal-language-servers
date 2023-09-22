@@ -26,7 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp.dap;
 
-import io.usethesource.vallang.ISourceLocation;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Stack;
+import java.util.concurrent.ConcurrentHashMap;
 import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.result.IRascalResult;
@@ -35,8 +41,7 @@ import org.rascalmpl.vscode.lsp.dap.variable.RascalVariable;
 import org.rascalmpl.vscode.lsp.dap.variable.VariableSubElementsCounter;
 import org.rascalmpl.vscode.lsp.dap.variable.VariableSubElementsCounterVisitor;
 import org.rascalmpl.vscode.lsp.dap.variable.VariableSubfieldsVisitor;
-
-import java.util.*;
+import io.usethesource.vallang.ISourceLocation;
 
 /**
  * Class used to store the state of the Rascal Evaluator when it is suspended
@@ -48,19 +53,17 @@ public class SuspendedState {
     private final Map<Integer, RascalVariable> variables;
     private final Map<Integer, IRascalFrame> scopes;
     private volatile int referenceIDCounter;
-
     private volatile boolean isSuspended;
 
 
     public SuspendedState(Evaluator evaluator){
         this.evaluator = evaluator;
-        this.variables = new HashMap<>();
-        this.scopes = new HashMap<>();
+        this.variables = new ConcurrentHashMap<>();
+        this.scopes = new ConcurrentHashMap<>();
     }
 
     public void suspended(){
-        Stack<IRascalFrame> stack = evaluator.getCurrentStack();
-        currentStackFrames = stack.toArray(IRascalFrame[]::new);
+        currentStackFrames = evaluator.getCurrentStack().toArray(IRascalFrame[]::new);
         referenceIDCounter = 0;
         this.variables.clear();
         this.scopes.clear();
@@ -86,20 +89,21 @@ public class SuspendedState {
     }
 
     public IRascalFrame getCurrentStackFrame(){
-        return currentStackFrames[currentStackFrames.length - 1];
+        var stackCopy = currentStackFrames;
+        return stackCopy[stackCopy.length - 1];
     }
 
-    public synchronized int addScope(IRascalFrame frame){
-        scopes.put(++referenceIDCounter, frame);
-        return referenceIDCounter;
+    public int addScope(IRascalFrame frame){
+        int nextReferenceId = ++referenceIDCounter;
+        scopes.put(nextReferenceId, frame);
+        return nextReferenceId;
     }
 
     public List<RascalVariable> getVariables(int referenceID, int startIndex, int maxCount){
-        List<RascalVariable> variableList = new ArrayList<>();
-
         if(referenceID < 0){
-            return variableList;
+            return Collections.emptyList();
         }
+        List<RascalVariable> variableList = new ArrayList<>();
 
         // referenceID is a stack frame reference id
         if(scopes.containsKey(referenceID)){
@@ -128,9 +132,10 @@ public class SuspendedState {
         return var.getValue().accept(new VariableSubfieldsVisitor(this, var.getType(), startIndex, maxCount));
     }
 
-    public synchronized void addVariable(RascalVariable variable){
-        variable.setReferenceID(++referenceIDCounter);
-        variables.put(referenceIDCounter, variable);
+    public void addVariable(RascalVariable variable){
+        int nextReferenceID = ++referenceIDCounter;
+        variable.setReferenceID(nextReferenceID);
+        variables.put(nextReferenceID, variable);
     }
 
 }

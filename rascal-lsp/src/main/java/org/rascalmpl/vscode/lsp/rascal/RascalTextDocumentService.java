@@ -100,7 +100,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-@SuppressWarnings({"deprecation"})
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter;
@@ -397,7 +396,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
         // there is currently no way the Rascal LSP can receive this, but the Rascal DSL LSP does.
-        logger.warn("ignoring execute command in Rascal LSP: " + extension + "," + command);
+        logger.warn("ignoring execute command in Rascal LSP: {}, {}", extension, command);
         return CompletableFuture.completedFuture(null);
     }
 

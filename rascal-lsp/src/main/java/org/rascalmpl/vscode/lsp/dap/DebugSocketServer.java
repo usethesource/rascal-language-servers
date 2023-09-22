@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.dap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.debug.TerminatedEventArguments;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.rascalmpl.interpreter.Evaluator;
@@ -42,10 +43,10 @@ import java.net.Socket;
  */
 public class DebugSocketServer {
 
-    static final Logger logger = LogManager.getLogger(DebugSocketServer.class);
+    private static final Logger logger = LogManager.getLogger(DebugSocketServer.class);
     private final ServerSocket serverSocket;
-    private volatile Socket clientSocket;
-    private IDebugProtocolClient debugClient;
+    private volatile @Nullable Socket clientSocket;
+    private volatile @Nullable IDebugProtocolClient debugClient;
 
     public DebugSocketServer(Evaluator evaluator, TerminalIDEClient terminal){
         try {
@@ -82,7 +83,8 @@ public class DebugSocketServer {
     }
 
     public boolean isClientConnected(){
-        return clientSocket != null && !clientSocket.isClosed();
+        var socket = clientSocket; // local copy for thread safety
+        return socket != null && !socket.isClosed();
     }
 
     public int getPort(){
@@ -90,23 +92,28 @@ public class DebugSocketServer {
     }
 
     public void terminateDebugSession(){
-        if(debugClient != null){
+        var client = debugClient; // take a local copy for thread safety
+        if(client != null){
             TerminatedEventArguments args = new TerminatedEventArguments();
             args.setRestart(false);
-            debugClient.terminated(args);
+            client.terminated(args);
             debugClient = null;
         }
     }
 
     public void closeClientSocket(){
-        if(clientSocket != null && !clientSocket.isClosed()){
-            try {
-                clientSocket.close();
-            } catch (IOException e) {
-                logger.error(e.getMessage(), e);
+        try {
+            var socket = clientSocket; // local copy for thread safety
+            if(socket != null && !socket.isClosed()){
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    logger.error("Error closing client socket", e);
+                }
             }
+        } finally {
+            clientSocket = null;
+            debugClient = null;
         }
-        clientSocket = null;
-        debugClient = null;
     }
 }

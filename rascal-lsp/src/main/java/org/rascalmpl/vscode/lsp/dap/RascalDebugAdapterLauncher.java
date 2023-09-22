@@ -38,24 +38,21 @@ import java.io.*;
 import java.net.Socket;
 
 public class RascalDebugAdapterLauncher {
+    private static final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
 
     public static IDebugProtocolClient start(Evaluator evaluator, Socket clientSocket, DebugSocketServer socketServer) {
         try {
             final DebugHandler debugHandler = new DebugHandler();
-
-            debugHandler.setTerminateAction(new Runnable() {
-                @Override
-                public void run() {
+            debugHandler.setTerminateAction(() -> {
+                try {
                     evaluator.removeSuspendTriggerListener(debugHandler);
-                    try {
-                        // Wait for the server to send and to the client to receive the disconnect response, then close the socket
-                        Thread.sleep(2000);
-                        socketServer.closeClientSocket();
-                    } catch (InterruptedException e) {
-                        final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
-                        logger.fatal(e.getMessage(), e);
-                        throw new RuntimeException(e);
-                    }
+                    // Wait for the server to send and to the client to receive the disconnect response, then close the socket
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                finally {
+                    socketServer.closeClientSocket();
                 }
             });
             evaluator.addSuspendTriggerListener(debugHandler);
@@ -66,9 +63,8 @@ public class RascalDebugAdapterLauncher {
             launcher.startListening();
             return launcher.getRemoteProxy();
         } catch (IOException e) {
-            final Logger logger = LogManager.getLogger(RascalDebugAdapterLauncher.class);
-            logger.fatal(e.getMessage(), e);
-            throw new RuntimeException(e);
+            logger.fatal("Error opening communication to DAP", e);
+            throw new RuntimeException("Error opening connection to DAP", e);
         }
     }
 }
