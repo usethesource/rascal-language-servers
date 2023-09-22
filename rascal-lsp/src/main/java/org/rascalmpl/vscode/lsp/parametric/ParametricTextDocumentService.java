@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CodeLens;
@@ -64,8 +65,8 @@ import org.eclipse.lsp4j.ImplementationParams;
 import org.eclipse.lsp4j.InlayHint;
 import org.eclipse.lsp4j.InlayHintKind;
 import org.eclipse.lsp4j.InlayHintParams;
-import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
@@ -104,7 +105,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import com.google.common.io.CharStreams;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -113,8 +113,6 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
-// suppress required due to forced usage of deprecated `SymbolInformation` class in `Either` until LSP4J cleans it up:
-@SuppressWarnings({"deprecation"})
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
@@ -158,7 +156,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return ideState.getCurrentContent();
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
-            return CharStreams.toString(src);
+            return IOUtils.toString(src);
+
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
