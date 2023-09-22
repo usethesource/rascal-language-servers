@@ -186,7 +186,7 @@ export async function identifyLatestCorrettoRelease(version: number, arch: Temur
     const url = `https://corretto.aws/downloads/latest/amazon-corretto-${version}-${arch}-${platform}-jdk.${platform === "windows" ? "zip" : "tar.gz"}`;
     const response = await fetch(url, {method: 'HEAD'});
     const fileUrl = response.url;
-    const versionPattern = /resources\/((\d*\.?)+)\//;
+    const versionPattern = /resources\/([0-9.]+)\//;
     const match = fileUrl.match(versionPattern);
     if(!match){
         throw new Error(`unexpected response url ${response}`);
@@ -200,7 +200,7 @@ export async function identifyLatestMicrofotJDKRelease(version: number, arch: MS
     const url = `https://aka.ms/download-jdk/microsoft-jdk-${version}-${platform}-${arch}.${platform === "windows" ? "zip" : "tar.gz"}`;
     const response = await fetch(url, {method: 'HEAD'});
     const fileUrl = response.url;
-    const versionPattern = /jdk-((\d*\.?)+)-/;
+    const versionPattern = /jdk-([0-9.]+)-/;
     const match = fileUrl.match(versionPattern);
     if(!match){
         throw new Error(`unexpected response url ${response}`);
