@@ -113,8 +113,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
         String nt = spec.getNonTerminalName();
         IConstructor symbol = vf.constructor(RascalFunctionValueFactory.Symbol_Sort, VF.string(nt));
         symbol = spec.getNonTerminalIsStart() ? vf.constructor(RascalFunctionValueFactory.Symbol_Start, symbol) : symbol;
-        IConstructor reifiedType = vf.reifiedType(symbol, vf.map());
-        return reifiedType;
+        return vf.reifiedType(symbol, vf.map());
     }
 
     @Override
