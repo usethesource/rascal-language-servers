@@ -27,7 +27,11 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.AbstractMap;
 import java.util.Collections;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -35,6 +39,8 @@ import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.interpreter.Configuration;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.asserts.Ambiguous;
+import org.rascalmpl.interpreter.env.GlobalEnvironment;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.staticErrors.UndeclaredNonTerminal;
 import org.rascalmpl.interpreter.utils.JavaBridge;
 import org.rascalmpl.parser.gtd.IGTD;
@@ -46,6 +52,8 @@ import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.RascalFunctionValueFactory;
+import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -58,30 +66,23 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.exceptions.FactTypeUseException;
 
 public class ParserOnlyContribution implements ILanguageContributions {
-
+    private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private final String name;
     private final String extension;
     private final @Nullable Exception loadingParserError;
-    private final @Nullable Class<IGTD<IConstructor, ITree, ISourceLocation>> parserClass;
-    private final String parserMethodName;
-    private final boolean allowAmbiguity;
+    private final @Nullable IFunction parser;
 
     public ParserOnlyContribution(String name, String extension, ParserSpecification spec) {
         this.name = name;
         this.extension = extension;
-        Class<IGTD<IConstructor, ITree, ISourceLocation>> clzz = null;
-        Exception err = null;
-        try {
-            clzz = loadParserClass(spec);
-        } catch (ClassNotFoundException | IOException e) {
-            err = e;
-        }
-        this.parserClass = clzz;
-        this.loadingParserError = err;
-        this.parserMethodName = (spec.getNonTerminalIsStart() ? "start__" : "") + spec.getNonTerminalName();
-        this.allowAmbiguity = spec.getAllowAmbiguity();
+
+        // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
+        Entry<IFunction,Exception> e = loadParser(spec);
+        this.parser = e.getKey();
+        this.loadingParserError = e.getValue();
     }
 
     @Override
@@ -96,50 +97,40 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        if (parserClass == null || loadingParserError != null) {
-            return CompletableFuture.failedFuture(new RuntimeException("ParserClass did not load", loadingParserError));
+        if (loadingParserError != null) {
+            return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                IGTD<IConstructor, ITree, ISourceLocation> parser
-                    = parserClass.getDeclaredConstructor().newInstance();
-                return (ITree)parser.parse(
-                    parserMethodName, loc.getURI(), input.toCharArray(), new NoActionExecutor(),
-                    new DefaultNodeFlattener<>(),
-                    new UPTRNodeFactory(allowAmbiguity),
-                    (IRecoverer<IConstructor>) null
-                );
-            }
-            catch (ParseError pe) {
-                ISourceLocation errorLoc = pe.getLocation();
-                throw RuntimeExceptionFactory.parseError(errorLoc);
-            }
-            catch (Ambiguous e) {
-                ITree tree = e.getTree();
-                IValueFactory vf = IRascalValueFactory.getInstance();
-                throw RuntimeExceptionFactory.ambiguity(e.getLocation(), vf.string(SymbolAdapter.toString(TreeAdapter.getType(tree), false)), vf.string(TreeAdapter.yield(tree)));
-            }
-            catch (UndeclaredNonTerminalException e){
-                throw new UndeclaredNonTerminal(e.getName(), e.getClassName(), loc);
-            }
-            catch (ReflectiveOperationException | IllegalArgumentException | SecurityException e) {
-                throw new CompletionException("Error with loaded parser", e);
-            }
-        });
+
+        return CompletableFuture.supplyAsync(() -> parser.call(loc, VF.string(input)));
     }
 
-    @SuppressWarnings("unchecked")
-    private static Class<IGTD<IConstructor, ITree, ISourceLocation>> loadParserClass(ParserSpecification spec) throws ClassNotFoundException, IOException {
-        var bridge = new JavaBridge(
-            Collections.singletonList(Evaluator.class.getClassLoader()),
-            IRascalValueFactory.getInstance(),
-            new Configuration());
-        return (Class<IGTD<IConstructor, ITree, ISourceLocation>>)bridge.loadClass(URIResolverRegistry.getInstance().getInputStream(spec.getParserLocation()));
+    private Entry<IFunction, Exception> loadParser(ParserSpecification spec) {
+        // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
+        GlobalEnvironment unusedHeap = new GlobalEnvironment();
+        Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
+        // this is what we are after: a factory that can load back parsers. 
+        IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
+
+
+        IConstructor reifiedType = makeReifiedType(spec, vf);
+
+        try {
+            // this hides all the loading and instantiation details of Rascal-generated parsers
+            return new AbstractMap.SimpleEntry<>(vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set()), null);
+        }
+        catch (IOException | ClassNotFoundException | FactTypeUseException e) {
+            return new AbstractMap.SimpleEntry<>(null, e);
+        }
     }
 
-
-
-    private static final IValueFactory VF = IRascalValueFactory.getInstance();
+    /** converta non-terminal name into a proper reified type */
+    private IConstructor makeReifiedType(ParserSpecification spec, IRascalValueFactory vf) {
+        String nt = spec.getNonTerminalName();
+        IConstructor symbol = vf.constructor(RascalFunctionValueFactory.Symbol_Sort, VF.string(nt));
+        symbol = spec.getNonTerminalIsStart() ? vf.constructor(RascalFunctionValueFactory.Symbol_Start, symbol) : symbol;
+        IConstructor reifiedType = vf.reifiedType(symbol, vf.map());
+        return reifiedType;
+    }
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
