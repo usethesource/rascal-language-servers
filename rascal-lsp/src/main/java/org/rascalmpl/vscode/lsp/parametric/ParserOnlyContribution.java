@@ -86,7 +86,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
 
-        return CompletableFuture.supplyAsync(() -> parser.call(loc, VF.string(input)));
+        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
     }
 
     private Entry<IFunction, Exception> loadParser(ParserSpecification spec) {
