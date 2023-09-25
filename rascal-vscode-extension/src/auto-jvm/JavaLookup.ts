@@ -248,11 +248,11 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
     }
 }
 
-export async function askUserForJVMUpdate(jdktype: string){
-    vscode.window.showInformationMessage(`A new release is available for ${jdktype} openJDK. Would you like to install it ?`, ...["yes", "no"]).then(async ans => {
-        if(ans === "yes"){
+export function askUserForJVMUpdate(jdktype: string){
+    vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK. There is a new update. In general the update containes bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
+        if(ans === "Install update"){
             await downloadJDKWithProgress(jdktype);
-            vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VSCode session.`);
+            vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VS Code session.`);
         }
     });
 }
