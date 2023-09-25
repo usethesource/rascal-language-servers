@@ -28,14 +28,19 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { correttoSupported, downloadCorretto, downloadMicrosoftJDK, downloadTemurin, microsoftSupported, temurinSupported } from './downloaders';
+import * as dl from './downloaders';
 import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
+import { readReleaseInfo } from './ReleaseInfo';
+import { readdir, stat } from 'fs/promises';
 
 
 const currentJVMEngineMin = 11;
 const currentJVMEngineMax = 17;
 const currentPreferredJVMEngine = 11;
+const temurin = "Eclipse Temurin";
+const msJava = "Microsoft Build of OpenJDK";
+const amazon = "Amazon Corretto";
 const mainJVMPath = path.join(os.homedir(), ".jvm", `jdk${currentPreferredJVMEngine}`);
 
 let lookupCompleted: Thenable<string> | undefined;
@@ -93,7 +98,8 @@ function getJavaCandidates(): string[] {
         result.push(name);
     }
     if (existsSync(mainJVMPath)) {
-        for (const ent of readdirSync(mainJVMPath, {  })) {
+        const jvms = readdirSync(mainJVMPath, {  }).sort().reverse();
+        for (const ent of jvms) {
             let possiblePath = "";
             switch (os.platform()) {
                 case 'win32': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java.exe"); break;
@@ -158,22 +164,29 @@ async function openSettings(): Promise<string> {
 }
 
 async function downloadJDK(): Promise<string> {
-    const temurin = "Eclipse Temurin";
-    const msJava = "Microsoft Build of OpenJDK";
-    const amazon = "Amazon Corretto";
     const options = [];
-    if (temurinSupported(currentPreferredJVMEngine)) {
+    if (dl.temurinSupported(currentPreferredJVMEngine)) {
         options.push(temurin);
     }
-    if (microsoftSupported(currentPreferredJVMEngine)) {
+    if (dl.microsoftSupported(currentPreferredJVMEngine)) {
         options.push(msJava);
     }
-    if (correttoSupported(currentPreferredJVMEngine)) {
+    if (dl.correttoSupported(currentPreferredJVMEngine)) {
         options.push(amazon);
     }
     const choice = await vscode.window.showInformationMessage("Select which OpenJDK provider you prefer", {modal:true}, ...options);
 
-    const result = await vscode.window.withProgress({
+    if(!choice){
+        throw new Error("User setup required");
+    }
+
+    const result = await downloadJDKWithProgress(choice);
+    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, Rascal will now start`);
+    return result;
+}
+
+async function downloadJDKWithProgress(choice: string) {
+    return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Downloading ${choice} JDK:`,
         cancellable: false
@@ -182,16 +195,64 @@ async function downloadJDK(): Promise<string> {
             progress.report({message: message, increment: percIncrement});
         }
         switch (choice) {
-            case temurin: return downloadTemurin(mainJVMPath, currentPreferredJVMEngine, actualProgress);
-            case msJava: return downloadMicrosoftJDK(mainJVMPath, currentPreferredJVMEngine, actualProgress);
-            case amazon: return downloadCorretto(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case temurin: return dl.downloadTemurin(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case msJava: return dl.downloadMicrosoftJDK(mainJVMPath, currentPreferredJVMEngine, actualProgress);
+            case amazon: return dl.downloadCorretto(mainJVMPath, currentPreferredJVMEngine, actualProgress);
             default:  throw new Error("User setup required");
         }
     });
-    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, rascal will now start`);
-    return result;
 }
 
+export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
+    if (await stat(mainJVMsPath)) {
+        const files = await readdir(mainJVMsPath, {  });
+        for (const ent of files.sort().reverse()) {
+            const releaseFilePath = path.join(mainJVMsPath, ent.toString(), "release");
+            const releaseInfo = await readReleaseInfo(releaseFilePath);
+            if(!releaseInfo.implementor){
+                continue;
+            }
+            switch (releaseInfo.implementor){
+                case "Eclipse Adoptium": {
+                    if(!releaseInfo.full_version){
+                        break;
+                    }
+                    const latest = await dl.identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapTemurinPlatform());
+                    if("jdk-"+releaseInfo.full_version !== latest){
+                        askUserForJVMUpdate(temurin);
+                    }
+                    return;
+                }
+                case "Microsoft": {
+                    if(!releaseInfo.java_version){
+                        break;
+                    }
+                    const latest = await dl.identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, dl.mapMSArchitectures(), dl.mapMSPlatforms());
+                    if(releaseInfo.java_version !== latest){
+                        askUserForJVMUpdate(msJava);
+                    }
+                    return;
+                }
+                case "Amazon.com Inc.": {
+                    if(!releaseInfo.implementor_version){
+                        break;
+                    }
+                    const latest = await dl.identifyLatestCorrettoRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapCorrettoPlatform());
+                    if(releaseInfo.implementor_version.slice(9) !== latest){
+                        askUserForJVMUpdate(amazon);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+}
 
-
-
+export function askUserForJVMUpdate(jdktype: string){
+    vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK. There is a new update. In general the update containes bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
+        if(ans === "Install update"){
+            await downloadJDKWithProgress(jdktype);
+            vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VS Code session.`);
+        }
+    });
+}
