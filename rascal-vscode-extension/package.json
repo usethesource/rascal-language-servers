@@ -78,34 +78,36 @@
     },
     "breakpoints": [
       {
-          "language": "rascalmpl"
+        "language": "rascalmpl"
       }
     ],
     "debuggers": [
       {
-          "languages": ["rascalmpl"],
-          "type": "rascalmpl",
-          "label": "Rascal debugger",
-          "initialConfigurations": [
-              {
-                  "type": "rascalmpl",
-                  "request": "attach",
-                  "name": "Rascal debugger"
-              }
-          ],
-          "configurationSnippets": [
-              {
-                  "label": "Rascal debugger",
-                  "description": "Rascal debugger",
-                  "body": {
-                    "type": "rascalmpl",
-                    "request": "attach",
-                    "name": "Rascal debugger"
-                }
-              }
-          ]
+        "languages": [
+          "rascalmpl"
+        ],
+        "type": "rascalmpl",
+        "label": "Rascal debugger",
+        "initialConfigurations": [
+          {
+            "type": "rascalmpl",
+            "request": "attach",
+            "name": "Rascal debugger"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Rascal debugger",
+            "description": "Rascal debugger",
+            "body": {
+              "type": "rascalmpl",
+              "request": "attach",
+              "name": "Rascal debugger"
+            }
+          }
+        ]
       }
-  ],
+    ],
     "grammars": [
       {
         "language": "rascalmpl",
@@ -118,16 +120,22 @@
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
     ],
-  "configuration": {
+    "configuration": {
       "title": "Rascal",
       "properties": {
         "rascal.interpreter.maxHeapSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
@@ -151,6 +159,7 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
+    "@types/chai": "4.x",
     "@types/mocha": "10.x",
     "@types/node": "16.x",
     "@types/node-fetch": "2.x",
@@ -161,6 +170,8 @@
     "@typescript-eslint/eslint-plugin": "6.x",
     "@typescript-eslint/parser": "6.x",
     "@vscode/test-electron": "2.x",
+    "@vscode/vsce": "2.x",
+    "chai": "4.x",
     "eslint": "8.x",
     "glob": "10.x",
     "license-check-and-add": "4.x",
@@ -168,7 +179,7 @@
     "temp": "0.x",
     "ts-loader": "9.x",
     "typescript": "5.x",
-    "@vscode/vsce": "2.x",
+    "vscode-extension-tester": "5.x",
     "webpack": "5.x",
     "webpack-cli": "5.x"
   }
