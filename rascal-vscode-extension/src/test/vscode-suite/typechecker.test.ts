@@ -25,9 +25,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-// import the webdriver and the high level browser wrapper
 import { By, EditorView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 
 
 describe('typechecker', function () {
@@ -37,8 +37,13 @@ describe('typechecker', function () {
     let editorView : EditorView;
 
     this.timeout(40_000);
-    const workspacePrefix = path.join('test-workspace', 'test-project');
-    const mainFile = path.join(workspacePrefix, 'src', 'main', 'rascal', 'Main.rsc');
+    const workspacePrefix = path.join('test-workspace');
+    const mainFile = path.join(workspacePrefix, 'test-project', 'src', 'main', 'rascal', 'Main.rsc');
+    const mainFileTpl = path.join(workspacePrefix, 'test-project', 'target', 'classes', 'rascal','Main.tpl');
+    const libUse = path.join(workspacePrefix, 'test-project', 'src', 'main', 'rascal', 'LibCall.rsc');
+    const libUseTpl = path.join(workspacePrefix, 'test-project', 'target', 'classes', 'rascal','LibCall.tpl');
+    const libMain = path.join(workspacePrefix, 'test-lib', 'src', 'main', 'rascal', 'Lib.rsc');
+    const libMainTpl = path.join(workspacePrefix, 'test-lib', 'target', 'classes', 'rascal','Lib.tpl');
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -46,7 +51,7 @@ describe('typechecker', function () {
         bench = new Workbench();
         await browser.waitForWorkbench();
         editorView = bench.getEditorView();
-        await browser.openResources(workspacePrefix);
+        await browser.openResources(path.join(workspacePrefix, "test.code-workspace"));
     });
 
     beforeEach(async () => {
@@ -58,23 +63,27 @@ describe('typechecker', function () {
 
     after(async () => {
         // let's try and undo changes to the last line of certain files
-        await clearLastLine(mainFile, 'Main.rsc');
+        await clearLastLine(mainFile);
+        await clearLastLine(libUse);
+        await clearLastLine(libMain);
     });
 
-    async function clearLastLine(path: string, name: string) {
-        await browser.openResources(path);
-        const editor = await editorView.openEditor(name) as TextEditor;
+    async function clearLastLine(file: string) {
+        await browser.openResources(file);
+        const editor = await editorView.openEditor(path.basename(file)) as TextEditor;
         await editor.setTextAtLine(await editor.getNumberOfLines(), "");
         await editor.save();
         await editorView.closeAllEditors();
     }
 
 
-    it("highlighting works", async function () {
-        await browser.openResources(mainFile);
-        const editor = await editorView.openEditor('Main.rsc') as TextEditor;
-        await driver.wait(async () => editor.findElement(By.className('mtk18')), 10_000, "Syntax highlighting should be present");
-    });
+    async function fileExists(file: string) {
+        try {
+            return await fs.stat(file) !== undefined;
+        } catch(_ignored) {
+            return false;
+        }
+    }
 
     function waitRascalCoreInit() {
         return driver.wait(async () => {
@@ -87,33 +96,63 @@ describe('typechecker', function () {
         }, 20_000, "Rascal core loading took longer");
     }
 
-    async function triggerTypeChecker(editor: TextEditor) {
+    async function triggerTypeChecker(editor: TextEditor, outputFile: string, waitForFinish = false) {
         const lastLine = await editor.getNumberOfLines();
+        try {
+            await fs.unlink(outputFile);
+        } catch (_e) { /* ignored */ }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
         await editor.save();
-        await driver.wait(async () => bench.getStatusBar().getItem("Rascal check"), 15_000, "Rascal check should be running after save");
+        await driver.wait(async () => {
+            return (await bench.getStatusBar().getItem("Rascal check")) ||
+                (await fileExists(outputFile));
+        }, 15_000, "Rascal check should be running after save");
+        if (waitForFinish) {
+            await driver.wait(async () => (await bench.getStatusBar().getItem("Rascal check")) === undefined && (await fileExists(outputFile)), 20_000, "Rascal check should finish processing Module");
+        }
     }
 
-    async function openMainModule() {
-        await browser.openResources(mainFile);
-        return await editorView.openEditor('Main.rsc') as TextEditor;
+    async function openModule(file: string) {
+        await browser.openResources(file);
+        return await editorView.openEditor(path.basename(file)) as TextEditor;
     }
+
+    it("highlighting works", async function () {
+        const editor = await openModule(mainFile);
+        await driver.wait(async () => editor.findElement(By.className('mtk18')), 10_000, "Syntax highlighting should be present");
+    });
 
     it("save runs type checker", async function () {
-        const editor = await openMainModule();
+        const editor = await openModule(mainFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(editor);
-        await driver.wait(async () => (await bench.getStatusBar().getItem("Rascal check")) === undefined, 20_000, "Rascal check should finish processing Module");
+        await triggerTypeChecker(editor, mainFileTpl, true);
     });
 
     it("go to definition works", async () => {
-        const editor = await openMainModule();
+        const editor = await openModule(mainFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(editor);
+        await triggerTypeChecker(editor, mainFileTpl);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === "IO.rsc", 5_000, "IO.rsc should be opened for println");
     });
+
+    it("go to definition works across projects", async () => {
+        const libEditor = await openModule(libMain);
+        await waitRascalCoreInit();
+        await triggerTypeChecker(libEditor, libMainTpl, true);
+        await editorView.closeAllEditors();
+
+        const editor = await openModule(libUse);
+        await waitRascalCoreInit();
+        await triggerTypeChecker(editor, libUseTpl);
+        await editor.selectText("fib");
+        await bench.executeCommand("Go to Definition");
+        await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === "Lib.rsc", 5_000, "Lib.rsc should be opened for fib");
+    });
+
+
+
 
 
 });
