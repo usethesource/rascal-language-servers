@@ -31,7 +31,7 @@ import * as fs from 'fs/promises';
 import { TestWorkspace } from './utils';
 
 
-describe('typechecker', function () {
+describe('IDE', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
