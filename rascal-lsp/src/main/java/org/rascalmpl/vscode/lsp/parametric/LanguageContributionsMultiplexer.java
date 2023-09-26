@@ -118,7 +118,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
      * @returns false if the multiplexer is empty, and therefore should not be used anymore
      */
     public boolean removeContributor(String contribKey) {
-        contributions.removeIf(e -> e.key.equals(contribKey));
+        contributions.removeIf(e -> e.key.equals(contribKey) || e.key.equals(contribKey + "$parser"));
         if (contributions.isEmpty()) {
             return false;
         }

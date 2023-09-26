@@ -35,14 +35,13 @@ import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
-
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -210,11 +209,16 @@ public interface ITerminalIDEServer {
         }
 
         public ISourceLocation getLocation() {
-            try {
-                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
-            } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException("this should never happen:", e);
-            }
+            return buildLocation(location);
+        }
+
+    }
+
+    private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
+        try {
+            return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+        } catch (IOException e) {
+            throw new RuntimeException("this should never happen:", e);
         }
     }
     public static class AmountOfWork {
@@ -441,13 +445,15 @@ public interface ITerminalIDEServer {
 	    private final String extension; // extension for files in this language
 	    private final String mainModule; // main module to locate mainFunction in
 	    private final String mainFunction; // main function which contributes the language implementation
+        private final @Nullable ParserSpecification precompiledParser;
 
-        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
+        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
             this.pathConfig = pathConfig.toString();
             this.name = name;
             this.extension = extension;
             this.mainModule = mainModule;
             this.mainFunction = mainFunction;
+            this.precompiledParser = precompiledParser;
         }
 
         public String getPathConfig() {
@@ -470,12 +476,56 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
 
+        public @MonotonicNonNull ParserSpecification getPrecompiledParser() {
+            return precompiledParser;
+        }
+
         @Override
         public String toString() {
             return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extension=" + extension
-                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ")";
+                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ", precompiledParser=" + precompiledParser + ")";
+        }
+    }
+
+    public static class ParserSpecification {
+        /** absolute path to the file containing the precompiled parsers */
+        private final String parserLocation;
+        /** terminal to use from the defined parsers */
+        private final String nonTerminalName;
+        /** is the terminal a `start` terminal, default: true */
+        private final @Nullable Boolean nonTerminalIsStart;
+        /** allowAmbiguity (default is false) */
+        private final @Nullable Boolean allowAmbiguity;
+
+
+        public ParserSpecification(String parserLocation, String nonTerminalName, @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity) {
+            this.parserLocation = parserLocation;
+            this.nonTerminalName = nonTerminalName;
+            this.nonTerminalIsStart = nonTerminalIsStart;
+            this.allowAmbiguity = allowAmbiguity;
         }
 
+        public ISourceLocation getParserLocation() throws FactTypeUseException {
+            return buildLocation(parserLocation);
+        }
+
+        public String getNonTerminalName() {
+            return nonTerminalName;
+        }
+
+        public boolean getNonTerminalIsStart() {
+            return nonTerminalIsStart == null || nonTerminalIsStart;
+        }
+
+        public boolean getAllowAmbiguity() {
+            return allowAmbiguity != null && allowAmbiguity;
+        }
+
+        @Override
+        public String toString() {
+            return "ParserSpecification [parserLocation=" + parserLocation + ", nonTerminalName=" + nonTerminalName
+                + ", nonTerminalIsStart=" + nonTerminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+        }
 
     }
 }

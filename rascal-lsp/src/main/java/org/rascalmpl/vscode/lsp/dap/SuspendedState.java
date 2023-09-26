@@ -27,11 +27,9 @@
 package org.rascalmpl.vscode.lsp.dap;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;

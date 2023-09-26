@@ -112,6 +112,7 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.exceptions.FactParseError;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
@@ -533,6 +534,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var fact = facts.computeIfAbsent(lang.getExtension(), t ->
             new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
         );
+        if (lang.getPrecompiledParser() != null) {
+            try {
+                var location = lang.getPrecompiledParser().getParserLocation();
+                if (URIResolverRegistry.getInstance().exists(location)) {
+                    logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+                }
+                else {
+                    logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
+                }
+            }
+            catch (FactParseError e) {
+                logger.error("Error parsing location in precompiled parser specification (we expect a rascal loc)", e);
+            }
+        }
 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
