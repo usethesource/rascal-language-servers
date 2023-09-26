@@ -78,36 +78,34 @@
     },
     "breakpoints": [
       {
-        "language": "rascalmpl"
+          "language": "rascalmpl"
       }
     ],
     "debuggers": [
       {
-        "languages": [
-          "rascalmpl"
-        ],
-        "type": "rascalmpl",
-        "label": "Rascal debugger",
-        "initialConfigurations": [
-          {
-            "type": "rascalmpl",
-            "request": "attach",
-            "name": "Rascal debugger"
-          }
-        ],
-        "configurationSnippets": [
-          {
-            "label": "Rascal debugger",
-            "description": "Rascal debugger",
-            "body": {
-              "type": "rascalmpl",
-              "request": "attach",
-              "name": "Rascal debugger"
-            }
-          }
-        ]
+          "languages": ["rascalmpl"],
+          "type": "rascalmpl",
+          "label": "Rascal debugger",
+          "initialConfigurations": [
+              {
+                  "type": "rascalmpl",
+                  "request": "attach",
+                  "name": "Rascal debugger"
+              }
+          ],
+          "configurationSnippets": [
+              {
+                  "label": "Rascal debugger",
+                  "description": "Rascal debugger",
+                  "body": {
+                    "type": "rascalmpl",
+                    "request": "attach",
+                    "name": "Rascal debugger"
+                }
+              }
+          ]
       }
-    ],
+  ],
     "grammars": [
       {
         "language": "rascalmpl",
@@ -120,22 +118,16 @@
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
     ],
-    "configuration": {
+  "configuration": {
       "title": "Rascal",
       "properties": {
         "rascal.interpreter.maxHeapSize": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "default": null,
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
