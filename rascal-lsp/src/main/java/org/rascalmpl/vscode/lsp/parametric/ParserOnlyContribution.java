@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
@@ -65,9 +66,9 @@ public class ParserOnlyContribution implements ILanguageContributions {
         this.extension = extension;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
-        Entry<IFunction,Exception> e = loadParser(spec);
-        this.parser = e.getKey();
-        this.loadingParserError = e.getValue();
+        Either<IFunction,Exception> result = loadParser(spec);
+        this.parser = result.getLeft();
+        this.loadingParserError = result.getRight();
     }
 
     @Override
@@ -89,23 +90,22 @@ public class ParserOnlyContribution implements ILanguageContributions {
         return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
     }
 
-    private Entry<IFunction, Exception> loadParser(ParserSpecification spec) {
+    private Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
         GlobalEnvironment unusedHeap = new GlobalEnvironment();
         Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
         // this is what we are after: a factory that can load back parsers. 
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
-
-
         IConstructor reifiedType = makeReifiedType(spec, vf);
 
         try {
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            return new AbstractMap.SimpleEntry<>(vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set()), null);
+            return Either.forLeft(vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set()));
         }
         catch (IOException | ClassNotFoundException | FactTypeUseException e) {
-            return new AbstractMap.SimpleEntry<>(null, e);
+            return Either.forRight(e);
         }
+        
     }
 
     /** converta non-terminal name into a proper reified type */
