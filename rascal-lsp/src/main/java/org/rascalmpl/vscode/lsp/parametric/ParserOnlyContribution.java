@@ -38,6 +38,7 @@ import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
+import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
@@ -81,18 +82,18 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        if (loadingParserError != null) {
+        if (loadingParserError != null || parser != null) {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
 
         return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
     }
 
-    private Either<IFunction, Exception> loadParser(ParserSpecification spec) {
+    private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
         GlobalEnvironment unusedHeap = new GlobalEnvironment();
         Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
-        // this is what we are after: a factory that can load back parsers. 
+        // this is what we are after: a factory that can load back parsers.
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
         IConstructor reifiedType = makeReifiedType(spec, vf);
 
@@ -103,14 +104,14 @@ public class ParserOnlyContribution implements ILanguageContributions {
         catch (IOException | ClassNotFoundException | FactTypeUseException e) {
             return Either.forRight(e);
         }
-        
+
     }
 
-    /** converta non-terminal name into a proper reified type */
-    private IConstructor makeReifiedType(ParserSpecification spec, IRascalValueFactory vf) {
+    /** convert a non-terminal name into a proper reified type */
+    private static IConstructor makeReifiedType(ParserSpecification spec, IRascalValueFactory vf) {
         String nt = spec.getNonTerminalName();
-        IConstructor symbol = vf.constructor(RascalFunctionValueFactory.Symbol_Sort, VF.string(nt));
-        symbol = spec.getNonTerminalIsStart() ? vf.constructor(RascalFunctionValueFactory.Symbol_Start, symbol) : symbol;
+        IConstructor symbol = vf.constructor(RascalValueFactory.Symbol_Sort, VF.string(nt));
+        symbol = spec.getNonTerminalIsStart() ? vf.constructor(RascalValueFactory.Symbol_Start, symbol) : symbol;
         return vf.reifiedType(symbol, vf.map());
     }
 
