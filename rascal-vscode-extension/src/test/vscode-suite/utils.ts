@@ -25,6 +25,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import path = require("path");
+
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+export class TestWorkspace {
+    private static get workspacePrefix() { return 'test-workspace'; }
+    public static get workspaceFile() { return path.join(this.workspacePrefix, 'test.code-workspace'); }
+    public static get testProject() { return path.join(this.workspacePrefix, 'test-project'); }
+    public static get libProject() { return path.join(this.workspacePrefix, 'test-lib'); }
+    public static get mainFile() { return path.join(this.testProject, 'src', 'main', 'rascal', 'Main.rsc'); }
+    public static get mainFileTpl() { return path.join(this.testProject, 'target', 'classes', 'rascal','Main.tpl'); }
+    public static get libCallFile() { return path.join(this.testProject, 'src', 'main', 'rascal', 'LibCall.rsc'); }
+    public static get libCallFileTpl() { return path.join(this.testProject, 'target', 'classes', 'rascal','LibCall.tpl'); }
+    public static get libFile() { return path.join(this.libProject, 'src', 'main', 'rascal', 'Lib.rsc'); }
+    public static get libFileTpl() { return path.join(this.libProject, 'target', 'classes', 'rascal','Lib.tpl'); }
 }

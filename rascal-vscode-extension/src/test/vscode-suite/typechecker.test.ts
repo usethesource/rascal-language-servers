@@ -28,6 +28,7 @@
 import { By, EditorView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { TestWorkspace } from './utils';
 
 
 describe('typechecker', function () {
@@ -37,13 +38,6 @@ describe('typechecker', function () {
     let editorView : EditorView;
 
     this.timeout(40_000);
-    const workspacePrefix = path.join('test-workspace');
-    const mainFile = path.join(workspacePrefix, 'test-project', 'src', 'main', 'rascal', 'Main.rsc');
-    const mainFileTpl = path.join(workspacePrefix, 'test-project', 'target', 'classes', 'rascal','Main.tpl');
-    const libUse = path.join(workspacePrefix, 'test-project', 'src', 'main', 'rascal', 'LibCall.rsc');
-    const libUseTpl = path.join(workspacePrefix, 'test-project', 'target', 'classes', 'rascal','LibCall.tpl');
-    const libMain = path.join(workspacePrefix, 'test-lib', 'src', 'main', 'rascal', 'Lib.rsc');
-    const libMainTpl = path.join(workspacePrefix, 'test-lib', 'target', 'classes', 'rascal','Lib.tpl');
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -51,7 +45,7 @@ describe('typechecker', function () {
         bench = new Workbench();
         await browser.waitForWorkbench();
         editorView = bench.getEditorView();
-        await browser.openResources(path.join(workspacePrefix, "test.code-workspace"));
+        await browser.openResources(TestWorkspace.workspaceFile);
     });
 
     beforeEach(async () => {
@@ -63,9 +57,9 @@ describe('typechecker', function () {
 
     after(async () => {
         // let's try and undo changes to the last line of certain files
-        await clearLastLine(mainFile);
-        await clearLastLine(libUse);
-        await clearLastLine(libMain);
+        await clearLastLine(TestWorkspace.mainFile);
+        await clearLastLine(TestWorkspace.libFile);
+        await clearLastLine(TestWorkspace.libCallFile);
     });
 
     async function clearLastLine(file: string) {
@@ -118,37 +112,37 @@ describe('typechecker', function () {
     }
 
     it("highlighting works", async function () {
-        const editor = await openModule(mainFile);
+        const editor = await openModule(TestWorkspace.mainFile);
         await driver.wait(async () => editor.findElement(By.className('mtk18')), 10_000, "Syntax highlighting should be present");
     });
 
     it("save runs type checker", async function () {
-        const editor = await openModule(mainFile);
+        const editor = await openModule(TestWorkspace.mainFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(editor, mainFileTpl, true);
+        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
     });
 
     it("go to definition works", async () => {
-        const editor = await openModule(mainFile);
+        const editor = await openModule(TestWorkspace.mainFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(editor, mainFileTpl);
+        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === "IO.rsc", 5_000, "IO.rsc should be opened for println");
     });
 
     it("go to definition works across projects", async () => {
-        const libEditor = await openModule(libMain);
+        const libEditor = await openModule(TestWorkspace.libFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(libEditor, libMainTpl, true);
+        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
         await editorView.closeAllEditors();
 
-        const editor = await openModule(libUse);
+        const editor = await openModule(TestWorkspace.libCallFile);
         await waitRascalCoreInit();
-        await triggerTypeChecker(editor, libUseTpl);
+        await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === "Lib.rsc", 5_000, "Lib.rsc should be opened for fib");
+        await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === path.basename(TestWorkspace.libFile), 5_000, "Lib.rsc should be opened for fib");
     });
 
 

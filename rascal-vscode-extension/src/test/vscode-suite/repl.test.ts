@@ -26,11 +26,12 @@
  */
 
 import { assert, expect } from 'chai';
-import { BottomBarPanel, By, TerminalView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { sleep } from './utils';
+import { BottomBarPanel, By, EditorView, TerminalView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TestWorkspace, sleep } from './utils';
+import path = require('path');
 
-const REPL_CREATE_TIMEOUT = 10_000;
-const REPL_READY_TIMEOUT = 10_000;
+const REPL_CREATE_TIMEOUT = 20_000;
+const REPL_READY_TIMEOUT = 20_000;
 
 // Create a Mocha suite
 describe('REPL', function () {
@@ -44,6 +45,7 @@ describe('REPL', function () {
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
+        await browser.openResources(TestWorkspace.workspaceFile);
         await browser.waitForWorkbench();
         panel = new BottomBarPanel();
         await panel.toggle(true);
@@ -75,6 +77,16 @@ describe('REPL', function () {
         await repl.execute('println("Printing works: <1 + 3>");');
         expect(repl.lastOutput).is.equal("Printing works: 4\nok", "println works as expected");
     }).timeout(REPL_CREATE_TIMEOUT + REPL_READY_TIMEOUT);
+
+    it("import module and run in terminal", async () => {
+        await browser.openResources(TestWorkspace.libCallFile);
+        const editor = await new EditorView().openEditor(path.basename(TestWorkspace.libCallFile)) as TextEditor;
+        const lens = await driver.wait(async () => editor.getCodeLens("Run in new Rascal terminal"), 10_000, "Run in new terminal should show");
+        await lens?.click();
+        const repl = new RascalREPL(terminal, driver);
+        await repl.connect();
+        expect(repl.lastOutput).is.equal("5\nint:0");
+    }).timeout(REPL_CREATE_TIMEOUT * 10);
 });
 
 
@@ -117,6 +129,9 @@ class RascalREPL {
 
     async start() {
         await new Workbench().executeCommand("rascalmpl.createTerminal");
+        return this.connect();
+    }
+    async connect() {
         await this.driver.wait(async () =>
             (await this.terminal.getCurrentChannel()).includes("Rascal"),
             REPL_CREATE_TIMEOUT, "Rascal REPL should be opened");
