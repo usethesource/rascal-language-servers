@@ -25,13 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { assert, expect } from 'chai';
-import { BottomBarPanel, By, EditorView, TerminalView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, sleep } from './utils';
+import { expect } from 'chai';
+import { BottomBarPanel, EditorView, TerminalView, TextEditor, VSBrowser, WebDriver } from 'vscode-extension-tester';
+import { TestWorkspace, sleep, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT } from './utils';
 import path = require('path');
 
-const REPL_CREATE_TIMEOUT = 20_000;
-const REPL_READY_TIMEOUT = 20_000;
 
 // Create a Mocha suite
 describe('REPL', function () {
@@ -88,76 +86,3 @@ describe('REPL', function () {
         expect(repl.lastOutput).is.equal("5\nint:0");
     }).timeout(REPL_CREATE_TIMEOUT * 10);
 });
-
-
-
-class RascalREPL {
-    private lastReplOutput = '';
-
-
-    constructor(private terminal: TerminalView, private driver: WebDriver) {
-    }
-
-    async waitForReplReady() {
-        let output = "";
-        try {
-            for (let tries = 0; tries < 5; tries++) {
-                await sleep(REPL_READY_TIMEOUT / 10);
-                output = await this.terminal.getText();
-                if (/rascal>\s*$/.test(output)) {
-                    return true;
-                }
-                await sleep(REPL_READY_TIMEOUT / 10);
-            }
-            return false;
-        }
-        finally {
-            const lines = output.split('\n').map(l => l.trimEnd());
-            const lastPrompt = lines.lastIndexOf("rascal>");
-            let secondToLastPrompt = -1;
-            for (let l = 0; l < lastPrompt; l++) {
-                if (lines[l].startsWith("rascal>")) {
-                    secondToLastPrompt = l;
-                }
-            }
-            if (secondToLastPrompt >= 0 && lastPrompt > 0) {
-                this.lastReplOutput = lines.slice(secondToLastPrompt + 1, lastPrompt).join('\n').trimEnd();
-                console.log(this.lastReplOutput);
-            }
-        }
-    }
-
-    async start() {
-        await new Workbench().executeCommand("rascalmpl.createTerminal");
-        return this.connect();
-    }
-    async connect() {
-        await this.driver.wait(async () =>
-            (await this.terminal.getCurrentChannel()).includes("Rascal"),
-            REPL_CREATE_TIMEOUT, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(), "Repl prompt should print");
-    }
-
-    async execute(command: string, waitForReady = true) {
-        const inputs = await this.driver.findElements(By.className('xterm-helper-textarea'));
-        for (const i of inputs) {
-            // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
-            try {
-                await i.clear();
-                try {
-                    await i.sendKeys(command + '\n');
-                } catch (_ignore) { /* ignore, might other terminal */ }
-            } catch (_ignore) { /* ignore, might be other terminal */ }
-        }
-        if (waitForReady) {
-            assert(await this.waitForReplReady());
-        }
-    }
-
-    get lastOutput() { return this.lastReplOutput; }
-
-    async waitForLastOutput() {
-        assert(await this.waitForReplReady());
-        return this.lastReplOutput;
-    }
-}
