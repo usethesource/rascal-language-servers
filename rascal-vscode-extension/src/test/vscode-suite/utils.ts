@@ -28,7 +28,7 @@
 import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
-import { By, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, Workbench, until } from "vscode-extension-tester";
+import { By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -96,7 +96,7 @@ export class RascalREPL {
         return this.connect();
     }
 
-    private async tryConnect() {
+    private async tryConnect(): Promise<TerminalView | undefined> {
         try {
             return await new TerminalView().wait(100);
         }
@@ -128,7 +128,7 @@ export class RascalREPL {
 
     get lastOutput() { return this.lastReplOutput; }
 
-    async waitForLastOutput() {
+    async waitForLastOutput(): Promise<string> {
         assert(await this.waitForReplReady());
         return this.lastReplOutput;
     }
@@ -159,15 +159,15 @@ export class IDEOperations {
         await this.editorView.closeAllEditors();
     }
 
-    hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string) {
+    hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
         return this.driver.wait(() => editor.findElement(selector), timeout, message );
     }
 
-    hasErrorSquiggly(editor: TextEditor, timeout = 5_000, message = "Missing error squiggly") {
+    hasErrorSquiggly(editor: TextEditor, timeout = 5_000, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message);
     }
 
-    hasSyntaxHighlighting(editor: TextEditor, timeout = 5_000, message = "Syntax highlighting should be present") {
+    hasSyntaxHighlighting(editor: TextEditor, timeout = 5_000, message = "Syntax highlighting should be present"): Promise<WebElement> {
         return this.hasElement(editor, By.className("mtk18"), timeout, message);
     }
 
@@ -175,11 +175,11 @@ export class IDEOperations {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
-    revertOpenChanges() {
+    revertOpenChanges(): Promise<void> {
         return this.bench.executeCommand("workbench.action.revertAndCloseActiveEditor");
     }
 
-    async openModule(file: string) {
+    async openModule(file: string): Promise<TextEditor> {
         await this.browser.openResources(file);
         return await this.editorView.openEditor(path.basename(file)) as TextEditor;
     }
@@ -204,11 +204,11 @@ export class IDEOperations {
         }
     }
 
-    findCodeLens(editor: TextEditor, name: string, timeout = 10_000, message = `Cannot find code lens: ${name}`) {
+    findCodeLens(editor: TextEditor, name: string, timeout = 10_000, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
         return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
     }
 
-    statusContains(needle: string) {
+    statusContains(needle: string): () => Promise<boolean> {
         return async () => {
             for (const st of await this.bench.getStatusBar().getItems()) {
                 try {
@@ -228,7 +228,7 @@ async function safeDelete(file: string) {
     } catch (_ignored) { /* ignore deletion errors */ }
 }
 
-async function fileExists(file: string) {
+async function fileExists(file: string): Promise<boolean> {
     try {
         return await stat(file) !== undefined;
     } catch (_ignored) {

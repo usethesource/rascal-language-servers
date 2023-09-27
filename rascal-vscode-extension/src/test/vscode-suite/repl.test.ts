@@ -26,9 +26,8 @@
  */
 
 import { expect } from 'chai';
-import { BottomBarPanel, TerminalView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, sleep, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT, IDEOperations } from './utils';
-import path = require('path');
+import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TestWorkspace, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT, IDEOperations } from './utils';
 
 
 // Create a Mocha suite
