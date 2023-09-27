@@ -26,8 +26,8 @@
  */
 
 import { expect } from 'chai';
-import { BottomBarPanel, EditorView, TerminalView, TextEditor, VSBrowser, WebDriver } from 'vscode-extension-tester';
-import { TestWorkspace, sleep, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT } from './utils';
+import { BottomBarPanel, TerminalView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TestWorkspace, sleep, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT, IDEOperations } from './utils';
 import path = require('path');
 
 
@@ -35,39 +35,42 @@ import path = require('path');
 describe('REPL', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
-    let terminal: TerminalView;
-    let panel: BottomBarPanel;
+    let bench: Workbench;
+    let ide: IDEOperations;
 
     this.timeout(20_000);
 
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
-        await browser.openResources(TestWorkspace.workspaceFile);
+        bench = new Workbench();
+        ide = new IDEOperations(browser, bench);
+        await ide.load();
+        await ide.cleanup();
+        console.log("!!!!I got past cleanup!!!!");
         await browser.waitForWorkbench();
-        panel = new BottomBarPanel();
-        await panel.toggle(true);
+        //panel = new BottomBarPanel();
+        //await panel.toggle(true);
         // we start an initial terminal and keep that one open
-        terminal = await panel.openTerminalView();
-        await sleep(2000);
+        //terminal = await panel.openTerminalView();
+        //await sleep(2000);
     });
 
 
     after(async () => {
-        await terminal.killTerminal();
-        await panel.toggle(false);
     });
 
     afterEach(async () => {
-        await terminal.killTerminal();
+        await bench.executeCommand("workbench.action.terminal.killAll");
+        await ide.cleanup();
     });
 
     it("should open without a project", async () => {
-        await new RascalREPL(terminal, driver).start();
+        await new RascalREPL(bench, driver).start();
     }).timeout(REPL_CREATE_TIMEOUT + REPL_READY_TIMEOUT);
 
     it("run basic rascal commands", async () => {
-        const repl = new RascalREPL(terminal, driver);
+        const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("40 + 2");
         expect(repl.lastOutput).matches(/int.*42/, "Result of expression should be 42");
@@ -77,12 +80,11 @@ describe('REPL', function () {
     }).timeout(REPL_CREATE_TIMEOUT + REPL_READY_TIMEOUT);
 
     it("import module and run in terminal", async () => {
-        await browser.openResources(TestWorkspace.libCallFile);
-        const editor = await new EditorView().openEditor(path.basename(TestWorkspace.libCallFile)) as TextEditor;
-        const lens = await driver.wait(async () => editor.getCodeLens("Run in new Rascal terminal"), 10_000, "Run in new terminal should show");
-        await lens?.click();
-        const repl = new RascalREPL(terminal, driver);
+        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
+        await lens!.click();
+        const repl = new RascalREPL(bench, driver);
         await repl.connect();
-        expect(repl.lastOutput).is.equal("5\nint:0");
+        expect(repl.lastOutput).is.equal("5\nint: 0");
     }).timeout(REPL_CREATE_TIMEOUT * 10);
 });

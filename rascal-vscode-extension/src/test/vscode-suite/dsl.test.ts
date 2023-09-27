@@ -42,15 +42,13 @@ describe('DSL', function () {
 
 
     async function loadPico() {
-        const terminal = await bench.getBottomBar().openTerminalView();
-        const repl = new RascalREPL(terminal, driver);
+        const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::LanguageServer;");
         await repl.execute("main();");
         expect(repl.lastOutput).is.equal("ok");
         const statusBarCheck = driver.wait(ide.statusContains("Pico"), 20_000, "Pico DSL should start loading");
         await repl.terminate();
-        await terminal.killTerminal(); // also kill the powershell one
         await statusBarCheck; // now we wait for pico to finish loading
     }
 
@@ -69,11 +67,6 @@ describe('DSL', function () {
     afterEach(async () => {
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
-    });
-
-    after(async () => {
-        // let's try and undo changes to the last line of certain files
-        await ide.cleanupTypeCheckerChanges(TestWorkspace.picoFile);
     });
 
     it("have highlighting and parse errors", async function () {

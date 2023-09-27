@@ -55,9 +55,11 @@ export const REPL_CREATE_TIMEOUT = 20_000;
 export const REPL_READY_TIMEOUT = 20_000;
 export class RascalREPL {
     private lastReplOutput = '';
+    private terminal: TerminalView;
 
 
-    constructor(private terminal: TerminalView, private driver: WebDriver) {
+    constructor(private bench : Workbench, private driver: WebDriver) {
+        this.terminal = new TerminalView();
     }
 
     async waitForReplReady() {
@@ -93,7 +95,16 @@ export class RascalREPL {
         await new Workbench().executeCommand("rascalmpl.createTerminal");
         return this.connect();
     }
+
+    private async tryConnect() {
+        try {
+            return await new TerminalView().wait(100);
+        }
+        catch ( _ignored) { return undefined; }
+    }
+
     async connect() {
+        this.terminal = (await this.driver.wait(this.tryConnect, 20_000, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await this.terminal.getCurrentChannel()).includes("Rascal"),
             REPL_CREATE_TIMEOUT, "Rascal REPL should be opened");
         assert(await this.waitForReplReady(), "Repl prompt should print");
@@ -124,7 +135,7 @@ export class RascalREPL {
 
     async terminate() {
         await this.execute(":quit", false);
-        await this.terminal.killTerminal();
+        await this.bench.executeCommand("workbench.action.terminal.killAll");
     }
 }
 
@@ -173,21 +184,15 @@ export class IDEOperations {
         return await this.editorView.openEditor(path.basename(file)) as TextEditor;
     }
 
-    async cleanupTypeCheckerChanges(file: string) {
-        const editor = await this.openModule(file);
-        await editor.setTextAtLine(await editor.getNumberOfLines(), "");
-        await editor.save();
-        await this.editorView.closeAllEditors();
-    }
-
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = 20_000, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await safeDelete(tplFile);
         }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
-        await sleep(100);
+        await sleep(50);
         await editor.save();
+        await sleep(50);
         if (waitForFinish) {
             let doneChecking = async () => (await this.bench.getStatusBar().getItem(checkName)) === undefined;
             if (tplFile) {
@@ -199,15 +204,21 @@ export class IDEOperations {
         }
     }
 
+    findCodeLens(editor: TextEditor, name: string, timeout = 10_000, message = `Cannot find code lens: ${name}`) {
+        return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
+    }
+
     statusContains(needle: string) {
         return async () => {
             for (const st of await this.bench.getStatusBar().getItems()) {
-                if ((await st.getText()).includes(needle)) {
-                    return true;
-                }
+                try {
+                    if ((await st.getText()).includes(needle)) {
+                        return true;
+                    }
+                } catch (_ignored) { /* sometimes status items get dropped before we can check them */ }
             }
             return false;
-        }
+        };
     }
 }
 
