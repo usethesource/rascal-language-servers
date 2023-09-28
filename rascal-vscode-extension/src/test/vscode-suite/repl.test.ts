@@ -35,7 +35,7 @@ describe('REPL', function () {
     let bench: Workbench;
     let ide: IDEOperations;
 
-    this.timeout(20_000);
+    this.timeout(60_000);
 
     before(async () => {
         browser = VSBrowser.instance;

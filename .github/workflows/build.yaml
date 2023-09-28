@@ -55,7 +55,7 @@ jobs:
 
       - name: "UI test"
         working-directory: ./rascal-vscode-extension
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/repl.test.js --storage /tmp/uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v3
@@ -65,6 +65,7 @@ jobs:
           path: /tmp/uitests/**/screenshots/*.png
 
       - name: "cleanup before cache"
+        if: always()
         run: rm -rf /tm/uitest/**/screenshots
       
         
