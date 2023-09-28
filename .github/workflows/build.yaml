@@ -10,6 +10,65 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: buildjet-4vcpu-ubuntu-2204
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      
+
+      - name: Package & compile rascal-lsp
+        working-directory: ./rascal-lsp
+        run: mvn -B -Drascal.compile.skip -Drascal.tutor.skip clean package
+        env:
+          MAVEN_OPTS: "-Xmx6G"
+
+      - name: Package & compile extension 
+        working-directory: ./rascal-vscode-extension
+        run: |
+          npm ci
+          npm run license-check
+          npm run compile
+          npm run compile-tests
+          npm run normalTest
+          npx vsce package
+
+      - name: Cache vscode downloads 
+        id: cache-vscode
+        uses: actions/cache@v3
+        with:
+          path: /tmp/uitest
+          key: "vscode-linux"
+
+      - name: "UI test"
+        working-directory: ./rascal-vscode-extension
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: screenshots
+          path: /tmp/uitests/**/screenshots/*.png
+
+      - name: "cleanup before cache"
+        run: rm -rf /tm/uitest/**/screenshots
+      
+        
+
   build:
     runs-on: buildjet-2vcpu-ubuntu-2204
 
