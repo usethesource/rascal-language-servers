@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { By, DefaultTreeSection, EditorView, SideBarView, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
+import { EditorView, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { IDEOperations, TestWorkspace, sleep } from './utils';
