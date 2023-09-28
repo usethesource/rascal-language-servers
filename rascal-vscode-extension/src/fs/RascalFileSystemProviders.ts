@@ -31,7 +31,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: LanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly protectedSchemes:string[] = ["file", "http", "https", "unknown", "zip"];
+    private readonly protectedSchemes:string[] = ["file", "http", "https", "unknown"];
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
