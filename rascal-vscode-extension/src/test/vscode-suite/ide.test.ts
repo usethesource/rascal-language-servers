@@ -61,7 +61,10 @@ describe('IDE', function () {
     beforeEach(async () => {
     });
 
-    afterEach(async () => {
+    afterEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot(this.test?.title);
+        }
         await ide.cleanup();
         for (const [f, b] of originalFiles) {
             await fs.writeFile(f, b);

@@ -48,7 +48,10 @@ describe('REPL', function () {
         await browser.waitForWorkbench();
     });
 
-    afterEach(async () => {
+    afterEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot(this.test?.title);
+        }
         await bench.executeCommand("workbench.action.terminal.killAll");
         await ide.cleanup();
     });

@@ -158,11 +158,17 @@ export class IDEOperations {
 
     async load() {
         await this.browser.openResources(TestWorkspace.workspaceFile);
+        const center = await this.bench.openNotificationsCenter();
+        await center.clearAllNotifications();
+        await center.close();
     }
 
     async cleanup() {
         await this.revertOpenChanges();
         await this.editorView.closeAllEditors();
+        const center = await this.bench.openNotificationsCenter();
+        await center.clearAllNotifications();
+        await center.close();
     }
 
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
@@ -225,6 +231,10 @@ export class IDEOperations {
             }
             return false;
         };
+    }
+
+    screenshot(name: string): Promise<void> {
+        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 

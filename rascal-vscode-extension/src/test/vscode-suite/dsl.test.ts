@@ -64,7 +64,10 @@ describe('DSL', function () {
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
     });
 
-    afterEach(async () => {
+    afterEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot(this.test?.title);
+        }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
     });
