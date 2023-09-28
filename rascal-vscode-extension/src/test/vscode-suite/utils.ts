@@ -86,7 +86,6 @@ export class RascalREPL {
             }
             if (secondToLastPrompt >= 0 && lastPrompt > 0) {
                 this.lastReplOutput = lines.slice(secondToLastPrompt + 1, lastPrompt).join('\n').trimEnd();
-                console.log(this.lastReplOutput);
             }
         }
     }
@@ -187,7 +186,6 @@ export class IDEOperations {
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = 20_000, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
-            console.log("Deleting" + tplFile);
             await safeDelete(tplFile);
         }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
@@ -226,7 +224,7 @@ export class IDEOperations {
 async function safeDelete(file: string) {
     try {
         await unlink(file);
-    } catch (_ignored) { console.log(`Could not delte ${file} : ${_ignored}`);  /* ignore deletion errors */ }
+    } catch (_ignored) { /* ignore deletion errors */ }
 }
 
 async function fileExists(file: string): Promise<boolean> {
