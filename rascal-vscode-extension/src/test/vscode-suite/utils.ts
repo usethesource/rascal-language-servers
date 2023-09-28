@@ -187,6 +187,7 @@ export class IDEOperations {
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = 20_000, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
+            console.log("Deleting" + tplFile);
             await safeDelete(tplFile);
         }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
@@ -197,7 +198,7 @@ export class IDEOperations {
             let doneChecking = async () => (await this.bench.getStatusBar().getItem(checkName)) === undefined;
             if (tplFile) {
                 const oldDone = doneChecking;
-                doneChecking = async () => await oldDone() || await fileExists(tplFile);
+                doneChecking = async () => await oldDone() && await fileExists(tplFile);
             }
 
             await this.driver.wait(doneChecking, timeout, `${checkName} should be finished processing the module`);
@@ -225,7 +226,7 @@ export class IDEOperations {
 async function safeDelete(file: string) {
     try {
         await unlink(file);
-    } catch (_ignored) { /* ignore deletion errors */ }
+    } catch (_ignored) { console.log(`Could not delte ${file} : ${_ignored}`);  /* ignore deletion errors */ }
 }
 
 async function fileExists(file: string): Promise<boolean> {

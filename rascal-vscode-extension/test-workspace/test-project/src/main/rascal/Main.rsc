@@ -1,6 +1,5 @@
 module Main
 
-
 import IO;
 
 int main() {

@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { EditorView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, DefaultTreeSection, EditorView, SideBarView, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { IDEOperations, TestWorkspace, sleep } from './utils';
@@ -137,7 +137,26 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await driver.wait(async () => (await (await editorView.getActiveTab())?.getTitle()) === path.basename(TestWorkspace.libFile), 5_000, "Lib.rsc should be opened for fib");
+        await waitForActiveEditor(path.basename(TestWorkspace.libFile), 5_000, "Lib.rsc should be opened for fib");
+    });
+
+    it("outline works", async () => {
+        const editor = await ide.openModule(TestWorkspace.mainFile);
+        await editor.moveCursor(1,1);
+        const explorer = await (await (await bench.getActivityBar()).getViewControl("Explorer"))!.openView();
+        await sleep(1000);
+        const outline = await explorer.getContent().getSection("Outline") as ViewSection;
+        await outline.expand();
+        const mainItem = await driver.wait(async() => {
+            try {
+                return outline.findItem("main()", 0);
+                //return await outline.findElement(By.partialLinkText("main()"));
+            } catch (_ignored) { return undefined; }
+        }, 10_000, "Main function should show in the outline");
+
+        await driver.actions().doubleClick(mainItem!).perform();
+        //await mainItem!.click();
+        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, 15_000, "Cursor should have moved to line 6 that contains the println function");
     });
 });
 
