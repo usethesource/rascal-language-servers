@@ -102,15 +102,22 @@ export class RascalREPL {
         catch ( _ignored) { return undefined; }
     }
 
+    private async getTerminalName(): Promise<string | undefined> {
+        try {
+            return await this.terminal.getCurrentChannel();
+        } catch (_ignored) { return undefined; }
+    }
+
     async connect() {
         this.terminal = (await this.driver.wait(this.tryConnect, 20_000, "Waiting to find terminal view"))!;
-        await this.driver.wait(async () => (await this.terminal.getCurrentChannel()).includes("Rascal"),
+        await this.driver.wait(async () => (await this.getTerminalName())?.includes("Rascal"),
             REPL_CREATE_TIMEOUT, "Rascal REPL should be opened");
         assert(await this.waitForReplReady(), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true) {
-        const inputs = await this.driver.findElements(By.className('xterm-helper-textarea'));
+        //const inputs = await this.driver.findElements(By.className('xterm-helper-textarea'));
+        const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
             try {
