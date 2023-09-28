@@ -9,8 +9,11 @@ on:
     branches:
       - main
 
+permissions:
+  actions: read
+
 jobs:
-  test:
+  ui-test:
     runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
@@ -28,8 +31,6 @@ jobs:
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
 
-      
-
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
         run: mvn -B -Drascal.compile.skip -Drascal.tutor.skip clean package
@@ -40,11 +41,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run license-check
-          npm run compile
           npm run compile-tests
-          npm run normalTest
-          npx vsce package
 
       - name: Cache vscode downloads 
         id: cache-vscode
@@ -116,6 +113,11 @@ jobs:
         run: |
           npm run lsp4j:package
           npx vsce package
+
+      - uses: yogeshlonkar/wait-for-jobs@v0
+        with:
+          jobs: "ui-test"
+          ttl: 15 # if it doesn' succeed in 15min, consider it a failure
 
       - name: upload final vsix 
         uses: actions/upload-artifact@v3
