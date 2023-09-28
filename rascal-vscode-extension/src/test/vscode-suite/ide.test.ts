@@ -143,7 +143,7 @@ describe('IDE', function () {
     it("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await editor.moveCursor(1,1);
-        const explorer = await (await (await bench.getActivityBar()).getViewControl("Explorer"))!.openView();
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         await sleep(1000);
         const outline = await explorer.getContent().getSection("Outline") as ViewSection;
         await outline.expand();
@@ -155,8 +155,7 @@ describe('IDE', function () {
         }, 10_000, "Main function should show in the outline");
 
         await driver.actions().doubleClick(mainItem!).perform();
-        //await mainItem!.click();
-        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, 15_000, "Cursor should have moved to line 6 that contains the println function");
+        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, 5_000, "Cursor should have moved to line 6 that contains the println function");
     });
 });
 

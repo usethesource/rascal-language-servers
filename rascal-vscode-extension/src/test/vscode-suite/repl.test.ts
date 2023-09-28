@@ -29,8 +29,6 @@ import { expect } from 'chai';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { TestWorkspace, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT, IDEOperations } from './utils';
 
-
-// Create a Mocha suite
 describe('REPL', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
@@ -48,15 +46,6 @@ describe('REPL', function () {
         await ide.cleanup();
         console.log("!!!!I got past cleanup!!!!");
         await browser.waitForWorkbench();
-        //panel = new BottomBarPanel();
-        //await panel.toggle(true);
-        // we start an initial terminal and keep that one open
-        //terminal = await panel.openTerminalView();
-        //await sleep(2000);
-    });
-
-
-    after(async () => {
     });
 
     afterEach(async () => {
@@ -86,4 +75,12 @@ describe('REPL', function () {
         await repl.connect();
         expect(repl.lastOutput).is.equal("5\nint: 0");
     }).timeout(REPL_CREATE_TIMEOUT * 10);
+
+    it("edit call module via repl", async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute(":edit demo::lang::pico::LanguageServer");
+
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", 10_000, "LanguageServer should be opened");
+    });
 });
