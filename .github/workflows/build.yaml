@@ -59,7 +59,7 @@ jobs:
         if: matrix.os != 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: ${{ matrix.os == 'windows' && '6' || '4' }}
+          DELAY_FACTOR: ${{ matrix.os == 'windows' && '7' || '5' }}
           _JAVA_OPTIONS: ${{ matrix.os == 'windows' && '-Xmx2G' || '-Xmx4G' }}
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
@@ -68,7 +68,7 @@ jobs:
         if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 4
+          DELAY_FACTOR: 5
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
