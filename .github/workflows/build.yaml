@@ -53,9 +53,9 @@ jobs:
       - name: "UI test"
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 5
+          DELAY_FACTOR: 2
           _JAVA_OPTIONS: '-Xmx7G'
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/repl.test.js --storage /tmp/uitests
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v3
@@ -71,8 +71,7 @@ jobs:
         
 
   build:
-    runs-on: buildjet-2vcpu-ubuntu-2204
-
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
