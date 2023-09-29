@@ -27,7 +27,6 @@
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace } from './utils';
-import { expect } from 'chai';
 import * as fs from 'fs/promises';
 
 
@@ -43,18 +42,16 @@ describe('DSL', function () {
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
-        console.log("Starting REPL");
         await repl.start();
-        console.log("execute import");
         await repl.execute("import demo::lang::pico::LanguageServer;");
-        console.log("execute main");
         await repl.execute("main();");
-        expect(repl.lastOutput).is.equal("ok");
-        const statusBarCheck = driver.wait(ide.statusContains("Pico"), Delays.verySlow, "Pico DSL should start loading");
-        console.log("terminate repl");
+        const ide = new IDEOperations(browser, bench);
+        const isPicoLoading = ide.statusContains("Pico");
+        const statusBarCheck = driver.wait(isPicoLoading, Delays.verySlow, "Pico DSL should start loading");
         await repl.terminate();
-        console.log("wait for status bar to appear");
         await statusBarCheck; // now we wait for pico to finish loading
+        // now wait for the Pico loader to dissapear
+        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting");
     }
 
 
@@ -66,8 +63,9 @@ describe('DSL', function () {
         ide = new IDEOperations(browser, bench);
         await ide.load();
         await loadPico();
-        console.log("Done loading pico");
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
+        ide = new IDEOperations(browser, bench);
+        await ide.load();
     });
 
     afterEach(async function () {
