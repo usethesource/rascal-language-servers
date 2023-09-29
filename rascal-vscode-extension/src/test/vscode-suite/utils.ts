@@ -28,10 +28,21 @@
 import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
+import { env } from "process";
 import { By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+function sec(n: number) { return n * 1000; }
+export class Delays {
+    private static readonly delayFactor = parseInt(env['DELAY_FACTOR'] ?? "1");
+    public static readonly fast = sec(1) * this.delayFactor;
+    public static readonly normal =sec(5) * this.delayFactor;
+    public static readonly slow =sec(15) * this.delayFactor;
+    public static readonly verySlow =sec(30) * this.delayFactor;
+    public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
 export class TestWorkspace {
@@ -51,8 +62,10 @@ export class TestWorkspace {
 
 
 
-export const REPL_CREATE_TIMEOUT = 20_000;
-export const REPL_READY_TIMEOUT = 20_000;
+function  ignoreFails<T>(fn : Promise<T>): Promise<T | undefined> {
+    return fn.catch(() => undefined);
+}
+
 export class RascalREPL {
     private lastReplOutput = '';
     private terminal: TerminalView;
@@ -66,12 +79,12 @@ export class RascalREPL {
         let output = "";
         try {
             for (let tries = 0; tries < 5; tries++) {
-                await sleep(REPL_READY_TIMEOUT / 10);
+                await sleep(Delays.slow / 10);
                 output = await this.terminal.getText();
                 if (/rascal>\s*$/.test(output)) {
                     return true;
                 }
-                await sleep(REPL_READY_TIMEOUT / 10);
+                await sleep(Delays.slow / 10);
             }
             return false;
         }
@@ -95,37 +108,19 @@ export class RascalREPL {
         return this.connect();
     }
 
-    private async tryConnect(): Promise<TerminalView | undefined> {
-        try {
-            return await new TerminalView().wait(100);
-        }
-        catch ( _ignored) { return undefined; }
-    }
-
-    private async getTerminalName(): Promise<string | undefined> {
-        try {
-            return await this.terminal.getCurrentChannel();
-        } catch (_ignored) { return undefined; }
-    }
-
     async connect() {
-        this.terminal = (await this.driver.wait(this.tryConnect, 20_000, "Waiting to find terminal view"))!;
-        await this.driver.wait(async () => (await this.getTerminalName())?.includes("Rascal"),
-            REPL_CREATE_TIMEOUT, "Rascal REPL should be opened");
+        this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
+        await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
+            Delays.slow, "Rascal REPL should be opened");
         assert(await this.waitForReplReady(), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true) {
-        //const inputs = await this.driver.findElements(By.className('xterm-helper-textarea'));
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
-            try {
-                await i.clear();
-                try {
-                    await i.sendKeys(command + '\n');
-                } catch (_ignore) { /* ignore, might other terminal */ }
-            } catch (_ignore) { /* ignore, might be other terminal */ }
+            await ignoreFails(i.clear());
+            await ignoreFails(i.sendKeys(command + '\n'));
         }
         if (waitForReady) {
             assert(await this.waitForReplReady());

@@ -27,7 +27,7 @@
 
 import { expect } from 'chai';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, RascalREPL, REPL_CREATE_TIMEOUT, REPL_READY_TIMEOUT, IDEOperations } from './utils';
+import { TestWorkspace, RascalREPL, Delays, IDEOperations } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -35,7 +35,7 @@ describe('REPL', function () {
     let bench: Workbench;
     let ide: IDEOperations;
 
-    this.timeout(60_000);
+    this.timeout(2 * Delays.extremelySlow);
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -44,7 +44,6 @@ describe('REPL', function () {
         ide = new IDEOperations(browser, bench);
         await ide.load();
         await ide.cleanup();
-        console.log("!!!!I got past cleanup!!!!");
         await browser.waitForWorkbench();
     });
 
@@ -58,7 +57,7 @@ describe('REPL', function () {
 
     it("should open without a project", async () => {
         await new RascalREPL(bench, driver).start();
-    }).timeout(REPL_CREATE_TIMEOUT + REPL_READY_TIMEOUT);
+    });
 
     it("run basic rascal commands", async () => {
         const repl = new RascalREPL(bench, driver);
@@ -68,7 +67,7 @@ describe('REPL', function () {
         await repl.execute("import IO;");
         await repl.execute('println("Printing works: <1 + 3>");');
         expect(repl.lastOutput).is.equal("Printing works: 4\nok", "println works as expected");
-    }).timeout(REPL_CREATE_TIMEOUT + REPL_READY_TIMEOUT);
+    });
 
     it("import module and run in terminal", async () => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
@@ -77,13 +76,13 @@ describe('REPL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.connect();
         expect(repl.lastOutput).is.equal("5\nint: 0");
-    }).timeout(REPL_CREATE_TIMEOUT * 10);
+    }).timeout(Delays.extremelySlow * 3);
 
     it("edit call module via repl", async() => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute(":edit demo::lang::pico::LanguageServer");
 
-        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", 10_000, "LanguageServer should be opened");
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.normal, "LanguageServer should be opened");
     });
 });
