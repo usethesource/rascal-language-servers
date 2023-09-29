@@ -136,8 +136,10 @@ jobs:
 
       - uses: yogeshlonkar/wait-for-jobs@v0
         with:
-          jobs: "ui-test"
-          suffix: true
+          jobs: |
+           ui-test (windows-latest)
+           ui-test (macos-latest)
+           ui-test (buildjet-4vcpu-ubuntu-2204)
           ttl: 15 # if it doesn' succeed in 15min, consider it a failure
 
       - name: upload final vsix 
