@@ -55,7 +55,7 @@ jobs:
           key: "vscode-${{matrix.runner}}"
 
       - name: "UI test (windows & mac)"
-        if: ${{ matrix.runner }} != "buildjet-4vcpu-ubuntu-2204"
+        if: ${{ matrix.runner }} != 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: ${{ matrix.runner == 'windows' && '6' || '4' }}
@@ -63,7 +63,7 @@ jobs:
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
       - name: "UI test (ubuntu)"
-        if: ${{ matrix.runner }} === "buildjet-4vcpu-ubuntu-2204"
+        if: ${{ matrix.runner }} == 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 4
