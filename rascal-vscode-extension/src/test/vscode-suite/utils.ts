@@ -180,15 +180,15 @@ export class IDEOperations {
         return this.driver.wait(() => editor.findElement(selector), timeout, message );
     }
 
-    hasErrorSquiggly(editor: TextEditor, timeout = 5_000, message = "Missing error squiggly"): Promise<WebElement> {
+    hasErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message);
     }
 
-    hasSyntaxHighlighting(editor: TextEditor, timeout = 5_000, message = "Syntax highlighting should be present"): Promise<WebElement> {
+    hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
         return this.hasElement(editor, By.className("mtk18"), timeout, message);
     }
 
-    hasInlayHint(editor: TextEditor, timeout = 5_000, message = "Missing inlay hint") {
+    hasInlayHint(editor: TextEditor, timeout = Delays.normal, message = "Missing inlay hint") {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
@@ -201,7 +201,7 @@ export class IDEOperations {
         return await this.editorView.openEditor(path.basename(file)) as TextEditor;
     }
 
-    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = 20_000, tplFile = "" } = {}) {
+    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
@@ -221,7 +221,7 @@ export class IDEOperations {
         }
     }
 
-    findCodeLens(editor: TextEditor, name: string, timeout = 10_000, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
+    findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
         return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
     }
 
