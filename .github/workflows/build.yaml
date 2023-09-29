@@ -14,7 +14,13 @@ permissions:
 
 jobs:
   ui-test:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    strategy:
+      matrix:
+        runner: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
+      fail-fast: true
+    env:
+      CODE_VERSION: "1.75.1"
+    runs-on:  ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
@@ -34,8 +40,6 @@ jobs:
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
         run: mvn -B -Drascal.compile.skip -Drascal.tutor.skip clean package
-        env:
-          MAVEN_OPTS: "-Xmx6G"
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -48,12 +52,21 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /tmp/uitest
-          key: "vscode-linux"
+          key: "vscode-${{matrix.runner}}"
 
-      - name: "UI test"
+      - name: "UI test (windows & mac)"
+        if: ${{ matrix.runner }} != "buildjet-4vcpu-ubuntu-2204"
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 2
+          DELAY_FACTOR: ${{ matrix.runner == 'windows' && '6' || '4' }}
+          _JAVA_OPTIONS: ${{ matrix.runner == 'windows' && '-Xmx2G' || '-Xmx4G' }}
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
+
+      - name: "UI test (ubuntu)"
+        if: ${{ matrix.runner }} === "buildjet-4vcpu-ubuntu-2204"
+        working-directory: ./rascal-vscode-extension
+        env:
+          DELAY_FACTOR: 4
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
@@ -61,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: screenshots
+          name: screenshots-${{ matrix.runner }}
           path: /tmp/uitests/**/screenshots/*.png
 
       - name: "cleanup before cache"
@@ -119,6 +132,7 @@ jobs:
       - uses: yogeshlonkar/wait-for-jobs@v0
         with:
           jobs: "ui-test"
+          suffix: true
           ttl: 15 # if it doesn' succeed in 15min, consider it a failure
 
       - name: upload final vsix 
