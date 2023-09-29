@@ -44,12 +44,11 @@ describe('DSL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::LanguageServer;");
-        await repl.execute("main();");
+        repl.execute("main();"); // we don't wait, be cause we might miss pico loading window
         const ide = new IDEOperations(browser, bench);
         const isPicoLoading = ide.statusContains("Pico");
-        const statusBarCheck = driver.wait(isPicoLoading, Delays.verySlow, "Pico DSL should start loading");
+        await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
         await repl.terminate();
-        await statusBarCheck; // now we wait for pico to finish loading
         // now wait for the Pico loader to dissapear
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting");
     }
