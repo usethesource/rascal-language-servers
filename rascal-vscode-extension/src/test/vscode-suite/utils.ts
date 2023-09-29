@@ -197,8 +197,14 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        await this.browser.openResources(file);
-        return await this.editorView.openEditor(path.basename(file)) as TextEditor;
+        for (let tries = 0; tries < 10; tries++) {
+            await ignoreFails(this.browser.openResources(file));
+            const result = await ignoreFails(this.editorView.openEditor(path.basename(file))) as TextEditor;
+            if (result && await ignoreFails(result.getFilePath()) === file) {
+                return result;
+            }
+        }
+        throw new Error("Could not open file " + file);
     }
 
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
