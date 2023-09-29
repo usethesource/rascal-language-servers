@@ -40,30 +40,39 @@ export class Delays {
     private static readonly delayFactor = parseInt(env['DELAY_FACTOR'] ?? "1");
     public static readonly fast = sec(1) * this.delayFactor;
     public static readonly normal =sec(5) * this.delayFactor;
-    public static readonly slow =sec(15) * this.delayFactor;
+    public static readonly slow = sec(15) * this.delayFactor;
     public static readonly verySlow =sec(30) * this.delayFactor;
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
+function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
-    private static get workspacePrefix() { return 'test-workspace'; }
-    public static get workspaceFile() { return path.join(this.workspacePrefix, 'test.code-workspace'); }
-    public static get testProject() { return path.join(this.workspacePrefix, 'test-project'); }
-    public static get libProject() { return path.join(this.workspacePrefix, 'test-lib'); }
-    public static get mainFile() { return path.join(this.testProject, 'src', 'main', 'rascal', 'Main.rsc'); }
-    public static get mainFileTpl() { return path.join(this.testProject, 'target', 'classes', 'rascal','Main.tpl'); }
-    public static get libCallFile() { return path.join(this.testProject, 'src', 'main', 'rascal', 'LibCall.rsc'); }
-    public static get libCallFileTpl() { return path.join(this.testProject, 'target', 'classes', 'rascal','LibCall.tpl'); }
-    public static get libFile() { return path.join(this.libProject, 'src', 'main', 'rascal', 'Lib.rsc'); }
-    public static get libFileTpl() { return path.join(this.libProject, 'target', 'classes', 'rascal','Lib.tpl'); }
+    private static readonly workspacePrefix = 'test-workspace';
+    public static readonly workspaceFile = path.join(this.workspacePrefix, 'test.code-workspace');
+    public static readonly testProject = path.join(this.workspacePrefix, 'test-project');
+    public static readonly libProject = path.join(this.workspacePrefix, 'test-lib');
+    public static readonly mainFile = path.join(src(this.testProject), 'Main.rsc');
+    public static readonly mainFileTpl = path.join(target(this.testProject),'Main.tpl');
+    public static readonly libCallFile = path.join(src(this.testProject), 'LibCall.rsc');
+    public static readonly libCallFileTpl = path.join(target(this.testProject),'LibCall.tpl');
+    public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
+    public static readonly libFileTpl = path.join(target(this.libProject),'Lib.tpl');
 
-    public static get picoFile() { return path.join(this.testProject, 'src', 'main', 'pico', 'testing.pico'); }
+    public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
 }
 
 
 
-function  ignoreFails<T>(fn : Promise<T>): Promise<T | undefined> {
-    return fn.catch(() => undefined);
+export async function ignoreFails<T>(fn : Promise<T> | undefined): Promise<T | undefined> {
+    try {
+        if (!fn) {
+            return undefined;
+        }
+        return await fn;
+    } catch {
+        return undefined;
+    }
 }
 
 export class RascalREPL {
@@ -135,8 +144,8 @@ export class RascalREPL {
     }
 
     async terminate() {
-        await this.execute(":quit", false);
-        await this.bench.executeCommand("workbench.action.terminal.killAll");
+        await ignoreFails(this.execute(":quit", false));
+        await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
     }
 }
 
@@ -152,6 +161,7 @@ export class IDEOperations {
     }
 
     async load() {
+        await this.browser.waitForWorkbench(Delays.slow);
         await this.browser.openResources(TestWorkspace.workspaceFile);
         const center = await this.bench.openNotificationsCenter();
         await center.clearAllNotifications();
@@ -159,11 +169,11 @@ export class IDEOperations {
     }
 
     async cleanup() {
-        await this.revertOpenChanges();
-        await this.editorView.closeAllEditors();
-        const center = await this.bench.openNotificationsCenter();
-        await center.clearAllNotifications();
-        await center.close();
+        await ignoreFails(this.revertOpenChanges());
+        await ignoreFails(this.editorView.closeAllEditors());
+        const center = await ignoreFails(this.bench.openNotificationsCenter());
+        await ignoreFails(center?.clearAllNotifications());
+        await ignoreFails(center?.close());
     }
 
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
@@ -194,7 +204,7 @@ export class IDEOperations {
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = 20_000, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
-            await safeDelete(tplFile);
+            await ignoreFails(unlink(tplFile));
         }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
         await sleep(50);
@@ -204,7 +214,7 @@ export class IDEOperations {
             let doneChecking = async () => (await this.bench.getStatusBar().getItem(checkName)) === undefined;
             if (tplFile) {
                 const oldDone = doneChecking;
-                doneChecking = async () => await oldDone() && await fileExists(tplFile);
+                doneChecking = async () => await oldDone() && (await ignoreFails(stat(tplFile)) !== undefined);
             }
 
             await this.driver.wait(doneChecking, timeout, `${checkName} should be finished processing the module`);
@@ -217,12 +227,10 @@ export class IDEOperations {
 
     statusContains(needle: string): () => Promise<boolean> {
         return async () => {
-            for (const st of await this.bench.getStatusBar().getItems()) {
-                try {
-                    if ((await st.getText()).includes(needle)) {
-                        return true;
-                    }
-                } catch (_ignored) { /* sometimes status items get dropped before we can check them */ }
+            for (const st of await ignoreFails(this.bench.getStatusBar().getItems()) ?? []) {
+                if ((await ignoreFails(st.getText()))?.includes(needle)) {
+                    return true;
+                }
             }
             return false;
         };
@@ -230,19 +238,5 @@ export class IDEOperations {
 
     screenshot(name: string): Promise<void> {
         return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
-    }
-}
-
-async function safeDelete(file: string) {
-    try {
-        await unlink(file);
-    } catch (_ignored) { /* ignore deletion errors */ }
-}
-
-async function fileExists(file: string): Promise<boolean> {
-    try {
-        return await stat(file) !== undefined;
-    } catch (_ignored) {
-        return false;
     }
 }

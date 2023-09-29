@@ -54,7 +54,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 2
-          _JAVA_OPTIONS: '-Xmx7G'
+          _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
 
       - name: Upload Screenshots

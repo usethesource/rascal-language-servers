@@ -49,7 +49,7 @@ describe('REPL', function () {
 
     afterEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot(this.test?.title);
+            await ide.screenshot("REPL-"+this.test?.title);
         }
         await bench.executeCommand("workbench.action.terminal.killAll");
         await ide.cleanup();

@@ -26,7 +26,7 @@
  */
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { IDEOperations, RascalREPL, TestWorkspace } from './utils';
+import { Delays, IDEOperations, RascalREPL, TestWorkspace } from './utils';
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 
@@ -38,17 +38,22 @@ describe('DSL', function () {
     let ide : IDEOperations;
     let picoFileBackup: Buffer;
 
-    this.timeout(120_000);
+    this.timeout(Delays.extremelySlow * 2);
 
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
+        console.log("Starting REPL");
         await repl.start();
+        console.log("execute import");
         await repl.execute("import demo::lang::pico::LanguageServer;");
+        console.log("execute main");
         await repl.execute("main();");
         expect(repl.lastOutput).is.equal("ok");
-        const statusBarCheck = driver.wait(ide.statusContains("Pico"), 20_000, "Pico DSL should start loading");
+        const statusBarCheck = driver.wait(ide.statusContains("Pico"), Delays.verySlow, "Pico DSL should start loading");
+        console.log("terminate repl");
         await repl.terminate();
+        console.log("wait for status bar to appear");
         await statusBarCheck; // now we wait for pico to finish loading
     }
 
@@ -61,15 +66,20 @@ describe('DSL', function () {
         ide = new IDEOperations(browser, bench);
         await ide.load();
         await loadPico();
+        console.log("Done loading pico");
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
     });
 
     afterEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot(this.test?.title);
+            await ide.screenshot("DSL-" + this.test?.title);
         }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+    });
+
+    after(async function() {
+        await ide.screenshot("DSL tests");
     });
 
     it("have highlighting and parse errors", async function () {

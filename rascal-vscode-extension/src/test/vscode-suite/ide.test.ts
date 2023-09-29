@@ -28,7 +28,7 @@
 import { EditorView, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { IDEOperations, TestWorkspace, sleep } from './utils';
+import { Delays, IDEOperations, TestWorkspace, ignoreFails, sleep } from './utils';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -41,7 +41,7 @@ describe('IDE', function () {
     let ide: IDEOperations;
     const originalFiles = new Map<string, Buffer>();
 
-    this.timeout(100_000);
+    this.timeout(Delays.extremelySlow * 2);
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -63,7 +63,7 @@ describe('IDE', function () {
 
     afterEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot(this.test?.title);
+            await ide.screenshot("IDE-" + this.test?.title);
         }
         await ide.cleanup();
         for (const [f, b] of originalFiles) {
@@ -71,7 +71,7 @@ describe('IDE', function () {
         }
     });
 
-    async function makeSureRascalModulesAreLoaded(delay = 40_000) {
+    async function makeSureRascalModulesAreLoaded(delay = Delays.verySlow) {
         try {
             await ide.openModule(TestWorkspace.mainFile);
             let statusBarSeen = false;
@@ -127,7 +127,7 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor("IO.rsc", 15_000, "IO.rsc should be opened for println");
+        await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
     });
 
     it("go to definition works across projects", async () => {
@@ -140,25 +140,19 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), 5_000, "Lib.rsc should be opened for fib");
+        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await editor.moveCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await sleep(1000);
+        await sleep(Delays.fast);
         const outline = await explorer.getContent().getSection("Outline") as ViewSection;
         await outline.expand();
-        const mainItem = await driver.wait(async() => {
-            try {
-                return outline.findItem("main()", 0);
-                //return await outline.findElement(By.partialLinkText("main()"));
-            } catch (_ignored) { return undefined; }
-        }, 10_000, "Main function should show in the outline");
-
+        const mainItem = await driver.wait(async() => ignoreFails(outline.findItem("main()", 0)), Delays.slow, "Main function should show in the outline");
         await driver.actions().doubleClick(mainItem!).perform();
-        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, 5_000, "Cursor should have moved to line 6 that contains the println function");
+        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, Delays.normal, "Cursor should have moved to line that contains the println function");
     });
 });
 
