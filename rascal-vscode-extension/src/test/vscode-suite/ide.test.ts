@@ -147,7 +147,7 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await editor.moveCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await sleep(Delays.fast);
+        await sleep(Delays.normal);
         const outline = await explorer.getContent().getSection("Outline") as ViewSection;
         await outline.expand();
         const mainItem = await driver.wait(async() => ignoreFails(outline.findItem("main()", 0)), Delays.slow, "Main function should show in the outline");
