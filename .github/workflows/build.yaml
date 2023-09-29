@@ -39,7 +39,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B -Drascal.compile.skip -Drascal.tutor.skip clean package
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' clean package
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -79,7 +79,10 @@ jobs:
 
       - name: "cleanup before cache"
         if: always()
-        run: rm -rf /tm/uitest/**/screenshots
+        continue-on-error: true 
+        run: |
+          npm install -g rifraf
+          rifraf /tm/uitest/screenshots
       
         
 
