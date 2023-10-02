@@ -81,7 +81,10 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     const panel = vscode.window.createWebviewPanel(
         "text/html",
         title,
-        viewColumn,
+        { 
+            viewColumn: viewColumn,
+            preserveFocus: true /* the next editor should appear in the old column */
+        },
         {
             enableScripts: true,
         }
