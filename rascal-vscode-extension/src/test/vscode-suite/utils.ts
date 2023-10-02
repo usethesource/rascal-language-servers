@@ -199,8 +199,10 @@ export class IDEOperations {
     async openModule(file: string): Promise<TextEditor> {
         for (let tries = 0; tries < 10; tries++) {
             await ignoreFails(this.browser.openResources(file));
+            await sleep(Delays.fast);
             const result = await ignoreFails(this.editorView.openEditor(path.basename(file))) as TextEditor;
-            if (result && await ignoreFails(result.getFilePath()) === file) {
+            await sleep(Delays.fast);
+            if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
         }

@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: screenshots-${{ matrix.runner }}
+          name: screenshots-${{ matrix.os }}
           path: /tmp/uitests/**/screenshots/*.png
 
       - name: "cleanup before cache"
