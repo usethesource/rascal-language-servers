@@ -80,13 +80,10 @@ jobs:
           path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
 
       - name: "cleanup before cache"
+        shell: bash
         if: always()
         continue-on-error: true 
-        run: |
-          npm install -g rifraf
-          npx rifraf ./rascal-vscode-extension/uitest/screenshots
-      
-        
+        run: rm -rf ./rascal-vscode-extension/uitest/screenshots
 
   build:
     needs: [ui-test]
