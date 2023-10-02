@@ -51,7 +51,7 @@ jobs:
         id: cache-vscode
         uses: actions/cache@v3
         with:
-          path: /tmp/uitest
+          path: ./rascal-vscode-extension/uitest
           key: "vscode-${{matrix.os}}"
 
       - name: "UI test (windows & mac)"
@@ -61,7 +61,7 @@ jobs:
         env:
           DELAY_FACTOR: ${{ matrix.os == 'windows' && '7' || '5' }}
           _JAVA_OPTIONS: ${{ matrix.os == 'windows' && '-Xmx2G' || '-Xmx4G' }}
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
         shell: bash
@@ -70,21 +70,21 @@ jobs:
         env:
           DELAY_FACTOR: 5
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage /tmp/uitests
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
-          path: /tmp/uitests/**/screenshots/*.png
+          path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
 
       - name: "cleanup before cache"
         if: always()
         continue-on-error: true 
         run: |
           npm install -g rifraf
-          rifraf /tm/uitest/screenshots
+          npx rifraf ./rascal-vscode-extension/uitest/screenshots
       
         
 
