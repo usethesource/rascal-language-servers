@@ -309,7 +309,7 @@
         <!-- check and possible add license header
           run mvn license:format to automatically update all license headers
           and add missing ones -->
-        <version>4.1</version>
+        <version>4.3</version>
         <configuration>
           <headerDefinitions>
             <headerDefinition>rascal_style.xml</headerDefinition>
