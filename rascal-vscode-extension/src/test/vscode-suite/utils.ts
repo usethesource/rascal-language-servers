@@ -204,7 +204,6 @@ export class IDEOperations {
             await sleep(Delays.fast);
             const result = await ignoreFails(this.bench.getEditorView().openEditor(path.basename(file))) as TextEditor;
             await sleep(Delays.fast);
-            console.log("Got file: " + result);
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
