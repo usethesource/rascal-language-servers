@@ -165,6 +165,8 @@ export class IDEOperations {
     async load() {
         await this.browser.waitForWorkbench(Delays.slow);
         await this.browser.openResources(TestWorkspace.workspaceFile);
+        await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
+        await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
         const center = await this.bench.openNotificationsCenter();
         await center.clearAllNotifications();
         await center.close();
