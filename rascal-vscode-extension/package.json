@@ -136,7 +136,7 @@
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run lsp4j:package && npm run package",
     "compile": "npx webpack",
     "compile-lib": "npx tsc -p . --outDir lib --declaration true",
     "watch": "npx webpack --watch",
@@ -151,6 +151,7 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
+    "@types/chai": "4.x",
     "@types/mocha": "10.x",
     "@types/node": "16.x",
     "@types/node-fetch": "2.x",
@@ -161,6 +162,8 @@
     "@typescript-eslint/eslint-plugin": "6.x",
     "@typescript-eslint/parser": "6.x",
     "@vscode/test-electron": "2.x",
+    "@vscode/vsce": "2.x",
+    "chai": "4.x",
     "eslint": "8.x",
     "glob": "10.x",
     "license-check-and-add": "4.x",
@@ -168,7 +171,7 @@
     "temp": "0.x",
     "ts-loader": "9.x",
     "typescript": "5.x",
-    "@vscode/vsce": "2.x",
+    "vscode-extension-tester": "5.x",
     "webpack": "5.x",
     "webpack-cli": "5.x"
   }
