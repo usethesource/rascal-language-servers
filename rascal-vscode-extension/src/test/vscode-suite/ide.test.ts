@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { EditorView, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Delays, IDEOperations, TestWorkspace, ignoreFails, sleep } from './utils';
@@ -37,7 +37,6 @@ describe('IDE', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
-    let editorView : EditorView;
     let ide: IDEOperations;
     const originalFiles = new Map<string, Buffer>();
 
@@ -48,7 +47,6 @@ describe('IDE', function () {
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
-        editorView = bench.getEditorView();
         ide = new IDEOperations(browser, bench);
         await ide.load();
         // trigger rascal type checker to be sure
@@ -103,7 +101,7 @@ describe('IDE', function () {
 
     function waitForActiveEditor(title: string, timeout: number, message: string) {
         return driver.wait(async () =>
-            (await (await editorView.getActiveTab())?.getTitle()) === title, timeout, message);
+            (await (await bench.getEditorView().getActiveTab())?.getTitle()) === title, timeout, message);
     }
 
     it("has syntax highlighting and parsing errors", async function () {
@@ -134,7 +132,7 @@ describe('IDE', function () {
         // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
         const libEditor = await ide.openModule(TestWorkspace.libFile);
         await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
-        await editorView.closeAllEditors();
+        await bench.getEditorView().closeAllEditors();
 
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);

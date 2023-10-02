@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
+import { By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -63,14 +63,18 @@ export class TestWorkspace {
 }
 
 
+const _DEBUG = false;
 
 export async function ignoreFails<T>(fn : Promise<T> | undefined): Promise<T | undefined> {
     try {
-        if (!fn) {
+        if (fn === undefined) {
             return undefined;
         }
         return await fn;
-    } catch {
+    } catch (exp) {
+        if (_DEBUG) {
+            console.log("Promise failed, ignoring exception: " + exp);
+        }
         return undefined;
     }
 }
@@ -150,13 +154,11 @@ export class RascalREPL {
 }
 
 export class IDEOperations {
-    private editorView : EditorView;
     private driver: WebDriver;
     constructor(
         private browser: VSBrowser,
         private bench: Workbench,
     ) {
-        this.editorView = bench.getEditorView();
         this.driver = browser.driver;
     }
 
@@ -170,7 +172,7 @@ export class IDEOperations {
 
     async cleanup() {
         await ignoreFails(this.revertOpenChanges());
-        await ignoreFails(this.editorView.closeAllEditors());
+        await ignoreFails(this.bench.getEditorView().closeAllEditors());
         const center = await ignoreFails(this.bench.openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
@@ -185,7 +187,7 @@ export class IDEOperations {
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
-        return this.hasElement(editor, By.className("mtk18"), timeout, message);
+        return this.driver.wait(until.elementLocated(By.css('span[class^="mtk"]:not(.mtk1)')), timeout, message);
     }
 
     hasInlayHint(editor: TextEditor, timeout = Delays.normal, message = "Missing inlay hint") {
@@ -200,8 +202,9 @@ export class IDEOperations {
         for (let tries = 0; tries < 10; tries++) {
             await ignoreFails(this.browser.openResources(file));
             await sleep(Delays.fast);
-            const result = await ignoreFails(this.editorView.openEditor(path.basename(file))) as TextEditor;
+            const result = await ignoreFails(this.bench.getEditorView().openEditor(path.basename(file))) as TextEditor;
             await sleep(Delays.fast);
+            console.log("Got file: " + result);
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }

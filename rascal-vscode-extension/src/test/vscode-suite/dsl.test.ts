@@ -76,7 +76,6 @@ describe('DSL', function () {
     });
 
     after(async function() {
-        await ide.screenshot("DSL tests");
     });
 
     it("have highlighting and parse errors", async function () {
