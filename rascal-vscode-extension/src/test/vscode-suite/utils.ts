@@ -189,7 +189,7 @@ export class IDEOperations {
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
-        return this.driver.wait(until.elementLocated(By.css('span[class^="mtk"]:not(.mtk1)')), timeout, message);
+        return this.hasElement(editor, By.css('span[class^="mtk"]:not(.mtk1)'), timeout, message);
     }
 
     hasInlayHint(editor: TextEditor, timeout = Delays.normal, message = "Missing inlay hint") {
