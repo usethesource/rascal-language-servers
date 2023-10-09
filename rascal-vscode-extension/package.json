@@ -157,7 +157,7 @@
     "@types/node-fetch": "2.x",
     "@types/tar": "6.x",
     "@types/temp": "0.x",
-    "@types/vscode": "1.75.0",
+    "@types/vscode": "1.83.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "6.x",
     "@typescript-eslint/parser": "6.x",
