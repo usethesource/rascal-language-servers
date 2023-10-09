@@ -12,7 +12,7 @@ updates:
     groups:
       upstream-libs:
         patterns: "*"
-        exlude_patterns:
+        exclude_patterns:
           - "*rascal*"
           - "*typepal*"
   - package-ecosystem: "npm"
