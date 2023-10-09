@@ -22,7 +22,7 @@
   "dependencies": {
     "node-fetch": "2.x",
     "tar": "6.x",
-    "vscode-languageclient": "8.x",
+    "vscode-languageclient": "9.x",
     "yauzl": "2.x"
   },
   "categories": [
