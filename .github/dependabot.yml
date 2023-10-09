@@ -9,7 +9,18 @@ updates:
     directory: "/rascal-lsp"
     schedule:
       interval: "weekly"
+    groups:
+      upstream-libs:
+        patterns: "*"
+        exlude_patterns:
+          - "*rascal*"
+          - "*typepal*"
   - package-ecosystem: "npm"
     directory: "/rascal-vscode-extension"
     schedule:
       interval: "weekly"
+    groups:
+      dev-packages:
+        dependency-type: "development"
+        exclude_patterns:
+          - "@types/vscode"
