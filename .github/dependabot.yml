@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: "maven"
     directory: "/rascal-lsp"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     groups:
       upstream-libs:
         patterns:
@@ -19,7 +19,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/rascal-vscode-extension"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     groups:
       dev-packages:
         dependency-type: "development"
