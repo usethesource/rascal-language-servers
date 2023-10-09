@@ -153,7 +153,7 @@
   "devDependencies": {
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
-    "@types/node": "16.x",
+    "@types/node": "18.x",
     "@types/node-fetch": "2.x",
     "@types/tar": "6.x",
     "@types/temp": "0.x",
