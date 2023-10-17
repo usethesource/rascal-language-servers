@@ -26,7 +26,7 @@
  */
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace } from './utils';
+import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails } from './utils';
 import * as fs from 'fs/promises';
 
 
@@ -58,7 +58,7 @@ describe('DSL', function () {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
-        await browser.waitForWorkbench();
+        await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser, bench);
         await ide.load();
         await loadPico();

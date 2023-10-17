@@ -73,7 +73,7 @@ export async function ignoreFails<T>(fn : Promise<T> | undefined): Promise<T | u
         return await fn;
     } catch (exp) {
         if (_DEBUG) {
-            console.log("Promise failed, ignoring exception: " + exp);
+            console.debug("Promise failed, ignoring exception: ", exp);
         }
         return undefined;
     }
@@ -163,13 +163,19 @@ export class IDEOperations {
     }
 
     async load() {
-        await this.browser.waitForWorkbench(Delays.slow);
-        await this.browser.openResources(TestWorkspace.workspaceFile);
+        await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
+        for (let t = 0; t < 5; t++) {
+            try {
+                await this.browser.openResources(TestWorkspace.workspaceFile);
+            } catch (ex) {
+                console.debug("Error opening workspace, retrying.", ex);
+            }
+        }
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
-        const center = await this.bench.openNotificationsCenter();
-        await center.clearAllNotifications();
-        await center.close();
+        const center = await ignoreFails(this.bench.openNotificationsCenter());
+        await ignoreFails(center?.clearAllNotifications());
+        await ignoreFails(center?.close());
     }
 
     async cleanup() {
