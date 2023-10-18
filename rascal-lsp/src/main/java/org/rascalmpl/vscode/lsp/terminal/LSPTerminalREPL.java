@@ -98,14 +98,19 @@ public class LSPTerminalREPL extends BaseREPL {
         }
     }
 
+    private static boolean isUTF8() {
+        String lang = System.getenv("LANG");
+        return lang != null && lang.contains("UTF-8");
+    }
+
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        if (Configuration.isWindows()) {
-            // vs code doesn't properly set the codepage for the terminal
-            // but it requires it to run in utf8, so we have to quickly set the
-            // codepoint ourself, just to make sure we are not getting the default
+        if (Configuration.isWindows() && isUTF8()) {
+            // vs code doesn't properly set the codepage for the terminal process
+            // but xterm.js and vs code expect us to print in utf8, so we have to quickly set the
+            // codepage ourself, just to make sure we are not getting the default
             // that the user has (mostly some old codepoint that breaks any unicode character)
             try {
-                // we want to call: Kernel32.SetConsoleOutputCP(65001);
+                // we want to call: Kernel32::SetConsoleOutputCP
                 // but that class is not available outside of windows,
                 // so we have to dynamically load it, so the compiler & classloaders
                 // don't break on linux & osx
@@ -114,7 +119,7 @@ public class LSPTerminalREPL extends BaseREPL {
                 setOutputCp.invoke(null, 65001);
 
             } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                System.err.println("Error loading Kernel32 class");
+                System.err.println("Error loading Kernel32 class, special characters will most likely not work");
                 System.err.println(ex);
             }
         }
@@ -263,9 +268,9 @@ public class LSPTerminalREPL extends BaseREPL {
                             }
 
                             services.browse(
-                                URIUtil.assumeCorrect(metadata.get("url")), 
-                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"), 
-                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1 
+                                URIUtil.assumeCorrect(metadata.get("url")),
+                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"),
+                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1
                             );
                         }
                 }
