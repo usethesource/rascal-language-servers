@@ -53,6 +53,20 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.10.0
+
+* the automatic JVM downloader will now prompt you for updates if they are available
+* Every REPL now gets named after the project they are connected to
+* For deployed DSL extensions (via the npm published version of this plugin) we have a temporary interface to supply a preloaded parser
+* We now automatically run our pre-release test on every PR/commit via VS Code extension tester
+* upgraded to rascal 0.34.0:
+  * various performance improvements that improve import time and memory pressure
+  * removal of some unused resolvers (benchmark/testdata/test-modules/boot)
+  * various small bug fixes
+* bug fixes:
+  * fixed a bug where changes in a pom.xml would only be visible after a VS Code restart. Now it only takes a restart of the REPL. (or re-trigger the type checker)
+  * fixed a bug where we would register schema's that were already registered (zip error message in the debug console)
+
 ### 0.9.1
 
 * Bugfix for working directory of REPLs
