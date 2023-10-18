@@ -32,33 +32,6 @@ First a "pre-release" of the supporting compiler/typechecker tools must be done,
 - [ ] Maximum number of compiler warnings are resolved
 - [ ] Version numbers are verified manually
 
-# Manual feature tests
-
-- [ ] Build VScode extension locally download and install latest .vsix file in VScode for testing purposes
-- [ ] Make sure to restart VS Code after installation, and clear the target folders of the projects used for the below tests.
-
-The list below was copied from the rascal-eclipse release; have to adapt while we go:
-
-- [ ] Open a Rascal REPL using the CMD+P start-rascal-terminal command (without a project)
-- [ ] Manually create a new Rascal project, with src folder, META-INF/RASCAL.MF file with `Required-Libraries: |lib://rascal-lsp|`
-- [ ] Can edit a new Rascal file in the Rascal project
-- [ ] Save on Rascal file triggers type-checker, errors visible
-- [ ] Rascal outline works
-- [ ] Clicking links in REPL opens editors and websites
-- [ ] `rascal>1 + 1` on the REPL
-- [ ] `import IO; println("Hello Rascal!");`
-- [ ] in editor, click on use of name jumps to definition
-- [ ]  jump-to-definition also work to libraries and inside of libraries #150
-- [ ] clicking in outline jumps to editor to right position
-- [ ] syntax highlighting in editor works
-- [ ] add dependency on another project by editing `RASCAL.MF`: `Require-Libraries: |lib://otherProject|`, import a module and test the type-checker as well as the interpreter for correct resolution, also test a new REPL and import a library modules from the imported library.
-- [ ] Run `import demo::lang::pico::LanguageServer;` and  `demo::lang::pico::LanguageServer::main();` and test the editor of some example pico files:
-   - [ ] pico syntax highlighting
-   - [ ] pico parse errors
-   - [ ] pico jump-to-definition
-   - [ ] pico code lenses with command (Rename variables a to b)
-- [ ] try `:edit demo::lang::pico::LanguageServer` #151
-
 # Actual release
 
 - [ ] write release notes in README.md (used on the marketplace pages)
