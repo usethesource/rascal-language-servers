@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
@@ -40,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.fusesource.jansi.internal.Kernel32;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -104,7 +104,19 @@ public class LSPTerminalREPL extends BaseREPL {
             // but it requires it to run in utf8, so we have to quickly set the
             // codepoint ourself, just to make sure we are not getting the default
             // that the user has (mostly some old codepoint that breaks any unicode character)
-            Kernel32.SetConsoleOutputCP(65001);
+            try {
+                // we want to call: Kernel32.SetConsoleOutputCP(65001);
+                // but that class is not available outside of windows,
+                // so we have to dynamically load it, so the compiler & classloaders
+                // don't break on linux & osx
+                var kernelClass = Configuration.class.getClassLoader().loadClass("org.fusesource.jansi.internal.Kernel32");
+                var setOutputCp = kernelClass.getMethod("SetConsoleOutputCP", int.class);
+                setOutputCp.invoke(null, 65001);
+
+            } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                System.err.println("Error loading Kernel32 class");
+                System.err.println(ex);
+            }
         }
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
