@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
@@ -40,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -70,6 +70,7 @@ import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
 import jline.Terminal;
 import jline.TerminalFactory;
+import jline.internal.Configuration;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -97,7 +98,31 @@ public class LSPTerminalREPL extends BaseREPL {
         }
     }
 
+    private static boolean isUTF8() {
+        String lang = System.getenv("LANG");
+        return lang != null && lang.contains("UTF-8");
+    }
+
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
+        if (Configuration.isWindows() && isUTF8()) {
+            // vs code doesn't properly set the codepage for the terminal process
+            // but xterm.js and vs code expect us to print in utf8, so we have to quickly set the
+            // codepage ourself, just to make sure we are not getting the default
+            // that the user has (mostly some old codepoint that breaks any unicode character)
+            try {
+                // we want to call: Kernel32::SetConsoleOutputCP
+                // but that class is not available outside of windows,
+                // so we have to dynamically load it, so the compiler & classloaders
+                // don't break on linux & osx
+                var kernelClass = Configuration.class.getClassLoader().loadClass("org.fusesource.jansi.internal.Kernel32");
+                var setOutputCp = kernelClass.getMethod("SetConsoleOutputCP", int.class);
+                setOutputCp.invoke(null, 65001);
+
+            } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                System.err.println("Error loading Kernel32 class, special characters will most likely not work");
+                System.err.println(ex);
+            }
+        }
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
@@ -243,9 +268,9 @@ public class LSPTerminalREPL extends BaseREPL {
                             }
 
                             services.browse(
-                                URIUtil.assumeCorrect(metadata.get("url")), 
-                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"), 
-                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1 
+                                URIUtil.assumeCorrect(metadata.get("url")),
+                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"),
+                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1
                             );
                         }
                 }
