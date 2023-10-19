@@ -34,6 +34,8 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import {utf8to16Offset, utf8to16Length, utf8to16Column} from "./RascalTerminalLinkProvider";
+import { off } from 'process';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -111,13 +113,21 @@ export class RascalExtension implements vscode.Disposable {
                     const selection = editor.selection;
 
                     let offset = editor.document.offsetAt(selection.start);
-                    let length = editor.document.getText(selection).length;
-                    let startLine = selection.start.line;
-                    let startColumn = selection.start.character;
-                    let endLine = selection.end.line;
-                    let endColumn = selection.end.character;
+                    let offsetUtf16 = utf8to16Offset(editor.document, offset);
 
-                    const location = `|${uri}|(${offset},${length},<${startLine+1},${startColumn}>,<${endLine+1},${endColumn}>)`;
+                    let length = editor.document.getText(selection).length;
+                    let lengthUtf16 = utf8to16Length(editor.document, offset, offset+length);
+
+                    // the startline is not affected by UTF8 or UTF16, because line breaks are never UTF16
+                    let startLine = selection.start.line;
+                    let endLine = selection.end.line;
+
+                    let startColumn = selection.start.character;
+                    let startColumnUtf16 = utf8to16Column(editor.document, startLine, startColumn);
+                    let endColumn = selection.end.character;
+                    let endColumnUtf16 = utf8to16Column(editor.document, endLine, endColumn);
+
+                    const location = `|${uri}|(${offsetUtf16},${lengthUtf16},<${startLine+1},${startColumnUtf16}>,<${endLine+1},${endColumnUtf16}>)`;
 
                     vscode.env.clipboard.writeText(location);
                 }

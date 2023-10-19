@@ -177,3 +177,37 @@ function fixedOffsetLengthPositions(td: vscode.TextDocument, offset: number, len
     }
     return [offset, endOffset];
 }
+
+/**
+ * Convert the length of a selection from a UTF-8-based count (used by VS Code) to a UTF-16-based count (used by Rascal).
+ * Note how this function also works for calculating offsets by setting `begin` to 0.
+ * @param td the text document in which the selection was made
+ * @param endUtf8 the end position (UTF-8) of the selection
+ * @param beginUtf8 the begin of the selection (UTF-8)
+ * @returns length of the selection when counted as UTF-16.
+ */
+function utf8to16Conversation(text: string, beginUtf8: number, endUtf8: number): number {
+    let lengthUtf16 = endUtf8 - beginUtf8;
+
+    for (let i = beginUtf8; i < endUtf8-1; i++) {
+        const c = text.charCodeAt(i);
+        if (isHighSurrogate(c) && isLowSurrogate(text.charCodeAt(i + 1))) {
+            lengthUtf16--;
+        }
+    }
+
+    return lengthUtf16;
+}
+
+export function utf8to16Offset(td: vscode.TextDocument, offsetUtf8: number): number {
+    return utf8to16Conversation(td.getText(), 0, offsetUtf8);
+}
+
+export function utf8to16Length(td: vscode.TextDocument, beginUtf8: number, endUtf8: number): number {
+    return utf8to16Conversation(td.getText(), beginUtf8, endUtf8);
+}
+
+export function utf8to16Column(td: vscode.TextDocument, line: number, columnUtf8: number): number {
+    const fullLine = td.lineAt(line).text;
+    return utf8to16Conversation(fullLine, 0, columnUtf8);
+}
