@@ -108,6 +108,8 @@ function getJavaCandidates(): string[] {
             }
             if (existsSync(makeJavac(possiblePath))) {
                 result.push(possiblePath);
+                // the most recent version is the right one, so don't add old ones
+                break;
             }
         }
     }
