@@ -52,6 +52,17 @@ export class RascalExtension implements vscode.Disposable {
         this.registerImportModule();
 
         this.registerCopyLocation();
+        
+        
+
+        vscode.commands.registerCommand('cowsay.say', async () => {
+            let what = await vscode.window.showInputBox({ placeHolder: 'cow say?' });
+            if (what) {
+            let uri = vscode.Uri.parse('cowsay:' + what);
+            let doc = await vscode.workspace.openTextDocument(uri); // calls back into the provider
+            await vscode.window.showTextDocument(doc, { preview: false });
+            }
+        });
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
@@ -107,7 +118,7 @@ export class RascalExtension implements vscode.Disposable {
             vscode.commands.registerTextEditorCommand("rascalmpl.copyLocation", (text, _edit, moduleName) => {
                 const editor = vscode.window.activeTextEditor;
                 if (editor) {
-                    const fileName = editor.document.uri.fsPath;
+                    const uri = editor.document.uri.toString();
                     const selection = editor.selection;
 
                     let offset = editor.document.offsetAt(selection.start);
@@ -117,7 +128,7 @@ export class RascalExtension implements vscode.Disposable {
                     let endLine = selection.end.line;
                     let endColumn = selection.end.character;
 
-                    const location = `|file://${fileName}|(${offset},${length},<${startLine+1},${startColumn}>,<${endLine+1},${endColumn}>)`;
+                    const location = `|${uri}|(${offset},${length},<${startLine+1},${startColumn}>,<${endLine+1},${endColumn}>)`;
 
                     vscode.env.clipboard.writeText(location);
                 }
