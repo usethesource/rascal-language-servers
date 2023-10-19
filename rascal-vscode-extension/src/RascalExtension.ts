@@ -35,7 +35,6 @@ import { LanguageParameter, ParameterizedLanguageServer } from './lsp/Parameteri
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 import {utf8to16Offset, utf8to16Length, utf8to16Column} from "./RascalTerminalLinkProvider";
-import { off } from 'process';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
