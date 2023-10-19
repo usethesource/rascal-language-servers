@@ -52,17 +52,6 @@ export class RascalExtension implements vscode.Disposable {
         this.registerImportModule();
 
         this.registerCopyLocation();
-        
-        
-
-        vscode.commands.registerCommand('cowsay.say', async () => {
-            let what = await vscode.window.showInputBox({ placeHolder: 'cow say?' });
-            if (what) {
-            let uri = vscode.Uri.parse('cowsay:' + what);
-            let doc = await vscode.workspace.openTextDocument(uri); // calls back into the provider
-            await vscode.window.showTextDocument(doc, { preview: false });
-            }
-        });
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
