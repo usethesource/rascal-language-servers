@@ -29,10 +29,9 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as dl from './downloaders';
-import {  existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 import { readReleaseInfo } from './ReleaseInfo';
-import { readdir, stat } from 'fs/promises';
+import { readdir, stat  } from 'fs/promises';
 
 
 const currentJVMEngineMin = 11;
@@ -52,7 +51,7 @@ export async function getJavaExecutable(): Promise<string> {
         console.log("Returning: " + lookupCompleted);
         return lookupCompleted;
     }
-    for (const possibleCandidate of getJavaCandidates()) {
+    for (const possibleCandidate of await getJavaCandidates()) {
         try {
             // we check the availability of javac, since we need a JDK instead of a JRE
             const versionRun = await pexec(`"${makeJavac(possibleCandidate)}" -version`);
@@ -87,7 +86,16 @@ function makeJavac(javaPath: string): string {
     return javaPath + "c";
 }
 
-function getJavaCandidates(): string[] {
+async function exists(path: string) : Promise<boolean> {
+    try {
+        return (await stat(path)) !== undefined;
+    }
+    catch (_notExists) {
+        return false;
+    }
+}
+
+async function getJavaCandidates(): Promise<string[]> {
     const result = [];
     const { JAVA_HOME } = process.env;
     const name = os.platform() === 'win32' ? 'java.exe' : 'java';
@@ -97,8 +105,8 @@ function getJavaCandidates(): string[] {
     else {
         result.push(name);
     }
-    if (existsSync(mainJVMPath)) {
-        const jvms = readdirSync(mainJVMPath, {  }).sort().reverse();
+    if (await exists(mainJVMPath)) {
+        const jvms = (await readdir(mainJVMPath, {  })).sort().reverse();
         for (const ent of jvms) {
             let possiblePath = "";
             switch (os.platform()) {
@@ -106,8 +114,10 @@ function getJavaCandidates(): string[] {
                 case 'linux': possiblePath = path.join(mainJVMPath, String(ent), "bin", "java"); break;
                 case 'darwin': possiblePath = path.join(mainJVMPath, String(ent), "Contents", "Home", "bin", "java"); break;
             }
-            if (existsSync(makeJavac(possiblePath))) {
+            if (await exists(makeJavac(possiblePath))) {
                 result.push(possiblePath);
+                // the most recent version is the right one, so don't add old ones
+                break;
             }
         }
     }
@@ -218,8 +228,9 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                         break;
                     }
                     const latest = await dl.identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapTemurinPlatform());
-                    if("jdk-"+releaseInfo.full_version !== latest){
-                        askUserForJVMUpdate(temurin);
+                    const currentVersion = "jdk-"+releaseInfo.java_runtime_version;
+                    if(currentVersion !== latest){
+                        askUserForJVMUpdate(temurin, latest, currentVersion);
                     }
                     return;
                 }
@@ -229,7 +240,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     }
                     const latest = await dl.identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, dl.mapMSArchitectures(), dl.mapMSPlatforms());
                     if(releaseInfo.java_version !== latest){
-                        askUserForJVMUpdate(msJava);
+                        askUserForJVMUpdate(msJava, latest, releaseInfo.java_version);
                     }
                     return;
                 }
@@ -238,8 +249,9 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                         break;
                     }
                     const latest = await dl.identifyLatestCorrettoRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapCorrettoPlatform());
-                    if(releaseInfo.implementor_version.slice(9) !== latest){
-                        askUserForJVMUpdate(amazon);
+                    const currentVersion = releaseInfo.implementor_version.slice(9);
+                    if(currentVersion !== latest){
+                        askUserForJVMUpdate(amazon, latest, currentVersion);
                     }
                     return;
                 }
@@ -248,8 +260,8 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
     }
 }
 
-export function askUserForJVMUpdate(jdktype: string){
-    vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK. There is a new update. In general the update containes bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
+export function askUserForJVMUpdate(jdktype: string, newVersion: string, currentVersion: string){
+    vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK (${currentVersion}). There is a new update (${newVersion}). In general the update contains bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
         if(ans === "Install update"){
             await downloadJDKWithProgress(jdktype);
             vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VS Code session.`);
