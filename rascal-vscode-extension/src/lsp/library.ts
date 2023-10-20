@@ -25,5 +25,5 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 // make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
-export { ParameterizedLanguageServer, LanguageParameter } from "./ParameterizedLanguageServer";
+export { ParameterizedLanguageServer, LanguageParameter, ParserSpecification } from "./ParameterizedLanguageServer";
 export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";
