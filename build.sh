@@ -16,7 +16,7 @@ while getopts 'fd' flag; do
   esac
 done
 
-rm rascal-lsp/target/*.jar
+rm -f rascal-lsp/target/*.jar
 
 (cd rascal-lsp && mvn $clean package $extra_flags )
 (cd rascal-vscode-extension && npm run lsp4j:package )

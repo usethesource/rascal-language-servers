@@ -30,7 +30,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.CompletableFuture;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.interpreter.Evaluator;
@@ -44,7 +45,6 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -54,6 +54,7 @@ import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 
 public class ParserOnlyContribution implements ILanguageContributions {
+    private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private final String name;
     private final String extension;
@@ -82,7 +83,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        if (loadingParserError != null || parser != null) {
+        if (loadingParserError != null || parser == null) {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
 
@@ -98,10 +99,14 @@ public class ParserOnlyContribution implements ILanguageContributions {
         IConstructor reifiedType = makeReifiedType(spec, vf);
 
         try {
+            logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            return Either.forLeft(vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set()));
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set());
+            logger.debug("Got parser: {}", parser);
+            return Either.forLeft(parser);
         }
         catch (IOException | ClassNotFoundException | FactTypeUseException e) {
+            logger.catching(e);
             return Either.forRight(e);
         }
 
