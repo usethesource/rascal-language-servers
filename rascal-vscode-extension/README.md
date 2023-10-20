@@ -50,8 +50,11 @@ For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
    * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
 
-
 ## Release Notes
+
+### 0.10.1
+
+* bugfix for preloaded parsers
 
 ### 0.10.0
 
