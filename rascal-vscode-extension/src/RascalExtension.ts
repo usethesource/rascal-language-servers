@@ -105,33 +105,32 @@ export class RascalExtension implements vscode.Disposable {
 
     private registerCopyLocation() {
         this.context.subscriptions.push(
-            vscode.commands.registerTextEditorCommand("rascalmpl.copyLocation", (text, _edit, moduleName) => {
-                const editor = vscode.window.activeTextEditor;
+            vscode.commands.registerTextEditorCommand("rascalmpl.copyLocation", (editor, _edit) => {
                 if (editor) {
                     const uri = editor.document.uri.toString();
                     const selection = editor.selection;
 
-                    let offset = editor.document.offsetAt(selection.start);
-                    let offsetUtf16 = utf8to16Offset(editor.document, offset);
+                    const offset = editor.document.offsetAt(selection.start);
+                    const offsetUtf16 = utf8to16Offset(editor.document, offset);
 
-                    let length = editor.document.getText(selection).length;
-                    let lengthUtf16 = utf8to16Length(editor.document, offset, offset+length);
+                    const length = editor.document.getText(selection).length;
+                    const lengthUtf16 = utf8to16Length(editor.document, offset, offset+length);
 
                     // the startline is not affected by UTF8 or UTF16, because line breaks are never UTF16
-                    let startLine = selection.start.line;
-                    let endLine = selection.end.line;
+                    const startLine = selection.start.line;
+                    const endLine = selection.end.line;
 
-                    let startColumn = selection.start.character;
-                    let startColumnUtf16 = utf8to16Column(editor.document, startLine, startColumn);
-                    let endColumn = selection.end.character;
-                    let endColumnUtf16 = utf8to16Column(editor.document, endLine, endColumn);
+                    const startColumn = selection.start.character;
+                    const startColumnUtf16 = utf8to16Column(editor.document, startLine, startColumn);
+                    const endColumn = selection.end.character;
+                    const endColumnUtf16 = utf8to16Column(editor.document, endLine, endColumn);
 
                     const location = `|${uri}|(${offsetUtf16},${lengthUtf16},<${startLine+1},${startColumnUtf16}>,<${endLine+1},${endColumnUtf16}>)`;
 
                     vscode.env.clipboard.writeText(location);
                 }
             })
-        )
+        );
     }
 
     private startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
