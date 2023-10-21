@@ -34,7 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
-import {utf16to32Offset, utf16to32Length, utf16to32Column} from "./RascalTerminalLinkProvider";
+import { PositionConverter } from './util/PositionConverter';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -111,19 +111,17 @@ export class RascalExtension implements vscode.Disposable {
                     const selection = editor.selection;
 
                     const offset = editor.document.offsetAt(selection.start);
-                    const offsetUtf32 = utf16to32Offset(editor.document, offset);
-
                     const length = editor.document.getText(selection).length;
-                    const lengthUtf32 = utf16to32Length(editor.document, offset, offset+length);
+                    const [offsetUtf32, lengthUtf32] = PositionConverter.vsCodeToRascalOffsetLength(editor.document, offset, length);
 
                     // the startline is not affected by UTF8 or UTF16, because line breaks are never UTF16
                     const startLine = selection.start.line;
                     const endLine = selection.end.line;
 
                     const startColumn = selection.start.character;
-                    const startColumnUtf32 = utf16to32Column(editor.document, startLine, startColumn);
+                    const startColumnUtf32 = PositionConverter.vsCodeToRascalColumn(editor.document, startLine, startColumn);
                     const endColumn = selection.end.character;
-                    const endColumnUtf32 = utf16to32Column(editor.document, endLine, endColumn);
+                    const endColumnUtf32 = PositionConverter.vsCodeToRascalColumn(editor.document, endLine, endColumn);
 
                     const location = `|${uri}|(${offsetUtf32},${lengthUtf32},<${startLine+1},${startColumnUtf32}>,<${endLine+1},${endColumnUtf32}>)`;
 

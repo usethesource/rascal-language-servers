@@ -27,12 +27,13 @@
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { PositionConverter } from './util/PositionConverter';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
 }
 
-interface SourceLocation {
+export interface SourceLocation {
     uri: string;
     offsetLength?: [number, number];
     beginLineColumn?: [number, number];
@@ -78,7 +79,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
         const te = await vscode.window.showTextDocument(td);
 
-        const targetRange = translateRange(rsloc, td);
+        const targetRange = PositionConverter.rascalToVSCodeRange(td, rsloc);
         if (targetRange) {
             te.revealRange(targetRange);
             te.selection = new vscode.Selection(
@@ -89,27 +90,6 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             );
         }
     }
-}
-
-function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.Range | undefined {
-    if (sloc.beginLineColumn && sloc.endLineColumn) {
-        const beginLine = sloc.beginLineColumn[0] - 1;
-        const endLine = sloc.endLineColumn[0] - 1;
-        return new vscode.Range(
-            beginLine,
-            fixedColumn(td, beginLine, sloc.beginLineColumn[1]),
-            endLine,
-            fixedColumn(td, endLine, sloc.endLineColumn[1]),
-        );
-    }
-    else if (sloc.offsetLength) {
-        const rangePositions = fixedOffsetLengthPositions(td, sloc.offsetLength[0], sloc.offsetLength[1]);
-        return new vscode.Range(
-            td.positionAt(rangePositions[0]),
-            td.positionAt(rangePositions[1])
-        );
-    }
-    return undefined;
 }
 
 function buildLink(match: RegExpExecArray): ExtendedLink {
@@ -132,82 +112,4 @@ function buildLink(match: RegExpExecArray): ExtendedLink {
         length: linkMatch.length,
         loc: sloc
     };
-}
-
-// from https://github.com/microsoft/vscode/blob/main/src/vs/base/common/strings.ts
-function isHighSurrogate(charCode: number): boolean {
-    return (0xD800 <= charCode && charCode <= 0xDBFF);
-}
-
-// from https://github.com/microsoft/vscode/blob/main/src/vs/base/common/strings.ts
-function isLowSurrogate(charCode: number): boolean {
-    return (0xDC00 <= charCode && charCode <= 0xDFFF);
-}
-
-
-/**
- * locate surrogate pairs on the current line, and if present, offset rascal columns by the surrogate pairs before it
- */
-function fixedColumn(td: vscode.TextDocument, line: number, originalColumn: number): number {
-    const fullLine = td.lineAt(line).text;
-    let result = originalColumn;
-    for (let i = 0; i < fullLine.length && i < result; i++) {
-        const c = fullLine.charCodeAt(i);
-        if (isHighSurrogate(c) && (i + 1) < fullLine.length && isLowSurrogate(fullLine.charCodeAt(i + 1))) {
-            i++;
-            result++;
-        }
-    }
-    return result;
-}
-
-
-function fixedOffsetLengthPositions(td: vscode.TextDocument, offset: number, length: number): [number, number] {
-    const fullText = td.getText();
-    let endOffset = offset+length;
-    for (let i = 0; i < fullText.length && i < endOffset; i++) {
-        const c = fullText.charCodeAt(i);
-        if (isHighSurrogate(c) && (i + 1) < fullText.length && isLowSurrogate(fullText.charCodeAt(i + 1))) {
-            if (i <= offset) {
-                offset++;
-            }
-            endOffset++;
-            i++;
-        }
-    }
-    return [offset, endOffset];
-}
-
-/**
- * Convert the length of a selection from a UTF-8-based count (used by VS Code) to a UTF-16-based count (used by Rascal).
- * Note how this function also works for calculating offsets by setting `begin` to 0.
- * @param td the text document in which the selection was made
- * @param endUtf8 the end position (UTF-8) of the selection
- * @param beginUtf8 the begin of the selection (UTF-8)
- * @returns length of the selection when counted as UTF-16.
- */
-function utf8to16Conversation(text: string, beginUtf8: number, endUtf8: number): number {
-    let lengthUtf16 = endUtf8 - beginUtf8;
-
-    for (let i = beginUtf8; i < endUtf8-1; i++) {
-        const c = text.charCodeAt(i);
-        if (isHighSurrogate(c) && isLowSurrogate(text.charCodeAt(i + 1))) {
-            lengthUtf16--;
-        }
-    }
-
-    return lengthUtf16;
-}
-
-export function utf8to16Offset(td: vscode.TextDocument, offsetUtf8: number): number {
-    return utf8to16Conversation(td.getText(), 0, offsetUtf8);
-}
-
-export function utf8to16Length(td: vscode.TextDocument, beginUtf8: number, endUtf8: number): number {
-    return utf8to16Conversation(td.getText(), beginUtf8, endUtf8);
-}
-
-export function utf8to16Column(td: vscode.TextDocument, line: number, columnUtf8: number): number {
-    const fullLine = td.lineAt(line).text;
-    return utf8to16Conversation(fullLine, 0, columnUtf8);
 }
