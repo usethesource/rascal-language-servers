@@ -114,7 +114,7 @@ export class RascalExtension implements vscode.Disposable {
                     const length = editor.document.getText(selection).length;
                     const [offsetUtf32, lengthUtf32] = PositionConverter.vsCodeToRascalOffsetLength(editor.document, offset, length);
 
-                    // the startline is not affected by UTF8 or UTF16, because line breaks are never UTF16
+                    // the startline is not affected by UTF16 or UTF32, because line breaks are always encoded as a single character
                     const startLine = selection.start.line;
                     const endLine = selection.end.line;
 
@@ -124,6 +124,7 @@ export class RascalExtension implements vscode.Disposable {
                     const endColumnUtf32 = PositionConverter.vsCodeToRascalColumn(editor.document, endLine, endColumn);
 
                     const location = `|${uri}|(${offsetUtf32},${lengthUtf32},<${startLine+1},${startColumnUtf32}>,<${endLine+1},${endColumnUtf32}>)`;
+
 
                     vscode.env.clipboard.writeText(location);
                 }
