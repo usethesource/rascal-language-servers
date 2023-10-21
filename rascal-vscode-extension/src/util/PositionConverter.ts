@@ -154,8 +154,8 @@ export class PositionConverter {
      */
     static vsCodeToRascalRange(td: vscode.TextDocument, sloc: SourceLocation): vscode.Range | undefined {
         if (sloc.beginLineColumn && sloc.endLineColumn) {
-            const beginLine = sloc.beginLineColumn[0] - 1;
-            const endLine = sloc.endLineColumn[0] - 1;
+            const beginLine = sloc.beginLineColumn[0];
+            const endLine = sloc.endLineColumn[0];
             return new vscode.Range(
                 beginLine,
                 PositionConverter.vsCodeToRascalColumn(td, beginLine, sloc.beginLineColumn[1]),
