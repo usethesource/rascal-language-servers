@@ -52,6 +52,11 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.10.2
+
+* upgrading to rascal 0.34.1 to fix a regression in concrete syntax
+* the REPL is marked as non-transient, until we can properly reconnect it after a reload of the window
+
 ### 0.10.1
 
 * bugfix for preloaded parsers
