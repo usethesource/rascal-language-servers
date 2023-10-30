@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
@@ -64,13 +63,15 @@ import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import com.sun.jna.Native;
+import com.sun.jna.Platform;
+import com.sun.jna.win32.StdCallLibrary;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
 import jline.Terminal;
 import jline.TerminalFactory;
-import jline.internal.Configuration;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -103,24 +104,30 @@ public class LSPTerminalREPL extends BaseREPL {
         return lang != null && lang.contains("UTF-8");
     }
 
+    /**
+     * a JNA interface that we can use to call Windows Kernel functions without
+     * having to go and add JNI compiled libraries just for this work around
+     */
+    public interface Kernel32 extends StdCallLibrary {
+        boolean SetConsoleOutputCP(int wCodePageID);
+        boolean SetConsoleCP(int wCodePageID);
+    }
+
+    private static final int WINDOWS_UTF8_CODE_PAGE = 65001;
+
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        if (Configuration.isWindows() && isUTF8()) {
-            // vs code doesn't properly set the codepage for the terminal process
-            // but xterm.js and vs code expect us to print in utf8, so we have to quickly set the
+        if (Platform.isWindows() && isUTF8()) {
+            // VS Code doesn't properly set the codepage for the terminal process
+            // but xterm.js and VS Code expect us to print in utf8, so we have to quickly set the
             // codepage ourself, just to make sure we are not getting the default
             // that the user has (mostly some old codepoint that breaks any unicode character)
             try {
-                // we want to call: Kernel32::SetConsoleOutputCP
-                // but that class is not available outside of windows,
-                // so we have to dynamically load it, so the compiler & classloaders
-                // don't break on linux & osx
-                var kernelClass = Configuration.class.getClassLoader().loadClass("org.fusesource.jansi.internal.Kernel32");
-                var setOutputCp = kernelClass.getMethod("SetConsoleOutputCP", int.class);
-                setOutputCp.invoke(null, 65001);
-
-            } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-                System.err.println("Error loading Kernel32 class, special characters will most likely not work");
-                System.err.println(ex);
+                Kernel32 windowsKernel = Native.load("kernel32", Kernel32.class);
+                windowsKernel.SetConsoleCP(WINDOWS_UTF8_CODE_PAGE);
+                windowsKernel.SetConsoleOutputCP(WINDOWS_UTF8_CODE_PAGE);
+            } catch (Exception e) {
+                System.err.println("Error setting console code point to UTF8: " + e.getMessage());
+                System.err.println("Most likely, non-ascii characters will not print correctly, please report this on our github.");
             }
         }
         RascalInterpreterREPL repl =
