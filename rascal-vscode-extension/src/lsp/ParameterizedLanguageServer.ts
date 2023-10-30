@@ -164,7 +164,7 @@ export interface LanguageParameter {
      * warning: this feature is temporary, make sure to always define a regular parser
      * such that when we drop support for this feature, your DSLs will continue to work.
      * */
-    precompiledParser: ParserSpecification | undefined;
+    precompiledParser?: ParserSpecification;
 }
 
 /**
@@ -180,9 +180,9 @@ export interface ParserSpecification {
     /** non-terminal to use from the defined parsers */
     nonTerminalName: string;
     /** is the non-terminal a `start` non-terminal, default: true */
-    nonTerminalIsStart: boolean | undefined;
+    nonTerminalIsStart?: boolean;
     /** allow ambiguities during parsing, default: false */
-    allowAmbiguity: boolean | undefined;
+    allowAmbiguity?: boolean;
 
 }
 
