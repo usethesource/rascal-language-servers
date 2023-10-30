@@ -34,6 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { FileType } from 'vscode';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -100,36 +101,77 @@ export class RascalExtension implements vscode.Disposable {
         );
     }
 
-    private startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
-        return vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            cancellable: false,
-            title: "Rascal terminal"
-        }, async (progress) => {
-            progress.report({message: "Starting rascal-lsp"});
-            const rascal = await this.rascal.rascalClient;
-            console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
-            if (uri && !uri.path.endsWith(".rsc")) {
-                // do not try to figure out a rascal project path when the focus is not a rascal file
-                uri = undefined;
-            }
-            progress.report({increment: 25, message: "Requesting IDE configuration"});
-            const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-            progress.report({increment: 25, message: "Calculating project class path"});
-            const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
-            progress.report({increment: 25, message: "Creating terminal"});
-            const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
-            const terminal = vscode.window.createTerminal({
-                iconPath: this.icon,
-                shellPath: await getJavaExecutable(),
-                shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
-                isTransient: false, // right now we don't support transient terminals yet
-                name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
-            });
+    private async startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
+        try {
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                cancellable: false,
+                title: "Rascal terminal"
+            }, async (progress) => {
+                progress.report({message: "Starting rascal-lsp"});
+                const rascal = await this.rascal.rascalClient;
+                console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
+                if (uri && !uri.path.endsWith(".rsc")) {
+                    // do not try to figure out a rascal project path when the focus is not a rascal file
+                    uri = undefined;
+                }
+                progress.report({increment: 5, message: "Checking basic project setup"});
+                if (uri) {
+                    const [error, detail] = await this.verifyProjectSetup(uri);
+                    if (error !== '') {
+                        await this.reportTerminalStartError(error, detail);
+                        return;
+                    }
+                }
+                progress.report({increment: 20, message: "Requesting IDE configuration"});
+                const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
+                progress.report({increment: 25, message: "Calculating project class path"});
+                const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
+                progress.report({increment: 25, message: "Creating terminal"});
+                const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
+                const terminal = vscode.window.createTerminal({
+                    iconPath: this.icon,
+                    shellPath: await getJavaExecutable(),
+                    shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
+                    isTransient: false, // right now we don't support transient terminals yet
+                    name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
+                });
 
-            terminal.show(false);
-            progress.report({increment: 25, message: "Finished creating terminal"});
-        });
+                terminal.show(false);
+                progress.report({increment: 25, message: "Finished creating terminal"});
+            });
+        } catch (err) {
+            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err);
+        }
+    }
+
+    private reportTerminalStartError(msg: string, detail: string = "", modal = true) {
+        return vscode.window.showErrorMessage(msg, {detail : detail, modal: modal});
+    }
+
+    async fileExists(f: vscode.Uri) {
+        try {
+            return ((await vscode.workspace.fs.stat(f)).type & FileType.File) !== 0;
+        } catch (_ignored) {
+            return false;
+        }
+    }
+
+    async verifyProjectSetup(uri: vscode.Uri): Promise<[string, string]>  {
+        const projectFolder = vscode.workspace.getWorkspaceFolder(uri);
+        if (!projectFolder) {
+            return [`The file: ${uri.path} is not located inside of a Workspace folder, the REPL cannot be correctly configured`, ''];
+        }
+        const requiredFiles : [string, vscode.Uri][] = [
+            ["RASCAL.MF", vscode.Uri.joinPath(projectFolder.uri, "META-INF", "RASCAL.MF")],
+            ["pom.xml", vscode.Uri.joinPath(projectFolder.uri, "pom.xml")],
+        ];
+        for (const [name, path] of requiredFiles) {
+            if (!(await this.fileExists(path))) {
+                return [`The ${name} file is missing for the "${projectFolder.name}" project, please create a valid Rascal Project as described in the documentation`, `Missing file: ${path}`];
+            }
+        }
+        return ['',''];
     }
 
     private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
