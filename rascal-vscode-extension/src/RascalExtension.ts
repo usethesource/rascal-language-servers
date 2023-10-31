@@ -119,7 +119,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (uri) {
                     const [error, detail] = await this.verifyProjectSetup(uri);
                     if (error !== '') {
-                        await this.reportTerminalStartError(error, detail);
+                        await this.reportTerminalStartError(error, detail, {showOutput : false});
                         return;
                     }
                 }
@@ -141,12 +141,23 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Finished creating terminal"});
             });
         } catch (err) {
-            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err);
+            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true});
         }
     }
 
-    private reportTerminalStartError(msg: string, detail: string = "", modal = true) {
-        return vscode.window.showErrorMessage(msg, {detail : detail, modal: modal});
+    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean}) {
+        const options = ["View Documentation"];
+        if (config.showOutput) {
+            options.push("Show Rascal Output Window");
+        }
+        options.push("Ok");
+        const selected = await vscode.window.showErrorMessage(msg, {detail : detail, modal: config.modal ?? true}, ...options);
+        if (selected === "View Documentation") {
+            await vscode.env.openExternal(vscode.Uri.parse("https://www.rascal-mpl.org/docs/GettingStarted/CreateNewProject/"));
+        }
+        if (selected === "Show Rascal Output Window") {
+            await vscode.commands.executeCommand("workbench.action.output.show.extension-output-usethesource.rascalmpl-#1-Rascal MPL Language Server");
+        }
     }
 
     async fileExists(f: vscode.Uri) {
