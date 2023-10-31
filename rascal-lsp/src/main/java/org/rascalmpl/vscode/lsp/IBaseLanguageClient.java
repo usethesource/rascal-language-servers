@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,5 +40,18 @@ public interface IBaseLanguageClient extends LanguageClient {
 
     @JsonNotification("rascal/receiveUnregisterLanguage")
     void receiveUnregisterLanguage(LanguageParameter lang);
+
+    /**
+     * Notification sent to the vscode client to start a debugging session on the given debug adapter port
+     */
+    @JsonNotification("rascal/startDebuggingSession")
+    void startDebuggingSession(int serverPort);
+
+    /**
+     * Notification sent to the vscode client to register the port on which the debug adapter server is listening
+     * It is then used to make the link between a terminal process ID and the corresponding debug server port
+     */
+    @JsonNotification("rascal/registerDebugServerPort")
+    void registerDebugServerPort(int processID, int serverPort);
 
 }

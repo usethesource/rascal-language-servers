@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,10 +30,12 @@ import { LanguageClient } from 'vscode-languageclient/node';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { RascalDebugClient } from '../dap/RascalDebugClient';
 
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<LanguageClient>;
+    public readonly rascalDebugClient: RascalDebugClient;
 
     constructor(
         context: vscode.ExtensionContext,
@@ -53,12 +55,20 @@ export class RascalLanguageServer implements vscode.Disposable {
             lspArg: undefined
         });
 
+        this.rascalDebugClient = new RascalDebugClient();
+
         this.rascalClient.then(client => {
             client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
                 dslLSP.registerLanguage(lang);
             });
             client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
                 dslLSP.unregisterLanguage(lang);
+            });
+            client.onNotification("rascal/startDebuggingSession", (serverPort:number) => {
+                this.rascalDebugClient.startDebuggingSession(serverPort);
+            });
+            client.onNotification("rascal/registerDebugServerPort", (processID:number, serverPort:number) => {
+                this.rascalDebugClient.registerDebugServerPort(processID, serverPort);
             });
         });
     }

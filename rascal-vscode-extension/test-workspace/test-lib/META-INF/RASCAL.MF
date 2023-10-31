@@ -1,0 +1,4 @@
+Manifest-Version: 0.0.1
+Project-Name: test-lib
+Source: src/main/rascal
+Require-Libraries: #dont eat space

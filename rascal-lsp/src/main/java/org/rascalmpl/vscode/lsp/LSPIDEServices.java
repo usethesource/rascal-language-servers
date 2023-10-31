@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,8 +97,8 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        languageClient.showContent(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        languageClient.showContent(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
@@ -145,7 +145,8 @@ public class LSPIDEServices implements IDEServices {
             ((IString) language.get(1)).getValue(),
             ((IString) language.get(2)).getValue(),
             ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue()
+            ((IString) language.get(4)).getValue(),
+            null
         );
 
         languageClient.receiveRegisterLanguage(param);
@@ -158,7 +159,8 @@ public class LSPIDEServices implements IDEServices {
             ((IString) language.get(1)).getValue(),
             ((IString) language.get(2)).getValue(),
             ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue()
+            ((IString) language.get(4)).getValue(),
+            null
         );
 
         languageClient.receiveUnregisterLanguage(param);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,5 +25,5 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 // make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
-export { ParameterizedLanguageServer, LanguageParameter } from "./ParameterizedLanguageServer";
+export { ParameterizedLanguageServer, LanguageParameter, ParserSpecification } from "./ParameterizedLanguageServer";
 export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,18 +78,23 @@ public class SummaryBridge {
         this.typeNames = TreeMapLookup::new;
     }
 
-    public SummaryBridge(IConstructor summary, ColumnMaps cm) {
+    public SummaryBridge(ISourceLocation self, IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
-        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), v -> ((IString)v).getValue(), cm));
+        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), self, v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
+        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), self, v -> ((IString)v).getValue(), cm));
 
     }
 
-    private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, Function<IValue, T> valueMapper, ColumnMaps cm) {
+    private static <T> IRangeMap<List<T>> translateRelation(ISet binaryRel, ISourceLocation self, Function<IValue, T> valueMapper, ColumnMaps cm) {
         TreeMapLookup<List<T>> result = new TreeMapLookup<>();
         for (IValue v: binaryRel) {
             ITuple row = (ITuple)v;
-            Range from = Locations.toRange((ISourceLocation)row.get(0), cm);
+            ISourceLocation fromLoc = (ISourceLocation)row.get(0);
+            if (!fromLoc.top().equals(self)) {
+                // ignore rascal-core giving us entries that are not starting with our own base
+                continue;
+            }
+            Range from = Locations.toRange(fromLoc, cm);
             T to = valueMapper.apply(row.get(1));
             List<T> existing = result.getExact(from);
             if (existing == null) {
@@ -109,12 +114,16 @@ public class SummaryBridge {
         return result;
     }
 
-    private static <T> IRangeMap<T> translateMap(IMap binaryMap, Function<IValue, T> valueMapper, ColumnMaps cm) {
+    private static <T> IRangeMap<T> translateMap(IMap binaryMap, ISourceLocation self, Function<IValue, T> valueMapper, ColumnMaps cm) {
         TreeMapLookup<T> result = new TreeMapLookup<>();
         binaryMap.entryIterator().forEachRemaining(e -> {
-            Range from = Locations.toRange((ISourceLocation)e.getKey(), cm);
-            T to = valueMapper.apply(e.getValue());
-            result.put(from, to);
+            var fromLoc = (ISourceLocation)e.getKey();
+            if (fromLoc.top().equals(self)) {
+                // only build a map for our own entries (rascal-core reports too much)
+                Range from = Locations.toRange(fromLoc, cm);
+                T to = valueMapper.apply(e.getValue());
+                result.put(from, to);
+            }
         });
         return result;
     }

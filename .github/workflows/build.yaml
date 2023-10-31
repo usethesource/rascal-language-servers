@@ -9,10 +9,86 @@ on:
     branches:
       - main
 
+permissions:
+  actions: read
+  contents: write
+  
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  ui-test:
+    strategy:
+      matrix:
+        os: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
+      fail-fast: true
+    env:
+      CODE_VERSION: "1.75.1"
+    runs-on:  ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
 
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Package & compile rascal-lsp
+        working-directory: ./rascal-lsp
+        run: mvn -B '-Drascal.compile.skip' clean package
+
+      - name: Package & compile extension 
+        working-directory: ./rascal-vscode-extension
+        run: |
+          npm ci
+          npm run compile-tests
+
+      - name: Cache vscode downloads 
+        id: cache-vscode
+        uses: actions/cache@v3
+        with:
+          path: ./rascal-vscode-extension/uitests
+          key: "vscode-${{matrix.os}}"
+
+      - name: "UI test (windows & mac)"
+        shell: bash
+        if: matrix.os != 'buildjet-4vcpu-ubuntu-2204'
+        working-directory: ./rascal-vscode-extension
+        env:
+          DELAY_FACTOR: ${{ matrix.os == 'windows' && '7' || '5' }}
+          _JAVA_OPTIONS: ${{ matrix.os == 'windows' && '-Xmx2G' || '-Xmx4G' }}
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+
+      - name: "UI test (ubuntu)"
+        shell: bash
+        if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
+        working-directory: ./rascal-vscode-extension
+        env:
+          DELAY_FACTOR: 5
+          _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: screenshots-${{ matrix.os }}
+          path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
+
+      - name: "cleanup before cache"
+        shell: bash
+        if: always()
+        continue-on-error: true 
+        run: rm -rf ./rascal-vscode-extension/uitests/screenshots
+
+  build:
+    needs: [ui-test]
+    runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
@@ -32,6 +108,9 @@ jobs:
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
         run: mvn -B clean verify
+        env:
+          MAVEN_OPTS: "-Xmx6G"
+
 
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
@@ -78,6 +157,16 @@ jobs:
           registryUrl: https://marketplace.visualstudio.com
           extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }} # copy exact same vsix from the previous step
 
+      - name: Prepare Draft Release
+        uses: softprops/action-gh-release@v1
+        continue-on-error: true
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          draft: true
+          files: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
         run: |
@@ -86,6 +175,8 @@ jobs:
           # remove non-used jars
           rm assets/jars/rascal-core.jar  
           rm assets/jars/typepal.jar
+          rm -rf lib/test
+          rm -rf src/test
           mv README-lib.md README.md
 
       - name: Test compile for NPM

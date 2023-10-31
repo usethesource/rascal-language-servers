@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,9 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IWithKeywordParameters;
 
-@SuppressWarnings({"deprecation"})
 public class Outline {
+    // hide constructor for static class
+    private Outline() {}
 
     private static String capitalize(String kindName) {
        return kindName.substring(0,1).toUpperCase() + kindName.substring(1);

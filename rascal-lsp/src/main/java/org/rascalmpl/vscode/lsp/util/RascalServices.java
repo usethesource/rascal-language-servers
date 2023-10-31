@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,26 +24,22 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
+package org.rascalmpl.vscode.lsp.util;
 
-import { runTests } from '@vscode/test-electron';
+import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
+import org.rascalmpl.parser.Parser;
+import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
+import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
+import org.rascalmpl.parser.uptr.UPTRNodeFactory;
+import org.rascalmpl.parser.uptr.action.NoActionExecutor;
+import org.rascalmpl.values.parsetrees.ITree;
 
-async function main() {
-    try {
-        // The folder containing the Extension Manifest package.json
-        // Passed to `--extensionDevelopmentPath`
-        const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+import io.usethesource.vallang.ISourceLocation;
 
-        // The path to test runner
-        // Passed to --extensionTestsPath
-        const extensionTestsPath = path.resolve(__dirname, './vscode-suite/index');
-
-        // Download VS Code, unzip it and run the integration test
-        await runTests({ extensionDevelopmentPath, extensionTestsPath });
-    } catch (err) {
-        console.error('Failed to run tests');
-        process.exit(1);
+public class RascalServices {
+    public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
+        IActionExecutor<ITree> actions = new NoActionExecutor();
+        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
+            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
     }
 }
-
-main();

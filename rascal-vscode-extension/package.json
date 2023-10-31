@@ -10,9 +10,9 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo.png",
-  "version": "0.8.0-head",
+  "version": "0.10.3-head",
   "engines": {
-    "vscode": "^1.67.0"
+    "vscode": "^1.75.0"
   },
   "license": "BSD-2-Clause",
   "repository": {
@@ -20,17 +20,13 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "node-fetch": "^2.6.7",
-    "tar": "^6.1.11",
-    "vscode-languageclient": "^8.0.0",
-    "yauzl": "^2.10.0"
+    "node-fetch": "2.x",
+    "tar": "6.x",
+    "vscode-languageclient": "8.x",
+    "yauzl": "2.x"
   },
   "categories": [
     "Programming Languages"
-  ],
-  "activationEvents": [
-    "onCommand:rascalmpl.createTerminal",
-    "onLanguage:rascalmpl"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -80,6 +76,36 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "breakpoints": [
+      {
+          "language": "rascalmpl"
+      }
+    ],
+    "debuggers": [
+      {
+          "languages": ["rascalmpl"],
+          "type": "rascalmpl",
+          "label": "Rascal debugger",
+          "initialConfigurations": [
+              {
+                  "type": "rascalmpl",
+                  "request": "attach",
+                  "name": "Rascal debugger"
+              }
+          ],
+          "configurationSnippets": [
+              {
+                  "label": "Rascal debugger",
+                  "description": "Rascal debugger",
+                  "body": {
+                    "type": "rascalmpl",
+                    "request": "attach",
+                    "name": "Rascal debugger"
+                }
+              }
+          ]
+      }
+  ],
     "grammars": [
       {
         "language": "rascalmpl",
@@ -92,21 +118,25 @@
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
     ],
-    "views": {
-      "explorer": [
-        {
-          "id": "rascalLibraries",
-          "name": "Rascal Libraries",
-          "icon": "./assets/images/rascal-logo.svg",
-          "visibility": "collapsed"
+  "configuration": {
+      "title": "Rascal",
+      "properties": {
+        "rascal.interpreter.maxHeapSize": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
+        },
+        "rascal.interpreter.stackSize": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
-      ]
+      }
     }
-
   },
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run lsp4j:package && npm run package",
     "compile": "npx webpack",
     "compile-lib": "npx tsc -p . --outDir lib --declaration true",
     "watch": "npx webpack --watch",
@@ -121,25 +151,28 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.1",
-    "@types/node": "^16.x",
-    "@types/node-fetch": "^2.5.12",
-    "@types/tar": "^6.1.1",
-    "@types/temp": "^0.9.1",
-    "@types/vscode": "1.67.0",
-    "@types/yauzl": "^2.9.2",
-    "@typescript-eslint/eslint-plugin": "^5.31.1",
-    "@typescript-eslint/parser": "^5.31.1",
-    "@vscode/test-electron": "^2.1.5",
-    "eslint": "^8.20.0",
-    "glob": "^10.2.6",
-    "license-check-and-add": "^4.0.2",
-    "mocha": "^10.2.0",
-    "temp": "^0.9.4",
-    "ts-loader": "^9.4.1",
-    "typescript": "^5.0.4",
-    "vsce": "^2.11.0",
-    "webpack": "^5.76.0",
-    "webpack-cli": "^5.1.1"
+    "@types/chai": "4.x",
+    "@types/mocha": "10.x",
+    "@types/node": "16.x",
+    "@types/node-fetch": "2.x",
+    "@types/tar": "6.x",
+    "@types/temp": "0.x",
+    "@types/vscode": "1.75.0",
+    "@types/yauzl": "2.x",
+    "@typescript-eslint/eslint-plugin": "6.x",
+    "@typescript-eslint/parser": "6.x",
+    "@vscode/test-electron": "2.x",
+    "@vscode/vsce": "2.x",
+    "chai": "4.x",
+    "eslint": "8.x",
+    "glob": "10.x",
+    "license-check-and-add": "4.x",
+    "mocha": "10.x",
+    "temp": "0.x",
+    "ts-loader": "9.x",
+    "typescript": "5.x",
+    "vscode-extension-tester": "5.x",
+    "webpack": "5.x",
+    "webpack-cli": "5.x"
   }
 }

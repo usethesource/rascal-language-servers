@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@ export async function activateLanguageClient(
         port: vfsServer.port
     });
     client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
-        showContentPanel(bp.uri);
+        showContentPanel(bp.uri, bp.title, bp.viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
@@ -70,7 +70,7 @@ export async function activateLanguageClient(
     return client;
 }
 
-async function showContentPanel(url: string): Promise<void> {
+async function showContentPanel(url: string, title:string, viewColumn:integer): Promise<void> {
     // dispose of old panel in case it existed
     const externalURL = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString();
     const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
@@ -80,8 +80,11 @@ async function showContentPanel(url: string): Promise<void> {
 
     const panel = vscode.window.createWebviewPanel(
         "text/html",
-        externalURL,
-        vscode.ViewColumn.One,
+        title,
+        { 
+            viewColumn: viewColumn,
+            preserveFocus: true /* the next editor should appear in the old column */
+        },
         {
             enableScripts: true,
         }
@@ -117,6 +120,7 @@ interface BrowseParameter {
     uri: string;
     mimetype: string;
     title:string;
+    viewColumn:integer;
 }
 
 async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg : string | undefined): Promise<ServerOptions> {

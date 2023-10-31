@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,13 +35,18 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.load.StandardLibraryContributor;
+import org.rascalmpl.interpreter.result.IRascalResult;
+import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -54,9 +59,13 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import com.sun.jna.Native;
+import com.sun.jna.Platform;
+import com.sun.jna.win32.StdCallLibrary;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -90,10 +99,74 @@ public class LSPTerminalREPL extends BaseREPL {
         }
     }
 
+    private static boolean isUTF8() {
+        String lang = System.getenv("LANG");
+        return lang != null && lang.contains("UTF-8");
+    }
+
+    /**
+     * a JNA interface that we can use to call Windows Kernel functions without
+     * having to go and add JNI compiled libraries just for this work around
+     */
+    public interface Kernel32 extends StdCallLibrary {
+        boolean SetConsoleOutputCP(int wCodePageID);
+        boolean SetConsoleCP(int wCodePageID);
+    }
+
+    private static final int WINDOWS_UTF8_CODE_PAGE = 65001;
+
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
+        if (Platform.isWindows() && isUTF8()) {
+            // VS Code doesn't properly set the codepage for the terminal process
+            // but xterm.js and VS Code expect us to print in utf8, so we have to quickly set the
+            // codepage ourself, just to make sure we are not getting the default
+            // that the user has (mostly some old codepoint that breaks any unicode character)
+            try {
+                Kernel32 windowsKernel = Native.load("kernel32", Kernel32.class);
+                windowsKernel.SetConsoleCP(WINDOWS_UTF8_CODE_PAGE);
+                windowsKernel.SetConsoleOutputCP(WINDOWS_UTF8_CODE_PAGE);
+            } catch (Exception e) {
+                System.err.println("Error setting console code point to UTF8: " + e.getMessage());
+                System.err.println("Most likely, non-ascii characters will not print correctly, please report this on our github.");
+            }
+        }
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
+                private DebugSocketServer debugServer;
+                private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
+
+                @Override
+                protected SortedSet<String> getCommandLineOptions() {
+                    SortedSet<String> options = super.getCommandLineOptions();
+                    options.add("debugging");
+                    return options;
+                }
+
+                @Override
+                public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
+                    Matcher matcher = debuggingCommandPattern.matcher(statement);
+                    if (matcher.find()) {
+                        if(matcher.group(1).equals("true")){
+                            if(!debugServer.isClientConnected()){
+                                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
+                                getOutputWriter().println("Debugging session started.");
+                                return ResultFactory.nothing();
+                            }
+                            getOutputWriter().println("Debugging session was already running.");
+                            return ResultFactory.nothing();
+                        }
+                        if(debugServer.isClientConnected()){
+                            debugServer.terminateDebugSession();
+                            getOutputWriter().println("Debugging session stopped.");
+                            return ResultFactory.nothing();
+                        }
+                        getOutputWriter().println("Debugging session was not running.");
+                        return ResultFactory.nothing();
+                    }
+
+                    return super.evalStatement(statement, lastLine);
+                }
 
                 @Override
                 protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
@@ -115,6 +188,8 @@ public class LSPTerminalREPL extends BaseREPL {
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
 
+                    debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+
                     try {
                         PathConfig pcfg;
                         if (projectDir != null) {
@@ -127,6 +202,10 @@ public class LSPTerminalREPL extends BaseREPL {
                         evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
+
+                        if (services instanceof TerminalIDEClient) {
+                            ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
+                        }
 
                         for (IValue path : pcfg.getSrcs()) {
                             evaluator.addRascalSearchPath((ISourceLocation) path);
@@ -195,7 +274,11 @@ public class LSPTerminalREPL extends BaseREPL {
                                 continue;
                             }
 
-                            services.browse(URIUtil.assumeCorrect(metadata.get("url")));
+                            services.browse(
+                                URIUtil.assumeCorrect(metadata.get("url")),
+                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"),
+                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1
+                            );
                         }
                 }
             };

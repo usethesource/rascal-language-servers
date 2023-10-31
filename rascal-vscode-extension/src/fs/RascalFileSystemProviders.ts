@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,14 +47,19 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
         });
     }
 
+
+
     registerSchemes(schemes:string[]):void {
         schemes
             .filter(s => !this.protectedSchemes.includes(s))
+            .filter(isUnknownFileSystem)
             .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
         // we add support for schemes that look inside a jar
         schemes
             .filter(s => s !== "jar" && s !== "zip" && s !== "compressed")
-            .forEach(s => vscode.workspace.registerFileSystemProvider("jar+" + s, this));
+            .map(s => "jar+" + s)
+            .filter(isUnknownFileSystem)
+            .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
@@ -108,6 +113,9 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 }
 
+function isUnknownFileSystem(scheme : string) : boolean {
+    return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
+}
 interface LocationContent {
     content: string;
 }

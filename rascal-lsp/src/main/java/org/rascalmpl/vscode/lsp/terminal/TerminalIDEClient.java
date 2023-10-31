@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,6 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsP
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -73,6 +72,7 @@ public class TerminalIDEClient implements IDEServices {
     private final ITerminalIDEServer server;
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
+    private PrintWriter err;
 
     public TerminalIDEClient(int port) throws IOException {
         @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
@@ -95,8 +95,8 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        server.browse(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
@@ -149,7 +149,8 @@ public class TerminalIDEClient implements IDEServices {
                 ((IString) language.get(1)).getValue(),
                 ((IString) language.get(2)).getValue(),
                 ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue()
+                ((IString) language.get(4)).getValue(),
+                null
             )
         );
     }
@@ -163,7 +164,8 @@ public class TerminalIDEClient implements IDEServices {
                 ((IString) language.get(1)).getValue(),
                 ((IString) language.get(2)).getValue(),
                 ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue()
+                ((IString) language.get(4)).getValue(),
+                null
             )
         );
     }
@@ -216,7 +218,18 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void warning(String message, ISourceLocation src) {
-        server.warning(new WarningMessage(message, src));
+        if (err != null) {
+            // normally we want to see the errors where we triggered them,
+            // i.e. inside the terminal window:
+            err.println(src + ":" + message);
+        }
+        else {
+            // but, this may happen if something is already writing warnings before the interpreter
+            // is fully initialized and connected to an output stream.
+            // to be sure nothing is lost, we use log4j here to store the message in the
+            // right place.
+            logger.warn("{}: {}", src, message);
+        }
     }
 
     @Override
@@ -235,5 +248,17 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void unregisterDiagnostics(IList resources) {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
+    }
+
+    public void startDebuggingSession(int serverPort){
+        server.startDebuggingSession(serverPort);
+    }
+
+    public void registerDebugServerPort(int processID, int serverPort){
+        server.registerDebugServerPort(processID, serverPort);
+    }
+
+    public void registerErrorPrinter(PrintWriter errorPrinter) {
+        this.err = errorPrinter;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { integer } from 'vscode-languageclient/node';
-import { getJavaExecutable } from './auto-jvm/JavaLookup';
+import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
@@ -42,7 +42,7 @@ export class RascalExtension implements vscode.Disposable {
     private readonly rascal: RascalLanguageServer;
 
 
-    constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly isDeploy = true) {
+    constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
         this.vfsServer = new VSCodeUriResolverServer(!isDeploy);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
@@ -51,6 +51,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+        checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalLibraries', new RascalLibraryProvider(this.rascal.rascalClient));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
@@ -119,11 +120,13 @@ export class RascalExtension implements vscode.Disposable {
             progress.report({increment: 25, message: "Calculating project class path"});
             const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
             progress.report({increment: 25, message: "Creating terminal"});
+            const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
             const terminal = vscode.window.createTerminal({
-                cwd: path.dirname(uri?.fsPath || ""),
+                iconPath: this.icon,
                 shellPath: await getJavaExecutable(),
                 shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
-                name: 'Rascal Terminal',
+                isTransient: false, // right now we don't support transient terminals yet
+                name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
             });
 
             terminal.show(false);
@@ -134,9 +137,15 @@ export class RascalExtension implements vscode.Disposable {
     private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
                 calculateRascalREPLMemory()
-                , '-cp'
-                , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
         ];
+        const replStackSize = calculateRascalREPLStackSize();
+        if (replStackSize.length !== 0) {
+            shellArgs.push(replStackSize);
+        }
+        shellArgs.push(
+            '-cp'
+            , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+        );
         if (!this.isDeploy) {
             // for development mode we always start the terminal with debuging ready to go
             shellArgs.push(
@@ -146,7 +155,8 @@ export class RascalExtension implements vscode.Disposable {
         }
         shellArgs.push();
         shellArgs.push(
-            '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
+            '-Dfile.encoding=UTF8'
+            , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
             , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
             , '--ideServicesPort'
             , '' + ide.port
@@ -173,6 +183,14 @@ function gb(amount: integer) {
 }
 
 function calculateRascalREPLMemory() {
+    const config = vscode.workspace.getConfiguration();
+    if (config.has('rascal.interpreter.maxHeapSize')) {
+        const maxHeapSize = config.get('rascal.interpreter.maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
+        }
+    }
+
     if (os.totalmem() >= gb(32)) {
         return "-Xmx9000M";
     }
@@ -184,4 +202,16 @@ function calculateRascalREPLMemory() {
         return "-Xmx2400M";
     }
     return "-Xmx800M";
+}
+
+function calculateRascalREPLStackSize() {
+    const config = vscode.workspace.getConfiguration();
+    if (config.has('rascal.interpreter.stackSize')) {
+        const stackSize = config.get('rascal.interpreter.stackSize');
+        if (stackSize !== null) {
+            return `-Xss${stackSize}M`;
+        }
+    }
+
+    return "";
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,29 +24,24 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as assert from 'assert';
-import * as vscode from 'vscode';
+package org.rascalmpl.vscode.lsp.dap.breakpoint;
 
-suite('Extension Test Suite', () => {
-    vscode.window.showInformationMessage('Start all tests.');
+import org.eclipse.lsp4j.debug.Source;
 
-    suiteSetup(async function() {
-        const extension = await vscode.extensions.getExtension('usethesource.rascalmpl');
-        if (!extension) {
-            throw new Error("Could not initialize extension");
-        }
-		extension.activate();
-	});
+public class BreakpointInfo {
+    private final int id;
+    private final Source source;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion
-    const rascalExtension:vscode.Extension<any> = vscode.extensions.getExtension('usethesource.rascalmpl')!;
+    public BreakpointInfo(int id, Source source) {
+        this.id = id;
+        this.source = source;
+    }
 
-    test("Rascal extension is started", () => {
-        assert.strictEqual(rascalExtension.isActive, true);
-    });
+    public int getId() {
+        return id;
+    }
 
-    test('Never commit debug mode', () => {
-        assert.strictEqual(rascalExtension.exports.getRascalExtensionDeploymode(), true);
-    });
-
-});
+    public Source getSource() {
+        return source;
+    }
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -152,7 +152,7 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
             }
             if (INVALID_PROJECT_NAME.test(prName)) {
                 const diag = new vscode.Diagnostic(targetRange,
-                    "Can not handle project names that are not all lowercase, digits, or dashes, i.e. in [a-z0-9\\-] + (" + INVALID_PROJECT_NAME + ")", vscode.DiagnosticSeverity.Error);
+                    "Can not handle project name (" + prName + ") that is not all lowercase, digits, or dashes, i.e. in " + INVALID_PROJECT_NAME, vscode.DiagnosticSeverity.Error);
                 diag.code = FixKind.removeInvalidCharsProjectName;
                 diagnostics.push(diag);
             }
