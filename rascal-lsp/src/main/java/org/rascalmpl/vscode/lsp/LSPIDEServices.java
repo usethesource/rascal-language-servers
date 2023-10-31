@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -53,11 +54,13 @@ import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import com.google.gson.JsonObject;
 
@@ -81,7 +84,6 @@ public class LSPIDEServices implements IDEServices {
     private final BaseWorkspaceService workspaceService;
     private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
-
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
@@ -97,13 +99,25 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        languageClient.showContent(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        languageClient.showContent(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
     public void edit(ISourceLocation path) {
-        languageClient.showDocument(new ShowDocumentParams(path.getURI().toString()));
+        try {
+            ISourceLocation physical = URIResolverRegistry.getInstance().logicalToPhysical(path);
+            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
+            params.setTakeFocus(true);
+
+            if (physical.hasOffsetLength()) {
+                params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
+            }
+
+            languageClient.showDocument(params);
+        } catch (IOException e) {
+            logger.info("ignored edit of {}, because {}", path, e);
+        }
     }
 
     @Override
@@ -133,7 +147,8 @@ public class LSPIDEServices implements IDEServices {
             ((IString) language.get(1)).getValue(),
             ((IString) language.get(2)).getValue(),
             ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue()
+            ((IString) language.get(4)).getValue(),
+            null
         );
 
         languageClient.receiveRegisterLanguage(param);
@@ -146,7 +161,8 @@ public class LSPIDEServices implements IDEServices {
             ((IString) language.get(1)).getValue(),
             ((IString) language.get(2)).getValue(),
             ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue()
+            ((IString) language.get(4)).getValue(),
+            null
         );
 
         languageClient.receiveUnregisterLanguage(param);

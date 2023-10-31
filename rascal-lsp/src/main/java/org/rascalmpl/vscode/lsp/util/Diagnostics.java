@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -139,7 +139,7 @@ public class Diagnostics {
 
         for (IValue elem : messages) {
             IConstructor message = (IConstructor) elem;
-            ISourceLocation file = getMessageLocation(message);
+            ISourceLocation file = getMessageLocation(message).top();
             Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
 
             List<Diagnostic> lst = results.get(file);

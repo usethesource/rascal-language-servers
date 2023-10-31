@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,26 +32,30 @@ import { describe, after } from 'mocha';
 import { join } from 'path';
 
 
+function emptyProgress() {
+    // no progress report for tests
+}
+
 describe('JVM Download', function () {
     const tempDir = temp.mkdirSync();
     function testTemurin(version: number, arch: jd.TemurinArchitectures, platform: jd.TemurinPlatforms) {
         return async function() {
             const newPath = await jd.fetchAndUnpackTemurin(arch,
-                platform, await jd.identifyLatestTemurinLTSRelease(version), join(tempDir, "temurin", arch, platform), () => {});
+                platform, await jd.identifyLatestTemurinLTSRelease(version, arch, platform), join(tempDir, "temurin", arch, platform), emptyProgress);
             assert.ok(statSync(newPath).isFile());
         };
     }
 
     function testCorretto(version: number, arch: jd.CorrettoArchitectures, platform: jd.CorrettoPlatforms) {
         return async function() {
-            const newPath = await jd.fetchAndUnpackCorretto(arch, platform, version, join(tempDir, "corretto", arch, platform), () => {});
+            const newPath = await jd.fetchAndUnpackCorretto(arch, platform, version, join(tempDir, "corretto", arch, platform), emptyProgress);
             assert.ok(statSync(newPath).isFile());
         };
     }
 
     function testMSOpenJDK(version: number, arch: jd.MSArchitectures, platform: jd.MSPlatforms) {
         return async function() {
-            const newPath = await jd.fetchAndUnpackMicrosoftJDK(arch, platform, version, join(tempDir, "msjdk", arch, platform), () => {});
+            const newPath = await jd.fetchAndUnpackMicrosoftJDK(arch, platform, version, join(tempDir, "msjdk", arch, platform), emptyProgress);
             assert.ok(statSync(newPath).isFile());
         };
     }
@@ -64,6 +68,7 @@ describe('JVM Download', function () {
             it(`Mac x64`, testTemurin(11, "x64", "mac")).timeout(downloadTimeout);
             it(`Linux arm`, testTemurin(11, "arm", "linux")).timeout(downloadTimeout);
         }
+        it(`Mac aarch64`, testTemurin(11, "aarch64", "mac")).timeout(downloadTimeout);
         it(`Windows x64`, testTemurin(11, "x64", "windows")).timeout(downloadTimeout);
     });
     describe(`Eclipse Temurin jdk17`, function() {
@@ -104,6 +109,6 @@ describe('JVM Download', function () {
     after(() => {
         console.log(tempDir);
         // do the rm in the background, since it might take a while
-        rm(tempDir, { recursive: true, force: true }, () => {});
+        rm(tempDir, { recursive: true, force: true }, emptyProgress);
     });
 });

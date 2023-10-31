@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,19 +36,13 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.DidChangeNotebookDocumentParams;
-import org.eclipse.lsp4j.DidCloseNotebookDocumentParams;
-import org.eclipse.lsp4j.DidOpenNotebookDocumentParams;
-import org.eclipse.lsp4j.DidSaveNotebookDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -58,8 +52,9 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
-import org.rascalmpl.library.lang.json.io.JsonValueReader;
-import org.rascalmpl.library.lang.json.io.JsonValueWriter;
+import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.library.lang.json.internal.JsonValueReader;
+import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
@@ -71,16 +66,15 @@ import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -107,10 +101,14 @@ public abstract class BaseLanguageServer {
         System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
     }
 
+    // hide implicit constructor
+    protected BaseLanguageServer() {}
+
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
     throws IOException {
+        client.setTcpNoDelay(true);
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }
 
@@ -130,10 +128,8 @@ public abstract class BaseLanguageServer {
 
     private static void configureGson(GsonBuilder builder) {
         JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance());
+        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
         writer.setDatesAsInt(true);
-        writer.setNodesAsObjects(true);
-        reader.setNodesAsObjects(true);
 
         builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
             @Override
@@ -242,14 +238,14 @@ public abstract class BaseLanguageServer {
 
         private static String[] classLoaderFiles(IList source) {
             return source.stream()
-                .map(e -> (ISourceLocation) e)
+                .map(ISourceLocation.class::cast)
                 .filter(e -> e.getScheme().equals("file"))
-                .map(e -> ((ISourceLocation) e).getPath())
+                .map(e -> e.getPath())
                 .toArray(String[]::new);
         }
 
         @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(IBaseLanguageServerExtensions.URIParameter projectFolder) {
+        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
             try {
                 if (projectFolder.getUri() == null) {
                     return CompletableFuture.completedFuture(

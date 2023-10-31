@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,26 +24,24 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
+package org.rascalmpl.vscode.lsp.dap.breakpoint;
 
-import { runTests } from '@vscode/test-electron';
+import org.eclipse.lsp4j.debug.Source;
 
-async function main() {
-    try {
-        // The folder containing the Extension Manifest package.json
-        // Passed to `--extensionDevelopmentPath`
-        const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+public class BreakpointInfo {
+    private final int id;
+    private final Source source;
 
-        // The path to test runner
-        // Passed to --extensionTestsPath
-        const extensionTestsPath = path.resolve(__dirname, './vscode-suite/index');
+    public BreakpointInfo(int id, Source source) {
+        this.id = id;
+        this.source = source;
+    }
 
-        // Download VS Code, unzip it and run the integration test
-        await runTests({ extensionDevelopmentPath, extensionTestsPath });
-    } catch (err) {
-        console.error('Failed to run tests');
-        process.exit(1);
+    public int getId() {
+        return id;
+    }
+
+    public Source getSource() {
+        return source;
     }
 }
-
-main();

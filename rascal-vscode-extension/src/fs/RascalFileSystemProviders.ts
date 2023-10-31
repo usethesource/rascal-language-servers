@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,11 +24,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { create } from 'node:domain';
-import { normalize } from 'node:path';
 import * as vscode from 'vscode';
-import { TextEncoder } from 'util';
-import {LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo, integer } from 'vscode-languageclient/node';
+import {LanguageClient } from 'vscode-languageclient/node';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: LanguageClient;
@@ -50,15 +47,23 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
         });
     }
 
+
+
     registerSchemes(schemes:string[]):void {
         schemes
             .filter(s => !this.protectedSchemes.includes(s))
+            .filter(isUnknownFileSystem)
+            .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
+        // we add support for schemes that look inside a jar
+        schemes
+            .filter(s => s !== "jar" && s !== "zip" && s !== "compressed")
+            .map(s => "jar+" + s)
+            .filter(isUnknownFileSystem)
             .forEach(s => vscode.workspace.registerFileSystemProvider(s, this));
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        // TODO: fix this
-        this.client.sendRequest<void>("rascal/filesystem/watch", {
+        this.client.sendRequest<void>("rascal/filesystem/watch", <WatchParameters>{
             uri: uri.toString(),
             recursive:options.recursive,
             excludes: options.excludes
@@ -76,7 +81,8 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
-        return this.client.sendRequest<[string, vscode.FileType][]>("rascal/filesystem/readDirectory", {uri: uri.toString()});
+        return this.client.sendRequest<FileWithType[]>("rascal/filesystem/readDirectory", {uri: uri.toString()})
+            .then(c => c.map(ft => [ft.name, ft.type]));
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
@@ -107,6 +113,9 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 }
 
+function isUnknownFileSystem(scheme : string) : boolean {
+    return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
+}
 interface LocationContent {
     content: string;
 }
@@ -115,4 +124,9 @@ interface WatchParameters {
     uri: string;
     recursive: boolean;
     excludes:Array<string>;
+}
+
+interface FileWithType {
+    name: string;
+    type: vscode.FileType
 }

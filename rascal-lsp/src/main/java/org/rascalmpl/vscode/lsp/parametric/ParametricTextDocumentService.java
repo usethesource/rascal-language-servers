@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -63,8 +65,8 @@ import org.eclipse.lsp4j.ImplementationParams;
 import org.eclipse.lsp4j.InlayHint;
 import org.eclipse.lsp4j.InlayHintKind;
 import org.eclipse.lsp4j.InlayHintParams;
-import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
@@ -103,7 +105,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import com.google.common.io.CharStreams;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -111,11 +112,13 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.exceptions.FactParseError;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
     private final ExecutorService ownExecuter;
 
+    private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
@@ -126,10 +129,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
-    public ParametricTextDocumentService(ExecutorService exec) {
+    private final @Nullable LanguageParameter dedicatedLanguage;
+
+    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+        if (dedicatedLanguage == null) {
+            this.dedicatedLanguageName = "";
+            this.dedicatedLanguage = null;
+        }
+        else {
+            this.dedicatedLanguageName = dedicatedLanguage.getName();
+            this.dedicatedLanguage = dedicatedLanguage;
+        }
     }
 
     @Override
@@ -144,7 +157,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return ideState.getCurrentContent();
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
-            return CharStreams.toString(src);
+            return IOUtils.toString(src);
+
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
@@ -161,9 +175,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_META_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
+    }
+
+    private String getRascalMetaCommandName() {
+        // if we run in dedicated mode, we prefix the commands with our language name
+        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
+        if (!dedicatedLanguageName.isEmpty()) {
+            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
+        }
+        return BaseWorkspaceService.RASCAL_META_COMMAND;
     }
 
     @Override
@@ -175,6 +198,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void connect(LanguageClient client) {
         this.client = client;
         facts.values().forEach(v -> v.setClient(client));
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            this.registerLanguage(dedicatedLanguage);
+        }
     }
 
     // LSP interface methods
@@ -325,7 +352,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Command constructorToCommand(String extension, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), BaseWorkspaceService.RASCAL_META_COMMAND, Arrays.asList(extension, command.toString()));
+        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(extension, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -363,10 +390,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(TextDocumentIdentifier doc) {
-        return facts(doc.getUri());
-    }
-
-    private ParametricFileFacts facts(TextDocumentItem doc) {
         return facts(doc.getUri());
     }
 
@@ -502,19 +525,34 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        logger.trace("registerLanguage({})", lang.getName());
+        logger.info("registerLanguage({})", lang.getName());
 
 
         var multiplexer = contributions.computeIfAbsent(lang.getExtension(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), lang.getExtension(), ownExecuter)
         );
+        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
+            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
+        );
+        if (lang.getPrecompiledParser() != null) {
+            try {
+                var location = lang.getPrecompiledParser().getParserLocation();
+                if (URIResolverRegistry.getInstance().exists(location)) {
+                    logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+                }
+                else {
+                    logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
+                }
+            }
+            catch (FactParseError e) {
+                logger.error("Error parsing location in precompiled parser specification (we expect a rascal loc)", e);
+            }
+        }
 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
 
-        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
-            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
-        );
         fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
@@ -554,7 +592,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return contribs.executeCommand(command).get();
         }
         else {
-            logger.warn("ignoring command execution: " + extension + "," + command);
+            logger.warn("ignoring command execution (no contributor configured for this extension): {}, {} ", extension, command);
             return CompletableFuture.completedFuture(null);
         }
     }

@@ -1,0 +1,12 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "files.exclude": {
+        "out": false,
+        "dist": false
+    },
+    "search.exclude": {
+        "out": true,
+        "dist": true
+    },
+    "typescript.tsc.autoDetect": "off"
+}

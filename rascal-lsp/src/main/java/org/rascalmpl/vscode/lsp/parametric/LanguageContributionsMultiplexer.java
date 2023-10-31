@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -118,7 +118,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
      * @returns false if the multiplexer is empty, and therefore should not be used anymore
      */
     public boolean removeContributor(String contribKey) {
-        contributions.removeIf(e -> e.key.equals(contribKey));
+        contributions.removeIf(e -> e.key.equals(contribKey) || e.key.equals(contribKey + "$parser"));
         if (contributions.isEmpty()) {
             return false;
         }

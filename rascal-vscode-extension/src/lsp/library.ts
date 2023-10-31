@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,24 +24,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as assert from 'assert';
-import * as vscode from 'vscode';
-
-suite('Extension Test Suite', () => {
-    vscode.window.showInformationMessage('Start all tests.');
-
-    suiteSetup(async function() {
-		await vscode.extensions.getExtension('usethesource.rascalmpl')!.activate();
-	});
-
-    const rascalExtension:vscode.Extension<any> = vscode.extensions.getExtension('usethesource.rascalmpl')!;
-
-    test("Rascal extension is started", () => {
-        assert.strictEqual(rascalExtension.isActive, true);
-    });
-    
-    test('Never commit debug mode', () => {
-        assert.strictEqual(rascalExtension.exports.getRascalExtensionDeploymode(), true);
-    });
-    
-});
+// make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
+export { ParameterizedLanguageServer, LanguageParameter, ParserSpecification } from "./ParameterizedLanguageServer";
+export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";

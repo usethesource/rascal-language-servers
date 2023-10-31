@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
@@ -40,9 +41,10 @@ import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.library.Prelude;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobEndParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStartParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.JobStepParameter;
@@ -51,13 +53,17 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsP
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.WarningMessage;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -67,9 +73,14 @@ import io.usethesource.vallang.IString;
  */
 public class TerminalIDEClient implements IDEServices {
     private final ITerminalIDEServer server;
+    private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
+    private final ColumnMaps columns = new ColumnMaps(this::getContents);
+    private PrintWriter err;
 
     public TerminalIDEClient(int port) throws IOException {
-        Socket socket = new Socket(InetAddress.getByName("127.0.0.1"), port);
+        @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
+        Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+        socket.setTcpNoDelay(true);
         Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
             .setRemoteInterface(ITerminalIDEServer.class)
             .setLocalService(this)
@@ -87,16 +98,35 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri) {
-        server.browse(new BrowseParameter(uri.toString()));
+    public void browse(URI uri, String title, int viewColumn) {
+        server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
     public void edit(ISourceLocation path) {
-        ShowDocumentParams params = new ShowDocumentParams(path.getURI().toASCIIString());
-        params.setTakeFocus(true);
-        // TODO: add optional offset & length as range
-       server.edit(params);
+        try {
+            ISourceLocation physical = URIResolverRegistry.getInstance().logicalToPhysical(path);
+            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
+            params.setTakeFocus(true);
+
+            if (physical.hasOffsetLength()) {
+                params.setSelection(Locations.toRange(physical, columns));
+            }
+
+            server.edit(params);
+        } catch (IOException e) {
+            logger.info("ignored edit of {} because {}", path, e);
+        }
+    }
+
+    private String getContents(ISourceLocation file) {
+        try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file.top())) {
+            return Prelude.consumeInputStream(src);
+        }
+        catch (IOException e) {
+            logger.error("Error opening file {} to get contents", file, e);
+            return "";
+        }
     }
 
     @Override
@@ -105,7 +135,11 @@ public class TerminalIDEClient implements IDEServices {
             return server.resolveProjectLocation(new SourceLocationParameter(input))
                 .get()
                 .getLocation();
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return input;
+        } catch (ExecutionException e) {
+            logger.error("Failed to resolve project location: {}", input, e.getCause());
             return input;
         }
     }
@@ -118,7 +152,8 @@ public class TerminalIDEClient implements IDEServices {
                 ((IString) language.get(1)).getValue(),
                 ((IString) language.get(2)).getValue(),
                 ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue()
+                ((IString) language.get(4)).getValue(),
+                null
             )
         );
     }
@@ -132,7 +167,8 @@ public class TerminalIDEClient implements IDEServices {
                 ((IString) language.get(1)).getValue(),
                 ((IString) language.get(2)).getValue(),
                 ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue()
+                ((IString) language.get(4)).getValue(),
+                null
             )
         );
     }
@@ -158,7 +194,10 @@ public class TerminalIDEClient implements IDEServices {
         try {
              server.jobEnd(new JobEndParameter(name, succeeded)).get().getAmount();
              return 1;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return 0;
+        } catch (ExecutionException e) {
             throw RuntimeExceptionFactory.io(e.getMessage());
         }
     }
@@ -168,6 +207,7 @@ public class TerminalIDEClient implements IDEServices {
         try {
             return server.jobIsCanceled().get().isTrue();
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return true;
         } catch (ExecutionException e) {
             throw new RuntimeException(e.getCause());
@@ -181,7 +221,18 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void warning(String message, ISourceLocation src) {
-        server.warning(new WarningMessage(message, src));
+        if (err != null) {
+            // normally we want to see the errors where we triggered them,
+            // i.e. inside the terminal window:
+            err.println(src + ":" + message);
+        }
+        else {
+            // but, this may happen if something is already writing warnings before the interpreter
+            // is fully initialized and connected to an output stream.
+            // to be sure nothing is lost, we use log4j here to store the message in the
+            // right place.
+            logger.warn("{}: {}", src, message);
+        }
     }
 
     @Override
@@ -202,6 +253,7 @@ public class TerminalIDEClient implements IDEServices {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
+<<<<<<< HEAD
     @Override
     public void logMessage(IConstructor msg) {
         server.logMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
@@ -233,5 +285,17 @@ public class TerminalIDEClient implements IDEServices {
                 break;
         }
         return type;
+    }
+
+    public void startDebuggingSession(int serverPort){
+        server.startDebuggingSession(serverPort);
+    }
+
+    public void registerDebugServerPort(int processID, int serverPort){
+        server.registerDebugServerPort(processID, serverPort);
+    }
+
+    public void registerErrorPrinter(PrintWriter errorPrinter) {
+        this.err = errorPrinter;
     }
 }

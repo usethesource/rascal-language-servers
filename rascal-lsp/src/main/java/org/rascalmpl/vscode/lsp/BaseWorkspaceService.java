@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -108,14 +108,12 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        switch (params.getCommand()) {
-            case RASCAL_META_COMMAND:
+        if (params.getCommand().startsWith(RASCAL_META_COMMAND)) {
                 String extension = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                 String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
                 return documentService.executeCommand(extension, command).thenApply(v -> v);
-            default:
-                return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
         }
+        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
     }
 
 

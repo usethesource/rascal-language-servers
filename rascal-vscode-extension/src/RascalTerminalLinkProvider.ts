@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,10 +43,8 @@ interface SourceLocation {
  * We only detect Source Locations, as normal markdown links are already detected correctly by vscode
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
-    readonly getClient: () => Promise<LanguageClient>;
 
-    constructor (getClient: () => Promise<LanguageClient>) {
-        this.getClient = getClient;
+    constructor (private readonly client: Promise<LanguageClient>) {
     }
 
     linkDetector() {
@@ -63,7 +61,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         }
         const matcher = this.linkDetector();
         let match: RegExpExecArray | null;
-        let result: ExtendedLink[] = [];
+        const result: ExtendedLink[] = [];
         while ((match = matcher.exec(context.line)) !== null && !token.isCancellationRequested) {
             result.push(buildLink(match));
         }
@@ -76,7 +74,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const rsloc:SourceLocation = await (await this.getClient()).sendRequest("rascal/filesystem/resolveLocation", sloc);
+        const rsloc:SourceLocation = await (await this.client).sendRequest("rascal/filesystem/resolveLocation", sloc);
         const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
         const te = await vscode.window.showTextDocument(td);
 

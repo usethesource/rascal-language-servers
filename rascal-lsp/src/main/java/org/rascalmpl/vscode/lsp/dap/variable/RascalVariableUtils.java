@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,41 +24,36 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
-import * as Mocha from 'mocha';
-import * as glob from 'glob';
+package org.rascalmpl.vscode.lsp.dap.variable;
 
-export function run(): Promise<void> {
-	// Create the mocha test
-	const mocha = new Mocha({
-		ui: 'tdd',
-		color: true
-	});
+import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.io.StandardTextWriter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 
-	const testsRoot = path.resolve(__dirname, '..');
+import java.io.IOException;
+import java.io.Writer;
 
-	return new Promise((c, e) => {
-		glob('vscode-suite/*.test.js', { cwd: testsRoot }, (err, files) => {
-			if (err) {
-				return e(err);
-			}
+public class RascalVariableUtils {
 
-			// Add files to the test suite
-			files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+    private static final int MAX_SIZE_STRING_NAME = 128;
 
-			try {
-				// Run the mocha test
-				mocha.run(failures => {
-					if (failures > 0) {
-						e(new Error(`${failures} tests failed.`));
-					} else {
-						c();
-					}
-				});
-			} catch (err) {
-				console.error(err);
-				e(err);
-			}
-		});
-	});
+    // copied from Rascal Eclipse debug.core.model.RascalValue
+    public static String getDisplayString(IValue value) {
+        if(value == null) {
+            return "null";
+        }
+        Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
+        try {
+            new StandardTextWriter(true, 2).write(value, w);
+            return w.toString();
+        } catch (LimitedResultWriter.IOLimitReachedException e) {
+            return w.toString();
+        } catch (IOException e) {
+            final Logger logger = LogManager.getLogger(RascalVariableUtils.class);
+            logger.error(e.getMessage(), e);
+            return "error during serialization...";
+        }
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,5 +253,15 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             ISourceLocation loc = Locations.toPhysicalIfPossible((ISourceLocation) elem);
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
+    }
+
+    @Override
+    public void startDebuggingSession(int serverPort) {
+        languageClient.startDebuggingSession(serverPort);
+    }
+
+    @Override
+    public void registerDebugServerPort(int processID, int serverPort) {
+        languageClient.registerDebugServerPort(processID, serverPort);
     }
 }

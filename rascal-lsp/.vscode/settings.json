@@ -1,0 +1,8 @@
+{
+    "files.exclude": {
+        "target": false
+    },
+    "search.exclude": {
+        "target": true
+    },
+}

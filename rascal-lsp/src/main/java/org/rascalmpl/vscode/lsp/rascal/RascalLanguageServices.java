@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,25 +38,19 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.parser.Parser;
-import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
-import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
-import org.rascalmpl.parser.uptr.UPTRNodeFactory;
-import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
@@ -81,9 +75,9 @@ public class RascalLanguageServices {
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, "lang::rascalcore::check::Checker");
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
@@ -166,13 +160,7 @@ public class RascalLanguageServices {
 
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
-        return CompletableFuture.supplyAsync(() -> parseContents(loc, input.toCharArray()), exec);
-    }
-
-    private ITree parseContents(ISourceLocation loc, char[] input) {
-        IActionExecutor<ITree> actions = new NoActionExecutor();
-        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
-            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+        return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);
     }
 
     public List<CodeLensSuggestion> locateCodeLenses(ITree tree) {

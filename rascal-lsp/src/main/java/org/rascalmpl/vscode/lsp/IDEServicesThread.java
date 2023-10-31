@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,7 @@ public class IDEServicesThread extends Thread {
             while(true) {
                 try {
                     Socket connection = serverSocket.accept();
+                    connection.setTcpNoDelay(true);
 
                     Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
                         .setLocalService(new TerminalIDEServer(ideClient, docService, workspaceService))

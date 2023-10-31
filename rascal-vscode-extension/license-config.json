@@ -1,7 +1,7 @@
 {
   "license": "../LICENSE.txt",
   "ignoreFile": ".gitignore",
-  "ignore": ["**/*.jar", "**/*.vsix", "**/*.md", ".editorconfig", ".vscodeignore", "**/*.gitignore"],
+  "ignore": ["**/.DS_Store",".vscode-test","**/*.jar", "**/*.vsix", "**/*.md", ".editorconfig", ".vscodeignore", "**/*.gitignore", "**/*.svg", "webpack.config.js", "test-workspace/**/*"],
   "licenseFormats": {
       "js|ts": {
           "prepend": "/*",

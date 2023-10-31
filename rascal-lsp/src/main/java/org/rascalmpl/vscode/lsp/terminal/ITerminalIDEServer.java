@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,18 +30,20 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.MessageParams;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -148,6 +150,16 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
+    @JsonNotification("rascal/startDebuggingSession")
+    default void startDebuggingSession(int serverPort) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonNotification("rascal/registerDebugServerPort")
+    default void registerDebugServerPort(int processID, int serverPort) {
+        throw new UnsupportedOperationException();
+    }
+
     public static class UnRegisterDiagnosticsParameters {
         private String locations;
 
@@ -209,11 +221,16 @@ public interface ITerminalIDEServer {
         }
 
         public ISourceLocation getLocation() {
-            try {
-                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
-            } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException("this should never happen:", e);
-            }
+            return buildLocation(location);
+        }
+
+    }
+
+    private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
+        try {
+            return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+        } catch (IOException e) {
+            throw new RuntimeException("this should never happen:", e);
         }
     }
     public static class AmountOfWork {
@@ -307,17 +324,16 @@ public interface ITerminalIDEServer {
 
     public static String value2string(IValue value) {
         final Encoder encoder = Base64.getEncoder();
+        ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
 
-        try (
-            ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
-            IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());
-        ) {
+        try (IValueOutputStream out = new IValueOutputStream(stream, IRascalValueFactory.getInstance());) {
             out.write(value);
-            out.close();
-            return encoder.encodeToString(stream.toByteArray());
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        return encoder.encodeToString(stream.toByteArray());
     }
 
     public static IValue string2value(String string) {
@@ -377,35 +393,52 @@ public interface ITerminalIDEServer {
 
     public static class BrowseParameter {
         private String uri;
+        private String title;
+        private int viewColumn;
 
-        public BrowseParameter(String uri) {
+        public BrowseParameter(String uri, String title, int viewColumn) {
             this.uri = uri;
+            this.title = title;
+            this.viewColumn = viewColumn;
         }
 
         public String getUri() {
             return uri;
         }
 
+        public String getTitle() {
+            return title;
+        }
+
+        public int getViewColumn() {
+            return viewColumn;
+        }
+
         @Override
         public String toString() {
-            return "browseParameter:" + uri;
+            return "BrowseParameter:\n\tbrowseParameter:" + uri + "\n\ttitle: " + title + "\n\tviewColumn: " + viewColumn;
         }
     }
 
     public static class SourceLocationParameter {
-        private String loc;
+        private String scheme;
+        private String authority;
+        private String path;
+        private @Nullable String query;
+        private @Nullable String fragment;
 
         public SourceLocationParameter(ISourceLocation loc) {
-            this.loc = loc.toString();
+            this.scheme = loc.getScheme();
+            this.authority = loc.getAuthority();
+            this.path = loc.getPath();
+            this.query = loc.hasQuery() ? null : loc.getQuery();
+            this.fragment = loc.hasFragment() ? null : loc.getFragment();
         }
 
         public ISourceLocation getLocation() {
             try {
-                return (ISourceLocation) new StandardTextReader().read(
-                    IRascalValueFactory.getInstance(),
-                    TypeFactory.getInstance().sourceLocationType(),
-                    new StringReader(loc));
-            } catch (FactTypeUseException | IOException e) {
+                return IRascalValueFactory.getInstance().sourceLocation(scheme, authority, path, query, fragment);
+            } catch (URISyntaxException e) {
                 // this should really never happen
                 assert false;
                 throw new RuntimeException(e);
@@ -414,7 +447,8 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "sourceLocationParameter: " + loc;
+            return "SourceLocationParameter [scheme=" + scheme + ", authority=" + authority + ", path=" + path
+                + ", query=" + query + ", fragment=" + fragment + "]";
         }
     }
     public static class LanguageParameter {
@@ -423,13 +457,15 @@ public interface ITerminalIDEServer {
 	    private final String extension; // extension for files in this language
 	    private final String mainModule; // main module to locate mainFunction in
 	    private final String mainFunction; // main function which contributes the language implementation
+        private final @Nullable ParserSpecification precompiledParser;
 
-        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction) {
+        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
             this.pathConfig = pathConfig.toString();
             this.name = name;
             this.extension = extension;
             this.mainModule = mainModule;
             this.mainFunction = mainFunction;
+            this.precompiledParser = precompiledParser;
         }
 
         public String getPathConfig() {
@@ -451,5 +487,57 @@ public interface ITerminalIDEServer {
         public String getMainModule() {
             return mainModule;
         }
+
+        public @MonotonicNonNull ParserSpecification getPrecompiledParser() {
+            return precompiledParser;
+        }
+
+        @Override
+        public String toString() {
+            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extension=" + extension
+                + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ", precompiledParser=" + precompiledParser + ")";
+        }
+    }
+
+    public static class ParserSpecification {
+        /** absolute path to the file containing the precompiled parsers */
+        private final String parserLocation;
+        /** terminal to use from the defined parsers */
+        private final String nonTerminalName;
+        /** is the terminal a `start` terminal, default: true */
+        private final @Nullable Boolean nonTerminalIsStart;
+        /** allowAmbiguity (default is false) */
+        private final @Nullable Boolean allowAmbiguity;
+
+
+        public ParserSpecification(String parserLocation, String nonTerminalName, @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity) {
+            this.parserLocation = parserLocation;
+            this.nonTerminalName = nonTerminalName;
+            this.nonTerminalIsStart = nonTerminalIsStart;
+            this.allowAmbiguity = allowAmbiguity;
+        }
+
+        public ISourceLocation getParserLocation() throws FactTypeUseException {
+            return buildLocation(parserLocation);
+        }
+
+        public String getNonTerminalName() {
+            return nonTerminalName;
+        }
+
+        public boolean getNonTerminalIsStart() {
+            return nonTerminalIsStart == null || nonTerminalIsStart;
+        }
+
+        public boolean getAllowAmbiguity() {
+            return allowAmbiguity != null && allowAmbiguity;
+        }
+
+        @Override
+        public String toString() {
+            return "ParserSpecification [parserLocation=" + parserLocation + ", nonTerminalName=" + nonTerminalName
+                + ", nonTerminalIsStart=" + nonTerminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+        }
+
     }
 }

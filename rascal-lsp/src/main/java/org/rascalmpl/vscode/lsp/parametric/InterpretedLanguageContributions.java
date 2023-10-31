@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@ import java.util.Deque;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Predicate;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,6 +54,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -184,7 +185,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, lang.getMainModule())
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, false, lang.getMainModule())
                 .thenApply(e -> {
                     e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
                     return e;
@@ -413,7 +414,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, true)
+            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, false)
         ), exec);
     }
 
@@ -424,7 +425,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return InterruptibleFuture.completedFuture(defaultResult);
                 }
 
-                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true);
+                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, false);
             }),
             exec);
     }

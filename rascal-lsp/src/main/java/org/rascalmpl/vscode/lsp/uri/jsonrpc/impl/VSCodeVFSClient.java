@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -47,6 +48,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
@@ -182,7 +184,10 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
             }
 
             logger.debug("Connecting to VFS: {}", port);
+            @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
             var socket = new Socket(InetAddress.getLoopbackAddress(), port);
+            socket.setTcpNoDelay(true);
+            @SuppressWarnings("java:S2095") // we don't have to close the client, we are passing it off to the VSCodeVFS singleton
             var newClient = new VSCodeVFSClient(socket);
             Launcher<VSCodeUriResolverServer> clientLauncher = new Launcher.Builder<VSCodeUriResolverServer>()
                 .setRemoteInterface(VSCodeUriResolverServer.class)

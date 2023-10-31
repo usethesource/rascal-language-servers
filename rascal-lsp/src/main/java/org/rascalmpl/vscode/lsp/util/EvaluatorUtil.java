@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@ import java.io.ByteArrayInputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -44,6 +43,7 @@ import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
+import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
@@ -84,15 +84,25 @@ public class EvaluatorUtil {
                         runningEvaluator.set(null);
                     }
                 }
-            } catch (Throw e) {
+            }
+            catch (Throw e) {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
-                logger.error("Full internal error: ", e);
+                // logger.error("Full internal error: ", e);
                 if (throwFailure) {
                     throw e;
                 }
                 return defaultResult;
-            } catch (Throwable e) {
+            }
+            catch (StaticError e) {
+                logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
+                // logger.error("Full internal error: ", e);
+                if (throwFailure) {
+                    throw e;
+                }
+                return defaultResult;
+            } 
+            catch (Throwable e) {
                 logger.error("{} failed", task, e);
                 if (throwFailure) {
                     throw e;
@@ -108,7 +118,7 @@ public class EvaluatorUtil {
         });
     }
 
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, boolean addRascalCore, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             IRascalMonitor monitor = new LSPIDEServices(client, docService, workspaceService, customLog);
@@ -123,8 +133,10 @@ public class EvaluatorUtil {
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                if (addRascalCore) {
+                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
+                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 
                 if (pcfg != null) {
