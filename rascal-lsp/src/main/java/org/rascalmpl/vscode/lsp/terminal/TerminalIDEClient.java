@@ -253,7 +253,6 @@ public class TerminalIDEClient implements IDEServices {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
-<<<<<<< HEAD
     @Override
     public void logMessage(IConstructor msg) {
         server.logMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
