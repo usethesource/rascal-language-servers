@@ -45,7 +45,7 @@ public enum PathConfigMode {
         switch (this) {
             case INTERPRETER: return RascalConfigMode.INTERPETER;
             case COMPILER: return RascalConfigMode.COMPILER;
-            default: throw new RuntimeException("Missing case: " + this);
+            default: throw new IllegalArgumentException("Missing case: " + this);
         }
     }
 }

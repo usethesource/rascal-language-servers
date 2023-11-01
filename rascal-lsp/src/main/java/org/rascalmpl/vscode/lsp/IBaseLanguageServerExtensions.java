@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.net.URI;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
