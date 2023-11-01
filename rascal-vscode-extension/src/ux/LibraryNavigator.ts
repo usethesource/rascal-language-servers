@@ -166,7 +166,7 @@ async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < Ra
 class RascalFSDirEntry extends RascalLibNode {
     constructor(readonly dirName: string, parentDir: vscode.Uri, parent: RascalLibNode) {
         super(vscode.Uri.joinPath(parentDir, dirName), vscode.TreeItemCollapsibleState.Collapsed, parent);
-        //this.iconPath = new vscode.ThemeIcon("file-directory");
+        this.iconPath = vscode.ThemeIcon.Folder;
     }
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
