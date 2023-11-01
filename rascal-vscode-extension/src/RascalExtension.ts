@@ -34,6 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { PositionConverter } from './util/PositionConverter';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -51,6 +52,8 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
         checkForJVMUpdate();
+
+        this.registerCopyLocation();
 
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
@@ -96,6 +99,36 @@ export class RascalExtension implements vscode.Disposable {
                     return;
                 }
                 this.startTerminal(text.document.uri, "--loadModule", moduleName);
+            })
+        );
+    }
+
+
+    private registerCopyLocation() {
+        this.context.subscriptions.push(
+            vscode.commands.registerTextEditorCommand("rascalmpl.copyLocation", (editor, _edit) => {
+                if (editor) {
+                    const uri = editor.document.uri.toString();
+                    const selection = editor.selection;
+
+                    const offset = editor.document.offsetAt(selection.start);
+                    const length = editor.document.getText(selection).length;
+                    const [offsetUtf32, lengthUtf32] = PositionConverter.vsCodeToRascalOffsetLength(editor.document, offset, length);
+
+                    // the startline is not affected by UTF16 or UTF32, because line breaks are always encoded as a single character
+                    const startLine = selection.start.line;
+                    const endLine = selection.end.line;
+
+                    const startColumn = selection.start.character;
+                    const startColumnUtf32 = PositionConverter.vsCodeToRascalColumn(editor.document, startLine, startColumn);
+                    const endColumn = selection.end.character;
+                    const endColumnUtf32 = PositionConverter.vsCodeToRascalColumn(editor.document, endLine, endColumn);
+
+                    const location = `|${uri}|(${offsetUtf32},${lengthUtf32},<${startLine+1},${startColumnUtf32}>,<${endLine+1},${endColumnUtf32}>)`;
+
+
+                    vscode.env.clipboard.writeText(location);
+                }
             })
         );
     }
