@@ -103,11 +103,11 @@ function calculateLabel(location : vscode.Uri): string {
     if (location.scheme === "file") {
         const targetProjectName = /[/][^/]+[/]target[/]classes[/]?$/.exec(location.path);
         if (targetProjectName) {
-            return "project:/" + targetProjectName[0];
+            return "file:///..." + targetProjectName[0];
         }
         const srcDir = /[/][^/]+[/]src([/]main[/]rascal)?[/]?$/.exec(location.path);
         if (srcDir) {
-            return "project:/" + srcDir[0];
+            return "file:///..." + srcDir[0];
         }
         const jarFile = posix.basename(location.path);
         if (posix.extname(jarFile) === ".jar") {
