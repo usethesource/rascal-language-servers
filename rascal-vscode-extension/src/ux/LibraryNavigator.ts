@@ -95,13 +95,38 @@ class RascalPathNode extends RascalLibNode {
             }
             return vscode.Uri.parse(s);
         })
-        .map(u => new RascalLibraryRoot(u.toString(), u, this));
+        .map(u => new RascalLibraryRoot(u, this));
     }
 }
 
+function calculateLabel(location : vscode.Uri): string {
+    if (location.scheme === "file") {
+        const targetProjectName = /[/][^/]+[/]target[/]classes[/]?$/.exec(location.path);
+        if (targetProjectName) {
+            return "project:/" + targetProjectName[0];
+        }
+        const srcDir = /[/][^/]+[/]src([/]main[/]rascal)?[/]?$/.exec(location.path);
+        if (srcDir) {
+            return "project:/" + srcDir[0];
+        }
+        const jarFile = posix.basename(location.path);
+        if (posix.extname(jarFile) === ".jar") {
+            return "file:///../" + jarFile;
+        }
+    }
+    else if (location.scheme === "jar+file") {
+        const jarFileAndPath = /[/][^/]+\.jar!.*$/.exec(location.path);
+        if (jarFileAndPath) {
+            return "jar+file:///.." + jarFileAndPath[0];
+        }
+    }
+    return location.toString();
+}
+
+
 class RascalLibraryRoot extends RascalLibNode {
-    constructor(label: string, readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
-        super(label, vscode.TreeItemCollapsibleState.Collapsed, parent);
+    constructor(readonly actualLocation: vscode.Uri, parent: RascalLibNode) {
+        super(calculateLabel(actualLocation), vscode.TreeItemCollapsibleState.Collapsed, parent);
         this.resourceUri = actualLocation;
         this.iconPath = new vscode.ThemeIcon("library");
     }

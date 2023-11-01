@@ -53,7 +53,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerImportModule();
         checkForJVMUpdate();
 
-        vscode.window.registerTreeDataProvider('rascalLibraries', new RascalLibraryProvider(this.rascal.rascalClient));
+        vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 

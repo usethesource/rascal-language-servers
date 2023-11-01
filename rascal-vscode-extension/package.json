@@ -76,6 +76,16 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "views": {
+      "explorer": [
+        {
+          "id": "rascalmpl-configuration-view",
+          "name": "Rascal Configuration",
+          "icon": "./assets/images/rascal-logo.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    },
     "breakpoints": [
       {
           "language": "rascalmpl"
