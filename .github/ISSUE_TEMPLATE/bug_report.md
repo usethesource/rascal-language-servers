@@ -16,8 +16,8 @@ A clear and concise description of what the bug is.
 Steps to reproduce the behavior:
 1. Modules to define (attach files or inline code quotes)
 2. REPL commands to type
-3. AND/OR: Eclipse IDE actions to trigger
-4. See error in? REPL, Error Log, Console log?
+3. AND/OR: VS Code IDE actions to trigger
+4. See error in? REPL, Rascal Output Window, Developer Console?
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
@@ -30,8 +30,8 @@ If applicable, add screenshots to help explain your problem.
 Literally copy stacktraces from the console, or from the Eclipse Error log here.
 
 **Desktop (please complete the following information):**
- - Context: Eclipse plugin, Commandline REPL
- - Rascal Version [e.g. 0.17.0], stable or unstable release?
+ - Context: VS Code extension, Commandline REPL
+ - Rascal Version (e.g. rascal 0.34.1 in rascal-vscode 0.10.2)?
 
 **Additional context**
 Add any other context about the problem here.
