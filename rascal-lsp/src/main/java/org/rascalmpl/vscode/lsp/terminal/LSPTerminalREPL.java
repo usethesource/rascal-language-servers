@@ -207,9 +207,14 @@ public class LSPTerminalREPL extends BaseREPL {
                             ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
                         }
 
-                        for (IValue path : pcfg.getSrcs()) {
-                            evaluator.addRascalSearchPath((ISourceLocation) path);
-                            reg.watch((ISourceLocation) path, true, d -> sourceLocationChanged(pcfg, d));
+                        for (IValue srcPath : pcfg.getSrcs()) {
+                            ISourceLocation path = (ISourceLocation)srcPath;
+                            evaluator.addRascalSearchPath(path);
+                            // since the watch function in rascal only works on resolved paths
+                            // we have to resolve the path, until that issue is remedied.
+                            // see issue: https://github.com/usethesource/rascal/issues/1884
+                            ISourceLocation resolvedPath = safeResolve(reg, path);
+                            reg.watch(resolvedPath, true, d -> sourceLocationChanged(resolvedPath, d));
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
@@ -232,22 +237,28 @@ public class LSPTerminalREPL extends BaseREPL {
                     return evaluator;
                 }
 
-                private void sourceLocationChanged(PathConfig pcfg, ISourceLocationChanged d) {
-                    for (IValue src : pcfg.getSrcs()) {
-                        ISourceLocation srcPath = (ISourceLocation) src;
+                private ISourceLocation safeResolve(URIResolverRegistry reg, ISourceLocation path) {
+                    try {
+                        ISourceLocation result = reg.logicalToPhysical(path);
+                        return result == null ? path : result;
+                    }
+                    catch (Exception e) {
+                        return path;
+                    }
+                }
 
-                        if (URIUtil.isParentOf(srcPath, d.getLocation())) {
-                            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
-                            relative = URIUtil.removeExtension(relative);
+                private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
+                    if (URIUtil.isParentOf(srcPath, d.getLocation()) && d.getLocation().getPath().endsWith(".rsc")) {
+                        ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
+                        relative = URIUtil.removeExtension(relative);
 
-                            String modName = relative.getPath();
-                            if (modName.startsWith("/")) {
-                                modName = modName.substring(1);
-                            }
-                            modName = modName.replaceAll("/", "::");
-                            modName = modName.replaceAll("\\\\", "::");
-                            dirtyModules.add(modName);
+                        String modName = relative.getPath();
+                        if (modName.startsWith("/")) {
+                            modName = modName.substring(1);
                         }
+                        modName = modName.replace("/", "::");
+                        modName = modName.replace("\\", "::");
+                        dirtyModules.add(modName);
                     }
                 }
 
