@@ -35,9 +35,11 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
@@ -49,6 +51,7 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
@@ -65,6 +68,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
@@ -196,18 +200,18 @@ public abstract class BaseLanguageServer {
     }
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
+        private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
-        private IBaseLanguageClient client;
         private IDEServicesConfiguration ideServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService) {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = new BaseWorkspaceService(lspDocumentService);
-            URIResolverRegistry.getInstance().registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
-            URIResolverRegistry.getInstance().registerLogical(new TargetURIResolver(this::resolveProjectLocation));
+            reg.registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
+            reg.registerLogical(new TargetURIResolver(this::resolveProjectLocation));
         }
 
         private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
@@ -246,29 +250,56 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
-            try {
-                if (projectFolder.getUri() == null) {
-                    return CompletableFuture.completedFuture(
-                    classLoaderFiles(PathConfig.getDefaultClassloadersList())
-                    );
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    if (projectFolder.getUri() == null) {
+                        return classLoaderFiles(PathConfig.getDefaultClassloadersList());
+                    }
+                    PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.COMPILER);
+                    return classLoaderFiles(pcfg.getClassloaders());
                 }
-                ISourceLocation path = URIUtil.createFromURI(projectFolder.getUri());
-                if (!URIResolverRegistry.getInstance().isDirectory(path)) {
-                    path = URIUtil.getParentLocation(path);
+                catch (IOException | URISyntaxException e) {
+                    logger.catching(e);
+                    throw new CompletionException(e);
                 }
+            });
+        }
 
-                ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
-                if (projectDir == null) {
-                    throw new RuntimeException("Project of file |" + projectFolder.getUri() + "| is missing a `META-INF/RASCAL.MF` file!");
-                }
-                PathConfig pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.COMPILER);
+        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode) throws IOException {
+            if (!reg.isDirectory(path)) {
+                path = URIUtil.getParentLocation(path);
+            }
 
-                return CompletableFuture.completedFuture(classLoaderFiles(pcfg.getClassloaders()));
+            ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
+            if (projectDir == null) {
+                throw new IOException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
             }
-            catch (IOException | URISyntaxException e) {
-                logger.catching(e);
-                throw new RuntimeException(e);
-            }
+            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode);
+        }
+
+        private static URI[] toURIArray(IList src) {
+            return src.stream()
+                .map(ISourceLocation.class::cast)
+                .map(ISourceLocation::getURI)
+                .toArray(URI[]::new);
+        }
+
+        @Override
+        public CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), projectFolder.getMode().mapConfigMode());
+                    Two<String, URI[]>[] result = new Two[4];
+                    result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
+                    result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
+                    result[2] = new Two<>("Java Compiler Path", toURIArray(pcfg.getJavaCompilerPath()));
+                    result[3] = new Two<>("Classloaders", toURIArray(pcfg.getClassloaders()));
+                    return result;
+                } catch (IOException | URISyntaxException e) {
+                    logger.catching(e);
+                    throw new CompletionException(e);
+                }
+            });
         }
 
         @Override
@@ -326,10 +357,10 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            this.client = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(this.client, lspDocumentService, lspWorkspaceService);
-            lspDocumentService.connect(this.client);
-            lspWorkspaceService.connect(this.client);
+            var actualClient = (IBaseLanguageClient) client;
+            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(actualClient, lspDocumentService, lspWorkspaceService);
+            lspDocumentService.connect(actualClient);
+            lspWorkspaceService.connect(actualClient);
         }
 
         @Override

@@ -187,11 +187,8 @@ function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagno
 
 }
 
-
-function buildMFChildPath(uri: vscode.Uri) {
-    return uri.with({
-        path: posix.join(uri.path, MF_DIR, MF_FILE)
-    });
+export function buildMFChildPath(uri: vscode.Uri) {
+    return vscode.Uri.joinPath(uri, MF_DIR, MF_FILE);
 }
 
 class FixMFErrors implements vscode.CodeActionProvider {

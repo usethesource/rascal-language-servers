@@ -76,6 +76,22 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "views": {
+      "explorer": [
+        {
+          "id": "rascalmpl-configuration-view",
+          "name": "Rascal Configuration",
+          "icon": "./assets/images/rascal-logo.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "rascalmpl-configuration-view",
+        "contents": "No Rascal Projects found in the workspace"
+      }
+    ],
     "breakpoints": [
       {
           "language": "rascalmpl"

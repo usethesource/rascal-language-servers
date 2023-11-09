@@ -34,6 +34,7 @@ import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 
 export class RascalExtension implements vscode.Disposable {
@@ -53,6 +54,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerImportModule();
         checkForJVMUpdate();
 
+        vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
