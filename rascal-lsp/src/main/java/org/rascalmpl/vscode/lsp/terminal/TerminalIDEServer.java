@@ -97,6 +97,16 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
+    public void logMessage(MessageParams msg) {
+        languageClient.logMessage(msg);
+    }
+
+    @Override
+    public void showMessage(MessageParams msg) {
+        languageClient.logMessage(msg);
+    }
+
+    @Override
     public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter loc) {
         logger.trace("resolveProjectLocation({})", loc);
         ISourceLocation input = loc.getLocation();
