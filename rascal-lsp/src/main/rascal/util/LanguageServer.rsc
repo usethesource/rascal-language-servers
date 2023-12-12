@@ -234,7 +234,6 @@ java void unregisterLanguage(Language lang);
 @synopsis{Spins down and removes a previously registered language server}
 void unregisterLanguage(str name, set[str] extensions, str mainModule = "", str mainFunction = "") {
     unregisterLanguage(language(pathConfig(), name, extensions, mainModule, mainFunction));
-
 }
 
 @deprecated{Replaced by the new overload that takes an set of extensions}

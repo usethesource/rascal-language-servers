@@ -97,7 +97,7 @@ void main() {
         language(
             pathConfig(),
             "Pico",
-            "pico",
+            {"pico"},
             "demo::lang::pico::LanguageServer",
             "picoLanguageContributor"
         )
@@ -106,7 +106,7 @@ void main() {
         language(
             pathConfig(),
             "Pico",
-            "pico",
+            {"pico"},
             "demo::lang::pico::LanguageServer",
             "picoLanguageContributorSlowSummary"
         )
