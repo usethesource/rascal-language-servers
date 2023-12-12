@@ -89,6 +89,17 @@ describe('DSL', function () {
         }
     });
 
+    it("have highlighting and parse errors for second extension", async function () {
+        const editor = await ide.openModule(TestWorkspace.picoNewFile);
+        await ide.hasSyntaxHighlighting(editor);
+        try {
+            await editor.setTextAtLine(10, "b := ;");
+            await ide.hasErrorSquiggly(editor, 15_000);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
     it("have inlay hints", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);

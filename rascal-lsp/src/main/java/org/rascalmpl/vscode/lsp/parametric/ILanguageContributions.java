@@ -38,7 +38,6 @@ import io.usethesource.vallang.IValue;
 
 public interface ILanguageContributions {
     public String getName();
-    public String getExtension();
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public InterruptibleFuture<IList> outline(ITree input);
     public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);

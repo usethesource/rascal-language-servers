@@ -44,7 +44,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     private final ExecutorService ownExecuter;
     private final String name;
-    private final String extension;
 
     private static final <T> CompletableFuture<T> failedInitialization() {
         return CompletableFuture.failedFuture(new RuntimeException("No contributions registered"));
@@ -77,9 +76,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> askSummaryForReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> askSummaryForImplementations = failedInitialization();
 
-    public LanguageContributionsMultiplexer(String name, String extension, ExecutorService ownService) {
+    public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
-        this.extension = extension;
         this.ownExecuter = ownService;
     }
 
@@ -209,12 +207,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     public String getName() {
         return name;
     }
-
-    @Override
-    public String getExtension() {
-        return extension;
-    }
-
 
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {

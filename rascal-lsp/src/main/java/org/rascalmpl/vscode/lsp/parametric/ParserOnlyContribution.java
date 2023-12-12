@@ -57,13 +57,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private final String name;
-    private final String extension;
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
 
-    public ParserOnlyContribution(String name, String extension, ParserSpecification spec) {
+    public ParserOnlyContribution(String name, ParserSpecification spec) {
         this.name = name;
-        this.extension = extension;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
@@ -74,11 +72,6 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public String getName() {
         return name;
-    }
-
-    @Override
-    public String getExtension() {
-        return extension;
     }
 
     @Override

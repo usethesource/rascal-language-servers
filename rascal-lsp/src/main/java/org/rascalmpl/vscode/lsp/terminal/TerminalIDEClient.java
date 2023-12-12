@@ -143,33 +143,14 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        server.receiveRegisterLanguage(
-            new LanguageParameter(
-                language.get(0).toString(),
-                ((IString) language.get(1)).getValue(),
-                ((IString) language.get(2)).getValue(),
-                ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue(),
-                null
-            )
-        );
+        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        server.receiveUnregisterLanguage(
-            new LanguageParameter(
-                language.get(0).toString(),
-                ((IString) language.get(1)).getValue(),
-                ((IString) language.get(2)).getValue(),
-                ((IString) language.get(3)).getValue(),
-                ((IString) language.get(4)).getValue(),
-                null
-            )
-        );
+        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
     }
-
 
     @Override
     public void applyDocumentsEdits(IList edits) {
