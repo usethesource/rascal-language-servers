@@ -31,6 +31,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
@@ -484,7 +485,7 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extensions=" + extensions
+            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extensions=" + Arrays.toString(extensions)
                 + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ", precompiledParser=" + precompiledParser + ")";
         }
 

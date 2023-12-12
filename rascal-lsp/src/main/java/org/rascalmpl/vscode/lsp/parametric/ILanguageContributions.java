@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
