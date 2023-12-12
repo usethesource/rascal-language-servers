@@ -60,6 +60,7 @@ export class TestWorkspace {
     public static readonly libFileTpl = path.join(target(this.libProject),'Lib.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
+    public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
 }
 
 
