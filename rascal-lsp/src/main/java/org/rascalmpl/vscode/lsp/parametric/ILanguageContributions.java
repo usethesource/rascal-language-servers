@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -38,7 +39,6 @@ import io.usethesource.vallang.IValue;
 
 public interface ILanguageContributions {
     public String getName();
-    public String getExtension();
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public InterruptibleFuture<IList> outline(ITree input);
     public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);

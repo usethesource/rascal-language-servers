@@ -140,30 +140,12 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        LanguageParameter param = new LanguageParameter(
-            language.get(0).toString(),
-            ((IString) language.get(1)).getValue(),
-            ((IString) language.get(2)).getValue(),
-            ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue(),
-            null
-        );
-
-        languageClient.receiveRegisterLanguage(param);
+        languageClient.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        LanguageParameter param = new LanguageParameter(
-            language.get(0).toString(),
-            ((IString) language.get(1)).getValue(),
-            ((IString) language.get(2)).getValue(),
-            ((IString) language.get(3)).getValue(),
-            ((IString) language.get(4)).getValue(),
-            null
-        );
-
-        languageClient.receiveUnregisterLanguage(param);
+        languageClient.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
     @Override

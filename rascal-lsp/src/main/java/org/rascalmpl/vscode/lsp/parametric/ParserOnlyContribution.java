@@ -29,6 +29,10 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,13 +61,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private final String name;
-    private final String extension;
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
 
-    public ParserOnlyContribution(String name, String extension, ParserSpecification spec) {
+    public ParserOnlyContribution(String name, ParserSpecification spec) {
         this.name = name;
-        this.extension = extension;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
@@ -74,11 +76,6 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public String getName() {
         return name;
-    }
-
-    @Override
-    public String getExtension() {
-        return extension;
     }
 
     @Override

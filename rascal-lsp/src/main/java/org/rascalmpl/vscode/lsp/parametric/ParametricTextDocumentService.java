@@ -126,7 +126,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
 
+    /** extension to language */
+    private final Map<String, String> registeredExtensions = new ConcurrentHashMap<>();
+    /** language to facts */
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
+    /** language to contribution */
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
     private final @Nullable LanguageParameter dedicatedLanguage;
@@ -291,7 +295,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(contrib::lenses)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
-                .map(e -> locCommandTupleToCodeLense(contrib.getExtension(), e))
+                .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
                 .collect(Collectors.toList())
             ), () -> null);
     }
@@ -341,18 +345,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return result;
     }
 
-    private CodeLens locCommandTupleToCodeLense(String extension, IValue v) {
+    private CodeLens locCommandTupleToCodeLense(String languageName, IValue v) {
         ITuple t = (ITuple) v;
         ISourceLocation loc = (ISourceLocation) t.get(0);
         IConstructor command = (IConstructor) t.get(1);
 
-        return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(extension, command), null);
+        return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(languageName, command), null);
     }
 
-    private Command constructorToCommand(String extension, IConstructor command) {
+    private Command constructorToCommand(String languageName, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(extension, command.toString()));
+        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -372,10 +376,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ILanguageContributions contributions(String doc) {
-        ILanguageContributions contrib = contributions.get(extension(doc));
+        String language = registeredExtensions.get(extension(doc));
+        if (language != null) {
+            ILanguageContributions contrib = contributions.get(language);
 
-        if (contrib != null) {
-            return contrib;
+            if (contrib != null) {
+                return contrib;
+            }
         }
 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
@@ -398,9 +405,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(String doc) {
-        ParametricFileFacts fact = facts.get(extension(doc));
-        if (fact != null) {
-            return fact;
+        String language = registeredExtensions.get(extension(doc));
+        if (language != null) {
+            ParametricFileFacts fact = facts.get(language);
+            if (fact != null) {
+                return fact;
+            }
         }
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
@@ -527,19 +537,23 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
+        for (var extension: lang.getExtensions()) {
+            this.registeredExtensions.put(extension, lang.getName());
+        }
 
-        var multiplexer = contributions.computeIfAbsent(lang.getExtension(),
-            t -> new LanguageContributionsMultiplexer(lang.getName(), lang.getExtension(), ownExecuter)
+        var multiplexer = contributions.computeIfAbsent(lang.getName(),
+            t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
         );
-        var fact = facts.computeIfAbsent(lang.getExtension(), t ->
+        var fact = facts.computeIfAbsent(lang.getName(), t ->
             new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
         );
+
         if (lang.getPrecompiledParser() != null) {
             try {
                 var location = lang.getPrecompiledParser().getParserLocation();
                 if (URIResolverRegistry.getInstance().exists(location)) {
                     logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
-                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getExtension(), lang.getPrecompiledParser()));
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getPrecompiledParser()));
                 }
                 else {
                     logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
@@ -565,34 +579,38 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        var extension = lang.getExtension();
-        if (lang.getMainModule() == null || lang.getMainModule().isEmpty()) {
+        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
+        if (!removeAll) {
+            if (!contributions.get(lang.getName()).removeContributor(buildContributionKey(lang))) {
+                logger.error("unregisterLanguage cleared everything, so removing all");
+                // ok, so it was a clear after all
+                removeAll = true;
+            }
+            else {
+                facts.get(lang.getName()).reloadContributions();
+            }
+        }
+        if (removeAll) {
             // clear the whole language
-            logger.trace("unregisterLanguage({}) completly", lang.getName());
-            facts.remove(extension);
-            contributions.remove(extension);
-            return;
-        }
-        logger.trace("unregisterLanguage({}) only {}", lang.getName(), lang.getMainModule());
-        if (!contributions.get(extension).removeContributor(buildContributionKey(lang))) {
-            logger.error("unregisterLanguage cleared everything, so removing all");
-            facts.remove(extension);
-            contributions.remove(extension);
-        }
-        else {
-            facts.get(extension).reloadContributions();
+            logger.trace("unregisterLanguage({}) completely", lang.getName());
+
+            for (var extension : lang.getExtensions()) {
+                this.registeredExtensions.remove(extension);
+            }
+            facts.remove(lang.getName());
+            contributions.remove(lang.getName());
         }
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String extension, String command) {
-        ILanguageContributions contribs = contributions.get(extension);
+    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
+        ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
             return contribs.executeCommand(command).get();
         }
         else {
-            logger.warn("ignoring command execution (no contributor configured for this extension): {}, {} ", extension, command);
+            logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFuture.completedFuture(null);
         }
     }

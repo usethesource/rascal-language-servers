@@ -42,7 +42,9 @@ import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -442,15 +444,15 @@ public interface ITerminalIDEServer {
     public static class LanguageParameter {
         private final String pathConfig;
 	    private final String name; // name of the language
-	    private final String extension; // extension for files in this language
+	    private final String[] extensions; // extension for files in this language
 	    private final String mainModule; // main module to locate mainFunction in
 	    private final String mainFunction; // main function which contributes the language implementation
         private final @Nullable ParserSpecification precompiledParser;
 
-        public LanguageParameter(String pathConfig, String name, String extension, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
+        public LanguageParameter(String pathConfig, String name, String[] extensions, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
             this.pathConfig = pathConfig.toString();
             this.name = name;
-            this.extension = extension;
+            this.extensions = extensions;
             this.mainModule = mainModule;
             this.mainFunction = mainFunction;
             this.precompiledParser = precompiledParser;
@@ -464,8 +466,8 @@ public interface ITerminalIDEServer {
             return name;
         }
 
-        public String getExtension() {
-            return extension;
+        public String[] getExtensions() {
+            return extensions;
         }
 
         public String getMainFunction() {
@@ -482,8 +484,29 @@ public interface ITerminalIDEServer {
 
         @Override
         public String toString() {
-            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extension=" + extension
+            return "LanguageParameter(pathConfig=" + pathConfig + ", name=" + name + ", extensions=" + extensions
                 + ", mainModule=" + mainModule + ", mainFunction=" + mainFunction + ", precompiledParser=" + precompiledParser + ")";
+        }
+
+        public static LanguageParameter fromRascalValue(IConstructor language) {
+            return new LanguageParameter(
+                language.get(0).toString(),
+                getString(language, 1),
+                getArray(language, 2),
+                getString(language, 3),
+                getString(language, 4),
+                null
+            );
+        }
+        private static String[] getArray(IConstructor language, int position) {
+            return ((ISet) language.get(position))
+                .stream()
+                .map(v -> ((IString)v).getValue())
+                .toArray(String[]::new);
+        }
+
+        private static String getString(IConstructor language, int position) {
+            return ((IString) language.get(position)).getValue();
         }
     }
 
