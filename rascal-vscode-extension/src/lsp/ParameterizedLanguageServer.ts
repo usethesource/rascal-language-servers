@@ -101,16 +101,16 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         if (this.dedicatedLanguage === undefined) {
             for (const editor of vscode.window.visibleTextEditors) {
                 const ext = path.extname(editor.document.uri.path);
-                if (ext !== "" && lang.extension === ext.substring(1)) {
+                if (ext !== "" && lang.extensions.includes(ext.substring(1))) {
                     vscode.languages.setTextDocumentLanguage(editor.document, this.languageId);
                 }
             }
 
-            if (lang.extension && lang.extension !== "") {
-                let registries = this.registeredFileExtensions.get(lang.extension);
+            for (const ext of lang.extensions) {
+                let registries = this.registeredFileExtensions.get(ext);
                 if (!registries) {
                     registries = new Set();
-                    this.registeredFileExtensions.set(lang.extension, registries);
+                    this.registeredFileExtensions.set(ext, registries);
                 }
                 registries.add(languageKey(lang));
             }
@@ -122,20 +122,20 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         (await client).sendRequest("rascal/sendUnregisterLanguage", lang);
 
         if (this.dedicatedLanguage === undefined) {
-            if (lang.extension && lang.extension !== "") {
+            for (const ext of lang.extensions) {
                 if (lang.mainModule && lang.mainFunction) {
                     // partial clear
-                    const registries = this.registeredFileExtensions.get(lang.extension);
+                    const registries = this.registeredFileExtensions.get(ext);
                     if (registries) {
                         registries.delete(languageKey(lang));
                         if (registries.size === 0) {
-                            this.registeredFileExtensions.delete(lang.extension);
+                            this.registeredFileExtensions.delete(ext);
                         }
                     }
                 }
                 else {
                     // complete clear
-                    this.registeredFileExtensions.delete(lang.extension);
+                    this.registeredFileExtensions.delete(ext);
                 }
             }
         }
@@ -152,8 +152,8 @@ export interface LanguageParameter {
     pathConfig: string
     /** name of the language */
     name: string;
-    /** extension for files in this language */
-    extension:string;
+    /** extensions for files in this language */
+    extensions: string[]
     /** main module to locate mainFunction in */
     mainModule: string;
     /** main function which contributes the language implementation */
