@@ -55,7 +55,11 @@ a fresh language protocol server.
 the registered language runs in another instance of the JVM and of Rascal.
 }
 data Language
-    = language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction);
+    = language(PathConfig pcfg, str name, set[str] extensions, str mainModule, str mainFunction);
+
+@deprecated{Please upgrade to the new constructor of the Language ADT}
+Language language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction)
+    = language(pcfg, name, {extension}, mainModule, mainFunction);
 
 @synopsis{Function profile for parser contributions to a language server}
 alias Parser           = Tree (str /*input*/, loc /*origin*/);
@@ -228,6 +232,13 @@ java void registerLanguage(Language lang);
 java void unregisterLanguage(Language lang);
 
 @synopsis{Spins down and removes a previously registered language server}
+void unregisterLanguage(str name, set[str] extensions, str mainModule = "", str mainFunction = "") {
+    unregisterLanguage(language(pathConfig(), name, extensions, mainModule, mainFunction));
+
+}
+
+@deprecated{Replaced by the new overload that takes an set of extensions}
+@synopsis{Spins down and removes a previously registered language server}
 void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
-    unregisterLanguage(language(pathConfig(), name, extension, mainModule, mainFunction));
+    unregisterLanguage(name, {extension}, mainModule = mainModule, mainFunction = mainFunction);
 }
