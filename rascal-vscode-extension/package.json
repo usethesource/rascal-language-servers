@@ -179,7 +179,7 @@
     "@typescript-eslint/parser": "6.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
-    "chai": "4.x",
+    "chai": "5.x",
     "eslint": "8.x",
     "glob": "10.x",
     "license-check-and-add": "4.x",
@@ -187,7 +187,7 @@
     "temp": "0.x",
     "ts-loader": "9.x",
     "typescript": "5.x",
-    "vscode-extension-tester": "6.x",
+    "vscode-extension-tester": "7.x",
     "webpack": "5.x",
     "webpack-cli": "5.x"
   }
