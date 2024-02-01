@@ -60,7 +60,7 @@ jobs:
         if: matrix.os != 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: ${{ matrix.os == 'windows' && '7' || '7' }}
+          DELAY_FACTOR: ${{ matrix.os == 'windows' && '9' || '8' }}
           _JAVA_OPTIONS: ${{ matrix.os == 'windows' && '-Xmx2G' || '-Xmx4G' }}
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
