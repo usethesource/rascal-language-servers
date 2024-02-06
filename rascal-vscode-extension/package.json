@@ -9,7 +9,11 @@
     "parsing",
     "source code analysis"
   ],
-  "icon": "assets/images/rascal-logo.png",
+  "icon": "assets/images/rascal-logo-v2.1.png",
+  "galleryBanner": {
+    "color": "#ffffff",
+    "theme": "light"
+  },
   "version": "0.10.3-head",
   "engines": {
     "vscode": "^1.75.0"
@@ -54,8 +58,8 @@
           ".rsc"
         ],
         "icon": {
-          "light": "./assets/images/rascal-logo.svg",
-          "dark": "./assets/images/rascal-logo.svg"
+          "light": "./assets/images/rascal-logo-v2.1.svg",
+          "dark": "./assets/images/rascal-logo-v2.1.svg"
         },
         "configuration": "./language-configuration.json"
       },
@@ -81,7 +85,7 @@
         {
           "id": "rascalmpl-configuration-view",
           "name": "Rascal Configuration",
-          "icon": "./assets/images/rascal-logo.svg",
+          "icon": "./assets/images/rascal-logo-v2.1.svg",
           "visibility": "collapsed"
         }
       ]
