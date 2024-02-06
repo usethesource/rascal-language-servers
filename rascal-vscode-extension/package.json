@@ -10,6 +10,10 @@
     "source code analysis"
   ],
   "icon": "assets/images/rascal-logo-v2.1.png",
+  "galleryBanner": {
+    "color": "#ffffff",
+    "theme": "light"
+  },
   "version": "0.10.3-head",
   "engines": {
     "vscode": "^1.75.0"
