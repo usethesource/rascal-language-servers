@@ -167,6 +167,18 @@ public class ParametricSummaryBridge {
         abstract InterruptibleFuture<T> requestDedicated(Position r);
 
         public InterruptibleFuture<T> lookup(Position cursor) {
+            // If an analyzer is available, use it to compute the summary for
+            // lookups (if needed). Else, if a builder is available, use it.
+            // Else, fail. The following code builds this logic inside-out.
+            InterruptibleFuture<T> lookupFail = InterruptibleFuture.completedFuture(empty);
+            InterruptibleFuture<T> lookupIfBuilder = InterruptibleFuture.flatten(
+                contrib.hasBuild().thenApply(b -> Boolean.TRUE.equals(b) ? lookup(cursor, contrib::build) : lookupFail), exec);
+            InterruptibleFuture<T> lookupIfAnalyzerOrBuilder = InterruptibleFuture.flatten(
+                contrib.hasAnalyze().thenApply(b -> Boolean.TRUE.equals(b) ? lookup(cursor, contrib::analyze) : lookupIfBuilder), exec);
+            return lookupIfAnalyzerOrBuilder;
+        }
+
+        public InterruptibleFuture<T> lookup(Position cursor, SummaryCalculator calculator) {
             var activeSummary = lastFuture;
             if (activeSummary == null && dedicatedCall) {
                 logger.trace("{} requesting dedicated for: {}", logName, cursor);
@@ -179,7 +191,7 @@ public class ParametricSummaryBridge {
             }
             if (activeSummary == null/* implied:&& requestSummaryIfNeeded */ ) {
                 logger.trace("{} requesting summary since we need it for: {}", logName, cursor);
-                calculateSummary(true);
+                calculateSummary(true, calculator);
                 activeSummary = lastFuture;
                 if (activeSummary == null) {
                     logger.error("{} something went wrong with requesting a new summary for {}", logName, cursor);
@@ -195,6 +207,10 @@ public class ParametricSummaryBridge {
         }
     }
 
+    @FunctionalInterface
+    public interface SummaryCalculator {
+        InterruptibleFuture<IConstructor> calc(ISourceLocation file, ITree tree);
+    }
 
     @FunctionalInterface
     public interface DedicatedLookupFunction {
@@ -346,15 +362,15 @@ public class ParametricSummaryBridge {
         return implementations.thenCompose(d -> d.lookup(cursor).get());
     }
 
-    public void calculateSummary() {
-        calculateSummary(false);
+    public void calculateSummary(SummaryCalculator calculator) {
+        calculateSummary(false, calculator);
     }
 
-    private void calculateSummary(boolean internal) {
+    private void calculateSummary(boolean internal, SummaryCalculator calculator) {
         logger.trace("Requesting Summary calculation for: {}", file);
         var summary = InterruptibleFuture.flatten(lookupState.apply(file)
             .getCurrentTreeAsync()
-            .thenApplyAsync(t -> contrib.summarize(file, t), exec)
+            .thenApplyAsync(t -> calculator.calc(file, t), exec)
             , exec);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
         references.thenAccept(d -> d.newSummary(summary, internal));
