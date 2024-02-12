@@ -44,7 +44,8 @@ set[LanguageService] picoLanguageContributor() = {
 
 set[LanguageService] picoLanguageContributorSlowSummary() = {
     parser(parser(#start[Program])),
-    summarizer(picoSummarizer, providesImplementations = false)
+    analyzer(picoSummarizer, providesImplementations = false),
+    builder(picoSummarizer, providesImplementations = false)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
