@@ -40,7 +40,8 @@ public interface ILanguageContributions {
     public String getName();
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public InterruptibleFuture<IList> outline(ITree input);
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<ISet> lenses(ITree input);
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
@@ -55,7 +56,8 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasDedicatedImplementations();
 
     public CompletableFuture<Boolean> hasOutline();
-    public CompletableFuture<Boolean> hasSummarize();
+    public CompletableFuture<Boolean> hasAnalyze();
+    public CompletableFuture<Boolean> hasBuild();
     public CompletableFuture<Boolean> hasLenses();
     public CompletableFuture<Boolean> hasExecuteCommand();
     public CompletableFuture<Boolean> hasInlayHint();

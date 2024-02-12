@@ -77,7 +77,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<TypeStore> store;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<@Nullable IFunction> outliner;
-    private final CompletableFuture<@Nullable IFunction> summarizer;
+    private final CompletableFuture<@Nullable IFunction> analyzer;
+    private final CompletableFuture<@Nullable IFunction> builder;
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
     private final CompletableFuture<@Nullable IFunction> inlayHinter;
@@ -87,7 +88,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> implementer;
 
     private final CompletableFuture<Boolean> hasOutliner;
-    private final CompletableFuture<Boolean> hasSummarizer;
+    private final CompletableFuture<Boolean> hasAnalyzer;
+    private final CompletableFuture<Boolean> hasBuilder;
     private final CompletableFuture<Boolean> hasLenses;
     private final CompletableFuture<Boolean> hasCommandExecutor;
     private final CompletableFuture<Boolean> hasInlayHinter;
@@ -193,7 +195,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.parser = getFunctionFor(contributions, "parser");
             this.outliner = getFunctionFor(contributions, "outliner");
-            this.summarizer = getFunctionFor(contributions, "summarizer");
+            this.analyzer = getFunctionFor(contributions, "analyzer");
+            this.builder = getFunctionFor(contributions, "builder");
             this.lenses = getFunctionFor(contributions, "lenses");
             this.commandExecutor = getFunctionFor(contributions, "executor");
             this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
@@ -203,15 +206,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.implementer = getFunctionFor(contributions, "implementer");
             var summaryConfig = contributions.thenApply(c -> c.stream()
                     .map(IConstructor.class::cast)
-                    .filter(cons -> cons.getConstructorType().getName().equals("summarizer"))
-                    .findAny()
+                    .filter(cons -> {
+                        var name = cons.getConstructorType().getName();
+                        return name.equals("analyzer") || name.equals("builder");
+                    })
+                    .findAny() // TODO: Check if this should be `findFirst()`
                     .orElse(null)
             );
 
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
-            this.hasSummarizer = nonNull(this.summarizer);
+            this.hasAnalyzer = nonNull(this.analyzer);
+            this.hasBuilder = nonNull(this.builder);
             this.hasLenses = nonNull(this.lenses);
             this.hasCommandExecutor = nonNull(this.commandExecutor);
             this.hasInlayHinter = nonNull(this.inlayHinter);
@@ -289,9 +296,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
-        logger.debug("summarize({})", src);
-        return execFunction("summarize", summarizer,
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation src, ITree input) {
+        logger.debug("analyze({})", src);
+        return execFunction("analyze", analyzer,
+            ParametricSummaryBridge.emptySummary(src), src, input);
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation src, ITree input) {
+        logger.debug("build({})", src);
+        return execFunction("build", builder,
             ParametricSummaryBridge.emptySummary(src), src, input);
     }
 
@@ -372,8 +386,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
-        return hasSummarizer;
+    public CompletableFuture<Boolean> hasAnalyze() {
+        return hasAnalyzer;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasBuild() {
+        return hasBuilder;
     }
 
 

@@ -119,7 +119,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+        return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
         return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
     }
 
@@ -184,7 +189,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
+    public CompletableFuture<Boolean> hasAnalyze() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasBuild() {
         return CompletableFuture.completedFuture(false);
     }
 

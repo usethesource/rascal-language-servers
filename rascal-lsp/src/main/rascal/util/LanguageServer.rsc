@@ -71,7 +71,6 @@ alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
 
 //alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
-//alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 
 @synopsis{Function profile for lenses contributions to a language server}
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
@@ -100,8 +99,9 @@ alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lex
 @description{
 Each LanguageService provides one aspect of definining the language server protocol.
 * a `parser` maps source code to a parse tree and indexes each part based on offset and length
-* a `summarizer` indexes a file as a ((Summary)), offering precomputed relations for looking up
+* an `analyzer` indexes a file as a ((Summary)), offering precomputed relations for looking up
 documentation, definitions, references, implementations and compiler errors and warnings.
+* a `builder` is similar to an `analyzer`, but it may perform computation-heavier additional checks.
 * a `outliner` maps a source file to a pretty hierarchy for visualization in the "outline" view
 * a `lenses` discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
 * an `inlayHinter` is like lenses but inbetween words
@@ -113,14 +113,18 @@ documentation, definitions, references, implementations and compiler errors and 
 }
 data LanguageService
     = parser(Parser parser)
-    | summarizer(Summarizer summarizer
+    | analyzer(Summarizer summarizer // triggered on change, or if information is requested
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true)
+    | builder(Summarizer builder // triggered only on save
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outliner(Outliner outliner)
 // TODO | completer(Completer completer)
-// TODO | builder(Builder builder)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
@@ -129,6 +133,13 @@ data LanguageService
     | referrer(Referrer reference)
     | implementer(Implementer implementer)
     ;
+
+@deprecated{ use builder and analyzer}
+LanguageService summarizer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true) = builder(summarizer, providesDocumentation = providesDocumentation, providesDefinitions = providesDefinitions, providesReferences = providesReferences, providesImplementations = providesImplementations);
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 data Summary = summary(loc src,

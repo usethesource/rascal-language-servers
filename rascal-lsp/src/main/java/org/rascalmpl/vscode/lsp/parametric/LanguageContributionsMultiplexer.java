@@ -51,7 +51,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     private volatile @MonotonicNonNull ILanguageContributions parser = null;
     private volatile CompletableFuture<ILanguageContributions> outline = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> summarizer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> analyzer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> builder = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> lenses = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> executor = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> inlayHinter = failedInitialization();
@@ -66,7 +67,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasDedicatedImplementations = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasOutline = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasSummarize = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasAnalyze = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
     private volatile CompletableFuture<Boolean> hasLenses = failedInitialization();
     private volatile CompletableFuture<Boolean> hasExecuteCommand = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
@@ -131,7 +133,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // future
         parser = firstOrFail();
         outline = findFirstOrDefault(ILanguageContributions::hasOutline);
-        summarizer = findFirstOrDefault(ILanguageContributions::hasSummarize);
+        analyzer = findFirstOrDefault(ILanguageContributions::hasAnalyze);
+        builder = findFirstOrDefault(ILanguageContributions::hasBuild);
         lenses = findFirstOrDefault(ILanguageContributions::hasLenses);
         executor = findFirstOrDefault(ILanguageContributions::hasExecuteCommand);
         inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHint);
@@ -147,7 +150,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDedicatedImplementations = anyTrue(ILanguageContributions::hasDedicatedImplementations);
 
         hasOutline = anyTrue(ILanguageContributions::hasOutline);
-        hasSummarize = anyTrue(ILanguageContributions::hasSummarize);
+        hasAnalyze = anyTrue(ILanguageContributions::hasAnalyze);
+        hasBuild = anyTrue(ILanguageContributions::hasBuild);
         hasLenses = anyTrue(ILanguageContributions::hasLenses);
         hasExecuteCommand = anyTrue(ILanguageContributions::hasExecuteCommand);
         hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
@@ -228,8 +232,13 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        return flatten(summarizer, c -> c.summarize(loc, input));
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+        return flatten(analyzer, c -> c.analyze(loc, input));
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
+        return flatten(builder, c -> c.build(loc, input));
     }
 
     @Override
@@ -314,8 +323,13 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
-        return hasSummarize;
+    public CompletableFuture<Boolean> hasAnalyze() {
+        return hasAnalyze;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasBuild() {
+        return hasBuild;
     }
 
     @Override
