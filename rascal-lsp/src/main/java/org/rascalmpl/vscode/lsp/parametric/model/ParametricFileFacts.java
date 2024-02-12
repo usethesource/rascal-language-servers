@@ -32,6 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
@@ -42,6 +46,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge.SummaryCalculator;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -90,8 +95,8 @@ public class ParametricFileFacts {
         }
     }
 
-    public void calculate(ISourceLocation file) {
-        getFile(file).calculate();
+    public void calculate(ISourceLocation file, SummaryCalculator calculator, long delay) {
+        getFile(file).calculate(calculator, delay);
     }
 
     public void close(ISourceLocation loc) {
@@ -114,6 +119,9 @@ public class ParametricFileFacts {
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ParametricSummaryBridge summary;
 
+        private final ScheduledExecutorService calculateScheduler = Executors.newSingleThreadScheduledExecutor();
+        private final AtomicInteger lastCalculateId = new AtomicInteger(); // Atomic to ensure ids are unique
+
         public FileFact(ISourceLocation file) {
             this.file = file;
             this.summary = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
@@ -130,11 +138,21 @@ public class ParametricFileFacts {
 
         public void invalidate(boolean isClosing) {
             summary.invalidate(isClosing);
+            lastCalculateId.incrementAndGet(); // All scheduled calls to calculate are now stale
         }
 
-        public void calculate() {
-            summary.calculateSummary();
-            summary.getMessages().thenAccept(this::reportTypeCheckerMessages);
+        public void calculate(SummaryCalculator calculator, long delay) {
+            // If no new call to `calculate` has been made after `delay`
+            // milliseconds have passed (i.e., `lastCalculateId` hasn't changed
+            // in the meantime), then run the calculation. Else, ignore and
+            // leave the calculation to the new call.
+            var calculateId = lastCalculateId.incrementAndGet();
+            calculateScheduler.schedule(() -> {
+                if (lastCalculateId.get() == calculateId) {
+                    summary.calculateSummary(calculator);
+                    summary.getMessages().thenAccept(this::reportTypeCheckerMessages);
+                }
+            }, delay, TimeUnit.MILLISECONDS);
         }
 
         public ParametricSummaryBridge getSummary() {

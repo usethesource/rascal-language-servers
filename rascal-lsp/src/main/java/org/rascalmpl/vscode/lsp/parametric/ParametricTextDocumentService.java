@@ -96,6 +96,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge.SummaryCalculator;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -221,6 +222,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.trace("Change contents: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
         invalidateFacts(params.getTextDocument());
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+        contrib.hasAnalyze().thenAccept(b -> { // TODO: `b` can be cached?
+            if (Boolean.TRUE.equals(b)) {
+                triggerSummary(params.getTextDocument(), contrib::analyze, 1000);
+            }
+        });
     }
 
     @Override
@@ -233,8 +240,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummary(TextDocumentIdentifier doc) {
-        facts(doc).calculate(Locations.toLoc(doc));
+    private void triggerSummary(TextDocumentIdentifier doc, SummaryCalculator calculator, long delay) {
+        facts(doc).calculate(Locations.toLoc(doc), calculator, delay);
     }
 
     private void invalidateFacts(TextDocumentIdentifier doc) {
@@ -245,8 +252,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didSave(DidSaveTextDocumentParams params) {
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that already came in via didChange
-        // but we do trigger the type checker on save
-        triggerSummary(params.getTextDocument());
+        // but we do trigger the type checker on save (if a builder exists)
+        ILanguageContributions contrib = contributions(params.getTextDocument());
+        contrib.hasBuild().thenAccept(b -> { // TODO: `b` can probably be cached
+            if (Boolean.TRUE.equals(b)) {
+                triggerSummary(params.getTextDocument(), contrib::build, 0);
+            }
+        });
     }
 
     private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
