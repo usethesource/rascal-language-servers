@@ -206,11 +206,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.implementer = getFunctionFor(contributions, "implementer");
             var summaryConfig = contributions.thenApply(c -> c.stream()
                     .map(IConstructor.class::cast)
-                    .filter(cons -> {
-                        var name = cons.getConstructorType().getName();
-                        return name.equals("analyzer") || name.equals("builder");
-                    })
-                    .findAny() // TODO: Check if this should be `findFirst()`
+                    .filter(cons -> cons.getConstructorType().getName().equals("analyzer"))
+                    .findAny()
                     .orElse(null)
             );
 

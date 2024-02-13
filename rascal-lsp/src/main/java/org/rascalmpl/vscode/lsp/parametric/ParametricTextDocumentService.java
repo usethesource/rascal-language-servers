@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -103,6 +105,7 @@ import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+import org.rascalmpl.vscode.lsp.util.concurrent.SchedulingWrapper;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -117,7 +120,7 @@ import io.usethesource.vallang.exceptions.FactParseError;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
-    private final ExecutorService ownExecuter;
+    private final ScheduledExecutorService ownExecuter;
 
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
@@ -137,7 +140,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final @Nullable LanguageParameter dedicatedLanguage;
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
-        this.ownExecuter = exec;
+        this.ownExecuter = new SchedulingWrapper(exec);
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
         if (dedicatedLanguage == null) {
@@ -223,11 +226,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
         invalidateFacts(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
-        contrib.hasAnalyze().thenAccept(b -> { // TODO: `b` can be cached?
-            if (Boolean.TRUE.equals(b)) {
-                triggerSummary(params.getTextDocument(), contrib::analyze, 1000);
-            }
-        });
+        triggerSummary(params.getTextDocument(), contrib::analyze, Duration.ofMillis(1000));
     }
 
     @Override
@@ -240,7 +239,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummary(TextDocumentIdentifier doc, SummaryCalculator calculator, long delay) {
+    private void triggerSummary(TextDocumentIdentifier doc, SummaryCalculator calculator, Duration delay) {
         facts(doc).calculate(Locations.toLoc(doc), calculator, delay);
     }
 
@@ -254,11 +253,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the type checker on save (if a builder exists)
         ILanguageContributions contrib = contributions(params.getTextDocument());
-        contrib.hasBuild().thenAccept(b -> { // TODO: `b` can probably be cached
-            if (Boolean.TRUE.equals(b)) {
-                triggerSummary(params.getTextDocument(), contrib::build, 0);
-            }
-        });
+        triggerSummary(params.getTextDocument(), contrib::build, Duration.ZERO);
     }
 
     private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {

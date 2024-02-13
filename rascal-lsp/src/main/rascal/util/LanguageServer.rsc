@@ -39,6 +39,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
+import IO;
 import ParseTree;
 
 @synopsis{Definition of a language server by its meta-data}
@@ -118,11 +119,7 @@ data LanguageService
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | builder(Summarizer builder // triggered only on save
-        , bool providesDocumentation = true
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true)
+    | builder(Summarizer builder) // triggered only on save
     | outliner(Outliner outliner)
 // TODO | completer(Completer completer)
     | lenses(LensDetector detector)
@@ -136,10 +133,13 @@ data LanguageService
 
 @deprecated{ use builder and analyzer}
 LanguageService summarizer(Summarizer summarizer
-        , bool providesDocumentation = true
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true) = builder(summarizer, providesDocumentation = providesDocumentation, providesDefinitions = providesDefinitions, providesReferences = providesReferences, providesImplementations = providesImplementations);
+        , bool providesDocumentation
+        , bool providesDefinitions
+        , bool providesReferences
+        , bool providesImplementations) {
+    println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
+    return builder(summarizer);
+}
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 data Summary = summary(loc src,

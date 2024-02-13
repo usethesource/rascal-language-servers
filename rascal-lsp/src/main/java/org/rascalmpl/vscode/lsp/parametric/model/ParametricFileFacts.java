@@ -26,13 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.model;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,7 +52,7 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
-    private final Executor exec;
+    private final ScheduledExecutorService exec;
     private volatile @MonotonicNonNull LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ILanguageContributions contrib;
@@ -61,7 +60,7 @@ public class ParametricFileFacts {
     private final ColumnMaps columns;
 
     public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
-        ColumnMaps columns, Executor exec) {
+        ColumnMaps columns, ScheduledExecutorService exec) {
         this.contrib = contrib;
         this.lookupState = lookupState;
         this.columns = columns;
@@ -95,7 +94,7 @@ public class ParametricFileFacts {
         }
     }
 
-    public void calculate(ISourceLocation file, SummaryCalculator calculator, long delay) {
+    public void calculate(ISourceLocation file, SummaryCalculator calculator, Duration delay) {
         getFile(file).calculate(calculator, delay);
     }
 
@@ -118,8 +117,6 @@ public class ParametricFileFacts {
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ParametricSummaryBridge summary;
-
-        private final ScheduledExecutorService calculateScheduler = Executors.newSingleThreadScheduledExecutor();
         private final AtomicInteger lastCalculateId = new AtomicInteger(); // Atomic to ensure ids are unique
 
         public FileFact(ISourceLocation file) {
@@ -141,18 +138,23 @@ public class ParametricFileFacts {
             lastCalculateId.incrementAndGet(); // All scheduled calls to calculate are now stale
         }
 
-        public void calculate(SummaryCalculator calculator, long delay) {
-            // If no new call to `calculate` has been made after `delay`
-            // milliseconds have passed (i.e., `lastCalculateId` hasn't changed
-            // in the meantime), then run the calculation. Else, ignore and
-            // leave the calculation to the new call.
+        public void calculate(SummaryCalculator calculator, Duration delay) {
+            // If no new call to `calculate` has been made after `delay` has
+            // passed (i.e., `lastCalculateId` hasn't changed in the meantime),
+            // then run the calculation. Else, ignore and leave the calculation
+            // to the new call. Note: It's possible that `calculate` is called
+            // multiple times for the same version of the file (e.g., first on
+            // change with a non-0 delay; next on save with a 0-delay), but only
+            // one of those calls should ultimately be made, so the file's
+            // version number can't be used to identify calls (i.e., different
+            // calls for the same version should have different ids).
             var calculateId = lastCalculateId.incrementAndGet();
-            calculateScheduler.schedule(() -> {
+            exec.schedule(() -> {
                 if (lastCalculateId.get() == calculateId) {
                     summary.calculateSummary(calculator);
                     summary.getMessages().thenAccept(this::reportTypeCheckerMessages);
                 }
-            }, delay, TimeUnit.MILLISECONDS);
+            }, delay.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         public ParametricSummaryBridge getSummary() {

@@ -167,15 +167,7 @@ public class ParametricSummaryBridge {
         abstract InterruptibleFuture<T> requestDedicated(Position r);
 
         public InterruptibleFuture<T> lookup(Position cursor) {
-            // If an analyzer is available, use it to compute the summary for
-            // lookups (if needed). Else, if a builder is available, use it.
-            // Else, fail. The following code builds this logic inside-out.
-            InterruptibleFuture<T> lookupFail = InterruptibleFuture.completedFuture(empty);
-            InterruptibleFuture<T> lookupIfBuilder = InterruptibleFuture.flatten(
-                contrib.hasBuild().thenApply(b -> Boolean.TRUE.equals(b) ? lookup(cursor, contrib::build) : lookupFail), exec);
-            InterruptibleFuture<T> lookupIfAnalyzerOrBuilder = InterruptibleFuture.flatten(
-                contrib.hasAnalyze().thenApply(b -> Boolean.TRUE.equals(b) ? lookup(cursor, contrib::analyze) : lookupIfBuilder), exec);
-            return lookupIfAnalyzerOrBuilder;
+            return lookup(cursor, contrib::analyze);
         }
 
         public InterruptibleFuture<T> lookup(Position cursor, SummaryCalculator calculator) {
