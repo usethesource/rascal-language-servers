@@ -44,8 +44,8 @@ set[LanguageService] picoLanguageContributor() = {
 
 set[LanguageService] picoLanguageContributorSlowSummary() = {
     parser(parser(#start[Program])),
-    analyzer(picoSummarizer, providesImplementations = false),
-    builder(picoSummarizer)
+    analyzer(picoAnalyzer, providesImplementations = false),
+    builder(picoBuilder)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -53,18 +53,28 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
-Summary picoSummarizer(loc l, start[Program] input) {
-    println("Running summary for pico!");
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var  := input};
+Summary picoAnalyzer(loc l, start[Program] input) {
+    println("Running analyzer for pico!");
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+    rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
-
     return summary(l,
-        messages = {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>},
+        messages = {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>},
         references = (uses o defs)<1,0>,
         definitions = uses o defs,
         documentation = (uses o defs) o docs
+    );
+}
+
+Summary picoBuilder(loc l, start[Program] input) {
+    println("Running builder for pico!");
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
+    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+
+    return summary(l,
+        messages = {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>}
     );
 }
 
