@@ -66,6 +66,24 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 alias Parser           = Tree (str /*input*/, loc /*origin*/);
 
 @synopsis{Function profile for summarizer contributions to a language server}
+@description{
+Summarizers provide information about the declarations and uses in the current file
+which can be used to populate the information needed to implement interactive IDE
+features.
+
+There are two places a Summarizer can be called:
+* Summarizers can be called after _file save_, in this case we use ((builder))s. Builders typically also have side-effects on disk (leaving generated code or API descriptions in the target folder), and they may run whole-program analysis and compilation steps.
+* Or they can be called while typing, in this case we use ((analyzer))s. Analyzers typically use stored or cached information from other files, but focus their own analysis on their own file. Analyzers may use incremental techniques.
+
+A summarizer provides the same information as the following contributors combined:
+* ((documenter))
+* ((definer))
+* ((referrer))
+* ((implementer))
+
+The difference is that these contributions are executed on-demand (pulled), while Summarizers
+are executed after build or after typing (push). 
+}
 alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 
 @synopsis{Function profile for outliner contributions to a language server}
@@ -82,46 +100,91 @@ alias CommandExecutor  = value (Command /*command*/);
 @synopsis{Function profile for inlay contributions to a language server}
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 
-// these single mappers get caller for every request that a user makes, they should be quick as possible
-// carefull use of memo can help with caching dependencies
 @synopsis{Function profile for documentation contributions to a language server}
+@description{
+A documenter is called on-demand, when documentation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single documentation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for definer contributions to a language server}
+@description{
+A definer is called on-demand, when a definition is requested by the IDE user.
+}
+@benefits{
+* is focused on a single definition request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for referrer contributions to a language server}
+@description{
+A referrer is called on-demand, when a reference is requested by the IDE user.
+}
+@benefits{
+* is focused on a single reference request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for implementer contributions to a language server}
+@description{
+An implementer is called on-demand, when an implementation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single implementation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService provides one aspect of definining the language server protocol.
-* a `parser` maps source code to a parse tree and indexes each part based on offset and length
-* an `analyzer` indexes a file as a ((Summary)), offering precomputed relations for looking up
-documentation, definitions, references, implementations and compiler errors and warnings.
-* a `builder` is similar to an `analyzer`, but it may perform computation-heavier additional checks.
-* a `outliner` maps a source file to a pretty hierarchy for visualization in the "outline" view
-* a `lenses` discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
-* an `inlayHinter` is like lenses but inbetween words
-* a `executor` executes the commands registered by `lenses` and `inlayHinters`
-* a `documenter` is a fast and location specific version of the `documentation` relation in a ((Summary)).
-* a `definer` is a fast and location specific version of the `definitions` relation in a ((Summary)).
-* a `referrer` is a fast and location specific version of the `references` relation in a ((Summary)).
-* an `implementer` is a fast and location specific version of the `implementations` relation in a ((Summary)).
+* ((parser)) maps source code to a parse tree and indexes each part based on offset and length
+* ((analyzer)) indexes a file as a ((Summary)), offering precomputed relations for looking up
+documentation, definitions, references, implementations and compiler errors and warnings. 
+   * ((analyzer))s focus on their own file, but may reuse cached or stored indices from other files.
+   * ((analyzer))s have to be quick since they run in an interactive editor setting.
+   * ((analyzer))s may store previous results (in memory) for incremental updates.
+   * ((analyzer))s are triggered during typing, in a short typing pause.
+* ((builder)) is similar to an `analyzer`, but it may perform computation-heavier additional checks.
+   * ((builder))s typically run whole-program analyses and compilation steps.
+   * ((builder))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
+   * ((builder))s are triggered on _save-file_ events; they _push_ information to an internal cache.
+* the following contributions are _on-demand_ (pull) versions of information also provided by the analyzer and builder summaries.
+   * a ((documenter)) is a fast and location specific version of the `documentation` relation in a ((Summary)).
+   * a ((definer)) is a fast and location specific version of the `definitions` relation in a ((Summary)).
+   * a ((referrer)) is a fast and location specific version of the `references` relation in a ((Summary)).
+   * an ((implementer)) is a fast and location specific version of the `implementations` relation in a ((Summary)).
+* ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
+* ((lenses)) discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
+* ((inlayHinter) is like lenses but inbetween words
+* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
 }
 data LanguageService
     = parser(Parser parser)
-    | analyzer(Summarizer summarizer // triggered on change, or if information is requested
+    | analyzer(Summarizer summarizer 
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | builder(Summarizer builder) // triggered only on save
+    | builder(Summarizer builder) 
     | outliner(Outliner outliner)
-// TODO | completer(Completer completer)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
@@ -131,12 +194,9 @@ data LanguageService
     | implementer(Implementer implementer)
     ;
 
-@deprecated{ use builder and analyzer}
-LanguageService summarizer(Summarizer summarizer
-        , bool providesDocumentation
-        , bool providesDefinitions
-        , bool providesReferences
-        , bool providesImplementations) {
+@deprecated{Please use ((builder)) or ((analyzer))}
+@synopsis{A summarizer collects information for later use in interactive IDE features.}
+LanguageService summarizer(Summarizer summarizer) {
     println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
     return builder(summarizer);
 }
