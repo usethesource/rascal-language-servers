@@ -45,7 +45,7 @@ set[LanguageService] picoLanguageContributor() = {
 set[LanguageService] picoLanguageContributorSlowSummary() = {
     parser(parser(#start[Program])),
     analyzer(picoSummarizer, providesImplementations = false),
-    builder(picoSummarizer, providesImplementations = false)
+    builder(picoSummarizer)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -68,7 +68,7 @@ Summary picoSummarizer(loc l, start[Program] input) {
     );
 }
 
-set[loc] lookupDef(loc l, start[Program] input, Tree cursor) =
+set[loc] lookupDef(loc _l, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
 
 
