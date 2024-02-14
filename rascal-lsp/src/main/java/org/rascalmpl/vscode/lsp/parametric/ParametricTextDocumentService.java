@@ -82,6 +82,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -98,7 +99,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge.SummaryCalculator;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -224,9 +224,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didChange(DidChangeTextDocumentParams params) {
         logger.trace("Change contents: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
-        invalidateFacts(params.getTextDocument());
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-        triggerSummary(params.getTextDocument(), contrib::analyze, Duration.ofMillis(1000));
+        invalidateFactsAnalyzer(params.getTextDocument());
+        triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(1000));
     }
 
     @Override
@@ -239,12 +238,22 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummary(TextDocumentIdentifier doc, SummaryCalculator calculator, Duration delay) {
-        facts(doc).calculate(Locations.toLoc(doc), calculator, delay);
+    private void triggerSummaryAnalyzer(TextDocumentIdentifier doc, Duration delay) {
+        var version = getFile(doc).getCurrentVersion();
+        facts(doc).calculateAnalyzer(Locations.toLoc(doc), version, delay);
     }
 
-    private void invalidateFacts(TextDocumentIdentifier doc) {
-        facts(doc).invalidate(Locations.toLoc(doc));
+    private void triggerSummaryBuilder(TextDocumentIdentifier doc, Duration delay) {
+        var version = getFile(doc).getCurrentVersion();
+        facts(doc).calculateBuilder(Locations.toLoc(doc), version, delay);
+    }
+
+    private void invalidateFactsAnalyzer(TextDocumentIdentifier doc) {
+        facts(doc).invalidateAnalyzer(Locations.toLoc(doc));
+    }
+
+    private void invalidateFactsBuilder(TextDocumentIdentifier doc) {
+        facts(doc).invalidateBuilder(Locations.toLoc(doc));
     }
 
     @Override
@@ -252,14 +261,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the type checker on save (if a builder exists)
-        ILanguageContributions contrib = contributions(params.getTextDocument());
-        triggerSummary(params.getTextDocument(), contrib::build, Duration.ZERO);
+        invalidateFactsBuilder(params.getTextDocument());
+        triggerSummaryBuilder(params.getTextDocument(), Duration.ZERO);
     }
 
-    private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(newContents));
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
         return file;
     }
 
@@ -286,7 +295,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(),
+            facts(file.getLocation()).reportParseErrors(file.getLocation(), file.getCurrentVersion(),
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
@@ -424,7 +433,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
         );
     }
 
@@ -486,7 +495,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
-        return facts(doc).getSummary(Locations.toLoc(doc));
+        return facts(doc).getSummaryAnalyzer(Locations.toLoc(doc));
     }
 
     @Override
