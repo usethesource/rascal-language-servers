@@ -225,7 +225,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.trace("Change contents: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
         invalidateFactsAnalyzer(params.getTextDocument());
-        triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(1000));
+        triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
