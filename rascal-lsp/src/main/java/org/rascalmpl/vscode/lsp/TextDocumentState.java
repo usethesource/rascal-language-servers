@@ -35,32 +35,35 @@ import org.rascalmpl.values.parsetrees.ITree;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
- * TextDocumentState encapsulates the current contents of every open file editor, 
+ * TextDocumentState encapsulates the current contents of every open file editor,
  * and the corresponding latest parse tree that belongs to it.
  * It is parametrized by the parser that must be used to map the string
- * contents to a tree. All other TextDocumentServices depend on this information. 
- * 
+ * contents to a tree. All other TextDocumentServices depend on this information.
+ *
  * Objects of this class are used by the implementations of RascalTextDocumentService
- * and ParametricTextDocumentService. 
+ * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
+    private volatile int currentVersion;
     private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile @MonotonicNonNull ITree lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<ITree> currentTree;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, String content) {
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int version, String content) {
         this.parser = parser;
         this.file = file;
+        this.currentVersion = version;
         this.currentContent = content;
         currentTree = newContents(content);
     }
 
-    public CompletableFuture<ITree> update(String text) {
+    public CompletableFuture<ITree> update(int version, String text) {
+        currentVersion = version;
         currentContent = text;
         currentTree = newContents(text);
         return currentTree;
@@ -69,10 +72,10 @@ public class TextDocumentState {
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
     private CompletableFuture<ITree> newContents(String contents) {
         return parser.apply(file, contents)
-            .whenComplete((r, t) -> { 
-                if (r != null) { 
-                    lastFullTree = r; 
-                } 
+            .whenComplete((r, t) -> {
+                if (r != null) {
+                    lastFullTree = r;
+                }
             });
     }
 
@@ -86,6 +89,10 @@ public class TextDocumentState {
 
     public ISourceLocation getLocation() {
         return file;
+    }
+
+    public int getCurrentVersion() {
+        return currentVersion;
     }
 
     public String getCurrentContent() {

@@ -72,6 +72,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -197,10 +198,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
-    private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
         TextDocumentState file = getFile(doc);
+        var newVersion = doc.getVersion();
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(newContents));
+        handleParsingErrors(file, file.update(newVersion, newContents));
         return file;
     }
 
@@ -299,7 +301,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getText()));
+            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText()));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
