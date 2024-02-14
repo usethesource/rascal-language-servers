@@ -75,6 +75,7 @@ public class ParametricSummaryBridge {
     private final ILanguageContributions contrib;
     private final Function<ISourceLocation, TextDocumentState> lookupState;
     private final ISourceLocation file;
+    private final SummaryCalculator calculator;
 
     private final ReplaceableFuture<Lazy<List<Diagnostic>>> messages;
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> definitions;
@@ -83,12 +84,13 @@ public class ParametricSummaryBridge {
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Either<String, MarkedString>>>> hovers;
 
     public ParametricSummaryBridge(Executor exec, ISourceLocation file, ColumnMaps columns,
-        ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState) {
+        ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState, SummaryCalculator calculator) {
         this.exec = exec;
         this.file = file;
         this.columns = columns;
         this.contrib = contrib;
         this.lookupState = lookupState;
+        this.calculator = calculator;
         messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
         reloadContributions();
     }
@@ -354,7 +356,7 @@ public class ParametricSummaryBridge {
         return implementations.thenCompose(d -> d.lookup(cursor).get());
     }
 
-    public void calculateSummary(SummaryCalculator calculator) {
+    public void calculateSummary() {
         calculateSummary(false, calculator);
     }
 
