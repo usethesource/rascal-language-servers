@@ -89,8 +89,6 @@ alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 @synopsis{Function profile for outliner contributions to a language server}
 alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
 
-//alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
-
 @synopsis{Function profile for lenses contributions to a language server}
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
 
@@ -172,8 +170,8 @@ documentation, definitions, references, implementations and compiler errors and 
    * a ((referrer)) is a fast and location specific version of the `references` relation in a ((Summary)).
    * an ((implementer)) is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
-* ((lenses)) discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
-* ((inlayHinter) is like lenses but inbetween words
+* ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
+* ((inlayHinter) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
 }
 data LanguageService
@@ -202,12 +200,20 @@ LanguageService summarizer(Summarizer summarizer) {
 }
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
+@description{
+* `src` refers to the "compilation unit" or "file" that this model is for.
+* `messages` collects all the errors, warnings and error messages.
+* `documentation` maps uses of concepts to a documentation message that can be shown as a hover.
+* `definition` maps use locations to declaration locations to implement "jump-to-definition".
+* `references` maps declaration locations to use locations to implement "jump-to-references".
+* `implementations` maps the declaration of a type/class to its implementations "jump-to-implementations".
+}
 data Summary = summary(loc src,
     rel[loc, Message] messages = {},
-    rel[loc, str]     documentation = {},   // documentation for each location
-    rel[loc, loc]     definitions = {},     // links to the definitions of names
-    rel[loc, loc]     references = {},      // links to the uses of definitions
-    rel[loc, loc]     implementations = {}  // links to the implementations of declarations
+    rel[loc, str]     documentation = {},   
+    rel[loc, loc]     definitions = {},    
+    rel[loc, loc]     references = {},     
+    rel[loc, loc]     implementations = {} 
 );
 
 data Completion = completion(str newText, str proposal=newText);
@@ -262,16 +268,25 @@ data Command(str title="")
     = noop()
     ;
 
+@synopsis{Represents one inlayHint for display in an editor}
+@description{
+* `position` where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
+* `label` text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
+* `kind` his either `type()` or `parameter()` which influences styling in the editor.
+* `toolTip` optionally show extra information when hovering over the inlayhint.
+* `atEnd` instead of appearing at the beginning of the position, appear at the end.
+}
 data InlayHint
     = hint(
-        loc position, // where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
-        str label, // text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
+        loc position, 
+        str label, 
         InlayKind kind,
-        str toolTip = "", // optionally show extra information when hovering over the inlayhint
-        bool atEnd = false // instead of appearing at the beginning of the position, appear at the end
+        str toolTip = "", 
+        bool atEnd = false 
     );
 
-data InlayKind // this determines style
+@synopsis{Style of an inlay}
+data InlayKind 
     = \type()
     | parameter()
     ;
