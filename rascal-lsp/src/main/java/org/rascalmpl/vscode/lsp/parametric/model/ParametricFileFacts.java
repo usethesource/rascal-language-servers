@@ -30,14 +30,19 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
+
+import javax.swing.text.html.Option;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -194,8 +199,8 @@ public class ParametricFileFacts {
         private final ParametricSummaryBridge summaryAnalyzer;
         private final ParametricSummaryBridge summaryBuilder;
 
-        private final AtomicInteger lastVersionCalculateAnalyzer = new AtomicInteger();
-        private final AtomicInteger lastVersionCalculateBuilder = new AtomicInteger();
+        private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
+        private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -208,11 +213,14 @@ public class ParametricFileFacts {
             summaryBuilder.reloadContributions();
         }
 
-        private void reportMessages(AtomicReference<VersionedDiagnosticsWithTree> box,
+        private VersionedDiagnosticsWithTree reportMessages(AtomicReference<VersionedDiagnosticsWithTree> box,
                 int version, List<Diagnostic> messages, ITree tree) {
-            if (VersionedDiagnosticsWithTree.setIfNewer(box, new VersionedDiagnosticsWithTree(version, messages, tree))) {
+
+            var newer = new VersionedDiagnosticsWithTree(version, messages, tree);
+            if (VersionedDiagnosticsWithTree.setIfNewer(box, newer)) {
                 sendDiagnostics();
             }
+            return newer;
         }
 
         private void invalidate(ParametricSummaryBridge summary, boolean isClosing) {
@@ -230,60 +238,82 @@ public class ParametricFileFacts {
         /**
          * @param version the version of the file for which summary calculation
          * is currently requested
-         * @param lastVersion the last version of the file for which summary
+         * @param latestVersion the last version of the file for which summary
          * calculation was previously requested
          * @param delay the duration after which the current request for summary
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
          */
-        private void calculate(int version, AtomicInteger lastVersion, Duration delay, Runnable calculation) {
+        private CompletableFuture<Void> calculate(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
 
             // If no new call to `calculate` has been made after `delay` has
             // passed (i.e., `lastVersion` hasn't changed in the meantime), then
             // run the calculation. Else, ignore and leave the calculation to
             // the new call. Assumption: `calculate` is called at most once for
             // each (`version`, `lastVersion`) pair.
-            lastVersion.set(version);
-            exec.schedule(() -> {
-                if (lastVersion.get() == version) {
+            latestVersion.set(version);
+            var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
+            return CompletableFuture.runAsync(() -> {
+                if (latestVersion.get() == version) {
                     calculation.run();
                 }
-            }, delay.toMillis(), TimeUnit.MILLISECONDS);
+            }, delayed);
         }
 
+        private volatile CompletableFuture<Void> calculateAnalyzerLatest;
+
         public void calculateAnalyzer(int version, Duration delay) {
-            calculate(version, lastVersionCalculateAnalyzer, delay, () -> {
+
+            calculateAnalyzerLatest = calculate(version, latestVersionCalculateAnalyzer, delay, () -> {
                 // TODO: Get the actual version used by `calculateSummary`
-                // (which may be different from the `version` argument of this
+                // (which may be *greater* than the `version` argument of this
                 // function). Note: `calculateBuilder` has the same issue.
                 var tree = summaryAnalyzer.calculateSummary();
                 var messages = summaryAnalyzer.getMessages();
-                tree.thenAcceptBoth(messages, (t, ms) -> reportMessages(messagesAnalyzer, version, ms, t));
+
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+
+                tree.thenCombine(messages, (t, ms) ->
+                    reportMessages(messagesAnalyzer, version, ms, t));
             });
         }
 
         public void calculateBuilder(int version, Duration delay) {
-            calculate(version, lastVersionCalculateBuilder, delay, () -> {
-                var latest = messagesAnalyzer.get();
-                // Using `latest`, the builder can now use exactly the same AST
-                // as the latest analyzer. In this way, a reliable diff of the
-                // latest analyzer messages and the current builder messages can
-                // be computed.
-                summaryBuilder.calculateSummary(CompletableFuture.completedFuture(latest.tree));
-                summaryBuilder.getMessages().thenAccept(builderMessages -> {
+            if (calculateAnalyzerLatest != null) {
+                calculateAnalyzerLatest.thenRun(() -> {
 
-                    // Diffing: Subtract the latest analyser messages from the
-                    // current builder messages to be able to show future
-                    // analyser messages without losing the current builder
-                    // messages. The general assumption here is that analyser
-                    // messages are always a subset of builder messages (for the
-                    // same AST). However, even if this isn't true, computing
-                    // the diff makes sense to avoid duplicate messages.
-                    builderMessages.removeAll(latest.messages);
-                    reportMessages(messagesBuilder, version, builderMessages, latest.tree);
+                    calculate(version, latestVersionCalculateBuilder, delay, () -> {
+                        var latest = messagesAnalyzer.get();
+                        // Using `latest`, the builder can now use exactly the
+                        // same AST as the latest analyzer. In this way, a
+                        // reliable diff of the latest analyzer messages and the
+                        // current builder messages can be computed. Note: The
+                        // version of `latest` is equal to, or higher than,
+                        // `version`.
+                        summaryBuilder.calculateSummary(CompletableFuture.completedFuture(latest.tree));
+                        summaryBuilder.getMessages().thenAccept(builderMessages -> {
+
+                            // Diffing: Subtract the latest analyser messages from the
+                            // current builder messages to be able to show future
+                            // analyser messages without losing the current builder
+                            // messages. The general assumption here is that analyser
+                            // messages are always a subset of builder messages (for the
+                            // same AST). However, even if this isn't true, computing
+                            // the diff makes sense to avoid duplicate messages.
+                            builderMessages.removeAll(latest.messages);
+                            reportMessages(messagesBuilder, version, builderMessages, latest.tree);
+                        });
+                    });
                 });
-            });
+            } else {
+                // TODO
+            }
         }
 
         public ParametricSummaryBridge getSummaryAnalyzer() {
