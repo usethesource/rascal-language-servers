@@ -222,15 +222,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        logger.trace("Change contents: {}", params.getTextDocument());
+        logger.debug("Did Change file: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
         invalidateFactsAnalyzer(params.getTextDocument());
+        logger.trace("Triggering analyzer...");
         triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        logger.debug("Did Close: {}", params.getTextDocument());
+        logger.debug("Did Close file: {}", params.getTextDocument());
         if (files.remove(Locations.toLoc(params.getTextDocument())) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
@@ -258,10 +259,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        logger.debug("Save: {}", params.getTextDocument());
+        logger.debug("Did Save file: {}", params.getTextDocument());
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the type checker on save (if a builder exists)
         invalidateFactsBuilder(params.getTextDocument());
+        logger.trace("Triggering builder...");
         triggerSummaryBuilder(params.getTextDocument(), Duration.ZERO);
     }
 
@@ -296,7 +298,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
             facts(file.getLocation()).reportParseErrors(file.getLocation(), file.getCurrentVersion(),
-                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
+                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError), tree);
             return null;
         });
     }

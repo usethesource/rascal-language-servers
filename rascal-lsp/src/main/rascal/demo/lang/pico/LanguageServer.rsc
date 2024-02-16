@@ -72,9 +72,11 @@ Summary picoBuilder(loc l, start[Program] input) {
     println("Running builder for pico!");
     rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+    rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
 
     return summary(l,
-        messages = {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>}
+        messages = {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>}
+                 + {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>}
     );
 }
 

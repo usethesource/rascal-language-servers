@@ -28,10 +28,11 @@ package org.rascalmpl.vscode.lsp.parametric.model;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,6 +45,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -71,8 +73,8 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file, int version, List<Diagnostic> msgs) {
-        getFile(file).reportParseErrors(version, msgs);
+    public void reportParseErrors(ISourceLocation file, int version, List<Diagnostic> msgs, ITree tree) {
+        getFile(file).reportParseErrors(version, msgs, tree);
     }
 
     private FileFact getFile(ISourceLocation l) {
@@ -135,31 +137,45 @@ public class ParametricFileFacts {
         public final int version;
         public final List<Diagnostic> messages;
 
-        public static final VersionedDiagnostics INITIAL = new VersionedDiagnostics(0, Collections.emptyList());
-
         public VersionedDiagnostics(int version, List<Diagnostic> messages) {
             this.version = version;
             this.messages = messages;
-        }
-
-        public static boolean setIfNewer(AtomicReference<VersionedDiagnostics> box, VersionedDiagnostics maybeNewer) {
-            var isSet = false;
-            var retry = true;
-            while (retry) {
-                var old = box.get();
-                retry = old.version < maybeNewer.version && !(isSet = box.compareAndSet(old, maybeNewer));
-            }
-            return isSet;
         }
 
         public static VersionedDiagnostics union(VersionedDiagnostics... list) {
             var version = 0;
             var messages = new ArrayList<Diagnostic>();
             for (var versionedMessages : list) {
-                version = Math.max(version, versionedMessages.version);
-                messages.addAll(versionedMessages.messages);
+                if (versionedMessages != null) {
+                    version = Math.max(version, versionedMessages.version);
+                    messages.addAll(versionedMessages.messages);
+                }
             }
             return new VersionedDiagnostics(version, messages);
+        }
+    }
+
+    private static class VersionedDiagnosticsWithTree extends VersionedDiagnostics {
+        public final ITree tree;
+
+        public VersionedDiagnosticsWithTree(int version, List<Diagnostic> messages, ITree tree) {
+            super(version, messages);
+            this.tree = tree;
+        }
+
+        public static boolean setIfNewer(AtomicReference<VersionedDiagnosticsWithTree> box, VersionedDiagnosticsWithTree maybeNewer) {
+            var isSet = false;
+            var retry = true;
+            while (retry) {
+                var old = box.get();
+                if (old == null || old.version < maybeNewer.version) {
+                    isSet = box.compareAndSet(old, maybeNewer);
+                    retry = !isSet;
+                } else {
+                    retry = false;
+                }
+            }
+            return isSet;
         }
     }
 
@@ -171,9 +187,9 @@ public class ParametricFileFacts {
         // the new version is greater than the old version; (2) if so, replace
         // the old pair with the new pair. This is why `AtomicReference` and
         // `VersionedDiagnostics` are needed here.
-        private final AtomicReference<VersionedDiagnostics> messagesParser = new AtomicReference<>(VersionedDiagnostics.INITIAL);
-        private final AtomicReference<VersionedDiagnostics> messagesAnalyzer = new AtomicReference<>(VersionedDiagnostics.INITIAL);
-        private final AtomicReference<VersionedDiagnostics> messagesBuilder = new AtomicReference<>(VersionedDiagnostics.INITIAL);
+        private final AtomicReference<VersionedDiagnosticsWithTree> messagesParser = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnosticsWithTree> messagesAnalyzer = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnosticsWithTree> messagesBuilder = new AtomicReference<>();
 
         private final ParametricSummaryBridge summaryAnalyzer;
         private final ParametricSummaryBridge summaryBuilder;
@@ -192,8 +208,9 @@ public class ParametricFileFacts {
             summaryBuilder.reloadContributions();
         }
 
-        private void reportMessages(AtomicReference<VersionedDiagnostics> box, int version, List<Diagnostic> messages) {
-            if (VersionedDiagnostics.setIfNewer(box, new VersionedDiagnostics(version, messages))) {
+        private void reportMessages(AtomicReference<VersionedDiagnosticsWithTree> box,
+                int version, List<Diagnostic> messages, ITree tree) {
+            if (VersionedDiagnosticsWithTree.setIfNewer(box, new VersionedDiagnosticsWithTree(version, messages, tree))) {
                 sendDiagnostics();
             }
         }
@@ -218,11 +235,9 @@ public class ParametricFileFacts {
          * @param delay the duration after which the current request for summary
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
-         * @param summary the summary to calculate
-         * @param box a reference to store diagnostics after summary calculation
+         * @param calculation the actual summary calculation
          */
-        private void calculate(int version, AtomicInteger lastVersion, Duration delay,
-                ParametricSummaryBridge summary, AtomicReference<VersionedDiagnostics> box) {
+        private void calculate(int version, AtomicInteger lastVersion, Duration delay, Runnable calculation) {
 
             // If no new call to `calculate` has been made after `delay` has
             // passed (i.e., `lastVersion` hasn't changed in the meantime), then
@@ -232,19 +247,43 @@ public class ParametricFileFacts {
             lastVersion.set(version);
             exec.schedule(() -> {
                 if (lastVersion.get() == version) {
-                    summary.calculateSummary();
-                    summary.getMessages().thenAccept(messages ->
-                        reportMessages(box, version, messages));
+                    calculation.run();
                 }
             }, delay.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         public void calculateAnalyzer(int version, Duration delay) {
-            calculate(version, lastVersionCalculateAnalyzer, delay, summaryAnalyzer, messagesAnalyzer);
+            calculate(version, lastVersionCalculateAnalyzer, delay, () -> {
+                // TODO: Get the actual version used by `calculateSummary`
+                // (which may be different from the `version` argument of this
+                // function). Note: `calculateBuilder` has the same issue.
+                var tree = summaryAnalyzer.calculateSummary();
+                var messages = summaryAnalyzer.getMessages();
+                tree.thenAcceptBoth(messages, (t, ms) -> reportMessages(messagesAnalyzer, version, ms, t));
+            });
         }
 
         public void calculateBuilder(int version, Duration delay) {
-            calculate(version, lastVersionCalculateBuilder, delay, summaryBuilder, messagesBuilder);
+            calculate(version, lastVersionCalculateBuilder, delay, () -> {
+                var latest = messagesAnalyzer.get();
+                // Using `latest`, the builder can now use exactly the same AST
+                // as the latest analyzer. In this way, a reliable diff of the
+                // latest analyzer messages and the current builder messages can
+                // be computed.
+                summaryBuilder.calculateSummary(CompletableFuture.completedFuture(latest.tree));
+                summaryBuilder.getMessages().thenAccept(builderMessages -> {
+
+                    // Diffing: Subtract the latest analyser messages from the
+                    // current builder messages to be able to show future
+                    // analyser messages without losing the current builder
+                    // messages. The general assumption here is that analyser
+                    // messages are always a subset of builder messages (for the
+                    // same AST). However, even if this isn't true, computing
+                    // the diff makes sense to avoid duplicate messages.
+                    builderMessages.removeAll(latest.messages);
+                    reportMessages(messagesBuilder, version, builderMessages, latest.tree);
+                });
+            });
         }
 
         public ParametricSummaryBridge getSummaryAnalyzer() {
@@ -255,8 +294,8 @@ public class ParametricFileFacts {
             return summaryBuilder;
         }
 
-        public void reportParseErrors(int version, List<Diagnostic> messages) {
-            reportMessages(messagesParser, version, messages);
+        public void reportParseErrors(int version, List<Diagnostic> messages, ITree tree) {
+            reportMessages(messagesParser, version, messages, tree);
         }
 
         private void sendDiagnostics() {

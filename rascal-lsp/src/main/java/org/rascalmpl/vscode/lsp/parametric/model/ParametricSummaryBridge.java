@@ -356,14 +356,28 @@ public class ParametricSummaryBridge {
         return implementations.thenCompose(d -> d.lookup(cursor).get());
     }
 
-    public void calculateSummary() {
-        calculateSummary(false, calculator);
+    /**
+     * @return the AST for which the summary was calculated
+     */
+    public CompletableFuture<ITree> calculateSummary() {
+        return calculateSummary(false, calculator);
     }
 
-    private void calculateSummary(boolean internal, SummaryCalculator calculator) {
+    /**
+     * @param tree the AST for which the summary is calculated
+     */
+    public void calculateSummary(CompletableFuture<ITree> tree) {
+        calculateSummary(false, calculator, tree);
+    }
+
+    private CompletableFuture<ITree> calculateSummary(boolean internal, SummaryCalculator calculator) {
+        var tree = lookupState.apply(file).getCurrentTreeAsync();
+        return calculateSummary(internal, calculator, tree);
+    }
+
+    private CompletableFuture<ITree> calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<ITree> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
-        var summary = InterruptibleFuture.flatten(lookupState.apply(file)
-            .getCurrentTreeAsync()
+        var summary = InterruptibleFuture.flatten(tree
             .thenApplyAsync(t -> calculator.calc(file, t), exec)
             , exec);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
@@ -379,6 +393,7 @@ public class ParametricSummaryBridge {
             }
             return Collections.emptyList();
         })));
+        return tree;
     }
 
     public CompletableFuture<List<Either<String, MarkedString>>> getHover(Position cursor) {
