@@ -134,6 +134,12 @@ public class ParametricFileFacts {
         }
     }
 
+    /**
+     * This class keeps together diagnostics messages and the versioned AST for
+     * which the diagnostics were computed. This is needed to ensure that
+     * builder diagnostics are calculated for the same AST as
+     * supposedly-corresponding analyzer diagnostics.
+     */
     private static class VersionedDiagnostics {
         public final VersionedTree tree;
         public final List<Diagnostic> messages;
@@ -235,7 +241,10 @@ public class ParametricFileFacts {
          * @return a future that provides optional diagnostics that result from
          * the summary calculation
          */
-        private CompletableFuture<Optional<VersionedDiagnostics>> calculate(int version, AtomicInteger latestVersion, Duration delay, Supplier<CompletableFuture<Optional<VersionedDiagnostics>>> calculation) {
+        private CompletableFuture<Optional<VersionedDiagnostics>> calculate(
+                int version, AtomicInteger latestVersion, Duration delay,
+                Supplier<CompletableFuture<Optional<VersionedDiagnostics>>> calculation) {
+
             latestVersion.set(version);
             var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
             return CompletableFuture.supplyAsync(() -> {
