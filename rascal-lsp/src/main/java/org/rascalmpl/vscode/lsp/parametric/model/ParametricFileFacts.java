@@ -33,16 +33,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import javax.swing.text.html.Option;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,7 +55,7 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
-    private final ScheduledExecutorService exec;
+    private final Executor exec;
     private volatile @MonotonicNonNull LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ILanguageContributions contrib;
@@ -67,7 +63,7 @@ public class ParametricFileFacts {
     private final ColumnMaps columns;
 
     public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
-        ColumnMaps columns, ScheduledExecutorService exec) {
+        ColumnMaps columns, Executor exec) {
         this.contrib = contrib;
         this.lookupState = lookupState;
         this.columns = columns;
@@ -192,15 +188,18 @@ public class ParametricFileFacts {
         // the new version is greater than the old version; (2) if so, replace
         // the old pair with the new pair. This is why `AtomicReference` and
         // `VersionedDiagnostics` are needed here.
-        private final AtomicReference<VersionedDiagnosticsWithTree> messagesParser = new AtomicReference<>();
-        private final AtomicReference<VersionedDiagnosticsWithTree> messagesAnalyzer = new AtomicReference<>();
-        private final AtomicReference<VersionedDiagnosticsWithTree> messagesBuilder = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnosticsWithTree> diagnosticsParser = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnosticsWithTree> diagnosticsAnalyzer = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnosticsWithTree> diagnosticsBuilder = new AtomicReference<>();
 
         private final ParametricSummaryBridge summaryAnalyzer;
         private final ParametricSummaryBridge summaryBuilder;
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
         private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
+
+        @SuppressWarnings("java:S3077")
+        private volatile @MonotonicNonNull CompletableFuture<Optional<VersionedDiagnosticsWithTree>> calculateAnalyzerLatestResult;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -213,7 +212,7 @@ public class ParametricFileFacts {
             summaryBuilder.reloadContributions();
         }
 
-        private VersionedDiagnosticsWithTree reportMessages(AtomicReference<VersionedDiagnosticsWithTree> box,
+        private VersionedDiagnosticsWithTree reportDiagnostics(AtomicReference<VersionedDiagnosticsWithTree> box,
                 int version, List<Diagnostic> messages, ITree tree) {
 
             var newer = new VersionedDiagnosticsWithTree(version, messages, tree);
@@ -244,75 +243,103 @@ public class ParametricFileFacts {
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
+         * @return a future that provides optional diagnostics that result from
+         * the summary calculation
          */
-        private CompletableFuture<Void> calculate(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
-
-            // If no new call to `calculate` has been made after `delay` has
-            // passed (i.e., `lastVersion` hasn't changed in the meantime), then
-            // run the calculation. Else, ignore and leave the calculation to
-            // the new call. Assumption: `calculate` is called at most once for
-            // each (`version`, `lastVersion`) pair.
+        private CompletableFuture<Optional<VersionedDiagnosticsWithTree>> calculate(int version, AtomicInteger latestVersion, Duration delay, Supplier<CompletableFuture<Optional<VersionedDiagnosticsWithTree>>> calculation) {
             latestVersion.set(version);
             var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-            return CompletableFuture.runAsync(() -> {
+            return CompletableFuture.supplyAsync(() -> {
+                // If no new call to `calculate` has been made after `delay` has
+                // passed (i.e., `lastVersion` hasn't changed in the meantime),
+                // then run the calculation. Else, abandon this calculation.
                 if (latestVersion.get() == version) {
-                    calculation.run();
+                    return calculation.get();
+                } else {
+                    return CompletableFuture.completedFuture(Optional.<VersionedDiagnosticsWithTree>empty());
                 }
-            }, delayed);
+            }, delayed).thenCompose(Function.identity());
         }
 
-        private volatile CompletableFuture<Void> calculateAnalyzerLatest;
-
         public void calculateAnalyzer(int version, Duration delay) {
-
-            calculateAnalyzerLatest = calculate(version, latestVersionCalculateAnalyzer, delay, () -> {
-                // TODO: Get the actual version used by `calculateSummary`
-                // (which may be *greater* than the `version` argument of this
-                // function). Note: `calculateBuilder` has the same issue.
-                var tree = summaryAnalyzer.calculateSummary();
-                var messages = summaryAnalyzer.getMessages();
-
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-
-                tree.thenCombine(messages, (t, ms) ->
-                    reportMessages(messagesAnalyzer, version, ms, t));
+            calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () -> {
+                var analysis = summaryAnalyzer.calculateSummary();
+                var analysisTree = analysis.input;
+                var analysisMessages = analysis.output.get().thenApply(Supplier::get);
+                return analysisTree.thenCombine(analysisMessages, (t, ms) -> {
+                    if (analysis.calculation.isInterrupted()) {
+                        return Optional.<VersionedDiagnosticsWithTree>empty();
+                    } else {
+                        // TODO: Get the actual version of the file as used by
+                        // `calculateSummary` (which may be *greater* than the
+                        // `version` argument of this function). Currently, this
+                        // can't be done yet in a thread-safe way (due to
+                        // unsynchronized concurrent reads/writes to
+                        // `TextDocumentState`). Note: `calculateBuilder` has
+                        // the same issue.
+                        return Optional.of(reportDiagnostics(diagnosticsAnalyzer, version, ms, t));
+                    }
+                });
             });
         }
 
+        /**
+         * The main challenge when running the builder is that it might produce
+         * a subset of the same diagnostics as the analyzer. Thus, to avoid
+         * showing the same diagnostics twice, a diff needs to be computed of
+         * the latest analyzer diagnostics and the current builder diagnostics.
+         * To do this in a reliable way, each builder calculation awaits the
+         * completion of the latest analyzer calculation, such that:
+         *   - the builder can use exactly the same AST as the analyzer;
+         *   - the builder has access to the diagnostics of the analyzer.
+         */
         public void calculateBuilder(int version, Duration delay) {
-            if (calculateAnalyzerLatest != null) {
-                calculateAnalyzerLatest.thenRun(() -> {
 
-                    calculate(version, latestVersionCalculateBuilder, delay, () -> {
-                        var latest = messagesAnalyzer.get();
-                        // Using `latest`, the builder can now use exactly the
-                        // same AST as the latest analyzer. In this way, a
-                        // reliable diff of the latest analyzer messages and the
-                        // current builder messages can be computed. Note: The
-                        // version of `latest` is equal to, or higher than,
-                        // `version`.
-                        summaryBuilder.calculateSummary(CompletableFuture.completedFuture(latest.tree));
-                        summaryBuilder.getMessages().thenAccept(builderMessages -> {
+            // If an analyzer calculation hasn't been scheduled yet (ever), then
+            // it needs to be scheduled first.
+            if (calculateAnalyzerLatestResult == null) {
+                calculateAnalyzer(version, Duration.ZERO);
+                calculateBuilder(version, delay);
+            }
 
-                            // Diffing: Subtract the latest analyser messages from the
-                            // current builder messages to be able to show future
-                            // analyser messages without losing the current builder
-                            // messages. The general assumption here is that analyser
-                            // messages are always a subset of builder messages (for the
-                            // same AST). However, even if this isn't true, computing
-                            // the diff makes sense to avoid duplicate messages.
-                            builderMessages.removeAll(latest.messages);
-                            reportMessages(messagesBuilder, version, builderMessages, latest.tree);
+            // If an analyzer calculation has been scheduled before, then the
+            // builder can await its completion.
+            else {
+                calculateAnalyzerLatestResult.thenAccept(result -> {
+
+                    // If the analyzer calculation wasn't abandoned (due to
+                    // debouncing) or interrupted, then diagnostics of the
+                    // analyzer are available, so proceed.
+                    if (result.isPresent()) {
+                        var analysis = result.get();
+                        calculate(version, latestVersionCalculateBuilder, delay, () -> {
+
+                            // Use exactly the same AST as in the analyzer
+                            // calculation. In this way, a reliable diff of the
+                            // latest analyzer diagnostics and the current
+                            // builder diagnostics can be computed (by removing
+                            // the former from the latter).
+                            var build = summaryBuilder.calculateSummary(CompletableFuture.completedFuture(analysis.tree));
+                            var buildTree = build.input;
+                            var buildMessages = build.output.get().thenApply(Supplier::get);
+                            return buildTree.thenCombine(buildMessages, (t, ms) -> {
+                                if (build.calculation.isInterrupted()) {
+                                    return Optional.<VersionedDiagnosticsWithTree>empty();
+                                } else {
+                                    ms.removeAll(analysis.messages);
+                                    return Optional.of(reportDiagnostics(diagnosticsBuilder, version, ms, t));
+                                }
+                            });
                         });
-                    });
+                    }
+
+                    // If the analyzer was abandoned (due to debouncing) or
+                    // interrupted, then diagnostics of the analyzer aren't
+                    // available, so retry from the start.
+                    else {
+                        calculateBuilder(version, delay);
+                    }
                 });
-            } else {
-                // TODO
             }
         }
 
@@ -325,7 +352,7 @@ public class ParametricFileFacts {
         }
 
         public void reportParseErrors(int version, List<Diagnostic> messages, ITree tree) {
-            reportMessages(messagesParser, version, messages, tree);
+            reportDiagnostics(diagnosticsParser, version, messages, tree);
         }
 
         private void sendDiagnostics() {
@@ -333,7 +360,7 @@ public class ParametricFileFacts {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
             }
-            var diagnostics = VersionedDiagnostics.union(messagesParser.get(), messagesAnalyzer.get(), messagesBuilder.get());
+            var diagnostics = VersionedDiagnostics.union(diagnosticsParser.get(), diagnosticsAnalyzer.get(), diagnosticsBuilder.get());
             logger.trace("Sending diagnostics for {}. {} messages", file, diagnostics.messages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),

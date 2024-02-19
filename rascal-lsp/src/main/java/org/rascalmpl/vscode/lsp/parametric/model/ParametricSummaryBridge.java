@@ -356,35 +356,44 @@ public class ParametricSummaryBridge {
         return implementations.thenCompose(d -> d.lookup(cursor).get());
     }
 
-    /**
-     * @return the AST for which the summary was calculated
-     */
-    public CompletableFuture<ITree> calculateSummary() {
+
+    public class SummaryCalculation {
+        public final CompletableFuture<ITree> input;
+        public final InterruptibleFuture<IConstructor> calculation;
+        public final InterruptibleFuture<Lazy<List<Diagnostic>>> output;
+
+        public SummaryCalculation(CompletableFuture<ITree> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
+            this.input = input;
+            this.calculation = calculation;
+            this.output = output;
+        }
+    }
+
+    public SummaryCalculation calculateSummary() {
         return calculateSummary(false, calculator);
     }
 
-    /**
-     * @param tree the AST for which the summary is calculated
-     */
-    public void calculateSummary(CompletableFuture<ITree> tree) {
-        calculateSummary(false, calculator, tree);
+    public SummaryCalculation calculateSummary(CompletableFuture<ITree> tree) {
+        return calculateSummary(false, calculator, tree);
     }
 
-    private CompletableFuture<ITree> calculateSummary(boolean internal, SummaryCalculator calculator) {
+    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator) {
         var tree = lookupState.apply(file).getCurrentTreeAsync();
         return calculateSummary(internal, calculator, tree);
     }
 
-    private CompletableFuture<ITree> calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<ITree> tree) {
+    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<ITree> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
-        var summary = InterruptibleFuture.flatten(tree
+
+        InterruptibleFuture<IConstructor> summary = InterruptibleFuture.flatten(tree
             .thenApplyAsync(t -> calculator.calc(file, t), exec)
             , exec);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
         references.thenAccept(d -> d.newSummary(summary, internal));
         implementations.thenAccept(d -> d.newSummary(summary, internal));
         hovers.thenAccept(d -> d.newSummary(summary, internal));
-        messages.replace(summary.thenApply(s -> Lazy.defer(() -> {
+
+        InterruptibleFuture<Lazy<List<Diagnostic>>> lazyMessages = summary.thenApply(s -> Lazy.defer(() -> {
             var sum = s.asWithKeywordParameters();
             if (sum.hasParameter("messages")) {
                 return ((ISet)sum.getParameter("messages")).stream()
@@ -392,8 +401,10 @@ public class ParametricSummaryBridge {
                     .collect(Collectors.toList());
             }
             return Collections.emptyList();
-        })));
-        return tree;
+        }));
+        messages.replace(lazyMessages);
+
+        return new SummaryCalculation(tree, summary, lazyMessages);
     }
 
     public CompletableFuture<List<Either<String, MarkedString>>> getHover(Position cursor) {

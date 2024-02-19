@@ -36,6 +36,7 @@ public class InterruptibleFuture<T> {
 
     private final CompletableFuture<T> future;
     private final Runnable interrupt;
+    private volatile boolean interrupted = false;
 
     public InterruptibleFuture(CompletableFuture<T> future, Runnable interrupt) {
         this.future = future;
@@ -48,8 +49,13 @@ public class InterruptibleFuture<T> {
 
     public void interrupt() {
         if (!future.isDone()) {
+            interrupted = true;
             interrupt.run();
         }
+    }
+
+    public boolean isInterrupted() {
+        return interrupted;
     }
 
     public <U> InterruptibleFuture<U> thenApply(Function<T, U> func) {
