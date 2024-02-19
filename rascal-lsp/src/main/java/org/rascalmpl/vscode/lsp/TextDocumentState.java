@@ -31,6 +31,7 @@ import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.VersionedTree;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -50,28 +51,29 @@ public class TextDocumentState {
     private volatile int currentVersion;
     private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull ITree lastFullTree;
+    private volatile @MonotonicNonNull VersionedTree lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<ITree> currentTree;
+    private volatile CompletableFuture<VersionedTree> currentTree;
 
     public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int version, String content) {
         this.parser = parser;
         this.file = file;
         this.currentVersion = version;
         this.currentContent = content;
-        currentTree = newContents(content);
+        currentTree = newContents(version, content);
     }
 
-    public CompletableFuture<ITree> update(int version, String text) {
+    public CompletableFuture<VersionedTree> update(int version, String text) {
         currentVersion = version;
         currentContent = text;
-        currentTree = newContents(text);
+        currentTree = newContents(version, text);
         return currentTree;
     }
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<ITree> newContents(String contents) {
+    private CompletableFuture<VersionedTree> newContents(int version, String contents) {
         return parser.apply(file, contents)
+            .thenApply(t -> new VersionedTree(version, t))
             .whenComplete((r, t) -> {
                 if (r != null) {
                     lastFullTree = r;
@@ -79,11 +81,11 @@ public class TextDocumentState {
             });
     }
 
-    public CompletableFuture<ITree> getCurrentTreeAsync() {
+    public CompletableFuture<VersionedTree> getCurrentTreeAsync() {
         return currentTree;
     }
 
-    public @MonotonicNonNull ITree getMostRecentTree() {
+    public @MonotonicNonNull VersionedTree getMostRecentTree() {
         return lastFullTree;
     }
 

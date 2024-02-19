@@ -82,7 +82,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -95,6 +94,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.VersionedTree;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -205,7 +205,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<VersionedTree> futureTree) {
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -258,7 +258,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
-            .handle((t, r) -> (t == null ? (file.getMostRecentTree()) : t))
+            .handle((t, r) -> (t.tree == null ? (file.getMostRecentTree().tree) : t.tree))
             .thenCompose(tr -> rascalServices.getOutline(tr).get())
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             ;
@@ -282,7 +282,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.tree))
             .exceptionally(e -> {
                 logger.error("Tokenization failed", e);
                 return new ArrayList<>();
@@ -321,7 +321,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.tree), ownExecuter)
                 .exceptionally(e -> {
                     logger.error("Tokenization failed", e);
                     return new SemanticTokens(Collections.emptyList());
@@ -374,7 +374,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
                 return r;
             })
-            .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
+            .thenApplyAsync(t -> rascalServices.locateCodeLenses(t.tree), ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList()))

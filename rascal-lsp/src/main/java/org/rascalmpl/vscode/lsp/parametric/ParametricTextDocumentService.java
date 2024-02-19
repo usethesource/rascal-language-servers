@@ -91,7 +91,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -103,6 +102,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.VersionedTree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -272,7 +272,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<VersionedTree> futureTree) {
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -295,8 +295,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), file.getCurrentVersion(),
-                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError), tree);
+            facts(file.getLocation()).reportParseErrors(file.getLocation(), tree,
+                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
     }
@@ -308,7 +308,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(contrib::lenses)
+            .thenApply(t -> contrib.lenses(t.tree))
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -323,7 +323,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
-                .thenApply(contrib::inlayHint)
+                .thenApply(t -> contrib.inlayHint(t.tree))
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
@@ -455,7 +455,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.tree), ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )
@@ -488,7 +488,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(contrib::outline)
+            .thenApply(t -> contrib.outline(t.tree))
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
@@ -543,7 +543,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.tree))
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);

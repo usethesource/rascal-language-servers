@@ -49,6 +49,7 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
+import org.rascalmpl.vscode.lsp.util.VersionedTree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -245,13 +246,13 @@ public class ParametricSummaryBridge {
                     .thenApplyAsync(t -> {
                         var line = cursor.getLine() + 1;
                         var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-                        var cursorTree = TreeAdapter.locateLexical(t, line, translatedOffset);
+                        var cursorTree = TreeAdapter.locateLexical(t.tree, line, translatedOffset);
                         if (cursorTree == null) {
                             logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
                             return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
                         }
                         logger.trace("{}: looked up cursor to: {}, now calling dedicated function", () -> logName, () -> TreeAdapter.yield(cursorTree));
-                        return dedicatedCalcFunc.lookup(file, t, cursorTree);
+                        return dedicatedCalcFunc.lookup(file, t.tree, cursorTree);
                     }, exec);
             return InterruptibleFuture.flatten(result, exec)
                 .thenApply(s -> {
@@ -358,11 +359,11 @@ public class ParametricSummaryBridge {
 
 
     public class SummaryCalculation {
-        public final CompletableFuture<ITree> input;
+        public final CompletableFuture<VersionedTree> input;
         public final InterruptibleFuture<IConstructor> calculation;
         public final InterruptibleFuture<Lazy<List<Diagnostic>>> output;
 
-        public SummaryCalculation(CompletableFuture<ITree> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
+        public SummaryCalculation(CompletableFuture<VersionedTree> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
             this.input = input;
             this.calculation = calculation;
             this.output = output;
@@ -373,7 +374,7 @@ public class ParametricSummaryBridge {
         return calculateSummary(false, calculator);
     }
 
-    public SummaryCalculation calculateSummary(CompletableFuture<ITree> tree) {
+    public SummaryCalculation calculateSummary(CompletableFuture<VersionedTree> tree) {
         return calculateSummary(false, calculator, tree);
     }
 
@@ -382,11 +383,11 @@ public class ParametricSummaryBridge {
         return calculateSummary(internal, calculator, tree);
     }
 
-    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<ITree> tree) {
+    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<VersionedTree> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
 
         InterruptibleFuture<IConstructor> summary = InterruptibleFuture.flatten(tree
-            .thenApplyAsync(t -> calculator.calc(file, t), exec)
+            .thenApplyAsync(t -> calculator.calc(file, t.tree), exec)
             , exec);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
         references.thenAccept(d -> d.newSummary(summary, internal));
