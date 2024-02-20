@@ -26,13 +26,11 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import org.rascalmpl.values.parsetrees.ITree;
-
-public class VersionedTree {
+public class Versioned<T> {
     public final int version;
-    public final ITree tree;
+    public final T tree;
 
-    public VersionedTree(int version, ITree tree) {
+    public Versioned(int version, T tree) {
         this.version = version;
         this.tree = tree;
     }

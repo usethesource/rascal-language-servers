@@ -49,7 +49,7 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-import org.rascalmpl.vscode.lsp.util.VersionedTree;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -359,11 +359,11 @@ public class ParametricSummaryBridge {
 
 
     public class SummaryCalculation {
-        public final CompletableFuture<VersionedTree> input;
+        public final CompletableFuture<Versioned<ITree>> input;
         public final InterruptibleFuture<IConstructor> calculation;
         public final InterruptibleFuture<Lazy<List<Diagnostic>>> output;
 
-        public SummaryCalculation(CompletableFuture<VersionedTree> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
+        public SummaryCalculation(CompletableFuture<Versioned<ITree>> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
             this.input = input;
             this.calculation = calculation;
             this.output = output;
@@ -374,7 +374,7 @@ public class ParametricSummaryBridge {
         return calculateSummary(false, calculator);
     }
 
-    public SummaryCalculation calculateSummary(CompletableFuture<VersionedTree> tree) {
+    public SummaryCalculation calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
         return calculateSummary(false, calculator, tree);
     }
 
@@ -383,7 +383,7 @@ public class ParametricSummaryBridge {
         return calculateSummary(internal, calculator, tree);
     }
 
-    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<VersionedTree> tree) {
+    private SummaryCalculation calculateSummary(boolean internal, SummaryCalculator calculator, CompletableFuture<Versioned<ITree>> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
 
         InterruptibleFuture<IConstructor> summary = InterruptibleFuture.flatten(tree

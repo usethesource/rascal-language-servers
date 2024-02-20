@@ -31,7 +31,7 @@ import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.util.VersionedTree;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -51,29 +51,44 @@ public class TextDocumentState {
     private volatile int currentVersion;
     private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull VersionedTree lastFullTree;
+    private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<VersionedTree> currentTree;
+    private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
     public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int version, String content) {
         this.parser = parser;
         this.file = file;
         this.currentVersion = version;
         this.currentContent = content;
-        currentTree = newContents(version, content);
+        currentTree = newContent(version, content);
     }
 
-    public CompletableFuture<VersionedTree> update(int version, String text) {
+    /**
+     * The current call of this method guarantees that, until the next call,
+     * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
+     * *correct* versioned tree. This means that:
+     *   - the version of the tree is argument `version`;
+     *   - the tree is produced by parsing argument `content`.
+     *
+     * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
+     * consistent <version, tree> pair.
+     *
+     * Note: In contrast, separate calls to `getCurrentVersion` and
+     * `getCurrentContent` are not synchronized and do no provide similar
+     * guarantees. Use these methods only if *either* the current version *or*
+     * the current content is needed (but not both).
+     */
+    public CompletableFuture<Versioned<ITree>> update(int version, String content) {
         currentVersion = version;
-        currentContent = text;
-        currentTree = newContents(version, text);
+        currentContent = content;
+        currentTree = newContent(version, content);
         return currentTree;
     }
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<VersionedTree> newContents(int version, String contents) {
-        return parser.apply(file, contents)
-            .thenApply(t -> new VersionedTree(version, t))
+    private CompletableFuture<Versioned<ITree>> newContent(int version, String content) {
+        return parser.apply(file, content)
+            .thenApply(t -> new Versioned<ITree>(version, t))
             .whenComplete((r, t) -> {
                 if (r != null) {
                     lastFullTree = r;
@@ -81,11 +96,11 @@ public class TextDocumentState {
             });
     }
 
-    public CompletableFuture<VersionedTree> getCurrentTreeAsync() {
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
         return currentTree;
     }
 
-    public @MonotonicNonNull VersionedTree getMostRecentTree() {
+    public @MonotonicNonNull Versioned<ITree> getMostRecentTree() {
         return lastFullTree;
     }
 

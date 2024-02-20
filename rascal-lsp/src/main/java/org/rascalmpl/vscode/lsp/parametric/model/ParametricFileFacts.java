@@ -46,9 +46,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.VersionedTree;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -74,7 +75,7 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file, VersionedTree tree, List<Diagnostic> msgs) {
+    public void reportParseErrors(ISourceLocation file, Versioned<ITree> tree, List<Diagnostic> msgs) {
         getFile(file).reportParseErrors(tree, msgs);
     }
 
@@ -141,10 +142,10 @@ public class ParametricFileFacts {
      * supposedly-corresponding analyzer diagnostics.
      */
     private static class VersionedDiagnostics {
-        public final VersionedTree tree;
+        public final Versioned<ITree> tree;
         public final List<Diagnostic> messages;
 
-        public VersionedDiagnostics(VersionedTree tree, List<Diagnostic> messages) {
+        public VersionedDiagnostics(Versioned<ITree> tree, List<Diagnostic> messages) {
             this.tree = tree;
             this.messages = messages;
         }
@@ -208,7 +209,7 @@ public class ParametricFileFacts {
         }
 
         private VersionedDiagnostics reportDiagnostics(AtomicReference<VersionedDiagnostics> box,
-                VersionedTree tree, List<Diagnostic> messages) {
+                Versioned<ITree> tree, List<Diagnostic> messages) {
 
             var newer = new VersionedDiagnostics(tree, messages);
             if (VersionedDiagnostics.setIfNewer(box, newer)) {
@@ -342,7 +343,7 @@ public class ParametricFileFacts {
             return summaryBuilder;
         }
 
-        public void reportParseErrors(VersionedTree tree, List<Diagnostic> messages) {
+        public void reportParseErrors(Versioned<ITree> tree, List<Diagnostic> messages) {
             reportDiagnostics(diagnosticsParser, tree, messages);
         }
 
