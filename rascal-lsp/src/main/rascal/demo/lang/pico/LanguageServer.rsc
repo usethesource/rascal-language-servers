@@ -55,15 +55,15 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
 
 Summary picoAnalyzer(loc l, start[Program] input) {
     println("Running analyzer for pico!");
-    return picoSummarizer(l, input, analyzer());
+    return picoSummarizer(l, input, analyze());
 }
 
 Summary picoBuilder(loc l, start[Program] input) {
     println("Running builder for pico!");
-    return picoSummarizer(l, input, builder());
+    return picoSummarizer(l, input, build());
 }
 
-data picoSummarizerMode = analyzer() | builder();
+data picoSummarizerMode = analyze() | build();
 
 Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
     Summary s = summary(l);
@@ -72,19 +72,19 @@ Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
-    // Provide errors (cheap to compute) both in analyzer mode and in builder mode
+    // Provide errors (cheap to compute) both in analyze mode and in build mode
     s.messages += {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>};
     switch (mode) {
 
-        // Provide references, definitions, and documentation only in analyzer mode
-        case analyzer(): {
+        // Provide references, definitions, and documentation only in analyze mode
+        case analyze(): {
             s.references += (uses o defs)<1,0>;
             s.definitions += uses o defs;
             s.documentation += (uses o defs) o docs;
         }
 
-        // Provide warnings (expensive to compute) only in builder mode
-        case builder(): {
+        // Provide warnings (expensive to compute) only in build mode
+        case build(): {
             rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
             s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
         }

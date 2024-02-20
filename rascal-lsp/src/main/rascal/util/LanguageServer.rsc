@@ -172,7 +172,7 @@ documentation, definitions, references, implementations and compiler errors and 
    * an ((implementer)) is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
 * ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* ((inlayHinter) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* ((inlayHinter)) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
 }
 data LanguageService
