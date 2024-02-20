@@ -82,7 +82,7 @@ A summarizer provides the same information as the following contributors combine
 * ((implementer))
 
 The difference is that these contributions are executed on-demand (pulled), while Summarizers
-are executed after build or after typing (push). 
+are executed after build or after typing (push).
 }
 alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 
@@ -155,7 +155,7 @@ alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lex
 Each LanguageService provides one aspect of definining the language server protocol.
 * ((parser)) maps source code to a parse tree and indexes each part based on offset and length
 * ((analyzer)) indexes a file as a ((Summary)), offering precomputed relations for looking up
-documentation, definitions, references, implementations and compiler errors and warnings. 
+documentation, definitions, references, implementations and compiler errors and warnings.
    * ((analyzer))s focus on their own file, but may reuse cached or stored indices from other files.
    * ((analyzer))s have to be quick since they run in an interactive editor setting.
    * ((analyzer))s may store previous results (in memory) for incremental updates.
@@ -164,6 +164,7 @@ documentation, definitions, references, implementations and compiler errors and 
    * ((builder))s typically run whole-program analyses and compilation steps.
    * ((builder))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
    * ((builder))s are triggered on _save-file_ events; they _push_ information to an internal cache.
+   * Warning: ((builder))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
 * the following contributions are _on-demand_ (pull) versions of information also provided by the analyzer and builder summaries.
    * a ((documenter)) is a fast and location specific version of the `documentation` relation in a ((Summary)).
    * a ((definer)) is a fast and location specific version of the `definitions` relation in a ((Summary)).
@@ -176,12 +177,12 @@ documentation, definitions, references, implementations and compiler errors and 
 }
 data LanguageService
     = parser(Parser parser)
-    | analyzer(Summarizer summarizer 
+    | analyzer(Summarizer summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | builder(Summarizer builder) 
+    | builder(Summarizer builder)
     | outliner(Outliner outliner)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
@@ -210,10 +211,10 @@ LanguageService summarizer(Summarizer summarizer) {
 }
 data Summary = summary(loc src,
     rel[loc, Message] messages = {},
-    rel[loc, str]     documentation = {},   
-    rel[loc, loc]     definitions = {},    
-    rel[loc, loc]     references = {},     
-    rel[loc, loc]     implementations = {} 
+    rel[loc, str]     documentation = {},
+    rel[loc, loc]     definitions = {},
+    rel[loc, loc]     references = {},
+    rel[loc, loc]     implementations = {}
 );
 
 data Completion = completion(str newText, str proposal=newText);
@@ -278,15 +279,15 @@ data Command(str title="")
 }
 data InlayHint
     = hint(
-        loc position, 
-        str label, 
+        loc position,
+        str label,
         InlayKind kind,
-        str toolTip = "", 
-        bool atEnd = false 
+        str toolTip = "",
+        bool atEnd = false
     );
 
 @synopsis{Style of an inlay}
-data InlayKind 
+data InlayKind
     = \type()
     | parameter()
     ;

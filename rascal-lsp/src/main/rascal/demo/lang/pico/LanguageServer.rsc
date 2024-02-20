@@ -55,29 +55,42 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
 
 Summary picoAnalyzer(loc l, start[Program] input) {
     println("Running analyzer for pico!");
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
-    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
-    rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
-    rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
-
-    return summary(l,
-        messages = {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>},
-        references = (uses o defs)<1,0>,
-        definitions = uses o defs,
-        documentation = (uses o defs) o docs
-    );
+    return picoSummarizer(l, input, analyzer());
 }
 
 Summary picoBuilder(loc l, start[Program] input) {
     println("Running builder for pico!");
+    return picoSummarizer(l, input, builder());
+}
+
+data picoSummarizerMode = analyzer() | builder();
+
+Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
+    Summary s = summary(l);
+
     rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
-    rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
+    rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
-    return summary(l,
-        messages = {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>}
-                 + {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>}
-    );
+    // Provide errors (cheap to compute) both in analyzer mode and in builder mode
+    s.messages += {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>};
+    switch (mode) {
+
+        // Provide references, definitions, and documentation only in analyzer mode
+        case analyzer(): {
+            s.references += (uses o defs)<1,0>;
+            s.definitions += uses o defs;
+            s.documentation += (uses o defs) o docs;
+        }
+
+        // Provide warnings (expensive to compute) only in builder mode
+        case builder(): {
+            rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
+            s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
+        }
+    }
+
+    return s;
 }
 
 set[loc] lookupDef(loc _l, start[Program] input, Tree cursor) =
