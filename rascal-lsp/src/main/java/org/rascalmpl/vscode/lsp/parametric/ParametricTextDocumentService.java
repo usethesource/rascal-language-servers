@@ -496,7 +496,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
-        return facts(doc).getSummaryAnalyzer(Locations.toLoc(doc));
+        return facts(doc).getAnalyzer(Locations.toLoc(doc));
     }
 
     @Override

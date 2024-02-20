@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +44,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
@@ -137,7 +137,7 @@ public class FileFacts {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
-                union(typeCheckerMessages, parseMessages)));
+                Lists.union(typeCheckerMessages, parseMessages)));
         }
 
 
@@ -158,17 +158,5 @@ public class FileFacts {
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 
-    }
-
-    private static <T> List<T> union(List<T> a, List<T> b) {
-        if (a.isEmpty()) {
-            return b;
-        }
-        if (b.isEmpty()) {
-            return a;
-        }
-        ArrayList<T> result = new ArrayList<>(a);
-        result.addAll(b);
-        return result;
     }
 }

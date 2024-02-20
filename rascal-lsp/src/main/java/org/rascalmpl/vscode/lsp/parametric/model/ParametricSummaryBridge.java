@@ -359,14 +359,14 @@ public class ParametricSummaryBridge {
 
 
     public class SummaryCalculation {
-        public final CompletableFuture<Versioned<ITree>> input;
-        public final InterruptibleFuture<IConstructor> calculation;
-        public final InterruptibleFuture<Lazy<List<Diagnostic>>> output;
+        public final CompletableFuture<Versioned<ITree>> tree;
+        public final InterruptibleFuture<IConstructor> summary;
+        public final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
 
-        public SummaryCalculation(CompletableFuture<Versioned<ITree>> input, InterruptibleFuture<IConstructor> calculation, InterruptibleFuture<Lazy<List<Diagnostic>>> output) {
-            this.input = input;
-            this.calculation = calculation;
-            this.output = output;
+        public SummaryCalculation(CompletableFuture<Versioned<ITree>> tree, InterruptibleFuture<IConstructor> summary, InterruptibleFuture<Lazy<List<Diagnostic>>> messages) {
+            this.tree = tree;
+            this.summary = summary;
+            this.messages = messages;
         }
     }
 

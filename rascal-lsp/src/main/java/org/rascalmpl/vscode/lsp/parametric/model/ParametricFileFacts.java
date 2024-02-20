@@ -46,10 +46,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.Lazy;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -87,12 +91,12 @@ public class ParametricFileFacts {
         files.values().forEach(FileFact::reloadContributions);
     }
 
-    public ParametricSummaryBridge getSummaryAnalyzer(ISourceLocation file) {
-        return getFile(file).getSummaryAnalyzer();
+    public ParametricSummaryBridge getAnalyzer(ISourceLocation file) {
+        return getFile(file).getAnalyzer();
     }
 
-    public ParametricSummaryBridge getSummaryBuilder(ISourceLocation file) {
-        return getFile(file).getSummaryBuilder();
+    public ParametricSummaryBridge getBuilder(ISourceLocation file) {
+        return getFile(file).getBuilder();
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
@@ -123,8 +127,8 @@ public class ParametricFileFacts {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
 
-            var messagesAnalyzer = present.summaryAnalyzer.getMessages();
-            var messagesBuilder = present.summaryBuilder.getMessages();
+            var messagesAnalyzer = present.analyzer.getMessages();
+            var messagesBuilder = present.builder.getMessages();
             messagesAnalyzer.thenAcceptBothAsync(messagesBuilder, (m1, m2) -> {
                 if (m1.isEmpty() && m2.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
@@ -136,10 +140,11 @@ public class ParametricFileFacts {
     }
 
     /**
-     * This class keeps together diagnostics messages and the versioned AST for
-     * which the diagnostics were computed. This is needed to ensure that
-     * builder diagnostics are calculated for the same AST as
-     * supposedly-corresponding analyzer diagnostics.
+     * This class keeps together diagnostics messages and the versioned syntax
+     * tree for which the diagnostics were computed. This is needed to ensure
+     * that builder diagnostics are calculated for the same syntax as
+     * supposedly-corresponding analyzer diagnostics. The diagnostics can come
+     * from any source (e.g., parser, analyzer, builder).
      */
     private static class VersionedDiagnostics {
         public final Versioned<ITree> tree;
@@ -150,29 +155,19 @@ public class ParametricFileFacts {
             this.messages = messages;
         }
 
-        public static boolean setIfNewer(AtomicReference<VersionedDiagnostics> box, VersionedDiagnostics maybeNewer) {
-            var success = false;
-            var retry = true;
-            while (retry) {
-                var old = box.get();
-                if (old == null || old.tree.version < maybeNewer.tree.version) {
-                    success = box.compareAndSet(old, maybeNewer);
-                    retry = !success;
-                } else {
-                    retry = false;
-                }
-            }
-            return success;
-        }
+        private static final VersionedDiagnostics EMPTY = new VersionedDiagnostics(
+            new Versioned<>(0, IRascalValueFactory.getInstance().character(0)),
+            new ArrayList<>());
 
-        public static List<Diagnostic> union(VersionedDiagnostics... list) {
-            var messages = new ArrayList<Diagnostic>();
-            for (var versionedDiagnostics : list) {
-                if (versionedDiagnostics != null) {
-                    messages.addAll(versionedDiagnostics.messages);
+        private static boolean replaceIfNewer(AtomicReference<VersionedDiagnostics> current, VersionedDiagnostics maybeNewer) {
+            while (true) {
+                var old = current.get();
+                if (old == null || old.tree.version < maybeNewer.tree.version) {
+                    if (current.compareAndSet(old, maybeNewer)) return true;
+                } else {
+                    return false;
                 }
             }
-            return messages;
         }
     }
 
@@ -184,12 +179,12 @@ public class ParametricFileFacts {
         // the new diagnostics is greater than the version of the old
         // diagnostics; (2) if so, replace old with new. This is why
         // `AtomicReference` and `VersionedDiagnostics` are needed here.
-        private final AtomicReference<VersionedDiagnostics> diagnosticsParser = new AtomicReference<>();
-        private final AtomicReference<VersionedDiagnostics> diagnosticsAnalyzer = new AtomicReference<>();
-        private final AtomicReference<VersionedDiagnostics> diagnosticsBuilder = new AtomicReference<>();
+        private final AtomicReference<VersionedDiagnostics> parserDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
+        private final AtomicReference<VersionedDiagnostics> analyzerDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
+        private final AtomicReference<VersionedDiagnostics> builderDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
 
-        private final ParametricSummaryBridge summaryAnalyzer;
-        private final ParametricSummaryBridge summaryBuilder;
+        private final ParametricSummaryBridge analyzer;
+        private final ParametricSummaryBridge builder;
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
         private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
@@ -199,23 +194,32 @@ public class ParametricFileFacts {
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.summaryAnalyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze);
-            this.summaryBuilder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build);
+            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze);
+            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build);
         }
 
         public void reloadContributions() {
-            summaryAnalyzer.reloadContributions();
-            summaryBuilder.reloadContributions();
+            analyzer.reloadContributions();
+            builder.reloadContributions();
         }
 
-        private VersionedDiagnostics reportDiagnostics(AtomicReference<VersionedDiagnostics> box,
+        /**
+         * Creates a new `VersionedDiagnostics` object for parameters `tree` and
+         * `messages`, and then reports these diagnostics if they are newer
+         * (greater version) than the current diagnostics.
+         *
+         * @return the newly created object, regardless of whether these
+         * diagnostics were newer.
+         */
+        private VersionedDiagnostics createAndReportDiagnostics(
+                AtomicReference<VersionedDiagnostics> current,
                 Versioned<ITree> tree, List<Diagnostic> messages) {
 
-            var newer = new VersionedDiagnostics(tree, messages);
-            if (VersionedDiagnostics.setIfNewer(box, newer)) {
+            var maybeNewer = new VersionedDiagnostics(tree, messages);
+            if (VersionedDiagnostics.replaceIfNewer(current, maybeNewer)) {
                 sendDiagnostics();
             }
-            return newer;
+            return maybeNewer;
         }
 
         private void invalidate(ParametricSummaryBridge summary, boolean isClosing) {
@@ -223,11 +227,11 @@ public class ParametricFileFacts {
         }
 
         public void invalidateAnalyzer(boolean isClosing) {
-            invalidate(summaryAnalyzer, isClosing);
+            invalidate(analyzer, isClosing);
         }
 
         public void invalidateBuilder(boolean isClosing) {
-            invalidate(summaryBuilder, isClosing);
+            invalidate(builder, isClosing);
         }
 
         /**
@@ -260,16 +264,22 @@ public class ParametricFileFacts {
             }, delayed).thenCompose(Function.identity());
         }
 
+        private CompletableFuture<List<Diagnostic>> unwrap(InterruptibleFuture<Lazy<List<Diagnostic>>> messages) {
+            return messages
+                .get()                     // Take inner `CompletableFuture` from outer `InterruptibleFuture`
+                .thenApply(Supplier::get); // Evaluate the lazy computation
+        }
+
         public void calculateAnalyzer(int version, Duration delay) {
             calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () -> {
-                var analysis = summaryAnalyzer.calculateSummary();
-                var analysisTree = analysis.input;
-                var analysisMessages = analysis.output.get().thenApply(Supplier::get);
+                var analysis = analyzer.calculateSummary();
+                var analysisTree = analysis.tree;
+                var analysisMessages = unwrap(analysis.messages);
                 return analysisTree.thenCombine(analysisMessages, (tree, messages) -> {
-                    if (analysis.calculation.isInterrupted()) {
+                    if (analysis.summary.isInterrupted()) {
                         return Optional.<VersionedDiagnostics>empty();
                     } else {
-                        return Optional.of(reportDiagnostics(diagnosticsAnalyzer, tree, messages));
+                        return Optional.of(createAndReportDiagnostics(analyzerDiagnostics, tree, messages));
                     }
                 });
             });
@@ -282,7 +292,7 @@ public class ParametricFileFacts {
          * the latest analyzer diagnostics and the current builder diagnostics.
          * To do this in a reliable way, each builder calculation awaits the
          * completion of the latest analyzer calculation, such that:
-         *   - the builder can use exactly the same AST as the analyzer;
+         *   - the builder can use exactly the same syntax tree as the analyzer;
          *   - the builder has access to the diagnostics of the analyzer.
          */
         public void calculateBuilder(int version, Duration delay) {
@@ -306,20 +316,20 @@ public class ParametricFileFacts {
                         var analysis = result.get();
                         calculate(version, latestVersionCalculateBuilder, delay, () -> {
 
-                            // Use exactly the same AST as in the analyzer
-                            // calculation. In this way, a reliable diff of the
-                            // latest analyzer diagnostics and the current
-                            // builder diagnostics can be computed (by removing
-                            // the former from the latter).
-                            var build = summaryBuilder.calculateSummary(CompletableFuture.completedFuture(analysis.tree));
-                            var buildTree = build.input;
-                            var buildMessages = build.output.get().thenApply(Supplier::get);
+                            // Use exactly the same syntax tree as in the
+                            // analyzer calculation. In this way, a reliable
+                            // diff of the latest analyzer diagnostics and the
+                            // current builder diagnostics can be computed (by
+                            // removing the former from the latter).
+                            var build = builder.calculateSummary(CompletableFuture.completedFuture(analysis.tree));
+                            var buildTree = build.tree;
+                            var buildMessages = unwrap(build.messages);
                             return buildTree.thenCombine(buildMessages, (tree, messages) -> {
-                                if (build.calculation.isInterrupted()) {
+                                if (build.summary.isInterrupted()) {
                                     return Optional.<VersionedDiagnostics>empty();
                                 } else {
                                     messages.removeAll(analysis.messages);
-                                    return Optional.of(reportDiagnostics(diagnosticsBuilder, tree, messages));
+                                    return Optional.of(createAndReportDiagnostics(builderDiagnostics, tree, messages));
                                 }
                             });
                         });
@@ -335,16 +345,16 @@ public class ParametricFileFacts {
             }
         }
 
-        public ParametricSummaryBridge getSummaryAnalyzer() {
-            return summaryAnalyzer;
+        public ParametricSummaryBridge getAnalyzer() {
+            return analyzer;
         }
 
-        public ParametricSummaryBridge getSummaryBuilder() {
-            return summaryBuilder;
+        public ParametricSummaryBridge getBuilder() {
+            return builder;
         }
 
         public void reportParseErrors(Versioned<ITree> tree, List<Diagnostic> messages) {
-            reportDiagnostics(diagnosticsParser, tree, messages);
+            createAndReportDiagnostics(parserDiagnostics, tree, messages);
         }
 
         private void sendDiagnostics() {
@@ -352,7 +362,10 @@ public class ParametricFileFacts {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
             }
-            var messages = VersionedDiagnostics.union(diagnosticsParser.get(), diagnosticsAnalyzer.get(), diagnosticsBuilder.get());
+            var messages = Lists.union(
+                parserDiagnostics.get().messages,
+                analyzerDiagnostics.get().messages,
+                builderDiagnostics.get().messages);
             logger.trace("Sending diagnostics for {}. {} messages", file, messages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),

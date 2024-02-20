@@ -67,8 +67,8 @@ public class TextDocumentState {
      * The current call of this method guarantees that, until the next call,
      * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
      * *correct* versioned tree. This means that:
-     *   - the version of the tree is argument `version`;
-     *   - the tree is produced by parsing argument `content`.
+     *   - the version of the tree is parameter `version`;
+     *   - the tree is produced by parsing parameter `content`.
      *
      * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
      * consistent <version, tree> pair.
