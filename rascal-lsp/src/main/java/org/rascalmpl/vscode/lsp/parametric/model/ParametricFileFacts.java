@@ -222,8 +222,8 @@ public class ParametricFileFacts {
             return maybeNewer;
         }
 
-        private void invalidate(ParametricSummaryBridge summary, boolean isClosing) {
-            summary.invalidate(isClosing);
+        private void invalidate(ParametricSummaryBridge summarizer, boolean isClosing) {
+            summarizer.invalidate(isClosing);
         }
 
         public void invalidateAnalyzer(boolean isClosing) {
@@ -251,6 +251,19 @@ public class ParametricFileFacts {
                 Supplier<CompletableFuture<Optional<VersionedDiagnostics>>> calculation) {
 
             latestVersion.set(version);
+            // Note: No additional logic (`compareAndSet` in a loop etc.) is
+            // needed to change `latestVersion`, because:
+            //   - LSP guarantees that the client sends change and save
+            //     notifications in-order, and that the server receives them
+            //     in-order. Thus, the version number of a file monotonically
+            //     increases with each notifications to be processed.
+            //   - To process notifications, calls of `didChange` and `didSave`
+            //     in `ParametricTextDocumentService` run sequentially and
+            //     in-order; these are the only methods that (indirectly) call
+            //     `calculate`. Thus, parameter `version` (obtained from the
+            //     notifications) monotonically increases with each `calculate`
+            //     call.
+
             var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
             return CompletableFuture.supplyAsync(() -> {
                 // If no new call to `calculate` has been made after `delay` has
