@@ -53,15 +53,9 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
-Summary picoAnalyzer(loc l, start[Program] input) {
-    println("Running analyzer for pico!");
-    return picoSummarizer(l, input, analyze());
-}
+Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
 
-Summary picoBuilder(loc l, start[Program] input) {
-    println("Running builder for pico!");
-    return picoSummarizer(l, input, build());
-}
+Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
 
 data picoSummarizerMode = analyze() | build();
 
@@ -74,20 +68,14 @@ Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
 
     // Provide errors (cheap to compute) both in analyze mode and in build mode
     s.messages += {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>};
-    switch (mode) {
+    s.references += (uses o defs)<1,0>;
+    s.definitions += uses o defs;
+    s.documentation += (uses o defs) o docs;
 
-        // Provide references, definitions, and documentation only in analyze mode
-        case analyze(): {
-            s.references += (uses o defs)<1,0>;
-            s.definitions += uses o defs;
-            s.documentation += (uses o defs) o docs;
-        }
-
-        // Provide warnings (expensive to compute) only in build mode
-        case build(): {
-            rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
-            s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
-        }
+    // Provide warnings (expensive to compute) only in build mode
+    if (build() := mode) {
+        rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
+        s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
     }
 
     return s;
