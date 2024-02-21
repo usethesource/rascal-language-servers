@@ -106,9 +106,28 @@ describe('DSL', function () {
         await ide.hasInlayHint(editor);
     });
 
-    it("save runs type checker", async function () {
+    it("change runs analyzer", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.triggerTypeChecker(editor, {checkName: "Pico check", waitForFinish: true, timeout: 5_000});
+        try {
+            await editor.setTextAtLine(10, "bzzz := 3;");
+            await ide.hasErrorSquiggly(editor, 15_000);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
+    it("save runs builder", async function () {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const line10 = await editor.getTextAtLine(10);
+        try {
+            await editor.setTextAtLine(10, "bzzz := 3;");
+            await editor.save();
+            await ide.hasWarningSquiggly(editor, 15_000);
+            await ide.hasErrorSquiggly(editor, 15_000);
+        } finally {
+            await editor.setTextAtLine(10, line10);
+            await editor.save();
+        }
     });
 
     it("go to definition works", async () => {

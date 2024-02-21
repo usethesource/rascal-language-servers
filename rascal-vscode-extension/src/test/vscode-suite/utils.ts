@@ -191,6 +191,10 @@ export class IDEOperations {
         return this.driver.wait(() => editor.findElement(selector), timeout, message );
     }
 
+    hasWarningSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
+        return this.driver.wait(until.elementLocated(By.className("squiggly-warning")), timeout, message);
+    }
+
     hasErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message);
     }
