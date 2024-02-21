@@ -43,6 +43,7 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -190,7 +191,7 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
 
         @SuppressWarnings("java:S3077")
-        private volatile @MonotonicNonNull CompletableFuture<Optional<VersionedDiagnostics>> calculateAnalyzerLatestResult;
+        private volatile @MonotonicNonNull CompletableFuture<@Nullable VersionedDiagnostics> calculateAnalyzerLatestResult;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -243,12 +244,13 @@ public class ParametricFileFacts {
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
-         * @return a future that provides optional diagnostics that result from
-         * the summary calculation
+         * @return a future that provides diagnostics that result from the
+         * summary calculation, or `null` if the calculation was abandoned or
+         * interrupted
          */
-        private CompletableFuture<Optional<VersionedDiagnostics>> calculate(
+        private CompletableFuture<@Nullable VersionedDiagnostics> calculate(
                 int version, AtomicInteger latestVersion, Duration delay,
-                Supplier<CompletableFuture<Optional<VersionedDiagnostics>>> calculation) {
+                Supplier<CompletableFuture<@Nullable VersionedDiagnostics>> calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -272,7 +274,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    return CompletableFuture.completedFuture(Optional.<VersionedDiagnostics>empty());
+                    return CompletableFuture.<VersionedDiagnostics>completedFuture(null);
                 }
             }, delayed).thenCompose(Function.identity());
         }
@@ -290,9 +292,9 @@ public class ParametricFileFacts {
                 var analysisMessages = unwrap(analysis.messages);
                 return analysisTree.thenCombine(analysisMessages, (tree, messages) -> {
                     if (analysis.summary.isInterrupted()) {
-                        return Optional.<VersionedDiagnostics>empty();
+                        return null;
                     } else {
-                        return Optional.of(createAndReportDiagnostics(analyzerDiagnostics, tree, messages));
+                        return createAndReportDiagnostics(analyzerDiagnostics, tree, messages);
                     }
                 });
             });
@@ -320,13 +322,20 @@ public class ParametricFileFacts {
             // If an analyzer calculation has been scheduled before, then the
             // builder can await its completion.
             else {
-                calculateAnalyzerLatestResult.thenAccept(result -> {
+                calculateAnalyzerLatestResult.thenAccept(analysis -> {
+
+
+                    // If the analyzer was abandoned (due to debouncing) or
+                    // interrupted, then diagnostics of the analyzer aren't
+                    // available, so retry from the start.
+                    if (analysis == null) {
+                        calculateBuilder(version, delay);
+                    }
 
                     // If the analyzer calculation wasn't abandoned (due to
                     // debouncing) or interrupted, then diagnostics of the
                     // analyzer are available, so proceed.
-                    if (result.isPresent()) {
-                        var analysis = result.get();
+                    else {
                         calculate(version, latestVersionCalculateBuilder, delay, () -> {
 
                             // Use exactly the same syntax tree as in the
@@ -339,20 +348,13 @@ public class ParametricFileFacts {
                             var buildMessages = unwrap(build.messages);
                             return buildTree.thenCombine(buildMessages, (tree, messages) -> {
                                 if (build.summary.isInterrupted()) {
-                                    return Optional.<VersionedDiagnostics>empty();
+                                    return null;
                                 } else {
                                     messages.removeAll(analysis.messages);
-                                    return Optional.of(createAndReportDiagnostics(builderDiagnostics, tree, messages));
+                                    return createAndReportDiagnostics(builderDiagnostics, tree, messages);
                                 }
                             });
                         });
-                    }
-
-                    // If the analyzer was abandoned (due to debouncing) or
-                    // interrupted, then diagnostics of the analyzer aren't
-                    // available, so retry from the start.
-                    else {
-                        calculateBuilder(version, delay);
                     }
                 });
             }
