@@ -259,7 +259,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
-            .handle((t, r) -> (t.tree == null ? (file.getMostRecentTree().tree) : t.tree))
+            .handle((t, r) -> (t.get() == null ? (file.getMostRecentTree().get()) : t.get()))
             .thenCompose(tr -> rascalServices.getOutline(tr).get())
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             ;
@@ -283,7 +283,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.tree))
+        return file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.get()))
             .exceptionally(e -> {
                 logger.error("Tokenization failed", e);
                 return new ArrayList<>();
@@ -322,7 +322,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.tree), ownExecuter)
+                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.get()), ownExecuter)
                 .exceptionally(e -> {
                     logger.error("Tokenization failed", e);
                     return new SemanticTokens(Collections.emptyList());
@@ -375,7 +375,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
                 return r;
             })
-            .thenApplyAsync(t -> rascalServices.locateCodeLenses(t.tree), ownExecuter)
+            .thenApplyAsync(t -> rascalServices.locateCodeLenses(t.get()), ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList()))
