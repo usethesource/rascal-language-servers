@@ -130,7 +130,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         file = file.top();
         TextDocumentState ideState = documents.get(file);
         if (ideState != null) {
-            return ideState.getCurrentContent();
+            return ideState.getCurrentContent().get();
         }
 
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {

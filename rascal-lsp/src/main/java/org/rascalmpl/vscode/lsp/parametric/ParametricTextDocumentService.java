@@ -161,7 +161,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         file = file.top();
         TextDocumentState ideState = files.get(file);
         if (ideState != null) {
-            return ideState.getCurrentContent();
+            return ideState.getCurrentContent().get();
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
@@ -239,12 +239,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerSummaryAnalyzer(TextDocumentIdentifier doc, Duration delay) {
-        var version = getFile(doc).getCurrentVersion();
+        var version = getFile(doc).getCurrentContent().version();
         facts(doc).calculateAnalyzer(Locations.toLoc(doc), version, delay);
     }
 
     private void triggerSummaryBuilder(TextDocumentIdentifier doc, Duration delay) {
-        var version = getFile(doc).getCurrentVersion();
+        var version = getFile(doc).getCurrentContent().version();
         facts(doc).calculateBuilder(Locations.toLoc(doc), version, delay);
     }
 

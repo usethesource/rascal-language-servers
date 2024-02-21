@@ -48,8 +48,7 @@ public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
-    private volatile int currentVersion;
-    private volatile String currentContent;
+    private volatile Versioned<String> currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
@@ -58,9 +57,8 @@ public class TextDocumentState {
     public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int version, String content) {
         this.parser = parser;
         this.file = file;
-        this.currentVersion = version;
-        this.currentContent = content;
-        currentTree = newContent(version, content);
+        this.currentContent = new Versioned<>(version, content);
+        this.currentTree = newContent(version, content);
     }
 
     /**
@@ -72,15 +70,9 @@ public class TextDocumentState {
      *
      * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
      * consistent <version, tree> pair.
-     *
-     * Note: In contrast, separate calls to `getCurrentVersion` and
-     * `getCurrentContent` are not synchronized and do no provide similar
-     * guarantees. Use these methods only if *either* the current version *or*
-     * the current content is needed (but not both).
      */
     public CompletableFuture<Versioned<ITree>> update(int version, String content) {
-        currentVersion = version;
-        currentContent = content;
+        currentContent = new Versioned<>(version, content);
         currentTree = newContent(version, content);
         return currentTree;
     }
@@ -108,11 +100,7 @@ public class TextDocumentState {
         return file;
     }
 
-    public int getCurrentVersion() {
-        return currentVersion;
-    }
-
-    public String getCurrentContent() {
+    public Versioned<String> getCurrentContent() {
         return currentContent;
     }
 }
