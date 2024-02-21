@@ -57,9 +57,9 @@ Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, ana
 
 Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
 
-data picoSummarizerMode = analyze() | build();
+data PicoSummarizerMode = analyze() | build();
 
-Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
+Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
     rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};

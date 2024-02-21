@@ -259,7 +259,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
-            .handle((t, r) -> (t.get() == null ? (file.getMostRecentTree().get()) : t.get()))
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getOutline(tr).get())
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             ;
@@ -283,7 +284,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.get()))
+        return file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .exceptionally(e -> {
                 logger.error("Tokenization failed", e);
                 return new ArrayList<>();
@@ -322,7 +323,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.get()), ownExecuter)
+                .thenApply(Versioned::get)
+                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
                 .exceptionally(e -> {
                     logger.error("Tokenization failed", e);
                     return new SemanticTokens(Collections.emptyList());
@@ -375,7 +377,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
                 return r;
             })
-            .thenApplyAsync(t -> rascalServices.locateCodeLenses(t.get()), ownExecuter)
+            .thenApply(Versioned::get)
+            .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList()))

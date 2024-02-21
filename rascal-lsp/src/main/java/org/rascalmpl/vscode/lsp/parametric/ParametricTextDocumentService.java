@@ -274,6 +274,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
+        var version = file.getCurrentContent().version();
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
             if (excp != null && excp instanceof CompletionException) {
@@ -296,7 +297,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), tree,
+            facts(file.getLocation()).reportParseErrors(file.getLocation(),
+                tree == null ? new Versioned<>(version, null) : tree,
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
@@ -309,7 +311,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(t -> contrib.lenses(t.get()))
+            .thenApply(Versioned::get)
+            .thenApply(contrib::lenses)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -324,7 +327,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
-                .thenApply(t -> contrib.inlayHint(t.get()))
+                .thenApply(Versioned::get)
+                .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
@@ -456,7 +460,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.get()), ownExecuter)
+                .thenApply(Versioned::get)
+                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )
@@ -489,7 +494,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(t -> contrib.outline(t.get()))
+            .thenApply(Versioned::get)
+            .thenApply(contrib::outline)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
@@ -544,7 +550,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.get()))
+        return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
