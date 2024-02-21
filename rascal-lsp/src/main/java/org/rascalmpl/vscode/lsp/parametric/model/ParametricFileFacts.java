@@ -163,7 +163,7 @@ public class ParametricFileFacts {
         private static boolean replaceIfNewer(AtomicReference<VersionedDiagnostics> current, VersionedDiagnostics maybeNewer) {
             while (true) {
                 var old = current.get();
-                if (old.tree.version < maybeNewer.tree.version) {
+                if (old.tree.version() < maybeNewer.tree.version()) {
                     if (current.compareAndSet(old, maybeNewer)) return true;
                 } else {
                     return false;

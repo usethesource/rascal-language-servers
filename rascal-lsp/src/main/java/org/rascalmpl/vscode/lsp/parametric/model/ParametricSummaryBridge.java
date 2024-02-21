@@ -246,13 +246,13 @@ public class ParametricSummaryBridge {
                     .thenApplyAsync(t -> {
                         var line = cursor.getLine() + 1;
                         var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-                        var cursorTree = TreeAdapter.locateLexical(t.tree, line, translatedOffset);
+                        var cursorTree = TreeAdapter.locateLexical(t.get(), line, translatedOffset);
                         if (cursorTree == null) {
                             logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
                             return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
                         }
                         logger.trace("{}: looked up cursor to: {}, now calling dedicated function", () -> logName, () -> TreeAdapter.yield(cursorTree));
-                        return dedicatedCalcFunc.lookup(file, t.tree, cursorTree);
+                        return dedicatedCalcFunc.lookup(file, t.get(), cursorTree);
                     }, exec);
             return InterruptibleFuture.flatten(result, exec)
                 .thenApply(s -> {
@@ -387,7 +387,7 @@ public class ParametricSummaryBridge {
         logger.trace("Requesting Summary calculation for: {}", file);
 
         InterruptibleFuture<IConstructor> summary = InterruptibleFuture.flatten(tree
-            .thenApplyAsync(t -> calculator.calc(file, t.tree), exec)
+            .thenApplyAsync(t -> calculator.calc(file, t.get()), exec)
             , exec);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
         references.thenAccept(d -> d.newSummary(summary, internal));

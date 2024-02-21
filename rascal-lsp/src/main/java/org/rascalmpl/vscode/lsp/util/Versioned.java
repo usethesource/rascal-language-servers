@@ -27,11 +27,19 @@
 package org.rascalmpl.vscode.lsp.util;
 
 public class Versioned<T> {
-    public final int version;
-    public final T tree;
+    private final int version;
+    private final T object;
 
-    public Versioned(int version, T tree) {
+    public Versioned(int version, T object) {
         this.version = version;
-        this.tree = tree;
+        this.object = object;
+    }
+
+    public int version() {
+        return version;
+    }
+
+    public T get() {
+        return object;
     }
 }

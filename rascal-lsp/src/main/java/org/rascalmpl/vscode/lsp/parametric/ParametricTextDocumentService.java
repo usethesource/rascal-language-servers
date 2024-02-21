@@ -309,7 +309,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(t -> contrib.lenses(t.tree))
+            .thenApply(t -> contrib.lenses(t.get()))
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -324,7 +324,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
-                .thenApply(t -> contrib.inlayHint(t.tree))
+                .thenApply(t -> contrib.inlayHint(t.get()))
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
@@ -456,7 +456,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
-                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.tree), ownExecuter)
+                .thenApplyAsync(t -> tokenizer.semanticTokensFull(t.get()), ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )
@@ -489,7 +489,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-            .thenApply(t -> contrib.outline(t.tree))
+            .thenApply(t -> contrib.outline(t.get()))
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
@@ -544,7 +544,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.tree))
+        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(t -> FoldingRanges.getFoldingRanges(t.get()))
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
