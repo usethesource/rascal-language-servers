@@ -81,7 +81,7 @@ Summary picoSummarizer(loc l, start[Program] input, picoSummarizerMode mode) {
     return s;
 }
 
-set[loc] lookupDef(loc _l, start[Program] input, Tree cursor) =
+set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
 
 
