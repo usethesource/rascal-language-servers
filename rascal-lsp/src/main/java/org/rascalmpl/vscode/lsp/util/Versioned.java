@@ -42,4 +42,9 @@ public class Versioned<T> {
     public T get() {
         return object;
     }
+
+    @Override
+    public String toString() {
+        return String.format("%s [version %d]", object, version);
+    }
 }

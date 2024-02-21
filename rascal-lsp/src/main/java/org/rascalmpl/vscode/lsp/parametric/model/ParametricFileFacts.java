@@ -157,14 +157,16 @@ public class ParametricFileFacts {
         }
 
         private static final VersionedDiagnostics EMPTY = new VersionedDiagnostics(
-            new Versioned<>(0, IRascalValueFactory.getInstance().character(0)),
+            new Versioned<>(-1, IRascalValueFactory.getInstance().character(0)),
             new ArrayList<>());
 
         private static boolean replaceIfNewer(AtomicReference<VersionedDiagnostics> current, VersionedDiagnostics maybeNewer) {
             while (true) {
                 var old = current.get();
                 if (old.tree.version() < maybeNewer.tree.version()) {
-                    if (current.compareAndSet(old, maybeNewer)) return true;
+                    if (current.compareAndSet(old, maybeNewer)) {
+                        return true;
+                    }
                 } else {
                     return false;
                 }
@@ -243,10 +245,11 @@ public class ParametricFileFacts {
          * @param delay the duration after which the current request for summary
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
-         * @param calculation the actual summary calculation
-         * @return a future that provides diagnostics that result from the
-         * summary calculation, or `null` if the calculation was abandoned or
-         * interrupted
+         * @param calculation the actual summary calculation. It should return
+         * either diagnostics (possibly empty), or `null` if it was interrupted.
+         * @return a future that supplies either the diagnostics returned by the
+         * summary calculation, or `null` if the calculation was abandoned (due
+         * to debounce) or interrupted
          */
         private CompletableFuture<@Nullable VersionedDiagnostics> calculate(
                 int version, AtomicInteger latestVersion, Duration delay,
@@ -279,25 +282,10 @@ public class ParametricFileFacts {
             }, delayed).thenCompose(Function.identity());
         }
 
-        private CompletableFuture<List<Diagnostic>> unwrap(InterruptibleFuture<Lazy<List<Diagnostic>>> messages) {
-            return messages
-                .get()                     // Take inner `CompletableFuture` from outer `InterruptibleFuture`
-                .thenApply(Supplier::get); // Evaluate the lazy computation
-        }
-
         public void calculateAnalyzer(int version, Duration delay) {
-            calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () -> {
-                var analysis = analyzer.calculateSummary();
-                var analysisTree = analysis.tree;
-                var analysisMessages = unwrap(analysis.messages);
-                return analysisTree.thenCombine(analysisMessages, (tree, messages) -> {
-                    if (analysis.summary.isInterrupted()) {
-                        return null;
-                    } else {
-                        return createAndReportDiagnostics(analyzerDiagnostics, tree, messages);
-                    }
-                });
-            });
+            calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () ->
+                analyzer.calculateSummary().thenApply((tree, messages) ->
+                    createAndReportDiagnostics(analyzerDiagnostics, tree, messages)));
         }
 
         /**
@@ -324,7 +312,6 @@ public class ParametricFileFacts {
             else {
                 calculateAnalyzerLatestResult.thenAccept(analysis -> {
 
-
                     // If the analyzer was abandoned (due to debouncing) or
                     // interrupted, then diagnostics of the analyzer aren't
                     // available, so retry from the start.
@@ -343,16 +330,10 @@ public class ParametricFileFacts {
                             // diff of the latest analyzer diagnostics and the
                             // current builder diagnostics can be computed (by
                             // removing the former from the latter).
-                            var build = builder.calculateSummary(CompletableFuture.completedFuture(analysis.tree));
-                            var buildTree = build.tree;
-                            var buildMessages = unwrap(build.messages);
-                            return buildTree.thenCombine(buildMessages, (tree, messages) -> {
-                                if (build.summary.isInterrupted()) {
-                                    return null;
-                                } else {
-                                    messages.removeAll(analysis.messages);
-                                    return createAndReportDiagnostics(builderDiagnostics, tree, messages);
-                                }
+                            var analysisTree = CompletableFuture.completedFuture(analysis.tree);
+                            return builder.calculateSummary(analysisTree).thenApply((tree, messages) -> {
+                                messages.removeAll(analysis.messages);
+                                return createAndReportDiagnostics(builderDiagnostics, tree, messages);
                             });
                         });
                     }

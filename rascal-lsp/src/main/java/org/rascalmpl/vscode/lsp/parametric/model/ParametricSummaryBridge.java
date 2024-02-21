@@ -31,7 +31,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -173,7 +175,7 @@ public class ParametricSummaryBridge {
             return lookup(cursor, contrib::analyze);
         }
 
-        public InterruptibleFuture<T> lookup(Position cursor, SummaryCalculator calculator) {
+        private InterruptibleFuture<T> lookup(Position cursor, SummaryCalculator calculator) {
             var activeSummary = lastFuture;
             if (activeSummary == null && dedicatedCall) {
                 logger.trace("{} requesting dedicated for: {}", logName, cursor);
@@ -359,14 +361,30 @@ public class ParametricSummaryBridge {
 
 
     public class SummaryCalculation {
-        public final CompletableFuture<Versioned<ITree>> tree;
-        public final InterruptibleFuture<IConstructor> summary;
-        public final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
+        private final CompletableFuture<Versioned<ITree>> tree;
+        private final InterruptibleFuture<IConstructor> summary;
+        private final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
 
         public SummaryCalculation(CompletableFuture<Versioned<ITree>> tree, InterruptibleFuture<IConstructor> summary, InterruptibleFuture<Lazy<List<Diagnostic>>> messages) {
             this.tree = tree;
             this.summary = summary;
             this.messages = messages;
+        }
+
+        public <T> CompletableFuture<@Nullable T> thenApply(BiFunction<Versioned<ITree>, List<Diagnostic>, T> fn) {
+            return tree.thenCombine(unwrap(messages), (t, ms) ->
+                // When a summary calculation is interrupted, the `messages`
+                // future does complete (prematurely), but the list it supplies
+                // is empty. As this is indistinguishable from an *un*interrupted
+                // builder that just yields no messages, we need to check for
+                // interruption explicitly.
+                this.summary.isInterrupted() ? null : fn.apply(t, ms));
+        }
+
+        private CompletableFuture<List<Diagnostic>> unwrap(InterruptibleFuture<Lazy<List<Diagnostic>>> messages) {
+            return messages
+                .get()                     // Take inner `CompletableFuture` from outer `InterruptibleFuture`
+                .thenApply(Supplier::get); // Evaluate the lazy computation
         }
     }
 
