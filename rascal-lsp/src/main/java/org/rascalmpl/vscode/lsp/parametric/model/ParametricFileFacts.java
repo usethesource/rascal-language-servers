@@ -37,20 +37,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.WithTree;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -110,12 +108,12 @@ public class ParametricFileFacts {
         }
     }
 
-    public void calculateAnalyzer(ISourceLocation file, int version, Duration delay) {
-        getFile(file).calculateAnalyzer(version, delay);
+    public void calculateAnalyzer(ISourceLocation file, Versioned<ITree> tree, Duration delay) {
+        getFile(file).calculateAnalyzer(tree, delay);
     }
 
-    public void calculateBuilder(ISourceLocation file, int version, Duration delay) {
-        getFile(file).calculateBuilder(version, delay);
+    public void calculateBuilder(ISourceLocation file, Versioned<ITree> tree) {
+        getFile(file).calculateBuilder(tree);
     }
 
     public void close(ISourceLocation loc) {
@@ -145,31 +143,19 @@ public class ParametricFileFacts {
         // diagnostics; (2) if so, replace old with new. This is why
         // `AtomicReference` and `Versioned` are needed in the following three
         // fields.
-        //
-        // Note: To be able to ensure that builder diagnostics are calculated
-        // for the same syntax tree as supposedly-corresponding analyzer
-        // diagnostics, analyzer diagnostics and builder diagnostics are
-        // associated with the syntax tree for which they were computed.
-        private final AtomicReference<Versioned<List<Diagnostic>>> parserDiagnostics =
-            Versioned.atomic(-1, Collections.emptyList());
-        private final AtomicReference<Versioned<WithTree<List<Diagnostic>>>> analyzerDiagnostics =
-            Versioned.atomic(-1, WithTree.withDefaultTree(Collections.emptyList()));
-        private final AtomicReference<Versioned<WithTree<List<Diagnostic>>>> builderDiagnostics =
-            Versioned.atomic(-1, WithTree.withDefaultTree(Collections.emptyList()));
+        private final AtomicReference<Versioned<List<Diagnostic>>> parserDiagnostics = Versioned.atomic(-1, Collections.emptyList());
+        private final AtomicReference<Versioned<List<Diagnostic>>> analyzerDiagnostics = Versioned.atomic(-1, Collections.emptyList());
+        private final AtomicReference<Versioned<List<Diagnostic>>> builderDiagnostics = Versioned.atomic(-1, Collections.emptyList());
 
         private final ParametricSummaryBridge analyzer;
         private final ParametricSummaryBridge builder;
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
-        private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
-
-        @SuppressWarnings("java:S3077")
-        private volatile @MonotonicNonNull CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>> calculateAnalyzerLatestResult;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze);
-            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build);
+            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
+            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
         }
 
         public void reloadContributions() {
@@ -177,20 +163,11 @@ public class ParametricFileFacts {
             builder.reloadContributions();
         }
 
-        /**
-         * Creates a new `Versioned` object for parameters `version` and
-         * `messages`, and then reports these diagnostics if they are newer
-         * (greater version) than the current diagnostics.
-         *
-         * @return the newly created object, regardless of whether these
-         * diagnostics were newer.
-         */
-        private <T> Versioned<T> createAndReportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
-            var maybeNewer = new Versioned<T>(version, messages);
+        private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
+            var maybeNewer = new Versioned<>(version, messages);
             if (Versioned.replaceIfNewer(current, maybeNewer)) {
                 sendDiagnostics();
             }
-            return maybeNewer;
         }
 
         private void invalidate(ParametricSummaryBridge summarizer, boolean isClosing) {
@@ -213,15 +190,9 @@ public class ParametricFileFacts {
          * @param delay the duration after which the current request for summary
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
-         * @param calculation the actual summary calculation. It should return
-         * either diagnostics (possibly empty), or `null` if it was interrupted.
-         * @return a future that supplies either the diagnostics returned by the
-         * summary calculation, or `null` if the calculation was abandoned (due
-         * to debounce) or interrupted
+         * @param calculation the actual summary calculation
          */
-        private CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>> calculate(
-                int version, AtomicInteger latestVersion, Duration delay,
-                Supplier<CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>>> calculation) {
+        private void calculate(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -238,76 +209,44 @@ public class ParametricFileFacts {
             //     call.
 
             var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-            return CompletableFuture.supplyAsync(() -> {
+            CompletableFuture.runAsync(() -> {
                 // If no new call to `calculate` has been made after `delay` has
                 // passed (i.e., `lastVersion` hasn't changed in the meantime),
                 // then run the calculation. Else, abandon this calculation.
                 if (latestVersion.get() == version) {
-                    return calculation.get();
-                } else {
-                    return CompletableFuture.<Versioned<WithTree<List<Diagnostic>>>>completedFuture(null);
+                    calculation.run();
                 }
-            }, delayed).thenCompose(Function.identity());
+            }, delayed);
         }
 
-        public void calculateAnalyzer(int version, Duration delay) {
-            calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () ->
-                analyzer.calculateSummary().thenApply((tree, messages) ->
-                    createAndReportDiagnostics(analyzerDiagnostics, tree.version(), new WithTree<>(tree, messages))));
+        public void calculateAnalyzer(Versioned<ITree> tree, Duration delay) {
+            var version = tree.version();
+            calculate(version, latestVersionCalculateAnalyzer, delay, () ->
+                analyzer.calculateSummary(contrib::analyze, tree).thenAcceptIfUninterrupted(messages ->
+                    reportDiagnostics(analyzerDiagnostics, version, messages)));
         }
 
-        /**
-         * The main challenge when running the builder is that it might produce
-         * a subset of the same diagnostics as the analyzer. Thus, to avoid
-         * showing the same diagnostics twice, a diff needs to be computed of
-         * the latest analyzer diagnostics and the current builder diagnostics.
-         * To do this in a reliable way, each builder calculation awaits the
-         * completion of the latest analyzer calculation, such that:
-         *   - the builder can use exactly the same syntax tree as the analyzer;
-         *   - the builder has access to the diagnostics of the analyzer.
-         */
-        public void calculateBuilder(int version, Duration delay) {
+        public void calculateBuilder(Versioned<ITree> tree) {
 
-            // If an analyzer calculation hasn't been scheduled yet (ever), then
-            // it needs to be scheduled first.
-            if (calculateAnalyzerLatestResult == null) {
-                calculateAnalyzer(version, Duration.ZERO);
-                calculateBuilder(version, delay);
-            }
+            // First, run the analyzer. This is *always* needed, because the
+            // latest results of `calculateAnalyzer` may be for a syntax tree
+            // with a greater version than parameter `tree` (because
+            // `calculateAnalyzer` has debouncing).
+            builder.calculateSummary(contrib::analyze, tree).thenAcceptIfUninterrupted(analyzerMessages ->
 
-            // If an analyzer calculation has been scheduled before, then the
-            // builder can await its completion.
-            else {
-                calculateAnalyzerLatestResult.thenAccept(analysis -> {
+                // Next, run the builder and use exactly the same syntax tree as
+                // in the analyzer. In this way, a reliable diff of the analyzer
+                // diagnostics and the builder diagnostics can be computed (by
+                // removing the former from the latter).
+                builder.calculateSummary(contrib::build, tree).thenAcceptIfUninterrupted(builderMessages -> {
+                    builderMessages.removeAll(analyzerMessages);
+                    reportDiagnostics(builderDiagnostics, tree.version(), builderMessages);
+                })
+            );
 
-                    // If the analyzer was abandoned (due to debouncing) or
-                    // interrupted, then diagnostics of the analyzer aren't
-                    // available, so retry from the start.
-                    if (analysis == null) {
-                        calculateBuilder(version, delay);
-                    }
-
-                    // If the analyzer calculation wasn't abandoned (due to
-                    // debouncing) or interrupted, then diagnostics of the
-                    // analyzer are available, so proceed.
-                    else {
-                        calculate(version, latestVersionCalculateBuilder, delay, () -> {
-
-                            // Use exactly the same syntax tree as in the
-                            // analyzer calculation. In this way, a reliable
-                            // diff of the latest analyzer diagnostics and the
-                            // current builder diagnostics can be computed (by
-                            // removing the former from the latter).
-                            var analysisTree = WithTree.getVersionedTree(analysis);
-                            return builder.calculateSummary(analysisTree).thenApply((tree, messages) -> {
-                                var analysisMessages = WithTree.unwrap(analysis);
-                                messages.removeAll(analysisMessages);
-                                return createAndReportDiagnostics(builderDiagnostics, tree.version(), new WithTree<>(tree, messages));
-                            });
-                        });
-                    }
-                });
-            }
+            // Closing thoughts: If the analyzer or the builder was interrupted,
+            // *no* diagnostics are reported (instead of reporting an empty list
+            // of diagnostics).
         }
 
         public ParametricSummaryBridge getAnalyzer() {
@@ -319,7 +258,7 @@ public class ParametricFileFacts {
         }
 
         public void reportParseErrors(int version, List<Diagnostic> messages) {
-            createAndReportDiagnostics(parserDiagnostics, version, messages);
+            reportDiagnostics(parserDiagnostics, version, messages);
         }
 
         private void sendDiagnostics() {
@@ -328,13 +267,19 @@ public class ParametricFileFacts {
                 return;
             }
             var messages = Lists.union(
-                parserDiagnostics.get().get(),
-                WithTree.unwrap(analyzerDiagnostics),
-                WithTree.unwrap(builderDiagnostics));
+                unwrap(parserDiagnostics),
+                unwrap(analyzerDiagnostics),
+                unwrap(builderDiagnostics));
             logger.trace("Sending diagnostics for {}. {} messages", file, messages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
                 messages));
+        }
+
+        private List<Diagnostic> unwrap(AtomicReference<Versioned<List<Diagnostic>>> wrappedDiagnostics) {
+            return wrappedDiagnostics
+                .get()  // Unwrap `AtomicReference`
+                .get(); // Unwrap `Versioned`
         }
     }
 }

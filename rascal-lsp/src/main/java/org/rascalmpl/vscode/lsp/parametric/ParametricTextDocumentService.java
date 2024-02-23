@@ -239,13 +239,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerSummaryAnalyzer(TextDocumentIdentifier doc, Duration delay) {
-        var version = getFile(doc).getCurrentContent().version();
-        facts(doc).calculateAnalyzer(Locations.toLoc(doc), version, delay);
+        getFile(doc).getCurrentTreeAsync().thenAccept(tree ->
+            facts(doc).calculateAnalyzer(Locations.toLoc(doc), tree, delay));
     }
 
-    private void triggerSummaryBuilder(TextDocumentIdentifier doc, Duration delay) {
-        var version = getFile(doc).getCurrentContent().version();
-        facts(doc).calculateBuilder(Locations.toLoc(doc), version, delay);
+    private void triggerSummaryBuilder(TextDocumentIdentifier doc) {
+        getFile(doc).getCurrentTreeAsync().thenAccept(tree ->
+            facts(doc).calculateBuilder(Locations.toLoc(doc), tree));
     }
 
     private void invalidateFactsAnalyzer(TextDocumentIdentifier doc) {
@@ -263,7 +263,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // but we do trigger the type checker on save (if a builder exists)
         invalidateFactsBuilder(params.getTextDocument());
         logger.trace("Triggering builder for {}...", params.getTextDocument().getUri());
-        triggerSummaryBuilder(params.getTextDocument(), Duration.ZERO);
+        triggerSummaryBuilder(params.getTextDocument());
     }
 
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
