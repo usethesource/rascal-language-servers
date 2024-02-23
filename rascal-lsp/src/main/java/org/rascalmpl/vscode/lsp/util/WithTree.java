@@ -28,17 +28,33 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-public class Versioned<T> {
-    private final int version;
+import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+
+/**
+ * This class keeps together an object (e.g., a list of diagnostics messages)
+ * and the syntax tree that corresponds to the object (e.g., the tree for which
+ * the diagnostics were computed).
+ */
+public class WithTree<T> {
+    private final ITree tree;
     private final T object;
 
-    public Versioned(int version, T object) {
-        this.version = version;
+    public WithTree(T object) {
+        this(IRascalValueFactory.getInstance().character(0), object);
+    }
+
+    public WithTree(ITree tree, T object) {
+        this.tree = tree;
         this.object = object;
     }
 
-    public int version() {
-        return version;
+    public WithTree(Versioned<ITree> tree, T object) {
+        this(tree.get(), object);
+    }
+
+    public ITree tree() {
+        return tree;
     }
 
     public T get() {
@@ -47,23 +63,26 @@ public class Versioned<T> {
 
     @Override
     public String toString() {
-        return String.format("%s [version %d]", object, version);
+        return String.format("%s, with tree: %s", object, tree);
     }
 
-    public static <T> AtomicReference<Versioned<T>> atomic(int version, T object) {
-        return new AtomicReference<>(new Versioned<>(version, object));
+    public static final ITree DEFAULT_TREE = IRascalValueFactory.getInstance().character(0);
+
+    public static <T> WithTree<T> withDefaultTree(T object) {
+        return new WithTree<>(DEFAULT_TREE, object);
     }
 
-    public static <T> boolean replaceIfNewer(AtomicReference<Versioned<T>> current, Versioned<T> maybeNewer) {
-        while (true) {
-            var old = current.get();
-            if (old.version() < maybeNewer.version()) {
-                if (current.compareAndSet(old, maybeNewer)) {
-                    return true;
-                }
-            } else {
-                return false;
-            }
-        }
+    public static <T> Versioned<ITree> getVersionedTree(Versioned<WithTree<T>> versioned) {
+        return new Versioned<>(versioned.version(), versioned.get().tree());
+    }
+
+    public static <T> T unwrap(AtomicReference<Versioned<WithTree<T>>> ref) {
+        return unwrap(ref.get());
+    }
+
+    public static <T> T unwrap(Versioned<WithTree<T>> versioned) {
+        return versioned
+            .get()  // Unwrap `Versioned` to get `WithTree<T>`
+            .get(); // Unwrap `WithTree` to get `T`
     }
 }

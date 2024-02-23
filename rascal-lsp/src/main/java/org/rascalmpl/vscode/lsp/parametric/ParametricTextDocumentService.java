@@ -224,7 +224,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Did Change file: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
         invalidateFactsAnalyzer(params.getTextDocument());
-        logger.trace("Triggering analyzer...");
+        logger.trace("Triggering analyzer for {}...", params.getTextDocument().getUri());
         triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
@@ -262,7 +262,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the type checker on save (if a builder exists)
         invalidateFactsBuilder(params.getTextDocument());
-        logger.trace("Triggering builder...");
+        logger.trace("Triggering builder for {}...", params.getTextDocument().getUri());
         triggerSummaryBuilder(params.getTextDocument(), Duration.ZERO);
     }
 
@@ -297,8 +297,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(),
-                tree == null ? new Versioned<>(version, null) : tree,
+            facts(file.getLocation()).reportParseErrors(file.getLocation(), version,
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });

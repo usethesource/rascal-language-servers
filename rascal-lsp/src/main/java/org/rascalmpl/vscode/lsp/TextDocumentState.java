@@ -59,7 +59,7 @@ public class TextDocumentState {
         this.parser = parser;
         this.file = file;
         this.currentContent = new Versioned<>(version, content);
-        this.currentTree = newContent(version, content);
+        this.currentTree = newTreeAsync(version, content);
     }
 
     /**
@@ -74,16 +74,17 @@ public class TextDocumentState {
      */
     public CompletableFuture<Versioned<ITree>> update(int version, String content) {
         currentContent = new Versioned<>(version, content);
-        currentTree = newContent(version, content);
-        return currentTree;
+        var newTree = newTreeAsync(version, content);
+        currentTree = newTree;
+        return newTree;
     }
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<Versioned<ITree>> newContent(int version, String content) {
+    private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
         return parser.apply(file, content)
             .thenApply(t -> new Versioned<ITree>(version, t))
             .whenComplete((r, t) -> {
-                if (r.get() != null) {
+                if (r != null) {
                     lastFullTree = r;
                 }
             });

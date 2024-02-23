@@ -392,6 +392,10 @@ public class ParametricSummaryBridge {
         return calculateSummary(false, calculator);
     }
 
+    public SummaryCalculation calculateSummary(Versioned<ITree> tree) {
+        return calculateSummary(CompletableFuture.completedFuture(tree));
+    }
+
     public SummaryCalculation calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
         return calculateSummary(false, calculator, tree);
     }

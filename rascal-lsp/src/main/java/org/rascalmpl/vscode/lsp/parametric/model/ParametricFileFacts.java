@@ -27,7 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric.model;
 
 import java.time.Duration;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,12 +46,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.WithTree;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -77,8 +76,8 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file, Versioned<ITree> tree, List<Diagnostic> msgs) {
-        getFile(file).reportParseErrors(tree, msgs);
+    public void reportParseErrors(ISourceLocation file, int version, List<Diagnostic> msgs) {
+        getFile(file).reportParseErrors(version, msgs);
     }
 
     private FileFact getFile(ISourceLocation l) {
@@ -137,40 +136,6 @@ public class ParametricFileFacts {
         }
     }
 
-    /**
-     * This class keeps together diagnostics messages and the versioned syntax
-     * tree for which the diagnostics were computed. This is needed to ensure
-     * that builder diagnostics are calculated for the same syntax as
-     * supposedly-corresponding analyzer diagnostics. The diagnostics can come
-     * from any source (e.g., parser, analyzer, builder).
-     */
-    private static class VersionedDiagnostics {
-        public final Versioned<ITree> tree;
-        public final List<Diagnostic> messages;
-
-        public VersionedDiagnostics(Versioned<ITree> tree, List<Diagnostic> messages) {
-            this.tree = tree;
-            this.messages = messages;
-        }
-
-        private static final VersionedDiagnostics EMPTY = new VersionedDiagnostics(
-            new Versioned<>(-1, IRascalValueFactory.getInstance().character(0)),
-            new ArrayList<>());
-
-        private static boolean replaceIfNewer(AtomicReference<VersionedDiagnostics> current, VersionedDiagnostics maybeNewer) {
-            while (true) {
-                var old = current.get();
-                if (old.tree.version() < maybeNewer.tree.version()) {
-                    if (current.compareAndSet(old, maybeNewer)) {
-                        return true;
-                    }
-                } else {
-                    return false;
-                }
-            }
-        }
-    }
-
     private class FileFact {
         private final ISourceLocation file;
 
@@ -178,10 +143,19 @@ public class ParametricFileFacts {
         // thread-safe way, we need to atomically: (1) check if the version of
         // the new diagnostics is greater than the version of the old
         // diagnostics; (2) if so, replace old with new. This is why
-        // `AtomicReference` and `VersionedDiagnostics` are needed here.
-        private final AtomicReference<VersionedDiagnostics> parserDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
-        private final AtomicReference<VersionedDiagnostics> analyzerDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
-        private final AtomicReference<VersionedDiagnostics> builderDiagnostics = new AtomicReference<>(VersionedDiagnostics.EMPTY);
+        // `AtomicReference` and `Versioned` are needed in the following three
+        // fields.
+        //
+        // Note: To be able to ensure that builder diagnostics are calculated
+        // for the same syntax tree as supposedly-corresponding analyzer
+        // diagnostics, analyzer diagnostics and builder diagnostics are
+        // associated with the syntax tree for which they were computed.
+        private final AtomicReference<Versioned<List<Diagnostic>>> parserDiagnostics =
+            Versioned.atomic(-1, Collections.emptyList());
+        private final AtomicReference<Versioned<WithTree<List<Diagnostic>>>> analyzerDiagnostics =
+            Versioned.atomic(-1, WithTree.withDefaultTree(Collections.emptyList()));
+        private final AtomicReference<Versioned<WithTree<List<Diagnostic>>>> builderDiagnostics =
+            Versioned.atomic(-1, WithTree.withDefaultTree(Collections.emptyList()));
 
         private final ParametricSummaryBridge analyzer;
         private final ParametricSummaryBridge builder;
@@ -190,7 +164,7 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateBuilder = new AtomicInteger();
 
         @SuppressWarnings("java:S3077")
-        private volatile @MonotonicNonNull CompletableFuture<@Nullable VersionedDiagnostics> calculateAnalyzerLatestResult;
+        private volatile @MonotonicNonNull CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>> calculateAnalyzerLatestResult;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -204,19 +178,16 @@ public class ParametricFileFacts {
         }
 
         /**
-         * Creates a new `VersionedDiagnostics` object for parameters `tree` and
+         * Creates a new `Versioned` object for parameters `version` and
          * `messages`, and then reports these diagnostics if they are newer
          * (greater version) than the current diagnostics.
          *
          * @return the newly created object, regardless of whether these
          * diagnostics were newer.
          */
-        private VersionedDiagnostics createAndReportDiagnostics(
-                AtomicReference<VersionedDiagnostics> current,
-                Versioned<ITree> tree, List<Diagnostic> messages) {
-
-            var maybeNewer = new VersionedDiagnostics(tree, messages);
-            if (VersionedDiagnostics.replaceIfNewer(current, maybeNewer)) {
+        private <T> Versioned<T> createAndReportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
+            var maybeNewer = new Versioned<T>(version, messages);
+            if (Versioned.replaceIfNewer(current, maybeNewer)) {
                 sendDiagnostics();
             }
             return maybeNewer;
@@ -248,9 +219,9 @@ public class ParametricFileFacts {
          * summary calculation, or `null` if the calculation was abandoned (due
          * to debounce) or interrupted
          */
-        private CompletableFuture<@Nullable VersionedDiagnostics> calculate(
+        private CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>> calculate(
                 int version, AtomicInteger latestVersion, Duration delay,
-                Supplier<CompletableFuture<@Nullable VersionedDiagnostics>> calculation) {
+                Supplier<CompletableFuture<@Nullable Versioned<WithTree<List<Diagnostic>>>>> calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -274,7 +245,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    return CompletableFuture.<VersionedDiagnostics>completedFuture(null);
+                    return CompletableFuture.<Versioned<WithTree<List<Diagnostic>>>>completedFuture(null);
                 }
             }, delayed).thenCompose(Function.identity());
         }
@@ -282,7 +253,7 @@ public class ParametricFileFacts {
         public void calculateAnalyzer(int version, Duration delay) {
             calculateAnalyzerLatestResult = calculate(version, latestVersionCalculateAnalyzer, delay, () ->
                 analyzer.calculateSummary().thenApply((tree, messages) ->
-                    createAndReportDiagnostics(analyzerDiagnostics, tree, messages)));
+                    createAndReportDiagnostics(analyzerDiagnostics, tree.version(), new WithTree<>(tree, messages))));
         }
 
         /**
@@ -327,10 +298,11 @@ public class ParametricFileFacts {
                             // diff of the latest analyzer diagnostics and the
                             // current builder diagnostics can be computed (by
                             // removing the former from the latter).
-                            var analysisTree = CompletableFuture.completedFuture(analysis.tree);
+                            var analysisTree = WithTree.getVersionedTree(analysis);
                             return builder.calculateSummary(analysisTree).thenApply((tree, messages) -> {
-                                messages.removeAll(analysis.messages);
-                                return createAndReportDiagnostics(builderDiagnostics, tree, messages);
+                                var analysisMessages = WithTree.unwrap(analysis);
+                                messages.removeAll(analysisMessages);
+                                return createAndReportDiagnostics(builderDiagnostics, tree.version(), new WithTree<>(tree, messages));
                             });
                         });
                     }
@@ -346,8 +318,8 @@ public class ParametricFileFacts {
             return builder;
         }
 
-        public void reportParseErrors(Versioned<ITree> tree, List<Diagnostic> messages) {
-            createAndReportDiagnostics(parserDiagnostics, tree, messages);
+        public void reportParseErrors(int version, List<Diagnostic> messages) {
+            createAndReportDiagnostics(parserDiagnostics, version, messages);
         }
 
         private void sendDiagnostics() {
@@ -356,9 +328,9 @@ public class ParametricFileFacts {
                 return;
             }
             var messages = Lists.union(
-                parserDiagnostics.get().messages,
-                analyzerDiagnostics.get().messages,
-                builderDiagnostics.get().messages);
+                parserDiagnostics.get().get(),
+                WithTree.unwrap(analyzerDiagnostics),
+                WithTree.unwrap(builderDiagnostics));
             logger.trace("Sending diagnostics for {}. {} messages", file, messages.size());
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
