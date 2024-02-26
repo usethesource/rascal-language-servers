@@ -47,11 +47,14 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
+import jline.internal.Nullable;
 
 public class ParametricFileFacts {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
@@ -108,11 +111,11 @@ public class ParametricFileFacts {
         }
     }
 
-    public void calculateAnalyzer(ISourceLocation file, Versioned<ITree> tree, Duration delay) {
-        getFile(file).calculateAnalyzer(tree, delay);
+    public void calculateAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+        getFile(file).calculateAnalyzer(tree, version, delay);
     }
 
-    public void calculateBuilder(ISourceLocation file, Versioned<ITree> tree) {
+    public void calculateBuilder(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
         getFile(file).calculateBuilder(tree);
     }
 
@@ -152,10 +155,13 @@ public class ParametricFileFacts {
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
+        private volatile @Nullable InterruptibleFuture<Lazy<List<Diagnostic>>> builderAnalysis = null;
+        private volatile @Nullable InterruptibleFuture<Lazy<List<Diagnostic>>> builderBuild = null;
+
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
-            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState);
+            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze);
+            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build);
         }
 
         public void reloadContributions() {
@@ -170,16 +176,18 @@ public class ParametricFileFacts {
             }
         }
 
-        private void invalidate(ParametricSummaryBridge summarizer, boolean isClosing) {
-            summarizer.invalidate(isClosing);
-        }
-
         public void invalidateAnalyzer(boolean isClosing) {
-            invalidate(analyzer, isClosing);
+            analyzer.invalidate(isClosing);
         }
 
         public void invalidateBuilder(boolean isClosing) {
-            invalidate(builder, isClosing);
+            builder.invalidate(isClosing);
+            if (builderAnalysis != null) {
+                builderAnalysis.interrupt();
+            }
+            if (builderBuild != null) {
+                builderBuild.interrupt(); // Sets the interrupt flag in `builderBuild`, which `builder.invalidate` doesn't do
+            }
         }
 
         /**
@@ -192,7 +200,7 @@ public class ParametricFileFacts {
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
          */
-        private void calculate(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
+        private void debounce(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -219,34 +227,52 @@ public class ParametricFileFacts {
             }, delayed);
         }
 
-        public void calculateAnalyzer(Versioned<ITree> tree, Duration delay) {
-            var version = tree.version();
-            calculate(version, latestVersionCalculateAnalyzer, delay, () ->
-                analyzer.calculateSummary(contrib::analyze, tree).thenAcceptIfUninterrupted(messages ->
-                    reportDiagnostics(analyzerDiagnostics, version, messages)));
+        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+            debounce(version, latestVersionCalculateAnalyzer, delay, () ->
+                analyzer.calculateSummary(tree).thenAcceptIfUninterrupted(messages ->
+                    reportDiagnostics(analyzerDiagnostics, version, messages.get())));
         }
 
-        public void calculateBuilder(Versioned<ITree> tree) {
+        /**
+         * The main complication when running the builder is that it might
+         * produce a subset of the same diagnostics as the analyzer. Thus, as
+         * the latest parser/analyzer/builder diagnostics are always reported
+         * together, a diff needs to be computed of the analyzer diagnostics and
+         * the builder diagnostics to avoid reporting duplicates produced by
+         * both analyzer and builder.
+         */
+        public void calculateBuilder(CompletableFuture<Versioned<ITree>> tree) {
 
-            // First, run the analyzer. This is *always* needed, because the
-            // latest results of `calculateAnalyzer` may be for a syntax tree
+            // Schedule the analyzer. This is *always* needed, because the
+            // latest result of `calculateAnalyzer` may be for a syntax tree
             // with a greater version than parameter `tree` (because
-            // `calculateAnalyzer` has debouncing).
-            builder.calculateSummary(contrib::analyze, tree).thenAcceptIfUninterrupted(analyzerMessages ->
+            // `calculateAnalyzer` has debouncing), or it may be interrupted due
+            // to later change (which should not affect the builder).
+            builderAnalysis = analyzer.calculateMessages(tree);
 
-                // Next, run the builder and use exactly the same syntax tree as
-                // in the analyzer. In this way, a reliable diff of the analyzer
-                // diagnostics and the builder diagnostics can be computed (by
-                // removing the former from the latter).
-                builder.calculateSummary(contrib::build, tree).thenAcceptIfUninterrupted(builderMessages -> {
-                    builderMessages.removeAll(analyzerMessages);
-                    reportDiagnostics(builderDiagnostics, tree.version(), builderMessages);
-                })
+            // Schedule the builder and use exactly the same syntax tree as the
+            // analyzer. In this way, a reliable diff of the analyzer
+            // diagnostics and the builder diagnostics can be computed (by
+            // removing the former from the latter).
+            builderBuild = builder.calculateSummary(tree);
+
+            // Only if neither the analyzer nor the builder was interrupted,
+            // report diagnostics. Otherwise, *no* diagnostics are reported
+            // (instead of reporting an empty list of diagnostics).
+            builderAnalysis.thenAcceptBothIfUninterrupted(builderBuild,
+
+                // When the analyzer or the builder is interrupted, its future
+                // does complete (prematurely), but the list it supplies is
+                // empty. As this is indistinguishable from an *un*interrupted
+                // calculation that just yields no messages,
+                // `thenAcceptBothIfUninterrupted` is needed to only
+                // conditionally run the following callback.
+                (analyzerMessages, builderMessages) -> {
+                    var messages = builderMessages.get();
+                    messages.removeAll(analyzerMessages.get());
+                    tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), messages));
+                }
             );
-
-            // Closing thoughts: If the analyzer or the builder was interrupted,
-            // *no* diagnostics are reported (instead of reporting an empty list
-            // of diagnostics).
         }
 
         public ParametricSummaryBridge getAnalyzer() {

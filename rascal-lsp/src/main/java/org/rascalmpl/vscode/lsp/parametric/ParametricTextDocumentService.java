@@ -238,14 +238,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummaryAnalyzer(TextDocumentIdentifier doc, Duration delay) {
-        getFile(doc).getCurrentTreeAsync().thenAccept(tree ->
-            facts(doc).calculateAnalyzer(Locations.toLoc(doc), tree, delay));
+    private void triggerSummaryAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
+        facts(doc).calculateAnalyzer(Locations.toLoc(doc), getFile(doc).getCurrentTreeAsync(), doc.getVersion(), delay);
     }
 
     private void triggerSummaryBuilder(TextDocumentIdentifier doc) {
-        getFile(doc).getCurrentTreeAsync().thenAccept(tree ->
-            facts(doc).calculateBuilder(Locations.toLoc(doc), tree));
+        facts(doc).calculateBuilder(Locations.toLoc(doc), getFile(doc).getCurrentTreeAsync());
     }
 
     private void invalidateFactsAnalyzer(TextDocumentIdentifier doc) {
@@ -501,7 +499,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
-        return facts(doc).getAnalyzer(Locations.toLoc(doc));
+        return facts(doc).getBuilder(Locations.toLoc(doc));
     }
 
     @Override
