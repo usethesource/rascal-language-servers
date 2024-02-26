@@ -155,8 +155,10 @@ public class ParametricFileFacts {
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
-        private volatile @Nullable InterruptibleFuture<Lazy<List<Diagnostic>>> builderAnalysis = null;
-        private volatile @Nullable InterruptibleFuture<Lazy<List<Diagnostic>>> builderBuild = null;
+        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+        private volatile @MonotonicNonNull InterruptibleFuture<Lazy<List<Diagnostic>>> builderAnalysis = null;
+        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+        private volatile @MonotonicNonNull InterruptibleFuture<Lazy<List<Diagnostic>>> builderBuild = null;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
