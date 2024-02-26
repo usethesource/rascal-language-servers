@@ -54,7 +54,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
-import jline.internal.Nullable;
 
 public class ParametricFileFacts {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
