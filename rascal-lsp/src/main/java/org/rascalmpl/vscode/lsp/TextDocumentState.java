@@ -30,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
@@ -49,17 +48,18 @@ public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile Versioned<String> currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<Versioned<@Nullable ITree>> currentTree;
+    private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int version, String content) {
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent) {
         this.parser = parser;
         this.file = file;
-        this.currentContent = new Versioned<>(version, content);
-        this.currentTree = newTreeAsync(version, content);
+        this.currentContent = new Versioned<>(initialVersion, initialContent);
+        this.currentTree = newTreeAsync(initialVersion, initialContent);
     }
 
     /**
