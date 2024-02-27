@@ -221,11 +221,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        logger.debug("Did Change file: {}", params.getTextDocument());
+        logger.debug("Did Change file: {}", params.getTextDocument().getUri());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
-        invalidateFactsAnalyzer(params.getTextDocument());
-        logger.trace("Triggering analyzer for {}...", params.getTextDocument().getUri());
-        triggerSummaryAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
+        triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
+    }
+
+    @Override
+    public void didSave(DidSaveTextDocumentParams params) {
+        logger.debug("Did Save file: {}", params.getTextDocument());
+        // on save we don't get new file contents, that already came in via didChange
+        // but we do trigger the builder on save (if a builder exists)
+        triggerBuilder(params.getTextDocument());
     }
 
     @Override
@@ -238,30 +244,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummaryAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        facts(doc).calculateAnalyzer(Locations.toLoc(doc), getFile(doc).getCurrentTreeAsync(), doc.getVersion(), delay);
+    private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
+        logger.trace("Triggering analyzer for {}", doc.getUri());
+        var fileFacts = facts(doc);
+        var location = Locations.toLoc(doc);
+        fileFacts.invalidateAnalyzer(location);
+        fileFacts.calculateAnalyzer(location, getFile(doc).getCurrentTreeAsync(), doc.getVersion(), delay);
     }
 
-    private void triggerSummaryBuilder(TextDocumentIdentifier doc) {
-        facts(doc).calculateBuilder(Locations.toLoc(doc), getFile(doc).getCurrentTreeAsync());
-    }
-
-    private void invalidateFactsAnalyzer(TextDocumentIdentifier doc) {
-        facts(doc).invalidateAnalyzer(Locations.toLoc(doc));
-    }
-
-    private void invalidateFactsBuilder(TextDocumentIdentifier doc) {
-        facts(doc).invalidateBuilder(Locations.toLoc(doc));
-    }
-
-    @Override
-    public void didSave(DidSaveTextDocumentParams params) {
-        logger.debug("Did Save file: {}", params.getTextDocument());
-        // on save we don't get new file contents, that already came in via didChange
-        // but we do trigger the type checker on save (if a builder exists)
-        invalidateFactsBuilder(params.getTextDocument());
-        logger.trace("Triggering builder for {}...", params.getTextDocument().getUri());
-        triggerSummaryBuilder(params.getTextDocument());
+    private void triggerBuilder(TextDocumentIdentifier doc) {
+        logger.trace("Triggering builder for {}", doc.getUri());
+        var fileFacts = facts(doc);
+        var location = Locations.toLoc(doc);
+        fileFacts.invalidateBuilder(location);
+        fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync());
     }
 
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
