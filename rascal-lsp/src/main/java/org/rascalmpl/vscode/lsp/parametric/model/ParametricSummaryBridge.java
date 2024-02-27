@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.Logger;
@@ -76,23 +77,25 @@ public class ParametricSummaryBridge {
     private final ILanguageContributions contrib;
     private final Function<ISourceLocation, TextDocumentState> lookupState;
     private final ISourceLocation file;
-    private final SummaryCalculator calculator;
+    private final BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator;
 
-    private final ReplaceableFuture<Lazy<List<Diagnostic>>> messages;
+    private final ReplaceableFuture<List<Diagnostic>> messages;
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> definitions;
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> implementations;
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Location>>> references;
     private volatile CompletableFuture<LazyRangeMapCalculation<List<Either<String, MarkedString>>>> hovers;
 
     public ParametricSummaryBridge(Executor exec, ISourceLocation file, ColumnMaps columns,
-        ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState, SummaryCalculator calculator) {
+        ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
+        BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator) {
+
         this.exec = exec;
         this.file = file;
         this.columns = columns;
         this.contrib = contrib;
         this.lookupState = lookupState;
         this.calculator = calculator;
-        messages = ReplaceableFuture.completed(Lazy.defer(Collections::emptyList));
+        messages = ReplaceableFuture.completed(Collections.emptyList());
         reloadContributions();
     }
 
@@ -197,11 +200,6 @@ public class ParametricSummaryBridge {
                 .thenApply(l -> l.lookup(new Range(cursor, cursor)))
                 .thenApply(r -> r == null ? this.empty : r);
         }
-    }
-
-    @FunctionalInterface
-    public interface SummaryCalculator {
-        InterruptibleFuture<IConstructor> calc(ISourceLocation file, ITree tree);
     }
 
     @FunctionalInterface
@@ -354,36 +352,36 @@ public class ParametricSummaryBridge {
         return implementations.thenCompose(d -> d.lookup(cursor).get());
     }
 
-    public InterruptibleFuture<Lazy<List<Diagnostic>>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
+    public InterruptibleFuture<List<Diagnostic>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
         return calculateSummary(false, tree);
     }
 
-    private InterruptibleFuture<Lazy<List<Diagnostic>>> calculateSummary(boolean internal, CompletableFuture<Versioned<ITree>> tree) {
+    private InterruptibleFuture<List<Diagnostic>> calculateSummary(boolean internal, CompletableFuture<Versioned<ITree>> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
-
-        InterruptibleFuture<IConstructor> summary = calculate(tree);
+        var summary = calculate(tree);
         definitions.thenAccept(d -> d.newSummary(summary, internal));
         references.thenAccept(d -> d.newSummary(summary, internal));
         implementations.thenAccept(d -> d.newSummary(summary, internal));
         hovers.thenAccept(d -> d.newSummary(summary, internal));
-
-        InterruptibleFuture<Lazy<List<Diagnostic>>> lazyMessages = extractMessages(summary);
-        messages.replace(lazyMessages);
-        return lazyMessages;
+        return calculateMessages(summary);
     }
 
-    public InterruptibleFuture<Lazy<List<Diagnostic>>> calculateMessages(CompletableFuture<Versioned<ITree>> tree) {
-        return extractMessages(calculate(tree));
+    public InterruptibleFuture<List<Diagnostic>> calculateMessages(CompletableFuture<Versioned<ITree>> tree) {
+        return calculateMessages(calculate(tree));
+    }
+
+    private InterruptibleFuture<List<Diagnostic>> calculateMessages(InterruptibleFuture<IConstructor> summary) {
+        return messages.replace(extractMessages(summary));
     }
 
     private InterruptibleFuture<IConstructor> calculate(CompletableFuture<Versioned<ITree>> tree) {
         return InterruptibleFuture.flatten(
-            tree.thenApplyAsync(t -> calculator.calc(file, t.get()), exec),
+            tree.thenApplyAsync(t -> calculator.apply(file, t.get()), exec),
             exec);
     }
 
-    private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(InterruptibleFuture<IConstructor> summary) {
-        return summary.thenApply(s -> Lazy.defer(() -> {
+    private InterruptibleFuture<List<Diagnostic>> extractMessages(InterruptibleFuture<IConstructor> summary) {
+        return summary.thenApply(s -> {
             var sum = s.asWithKeywordParameters();
             if (sum.hasParameter("messages")) {
                 return ((ISet)sum.getParameter("messages")).stream()
@@ -391,7 +389,7 @@ public class ParametricSummaryBridge {
                     .collect(Collectors.toList());
             }
             return Collections.emptyList();
-        }));
+        });
     }
 
     public CompletableFuture<List<Either<String, MarkedString>>> getHover(Position cursor) {
@@ -399,7 +397,7 @@ public class ParametricSummaryBridge {
     }
 
     public CompletableFuture<List<Diagnostic>> getMessages() {
-        return messages.get().thenApply(Lazy::get);
+        return messages.get();
     }
 
     private static final Type summaryCons;

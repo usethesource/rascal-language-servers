@@ -155,9 +155,9 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull InterruptibleFuture<Lazy<List<Diagnostic>>> builderAnalysis = null;
+        private volatile @MonotonicNonNull InterruptibleFuture<List<Diagnostic>> builderAnalysis = null;
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull InterruptibleFuture<Lazy<List<Diagnostic>>> builderBuild = null;
+        private volatile @MonotonicNonNull InterruptibleFuture<List<Diagnostic>> builderBuild = null;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -231,7 +231,7 @@ public class ParametricFileFacts {
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             debounce(version, latestVersionCalculateAnalyzer, delay, () ->
                 analyzer.calculateSummary(tree).thenAcceptIfUninterrupted(messages ->
-                    reportDiagnostics(analyzerDiagnostics, version, messages.get())));
+                    reportDiagnostics(analyzerDiagnostics, version, messages)));
         }
 
         /**
@@ -260,18 +260,9 @@ public class ParametricFileFacts {
             // Only if neither the analyzer nor the builder was interrupted,
             // report diagnostics. Otherwise, *no* diagnostics are reported
             // (instead of reporting an empty list of diagnostics).
-            builderAnalysis.thenAcceptBothIfUninterrupted(builderBuild,
-
-                // When the analyzer or the builder is interrupted, its future
-                // does complete (prematurely), but the list it supplies is
-                // empty. As this is indistinguishable from an *un*interrupted
-                // calculation that just yields no messages,
-                // `thenAcceptBothIfUninterrupted` is needed to only
-                // conditionally run the following callback.
-                (analyzerMessages, builderMessages) -> {
-                    var messages = builderMessages.get();
-                    messages.removeAll(analyzerMessages.get());
-                    tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), messages));
+            builderAnalysis.thenAcceptBothIfUninterrupted(builderBuild, (analyzerMessages, builderMessages) -> {
+                    builderMessages.removeAll(analyzerMessages);
+                    tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), builderMessages));
                 }
             );
         }
