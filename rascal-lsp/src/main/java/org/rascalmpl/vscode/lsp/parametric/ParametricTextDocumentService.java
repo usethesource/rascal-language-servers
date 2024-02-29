@@ -97,7 +97,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -494,27 +493,31 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , Collections::emptyList);
     }
 
-    private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
-        return facts(doc).getBuilder(Locations.toLoc(doc));
-    }
-
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        return recoverExceptions(summary(params.getTextDocument())
-            .getDefinition(params.getPosition())
+        var doc = params.getTextDocument();
+        var file = Locations.toLoc(doc);
+        var tree = getFile(doc).getCurrentTreeAsync();
+        var cursor = params.getPosition();
+
+        return recoverExceptions(facts(doc)
+            .getDefinitions(file, tree, cursor)
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
-            ImplementationParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        var doc = params.getTextDocument();
+        var file = Locations.toLoc(doc);
+        var tree = getFile(doc).getCurrentTreeAsync();
+        var cursor = params.getPosition();
 
-        return recoverExceptions(summary(params.getTextDocument())
-            .getImplementations(params.getPosition())
+        return recoverExceptions(facts(doc)
+            .getImplementations(file, tree, cursor)
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -522,9 +525,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        var doc = params.getTextDocument();
+        var file = Locations.toLoc(doc);
+        var tree = getFile(doc).getCurrentTreeAsync();
+        var cursor = params.getPosition();
 
-        return recoverExceptions(summary(params.getTextDocument())
-            .getReferences(params.getPosition())
+        return recoverExceptions(facts(doc)
+            .getReferences(file, tree, cursor)
             .thenApply(l -> l) // hack to help compiler see type
             , Collections::emptyList);
     }
@@ -532,9 +539,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
+        var doc = params.getTextDocument();
+        var file = Locations.toLoc(doc);
+        var tree = getFile(doc).getCurrentTreeAsync();
+        var cursor = params.getPosition();
 
-        return recoverExceptions(summary(params.getTextDocument())
-            .getHover(params.getPosition())
+        return recoverExceptions(facts(doc)
+            .getDocumentation(file, tree, cursor)
             .thenApply(Hover::new)
             , () -> null);
     }
@@ -583,7 +594,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
 
-        fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
         }

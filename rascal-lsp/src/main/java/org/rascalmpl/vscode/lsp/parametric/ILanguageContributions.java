@@ -46,12 +46,12 @@ public interface ILanguageContributions {
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
     public CompletableFuture<Boolean> hasDedicatedDocumentation();
-    public CompletableFuture<Boolean> hasDedicatedDefines();
+    public CompletableFuture<Boolean> hasDedicatedDefinitions();
     public CompletableFuture<Boolean> hasDedicatedReferences();
     public CompletableFuture<Boolean> hasDedicatedImplementations();
 
@@ -66,4 +66,27 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> askSummaryForDefinitions();
     public CompletableFuture<Boolean> askSummaryForReferences();
     public CompletableFuture<Boolean> askSummaryForImplementations();
+
+    public CompletableFuture<SummaryConfig> getAnalysisConfig();
+    public CompletableFuture<SummaryConfig> getBuildConfig();
+    public CompletableFuture<SummaryConfig> getLookupsConfig();
+
+    public class SummaryConfig {
+        public final boolean providesDocumentation;
+        public final boolean providesDefinitions;
+        public final boolean providesReferences;
+        public final boolean providesImplementations;
+
+        public SummaryConfig(
+                boolean providesDocumentation,
+                boolean providesDefinitions,
+                boolean providesReferences,
+                boolean providesImplementations) {
+
+            this.providesDocumentation = providesDocumentation;
+            this.providesDefinitions = providesDefinitions;
+            this.providesReferences = providesReferences;
+            this.providesImplementations = providesImplementations;
+        }
+    }
 }

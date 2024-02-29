@@ -103,6 +103,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> summaryProvidesImplementations;
     private final CompletableFuture<Boolean> summaryProvidesDocumentation;
 
+    private final CompletableFuture<@Nullable SummaryConfig> analysisConfig;
+    private final CompletableFuture<@Nullable SummaryConfig> buildConfig;
+    private final CompletableFuture<SummaryConfig> lookupsConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -228,6 +231,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.summaryProvidesImplementations = summaryConfigLookup(summaryConfig, "providesImplementations");
             this.summaryProvidesReferences = summaryConfigLookup(summaryConfig, "providesReferences");
 
+            this.analysisConfig = summaryConfig(contributions, "analyzer");
+            this.buildConfig = summaryConfig(contributions, "builder");
+            this.lookupsConfig = summaryConfig(contributions);
+
         } catch (IOException e1) {
             logger.catching(e1);
             throw new RuntimeException(e1);
@@ -239,13 +246,54 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static CompletableFuture<Boolean> summaryConfigLookup(CompletableFuture<IConstructor> conf, String parameter) {
-        return conf.thenApply( d -> {
-            if (d == null) {
-                return false;
+        return conf.thenApply(d -> isTrue(d, parameter));
+    }
+
+    private static CompletableFuture<SummaryConfig> summaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
+        return contributions.thenApply(c -> {
+            if (hasContribution(c, summarizer)) {
+                var constructor = c
+                    .stream()
+                    .map(IConstructor.class::cast)
+                    .filter(cons -> cons.getConstructorType().getName().equals(summarizer))
+                    .findAny()
+                    .orElse(null);
+                return new SummaryConfig(
+                    isTrue(constructor, "providesDocumentation"),
+                    isTrue(constructor, "providesDefinitions"),
+                    isTrue(constructor, "providesReferences"),
+                    isTrue(constructor, "providesImplementations"));
+            } else {
+                return new SummaryConfig(false, false, false, false);
             }
-            var val = d.asWithKeywordParameters().getParameter(parameter);
-            return !(val instanceof IBool) || ((IBool)val).getValue();
         });
+    }
+
+    private static CompletableFuture<SummaryConfig> summaryConfig(CompletableFuture<ISet> contributions) {
+        return contributions.thenApply(c ->
+            new SummaryConfig(
+                hasContribution(c, "documenter"),
+                hasContribution(c, "definer"),
+                hasContribution(c, "referrer"),
+                hasContribution(c, "implementer")));
+    }
+
+    private static boolean hasContribution(ISet contributions, String contribution) {
+        for (IValue elem : contributions) {
+            IConstructor contrib = (IConstructor) elem;
+            if (contribution.equals(contrib.getConstructorType().getName())) {
+                return (IFunction) contrib.get(0) != null;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {
+        if (constructor == null) {
+            return false;
+        }
+        var val = constructor.asWithKeywordParameters().getParameter(parameter);
+        return !(val instanceof IBool) || ((IBool)val).getValue();
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
@@ -325,7 +373,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
         logger.debug("defines({}, {})", loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
         return execFunction("defines", definer, VF.set(), loc, input, cursor);
     }
@@ -343,7 +391,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
+    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
         return hasDefiner;
     }
 
@@ -415,6 +463,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return summaryProvidesDocumentation;
     }
 
+    @Override
+    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+        return analysisConfig;
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getBuildConfig() {
+        return buildConfig;
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getLookupsConfig() {
+        return lookupsConfig;
+    }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {

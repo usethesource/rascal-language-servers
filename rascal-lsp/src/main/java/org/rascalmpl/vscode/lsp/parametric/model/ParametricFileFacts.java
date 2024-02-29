@@ -37,17 +37,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.MarkedString;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -63,6 +68,8 @@ public class ParametricFileFacts {
     private final ILanguageContributions contrib;
     private final Function<ISourceLocation, TextDocumentState> lookupState;
     private final ColumnMaps columns;
+
+    private volatile CompletableFuture<DedicatedLookupFunctionsSummaryFactory> lookupsFactory;
 
     public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
         ColumnMaps columns, Executor exec) {
@@ -86,14 +93,9 @@ public class ParametricFileFacts {
 
     public void reloadContributions() {
         files.values().forEach(FileFact::reloadContributions);
-    }
 
-    public ParametricSummaryBridge getAnalyzer(ISourceLocation file) {
-        return getFile(file).getAnalyzer();
-    }
-
-    public ParametricSummaryBridge getBuilder(ISourceLocation file) {
-        return getFile(file).getBuilder();
+        lookupsFactory = contrib.getLookupsConfig().thenApply(config ->
+            new DedicatedLookupFunctionsSummaryFactory(config, exec, columns, contrib));
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
@@ -116,6 +118,26 @@ public class ParametricFileFacts {
 
     public void calculateBuilder(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
         getFile(file).calculateBuilder(tree);
+    }
+
+    public CompletableFuture<List<Either<String, MarkedString>>> getDocumentation(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
+        return getFile(file).lookup(tree, s -> s.getDocumentation(cursor));
+    }
+
+    public CompletableFuture<List<Location>> getDefinitions(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
+        return getFile(file).lookup(tree, s -> s.getDefinitions(cursor));
+    }
+
+    public CompletableFuture<List<Location>> getReferences(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
+        return getFile(file).lookup(tree, s -> s.getReferences(cursor));
+    }
+
+    public CompletableFuture<List<Location>> getImplementations(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
+        return getFile(file).lookup(tree, s -> s.getImplementations(cursor));
     }
 
     public void close(ISourceLocation loc) {
@@ -155,14 +177,16 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull InterruptibleFuture<List<Diagnostic>> builderAnalysis = null;
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestAnalyzerAnalysis;
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull InterruptibleFuture<List<Diagnostic>> builderBuild = null;
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestBuilderBuild;
+        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestBuilderAnalysis;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze);
-            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build);
+            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze, contrib::getAnalysisConfig);
+            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build, contrib::getBuildConfig);
         }
 
         public void reloadContributions() {
@@ -179,15 +203,20 @@ public class ParametricFileFacts {
 
         public void invalidateAnalyzer(boolean isClosing) {
             analyzer.invalidate(isClosing);
+            invalidate(latestAnalyzerAnalysis);
         }
 
         public void invalidateBuilder(boolean isClosing) {
             builder.invalidate(isClosing);
-            if (builderAnalysis != null) {
-                builderAnalysis.interrupt();
-            }
-            if (builderBuild != null) {
-                builderBuild.interrupt(); // Sets the interrupt flag in `builderBuild`, which `builder.invalidate` doesn't do
+            invalidate(latestBuilderAnalysis);
+            invalidate(latestBuilderBuild);
+        }
+
+        private void invalidate(@Nullable CompletableFuture<Versioned<Summary>> summary) {
+            if (summary != null) {
+                summary
+                    .thenApply(Versioned<Summary>::get)
+                    .thenAccept(Summary::invalidate);
             }
         }
 
@@ -201,7 +230,9 @@ public class ParametricFileFacts {
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
          */
-        private void debounce(int version, AtomicInteger latestVersion, Duration delay, Runnable calculation) {
+        private CompletableFuture<Versioned<Summary>> debounce(
+                int version, AtomicInteger latestVersion, Duration delay,
+                Supplier<CompletableFuture<Versioned<Summary>>> calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -218,20 +249,27 @@ public class ParametricFileFacts {
             //     call.
 
             var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-            CompletableFuture.runAsync(() -> {
+            var summary = CompletableFuture.supplyAsync(() -> {
                 // If no new call to `calculate` has been made after `delay` has
                 // passed (i.e., `lastVersion` hasn't changed in the meantime),
                 // then run the calculation. Else, abandon this calculation.
                 if (latestVersion.get() == version) {
-                    calculation.run();
+                    return calculation.get();
+                } else {
+                    return CompletableFuture.completedFuture(new Versioned<>(version, Summary.NULL_SUMMARY));
                 }
             }, delayed);
+
+            return summary.thenCompose(Function.identity());
         }
 
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
-            debounce(version, latestVersionCalculateAnalyzer, delay, () ->
-                analyzer.calculateSummary(tree).thenAcceptIfUninterrupted(messages ->
-                    reportDiagnostics(analyzerDiagnostics, version, messages)));
+            latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
+                var summary = analyzer.calculateSummary(tree);
+                var messages = getMessages(summary);
+                messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
+                return summary;
+            });
         }
 
         /**
@@ -249,30 +287,30 @@ public class ParametricFileFacts {
             // with a greater version than parameter `tree` (because
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
-            builderAnalysis = analyzer.calculateMessages(tree);
+            latestBuilderAnalysis = analyzer.calculateSummary(tree);
+            var analyzerMessages = getMessages(latestBuilderAnalysis);
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
-            builderBuild = builder.calculateSummary(tree);
+            latestBuilderBuild = builder.calculateSummary(tree);
+            var builderMessages = getMessages(latestBuilderBuild);
 
             // Only if neither the analyzer nor the builder was interrupted,
             // report diagnostics. Otherwise, *no* diagnostics are reported
             // (instead of reporting an empty list of diagnostics).
-            builderAnalysis.thenAcceptBothIfUninterrupted(builderBuild, (analyzerMessages, builderMessages) -> {
-                    builderMessages.removeAll(analyzerMessages);
-                    tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), builderMessages));
-                }
-            );
+            analyzerMessages.thenAcceptBothIfUninterrupted(builderMessages, (aMessages, bMessages) -> {
+                bMessages.removeAll(aMessages);
+                tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), bMessages));
+            });
         }
 
-        public ParametricSummaryBridge getAnalyzer() {
-            return analyzer;
-        }
-
-        public ParametricSummaryBridge getBuilder() {
-            return builder;
+        private InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<Summary>> summary) {
+            var messages = summary
+                .thenApply(Versioned<Summary>::get)
+                .thenApply(Summary::getMessages);
+            return InterruptibleFuture.flatten(messages, exec);
         }
 
         public void reportParseErrors(int version, List<Diagnostic> messages) {
@@ -298,6 +336,38 @@ public class ParametricFileFacts {
             return wrappedDiagnostics
                 .get()  // Unwrap `AtomicReference`
                 .get(); // Unwrap `Versioned`
+        }
+
+        private <T> CompletableFuture<List<T>> lookup(
+                CompletableFuture<Versioned<ITree>> tree,
+                Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
+
+            return tree.thenCompose(t ->
+                latestAnalyzerAnalysis.thenCompose(analysis ->
+                    latestBuilderBuild.thenCompose(build ->
+                        lookupsFactory
+                            .thenApply(f -> f.create(file, tree))
+                            .thenApply(lookups -> {
+                                var analyzerResult = extractor.apply(analysis.get());
+                                var builderResult = extractor.apply(build.get());
+                                var lookupsResult = extractor.apply(lookups);
+
+                                if (build.version() == t.version() && builderResult != null) {
+                                    return builderResult.get().get();
+                                }
+                                if (analysis.version() == t.version() && analyzerResult != null) {
+                                    return analyzerResult.get().get();
+                                }
+                                if (lookupsResult != null) {
+                                    return lookupsResult.get().get();
+                                }
+
+                                return CompletableFuture.completedFuture(Collections.<T>emptyList());
+                            }
+                        )
+                    )
+                )
+            ).thenCompose(Function.identity());
         }
     }
 }
