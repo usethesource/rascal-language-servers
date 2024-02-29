@@ -485,7 +485,7 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
         return new SummarizerSummary(calculation);
     }
 
-    protected <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
+    private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
         InterruptibleFuture<IConstructor> calculation, String kwField, Function<IValue, T> valueMapper) {
 
         logger.trace("{}: Mapping summary by getting {}", logName, kwField);
