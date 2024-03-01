@@ -323,24 +323,22 @@ class DedicatedLookupFunctionsSummaryFactory extends BaseSummaryFactory {
                 DedicatedLookupFunction function, Function<IValue, T> valueMapper, String logName) {
 
             return () -> {
-                // var result = tree
-                //         .thenApplyAsync(t -> {
-                            var line = cursor.getLine() + 1;
-                            var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-                            var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
-                            if (cursorTree == null) {
-                                logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
-                                // return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
-                                return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set()).thenApply(s -> toList(s, valueMapper));
-                            }
-                            logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, TreeAdapter.yield(cursorTree));
-                            var set = function.lookup(file, tree.get(), cursorTree);
-                            logger.trace("{}: dedicated returned: {}", logName, set);
-                            // return set;
-                        // }, exec);
-return set
-                // return InterruptibleFuture.flatten(set, exec)
-                    .thenApply(s -> toList(s, valueMapper));
+                var line = cursor.getLine() + 1;
+                var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
+                var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
+
+                InterruptibleFuture<ISet> set = null;
+                if (cursorTree == null) {
+                    logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
+                    set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
+                } else {
+                    var yielded = TreeAdapter.yield(cursorTree);
+                    logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
+                    set = function.lookup(file, tree.get(), cursorTree);
+                }
+
+                logger.trace("{}: dedicated returned: {}", logName, set);
+                return set.thenApply(s -> toList(s, valueMapper));
             };
         }
 

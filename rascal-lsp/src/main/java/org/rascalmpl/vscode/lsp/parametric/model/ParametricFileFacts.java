@@ -318,6 +318,11 @@ public class ParametricFileFacts {
                 .thenCompose(Function.identity());
         }
 
+        /**
+         * Dynamically routes the lookup to `analysis`, `build`, or a
+         * single-shot. Note: Static routing is a bit complicated here, because
+         * which summary to use depends on the version of `tree`.
+         */
         private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn,
                 Versioned<ITree> tree, Versioned<Summary> analysis, Versioned<Summary> build) {
 
