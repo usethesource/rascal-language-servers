@@ -67,16 +67,19 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 @SuppressWarnings("deprecation")
 public interface Summary {
+    public static final String KEY_DOCUMENTATION = "documentation";
+    public static final String KEY_DEFINITIONS = "definitions";
+    public static final String KEY_REFERENCES = "references";
+    public static final String KEY_IMPLEMENTATIONS = "implementations";
+
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor);
-    @Nullable InterruptibleFuture<List<Diagnostic>> getMessages();
+    InterruptibleFuture<List<Diagnostic>> getMessages();
     void invalidate();
 
-    // TODO: Check if getMessages can be non-nullable
-
-    static final Summary NULL_SUMMARY = new Summary() {
+    public static final Summary NULL_SUMMARY = new Summary() {
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return null;
@@ -94,14 +97,21 @@ public interface Summary {
             return null;
         }
         @Override
-        public @Nullable InterruptibleFuture<List<Diagnostic>> getMessages() {
-            return null;
+        public InterruptibleFuture<List<Diagnostic>> getMessages() {
+            return InterruptibleFuture.completedFuture(Collections.emptyList());
         }
         @Override
         public void invalidate() {
             // Nothing to invalidate
         }
     };
+
+    public static InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<Summary>> summary, Executor exec) {
+        var messages = summary
+            .thenApply(Versioned<Summary>::get)
+            .thenApply(Summary::getMessages);
+        return InterruptibleFuture.flatten(messages, exec);
+    }
 }
 
 abstract class BaseSummaryFactory {
@@ -132,51 +142,6 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
         return new SummarizerSummary(calculation);
     }
 
-    private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
-        InterruptibleFuture<IConstructor> calculation, String kwField, Function<IValue, T> valueMapper) {
-
-        logger.trace("{}: Mapping summary by getting {}", logName, kwField);
-        return calculation
-            .thenApply(IConstructor::asWithKeywordParameters)
-            .thenApply(s ->
-                Lazy.defer(() ->
-                    translateRelation(logName, getKWFieldSet(s, kwField), valueMapper)));
-    }
-
-    private IRelation<ISet> getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
-        if (data.hasParameter(name)) {
-            return ((ISet) data.getParameter(name)).asRelation();
-        }
-        return IRascalValueFactory.getInstance().set().asRelation();
-    }
-
-    private <T> IRangeMap<List<T>> translateRelation(String logName,
-            IRelation<ISet> binaryRel, Function<IValue, T> mapValue) {
-
-        logger.trace("{}: summary contain rel of size:{}", logName, binaryRel.asContainer().size());
-        TreeMapLookup<List<T>> result = new TreeMapLookup<>();
-        for (IValue v: binaryRel) {
-            ITuple row = (ITuple)v;
-            Range from = Locations.toRange((ISourceLocation)row.get(0), columns);
-            T to = mapValue.apply(row.get(1));
-            var existing = result.getExact(from);
-            if (existing == null) {
-                // most cases there is only a single entry, to so save a lot of memory, we store a singleton list to start with
-                result.put(from, Collections.singletonList(to));
-            }
-            else if (existing.size() == 1) {
-                // we had a singleton list in there, so let's replace it with a regular list
-                existing = new ArrayList<>(existing);
-                result.put(from, existing);
-                existing.add(to);
-            }
-            else {
-                existing.add(to);
-            }
-        }
-        return result;
-    }
-
     public class SummarizerSummary implements Summary {
         public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
         public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
@@ -186,13 +151,13 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
 
         public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
             this.documentation = config.providesDocumentation ?
-                mapCalculation("documentation", calculation, "documentation", valueMapper::mapValueToString) : null;
+                mapCalculation(KEY_DOCUMENTATION, calculation, KEY_DOCUMENTATION, valueMapper::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
-                mapCalculation("definitions", calculation, "definitions", valueMapper::mapValueToLocation) : null;
+                mapCalculation(KEY_DEFINITIONS, calculation, KEY_DEFINITIONS, valueMapper::mapValueToLocation) : null;
             this.references = config.providesReferences ?
-                mapCalculation("references", calculation, "references", valueMapper::mapValueToLocation) : null;
+                mapCalculation(KEY_REFERENCES, calculation, KEY_REFERENCES, valueMapper::mapValueToLocation) : null;
             this.implementations = config.providesImplementations ?
-                mapCalculation("implementations", calculation, "implementations", valueMapper::mapValueToLocation) : null;
+                mapCalculation(KEY_IMPLEMENTATIONS, calculation, KEY_IMPLEMENTATIONS, valueMapper::mapValueToLocation) : null;
             this.messages = extractMessages(calculation);
         }
 
@@ -230,11 +195,49 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
             messages.interrupt();
         }
 
-        private <T> Supplier<InterruptibleFuture<List<T>>> get(InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
-            return () -> result
-                .thenApplyAsync(Lazy::get, exec)
-                .thenApply(l -> l.lookup(new Range(cursor, cursor)))
-                .thenApply(r -> r == null ? Collections.emptyList() : r);
+        private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
+                InterruptibleFuture<IConstructor> calculation, String kwField, Function<IValue, T> valueMapper) {
+
+            logger.trace("{}: Mapping summary by getting {}", logName, kwField);
+            return calculation
+                .thenApply(IConstructor::asWithKeywordParameters)
+                .thenApply(s ->
+                    Lazy.defer(() ->
+                        translateRelation(logName, getKWFieldSet(s, kwField), valueMapper)));
+        }
+
+        private IRelation<ISet> getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
+            if (data.hasParameter(name)) {
+                return ((ISet) data.getParameter(name)).asRelation();
+            }
+            return IRascalValueFactory.getInstance().set().asRelation();
+        }
+
+        private <T> IRangeMap<List<T>> translateRelation(String logName,
+                IRelation<ISet> binaryRel, Function<IValue, T> mapValue) {
+
+            logger.trace("{}: summary contain rel of size:{}", logName, binaryRel.asContainer().size());
+            TreeMapLookup<List<T>> result = new TreeMapLookup<>();
+            for (IValue v: binaryRel) {
+                ITuple row = (ITuple)v;
+                Range from = Locations.toRange((ISourceLocation)row.get(0), columns);
+                T to = mapValue.apply(row.get(1));
+                var existing = result.getExact(from);
+                if (existing == null) {
+                    // most cases there is only a single entry, to so save a lot of memory, we store a singleton list to start with
+                    result.put(from, Collections.singletonList(to));
+                }
+                else if (existing.size() == 1) {
+                    // we had a singleton list in there, so let's replace it with a regular list
+                    existing = new ArrayList<>(existing);
+                    result.put(from, existing);
+                    existing.add(to);
+                }
+                else {
+                    existing.add(to);
+                }
+            }
+            return result;
         }
 
         private InterruptibleFuture<List<Diagnostic>> extractMessages(InterruptibleFuture<IConstructor> summary) {
@@ -247,6 +250,13 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
                 }
                 return Collections.emptyList();
             });
+        }
+
+        private <T> Supplier<InterruptibleFuture<List<T>>> get(InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
+            return () -> result
+                .thenApplyAsync(Lazy::get, exec)
+                .thenApply(l -> l.lookup(new Range(cursor, cursor)))
+                .thenApply(r -> r == null ? Collections.emptyList() : r);
         }
     }
 }
@@ -279,27 +289,27 @@ class DedicatedLookupFunctionsSummaryFactory extends BaseSummaryFactory {
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
-            return config.providesDocumentation ? get(cursor, contrib::documentation, valueMapper::mapValueToString, "documentation") : null;
+            return config.providesDocumentation ? get(cursor, contrib::documentation, valueMapper::mapValueToString, KEY_DOCUMENTATION) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
-            return config.providesDefinitions ? get(cursor, contrib::definitions, valueMapper::mapValueToLocation, "definitions") : null;
+            return config.providesDefinitions ? get(cursor, contrib::definitions, valueMapper::mapValueToLocation, KEY_DEFINITIONS) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
-            return config.providesReferences ? get(cursor, contrib::references, valueMapper::mapValueToLocation, "references") : null;
+            return config.providesReferences ? get(cursor, contrib::references, valueMapper::mapValueToLocation, KEY_REFERENCES) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
-            return config.providesImplementations ? get(cursor, contrib::implementations, valueMapper::mapValueToLocation, "implementations") : null;
+            return config.providesImplementations ? get(cursor, contrib::implementations, valueMapper::mapValueToLocation, KEY_IMPLEMENTATIONS) : null;
         }
 
         @Override
         public InterruptibleFuture<List<Diagnostic>> getMessages() {
-            throw new UnsupportedOperationException();
+            return InterruptibleFuture.completedFuture(Collections.emptyList());
         }
 
         @Override

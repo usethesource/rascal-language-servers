@@ -249,7 +249,7 @@ public class ParametricFileFacts {
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
                 var summary = analyzer.calculateSummary(tree);
-                var messages = getMessages(summary);
+                var messages = Summary.getMessages(summary, exec);
                 messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
                 return summary;
             });
@@ -271,14 +271,14 @@ public class ParametricFileFacts {
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
             latestBuilderAnalysis = analyzer.calculateSummary(tree);
-            var analyzerMessages = getMessages(latestBuilderAnalysis);
+            var analyzerMessages = Summary.getMessages(latestBuilderAnalysis, exec);
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
             latestBuilderBuild = builder.calculateSummary(tree);
-            var builderMessages = getMessages(latestBuilderBuild);
+            var builderMessages = Summary.getMessages(latestBuilderBuild, exec);
 
             // Only if neither the analyzer nor the builder was interrupted,
             // report diagnostics. Otherwise, *no* diagnostics are reported
@@ -287,13 +287,6 @@ public class ParametricFileFacts {
                 bMessages.removeAll(aMessages);
                 tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), bMessages));
             });
-        }
-
-        private InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<Summary>> summary) {
-            var messages = summary
-                .thenApply(Versioned<Summary>::get)
-                .thenApply(Summary::getMessages);
-            return InterruptibleFuture.flatten(messages, exec);
         }
 
         public void reportParseErrors(int version, List<Diagnostic> messages) {
