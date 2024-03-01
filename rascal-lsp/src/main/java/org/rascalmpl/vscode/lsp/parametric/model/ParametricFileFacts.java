@@ -49,9 +49,9 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.parametric.model.Summary.LookupFn;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -65,7 +65,8 @@ public class ParametricFileFacts {
     private final Function<ISourceLocation, TextDocumentState> lookupState;
     private final ColumnMaps columns;
 
-    private volatile CompletableFuture<DedicatedLookupFunctionsSummaryFactory> lookupsFactory;
+    @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+    private volatile CompletableFuture<DedicatedLookupFunctionsSummaryFactory> singleShotFactory;
 
     public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
         ColumnMaps columns, Executor exec) {
@@ -90,7 +91,7 @@ public class ParametricFileFacts {
     public void reloadContributions() {
         files.values().forEach(FileFact::reloadContributions);
 
-        lookupsFactory = contrib.getLookupsConfig().thenApply(config ->
+        singleShotFactory = contrib.getLookupsConfig().thenApply(config ->
             new DedicatedLookupFunctionsSummaryFactory(config, exec, columns, contrib));
     }
 
@@ -116,11 +117,8 @@ public class ParametricFileFacts {
         getFile(file).calculateBuilder(tree);
     }
 
-    public <T> CompletableFuture<List<T>> extractFromSummaries(
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree,
-            Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
-
-        return getFile(file).extractFromSummaries(tree, extractor);
+    public <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, ISourceLocation file, Versioned<ITree> tree) {
+        return getFile(file).lookupInSummaries(fn, tree);
     }
 
     public void close(ISourceLocation loc) {
@@ -314,36 +312,41 @@ public class ParametricFileFacts {
                 .get(); // Unwrap `Versioned`
         }
 
-        private <T> CompletableFuture<List<T>> extractFromSummaries(
-                CompletableFuture<Versioned<ITree>> tree,
-                Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
+        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, Versioned<ITree> tree) {
+            return latestAnalyzerAnalysis
+                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(fn, tree, a, b))
+                .thenCompose(Function.identity());
+        }
 
-            return tree.thenCompose(t ->
-                latestAnalyzerAnalysis.thenCompose(analysis ->
-                    latestBuilderBuild.thenCompose(build ->
-                        lookupsFactory
-                            .thenApply(f -> f.create(file, tree))
-                            .thenApply(lookups -> {
-                                var analyzerResult = extractor.apply(analysis.get());
-                                var builderResult = extractor.apply(build.get());
-                                var lookupsResult = extractor.apply(lookups);
+        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn,
+                Versioned<ITree> tree, Versioned<Summary> analysis, Versioned<Summary> build) {
 
-                                if (build.version() == t.version() && builderResult != null) {
-                                    return builderResult.get().get();
-                                }
-                                if (analysis.version() == t.version() && analyzerResult != null) {
-                                    return analyzerResult.get().get();
-                                }
-                                if (lookupsResult != null) {
-                                    return lookupsResult.get().get();
-                                }
+            // If a builder summary is available (i.e., a builder exists *and*
+            // provides), and if it's of the right version, use that.
+            var buildResult = fn.apply(build.get());
+            if (buildResult != null && build.version() == tree.version()) {
+                return buildResult.get().get();
+            }
 
-                                return CompletableFuture.completedFuture(Collections.<T>emptyList());
-                            }
-                        )
-                    )
-                )
-            ).thenCompose(Function.identity());
+            // Else, if an analyzer summary is available (i.e., an analyzer
+            // exists *and* provides), and if it's of the right version, use
+            // that.
+            var analysisResult = fn.apply(analysis.get());
+            if (analysisResult != null && analysis.version() == tree.version()) {
+                return analysisResult.get().get();
+            }
+
+            // Else, if a single-shooter summary is available, use that.
+            return singleShotFactory
+                .thenApply(f -> f.create(file, tree))
+                .thenApply(singleShot -> {
+                    var singleShotResult = fn.apply(singleShot);
+                    if (singleShotResult != null) {
+                        return singleShotResult.get().get();
+                    } else {
+                        return CompletableFuture.completedFuture(Collections.<T>emptyList());
+                    }})
+                .thenCompose(Function.identity());
         }
     }
 }

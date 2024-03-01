@@ -112,6 +112,8 @@ public interface Summary {
             .thenApply(Summary::getMessages);
         return InterruptibleFuture.flatten(messages, exec);
     }
+
+    public interface LookupFn<T> extends Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
 }
 
 abstract class BaseSummaryFactory {
@@ -274,15 +276,15 @@ class DedicatedLookupFunctionsSummaryFactory extends BaseSummaryFactory {
         super(config, exec, columns, contrib);
     }
 
-    public Summary create(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+    public Summary create(ISourceLocation file, Versioned<ITree> tree) {
         return new Lookups(file, tree);
     }
 
     public class Lookups implements Summary {
         private final ISourceLocation file;
-        private final CompletableFuture<Versioned<ITree>> tree;
+        private final Versioned<ITree> tree;
 
-        public Lookups(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+        public Lookups(ISourceLocation file, Versioned<ITree> tree) {
             this.file = file;
             this.tree = tree;
         }
@@ -321,22 +323,23 @@ class DedicatedLookupFunctionsSummaryFactory extends BaseSummaryFactory {
                 DedicatedLookupFunction function, Function<IValue, T> valueMapper, String logName) {
 
             return () -> {
-                var result = tree
-                        .thenApplyAsync(t -> {
+                // var result = tree
+                //         .thenApplyAsync(t -> {
                             var line = cursor.getLine() + 1;
                             var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-                            var cursorTree = TreeAdapter.locateLexical(t.get(), line, translatedOffset);
+                            var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
                             if (cursorTree == null) {
                                 logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
-                                return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
+                                // return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
+                                return InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set()).thenApply(s -> toList(s, valueMapper));
                             }
                             logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, TreeAdapter.yield(cursorTree));
-                            var set = function.lookup(file, t.get(), cursorTree);
+                            var set = function.lookup(file, tree.get(), cursorTree);
                             logger.trace("{}: dedicated returned: {}", logName, set);
-                            return set;
-                        }, exec);
-
-                return InterruptibleFuture.flatten(result, exec)
+                            // return set;
+                        // }, exec);
+return set
+                // return InterruptibleFuture.flatten(set, exec)
                     .thenApply(s -> toList(s, valueMapper));
             };
         }
