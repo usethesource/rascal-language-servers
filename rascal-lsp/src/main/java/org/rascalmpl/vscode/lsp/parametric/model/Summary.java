@@ -67,10 +67,13 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 @SuppressWarnings("deprecation")
 public interface Summary {
-    public static final String KEY_DOCUMENTATION = "documentation";
-    public static final String KEY_DEFINITIONS = "definitions";
-    public static final String KEY_REFERENCES = "references";
-    public static final String KEY_IMPLEMENTATIONS = "implementations";
+
+    public interface LookupFn<T> extends Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
+
+    public static final String DOCUMENTATION_KEY = "documentation";
+    public static final String DEFINITIONS_KEY = "definitions";
+    public static final String REFERENCES_KEY = "references";
+    public static final String IMPLEMENTATIONS_KEY = "implementations";
 
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
@@ -112,8 +115,6 @@ public interface Summary {
             .thenApply(Summary::getMessages);
         return InterruptibleFuture.flatten(messages, exec);
     }
-
-    public interface LookupFn<T> extends Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
 }
 
 abstract class BaseSummaryFactory {
@@ -153,13 +154,13 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
 
         public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
             this.documentation = config.providesDocumentation ?
-                mapCalculation(KEY_DOCUMENTATION, calculation, KEY_DOCUMENTATION, valueMapper::mapValueToString) : null;
+                mapCalculation(DOCUMENTATION_KEY, calculation, DOCUMENTATION_KEY, valueMapper::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
-                mapCalculation(KEY_DEFINITIONS, calculation, KEY_DEFINITIONS, valueMapper::mapValueToLocation) : null;
+                mapCalculation(DEFINITIONS_KEY, calculation, DEFINITIONS_KEY, valueMapper::mapValueToLocation) : null;
             this.references = config.providesReferences ?
-                mapCalculation(KEY_REFERENCES, calculation, KEY_REFERENCES, valueMapper::mapValueToLocation) : null;
+                mapCalculation(REFERENCES_KEY, calculation, REFERENCES_KEY, valueMapper::mapValueToLocation) : null;
             this.implementations = config.providesImplementations ?
-                mapCalculation(KEY_IMPLEMENTATIONS, calculation, KEY_IMPLEMENTATIONS, valueMapper::mapValueToLocation) : null;
+                mapCalculation(IMPLEMENTATIONS_KEY, calculation, IMPLEMENTATIONS_KEY, valueMapper::mapValueToLocation) : null;
             this.messages = extractMessages(calculation);
         }
 
@@ -269,44 +270,44 @@ interface DedicatedLookupFunction {
 }
 
 @SuppressWarnings("deprecation")
-class DedicatedLookupFunctionsSummaryFactory extends BaseSummaryFactory {
-    private static final Logger logger = LogManager.getLogger(DedicatedLookupFunctionsSummaryFactory.class);
+class SingleShooterSummaryFactory extends BaseSummaryFactory {
+    private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
 
-    public DedicatedLookupFunctionsSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    public SingleShooterSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns, contrib);
     }
 
     public Summary create(ISourceLocation file, Versioned<ITree> tree) {
-        return new Lookups(file, tree);
+        return new SingleShooterSummary(file, tree);
     }
 
-    public class Lookups implements Summary {
+    public class SingleShooterSummary implements Summary {
         private final ISourceLocation file;
         private final Versioned<ITree> tree;
 
-        public Lookups(ISourceLocation file, Versioned<ITree> tree) {
+        public SingleShooterSummary(ISourceLocation file, Versioned<ITree> tree) {
             this.file = file;
             this.tree = tree;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
-            return config.providesDocumentation ? get(cursor, contrib::documentation, valueMapper::mapValueToString, KEY_DOCUMENTATION) : null;
+            return config.providesDocumentation ? get(cursor, contrib::documentation, valueMapper::mapValueToString, DOCUMENTATION_KEY) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
-            return config.providesDefinitions ? get(cursor, contrib::definitions, valueMapper::mapValueToLocation, KEY_DEFINITIONS) : null;
+            return config.providesDefinitions ? get(cursor, contrib::definitions, valueMapper::mapValueToLocation, DEFINITIONS_KEY) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
-            return config.providesReferences ? get(cursor, contrib::references, valueMapper::mapValueToLocation, KEY_REFERENCES) : null;
+            return config.providesReferences ? get(cursor, contrib::references, valueMapper::mapValueToLocation, REFERENCES_KEY) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
-            return config.providesImplementations ? get(cursor, contrib::implementations, valueMapper::mapValueToLocation, KEY_IMPLEMENTATIONS) : null;
+            return config.providesImplementations ? get(cursor, contrib::implementations, valueMapper::mapValueToLocation, IMPLEMENTATIONS_KEY) : null;
         }
 
         @Override

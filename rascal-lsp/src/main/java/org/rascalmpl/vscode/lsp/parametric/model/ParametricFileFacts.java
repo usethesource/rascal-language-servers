@@ -66,7 +66,7 @@ public class ParametricFileFacts {
     private final ColumnMaps columns;
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<DedicatedLookupFunctionsSummaryFactory> singleShotFactory;
+    private volatile CompletableFuture<SingleShooterSummaryFactory> singleShotFactory;
 
     public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
         ColumnMaps columns, Executor exec) {
@@ -92,7 +92,7 @@ public class ParametricFileFacts {
         files.values().forEach(FileFact::reloadContributions);
 
         singleShotFactory = contrib.getLookupsConfig().thenApply(config ->
-            new DedicatedLookupFunctionsSummaryFactory(config, exec, columns, contrib));
+            new SingleShooterSummaryFactory(config, exec, columns, contrib));
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {

@@ -71,6 +71,9 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
+// TODO: Improve code quality of whole file
+// TODO: Remove unused code
+
 @SuppressWarnings({"deprecation", "java:S1192"})
 public class ParametricSummaryBridge {
     private static final Logger logger = LogManager.getLogger(ParametricSummaryBridge.class);
