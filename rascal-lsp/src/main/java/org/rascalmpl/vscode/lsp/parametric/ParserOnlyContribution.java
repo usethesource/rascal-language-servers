@@ -149,7 +149,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
@@ -169,7 +169,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
+    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
         return CompletableFuture.completedFuture(false);
     }
 
@@ -231,6 +231,21 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public CompletableFuture<Boolean> askSummaryForImplementations() {
         return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getBuildConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getLookupsConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
 }

@@ -71,7 +71,7 @@ public interface ILanguageContributions {
     public CompletableFuture<SummaryConfig> getBuildConfig();
     public CompletableFuture<SummaryConfig> getLookupsConfig();
 
-    public class SummaryConfig {
+    public static class SummaryConfig {
         public final boolean providesDocumentation;
         public final boolean providesDefinitions;
         public final boolean providesReferences;
@@ -88,5 +88,17 @@ public interface ILanguageContributions {
             this.providesReferences = providesReferences;
             this.providesImplementations = providesImplementations;
         }
+
+        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false);
+
+        public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
+            return new SummaryConfig(
+                a.providesDocumentation || b.providesDocumentation,
+                a.providesDefinitions || b.providesDefinitions,
+                a.providesReferences || b.providesReferences,
+                a.providesImplementations || b.providesImplementations);
+        }
     }
+
+
 }

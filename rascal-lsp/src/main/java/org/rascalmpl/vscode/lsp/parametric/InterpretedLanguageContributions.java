@@ -103,8 +103,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> summaryProvidesImplementations;
     private final CompletableFuture<Boolean> summaryProvidesDocumentation;
 
-    private final CompletableFuture<@Nullable SummaryConfig> analysisConfig;
-    private final CompletableFuture<@Nullable SummaryConfig> buildConfig;
+    private final CompletableFuture<SummaryConfig> analysisConfig;
+    private final CompletableFuture<SummaryConfig> buildConfig;
     private final CompletableFuture<SummaryConfig> lookupsConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
@@ -264,7 +264,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     isTrue(constructor, "providesReferences"),
                     isTrue(constructor, "providesImplementations"));
             } else {
-                return new SummaryConfig(false, false, false, false);
+                return SummaryConfig.FALSY;
             }
         });
     }

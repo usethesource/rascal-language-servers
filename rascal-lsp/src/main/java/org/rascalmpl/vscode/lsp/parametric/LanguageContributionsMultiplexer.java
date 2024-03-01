@@ -29,6 +29,8 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -77,6 +79,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> askSummaryForDefinitions = failedInitialization();
     private volatile CompletableFuture<Boolean> askSummaryForReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> askSummaryForImplementations = failedInitialization();
+
+    private volatile CompletableFuture<SummaryConfig> analysisConfig;
+    private volatile CompletableFuture<SummaryConfig> buildConfig;
+    private volatile CompletableFuture<SummaryConfig> lookupsConfig;
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
@@ -138,14 +144,14 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         lenses = findFirstOrDefault(ILanguageContributions::hasLenses);
         executor = findFirstOrDefault(ILanguageContributions::hasExecuteCommand);
         inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        definer = findFirstOrDefault(ILanguageContributions::hasDedicatedDefines);
+        definer = findFirstOrDefault(ILanguageContributions::hasDedicatedDefinitions);
         documenter = findFirstOrDefault(ILanguageContributions::hasDedicatedDocumentation);
         referrer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
         implementer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
 
         hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
         hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
-        hasDedicatedDefines = anyTrue(ILanguageContributions::hasDedicatedDefines);
+        hasDedicatedDefines = anyTrue(ILanguageContributions::hasDedicatedDefinitions);
         hasDedicatedReferences = anyTrue(ILanguageContributions::hasDedicatedReferences);
         hasDedicatedImplementations = anyTrue(ILanguageContributions::hasDedicatedImplementations);
 
@@ -160,6 +166,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         askSummaryForDefinitions = anyTrue(ILanguageContributions::askSummaryForDefinitions);
         askSummaryForReferences = anyTrue(ILanguageContributions::askSummaryForReferences);
         askSummaryForImplementations = anyTrue(ILanguageContributions::askSummaryForImplementations);
+
+        analysisConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        buildConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        lookupsConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -196,13 +206,20 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
-        var result = CompletableFuture.completedFuture(false);
+        return anyTrue(predicate, false, Boolean::logicalOr);
+    }
+
+    private <T> CompletableFuture<T> anyTrue(
+            Function<ILanguageContributions, CompletableFuture<T>> predicate,
+            T falsy, BinaryOperator<T> or) {
+
+        var result = CompletableFuture.completedFuture(falsy);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
         for (var c: contributions) {
             var checkCurrent = predicate.apply(c.contrib)
-                .exceptionally(LanguageContributionsMultiplexer::swallowExceptions);
-            result = result.thenCombine(checkCurrent, Boolean::logicalOr);
+                .exceptionally(e -> falsy);
+            result = result.thenCombine(checkCurrent, or);
         }
         return result;
     }
@@ -262,8 +279,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(definer, c -> c.defines(loc, input, cursor));
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
+        return flatten(definer, c -> c.definitions(loc, input, cursor));
     }
 
     @Override
@@ -283,7 +300,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
+    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
         return hasDedicatedDefines;
     }
 
@@ -347,4 +364,18 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return hasInlayHint;
     }
 
+    @Override
+    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+        return analysisConfig;
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getBuildConfig() {
+        return buildConfig;
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getLookupsConfig() {
+        return lookupsConfig;
+    }
 }
