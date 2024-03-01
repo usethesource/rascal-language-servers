@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -97,6 +98,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.parametric.model.Summary;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -493,16 +495,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , Collections::emptyList);
     }
 
+    private <T> CompletableFuture<List<T>> extract(TextDocumentIdentifier doc,
+            Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
+
+        var file = Locations.toLoc(doc);
+        var tree = getFile(doc).getCurrentTreeAsync();
+        return facts(doc).extractFromSummaries(file, tree, extractor);
+    }
+
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        var doc = params.getTextDocument();
-        var file = Locations.toLoc(doc);
-        var tree = getFile(doc).getCurrentTreeAsync();
-        var cursor = params.getPosition();
-
-        return recoverExceptions(facts(doc)
-            .getDefinitions(file, tree, cursor)
+        return recoverExceptions(
+            extract(params.getTextDocument(), s -> s.getDefinitions(params.getPosition()))
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
@@ -511,13 +516,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-        var doc = params.getTextDocument();
-        var file = Locations.toLoc(doc);
-        var tree = getFile(doc).getCurrentTreeAsync();
-        var cursor = params.getPosition();
-
-        return recoverExceptions(facts(doc)
-            .getImplementations(file, tree, cursor)
+        return recoverExceptions(
+            extract(params.getTextDocument(), s -> s.getImplementations(params.getPosition()))
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -525,13 +525,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-        var doc = params.getTextDocument();
-        var file = Locations.toLoc(doc);
-        var tree = getFile(doc).getCurrentTreeAsync();
-        var cursor = params.getPosition();
-
-        return recoverExceptions(facts(doc)
-            .getReferences(file, tree, cursor)
+        return recoverExceptions(
+            extract(params.getTextDocument(), s -> s.getReferences(params.getPosition()))
             .thenApply(l -> l) // hack to help compiler see type
             , Collections::emptyList);
     }
@@ -539,13 +534,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
-        var doc = params.getTextDocument();
-        var file = Locations.toLoc(doc);
-        var tree = getFile(doc).getCurrentTreeAsync();
-        var cursor = params.getPosition();
-
-        return recoverExceptions(facts(doc)
-            .getDocumentation(file, tree, cursor)
+        return recoverExceptions(
+            extract(params.getTextDocument(), s -> s.getDocumentation(params.getPosition()))
             .thenApply(Hover::new)
             , () -> null);
     }

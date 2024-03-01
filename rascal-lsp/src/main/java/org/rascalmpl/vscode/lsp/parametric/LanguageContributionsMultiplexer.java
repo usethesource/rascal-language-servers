@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -199,10 +198,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             // otherwise return the first one, that contains defaults on what to do if it's missing
             return firstOrFail();
         }, ownExecuter);
-    }
-
-    private static boolean swallowExceptions(Throwable ex) {
-        return false;
     }
 
     private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {

@@ -44,11 +44,7 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.Location;
-import org.eclipse.lsp4j.MarkedString;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -120,24 +116,11 @@ public class ParametricFileFacts {
         getFile(file).calculateBuilder(tree);
     }
 
-    public CompletableFuture<List<Either<String, MarkedString>>> getDocumentation(
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
-        return getFile(file).lookup(tree, s -> s.getDocumentation(cursor));
-    }
+    public <T> CompletableFuture<List<T>> extractFromSummaries(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree,
+            Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
 
-    public CompletableFuture<List<Location>> getDefinitions(
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
-        return getFile(file).lookup(tree, s -> s.getDefinitions(cursor));
-    }
-
-    public CompletableFuture<List<Location>> getReferences(
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
-        return getFile(file).lookup(tree, s -> s.getReferences(cursor));
-    }
-
-    public CompletableFuture<List<Location>> getImplementations(
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Position cursor) {
-        return getFile(file).lookup(tree, s -> s.getImplementations(cursor));
+        return getFile(file).extractFromSummaries(tree, extractor::apply);
     }
 
     public void close(ISourceLocation loc) {
@@ -338,7 +321,7 @@ public class ParametricFileFacts {
                 .get(); // Unwrap `Versioned`
         }
 
-        private <T> CompletableFuture<List<T>> lookup(
+        private <T> CompletableFuture<List<T>> extractFromSummaries(
                 CompletableFuture<Versioned<ITree>> tree,
                 Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
 
