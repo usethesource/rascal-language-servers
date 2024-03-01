@@ -48,7 +48,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.model.Summary.LookupFn;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.LookupFn;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -127,8 +127,8 @@ public class ParametricFileFacts {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
 
-            var messagesAnalyzer = Summary.getMessages(present.latestAnalyzerAnalysis, exec).get();
-            var messagesBuilder = Summary.getMessages(present.latestBuilderBuild, exec).get();
+            var messagesAnalyzer = ParametricSummary.getMessages(present.latestAnalyzerAnalysis, exec).get();
+            var messagesBuilder = ParametricSummary.getMessages(present.latestBuilderBuild, exec).get();
             messagesAnalyzer.thenAcceptBothAsync(messagesBuilder, (m1, m2) -> {
                 if (m1.isEmpty() && m2.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
@@ -158,11 +158,11 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestAnalyzerAnalysis;
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis;
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestBuilderBuild;
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestBuilderBuild;
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<Summary>> latestBuilderAnalysis;
+        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis;
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -191,11 +191,11 @@ public class ParametricFileFacts {
             invalidate(latestBuilderBuild, isClosing);
         }
 
-        private void invalidate(@Nullable CompletableFuture<Versioned<Summary>> summary, boolean isClosing) {
+        private void invalidate(@Nullable CompletableFuture<Versioned<ParametricSummary>> summary, boolean isClosing) {
             if (summary != null && !isClosing) {
                 summary
-                    .thenApply(Versioned<Summary>::get)
-                    .thenAccept(Summary::invalidate);
+                    .thenApply(Versioned<ParametricSummary>::get)
+                    .thenAccept(ParametricSummary::invalidate);
             }
         }
 
@@ -209,9 +209,9 @@ public class ParametricFileFacts {
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
          */
-        private CompletableFuture<Versioned<Summary>> debounce(
+        private CompletableFuture<Versioned<ParametricSummary>> debounce(
                 int version, AtomicInteger latestVersion, Duration delay,
-                Supplier<CompletableFuture<Versioned<Summary>>> calculation) {
+                Supplier<CompletableFuture<Versioned<ParametricSummary>>> calculation) {
 
             latestVersion.set(version);
             // Note: No additional logic (`compareAndSet` in a loop etc.) is
@@ -235,7 +235,8 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    return CompletableFuture.completedFuture(new Versioned<>(version, Summary.NULL_SUMMARY));
+                    var nullSummary = new Versioned<>(version, ParametricSummary.NULL_SUMMARY);
+                    return CompletableFuture.completedFuture(nullSummary);
                 }
             }, delayed);
 
@@ -245,7 +246,7 @@ public class ParametricFileFacts {
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
                 var summary = analyzer.calculateSummary(tree);
-                var messages = Summary.getMessages(summary, exec);
+                var messages = ParametricSummary.getMessages(summary, exec);
                 messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
                 return summary;
             });
@@ -267,14 +268,14 @@ public class ParametricFileFacts {
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
             latestBuilderAnalysis = analyzer.calculateSummary(tree);
-            var analyzerMessages = Summary.getMessages(latestBuilderAnalysis, exec);
+            var analyzerMessages = ParametricSummary.getMessages(latestBuilderAnalysis, exec);
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
             latestBuilderBuild = builder.calculateSummary(tree);
-            var builderMessages = Summary.getMessages(latestBuilderBuild, exec);
+            var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
 
             // Only if neither the analyzer nor the builder was interrupted,
             // report diagnostics. Otherwise, *no* diagnostics are reported
@@ -322,8 +323,10 @@ public class ParametricFileFacts {
          * which summary to use depends on the version of `tree`, which is known
          * only dynamically.
          */
-        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn,
-                Versioned<ITree> tree, Versioned<Summary> analysis, Versioned<Summary> build) {
+        private <T> CompletableFuture<List<T>> lookupInSummaries(
+                LookupFn<T> fn, Versioned<ITree> tree,
+                Versioned<ParametricSummary> analysis,
+                Versioned<ParametricSummary> build) {
 
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.

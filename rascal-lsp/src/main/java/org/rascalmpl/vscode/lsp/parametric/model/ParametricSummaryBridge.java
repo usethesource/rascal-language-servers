@@ -79,7 +79,7 @@ public class ParametricSummaryBridge {
             new SummarizerSummaryFactory(config, exec, columns, contrib));
     }
 
-    public CompletableFuture<Versioned<Summary>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
+    public CompletableFuture<Versioned<ParametricSummary>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
         logger.trace("Requesting Summary calculation for: {}", file);
         var version = tree.thenApply(Versioned::version);
         var summary = summaryFactory.thenApply(f -> f.create(calculate(tree)));

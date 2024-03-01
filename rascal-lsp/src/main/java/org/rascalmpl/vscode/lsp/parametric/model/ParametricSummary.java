@@ -66,9 +66,9 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 @SuppressWarnings("deprecation")
-public interface Summary {
+public interface ParametricSummary {
 
-    public interface LookupFn<T> extends Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
+    public interface LookupFn<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
 
     public static final String DOCUMENTATION_KEY = "documentation";
     public static final String DEFINITIONS_KEY = "definitions";
@@ -82,7 +82,7 @@ public interface Summary {
     InterruptibleFuture<List<Diagnostic>> getMessages();
     void invalidate();
 
-    public static final Summary NULL_SUMMARY = new Summary() {
+    public static final ParametricSummary NULL_SUMMARY = new ParametricSummary() {
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return null;
@@ -109,22 +109,22 @@ public interface Summary {
         }
     };
 
-    public static InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<Summary>> summary, Executor exec) {
+    public static InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<ParametricSummary>> summary, Executor exec) {
         var messages = summary
-            .thenApply(Versioned<Summary>::get)
-            .thenApply(Summary::getMessages);
+            .thenApply(Versioned<ParametricSummary>::get)
+            .thenApply(ParametricSummary::getMessages);
         return InterruptibleFuture.flatten(messages, exec);
     }
 }
 
-abstract class BaseSummaryFactory {
+abstract class ParametricSummaryFactory {
     protected final SummaryConfig config;
     protected final Executor exec;
     protected final ColumnMaps columns;
     protected final ILanguageContributions contrib;
     protected final ValueMapper valueMapper;
 
-    protected BaseSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    protected ParametricSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         this.config = config;
         this.exec = exec;
         this.columns = columns;
@@ -134,18 +134,18 @@ abstract class BaseSummaryFactory {
 }
 
 @SuppressWarnings("deprecation")
-class SummarizerSummaryFactory extends BaseSummaryFactory {
+class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
     public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns, contrib);
     }
 
-    public Summary create(InterruptibleFuture<IConstructor> calculation) {
+    public ParametricSummary create(InterruptibleFuture<IConstructor> calculation) {
         return new SummarizerSummary(calculation);
     }
 
-    public class SummarizerSummary implements Summary {
+    public class SummarizerSummary implements ParametricSummary {
         public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
         public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
@@ -264,24 +264,24 @@ class SummarizerSummaryFactory extends BaseSummaryFactory {
     }
 }
 
-@FunctionalInterface
-interface DedicatedLookupFunction {
-    InterruptibleFuture<ISet> lookup(ISourceLocation file, ITree tree, ITree cursor);
-}
-
 @SuppressWarnings("deprecation")
-class SingleShooterSummaryFactory extends BaseSummaryFactory {
+class SingleShooterSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
+
+    @FunctionalInterface
+    public interface SingleShotFn {
+        InterruptibleFuture<ISet> shoot(ISourceLocation file, ITree tree, ITree cursor);
+    }
 
     public SingleShooterSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns, contrib);
     }
 
-    public Summary create(ISourceLocation file, Versioned<ITree> tree) {
+    public ParametricSummary create(ISourceLocation file, Versioned<ITree> tree) {
         return new SingleShooterSummary(file, tree);
     }
 
-    public class SingleShooterSummary implements Summary {
+    public class SingleShooterSummary implements ParametricSummary {
         private final ISourceLocation file;
         private final Versioned<ITree> tree;
 
@@ -321,7 +321,7 @@ class SingleShooterSummaryFactory extends BaseSummaryFactory {
         }
 
         private <T> Supplier<InterruptibleFuture<List<T>>> get(Position cursor,
-                DedicatedLookupFunction function, Function<IValue, T> valueMapper, String logName) {
+                SingleShotFn singleShotFn, Function<IValue, T> valueMapper, String logName) {
 
             return () -> {
                 var line = cursor.getLine() + 1;
@@ -335,7 +335,7 @@ class SingleShooterSummaryFactory extends BaseSummaryFactory {
                 } else {
                     var yielded = TreeAdapter.yield(cursorTree);
                     logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                    set = function.lookup(file, tree.get(), cursorTree);
+                    set = singleShotFn.shoot(file, tree.get(), cursorTree);
                 }
 
                 logger.trace("{}: dedicated returned: {}", logName, set);
