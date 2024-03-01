@@ -74,6 +74,8 @@ public interface Summary {
     @Nullable InterruptibleFuture<List<Diagnostic>> getMessages();
     void invalidate();
 
+    // TODO: Check if getMessages can be non-nullable
+
     static final Summary NULL_SUMMARY = new Summary() {
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {

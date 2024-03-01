@@ -120,7 +120,7 @@ public class ParametricFileFacts {
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree,
             Function<Summary, @Nullable Supplier<InterruptibleFuture<List<T>>>> extractor) {
 
-        return getFile(file).extractFromSummaries(tree, extractor::apply);
+        return getFile(file).extractFromSummaries(tree, extractor);
     }
 
     public void close(ISourceLocation loc) {
@@ -186,17 +186,17 @@ public class ParametricFileFacts {
 
         public void invalidateAnalyzer(boolean isClosing) {
             analyzer.invalidate(isClosing);
-            invalidate(latestAnalyzerAnalysis);
+            invalidate(latestAnalyzerAnalysis, isClosing);
         }
 
         public void invalidateBuilder(boolean isClosing) {
             builder.invalidate(isClosing);
-            invalidate(latestBuilderAnalysis);
-            invalidate(latestBuilderBuild);
+            invalidate(latestBuilderAnalysis, isClosing);
+            invalidate(latestBuilderBuild, isClosing);
         }
 
-        private void invalidate(@Nullable CompletableFuture<Versioned<Summary>> summary) {
-            if (summary != null) {
+        private void invalidate(@Nullable CompletableFuture<Versioned<Summary>> summary, boolean isClosing) {
+            if (summary != null && !isClosing) {
                 summary
                     .thenApply(Versioned<Summary>::get)
                     .thenAccept(Summary::invalidate);
