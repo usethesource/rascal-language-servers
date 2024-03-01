@@ -98,7 +98,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.parametric.model.Summary;
 import org.rascalmpl.vscode.lsp.parametric.model.Summary.LookupFn;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -562,7 +561,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
         );
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
+            new ParametricFileFacts(ownExecuter, columns, multiplexer)
         );
 
         if (lang.getPrecompiledParser() != null) {

@@ -47,7 +47,6 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.Summary.LookupFn;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -58,22 +57,23 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class ParametricFileFacts {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
+
     private final Executor exec;
-    private volatile @MonotonicNonNull LanguageClient client;
-    private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
-    private final ILanguageContributions contrib;
-    private final Function<ISourceLocation, TextDocumentState> lookupState;
     private final ColumnMaps columns;
+    private final ILanguageContributions contrib;
+
+    private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
+
+    @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+    private volatile @MonotonicNonNull LanguageClient client;
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SingleShooterSummaryFactory> singleShotFactory;
 
-    public ParametricFileFacts(ILanguageContributions contrib, Function<ISourceLocation, TextDocumentState> lookupState,
-        ColumnMaps columns, Executor exec) {
-        this.contrib = contrib;
-        this.lookupState = lookupState;
-        this.columns = columns;
+    public ParametricFileFacts(Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         this.exec = exec;
+        this.columns = columns;
+        this.contrib = contrib;
     }
 
     public void setClient(LanguageClient client) {
@@ -127,8 +127,8 @@ public class ParametricFileFacts {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
 
-            var messagesAnalyzer = present.analyzer.getMessages();
-            var messagesBuilder = present.builder.getMessages();
+            var messagesAnalyzer = Summary.getMessages(present.latestAnalyzerAnalysis, exec).get();
+            var messagesBuilder = Summary.getMessages(present.latestBuilderBuild, exec).get();
             messagesAnalyzer.thenAcceptBothAsync(messagesBuilder, (m1, m2) -> {
                 if (m1.isEmpty() && m2.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
@@ -166,8 +166,8 @@ public class ParametricFileFacts {
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::analyze, contrib::getAnalysisConfig);
-            this.builder = new ParametricSummaryBridge(exec, file, columns, contrib, lookupState, contrib::build, contrib::getBuildConfig);
+            this.analyzer = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::analyze, contrib::getAnalysisConfig);
+            this.builder = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::build, contrib::getBuildConfig);
         }
 
         public void reloadContributions() {
@@ -183,12 +183,10 @@ public class ParametricFileFacts {
         }
 
         public void invalidateAnalyzer(boolean isClosing) {
-            analyzer.invalidate(isClosing);
             invalidate(latestAnalyzerAnalysis, isClosing);
         }
 
         public void invalidateBuilder(boolean isClosing) {
-            builder.invalidate(isClosing);
             invalidate(latestBuilderAnalysis, isClosing);
             invalidate(latestBuilderBuild, isClosing);
         }
@@ -320,8 +318,9 @@ public class ParametricFileFacts {
 
         /**
          * Dynamically routes the lookup to `analysis`, `build`, or a
-         * single-shot. Note: Static routing is a bit complicated here, because
-         * which summary to use depends on the version of `tree`.
+         * single-shot. Note: Static routing is less suitable here, because
+         * which summary to use depends on the version of `tree`, which is known
+         * only dynamically.
          */
         private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn,
                 Versioned<ITree> tree, Versioned<Summary> analysis, Versioned<Summary> build) {
