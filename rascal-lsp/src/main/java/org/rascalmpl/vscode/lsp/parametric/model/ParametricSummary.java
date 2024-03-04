@@ -68,13 +68,6 @@ import io.usethesource.vallang.IWithKeywordParameters;
 @SuppressWarnings("deprecation")
 public interface ParametricSummary {
 
-    public interface LookupFn<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
-
-    public static final String DOCUMENTATION_KEY = "documentation";
-    public static final String DEFINITIONS_KEY = "definitions";
-    public static final String REFERENCES_KEY = "references";
-    public static final String IMPLEMENTATIONS_KEY = "implementations";
-
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
@@ -82,7 +75,10 @@ public interface ParametricSummary {
     InterruptibleFuture<List<Diagnostic>> getMessages();
     void invalidate();
 
-    public static final ParametricSummary NULL_SUMMARY = new ParametricSummary() {
+    @FunctionalInterface // Just a type alias
+    public static interface LookupFn<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
+
+    public static final ParametricSummary NULL = new ParametricSummary() {
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return null;
@@ -118,6 +114,11 @@ public interface ParametricSummary {
 }
 
 abstract class ParametricSummaryFactory {
+    public static final String DOCUMENTATION = "documentation";
+    public static final String DEFINITIONS = "definitions";
+    public static final String REFERENCES = "references";
+    public static final String IMPLEMENTATIONS = "implementations";
+
     protected final SummaryConfig config;
     protected final Executor exec;
     protected final ColumnMaps columns;
@@ -154,13 +155,13 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
 
         public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
             this.documentation = config.providesDocumentation ?
-                mapCalculation(DOCUMENTATION_KEY, calculation, DOCUMENTATION_KEY, valueMapper::mapValueToString) : null;
+                mapCalculation(DOCUMENTATION, calculation, DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
-                mapCalculation(DEFINITIONS_KEY, calculation, DEFINITIONS_KEY, valueMapper::mapValueToLocation) : null;
+                mapCalculation(DEFINITIONS, calculation, DEFINITIONS, columns::mapValueToLocation) : null;
             this.references = config.providesReferences ?
-                mapCalculation(REFERENCES_KEY, calculation, REFERENCES_KEY, valueMapper::mapValueToLocation) : null;
+                mapCalculation(REFERENCES, calculation, REFERENCES, columns::mapValueToLocation) : null;
             this.implementations = config.providesImplementations ?
-                mapCalculation(IMPLEMENTATIONS_KEY, calculation, IMPLEMENTATIONS_KEY, valueMapper::mapValueToLocation) : null;
+                mapCalculation(IMPLEMENTATIONS, calculation, IMPLEMENTATIONS, columns::mapValueToLocation) : null;
             this.messages = extractMessages(calculation);
         }
 
@@ -290,22 +291,22 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
-            return config.providesDocumentation ? get(cursor, contrib::documentation, valueMapper::mapValueToString, DOCUMENTATION_KEY) : null;
+            return config.providesDocumentation ? get(cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
-            return config.providesDefinitions ? get(cursor, contrib::definitions, valueMapper::mapValueToLocation, DEFINITIONS_KEY) : null;
+            return config.providesDefinitions ? get(cursor, contrib::definitions, columns::mapValueToLocation, DEFINITIONS) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
-            return config.providesReferences ? get(cursor, contrib::references, valueMapper::mapValueToLocation, REFERENCES_KEY) : null;
+            return config.providesReferences ? get(cursor, contrib::references, columns::mapValueToLocation, REFERENCES) : null;
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
-            return config.providesImplementations ? get(cursor, contrib::implementations, valueMapper::mapValueToLocation, IMPLEMENTATIONS_KEY) : null;
+            return config.providesImplementations ? get(cursor, contrib::implementations, columns::mapValueToLocation, IMPLEMENTATIONS) : null;
         }
 
         @Override

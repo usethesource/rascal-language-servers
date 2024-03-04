@@ -235,7 +235,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    var nullSummary = new Versioned<>(version, ParametricSummary.NULL_SUMMARY);
+                    var nullSummary = new Versioned<>(version, ParametricSummary.NULL);
                     return CompletableFuture.completedFuture(nullSummary);
                 }
             }, delayed);
