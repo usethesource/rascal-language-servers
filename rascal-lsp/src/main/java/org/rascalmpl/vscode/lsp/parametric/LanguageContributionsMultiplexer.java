@@ -155,9 +155,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasCommandExecutor = anyTrue(ILanguageContributions::hasCommandExecutor);
         hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHinter);
 
-        analysisConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        buildConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        lookupsConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        analysisConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        buildConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        lookupsConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -329,17 +329,17 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalyzerConfig() {
+    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
         return analysisConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuilderConfig() {
+    public CompletableFuture<SummaryConfig> getBuildConfig() {
         return buildConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getSingleShooterConfig() {
+    public CompletableFuture<SummaryConfig> getSingleShotConfig() {
         return lookupsConfig;
     }
 }

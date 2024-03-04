@@ -215,9 +215,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
 
-            this.analysisConfig = summarizerConfig(contributions, "analyzer");
-            this.buildConfig = summarizerConfig(contributions, "builder");
-            this.singleShotConfig = singleShooterConfig(contributions);
+            this.analysisConfig = summarizerSummaryConfig(contributions, "analyzer");
+            this.buildConfig = summarizerSummaryConfig(contributions, "builder");
+            this.singleShotConfig = singleShotSummaryConfig(contributions);
 
         } catch (IOException e1) {
             logger.catching(e1);
@@ -229,7 +229,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return x.thenApply(Objects::nonNull);
     }
 
-    private static CompletableFuture<SummaryConfig> summarizerConfig(CompletableFuture<ISet> contributions, String summarizer) {
+    private static CompletableFuture<SummaryConfig> summarizerSummaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
         return contributions.thenApply(c -> {
             if (hasContribution(c, summarizer)) {
                 var constructor = c
@@ -249,7 +249,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static CompletableFuture<SummaryConfig> singleShooterConfig(CompletableFuture<ISet> contributions) {
+    private static CompletableFuture<SummaryConfig> singleShotSummaryConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
             new SummaryConfig(
                 hasContribution(c, "documenter"),
@@ -421,17 +421,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalyzerConfig() {
+    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
         return analysisConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuilderConfig() {
+    public CompletableFuture<SummaryConfig> getBuildConfig() {
         return buildConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getSingleShooterConfig() {
+    public CompletableFuture<SummaryConfig> getSingleShotConfig() {
         return singleShotConfig;
     }
 

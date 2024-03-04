@@ -62,9 +62,9 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasReferrer();
     public CompletableFuture<Boolean> hasImplementer();
 
-    public CompletableFuture<SummaryConfig> getAnalyzerConfig();
-    public CompletableFuture<SummaryConfig> getBuilderConfig();
-    public CompletableFuture<SummaryConfig> getSingleShooterConfig();
+    public CompletableFuture<SummaryConfig> getAnalysisConfig();
+    public CompletableFuture<SummaryConfig> getBuildConfig();
+    public CompletableFuture<SummaryConfig> getSingleShotConfig();
 
     public static class SummaryConfig {
         public final boolean providesDocumentation;
