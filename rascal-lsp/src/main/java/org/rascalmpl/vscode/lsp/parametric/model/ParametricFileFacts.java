@@ -146,6 +146,7 @@ public class ParametricFileFacts {
         }
     }
 
+    @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
     private class FileFact {
         private final ISourceLocation file;
 
@@ -161,12 +162,12 @@ public class ParametricFileFacts {
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
-        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis;
-        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestBuilderBuild;
-        @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-        private volatile @MonotonicNonNull CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis;
+        private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
+            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
+        private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderBuild =
+            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
+        private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis =
+            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -331,6 +332,7 @@ public class ParametricFileFacts {
             // provides), and if it's of the right version, use that.
             Supplier<InterruptibleFuture<List<T>>> buildResult = fn.apply(build.get());
             if (buildResult != null && build.version() == tree.version()) {
+                logger.trace("Look-up in builder summary succeeded");
                 return buildResult.get().get();
             }
 
@@ -339,6 +341,7 @@ public class ParametricFileFacts {
             // that.
             Supplier<InterruptibleFuture<List<T>>> analysisResult = fn.apply(analysis.get());
             if (analysisResult != null && analysis.version() == tree.version()) {
+                logger.trace("Look-up in analyzer summary succeeded");
                 return analysisResult.get().get();
             }
 
@@ -348,8 +351,10 @@ public class ParametricFileFacts {
                 .thenApply(singleShot -> {
                     Supplier<InterruptibleFuture<List<T>>> singleShotResult = fn.apply(singleShot);
                     if (singleShotResult != null) {
+                        logger.trace("Look-up in single-shooter summary succeeded");
                         return singleShotResult.get().get();
                     } else {
+                        logger.trace("Look-up failed");
                         return CompletableFuture.completedFuture(Collections.<T>emptyList());
                     }})
                 .thenCompose(Function.identity());

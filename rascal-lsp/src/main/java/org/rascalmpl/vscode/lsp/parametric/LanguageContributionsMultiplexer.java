@@ -77,7 +77,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     private volatile CompletableFuture<SummaryConfig> analysisConfig;
     private volatile CompletableFuture<SummaryConfig> buildConfig;
-    private volatile CompletableFuture<SummaryConfig> lookupsConfig;
+    private volatile CompletableFuture<SummaryConfig> singleShotConfig;
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
@@ -157,8 +157,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHinter);
 
         analysisConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        buildConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        lookupsConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        buildConfig = anyTrue(ILanguageContributions::getBuildConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        singleShotConfig = anyTrue(ILanguageContributions::getSingleShotConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -341,6 +341,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public CompletableFuture<SummaryConfig> getSingleShotConfig() {
-        return lookupsConfig;
+        return singleShotConfig;
     }
 }
