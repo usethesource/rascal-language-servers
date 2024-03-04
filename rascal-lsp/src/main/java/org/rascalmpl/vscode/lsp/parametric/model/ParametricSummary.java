@@ -147,11 +147,11 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
     }
 
     public class SummarizerSummary implements ParametricSummary {
-        public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
-        public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
-        public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
-        public final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
-        public final InterruptibleFuture<List<Diagnostic>> messages;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
+        private final InterruptibleFuture<List<Diagnostic>> messages;
 
         public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
             this.documentation = config.providesDocumentation ?
@@ -167,22 +167,22 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
-            return documentation == null ? null : get(documentation, cursor);
+            return get(documentation, cursor);
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
-            return definitions == null ? null : get(definitions, cursor);
+            return get(definitions, cursor);
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
-            return references == null ? null : get(references, cursor);
+            return get(references, cursor);
         }
 
         @Override
         public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
-            return implementations == null ? null : get(implementations, cursor);
+            return get(implementations, cursor);
         }
 
         @Override
@@ -256,8 +256,10 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
             });
         }
 
-        private <T> Supplier<InterruptibleFuture<List<T>>> get(InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
-            return () -> result
+        private <T> @Nullable Supplier<InterruptibleFuture<List<T>>> get(
+                @Nullable InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
+
+            return result == null ? null : () -> result
                 .thenApplyAsync(Lazy::get, exec)
                 .thenApply(l -> l.lookup(new Range(cursor, cursor)))
                 .thenApply(r -> r == null ? Collections.emptyList() : r);
