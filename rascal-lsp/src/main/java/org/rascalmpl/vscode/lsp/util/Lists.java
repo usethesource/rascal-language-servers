@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Lists {
+    private Lists() {}
 
     /**
      * @return an existing list if only `a` or only `b` is non-empty; a new list
