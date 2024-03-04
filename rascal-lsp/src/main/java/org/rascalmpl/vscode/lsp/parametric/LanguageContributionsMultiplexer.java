@@ -62,10 +62,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> referrer = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementer = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> hasDedicatedDocumentation = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedDefines = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedReferences = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedImplementations = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDocumenter = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDefiner = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasReferrer = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasImplementer = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasOutline = failedInitialization();
     private volatile CompletableFuture<Boolean> hasAnalyze = failedInitialization();
@@ -74,14 +74,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasExecuteCommand = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> askSummaryForDocumentation = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForDefinitions = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForReferences = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForImplementations = failedInitialization();
-
-    private volatile CompletableFuture<SummaryConfig> analysisConfig;
-    private volatile CompletableFuture<SummaryConfig> buildConfig;
-    private volatile CompletableFuture<SummaryConfig> lookupsConfig;
+    private volatile CompletableFuture<Config> analysisConfig;
+    private volatile CompletableFuture<Config> buildConfig;
+    private volatile CompletableFuture<Config> lookupsConfig;
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
@@ -143,16 +138,15 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         lenses = findFirstOrDefault(ILanguageContributions::hasLenses);
         executor = findFirstOrDefault(ILanguageContributions::hasExecuteCommand);
         inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        definer = findFirstOrDefault(ILanguageContributions::hasDedicatedDefinitions);
-        documenter = findFirstOrDefault(ILanguageContributions::hasDedicatedDocumentation);
-        referrer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
-        implementer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
+        definer = findFirstOrDefault(ILanguageContributions::hasDefiner);
+        documenter = findFirstOrDefault(ILanguageContributions::hasDocumenter);
+        referrer = findFirstOrDefault(ILanguageContributions::hasReferrer);
+        implementer = findFirstOrDefault(ILanguageContributions::hasReferrer);
 
-        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
-        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
-        hasDedicatedDefines = anyTrue(ILanguageContributions::hasDedicatedDefinitions);
-        hasDedicatedReferences = anyTrue(ILanguageContributions::hasDedicatedReferences);
-        hasDedicatedImplementations = anyTrue(ILanguageContributions::hasDedicatedImplementations);
+        hasDocumenter = anyTrue(ILanguageContributions::hasDocumenter);
+        hasDefiner = anyTrue(ILanguageContributions::hasDefiner);
+        hasReferrer = anyTrue(ILanguageContributions::hasReferrer);
+        hasImplementer = anyTrue(ILanguageContributions::hasImplementer);
 
         hasOutline = anyTrue(ILanguageContributions::hasOutline);
         hasAnalyze = anyTrue(ILanguageContributions::hasAnalyze);
@@ -161,14 +155,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasExecuteCommand = anyTrue(ILanguageContributions::hasExecuteCommand);
         hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
 
-        askSummaryForDocumentation = anyTrue(ILanguageContributions::askSummaryForDocumentation);
-        askSummaryForDefinitions = anyTrue(ILanguageContributions::askSummaryForDefinitions);
-        askSummaryForReferences = anyTrue(ILanguageContributions::askSummaryForReferences);
-        askSummaryForImplementations = anyTrue(ILanguageContributions::askSummaryForImplementations);
-
-        analysisConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        buildConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        lookupsConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        analysisConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, Config.FALSY, Config::or);
+        buildConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, Config.FALSY, Config::or);
+        lookupsConfig = anyTrue(ILanguageContributions::getAnalyzerConfig, Config.FALSY, Config::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -290,43 +279,23 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
-        return hasDedicatedDocumentation;
+    public CompletableFuture<Boolean> hasDocumenter() {
+        return hasDocumenter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
-        return hasDedicatedDefines;
+    public CompletableFuture<Boolean> hasDefiner() {
+        return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
-        return hasDedicatedReferences;
+    public CompletableFuture<Boolean> hasReferrer() {
+        return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
-        return hasDedicatedImplementations;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return askSummaryForDocumentation;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return askSummaryForDefinitions;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return askSummaryForReferences;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return askSummaryForImplementations;
+    public CompletableFuture<Boolean> hasImplementer() {
+        return hasImplementer;
     }
 
     @Override
@@ -360,17 +329,17 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+    public CompletableFuture<Config> getAnalyzerConfig() {
         return analysisConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
+    public CompletableFuture<Config> getBuilderConfig() {
         return buildConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getLookupsConfig() {
+    public CompletableFuture<Config> getSingleShooterConfig() {
         return lookupsConfig;
     }
 }

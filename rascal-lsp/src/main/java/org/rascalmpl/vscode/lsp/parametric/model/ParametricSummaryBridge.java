@@ -35,7 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.Config;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -58,12 +58,12 @@ public class ParametricSummaryBridge {
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SummarizerSummaryFactory> summaryFactory;
-    private final Supplier<CompletableFuture<SummaryConfig>> summarizerConfig;
+    private final Supplier<CompletableFuture<Config>> summarizerConfig;
 
     public ParametricSummaryBridge(ISourceLocation file,
             Executor exec, ColumnMaps columns, ILanguageContributions contrib,
             BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator,
-            Supplier<CompletableFuture<SummaryConfig>> summarizerConfig) {
+            Supplier<CompletableFuture<Config>> summarizerConfig) {
 
         this.file = file;
         this.exec = exec;

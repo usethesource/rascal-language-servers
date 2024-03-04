@@ -50,10 +50,10 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
-    public CompletableFuture<Boolean> hasDedicatedDocumentation();
-    public CompletableFuture<Boolean> hasDedicatedDefinitions();
-    public CompletableFuture<Boolean> hasDedicatedReferences();
-    public CompletableFuture<Boolean> hasDedicatedImplementations();
+    public CompletableFuture<Boolean> hasDocumenter();
+    public CompletableFuture<Boolean> hasDefiner();
+    public CompletableFuture<Boolean> hasReferrer();
+    public CompletableFuture<Boolean> hasImplementer();
 
     public CompletableFuture<Boolean> hasOutline();
     public CompletableFuture<Boolean> hasAnalyze();
@@ -62,22 +62,17 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasExecuteCommand();
     public CompletableFuture<Boolean> hasInlayHint();
 
-    public CompletableFuture<Boolean> askSummaryForDocumentation();
-    public CompletableFuture<Boolean> askSummaryForDefinitions();
-    public CompletableFuture<Boolean> askSummaryForReferences();
-    public CompletableFuture<Boolean> askSummaryForImplementations();
+    public CompletableFuture<Config> getAnalyzerConfig();
+    public CompletableFuture<Config> getBuilderConfig();
+    public CompletableFuture<Config> getSingleShooterConfig();
 
-    public CompletableFuture<SummaryConfig> getAnalysisConfig();
-    public CompletableFuture<SummaryConfig> getBuildConfig();
-    public CompletableFuture<SummaryConfig> getLookupsConfig();
-
-    public static class SummaryConfig {
+    public static class Config {
         public final boolean providesDocumentation;
         public final boolean providesDefinitions;
         public final boolean providesReferences;
         public final boolean providesImplementations;
 
-        public SummaryConfig(
+        public Config(
                 boolean providesDocumentation,
                 boolean providesDefinitions,
                 boolean providesReferences,
@@ -89,10 +84,10 @@ public interface ILanguageContributions {
             this.providesImplementations = providesImplementations;
         }
 
-        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false);
+        public static final Config FALSY = new Config(false, false, false, false);
 
-        public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
-            return new SummaryConfig(
+        public static Config or(Config a, Config b) {
+            return new Config(
                 a.providesDocumentation || b.providesDocumentation,
                 a.providesDefinitions || b.providesDefinitions,
                 a.providesReferences || b.providesReferences,

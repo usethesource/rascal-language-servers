@@ -98,14 +98,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
 
-    private final CompletableFuture<Boolean> summaryProvidesDefinitions;
-    private final CompletableFuture<Boolean> summaryProvidesReferences;
-    private final CompletableFuture<Boolean> summaryProvidesImplementations;
-    private final CompletableFuture<Boolean> summaryProvidesDocumentation;
-
-    private final CompletableFuture<SummaryConfig> analysisConfig;
-    private final CompletableFuture<SummaryConfig> buildConfig;
-    private final CompletableFuture<SummaryConfig> lookupsConfig;
+    private final CompletableFuture<Config> analysisConfig;
+    private final CompletableFuture<Config> buildConfig;
+    private final CompletableFuture<Config> singleShotConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -207,13 +202,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.definer = getFunctionFor(contributions, "definer");
             this.referrer = getFunctionFor(contributions, "referrer");
             this.implementer = getFunctionFor(contributions, "implementer");
-            var summaryConfig = contributions.thenApply(c -> c.stream()
-                    .map(IConstructor.class::cast)
-                    .filter(cons -> cons.getConstructorType().getName().equals("analyzer"))
-                    .findAny()
-                    .orElse(null)
-            );
-
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
@@ -226,14 +214,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasDefiner = nonNull(this.definer);
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
-            this.summaryProvidesDefinitions = summaryConfigLookup(summaryConfig, "providesDefinitions");
-            this.summaryProvidesDocumentation = summaryConfigLookup(summaryConfig, "providesDocumentation");
-            this.summaryProvidesImplementations = summaryConfigLookup(summaryConfig, "providesImplementations");
-            this.summaryProvidesReferences = summaryConfigLookup(summaryConfig, "providesReferences");
 
-            this.analysisConfig = summaryConfig(contributions, "analyzer");
-            this.buildConfig = summaryConfig(contributions, "builder");
-            this.lookupsConfig = summaryConfig(contributions);
+            this.analysisConfig = summarizerConfig(contributions, "analyzer");
+            this.buildConfig = summarizerConfig(contributions, "builder");
+            this.singleShotConfig = singleShooterConfig(contributions);
 
         } catch (IOException e1) {
             logger.catching(e1);
@@ -245,11 +229,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return x.thenApply(Objects::nonNull);
     }
 
-    private static CompletableFuture<Boolean> summaryConfigLookup(CompletableFuture<IConstructor> conf, String parameter) {
-        return conf.thenApply(d -> isTrue(d, parameter));
-    }
-
-    private static CompletableFuture<SummaryConfig> summaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
+    private static CompletableFuture<Config> summarizerConfig(CompletableFuture<ISet> contributions, String summarizer) {
         return contributions.thenApply(c -> {
             if (hasContribution(c, summarizer)) {
                 var constructor = c
@@ -258,20 +238,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     .filter(cons -> cons.getConstructorType().getName().equals(summarizer))
                     .findAny()
                     .orElse(null);
-                return new SummaryConfig(
+                return new Config(
                     isTrue(constructor, "providesDocumentation"),
                     isTrue(constructor, "providesDefinitions"),
                     isTrue(constructor, "providesReferences"),
                     isTrue(constructor, "providesImplementations"));
             } else {
-                return SummaryConfig.FALSY;
+                return Config.FALSY;
             }
         });
     }
 
-    private static CompletableFuture<SummaryConfig> summaryConfig(CompletableFuture<ISet> contributions) {
+    private static CompletableFuture<Config> singleShooterConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
-            new SummaryConfig(
+            new Config(
                 hasContribution(c, "documenter"),
                 hasContribution(c, "definer"),
                 hasContribution(c, "referrer"),
@@ -391,22 +371,22 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return hasImplementer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return hasDocumenter;
     }
 
@@ -440,42 +420,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return hasBuilder;
     }
 
-
-
     @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return summaryProvidesDefinitions;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return summaryProvidesReferences;
-    }
-
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return summaryProvidesImplementations;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return summaryProvidesDocumentation;
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+    public CompletableFuture<Config> getAnalyzerConfig() {
         return analysisConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
+    public CompletableFuture<Config> getBuilderConfig() {
         return buildConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getLookupsConfig() {
-        return lookupsConfig;
+    public CompletableFuture<Config> getSingleShooterConfig() {
+        return singleShotConfig;
     }
 
     @Override

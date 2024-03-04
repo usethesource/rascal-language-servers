@@ -91,7 +91,7 @@ public class ParametricFileFacts {
     public void reloadContributions() {
         files.values().forEach(FileFact::reloadContributions);
 
-        singleShotFactory = contrib.getLookupsConfig().thenApply(config ->
+        singleShotFactory = contrib.getSingleShooterConfig().thenApply(config ->
             new SingleShooterSummaryFactory(config, exec, columns, contrib));
     }
 
@@ -166,8 +166,8 @@ public class ParametricFileFacts {
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::analyze, contrib::getAnalysisConfig);
-            this.builder = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::build, contrib::getBuildConfig);
+            this.analyzer = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::analyze, contrib::getAnalyzerConfig);
+            this.builder = new ParametricSummaryBridge(file, exec, columns, contrib, contrib::build, contrib::getBuilderConfig);
         }
 
         public void reloadContributions() {

@@ -164,22 +164,22 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefinitions() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return CompletableFuture.completedFuture(false);
     }
 
@@ -214,38 +214,18 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return CompletableFuture.completedFuture(false);
+    public CompletableFuture<Config> getAnalyzerConfig() {
+        return CompletableFuture.completedFuture(Config.FALSY);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return CompletableFuture.completedFuture(false);
+    public CompletableFuture<Config> getBuilderConfig() {
+        return CompletableFuture.completedFuture(Config.FALSY);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getLookupsConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
+    public CompletableFuture<Config> getSingleShooterConfig() {
+        return CompletableFuture.completedFuture(Config.FALSY);
     }
 
 }
