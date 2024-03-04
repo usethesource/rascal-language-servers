@@ -272,7 +272,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var version = file.getCurrentContent().version();
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
-            if (excp != null && excp instanceof CompletionException) {
+            if (excp instanceof CompletionException) {
                 excp = excp.getCause();
             }
 

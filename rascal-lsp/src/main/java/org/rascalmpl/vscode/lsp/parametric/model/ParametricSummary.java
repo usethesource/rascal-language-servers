@@ -322,6 +322,7 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
             });
         }
 
+        @SuppressWarnings("java:S3358") // Nested ternary looks fine
         private <T> @Nullable Supplier<InterruptibleFuture<List<T>>> get(
                 @Nullable InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
 
