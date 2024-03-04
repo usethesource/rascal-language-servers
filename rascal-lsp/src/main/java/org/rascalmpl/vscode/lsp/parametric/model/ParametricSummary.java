@@ -47,6 +47,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SingleShotFn;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
@@ -65,14 +66,40 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
-@SuppressWarnings("deprecation")
+/**
+ * The purpose of this interface is to provide a general abstraction for
+ * `Position`-based look-ups of documentation, definitions, references, and
+ * implementations, regardless of who calculates the requested information.
+ * There are two implementations:
+ *
+ *   - `SummarizerSummary` is a summary that originates from a summarizer (i.e.,
+ *     analyzer or builder). In this case, if available, information requested
+ *     from the summary has already been pre-calculated by the summarizer (as a
+ *     relation), so it only needs to be fetched (and translated to the proper
+ *     format for LSP).
+ *
+ *   - `SingleShooterSummary` is a summary that originates from a single-shooter
+ *     (i.e., documenter, definer, referrer, or implementer). In this case, if
+ *     available, information requested from the summary is calculated
+ *     on-the-fly by the single-shooter.
+ */
+@SuppressWarnings("deprecation") // For `MarkedString`
 public interface ParametricSummary {
+
+    // The following methods return `null` when the requested information isn't
+    // available in this summary. In the case of `SummarizerSummary`, this
+    // happens when the summarizer is configured with a falsy `provides...`
+    // property for the requested information. In the case of
+    // `SingleShooterSummary`, this happens when no single-shooter exists for
+    // the requested information.
 
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor);
+
     InterruptibleFuture<List<Diagnostic>> getMessages();
+
     void invalidate();
 
     @FunctionalInterface // Just a type alias
@@ -113,6 +140,13 @@ public interface ParametricSummary {
     }
 }
 
+/**
+ * The purpose of this class is to store global state that summaries need to
+ * fulfil their responsibilities. It has two extensions, corresponding to the
+ * two implementations of interface `ParametricSummary`: (1)
+ * `SummarizerSummaryFactory` and (2) `SingleShooterSummaryFactory`.
+ */
+@SuppressWarnings("deprecation") // For `MarkedString`
 abstract class ParametricSummaryFactory {
     public static final String DOCUMENTATION = "documentation";
     public static final String DEFINITIONS = "definitions";
@@ -134,7 +168,7 @@ abstract class ParametricSummaryFactory {
     }
 }
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings("deprecation") // For `MarkedString`
 class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
@@ -267,7 +301,7 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
     }
 }
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings("deprecation") // For `MarkedString`
 class SingleShooterSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
 
