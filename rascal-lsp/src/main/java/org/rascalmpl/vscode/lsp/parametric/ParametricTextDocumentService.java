@@ -583,6 +583,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
 
+        fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
         }
