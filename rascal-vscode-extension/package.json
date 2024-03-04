@@ -27,7 +27,7 @@
     "node-fetch": "2.x",
     "tar": "6.x",
     "vscode-languageclient": "8.x",
-    "yauzl": "2.x"
+    "yauzl": "3.x"
   },
   "categories": [
     "Programming Languages"
