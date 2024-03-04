@@ -182,7 +182,11 @@ data LanguageService
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | builder(Summarizer builder)
+    | builder(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true)
     | outliner(Outliner outliner)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
