@@ -51,6 +51,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.LookupFn;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -204,6 +205,8 @@ public class ParametricFileFacts {
          * calculation will be granted, unless another request is made in the
          * meantime (in which case the current request is abandoned)
          * @param calculation the actual summary calculation
+         * @return a future that supplies the calculated summary if the current
+         * request was granted, or an empty summary if it was abandoned
          */
         private CompletableFuture<Versioned<ParametricSummary>> debounce(
                 int version, AtomicInteger latestVersion, Duration delay,
@@ -307,7 +310,6 @@ public class ParametricFileFacts {
                 .get(); // Unwrap `Versioned`
         }
 
-
         /**
          * Dynamically routes the lookup to `analysis`, `build`, or a
          * single-shot. Note: Static routing is less suitable here, because
@@ -327,7 +329,7 @@ public class ParametricFileFacts {
 
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
-            var buildResult = fn.apply(build.get());
+            Supplier<InterruptibleFuture<List<T>>> buildResult = fn.apply(build.get());
             if (buildResult != null && build.version() == tree.version()) {
                 return buildResult.get().get();
             }
@@ -335,7 +337,7 @@ public class ParametricFileFacts {
             // Else, if an analyzer summary is available (i.e., an analyzer
             // exists *and* provides), and if it's of the right version, use
             // that.
-            var analysisResult = fn.apply(analysis.get());
+            Supplier<InterruptibleFuture<List<T>>> analysisResult = fn.apply(analysis.get());
             if (analysisResult != null && analysis.version() == tree.version()) {
                 return analysisResult.get().get();
             }
@@ -344,7 +346,7 @@ public class ParametricFileFacts {
             return singleShotFactory
                 .thenApply(f -> f.createSummary(file, tree))
                 .thenApply(singleShot -> {
-                    var singleShotResult = fn.apply(singleShot);
+                    Supplier<InterruptibleFuture<List<T>>> singleShotResult = fn.apply(singleShot);
                     if (singleShotResult != null) {
                         return singleShotResult.get().get();
                     } else {
