@@ -51,32 +51,29 @@ public class ParametricSummaryBridge {
 
     private final Executor exec;
     private final ColumnMaps columns;
-    private final ILanguageContributions contrib;
 
     private final ISourceLocation file;
     private final BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator;
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SummarizerSummaryFactory> summaryFactory;
-    private final Supplier<CompletableFuture<SummaryConfig>> summarizerConfig;
+    private final Supplier<CompletableFuture<SummaryConfig>> summaryConfig;
 
-    public ParametricSummaryBridge(ISourceLocation file,
-            Executor exec, ColumnMaps columns, ILanguageContributions contrib,
+    public ParametricSummaryBridge(ISourceLocation file, Executor exec, ColumnMaps columns,
             BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator,
-            Supplier<CompletableFuture<SummaryConfig>> summarizerConfig) {
+            Supplier<CompletableFuture<SummaryConfig>> summaryConfig) {
 
         this.file = file;
         this.exec = exec;
         this.columns = columns;
-        this.contrib = contrib;
         this.calculator = calculator;
-        this.summarizerConfig = summarizerConfig;
+        this.summaryConfig = summaryConfig;
         reloadContributions();
     }
 
     public void reloadContributions() {
-        summaryFactory = summarizerConfig.get().thenApply(config ->
-            new SummarizerSummaryFactory(config, exec, columns, contrib));
+        summaryFactory = summaryConfig.get().thenApply(config ->
+            new SummarizerSummaryFactory(config, exec, columns));
     }
 
     public CompletableFuture<Versioned<ParametricSummary>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
