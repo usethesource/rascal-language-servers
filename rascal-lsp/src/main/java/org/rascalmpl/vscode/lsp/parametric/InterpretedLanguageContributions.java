@@ -190,17 +190,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 ValueFactoryFactory.getValueFactory().set(),
                 exec, true).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
-            this.parser = getFunctionFor(contributions, "parser");
-            this.outliner = getFunctionFor(contributions, "outliner");
-            this.analyzer = getFunctionFor(contributions, "analyzer");
-            this.builder = getFunctionFor(contributions, "builder");
-            this.lenses = getFunctionFor(contributions, "lenses");
-            this.commandExecutor = getFunctionFor(contributions, "executor");
-            this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
-            this.documenter = getFunctionFor(contributions, "documenter");
-            this.definer = getFunctionFor(contributions, "definer");
-            this.referrer = getFunctionFor(contributions, "referrer");
-            this.implementer = getFunctionFor(contributions, "implementer");
+            this.parser = getFunctionFor(contributions, PARSER_NAME);
+            this.outliner = getFunctionFor(contributions, OUTLINER_NAME);
+            this.analyzer = getFunctionFor(contributions, ANALYZER_NAME);
+            this.builder = getFunctionFor(contributions, BUILDER_NAME);
+            this.lenses = getFunctionFor(contributions, LENS_DETECTOR_NAME);
+            this.commandExecutor = getFunctionFor(contributions, COMMAND_EXECUTOR_NAME);
+            this.inlayHinter = getFunctionFor(contributions, INLAY_HINTER_NAME);
+            this.documenter = getFunctionFor(contributions, DOCUMENTER_NAME);
+            this.definer = getFunctionFor(contributions, DEFINER_NAME);
+            this.referrer = getFunctionFor(contributions, REFERRER_NAME);
+            this.implementer = getFunctionFor(contributions, IMPLEMENTER_NAME);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
@@ -214,8 +214,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
 
-            this.analysisConfig = summarizerSummaryConfig(contributions, "analyzer");
-            this.buildConfig = summarizerSummaryConfig(contributions, "builder");
+            this.analysisConfig = summarizerSummaryConfig(contributions, ANALYZER_NAME);
+            this.buildConfig = summarizerSummaryConfig(contributions, BUILDER_NAME);
             this.singleShotConfig = singleShotSummaryConfig(contributions);
 
         } catch (IOException e1) {
@@ -251,10 +251,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private static CompletableFuture<SummaryConfig> singleShotSummaryConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
             new SummaryConfig(
-                hasContribution(c, "documenter"),
-                hasContribution(c, "definer"),
-                hasContribution(c, "referrer"),
-                hasContribution(c, "implementer")));
+                hasContribution(c, DOCUMENTER_NAME),
+                hasContribution(c, DEFINER_NAME),
+                hasContribution(c, REFERRER_NAME),
+                hasContribution(c, IMPLEMENTER_NAME)));
     }
 
     private static boolean hasContribution(ISet contributions, String contribution) {
@@ -315,59 +315,64 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        logger.debug("outline({})", TreeAdapter.getLocation(input));
-        return execFunction("outline",outliner, VF.list(), input);
+        debug(OUTLINER_NAME, TreeAdapter.getLocation(input));
+        return execFunction(OUTLINER_NAME, outliner, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> analyze(ISourceLocation src, ITree input) {
-        logger.debug("analyze({})", src);
-        return execFunction("analyze", analyzer,
-            EmptySummary.newInstance(src), src, input);
+        debug(ANALYZER_NAME, src);
+        return execFunction(ANALYZER_NAME, analyzer, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation src, ITree input) {
-        logger.debug("build({})", src);
-        return execFunction("build", builder,
-            EmptySummary.newInstance(src), src, input);
+        debug(BUILDER_NAME, src);
+        return execFunction(BUILDER_NAME, builder, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        logger.debug("lenses({})", TreeAdapter.getLocation(input));
-        return execFunction("lenses", lenses, VF.set(), input);
+        debug(LENS_DETECTOR_NAME, TreeAdapter.getLocation(input));
+        return execFunction(LENS_DETECTOR_NAME, lenses, VF.set(), input);
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        logger.debug("inlayHinter({})", input != null ? TreeAdapter.getLocation(input) : null);
-        return execFunction("inlayHinter", inlayHinter, VF.list(), input);
+        debug(INLAY_HINTER_NAME, input != null ? TreeAdapter.getLocation(input) : null);
+        return execFunction(INLAY_HINTER_NAME, inlayHinter, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("documentation({})", TreeAdapter.getLocation(cursor));
-        return execFunction("", documenter, VF.set(), loc, input, cursor);
+        debug(DOCUMENTER_NAME, TreeAdapter.getLocation(cursor));
+        return execFunction(DOCUMENTER_NAME, documenter, VF.set(), loc, input, cursor);
     }
 
     @Override
     public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("defines({}, {})", loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
-        return execFunction("defines", definer, VF.set(), loc, input, cursor);
+        debug(DEFINER_NAME, loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
+        return execFunction(DEFINER_NAME, definer, VF.set(), loc, input, cursor);
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("implementer({})", TreeAdapter.getLocation(cursor));
-        return execFunction("implementer", implementer, VF.set(), loc, input, cursor);
+        debug(IMPLEMENTER_NAME, TreeAdapter.getLocation(cursor));
+        return execFunction(IMPLEMENTER_NAME, implementer, VF.set(), loc, input, cursor);
     }
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("references({})", TreeAdapter.getLocation(cursor));
-        return execFunction("references", referrer, VF.set(), loc, input, cursor);
+        debug(REFERRER_NAME, TreeAdapter.getLocation(cursor));
+        return execFunction(REFERRER_NAME, referrer, VF.set(), loc, input, cursor);
     }
 
+    private void debug(String name, Object param) {
+        logger.debug("{}({})", name, param);
+    }
+
+    private void debug(String name, Object param1, Object param2) {
+        logger.debug("{}({}, {})", name, param1, param2);
+    }
 
     @Override
     public CompletableFuture<Boolean> hasDefiner() {
@@ -454,6 +459,4 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             }),
             exec);
     }
-
-
 }
