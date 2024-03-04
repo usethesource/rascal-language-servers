@@ -42,7 +42,6 @@ import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -120,12 +119,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
     @Override

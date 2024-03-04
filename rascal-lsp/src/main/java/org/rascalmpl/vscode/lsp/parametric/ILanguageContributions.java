@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -35,6 +36,9 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public interface ILanguageContributions {
     public String getName();
@@ -95,8 +99,31 @@ public interface ILanguageContributions {
         }
     }
 
-    @FunctionalInterface // To pass methods `documentation`, `definitions`, `references`, and `implementations`
+    @FunctionalInterface
+    // To be able to pass methods `documentation`, `definitions`, `references`,
+    // and `implementations` as parameters.
     public static interface SingleShotFn {
         InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
+    }
+}
+
+class EmptySummary {
+    private EmptySummary() {}
+
+    private static final Type summaryCons;
+
+    static {
+        TypeFactory typeFactory = TypeFactory.getInstance();
+        TypeStore typeStore = new TypeStore();
+        summaryCons = typeFactory.constructor(
+            typeStore,
+            typeFactory.abstractDataType(typeStore, "Summary"),
+            "summary",
+            typeFactory.sourceLocationType(),
+            "src");
+    }
+
+    public static IConstructor newInstance(ISourceLocation src) {
+        return IRascalValueFactory.getInstance().constructor(summaryCons, src);
     }
 }

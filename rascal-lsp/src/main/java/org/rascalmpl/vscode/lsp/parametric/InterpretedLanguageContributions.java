@@ -49,7 +49,6 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -324,14 +323,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<IConstructor> analyze(ISourceLocation src, ITree input) {
         logger.debug("analyze({})", src);
         return execFunction("analyze", analyzer,
-            ParametricSummaryBridge.emptySummary(src), src, input);
+            EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation src, ITree input) {
         logger.debug("build({})", src);
         return execFunction("build", builder,
-            ParametricSummaryBridge.emptySummary(src), src, input);
+            EmptySummary.newInstance(src), src, input);
     }
 
     @Override

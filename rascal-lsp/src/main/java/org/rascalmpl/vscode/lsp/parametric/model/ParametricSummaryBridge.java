@@ -26,26 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.model;
 
-import org.rascalmpl.values.IRascalValueFactory;
-import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.type.Type;
-import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
-
 public class ParametricSummaryBridge {
 
     private ParametricSummaryBridge() {}
-
-    private static final Type summaryCons;
-
-    static {
-        TypeFactory TF = TypeFactory.getInstance();
-        TypeStore TS = new TypeStore();
-        summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary", TF.sourceLocationType(), "src");
-    }
-
-    public static IConstructor emptySummary(ISourceLocation src) {
-        return IRascalValueFactory.getInstance().constructor(summaryCons, src);
-    }
 }
