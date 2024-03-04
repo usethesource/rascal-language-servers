@@ -121,10 +121,8 @@ abstract class ParametricSummaryFactory {
     protected final SummaryConfig config;
     protected final Executor exec;
     protected final ColumnMaps columns;
-    protected final ILanguageContributions contrib;
-    protected final ValueMapper valueMapper;
 
-    protected ParametricSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    protected ParametricSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns) {
         this.config = config;
         this.exec = exec;
         this.columns = columns;
@@ -139,8 +137,8 @@ abstract class ParametricSummaryFactory {
 class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
-    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
-        super(config, exec, columns, contrib);
+    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns) {
+        super(config, exec, columns);
     }
 
     public ParametricSummary create(InterruptibleFuture<IConstructor> calculation) {
@@ -270,13 +268,11 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
 class SingleShooterSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
 
-    @FunctionalInterface
-    public interface SingleShotFn {
-        InterruptibleFuture<ISet> shoot(ISourceLocation file, ITree tree, ITree cursor);
-    }
+    private final ILanguageContributions contrib;
 
     public SingleShooterSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
-        super(config, exec, columns, contrib);
+        super(config, exec, columns);
+        this.contrib = contrib;
     }
 
     public ParametricSummary create(ISourceLocation file, Versioned<ITree> tree) {
@@ -337,7 +333,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
                 } else {
                     var yielded = TreeAdapter.yield(cursorTree);
                     logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                    set = singleShotFn.shoot(file, tree.get(), cursorTree);
+                    set = singleShotFn.apply(file, tree.get(), cursorTree);
                 }
 
                 logger.trace("{}: dedicated returned: {}", logName, set);

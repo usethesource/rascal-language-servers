@@ -95,5 +95,8 @@ public interface ILanguageContributions {
         }
     }
 
-
+    @FunctionalInterface // To pass methods `documentation`, `definitions`, `references`, and `implementations`
+    public static interface SingleShotFn {
+        InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
+    }
 }
