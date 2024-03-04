@@ -90,7 +90,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasOutliner;
     private final CompletableFuture<Boolean> hasAnalyzer;
     private final CompletableFuture<Boolean> hasBuilder;
-    private final CompletableFuture<Boolean> hasLenses;
+    private final CompletableFuture<Boolean> hasLensDetector;
     private final CompletableFuture<Boolean> hasCommandExecutor;
     private final CompletableFuture<Boolean> hasInlayHinter;
     private final CompletableFuture<Boolean> hasDocumenter;
@@ -98,9 +98,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
 
-    private final CompletableFuture<Config> analysisConfig;
-    private final CompletableFuture<Config> buildConfig;
-    private final CompletableFuture<Config> singleShotConfig;
+    private final CompletableFuture<SummaryConfig> analysisConfig;
+    private final CompletableFuture<SummaryConfig> buildConfig;
+    private final CompletableFuture<SummaryConfig> singleShotConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -207,7 +207,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasOutliner = nonNull(this.outliner);
             this.hasAnalyzer = nonNull(this.analyzer);
             this.hasBuilder = nonNull(this.builder);
-            this.hasLenses = nonNull(this.lenses);
+            this.hasLensDetector = nonNull(this.lenses);
             this.hasCommandExecutor = nonNull(this.commandExecutor);
             this.hasInlayHinter = nonNull(this.inlayHinter);
             this.hasDocumenter = nonNull(this.documenter);
@@ -229,7 +229,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return x.thenApply(Objects::nonNull);
     }
 
-    private static CompletableFuture<Config> summarizerConfig(CompletableFuture<ISet> contributions, String summarizer) {
+    private static CompletableFuture<SummaryConfig> summarizerConfig(CompletableFuture<ISet> contributions, String summarizer) {
         return contributions.thenApply(c -> {
             if (hasContribution(c, summarizer)) {
                 var constructor = c
@@ -238,20 +238,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     .filter(cons -> cons.getConstructorType().getName().equals(summarizer))
                     .findAny()
                     .orElse(null);
-                return new Config(
+                return new SummaryConfig(
                     isTrue(constructor, "providesDocumentation"),
                     isTrue(constructor, "providesDefinitions"),
                     isTrue(constructor, "providesReferences"),
                     isTrue(constructor, "providesImplementations"));
             } else {
-                return Config.FALSY;
+                return SummaryConfig.FALSY;
             }
         });
     }
 
-    private static CompletableFuture<Config> singleShooterConfig(CompletableFuture<ISet> contributions) {
+    private static CompletableFuture<SummaryConfig> singleShooterConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
-            new Config(
+            new SummaryConfig(
                 hasContribution(c, "documenter"),
                 hasContribution(c, "definer"),
                 hasContribution(c, "referrer"),
@@ -391,47 +391,47 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecuteCommand() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return hasCommandExecutor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return hasInlayHinter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLenses() {
-        return hasLenses;
+    public CompletableFuture<Boolean> hasLensDetector() {
+        return hasLensDetector;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutline() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return hasOutliner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalyze() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return hasAnalyzer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return hasBuilder;
     }
 
     @Override
-    public CompletableFuture<Config> getAnalyzerConfig() {
+    public CompletableFuture<SummaryConfig> getAnalyzerConfig() {
         return analysisConfig;
     }
 
     @Override
-    public CompletableFuture<Config> getBuilderConfig() {
+    public CompletableFuture<SummaryConfig> getBuilderConfig() {
         return buildConfig;
     }
 
     @Override
-    public CompletableFuture<Config> getSingleShooterConfig() {
+    public CompletableFuture<SummaryConfig> getSingleShooterConfig() {
         return singleShotConfig;
     }
 

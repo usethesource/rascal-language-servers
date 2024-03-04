@@ -47,7 +47,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.Config;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -118,13 +118,13 @@ public interface ParametricSummary {
 }
 
 abstract class ParametricSummaryFactory {
-    protected final Config config;
+    protected final SummaryConfig config;
     protected final Executor exec;
     protected final ColumnMaps columns;
     protected final ILanguageContributions contrib;
     protected final ValueMapper valueMapper;
 
-    protected ParametricSummaryFactory(Config config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    protected ParametricSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         this.config = config;
         this.exec = exec;
         this.columns = columns;
@@ -137,7 +137,7 @@ abstract class ParametricSummaryFactory {
 class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
-    public SummarizerSummaryFactory(Config config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns, contrib);
     }
 
@@ -273,7 +273,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         InterruptibleFuture<ISet> shoot(ISourceLocation file, ITree tree, ITree cursor);
     }
 
-    public SingleShooterSummaryFactory(Config config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    public SingleShooterSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns, contrib);
     }
 

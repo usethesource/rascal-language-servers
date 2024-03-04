@@ -184,48 +184,48 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutline() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalyze() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLenses() {
+    public CompletableFuture<Boolean> hasLensDetector() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecuteCommand() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Config> getAnalyzerConfig() {
-        return CompletableFuture.completedFuture(Config.FALSY);
+    public CompletableFuture<SummaryConfig> getAnalyzerConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<Config> getBuilderConfig() {
-        return CompletableFuture.completedFuture(Config.FALSY);
+    public CompletableFuture<SummaryConfig> getBuilderConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<Config> getSingleShooterConfig() {
-        return CompletableFuture.completedFuture(Config.FALSY);
+    public CompletableFuture<SummaryConfig> getSingleShooterConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
 }

@@ -38,6 +38,7 @@ import io.usethesource.vallang.IValue;
 
 public interface ILanguageContributions {
     public String getName();
+
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public InterruptibleFuture<IList> outline(ITree input);
     public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
@@ -50,29 +51,28 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
+    public CompletableFuture<Boolean> hasAnalyzer();
+    public CompletableFuture<Boolean> hasBuilder();
+    public CompletableFuture<Boolean> hasOutliner();
+    public CompletableFuture<Boolean> hasLensDetector();
+    public CompletableFuture<Boolean> hasInlayHinter();
+    public CompletableFuture<Boolean> hasCommandExecutor();
     public CompletableFuture<Boolean> hasDocumenter();
     public CompletableFuture<Boolean> hasDefiner();
     public CompletableFuture<Boolean> hasReferrer();
     public CompletableFuture<Boolean> hasImplementer();
 
-    public CompletableFuture<Boolean> hasOutline();
-    public CompletableFuture<Boolean> hasAnalyze();
-    public CompletableFuture<Boolean> hasBuild();
-    public CompletableFuture<Boolean> hasLenses();
-    public CompletableFuture<Boolean> hasExecuteCommand();
-    public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<SummaryConfig> getAnalyzerConfig();
+    public CompletableFuture<SummaryConfig> getBuilderConfig();
+    public CompletableFuture<SummaryConfig> getSingleShooterConfig();
 
-    public CompletableFuture<Config> getAnalyzerConfig();
-    public CompletableFuture<Config> getBuilderConfig();
-    public CompletableFuture<Config> getSingleShooterConfig();
-
-    public static class Config {
+    public static class SummaryConfig {
         public final boolean providesDocumentation;
         public final boolean providesDefinitions;
         public final boolean providesReferences;
         public final boolean providesImplementations;
 
-        public Config(
+        public SummaryConfig(
                 boolean providesDocumentation,
                 boolean providesDefinitions,
                 boolean providesReferences,
@@ -84,10 +84,10 @@ public interface ILanguageContributions {
             this.providesImplementations = providesImplementations;
         }
 
-        public static final Config FALSY = new Config(false, false, false, false);
+        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false);
 
-        public static Config or(Config a, Config b) {
-            return new Config(
+        public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
+            return new SummaryConfig(
                 a.providesDocumentation || b.providesDocumentation,
                 a.providesDefinitions || b.providesDefinitions,
                 a.providesReferences || b.providesReferences,
