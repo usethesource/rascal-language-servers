@@ -70,8 +70,8 @@ import io.usethesource.vallang.IWithKeywordParameters;
 /**
  * The purpose of this interface is to provide a general abstraction for
  * `Position`-based look-ups of documentation, definitions, references, and
- * implementations, regardless of who calculates the requested information.
- * There are two implementations:
+ * implementations, regardless of which component calculates the requested
+ * information. There are two implementations:
  *
  *   - `SummarizerSummary` is a summary that originates from a summarizer (i.e.,
  *     analyzer or builder). In this case, if available, information requested
@@ -93,7 +93,6 @@ public interface ParametricSummary {
     // property for the requested information. In the case of
     // `SingleShooterSummary`, this happens when no single-shooter exists for
     // the requested information.
-
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
