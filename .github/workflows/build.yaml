@@ -23,15 +23,15 @@ jobs:
       CODE_VERSION: "1.75.1"
     runs-on:  ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: 11
           distribution: 'temurin'
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 16
           cache: 'npm'
@@ -50,7 +50,7 @@ jobs:
 
       - name: Cache vscode downloads 
         id: cache-vscode
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ./rascal-vscode-extension/uitests
           key: "vscode-${{matrix.os}}"
@@ -90,15 +90,15 @@ jobs:
     needs: [ui-test]
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: 11
           distribution: 'temurin'
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 16
           cache: 'npm'
@@ -134,7 +134,7 @@ jobs:
           npx vsce package
 
       - name: upload final vsix 
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: rascal-vscode-extension/*.vsix
           retention-days: 20
