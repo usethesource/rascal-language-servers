@@ -32,9 +32,11 @@ import java.util.function.Function;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
+import org.eclipse.lsp4j.Location;
 import org.rascalmpl.vscode.lsp.util.locations.impl.ArrayLineOffsetMap;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 public class ColumnMaps {
     private final LoadingCache<ISourceLocation, LineColumnOffsetMap> currentEntries;
@@ -52,5 +54,9 @@ public class ColumnMaps {
 
     public void clear(ISourceLocation sloc) {
         currentEntries.invalidate(sloc.top());
+    }
+
+    public Location mapValueToLocation(IValue v) {
+        return Locations.toLSPLocation((ISourceLocation)v, this);
     }
 }

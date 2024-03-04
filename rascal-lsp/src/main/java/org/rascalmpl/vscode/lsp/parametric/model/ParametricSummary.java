@@ -128,8 +128,10 @@ abstract class ParametricSummaryFactory {
         this.config = config;
         this.exec = exec;
         this.columns = columns;
-        this.contrib = contrib;
-        this.valueMapper = new ValueMapper(columns);
+    }
+
+    public static Either<String, MarkedString> mapValueToString(IValue v) {
+        return Either.forLeft(((IString) v).getValue());
     }
 }
 
@@ -361,19 +363,3 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
     }
 }
 
-@SuppressWarnings("deprecation")
-class ValueMapper {
-    private final ColumnMaps columns;
-
-    public ValueMapper(ColumnMaps columns) {
-        this.columns = columns;
-    }
-
-    public Location mapValueToLocation(IValue v) {
-        return Locations.toLSPLocation((ISourceLocation)v, columns);
-    }
-
-    public Either<String, MarkedString> mapValueToString(IValue v) {
-        return Either.forLeft(((IString) v).getValue());
-    }
-}
