@@ -68,6 +68,10 @@ public class ParametricFileFacts {
     private volatile @MonotonicNonNull LanguageClient client;
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+    private volatile CompletableFuture<SummarizerSummaryFactory> analysisFactory;
+    @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
+    private volatile CompletableFuture<SummarizerSummaryFactory> buildFactory;
+    @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SingleShooterSummaryFactory> singleShotFactory;
 
     public ParametricFileFacts(Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
@@ -89,8 +93,10 @@ public class ParametricFileFacts {
     }
 
     public void reloadContributions() {
-        files.values().forEach(FileFact::reloadContributions);
-
+        analysisFactory = contrib.getAnalysisConfig().thenApply(config ->
+            new SummarizerSummaryFactory(config, exec, columns, contrib::analyze));
+        buildFactory = contrib.getBuildConfig().thenApply(config ->
+            new SummarizerSummaryFactory(config, exec, columns, contrib::build));
         singleShotFactory = contrib.getSingleShotConfig().thenApply(config ->
             new SingleShooterSummaryFactory(config, exec, columns, contrib));
     }
@@ -127,10 +133,10 @@ public class ParametricFileFacts {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
 
-            var messagesAnalyzer = ParametricSummary.getMessages(present.latestAnalyzerAnalysis, exec).get();
-            var messagesBuilder = ParametricSummary.getMessages(present.latestBuilderBuild, exec).get();
-            messagesAnalyzer.thenAcceptBothAsync(messagesBuilder, (m1, m2) -> {
-                if (m1.isEmpty() && m2.isEmpty()) {
+            var analyzerMessages = ParametricSummary.getMessages(present.latestAnalyzerAnalysis, exec).get();
+            var builderMessages = ParametricSummary.getMessages(present.latestBuilderBuild, exec).get();
+            analyzerMessages.thenAcceptBothAsync(builderMessages, (aMessages, bMessages) -> {
+                if (aMessages.isEmpty() && bMessages.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
                     // else vscode comes back and we've dropped the messages in our internal data
                     files.remove(loc);
@@ -152,9 +158,6 @@ public class ParametricFileFacts {
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerDiagnostics = Versioned.atomic(-1, Collections.emptyList());
         private final AtomicReference<Versioned<List<Diagnostic>>> builderDiagnostics = Versioned.atomic(-1, Collections.emptyList());
 
-        private final ParametricSummaryBridge analyzer;
-        private final ParametricSummaryBridge builder;
-
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
 
         @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
@@ -166,13 +169,6 @@ public class ParametricFileFacts {
 
         public FileFact(ISourceLocation file) {
             this.file = file;
-            this.analyzer = new ParametricSummaryBridge(file, exec, columns, contrib::analyze, contrib::getAnalysisConfig);
-            this.builder = new ParametricSummaryBridge(file, exec, columns, contrib::build, contrib::getBuildConfig);
-        }
-
-        public void reloadContributions() {
-            analyzer.reloadContributions();
-            builder.reloadContributions();
         }
 
         private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
@@ -245,7 +241,7 @@ public class ParametricFileFacts {
 
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
-                var summary = analyzer.calculateSummary(tree);
+                var summary = SummarizerSummaryFactory.newSummary(analysisFactory, file, tree);
                 var messages = ParametricSummary.getMessages(summary, exec);
                 messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
                 return summary;
@@ -267,14 +263,14 @@ public class ParametricFileFacts {
             // with a greater version than parameter `tree` (because
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
-            latestBuilderAnalysis = analyzer.calculateSummary(tree);
+            latestBuilderAnalysis = SummarizerSummaryFactory.newSummary(analysisFactory, file, tree);
             var analyzerMessages = ParametricSummary.getMessages(latestBuilderAnalysis, exec);
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
-            latestBuilderBuild = builder.calculateSummary(tree);
+            latestBuilderBuild = SummarizerSummaryFactory.newSummary(buildFactory, file, tree);
             var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
 
             // Only if neither the analyzer nor the builder was interrupted,
@@ -311,11 +307,6 @@ public class ParametricFileFacts {
                 .get(); // Unwrap `Versioned`
         }
 
-        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, Versioned<ITree> tree) {
-            return latestAnalyzerAnalysis
-                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(fn, tree, a, b))
-                .thenCompose(Function.identity());
-        }
 
         /**
          * Dynamically routes the lookup to `analysis`, `build`, or a
@@ -323,6 +314,12 @@ public class ParametricFileFacts {
          * which summary to use depends on the version of `tree`, which is known
          * only dynamically.
          */
+        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, Versioned<ITree> tree) {
+            return latestAnalyzerAnalysis
+                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(fn, tree, a, b))
+                .thenCompose(Function.identity());
+        }
+
         private <T> CompletableFuture<List<T>> lookupInSummaries(
                 LookupFn<T> fn, Versioned<ITree> tree,
                 Versioned<ParametricSummary> analysis,
@@ -345,7 +342,7 @@ public class ParametricFileFacts {
 
             // Else, if a single-shooter summary is available, use that.
             return singleShotFactory
-                .thenApply(f -> f.create(file, tree))
+                .thenApply(f -> f.createSummary(file, tree))
                 .thenApply(singleShot -> {
                     var singleShotResult = fn.apply(singleShot);
                     if (singleShotResult != null) {

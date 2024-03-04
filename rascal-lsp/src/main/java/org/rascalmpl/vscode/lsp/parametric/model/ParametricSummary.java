@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -172,12 +173,44 @@ abstract class ParametricSummaryFactory {
 class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
-    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns) {
+    private final BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator;
+
+    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns,
+            BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator) {
+
         super(config, exec, columns);
+        this.calculator = calculator;
     }
 
-    public ParametricSummary create(InterruptibleFuture<IConstructor> calculation) {
+    public CompletableFuture<Versioned<ParametricSummary>> createSummary(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+
+        var calculation = calculate(file, tree);
+        var summary = summarize(calculation);
+        return tree
+            .thenApply(Versioned::version)
+            .thenApply(v -> new Versioned<>(v, summary));
+    }
+
+    private InterruptibleFuture<IConstructor> calculate(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+
+        logger.trace("Requesting summary calculation for: {}", file);
+        return InterruptibleFuture.flatten(
+            tree.thenApplyAsync(t -> calculator.apply(file, t.get()), exec), exec);
+    }
+
+    public ParametricSummary summarize(InterruptibleFuture<IConstructor> calculation) {
         return new SummarizerSummary(calculation);
+    }
+
+    public static CompletableFuture<Versioned<ParametricSummary>> newSummary(
+            CompletableFuture<SummarizerSummaryFactory> factory,
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+
+        return factory
+            .thenApply(f -> f.createSummary(file, tree))
+            .thenCompose(Function.identity());
     }
 
     public class SummarizerSummary implements ParametricSummary {
@@ -312,7 +345,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         this.contrib = contrib;
     }
 
-    public ParametricSummary create(ISourceLocation file, Versioned<ITree> tree) {
+    public ParametricSummary createSummary(ISourceLocation file, Versioned<ITree> tree) {
         return new SingleShooterSummary(file, tree);
     }
 

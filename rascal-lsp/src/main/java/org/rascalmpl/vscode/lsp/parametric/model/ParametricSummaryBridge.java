@@ -26,18 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.model;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
-import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.type.Type;
@@ -45,47 +34,8 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricSummaryBridge {
-    private static final Logger logger = LogManager.getLogger(ParametricSummaryBridge.class);
 
-    private final Executor exec;
-    private final ColumnMaps columns;
-
-    private final ISourceLocation file;
-    private final BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator;
-
-    @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<SummarizerSummaryFactory> summaryFactory;
-    private final Supplier<CompletableFuture<SummaryConfig>> summaryConfig;
-
-    public ParametricSummaryBridge(ISourceLocation file, Executor exec, ColumnMaps columns,
-            BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator,
-            Supplier<CompletableFuture<SummaryConfig>> summaryConfig) {
-
-        this.file = file;
-        this.exec = exec;
-        this.columns = columns;
-        this.calculator = calculator;
-        this.summaryConfig = summaryConfig;
-        reloadContributions();
-    }
-
-    public void reloadContributions() {
-        summaryFactory = summaryConfig.get().thenApply(config ->
-            new SummarizerSummaryFactory(config, exec, columns));
-    }
-
-    public CompletableFuture<Versioned<ParametricSummary>> calculateSummary(CompletableFuture<Versioned<ITree>> tree) {
-        logger.trace("Requesting Summary calculation for: {}", file);
-        var version = tree.thenApply(Versioned::version);
-        var summary = summaryFactory.thenApply(f -> f.create(calculate(tree)));
-        return version.thenCombine(summary, Versioned::new);
-    }
-
-    private InterruptibleFuture<IConstructor> calculate(CompletableFuture<Versioned<ITree>> tree) {
-        return InterruptibleFuture.flatten(
-            tree.thenApplyAsync(t -> calculator.apply(file, t.get()), exec),
-            exec);
-    }
+    private ParametricSummaryBridge() {}
 
     private static final Type summaryCons;
 
