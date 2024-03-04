@@ -13,8 +13,8 @@ jobs:
         working-directory: ./rascal-lsp
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: 11
           distribution: 'temurin'
@@ -37,7 +37,7 @@ jobs:
 
       - name: Report Failure
         if: failure()
-        uses: act10ns/slack@v1
+        uses: act10ns/slack@v2
         with:
           status: ${{ job.status }}
           steps: ${{ toJson(steps) }}
