@@ -199,9 +199,17 @@ data LanguageService
 
 @deprecated{Please use ((builder)) or ((analyzer))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
-LanguageService summarizer(Summarizer summarizer) {
+LanguageService summarizer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true) {
     println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
-    return builder(summarizer);
+    return builder(summarizer
+        , providesDocumentation = providesDocumentation
+        , providesDefinitions = providesDefinitions
+        , providesReferences = providesReferences
+        , providesImplementations = providesImplementations);
 }
 
 @synopsis{A model encodes all IDE-relevant information about a single source file.}

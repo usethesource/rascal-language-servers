@@ -227,7 +227,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
     }
 
     public class MessagesOnlyScheduledSummary extends NullSummary {
-        private final InterruptibleFuture<List<Diagnostic>> messages;
+        private final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
 
         public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             this.messages = extractMessages(calculation);
@@ -235,7 +235,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public InterruptibleFuture<List<Diagnostic>> getMessages() {
-            return messages;
+            return messages.thenApply(Lazy::get);
         }
 
         @Override
@@ -243,8 +243,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             messages.interrupt();
         }
 
-        private InterruptibleFuture<List<Diagnostic>> extractMessages(InterruptibleFuture<IConstructor> summary) {
-            return summary.thenApply(s -> {
+        private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(InterruptibleFuture<IConstructor> summary) {
+            return summary.thenApply(s -> Lazy.defer(() -> {
                 var sum = s.asWithKeywordParameters();
                 if (sum.hasParameter("messages")) {
                     return ((ISet)sum.getParameter("messages")).stream()
@@ -252,7 +252,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                         .collect(Collectors.toList());
                 }
                 return Collections.emptyList();
-            });
+            }));
         }
     }
 
@@ -454,11 +454,16 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
                 OndemandCalculator calculator, Function<IValue, T> valueMapper, String logName) {
 
-            // Note on second disjunct: To ensure that this summary can't be
-            // misused if it's accidentally leaked elsewhere, this summary
-            // provides information only if the cursor is *identical* (not just
-            // equal) to the cursor when this summary was created.
-            if (!provides || this.cursor != cursor) {
+            if (!provides) {
+                return null;
+            }
+
+            // To ensure that this summary can't be misused if it's accidentally
+            // leaked elsewhere, this summary provides information only if the
+            // cursor is *identical* (not just equal) to the cursor when this
+            // summary was created.
+            if (this.cursor != cursor) {
+                logger.trace("{}: unexpected use of an on-demand summary (cursor at creation time != cursor at usage time)", logName);
                 return null;
             }
 
