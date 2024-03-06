@@ -27,6 +27,8 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -78,9 +80,9 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasReferrer();
     public CompletableFuture<Boolean> hasImplementer();
 
-    public CompletableFuture<SummaryConfig> getAnalysisConfig();
-    public CompletableFuture<SummaryConfig> getBuildConfig();
-    public CompletableFuture<SummaryConfig> getSingleShotConfig();
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig();
 
     public static class SummaryConfig {
         public final boolean providesDocumentation;
@@ -111,10 +113,14 @@ public interface ILanguageContributions {
         }
     }
 
+
+    @FunctionalInterface // Type alias to conveniently pass methods `analyze`and `build` as parameters
+    public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
+
     @FunctionalInterface
-    // To be able to pass methods `documentation`, `definitions`, `references`,
-    // and `implementations` as parameters.
-    public static interface OndemandSummarizer {
+    // To conveniently pass methods `documentation`, `definitions`,
+    // `references`, and `implementations` as parameters.
+    public static interface OndemandCalculator {
         InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
     }
 }

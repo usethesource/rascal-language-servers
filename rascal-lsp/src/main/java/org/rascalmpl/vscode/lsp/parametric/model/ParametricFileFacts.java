@@ -52,7 +52,6 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -89,11 +88,11 @@ public class ParametricFileFacts {
     // individual files. Thus, the factories are shared among them.
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<SummarizerSummaryFactory> analysisFactory;
+    private volatile CompletableFuture<ScheduledSummaryFactory> analyzerSummaryFactory;
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<SummarizerSummaryFactory> buildFactory;
+    private volatile CompletableFuture<ScheduledSummaryFactory> builderSummaryFactory;
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<SingleShooterSummaryFactory> demandedFactory;
+    private volatile CompletableFuture<OndemandSummaryFactory> ondemandSummaryFactory;
 
     public ParametricFileFacts(Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         this.exec = exec;
@@ -114,12 +113,12 @@ public class ParametricFileFacts {
     }
 
     public void reloadContributions() {
-        analysisFactory = contrib.getAnalysisConfig().thenApply(config ->
-            new SummarizerSummaryFactory(config, exec, columns, contrib::analyze));
-        buildFactory = contrib.getBuildConfig().thenApply(config ->
-            new SummarizerSummaryFactory(config, exec, columns, contrib::build));
-        demandedFactory = contrib.getSingleShotConfig().thenApply(config ->
-            new SingleShooterSummaryFactory(config, exec, columns, contrib));
+        analyzerSummaryFactory = contrib.getAnalyzerSummaryConfig().thenApply(config ->
+            new ScheduledSummaryFactory(config, exec, columns, contrib::analyze));
+        builderSummaryFactory = contrib.getBuilderSummaryConfig().thenApply(config ->
+            new ScheduledSummaryFactory(config, exec, columns, contrib::build));
+        ondemandSummaryFactory = contrib.getOndemandSummaryConfig().thenApply(config ->
+            new OndemandSummaryFactory(config, exec, columns, contrib));
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
@@ -264,9 +263,11 @@ public class ParametricFileFacts {
 
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
-                var summary = SummarizerSummaryFactory.flatten(analysisFactory, f -> f.createFullSummary(file, tree));
-                var messages = ParametricSummary.getMessages(summary, exec);
-                messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
+                var summary = analyzerSummaryFactory
+                    .thenApply(f -> f.createFullSummary(file, tree))
+                    .thenCompose(Function.identity());
+                ParametricSummary.getMessages(summary, exec)
+                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
                 return summary;
             });
         }
@@ -286,19 +287,23 @@ public class ParametricFileFacts {
             // with a greater version than parameter `tree` (because
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
-            latestBuilderAnalysis = SummarizerSummaryFactory.flatten(analysisFactory, f -> f.createMessagesOnlySummary(file, tree));
-            var analyzerMessages = ParametricSummary.getMessages(latestBuilderAnalysis, exec);
+            latestBuilderAnalysis = analyzerSummaryFactory
+                .thenApply(f -> f.createMessagesOnlySummary(file, tree))
+                .thenCompose(Function.identity());
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
-            latestBuilderBuild = SummarizerSummaryFactory.flatten(buildFactory, f -> f.createFullSummary(file, tree));
-            var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
+            latestBuilderBuild = builderSummaryFactory
+                .thenApply(f -> f.createFullSummary(file, tree))
+                .thenCompose(Function.identity());
 
             // Only if neither the analyzer nor the builder was interrupted,
             // report diagnostics. Otherwise, *no* diagnostics are reported
             // (instead of reporting an empty list of diagnostics).
+            var analyzerMessages = ParametricSummary.getMessages(latestBuilderAnalysis, exec);
+            var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
             analyzerMessages.thenAcceptBothIfUninterrupted(builderMessages, (aMessages, bMessages) -> {
                 bMessages.removeAll(aMessages);
                 tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), bMessages));
@@ -350,7 +355,7 @@ public class ParametricFileFacts {
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
             if (build.version() == tree.version()) {
-                InterruptibleFuture<List<T>> buildResult = lookup.apply(build.get(), cursor);
+                var buildResult = lookup.apply(build.get(), cursor);
                 if (buildResult != null) {
                     logger.trace("Look-up in builder summary succeeded");
                     return buildResult.get();
@@ -361,7 +366,7 @@ public class ParametricFileFacts {
             // exists *and* provides), and if it's of the right version, use
             // that.
             if (analysis.version() == tree.version()) {
-                InterruptibleFuture<List<T>> analysisResult = lookup.apply(analysis.get(), cursor);
+                var analysisResult = lookup.apply(analysis.get(), cursor);
                 if (analysisResult != null) {
                     logger.trace("Look-up in analyzer summary succeeded");
                     return analysisResult.get();
@@ -369,20 +374,9 @@ public class ParametricFileFacts {
             }
 
             // Else, if an on-demand summary is available, use that.
-            // Conceptually, the idea is that a documenter, definer, referrer,
-            // and implementer sit inside `demandedFactory`, waiting for
-            // on-demand requests for information. First, when such a request
-            // happens, a summary is created via the factory as an interface for
-            // the actual look-up. Next, when such a look-up happens via the
-            // summary, the requested information is calculated on-the-fly by
-            // the corresponding documenter, definer, referrer, or implementer.
-            // This design enables the reuse of code and concepts common to
-            // scheduled summarizers (analyser, builder) and on-demand
-            // summarizers.
-            return demandedFactory
-                .thenApply(f -> f.createSummary(file, tree, cursor))
-                .thenApply(demanded -> {
-                    InterruptibleFuture<List<T>> demandedResult = lookup.apply(demanded, cursor);
+            return ondemandSummaryFactory
+                .thenApply(f -> {
+                    var demandedResult = f.createSummaryThenLookup(file, tree, cursor, lookup);
                     if (demandedResult != null) {
                         logger.trace("Look-up in on-demand summary succeeded");
                         return demandedResult.get();

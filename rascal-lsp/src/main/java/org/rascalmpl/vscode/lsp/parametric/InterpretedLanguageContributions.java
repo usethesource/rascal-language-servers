@@ -97,9 +97,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
 
-    private final CompletableFuture<SummaryConfig> analysisConfig;
-    private final CompletableFuture<SummaryConfig> buildConfig;
-    private final CompletableFuture<SummaryConfig> singleShotConfig;
+    private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
+    private final CompletableFuture<SummaryConfig> builderSummaryConfig;
+    private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -214,9 +214,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
 
-            this.analysisConfig = scheduledSummaryConfig(contributions, ANALYZER_NAME);
-            this.buildConfig = scheduledSummaryConfig(contributions, BUILDER_NAME);
-            this.singleShotConfig = ondemandSummaryConfig(contributions);
+            this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, ANALYZER_NAME);
+            this.builderSummaryConfig = scheduledSummaryConfig(contributions, BUILDER_NAME);
+            this.ondemandSummaryConfig = ondemandSummaryConfig(contributions);
 
         } catch (IOException e1) {
             logger.catching(e1);
@@ -423,18 +423,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
-        return analysisConfig;
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return analyzerSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
-        return buildConfig;
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return builderSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getSingleShotConfig() {
-        return singleShotConfig;
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return ondemandSummaryConfig;
     }
 
     @Override

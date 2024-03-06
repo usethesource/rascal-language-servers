@@ -47,8 +47,10 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandSummarizer;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandCalculator;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -72,25 +74,25 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * implementations, regardless of which component calculates the requested
  * information. There are two implementations:
  *
- *   - `SummarizerSummary` is a summary that originates from a summarizer (i.e.,
+ *   - `ScheduledSummary` is a summary that originates from a summarizer (i.e.,
  *     analyzer or builder). In this case, if available, information requested
  *     from the summary has already been pre-calculated by the summarizer (as a
  *     relation), so it only needs to be fetched (and translated to the proper
  *     format for LSP).
  *
- *   - `SingleShooterSummary` is a summary that originates from a single-shooter
- *     (i.e., documenter, definer, referrer, or implementer). In this case, if
- *     available, information requested from the summary is calculated
- *     on-the-fly by the single-shooter.
+ *   - `OndemandSummary` is a summary that originates from an on-demand
+ *     summarizer (i.e., documenter, definer, referrer, or implementer). In this
+ *     case, if available, information requested from the summary is calculated
+ *     on-the-fly.
  */
 public interface ParametricSummary {
 
     // The following methods return `null` when the requested information isn't
-    // available in this summary. In the case of `SummarizerSummary`, this
+    // available in this summary. In the case of `ScheduledSummary`, this
     // happens when the summarizer is configured with a false `provides...`
-    // property for the requested information. In the case of
-    // `SingleShooterSummary`, this happens when no single-shooter exists for
-    // the requested information.
+    // property for the requested information. In the case of `OndemandSummary`,
+    // this happens when no on-demand summarizer exists for the requested
+    // information.
     @SuppressWarnings("deprecation") // For `MarkedString`
     @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
@@ -161,7 +163,7 @@ public interface ParametricSummary {
  * The purpose of this class is to store global state that summaries need to
  * fulfil their responsibilities. It has two extensions, corresponding to the
  * two implementations of interface `ParametricSummary`: (1)
- * `SummarizerSummaryFactory` and (2) `SingleShooterSummaryFactory`.
+ * `ScheduledSummaryFactory` and (2) `OndemandSummaryFactory`.
  */
 abstract class ParametricSummaryFactory {
     public static final String DOCUMENTATION = "documentation";
@@ -185,26 +187,24 @@ abstract class ParametricSummaryFactory {
     }
 }
 
-class SummarizerSummaryFactory extends ParametricSummaryFactory {
-    private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
+class ScheduledSummaryFactory extends ParametricSummaryFactory {
+    private static final Logger logger = LogManager.getLogger(ScheduledSummaryFactory.class);
 
-    private final BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator;
+    private final ScheduledCalculator calculator;
 
-    public SummarizerSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns,
-            BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> calculator) {
-
+    public ScheduledSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ScheduledCalculator calculator) {
         super(config, exec, columns);
         this.calculator = calculator;
     }
 
     public CompletableFuture<Versioned<ParametricSummary>> createMessagesOnlySummary(
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
-        return createSummary(file, tree, MessagesOnlySummarizerSummary::new);
+        return createSummary(file, tree, MessagesOnlyScheduledSummary::new);
     }
 
     public CompletableFuture<Versioned<ParametricSummary>> createFullSummary(
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
-        return createSummary(file, tree, SummarizerSummary::new);
+        return createSummary(file, tree, FullScheduledSummary::new);
     }
 
     private CompletableFuture<Versioned<ParametricSummary>> createSummary(
@@ -218,17 +218,10 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         }, exec);
     }
 
-    public static CompletableFuture<Versioned<ParametricSummary>> flatten(
-            CompletableFuture<SummarizerSummaryFactory> factory,
-            Function<SummarizerSummaryFactory, CompletableFuture<Versioned<ParametricSummary>>> creator) {
-
-        return factory.thenApply(creator).thenCompose(Function.identity());
-    }
-
-    public class MessagesOnlySummarizerSummary implements ParametricSummary {
+    public class MessagesOnlyScheduledSummary implements ParametricSummary {
         private final InterruptibleFuture<List<Diagnostic>> messages;
 
-        public MessagesOnlySummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
+        public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             this.messages = extractMessages(calculation);
         }
 
@@ -276,14 +269,14 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         }
     }
 
-    public class SummarizerSummary extends MessagesOnlySummarizerSummary {
+    public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
         @SuppressWarnings("deprecation") // For `MarkedString`
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
-        public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
+        public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
             this.documentation = config.providesDocumentation ?
                 mapCalculation(DOCUMENTATION, calculation, DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
@@ -382,26 +375,59 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
     }
 }
 
-class SingleShooterSummaryFactory extends ParametricSummaryFactory {
-    private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
+/**
+ * The purpose of this class is to offer a similar interface for the
+ * construction of on-demand summaries (originating from
+ * documenter/definer/referrer/implementer) as for the construction of scheduled
+ * summaries (originating from analyser/builder). To achieve this, it reuses the
+ * common superclass `ParametricSummaryFactory`, which stores global state that
+ * both kinds of summaries need to fulfil their responsibilities.
+ *
+ * From the outside, an on-demand summary looks just like any other scheduled
+ * summary: it's an abstraction through which `Position`-based information can
+ * be looked up. On the inside, however, on-demand summaries work quite
+ * differently from scheduled summaries. Conceptually, the idea is that a
+ * documenter, definer, referrer, and implementer sit inside the factory,
+ * waiting for on-demand requests for information:
+ *
+ *  1. First, when such a request happens, a summary is to be created via the
+ *     factory as an interface for the actual look-up.
+ *  2. Next, when such a look-up happens, the requested information is
+ *     calculated on-the-fly via the summary by the corresponding documenter,
+ *     definer, referrer, or implementer that sits inside the factory.
+ *
+ * For convenience, method `createSummaryThenLookup` combines these two steps.
+ *
+ * This design enables reuse of code and concepts common to scheduled summaries
+ * and on-demand summaries.
+ */
+class OndemandSummaryFactory extends ParametricSummaryFactory {
+    private static final Logger logger = LogManager.getLogger(OndemandSummaryFactory.class);
 
     private final ILanguageContributions contrib;
 
-    public SingleShooterSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    public OndemandSummaryFactory(SummaryConfig config, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         super(config, exec, columns);
         this.contrib = contrib;
     }
 
     public ParametricSummary createSummary(ISourceLocation file, Versioned<ITree> tree, Position cursor) {
-        return new SingleShooterSummary(file, tree, cursor);
+        return new OndemandSummary(file, tree, cursor);
     }
 
-    public class SingleShooterSummary implements ParametricSummary {
+    public <T> @Nullable InterruptibleFuture<List<T>> createSummaryThenLookup(
+            ISourceLocation file, Versioned<ITree> tree, Position cursor,
+            SummaryLookup<T> lookup) {
+
+        return lookup.apply(new OndemandSummary(file, tree, cursor), cursor);
+    }
+
+    public class OndemandSummary implements ParametricSummary {
         private final ISourceLocation file;
         private final Versioned<ITree> tree;
         private final Position cursor;
 
-        public SingleShooterSummary(ISourceLocation file, Versioned<ITree> tree, Position cursor) {
+        public OndemandSummary(ISourceLocation file, Versioned<ITree> tree, Position cursor) {
             this.file = file;
             this.tree = tree;
             this.cursor = cursor;
@@ -439,7 +465,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         }
 
         private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
-                OndemandSummarizer singleShotFn, Function<IValue, T> valueMapper, String logName) {
+                OndemandCalculator calculator, Function<IValue, T> valueMapper, String logName) {
 
             // Note on second disjunct: To ensure that this summary can't be
             // misused if it's accidentally leaked elsewhere, this summary
@@ -460,7 +486,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
             } else {
                 var yielded = TreeAdapter.yield(cursorTree);
                 logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                set = singleShotFn.apply(file, tree.get(), cursorTree);
+                set = calculator.apply(file, tree.get(), cursorTree);
             }
 
             logger.trace("{}: dedicated returned: {}", logName, set);

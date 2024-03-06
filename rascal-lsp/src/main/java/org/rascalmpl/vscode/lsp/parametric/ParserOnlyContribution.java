@@ -213,17 +213,17 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getSingleShotConfig() {
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 

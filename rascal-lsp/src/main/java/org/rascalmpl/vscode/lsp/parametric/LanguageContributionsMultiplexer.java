@@ -75,9 +75,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasCommandExecutor = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHinter = failedInitialization();
 
-    private volatile CompletableFuture<SummaryConfig> analysisConfig;
-    private volatile CompletableFuture<SummaryConfig> buildConfig;
-    private volatile CompletableFuture<SummaryConfig> singleShotConfig;
+    private volatile CompletableFuture<SummaryConfig> analyzerSummaryConfig;
+    private volatile CompletableFuture<SummaryConfig> builderSummaryConfig;
+    private volatile CompletableFuture<SummaryConfig> ondemandSummaryConfig;
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
@@ -156,9 +156,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasCommandExecutor = anyTrue(ILanguageContributions::hasCommandExecutor);
         hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHinter);
 
-        analysisConfig = anyTrue(ILanguageContributions::getAnalysisConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        buildConfig = anyTrue(ILanguageContributions::getBuildConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        singleShotConfig = anyTrue(ILanguageContributions::getSingleShotConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        ondemandSummaryConfig = anyTrue(ILanguageContributions::getOndemandSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -330,17 +330,17 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getAnalysisConfig() {
-        return analysisConfig;
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return analyzerSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getBuildConfig() {
-        return buildConfig;
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return builderSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<SummaryConfig> getSingleShotConfig() {
-        return singleShotConfig;
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return ondemandSummaryConfig;
     }
 }
