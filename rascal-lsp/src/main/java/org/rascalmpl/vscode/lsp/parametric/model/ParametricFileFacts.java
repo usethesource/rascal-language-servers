@@ -44,6 +44,7 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -143,8 +144,8 @@ public class ParametricFileFacts {
         getFile(file).calculateBuilder(tree);
     }
 
-    public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, ISourceLocation file, Versioned<ITree> tree) {
-        return getFile(file).lookupInSummaries(lookup, tree);
+    public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, ISourceLocation file, Versioned<ITree> tree, Position cursor) {
+        return getFile(file).lookupInSummaries(lookup, tree, cursor);
     }
 
     public void close(ISourceLocation loc) {
@@ -335,21 +336,21 @@ public class ParametricFileFacts {
          * because which summary to use depends on the version of `tree`, which
          * is known only dynamically.
          */
-        private <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree) {
+        private <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
             return latestAnalyzerAnalysis
-                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(lookup, tree, a, b))
+                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(lookup, tree, cursor, a, b))
                 .thenCompose(Function.identity());
         }
 
         private <T> CompletableFuture<List<T>> lookupInSummaries(
-                SummaryLookup<T> lookup, Versioned<ITree> tree,
+                SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor,
                 Versioned<ParametricSummary> analysis,
                 Versioned<ParametricSummary> build) {
 
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
             if (build.version() == tree.version()) {
-                InterruptibleFuture<List<T>> buildResult = lookup.apply(build.get());
+                InterruptibleFuture<List<T>> buildResult = lookup.apply(build.get(), cursor);
                 if (buildResult != null) {
                     logger.trace("Look-up in builder summary succeeded");
                     return buildResult.get();
@@ -360,7 +361,7 @@ public class ParametricFileFacts {
             // exists *and* provides), and if it's of the right version, use
             // that.
             if (analysis.version() == tree.version()) {
-                InterruptibleFuture<List<T>> analysisResult = lookup.apply(analysis.get());
+                InterruptibleFuture<List<T>> analysisResult = lookup.apply(analysis.get(), cursor);
                 if (analysisResult != null) {
                     logger.trace("Look-up in analyzer summary succeeded");
                     return analysisResult.get();
@@ -379,9 +380,9 @@ public class ParametricFileFacts {
             // scheduled summarizers (analyser, builder) and on-demand
             // summarizers.
             return demandedFactory
-                .thenApply(f -> f.createSummary(file, tree))
+                .thenApply(f -> f.createSummary(file, tree, cursor))
                 .thenApply(demanded -> {
-                    InterruptibleFuture<List<T>> demandedResult = lookup.apply(demanded);
+                    InterruptibleFuture<List<T>> demandedResult = lookup.apply(demanded, cursor);
                     if (demandedResult != null) {
                         logger.trace("Look-up in on-demand summary succeeded");
                         return demandedResult.get();

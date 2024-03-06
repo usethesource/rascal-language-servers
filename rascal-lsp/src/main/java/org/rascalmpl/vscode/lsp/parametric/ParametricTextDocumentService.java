@@ -98,6 +98,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -495,10 +496,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , Collections::emptyList);
     }
 
-    private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc) {
+    private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         return getFile(doc)
             .getCurrentTreeAsync()
-            .thenApply(tree -> facts(doc).lookupInSummaries(lookup, Locations.toLoc(doc), tree))
+            .thenApply(tree -> facts(doc).lookupInSummaries(lookup, Locations.toLoc(doc), tree, cursor))
             .thenCompose(Function.identity());
     }
 
@@ -506,7 +507,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(s -> s.getDefinitions(params.getPosition()), params.getTextDocument())
+            lookup(ParametricSummary::definitions, params.getTextDocument(), params.getPosition())
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
@@ -516,7 +517,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(s -> s.getImplementations(params.getPosition()), params.getTextDocument())
+            lookup(ParametricSummary::implementations, params.getTextDocument(), params.getPosition())
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -525,7 +526,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(s -> s.getReferences(params.getPosition()), params.getTextDocument())
+            lookup(ParametricSummary::references, params.getTextDocument(), params.getPosition())
             .thenApply(l -> l) // hack to help compiler see type
             , Collections::emptyList);
     }
@@ -534,7 +535,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(s -> s.getDocumentation(params.getPosition()), params.getTextDocument())
+            lookup(ParametricSummary::documentation, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }

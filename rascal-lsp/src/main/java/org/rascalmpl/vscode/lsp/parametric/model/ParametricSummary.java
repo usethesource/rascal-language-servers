@@ -101,8 +101,25 @@ public interface ParametricSummary {
 
     void invalidate();
 
-    @FunctionalInterface // Just a type alias
-    public static interface SummaryLookup<T> extends Function<ParametricSummary, @Nullable InterruptibleFuture<List<T>>> {}
+    @FunctionalInterface // Just a type alias that abstracts a look-up function
+    public static interface SummaryLookup<T> extends BiFunction<ParametricSummary, Position, @Nullable InterruptibleFuture<List<T>>> {}
+
+    // The following methods make it more convenient to pass around look-up
+    // functions (before having access to the actual summary/ies to apply the
+    // lookup on.
+    @SuppressWarnings("deprecation") // For `MarkedString`
+    public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> documentation(ParametricSummary summary, Position position) {
+        return summary.getDocumentation(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> definitions(ParametricSummary summary, Position position) {
+        return summary.getDefinitions(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> references(ParametricSummary summary, Position position) {
+        return summary.getReferences(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> implementations(ParametricSummary summary, Position position) {
+        return summary.getImplementations(position);
+    }
 
     public static final ParametricSummary NULL = new ParametricSummary() {
         @Override
@@ -375,38 +392,40 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         this.contrib = contrib;
     }
 
-    public ParametricSummary createSummary(ISourceLocation file, Versioned<ITree> tree) {
-        return new SingleShooterSummary(file, tree);
+    public ParametricSummary createSummary(ISourceLocation file, Versioned<ITree> tree, Position cursor) {
+        return new SingleShooterSummary(file, tree, cursor);
     }
 
     public class SingleShooterSummary implements ParametricSummary {
         private final ISourceLocation file;
         private final Versioned<ITree> tree;
+        private final Position cursor;
 
-        public SingleShooterSummary(ISourceLocation file, Versioned<ITree> tree) {
+        public SingleShooterSummary(ISourceLocation file, Versioned<ITree> tree, Position cursor) {
             this.file = file;
             this.tree = tree;
+            this.cursor = cursor;
         }
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return config.providesDocumentation ? get(cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION) : null;
+            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return config.providesDefinitions ? get(cursor, contrib::definitions, columns::mapValueToLocation, DEFINITIONS) : null;
+            return get(config.providesDefinitions, cursor, contrib::definitions, columns::mapValueToLocation, DEFINITIONS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return config.providesReferences ? get(cursor, contrib::references, columns::mapValueToLocation, REFERENCES) : null;
+            return get(config.providesReferences, cursor, contrib::references, columns::mapValueToLocation, REFERENCES);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return config.providesImplementations ? get(cursor, contrib::implementations, columns::mapValueToLocation, IMPLEMENTATIONS) : null;
+            return get(config.providesImplementations, cursor, contrib::implementations, columns::mapValueToLocation, IMPLEMENTATIONS);
         }
 
         @Override
@@ -419,8 +438,16 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
             // Nothing to invalidate
         }
 
-        private <T> InterruptibleFuture<List<T>> get(Position cursor,
+        private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
                 OndemandSummarizer singleShotFn, Function<IValue, T> valueMapper, String logName) {
+
+            // Note on second disjunct: To ensure that this summary can't be
+            // misused if it's accidentally leaked elsewhere, this summary
+            // provides information only if the cursor is *identical* (not just
+            // equal) to the cursor when this summary was created.
+            if (!provides || this.cursor != cursor) {
+                return null;
+            }
 
             var line = cursor.getLine() + 1;
             var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
