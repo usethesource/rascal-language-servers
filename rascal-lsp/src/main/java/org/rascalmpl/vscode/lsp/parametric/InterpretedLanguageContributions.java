@@ -214,9 +214,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
 
-            this.analysisConfig = summarizerSummaryConfig(contributions, ANALYZER_NAME);
-            this.buildConfig = summarizerSummaryConfig(contributions, BUILDER_NAME);
-            this.singleShotConfig = singleShotSummaryConfig(contributions);
+            this.analysisConfig = scheduledSummaryConfig(contributions, ANALYZER_NAME);
+            this.buildConfig = scheduledSummaryConfig(contributions, BUILDER_NAME);
+            this.singleShotConfig = ondemandSummaryConfig(contributions);
 
         } catch (IOException e1) {
             logger.catching(e1);
@@ -228,15 +228,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return x.thenApply(Objects::nonNull);
     }
 
-    private static CompletableFuture<SummaryConfig> summarizerSummaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
+    private static CompletableFuture<SummaryConfig> scheduledSummaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
         return contributions.thenApply(c -> {
-            if (hasContribution(c, summarizer)) {
-                var constructor = c
-                    .stream()
-                    .map(IConstructor.class::cast)
-                    .filter(cons -> cons.getConstructorType().getName().equals(summarizer))
-                    .findAny()
-                    .orElse(null);
+            var constructor = getContribution(c, summarizer);
+            if (constructor != null) {
                 return new SummaryConfig(
                     isTrue(constructor, "providesDocumentation"),
                     isTrue(constructor, "providesDefinitions"),
@@ -248,7 +243,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static CompletableFuture<SummaryConfig> singleShotSummaryConfig(CompletableFuture<ISet> contributions) {
+    private static CompletableFuture<SummaryConfig> ondemandSummaryConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
             new SummaryConfig(
                 hasContribution(c, DOCUMENTER_NAME),
@@ -257,14 +252,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 hasContribution(c, IMPLEMENTER_NAME)));
     }
 
+    private static @Nullable IConstructor getContribution(ISet contributions, String contribution) {
+        return contributions
+            .stream()
+            .map(IConstructor.class::cast)
+            .filter(cons -> cons.getConstructorType().getName().equals(contribution))
+            .findAny()
+            .orElse(null);
+    }
+
     private static boolean hasContribution(ISet contributions, String contribution) {
-        for (IValue elem : contributions) {
-            IConstructor contrib = (IConstructor) elem;
-            if (contribution.equals(contrib.getConstructorType().getName())) {
-                return (IFunction) contrib.get(0) != null;
-            }
-        }
-        return false;
+        return getContribution(contributions, contribution) != null;
     }
 
     private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {

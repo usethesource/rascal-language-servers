@@ -114,12 +114,12 @@ public interface ILanguageContributions {
     @FunctionalInterface
     // To be able to pass methods `documentation`, `definitions`, `references`,
     // and `implementations` as parameters.
-    public static interface SingleShotFn {
+    public static interface OndemandSummarizer {
         InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
     }
 }
 
-class EmptySummary {
+/*package*/ class EmptySummary {
     private EmptySummary() {}
 
     private static final Type summaryCons;

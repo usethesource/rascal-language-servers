@@ -48,7 +48,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.LookupFn;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -68,12 +68,31 @@ public class ParametricFileFacts {
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile @MonotonicNonNull LanguageClient client;
 
+    // The following three fields store factories for summaries. Their intended
+    // usage is a follows:
+    //
+    //   - Scheduled: If a change or a save happens, then the analyzer or the
+    //     builder is scheduled to calculate a summary via `analysisFactory` or
+    //     `buildFactory`. The summary is used to fulfil later requests for
+    //     documentation, definitions, references, or implementations.
+    //
+    //   - On-demand: If a request for documentation, definitions, references,
+    //     or implementations happens, but if the previously scheduled summary
+    //     calculations upon completion provide insufficient information to
+    //     fulfil it, then a corresponding on-demand summarizer (if any) is
+    //     fired to calculate a summary dedicated to the missing information via
+    //     `demandedFactory`.
+    //
+    // The factories are essentially stateless: they have references to a few
+    // global data structures, but they do not store any information about
+    // individual files. Thus, the factories are shared among them.
+
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SummarizerSummaryFactory> analysisFactory;
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<SummarizerSummaryFactory> buildFactory;
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile CompletableFuture<SingleShooterSummaryFactory> singleShotFactory;
+    private volatile CompletableFuture<SingleShooterSummaryFactory> demandedFactory;
 
     public ParametricFileFacts(Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
         this.exec = exec;
@@ -98,7 +117,7 @@ public class ParametricFileFacts {
             new SummarizerSummaryFactory(config, exec, columns, contrib::analyze));
         buildFactory = contrib.getBuildConfig().thenApply(config ->
             new SummarizerSummaryFactory(config, exec, columns, contrib::build));
-        singleShotFactory = contrib.getSingleShotConfig().thenApply(config ->
+        demandedFactory = contrib.getSingleShotConfig().thenApply(config ->
             new SingleShooterSummaryFactory(config, exec, columns, contrib));
     }
 
@@ -124,8 +143,8 @@ public class ParametricFileFacts {
         getFile(file).calculateBuilder(tree);
     }
 
-    public <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, ISourceLocation file, Versioned<ITree> tree) {
-        return getFile(file).lookupInSummaries(fn, tree);
+    public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, ISourceLocation file, Versioned<ITree> tree) {
+        return getFile(file).lookupInSummaries(lookup, tree);
     }
 
     public void close(ISourceLocation loc) {
@@ -160,7 +179,7 @@ public class ParametricFileFacts {
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerDiagnostics = Versioned.atomic(-1, Collections.emptyList());
         private final AtomicReference<Versioned<List<Diagnostic>>> builderDiagnostics = Versioned.atomic(-1, Collections.emptyList());
 
-        private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger();
+        private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger(-1);
 
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
             CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
@@ -235,8 +254,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    var nullSummary = new Versioned<>(version, ParametricSummary.NULL);
-                    return CompletableFuture.completedFuture(nullSummary);
+                    return CompletableFuture.completedFuture(new Versioned<>(version, ParametricSummary.NULL));
                 }
             }, delayed);
 
@@ -312,47 +330,61 @@ public class ParametricFileFacts {
         }
 
         /**
-         * Dynamically routes the lookup to `analysis`, `build`, or a
-         * single-shot. Note: Static routing is less suitable here, because
-         * which summary to use depends on the version of `tree`, which is known
-         * only dynamically.
+         * Dynamically routes the lookup to `analysis`, `build`, or a an
+         * on-demand summarizer. Note: Static routing is less suitable here,
+         * because which summary to use depends on the version of `tree`, which
+         * is known only dynamically.
          */
-        private <T> CompletableFuture<List<T>> lookupInSummaries(LookupFn<T> fn, Versioned<ITree> tree) {
+        private <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree) {
             return latestAnalyzerAnalysis
-                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(fn, tree, a, b))
+                .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(lookup, tree, a, b))
                 .thenCompose(Function.identity());
         }
 
         private <T> CompletableFuture<List<T>> lookupInSummaries(
-                LookupFn<T> fn, Versioned<ITree> tree,
+                SummaryLookup<T> lookup, Versioned<ITree> tree,
                 Versioned<ParametricSummary> analysis,
                 Versioned<ParametricSummary> build) {
 
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
-            Supplier<InterruptibleFuture<List<T>>> buildResult = fn.apply(build.get());
-            if (buildResult != null && build.version() == tree.version()) {
-                logger.trace("Look-up in builder summary succeeded");
-                return buildResult.get().get();
+            if (build.version() == tree.version()) {
+                Supplier<InterruptibleFuture<List<T>>> buildResult = lookup.apply(build.get());
+                if (buildResult != null) {
+                    logger.trace("Look-up in builder summary succeeded");
+                    return buildResult.get().get();
+                }
             }
 
             // Else, if an analyzer summary is available (i.e., an analyzer
             // exists *and* provides), and if it's of the right version, use
             // that.
-            Supplier<InterruptibleFuture<List<T>>> analysisResult = fn.apply(analysis.get());
-            if (analysisResult != null && analysis.version() == tree.version()) {
-                logger.trace("Look-up in analyzer summary succeeded");
-                return analysisResult.get().get();
+            if (analysis.version() == tree.version()) {
+                Supplier<InterruptibleFuture<List<T>>> analysisResult = lookup.apply(analysis.get());
+                if (analysisResult != null) {
+                    logger.trace("Look-up in analyzer summary succeeded");
+                    return analysisResult.get().get();
+                }
             }
 
-            // Else, if a single-shooter summary is available, use that.
-            return singleShotFactory
+            // Else, if an on-demand summary is available, use that.
+            // Conceptually, the idea is that a documenter, definer, referrer,
+            // and implementer sit inside `demandedFactory`, waiting for
+            // on-demand requests for information. First, when such a request
+            // happens, a summary is created via the factory as an interface for
+            // the actual look-up. Next, when such a look-up happens via the
+            // summary, the requested information is calculated on-the-fly by
+            // the corresponding documenter, definer, referrer, or implementer.
+            // This design enables the reuse of code and concepts common to
+            // scheduled summarizers (analyser, builder) and on-demand
+            // summarizers.
+            return demandedFactory
                 .thenApply(f -> f.createSummary(file, tree))
-                .thenApply(singleShot -> {
-                    Supplier<InterruptibleFuture<List<T>>> singleShotResult = fn.apply(singleShot);
-                    if (singleShotResult != null) {
-                        logger.trace("Look-up in single-shooter summary succeeded");
-                        return singleShotResult.get().get();
+                .thenApply(demanded -> {
+                    Supplier<InterruptibleFuture<List<T>>> demandedResult = lookup.apply(demanded);
+                    if (demandedResult != null) {
+                        logger.trace("Look-up in on-demand summary succeeded");
+                        return demandedResult.get().get();
                     } else {
                         logger.trace("Look-up failed");
                         return CompletableFuture.completedFuture(Collections.<T>emptyList());

@@ -48,7 +48,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SingleShotFn;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandSummarizer;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
@@ -84,15 +84,15 @@ import io.usethesource.vallang.IWithKeywordParameters;
  *     available, information requested from the summary is calculated
  *     on-the-fly by the single-shooter.
  */
-@SuppressWarnings("deprecation") // For `MarkedString`
 public interface ParametricSummary {
 
     // The following methods return `null` when the requested information isn't
     // available in this summary. In the case of `SummarizerSummary`, this
-    // happens when the summarizer is configured with a falsy `provides...`
+    // happens when the summarizer is configured with a false `provides...`
     // property for the requested information. In the case of
     // `SingleShooterSummary`, this happens when no single-shooter exists for
     // the requested information.
+    @SuppressWarnings("deprecation") // For `MarkedString`
     @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
     @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
@@ -103,10 +103,11 @@ public interface ParametricSummary {
     void invalidate();
 
     @FunctionalInterface // Just a type alias
-    public static interface LookupFn<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
+    public static interface SummaryLookup<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
 
     public static final ParametricSummary NULL = new ParametricSummary() {
         @Override
+        @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return null;
         }
@@ -146,7 +147,6 @@ public interface ParametricSummary {
  * two implementations of interface `ParametricSummary`: (1)
  * `SummarizerSummaryFactory` and (2) `SingleShooterSummaryFactory`.
  */
-@SuppressWarnings("deprecation") // For `MarkedString`
 abstract class ParametricSummaryFactory {
     public static final String DOCUMENTATION = "documentation";
     public static final String DEFINITIONS = "definitions";
@@ -163,12 +163,12 @@ abstract class ParametricSummaryFactory {
         this.columns = columns;
     }
 
+    @SuppressWarnings("deprecation") // For `MarkedString`
     public static Either<String, MarkedString> mapValueToString(IValue v) {
         return Either.forLeft(((IString) v).getValue());
     }
 }
 
-@SuppressWarnings("deprecation") // For `MarkedString`
 class SummarizerSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SummarizerSummaryFactory.class);
 
@@ -213,6 +213,7 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
     }
 
     public class SummarizerSummary implements ParametricSummary {
+        @SuppressWarnings("deprecation") // For `MarkedString`
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
@@ -232,6 +233,7 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         }
 
         @Override
+        @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return get(documentation, cursor);
         }
@@ -334,7 +336,6 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
     }
 }
 
-@SuppressWarnings("deprecation") // For `MarkedString`
 class SingleShooterSummaryFactory extends ParametricSummaryFactory {
     private static final Logger logger = LogManager.getLogger(SingleShooterSummaryFactory.class);
 
@@ -359,6 +360,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         }
 
         @Override
+        @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
             return config.providesDocumentation ? get(cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION) : null;
         }
@@ -389,7 +391,7 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
         }
 
         private <T> Supplier<InterruptibleFuture<List<T>>> get(Position cursor,
-                SingleShotFn singleShotFn, Function<IValue, T> valueMapper, String logName) {
+                OndemandSummarizer singleShotFn, Function<IValue, T> valueMapper, String logName) {
 
             return () -> {
                 var line = cursor.getLine() + 1;

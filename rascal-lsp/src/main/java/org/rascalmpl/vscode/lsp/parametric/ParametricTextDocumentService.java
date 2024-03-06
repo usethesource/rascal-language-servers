@@ -98,7 +98,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.LookupFn;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -495,10 +495,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , Collections::emptyList);
     }
 
-    private <T> CompletableFuture<List<T>> lookup(LookupFn<T> fn, TextDocumentIdentifier doc) {
+    private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc) {
         return getFile(doc)
             .getCurrentTreeAsync()
-            .thenApply(tree -> facts(doc).lookupInSummaries(fn, Locations.toLoc(doc), tree))
+            .thenApply(tree -> facts(doc).lookupInSummaries(lookup, Locations.toLoc(doc), tree))
             .thenCompose(Function.identity());
     }
 
