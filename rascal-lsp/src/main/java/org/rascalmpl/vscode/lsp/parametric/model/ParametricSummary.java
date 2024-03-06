@@ -74,11 +74,11 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * implementations, regardless of which component calculates the requested
  * information. There are two implementations:
  *
- *   - `ScheduledSummary` is a summary that originates from a summarizer (i.e.,
- *     analyzer or builder). In this case, if available, information requested
- *     from the summary has already been pre-calculated by the summarizer (as a
- *     relation), so it only needs to be fetched (and translated to the proper
- *     format for LSP).
+ *   - `ScheduledSummary` is a summary that originates from a scheduled
+ *     summarizer (i.e., analyzer or builder). In this case, if available,
+ *     information requested from the summary has already been pre-calculated by
+ *     the summarizer (as a relation), so it only needs to be fetched (and
+ *     translated to the proper format for LSP).
  *
  *   - `OndemandSummary` is a summary that originates from an on-demand
  *     summarizer (i.e., documenter, definer, referrer, or implementer). In this
@@ -106,9 +106,10 @@ public interface ParametricSummary {
     @FunctionalInterface // Just a type alias that abstracts a look-up function
     public static interface SummaryLookup<T> extends BiFunction<ParametricSummary, Position, @Nullable InterruptibleFuture<List<T>>> {}
 
-    // The following methods make it more convenient to pass around look-up
-    // functions (before having access to the actual summary/ies to apply the
-    // lookup on.
+    // The following methods make it more convenient to pass around a look-up
+    // function *before* the actual summary to apply it to has been selected
+    // (i.e., it later comes from the analyzer, builder, or an on-demand
+    // summarizer).
     @SuppressWarnings("deprecation") // For `MarkedString`
     public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> documentation(ParametricSummary summary, Position position) {
         return summary.getDocumentation(position);
@@ -379,15 +380,15 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
  * The purpose of this class is to offer a similar interface for the
  * construction of on-demand summaries (originating from
  * documenter/definer/referrer/implementer) as for the construction of scheduled
- * summaries (originating from analyser/builder). To achieve this, it reuses the
- * common superclass `ParametricSummaryFactory`, which stores global state that
- * both kinds of summaries need to fulfil their responsibilities.
+ * summaries (originating from analyser/builder). To achieve this, it extends
+ * the common superclass `ParametricSummaryFactory`, which stores global state
+ * that both kinds of summaries need to fulfil their responsibilities.
  *
  * From the outside, an on-demand summary looks just like any other scheduled
  * summary: it's an abstraction through which `Position`-based information can
  * be looked up. On the inside, however, on-demand summaries work quite
  * differently from scheduled summaries. Conceptually, the idea is that a
- * documenter, definer, referrer, and implementer sit inside the factory,
+ * documenter, definer, referrer, and implementer "sit" inside the factory,
  * waiting for on-demand requests for information:
  *
  *  1. First, when such a request happens, a summary is to be created via the

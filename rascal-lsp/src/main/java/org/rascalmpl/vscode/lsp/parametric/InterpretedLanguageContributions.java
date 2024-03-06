@@ -252,17 +252,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 hasContribution(c, IMPLEMENTER_NAME)));
     }
 
-    private static @Nullable IConstructor getContribution(ISet contributions, String contribution) {
+    private static @Nullable IConstructor getContribution(ISet contributions, String name) {
         return contributions
             .stream()
             .map(IConstructor.class::cast)
-            .filter(cons -> cons.getConstructorType().getName().equals(contribution))
+            .filter(cons -> cons.getConstructorType().getName().equals(name))
             .findAny()
             .orElse(null);
     }
 
-    private static boolean hasContribution(ISet contributions, String contribution) {
-        return getContribution(contributions, contribution) != null;
+    private static boolean hasContribution(ISet contributions, String name) {
+        return getContribution(contributions, name) != null;
     }
 
     private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {

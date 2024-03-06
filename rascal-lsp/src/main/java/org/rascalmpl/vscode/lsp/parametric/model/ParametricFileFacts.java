@@ -73,15 +73,15 @@ public class ParametricFileFacts {
     //
     //   - Scheduled: If a change or a save happens, then the analyzer or the
     //     builder is scheduled to calculate a summary via `analysisFactory` or
-    //     `buildFactory`. The summary is used to fulfil later requests for
+    //     via `buildFactory`. The summary is used to fulfil later requests for
     //     documentation, definitions, references, or implementations.
     //
     //   - On-demand: If a request for documentation, definitions, references,
     //     or implementations happens, but if the previously scheduled summary
-    //     calculations upon completion provide insufficient information to
-    //     fulfil it, then a corresponding on-demand summarizer (if any) is
+    //     calculations provide insufficient information to fulfil it (after
+    //     completing), then a corresponding on-demand summarizer (if any) is
     //     fired to calculate a summary dedicated to the missing information via
-    //     `demandedFactory`.
+    //     `ondemandSummaryFactory`.
     //
     // The factories are essentially stateless: they have references to a few
     // global data structures, but they do not store any information about
@@ -336,10 +336,11 @@ public class ParametricFileFacts {
         }
 
         /**
-         * Dynamically routes the lookup to `analysis`, `build`, or a an
-         * on-demand summarizer. Note: Static routing is less suitable here,
-         * because which summary to use depends on the version of `tree`, which
-         * is known only dynamically.
+         * Dynamically routes the lookup to the latest analyzer summary, to the
+         * latest builder summary, or to an on-the-fly created on-demand
+         * summary. Note: Static routing is less suitable here, because which
+         * summary to use depends on the version of `tree`, which is known only
+         * dynamically.
          */
         private <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
             return latestAnalyzerAnalysis
@@ -349,37 +350,37 @@ public class ParametricFileFacts {
 
         private <T> CompletableFuture<List<T>> lookupInSummaries(
                 SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor,
-                Versioned<ParametricSummary> analysis,
-                Versioned<ParametricSummary> build) {
+                Versioned<ParametricSummary> analyzerSummary,
+                Versioned<ParametricSummary> builderSummary) {
 
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
-            if (build.version() == tree.version()) {
-                var buildResult = lookup.apply(build.get(), cursor);
-                if (buildResult != null) {
+            if (builderSummary.version() == tree.version()) {
+                var result = lookup.apply(builderSummary.get(), cursor);
+                if (result != null) {
                     logger.trace("Look-up in builder summary succeeded");
-                    return buildResult.get();
+                    return result.get();
                 }
             }
 
             // Else, if an analyzer summary is available (i.e., an analyzer
             // exists *and* provides), and if it's of the right version, use
             // that.
-            if (analysis.version() == tree.version()) {
-                var analysisResult = lookup.apply(analysis.get(), cursor);
-                if (analysisResult != null) {
+            if (analyzerSummary.version() == tree.version()) {
+                var result = lookup.apply(analyzerSummary.get(), cursor);
+                if (result != null) {
                     logger.trace("Look-up in analyzer summary succeeded");
-                    return analysisResult.get();
+                    return result.get();
                 }
             }
 
             // Else, if an on-demand summary is available, use that.
             return ondemandSummaryFactory
                 .thenApply(f -> {
-                    var demandedResult = f.createSummaryThenLookup(file, tree, cursor, lookup);
-                    if (demandedResult != null) {
+                    var result = f.createSummaryThenLookup(file, tree, cursor, lookup);
+                    if (result != null) {
                         logger.trace("Look-up in on-demand summary succeeded");
-                        return demandedResult.get();
+                        return result.get();
                     } else {
                         logger.trace("Look-up failed");
                         return CompletableFuture.completedFuture(Collections.<T>emptyList());
