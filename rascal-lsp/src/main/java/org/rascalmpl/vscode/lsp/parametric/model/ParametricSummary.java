@@ -124,39 +124,46 @@ public interface ParametricSummary {
         return summary.getImplementations(position);
     }
 
-    public static final ParametricSummary NULL = new ParametricSummary() {
-        @Override
-        @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return null;
-        }
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return null;
-        }
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return null;
-        }
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return null;
-        }
-        @Override
-        public InterruptibleFuture<List<Diagnostic>> getMessages() {
-            return InterruptibleFuture.completedFuture(Collections.emptyList());
-        }
-        @Override
-        public void invalidate() {
-            // Nothing to invalidate
-        }
-    };
+    public static final ParametricSummary NULL = new NullSummary();
 
     public static InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<ParametricSummary>> summary, Executor exec) {
         var messages = summary
             .thenApply(Versioned<ParametricSummary>::get)
             .thenApply(ParametricSummary::getMessages);
         return InterruptibleFuture.flatten(messages, exec);
+    }
+}
+
+class NullSummary implements ParametricSummary {
+    @Override
+    @SuppressWarnings("deprecation") // For `MarkedString`
+    public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public InterruptibleFuture<List<Diagnostic>> getMessages() {
+        return InterruptibleFuture.completedFuture(Collections.emptyList());
+    }
+
+    @Override
+    public void invalidate() {
+        // Nothing to invalidate
     }
 }
 
@@ -219,32 +226,11 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         }, exec);
     }
 
-    public class MessagesOnlyScheduledSummary implements ParametricSummary {
+    public class MessagesOnlyScheduledSummary extends NullSummary {
         private final InterruptibleFuture<List<Diagnostic>> messages;
 
         public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             this.messages = extractMessages(calculation);
-        }
-
-        @Override
-        @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return null;
-        }
-
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return null;
-        }
-
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return null;
-        }
-
-        @Override
-        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return null;
         }
 
         @Override
