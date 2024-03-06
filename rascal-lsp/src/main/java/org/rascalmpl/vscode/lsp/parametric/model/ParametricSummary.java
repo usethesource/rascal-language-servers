@@ -180,46 +180,94 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         this.calculator = calculator;
     }
 
-    public CompletableFuture<Versioned<ParametricSummary>> createSummary(
+    public CompletableFuture<Versioned<ParametricSummary>> createMessagesOnlySummary(
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
-
-        var calculation = calculate(file, tree);
-        var summary = summarize(calculation);
-        return tree
-            .thenApply(Versioned::version)
-            .thenApply(v -> new Versioned<>(v, summary));
+        return createSummary(file, tree, MessagesOnlySummarizerSummary::new);
     }
 
-    private InterruptibleFuture<IConstructor> calculate(
+    public CompletableFuture<Versioned<ParametricSummary>> createFullSummary(
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
-
-        logger.trace("Requesting summary calculation for: {}", file);
-        return InterruptibleFuture.flatten(
-            tree.thenApplyAsync(t -> calculator.apply(file, t.get()), exec), exec);
+        return createSummary(file, tree, SummarizerSummary::new);
     }
 
-    public ParametricSummary summarize(InterruptibleFuture<IConstructor> calculation) {
-        return new SummarizerSummary(calculation);
+    private CompletableFuture<Versioned<ParametricSummary>> createSummary(
+            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree,
+            Function<InterruptibleFuture<IConstructor>, ParametricSummary> constructor) {
+
+        return tree.thenApplyAsync(t -> {
+            logger.trace("Requesting summary calculation for: {}", file);
+            var calculation = calculator.apply(file, t.get());
+            return new Versioned<>(t.version(), constructor.apply(calculation));
+        }, exec);
     }
 
-    public static CompletableFuture<Versioned<ParametricSummary>> newSummary(
+    public static CompletableFuture<Versioned<ParametricSummary>> flatten(
             CompletableFuture<SummarizerSummaryFactory> factory,
-            ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
+            Function<SummarizerSummaryFactory, CompletableFuture<Versioned<ParametricSummary>>> creator) {
 
-        return factory
-            .thenApply(f -> f.createSummary(file, tree))
-            .thenCompose(Function.identity());
+        return factory.thenApply(creator).thenCompose(Function.identity());
     }
 
-    public class SummarizerSummary implements ParametricSummary {
+    public class MessagesOnlySummarizerSummary implements ParametricSummary {
+        private final InterruptibleFuture<List<Diagnostic>> messages;
+
+        public MessagesOnlySummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
+            this.messages = extractMessages(calculation);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation") // For `MarkedString`
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
+            return null;
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
+            return null;
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
+            return null;
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
+            return null;
+        }
+
+        @Override
+        public InterruptibleFuture<List<Diagnostic>> getMessages() {
+            return messages;
+        }
+
+        @Override
+        public void invalidate() {
+            messages.interrupt();
+        }
+
+        private InterruptibleFuture<List<Diagnostic>> extractMessages(InterruptibleFuture<IConstructor> summary) {
+            return summary.thenApply(s -> {
+                var sum = s.asWithKeywordParameters();
+                if (sum.hasParameter("messages")) {
+                    return ((ISet)sum.getParameter("messages")).stream()
+                        .map(d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns))
+                        .collect(Collectors.toList());
+                }
+                return Collections.emptyList();
+            });
+        }
+    }
+
+    public class SummarizerSummary extends MessagesOnlySummarizerSummary {
         @SuppressWarnings("deprecation") // For `MarkedString`
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
-        private final InterruptibleFuture<List<Diagnostic>> messages;
 
         public SummarizerSummary(InterruptibleFuture<IConstructor> calculation) {
+            super(calculation);
             this.documentation = config.providesDocumentation ?
                 mapCalculation(DOCUMENTATION, calculation, DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
@@ -228,7 +276,6 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
                 mapCalculation(REFERENCES, calculation, REFERENCES, columns::mapValueToLocation) : null;
             this.implementations = config.providesImplementations ?
                 mapCalculation(IMPLEMENTATIONS, calculation, IMPLEMENTATIONS, columns::mapValueToLocation) : null;
-            this.messages = extractMessages(calculation);
         }
 
         @Override
@@ -253,17 +300,12 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         }
 
         @Override
-        public InterruptibleFuture<List<Diagnostic>> getMessages() {
-            return messages;
-        }
-
-        @Override
         public void invalidate() {
+            super.invalidate();
             documentation.interrupt();
             definitions.interrupt();
             references.interrupt();
             implementations.interrupt();
-            messages.interrupt();
         }
 
         private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
@@ -309,18 +351,6 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
                 }
             }
             return result;
-        }
-
-        private InterruptibleFuture<List<Diagnostic>> extractMessages(InterruptibleFuture<IConstructor> summary) {
-            return summary.thenApply(s -> {
-                var sum = s.asWithKeywordParameters();
-                if (sum.hasParameter("messages")) {
-                    return ((ISet)sum.getParameter("messages")).stream()
-                        .map(d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns))
-                        .collect(Collectors.toList());
-                }
-                return Collections.emptyList();
-            });
         }
 
         @SuppressWarnings("java:S3358") // Nested ternary looks fine

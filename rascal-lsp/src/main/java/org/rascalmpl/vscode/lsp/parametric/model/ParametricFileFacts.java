@@ -263,7 +263,7 @@ public class ParametricFileFacts {
 
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
-                var summary = SummarizerSummaryFactory.newSummary(analysisFactory, file, tree);
+                var summary = SummarizerSummaryFactory.flatten(analysisFactory, f -> f.createFullSummary(file, tree));
                 var messages = ParametricSummary.getMessages(summary, exec);
                 messages.thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
                 return summary;
@@ -285,14 +285,14 @@ public class ParametricFileFacts {
             // with a greater version than parameter `tree` (because
             // `calculateAnalyzer` has debouncing), or it may be interrupted due
             // to later change (which should not affect the builder).
-            latestBuilderAnalysis = SummarizerSummaryFactory.newSummary(analysisFactory, file, tree);
+            latestBuilderAnalysis = SummarizerSummaryFactory.flatten(analysisFactory, f -> f.createMessagesOnlySummary(file, tree));
             var analyzerMessages = ParametricSummary.getMessages(latestBuilderAnalysis, exec);
 
             // Schedule the builder and use exactly the same syntax tree as the
             // analyzer. In this way, a reliable diff of the analyzer
             // diagnostics and the builder diagnostics can be computed (by
             // removing the former from the latter).
-            latestBuilderBuild = SummarizerSummaryFactory.newSummary(buildFactory, file, tree);
+            latestBuilderBuild = SummarizerSummaryFactory.flatten(buildFactory, f -> f.createFullSummary(file, tree));
             var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
 
             // Only if neither the analyzer nor the builder was interrupted,
