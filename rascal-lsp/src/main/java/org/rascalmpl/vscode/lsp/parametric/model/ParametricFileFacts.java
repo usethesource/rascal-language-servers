@@ -349,10 +349,10 @@ public class ParametricFileFacts {
             // If a builder summary is available (i.e., a builder exists *and*
             // provides), and if it's of the right version, use that.
             if (build.version() == tree.version()) {
-                Supplier<InterruptibleFuture<List<T>>> buildResult = lookup.apply(build.get());
+                InterruptibleFuture<List<T>> buildResult = lookup.apply(build.get());
                 if (buildResult != null) {
                     logger.trace("Look-up in builder summary succeeded");
-                    return buildResult.get().get();
+                    return buildResult.get();
                 }
             }
 
@@ -360,10 +360,10 @@ public class ParametricFileFacts {
             // exists *and* provides), and if it's of the right version, use
             // that.
             if (analysis.version() == tree.version()) {
-                Supplier<InterruptibleFuture<List<T>>> analysisResult = lookup.apply(analysis.get());
+                InterruptibleFuture<List<T>> analysisResult = lookup.apply(analysis.get());
                 if (analysisResult != null) {
                     logger.trace("Look-up in analyzer summary succeeded");
-                    return analysisResult.get().get();
+                    return analysisResult.get();
                 }
             }
 
@@ -381,10 +381,10 @@ public class ParametricFileFacts {
             return demandedFactory
                 .thenApply(f -> f.createSummary(file, tree))
                 .thenApply(demanded -> {
-                    Supplier<InterruptibleFuture<List<T>>> demandedResult = lookup.apply(demanded);
+                    InterruptibleFuture<List<T>> demandedResult = lookup.apply(demanded);
                     if (demandedResult != null) {
                         logger.trace("Look-up in on-demand summary succeeded");
-                        return demandedResult.get().get();
+                        return demandedResult.get();
                     } else {
                         logger.trace("Look-up failed");
                         return CompletableFuture.completedFuture(Collections.<T>emptyList());

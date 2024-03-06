@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -93,34 +92,34 @@ public interface ParametricSummary {
     // `SingleShooterSummary`, this happens when no single-shooter exists for
     // the requested information.
     @SuppressWarnings("deprecation") // For `MarkedString`
-    @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor);
-    @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor);
-    @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor);
-    @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor);
+    @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
 
     InterruptibleFuture<List<Diagnostic>> getMessages();
 
     void invalidate();
 
     @FunctionalInterface // Just a type alias
-    public static interface SummaryLookup<T> extends Function<ParametricSummary, @Nullable Supplier<InterruptibleFuture<List<T>>>> {}
+    public static interface SummaryLookup<T> extends Function<ParametricSummary, @Nullable InterruptibleFuture<List<T>>> {}
 
     public static final ParametricSummary NULL = new ParametricSummary() {
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
             return null;
         }
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return null;
         }
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
             return null;
         }
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
             return null;
         }
         @Override
@@ -234,22 +233,22 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
             return get(documentation, cursor);
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return get(definitions, cursor);
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
             return get(references, cursor);
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
             return get(implementations, cursor);
         }
 
@@ -325,10 +324,10 @@ class SummarizerSummaryFactory extends ParametricSummaryFactory {
         }
 
         @SuppressWarnings("java:S3358") // Nested ternary looks fine
-        private <T> @Nullable Supplier<InterruptibleFuture<List<T>>> get(
+        private <T> @Nullable InterruptibleFuture<List<T>> get(
                 @Nullable InterruptibleFuture<Lazy<IRangeMap<List<T>>>> result, Position cursor) {
 
-            return result == null ? null : () -> result
+            return result == null ? null : result
                 .thenApplyAsync(Lazy::get, exec)
                 .thenApply(l -> l.lookup(new Range(cursor, cursor)))
                 .thenApply(r -> r == null ? Collections.emptyList() : r);
@@ -361,22 +360,22 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable Supplier<InterruptibleFuture<List<Either<String, MarkedString>>>> getDocumentation(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
             return config.providesDocumentation ? get(cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION) : null;
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getDefinitions(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return config.providesDefinitions ? get(cursor, contrib::definitions, columns::mapValueToLocation, DEFINITIONS) : null;
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getReferences(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
             return config.providesReferences ? get(cursor, contrib::references, columns::mapValueToLocation, REFERENCES) : null;
         }
 
         @Override
-        public @Nullable Supplier<InterruptibleFuture<List<Location>>> getImplementations(Position cursor) {
+        public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
             return config.providesImplementations ? get(cursor, contrib::implementations, columns::mapValueToLocation, IMPLEMENTATIONS) : null;
         }
 
@@ -390,27 +389,25 @@ class SingleShooterSummaryFactory extends ParametricSummaryFactory {
             // Nothing to invalidate
         }
 
-        private <T> Supplier<InterruptibleFuture<List<T>>> get(Position cursor,
+        private <T> InterruptibleFuture<List<T>> get(Position cursor,
                 OndemandSummarizer singleShotFn, Function<IValue, T> valueMapper, String logName) {
 
-            return () -> {
-                var line = cursor.getLine() + 1;
-                var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-                var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
+            var line = cursor.getLine() + 1;
+            var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
+            var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
 
-                InterruptibleFuture<ISet> set = null;
-                if (cursorTree == null) {
-                    logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
-                    set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
-                } else {
-                    var yielded = TreeAdapter.yield(cursorTree);
-                    logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                    set = singleShotFn.apply(file, tree.get(), cursorTree);
-                }
+            InterruptibleFuture<ISet> set = null;
+            if (cursorTree == null) {
+                logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
+                set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
+            } else {
+                var yielded = TreeAdapter.yield(cursorTree);
+                logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
+                set = singleShotFn.apply(file, tree.get(), cursorTree);
+            }
 
-                logger.trace("{}: dedicated returned: {}", logName, set);
-                return set.thenApply(s -> toList(s, valueMapper));
-            };
+            logger.trace("{}: dedicated returned: {}", logName, set);
+            return set.thenApply(s -> toList(s, valueMapper));
         }
 
         private <T> List<T> toList(ISet s, Function<IValue, T> valueMapper) {
