@@ -219,6 +219,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
         handleParsingErrors(open(params.getTextDocument()));
+        triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
@@ -246,6 +247,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
+    private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
+        triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
+    }
     private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
         logger.trace("Triggering analyzer for {}", doc.getUri());
         var fileFacts = facts(doc);
