@@ -186,8 +186,12 @@ abstract class ParametricSummaryFactory {
     }
 
     @SuppressWarnings("deprecation") // For `MarkedString`
-    public static Either<String, MarkedString> mapValueToString(IValue v) {
+    protected static Either<String, MarkedString> mapValueToString(IValue v) {
         return Either.forLeft(((IString) v).getValue());
+    }
+
+    protected static Function<IValue, Location> locationMapper(ColumnMaps cm) {
+        return v -> Locations.mapValueToLocation(v, cm);
     }
 }
 
@@ -252,6 +256,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         }
     }
 
+
     public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
         @SuppressWarnings("deprecation") // For `MarkedString`
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
@@ -264,11 +269,11 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             this.documentation = config.providesDocumentation ?
                 mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
-                mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
-                mapCalculation(SummaryFields.REFERENCES, calculation, SummaryFields.REFERENCES, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.REFERENCES, calculation, SummaryFields.REFERENCES, locationMapper(columns)) : null;
             this.implementations = config.providesImplementations ?
-                mapCalculation(SummaryFields.IMPLEMENTATIONS, calculation, SummaryFields.IMPLEMENTATIONS, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.IMPLEMENTATIONS, calculation, SummaryFields.IMPLEMENTATIONS, locationMapper(columns)) : null;
         }
 
         @Override
@@ -424,17 +429,17 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::definitions, columns::mapValueToLocation, SummaryFields.DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::definitions, locationMapper(columns), SummaryFields.DEFINITIONS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return get(config.providesReferences, cursor, contrib::references, columns::mapValueToLocation, SummaryFields.REFERENCES);
+            return get(config.providesReferences, cursor, contrib::references, locationMapper(columns), SummaryFields.REFERENCES);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::implementations, columns::mapValueToLocation, SummaryFields.IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::implementations, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override
