@@ -51,6 +51,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandCalcul
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -174,11 +175,6 @@ class NullSummary implements ParametricSummary {
  * `ScheduledSummaryFactory` and (2) `OndemandSummaryFactory`.
  */
 abstract class ParametricSummaryFactory {
-    public static final String DOCUMENTATION = "documentation";
-    public static final String DEFINITIONS = "definitions";
-    public static final String REFERENCES = "references";
-    public static final String IMPLEMENTATIONS = "implementations";
-
     protected final SummaryConfig config;
     protected final Executor exec;
     protected final ColumnMaps columns;
@@ -266,13 +262,13 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
             this.documentation = config.providesDocumentation ?
-                mapCalculation(DOCUMENTATION, calculation, DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
+                mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
-                mapCalculation(DEFINITIONS, calculation, DEFINITIONS, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, columns::mapValueToLocation) : null;
             this.references = config.providesReferences ?
-                mapCalculation(REFERENCES, calculation, REFERENCES, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.REFERENCES, calculation, SummaryFields.REFERENCES, columns::mapValueToLocation) : null;
             this.implementations = config.providesImplementations ?
-                mapCalculation(IMPLEMENTATIONS, calculation, IMPLEMENTATIONS, columns::mapValueToLocation) : null;
+                mapCalculation(SummaryFields.IMPLEMENTATIONS, calculation, SummaryFields.IMPLEMENTATIONS, columns::mapValueToLocation) : null;
         }
 
         @Override
@@ -423,22 +419,22 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, DOCUMENTATION);
+            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::definitions, columns::mapValueToLocation, DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::definitions, columns::mapValueToLocation, SummaryFields.DEFINITIONS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return get(config.providesReferences, cursor, contrib::references, columns::mapValueToLocation, REFERENCES);
+            return get(config.providesReferences, cursor, contrib::references, columns::mapValueToLocation, SummaryFields.REFERENCES);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::implementations, columns::mapValueToLocation, IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::implementations, columns::mapValueToLocation, SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override

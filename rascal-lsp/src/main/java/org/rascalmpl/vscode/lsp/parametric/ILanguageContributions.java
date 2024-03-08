@@ -43,18 +43,6 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public interface ILanguageContributions {
-    public static final String PARSER_NAME = "parser";
-    public static final String ANALYZER_NAME = "analyzer";
-    public static final String BUILDER_NAME = "builder";
-    public static final String OUTLINER_NAME = "outliner";
-    public static final String LENS_DETECTOR_NAME = "lenses";
-    public static final String INLAY_HINTER_NAME = "inlayHinter";
-    public static final String COMMAND_EXECUTOR_NAME = "executor";
-    public static final String DOCUMENTER_NAME = "documenter";
-    public static final String DEFINER_NAME = "definer";
-    public static final String REFERRER_NAME = "referrer";
-    public static final String IMPLEMENTER_NAME = "implementer";
-
     public String getName();
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
