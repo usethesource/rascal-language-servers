@@ -44,7 +44,8 @@ set[LanguageService] picoLanguageContributor() = {
 
 set[LanguageService] picoLanguageContributorSlowSummary() = {
     parser(parser(#start[Program])),
-    summarizer(picoSummarizer, providesImplementations = false)
+    analyzer(picoAnalyzer, providesImplementations = false),
+    builder(picoBuilder)
 };
 
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -52,22 +53,35 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
-Summary picoSummarizer(loc l, start[Program] input) {
-    println("Running summary for pico!");
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var  := input};
+Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
+
+Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
+
+data PicoSummarizerMode = analyze() | build();
+
+Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
+    Summary s = summary(l);
+
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
+    // Provide errors (cheap to compute) both in analyze mode and in build mode
+    s.messages += {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>};
+    s.references += (uses o defs)<1,0>;
+    s.definitions += uses o defs;
+    s.documentation += (uses o defs) o docs;
 
-    return summary(l,
-        messages = {<src, error("<id> is not defined", src)> | <src, id> <- uses, id notin defs<0>},
-        references = (uses o defs)<1,0>,
-        definitions = uses o defs,
-        documentation = (uses o defs) o docs
-    );
+    // Provide warnings (expensive to compute) only in build mode
+    if (build() := mode) {
+        rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
+        s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
+    }
+
+    return s;
 }
 
-set[loc] lookupDef(loc l, start[Program] input, Tree cursor) =
+set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
 
 

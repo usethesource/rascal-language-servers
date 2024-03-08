@@ -36,6 +36,7 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 public class Locations {
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
@@ -78,6 +79,13 @@ public class Locations {
         catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
+        if (v instanceof ISourceLocation) {
+            return Locations.toLSPLocation((ISourceLocation)v, cm);
+        }
+        throw new RuntimeException(v + "is not a ISourceLocation");
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {

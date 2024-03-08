@@ -42,7 +42,6 @@ import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -119,8 +118,13 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(ParametricSummaryBridge.emptySummary(loc));
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
     @Override
@@ -144,7 +148,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
@@ -159,68 +163,68 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutline() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLenses() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecuteCommand() {
+    public CompletableFuture<Boolean> hasLensDetector() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return CompletableFuture.completedFuture(false);
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return CompletableFuture.completedFuture(false);
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return CompletableFuture.completedFuture(false);
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
 }

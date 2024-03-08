@@ -49,7 +49,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -77,7 +77,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<TypeStore> store;
     private final CompletableFuture<IFunction> parser;
     private final CompletableFuture<@Nullable IFunction> outliner;
-    private final CompletableFuture<@Nullable IFunction> summarizer;
+    private final CompletableFuture<@Nullable IFunction> analyzer;
+    private final CompletableFuture<@Nullable IFunction> builder;
     private final CompletableFuture<@Nullable IFunction> lenses;
     private final CompletableFuture<@Nullable IFunction> commandExecutor;
     private final CompletableFuture<@Nullable IFunction> inlayHinter;
@@ -87,8 +88,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> implementer;
 
     private final CompletableFuture<Boolean> hasOutliner;
-    private final CompletableFuture<Boolean> hasSummarizer;
-    private final CompletableFuture<Boolean> hasLenses;
+    private final CompletableFuture<Boolean> hasAnalyzer;
+    private final CompletableFuture<Boolean> hasBuilder;
+    private final CompletableFuture<Boolean> hasLensDetector;
     private final CompletableFuture<Boolean> hasCommandExecutor;
     private final CompletableFuture<Boolean> hasInlayHinter;
     private final CompletableFuture<Boolean> hasDocumenter;
@@ -96,11 +98,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
 
-    private final CompletableFuture<Boolean> summaryProvidesDefinitions;
-    private final CompletableFuture<Boolean> summaryProvidesReferences;
-    private final CompletableFuture<Boolean> summaryProvidesImplementations;
-    private final CompletableFuture<Boolean> summaryProvidesDocumentation;
-
+    private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
+    private final CompletableFuture<SummaryConfig> builderSummaryConfig;
+    private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -191,38 +191,33 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 ValueFactoryFactory.getValueFactory().set(),
                 exec, true).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
-            this.parser = getFunctionFor(contributions, "parser");
-            this.outliner = getFunctionFor(contributions, "outliner");
-            this.summarizer = getFunctionFor(contributions, "summarizer");
-            this.lenses = getFunctionFor(contributions, "lenses");
-            this.commandExecutor = getFunctionFor(contributions, "executor");
-            this.inlayHinter = getFunctionFor(contributions, "inlayHinter");
-            this.documenter = getFunctionFor(contributions, "documenter");
-            this.definer = getFunctionFor(contributions, "definer");
-            this.referrer = getFunctionFor(contributions, "referrer");
-            this.implementer = getFunctionFor(contributions, "implementer");
-            var summaryConfig = contributions.thenApply(c -> c.stream()
-                    .map(IConstructor.class::cast)
-                    .filter(cons -> cons.getConstructorType().getName().equals("summarizer"))
-                    .findAny()
-                    .orElse(null)
-            );
-
+            this.parser = getFunctionFor(contributions, LanguageContributions.PARSER);
+            this.outliner = getFunctionFor(contributions, LanguageContributions.OUTLINER);
+            this.analyzer = getFunctionFor(contributions, LanguageContributions.ANALYZER);
+            this.builder = getFunctionFor(contributions, LanguageContributions.BUILDER);
+            this.lenses = getFunctionFor(contributions, LanguageContributions.LENS_DETECTOR);
+            this.commandExecutor = getFunctionFor(contributions, LanguageContributions.COMMAND_EXECUTOR);
+            this.inlayHinter = getFunctionFor(contributions, LanguageContributions.INLAY_HINTER);
+            this.documenter = getFunctionFor(contributions, LanguageContributions.DOCUMENTER);
+            this.definer = getFunctionFor(contributions, LanguageContributions.DEFINER);
+            this.referrer = getFunctionFor(contributions, LanguageContributions.REFERRER);
+            this.implementer = getFunctionFor(contributions, LanguageContributions.IMPLEMENTER);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
-            this.hasSummarizer = nonNull(this.summarizer);
-            this.hasLenses = nonNull(this.lenses);
+            this.hasAnalyzer = nonNull(this.analyzer);
+            this.hasBuilder = nonNull(this.builder);
+            this.hasLensDetector = nonNull(this.lenses);
             this.hasCommandExecutor = nonNull(this.commandExecutor);
             this.hasInlayHinter = nonNull(this.inlayHinter);
             this.hasDocumenter = nonNull(this.documenter);
             this.hasDefiner = nonNull(this.definer);
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
-            this.summaryProvidesDefinitions = summaryConfigLookup(summaryConfig, "providesDefinitions");
-            this.summaryProvidesDocumentation = summaryConfigLookup(summaryConfig, "providesDocumentation");
-            this.summaryProvidesImplementations = summaryConfigLookup(summaryConfig, "providesImplementations");
-            this.summaryProvidesReferences = summaryConfigLookup(summaryConfig, "providesReferences");
+
+            this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYZER);
+            this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILDER);
+            this.ondemandSummaryConfig = ondemandSummaryConfig(contributions);
 
         } catch (IOException e1) {
             logger.catching(e1);
@@ -234,14 +229,49 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return x.thenApply(Objects::nonNull);
     }
 
-    private static CompletableFuture<Boolean> summaryConfigLookup(CompletableFuture<IConstructor> conf, String parameter) {
-        return conf.thenApply( d -> {
-            if (d == null) {
-                return false;
+    private static CompletableFuture<SummaryConfig> scheduledSummaryConfig(CompletableFuture<ISet> contributions, String summarizer) {
+        return contributions.thenApply(c -> {
+            var constructor = getContribution(c, summarizer);
+            if (constructor != null) {
+                return new SummaryConfig(
+                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_DOCUMENTATION),
+                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_DEFINITIONS),
+                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_REFERENCES),
+                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_IMPLEMENTATIONS));
+            } else {
+                return SummaryConfig.FALSY;
             }
-            var val = d.asWithKeywordParameters().getParameter(parameter);
-            return !(val instanceof IBool) || ((IBool)val).getValue();
         });
+    }
+
+    private static CompletableFuture<SummaryConfig> ondemandSummaryConfig(CompletableFuture<ISet> contributions) {
+        return contributions.thenApply(c ->
+            new SummaryConfig(
+                hasContribution(c, LanguageContributions.DOCUMENTER),
+                hasContribution(c, LanguageContributions.DEFINER),
+                hasContribution(c, LanguageContributions.REFERRER),
+                hasContribution(c, LanguageContributions.IMPLEMENTER)));
+    }
+
+    private static @Nullable IConstructor getContribution(ISet contributions, String name) {
+        return contributions
+            .stream()
+            .map(IConstructor.class::cast)
+            .filter(cons -> cons.getConstructorType().getName().equals(name))
+            .findAny()
+            .orElse(null);
+    }
+
+    private static boolean hasContribution(ISet contributions, String name) {
+        return getContribution(contributions, name) != null;
+    }
+
+    private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {
+        if (constructor == null) {
+            return false;
+        }
+        var val = constructor.asWithKeywordParameters().getParameter(parameter);
+        return !(val instanceof IBool) || ((IBool)val).getValue();
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
@@ -284,121 +314,129 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        logger.debug("outline({})", TreeAdapter.getLocation(input));
-        return execFunction("outline",outliner, VF.list(), input);
+        debug(LanguageContributions.OUTLINER, TreeAdapter.getLocation(input));
+        return execFunction(LanguageContributions.OUTLINER, outliner, VF.list(), input);
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation src, ITree input) {
-        logger.debug("summarize({})", src);
-        return execFunction("summarize", summarizer,
-            ParametricSummaryBridge.emptySummary(src), src, input);
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation src, ITree input) {
+        debug(LanguageContributions.ANALYZER, src);
+        return execFunction(LanguageContributions.ANALYZER, analyzer, EmptySummary.newInstance(src), src, input);
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation src, ITree input) {
+        debug(LanguageContributions.BUILDER, src);
+        return execFunction(LanguageContributions.BUILDER, builder, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        logger.debug("lenses({})", TreeAdapter.getLocation(input));
-        return execFunction("lenses", lenses, VF.set(), input);
+        debug(LanguageContributions.LENS_DETECTOR, TreeAdapter.getLocation(input));
+        return execFunction(LanguageContributions.LENS_DETECTOR, lenses, VF.set(), input);
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        logger.debug("inlayHinter({})", input != null ? TreeAdapter.getLocation(input) : null);
-        return execFunction("inlayHinter", inlayHinter, VF.list(), input);
+        debug(LanguageContributions.INLAY_HINTER, input != null ? TreeAdapter.getLocation(input) : null);
+        return execFunction(LanguageContributions.INLAY_HINTER, inlayHinter, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("documentation({})", TreeAdapter.getLocation(cursor));
-        return execFunction("", documenter, VF.set(), loc, input, cursor);
+        debug(LanguageContributions.DOCUMENTER, TreeAdapter.getLocation(cursor));
+        return execFunction(LanguageContributions.DOCUMENTER, documenter, VF.set(), loc, input, cursor);
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("defines({}, {})", loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
-        return execFunction("defines", definer, VF.set(), loc, input, cursor);
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
+        debug(LanguageContributions.DEFINER, loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
+        return execFunction(LanguageContributions.DEFINER, definer, VF.set(), loc, input, cursor);
     }
 
     @Override
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("implementer({})", TreeAdapter.getLocation(cursor));
-        return execFunction("implementer", implementer, VF.set(), loc, input, cursor);
+        debug(LanguageContributions.IMPLEMENTER, TreeAdapter.getLocation(cursor));
+        return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), loc, input, cursor);
     }
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        logger.debug("references({})", TreeAdapter.getLocation(cursor));
-        return execFunction("references", referrer, VF.set(), loc, input, cursor);
+        debug(LanguageContributions.REFERRER, TreeAdapter.getLocation(cursor));
+        return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), loc, input, cursor);
     }
 
+    private void debug(String name, Object param) {
+        logger.debug("{}({})", name, param);
+    }
+
+    private void debug(String name, Object param1, Object param2) {
+        logger.debug("{}({}, {})", name, param1, param2);
+    }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return hasImplementer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return hasDocumenter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecuteCommand() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return hasCommandExecutor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return hasInlayHinter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLenses() {
-        return hasLenses;
+    public CompletableFuture<Boolean> hasLensDetector() {
+        return hasLensDetector;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutline() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return hasOutliner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
-        return hasSummarizer;
-    }
-
-
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return summaryProvidesDefinitions;
+    public CompletableFuture<Boolean> hasAnalyzer() {
+        return hasAnalyzer;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return summaryProvidesReferences;
-    }
-
-
-    @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return summaryProvidesImplementations;
+    public CompletableFuture<Boolean> hasBuilder() {
+        return hasBuilder;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return summaryProvidesDocumentation;
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return analyzerSummaryConfig;
     }
 
+    @Override
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return builderSummaryConfig;
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return ondemandSummaryConfig;
+    }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
@@ -420,6 +458,4 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             }),
             exec);
     }
-
-
 }

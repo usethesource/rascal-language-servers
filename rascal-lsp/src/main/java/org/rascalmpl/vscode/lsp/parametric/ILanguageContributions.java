@@ -27,7 +27,10 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -35,33 +38,98 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public interface ILanguageContributions {
     public String getName();
+
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
     public InterruptibleFuture<IList> outline(ITree input);
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<ISet> lenses(ITree input);
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
 
-    public CompletableFuture<Boolean> hasDedicatedDocumentation();
-    public CompletableFuture<Boolean> hasDedicatedDefines();
-    public CompletableFuture<Boolean> hasDedicatedReferences();
-    public CompletableFuture<Boolean> hasDedicatedImplementations();
+    public CompletableFuture<Boolean> hasAnalyzer();
+    public CompletableFuture<Boolean> hasBuilder();
+    public CompletableFuture<Boolean> hasOutliner();
+    public CompletableFuture<Boolean> hasLensDetector();
+    public CompletableFuture<Boolean> hasInlayHinter();
+    public CompletableFuture<Boolean> hasCommandExecutor();
+    public CompletableFuture<Boolean> hasDocumenter();
+    public CompletableFuture<Boolean> hasDefiner();
+    public CompletableFuture<Boolean> hasReferrer();
+    public CompletableFuture<Boolean> hasImplementer();
 
-    public CompletableFuture<Boolean> hasOutline();
-    public CompletableFuture<Boolean> hasSummarize();
-    public CompletableFuture<Boolean> hasLenses();
-    public CompletableFuture<Boolean> hasExecuteCommand();
-    public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig();
 
-    public CompletableFuture<Boolean> askSummaryForDocumentation();
-    public CompletableFuture<Boolean> askSummaryForDefinitions();
-    public CompletableFuture<Boolean> askSummaryForReferences();
-    public CompletableFuture<Boolean> askSummaryForImplementations();
+    public static class SummaryConfig {
+        public final boolean providesDocumentation;
+        public final boolean providesDefinitions;
+        public final boolean providesReferences;
+        public final boolean providesImplementations;
+
+        public SummaryConfig(
+                boolean providesDocumentation,
+                boolean providesDefinitions,
+                boolean providesReferences,
+                boolean providesImplementations) {
+
+            this.providesDocumentation = providesDocumentation;
+            this.providesDefinitions = providesDefinitions;
+            this.providesReferences = providesReferences;
+            this.providesImplementations = providesImplementations;
+        }
+
+        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false);
+
+        public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
+            return new SummaryConfig(
+                a.providesDocumentation || b.providesDocumentation,
+                a.providesDefinitions || b.providesDefinitions,
+                a.providesReferences || b.providesReferences,
+                a.providesImplementations || b.providesImplementations);
+        }
+    }
+
+
+    @FunctionalInterface // Type alias to conveniently pass methods `analyze`and `build` as parameters
+    public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
+
+    @FunctionalInterface
+    // To conveniently pass methods `documentation`, `definitions`,
+    // `references`, and `implementations` as parameters.
+    public static interface OndemandCalculator {
+        InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
+    }
+}
+
+/*package*/ class EmptySummary {
+    private EmptySummary() {}
+
+    private static final Type summaryCons;
+
+    static {
+        TypeFactory typeFactory = TypeFactory.getInstance();
+        TypeStore typeStore = new TypeStore();
+        summaryCons = typeFactory.constructor(
+            typeStore,
+            typeFactory.abstractDataType(typeStore, "Summary"),
+            "summary",
+            typeFactory.sourceLocationType(),
+            "src");
+    }
+
+    public static IConstructor newInstance(ISourceLocation src) {
+        return IRascalValueFactory.getInstance().constructor(summaryCons, src);
+    }
 }

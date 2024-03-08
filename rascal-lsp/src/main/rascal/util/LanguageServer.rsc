@@ -39,6 +39,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
+import IO;
 import ParseTree;
 
 @synopsis{Definition of a language server by its meta-data}
@@ -65,13 +66,28 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 alias Parser           = Tree (str /*input*/, loc /*origin*/);
 
 @synopsis{Function profile for summarizer contributions to a language server}
+@description{
+Summarizers provide information about the declarations and uses in the current file
+which can be used to populate the information needed to implement interactive IDE
+features.
+
+There are two places a Summarizer can be called:
+* Summarizers can be called after _file save_, in this case we use ((builder))s. Builders typically also have side-effects on disk (leaving generated code or API descriptions in the target folder), and they may run whole-program analysis and compilation steps.
+* Or they can be called while typing, in this case we use ((analyzer))s. Analyzers typically use stored or cached information from other files, but focus their own analysis on their own file. Analyzers may use incremental techniques.
+
+A summarizer provides the same information as the following contributors combined:
+* ((documenter))
+* ((definer))
+* ((referrer))
+* ((implementer))
+
+The difference is that these contributions are executed on-demand (pulled), while Summarizers
+are executed after build or after typing (push).
+}
 alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 
 @synopsis{Function profile for outliner contributions to a language server}
 alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
-
-//alias Completer        = list[Completion] (Tree /*input*/, str /*prefix*/, int /*requestOffset*/);
-//alias Builder          = list[Message] (list[loc] /*sources*/, PathConfig /*pcfg*/);
 
 @synopsis{Function profile for lenses contributions to a language server}
 alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
@@ -82,45 +98,96 @@ alias CommandExecutor  = value (Command /*command*/);
 @synopsis{Function profile for inlay contributions to a language server}
 alias InlayHinter      = list[InlayHint] (Tree /*input*/);
 
-// these single mappers get caller for every request that a user makes, they should be quick as possible
-// carefull use of memo can help with caching dependencies
 @synopsis{Function profile for documentation contributions to a language server}
+@description{
+A documenter is called on-demand, when documentation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single documentation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for definer contributions to a language server}
+@description{
+A definer is called on-demand, when a definition is requested by the IDE user.
+}
+@benefits{
+* is focused on a single definition request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for referrer contributions to a language server}
+@description{
+A referrer is called on-demand, when a reference is requested by the IDE user.
+}
+@benefits{
+* is focused on a single reference request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Function profile for implementer contributions to a language server}
+@description{
+An implementer is called on-demand, when an implementation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single implementation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
 alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService provides one aspect of definining the language server protocol.
-* a `parser` maps source code to a parse tree and indexes each part based on offset and length
-* a `summarizer` indexes a file as a ((Summary)), offering precomputed relations for looking up
+* ((parser)) maps source code to a parse tree and indexes each part based on offset and length
+* ((analyzer)) indexes a file as a ((Summary)), offering precomputed relations for looking up
 documentation, definitions, references, implementations and compiler errors and warnings.
-* a `outliner` maps a source file to a pretty hierarchy for visualization in the "outline" view
-* a `lenses` discovers places to add "lenses" (little views embedded in the editor) and connects commands to execute to each lense
-* an `inlayHinter` is like lenses but inbetween words
-* a `executor` executes the commands registered by `lenses` and `inlayHinters`
-* a `documenter` is a fast and location specific version of the `documentation` relation in a ((Summary)).
-* a `definer` is a fast and location specific version of the `definitions` relation in a ((Summary)).
-* a `referrer` is a fast and location specific version of the `references` relation in a ((Summary)).
-* an `implementer` is a fast and location specific version of the `implementations` relation in a ((Summary)).
+   * ((analyzer))s focus on their own file, but may reuse cached or stored indices from other files.
+   * ((analyzer))s have to be quick since they run in an interactive editor setting.
+   * ((analyzer))s may store previous results (in memory) for incremental updates.
+   * ((analyzer))s are triggered during typing, in a short typing pause.
+* ((builder)) is similar to an `analyzer`, but it may perform computation-heavier additional checks.
+   * ((builder))s typically run whole-program analyses and compilation steps.
+   * ((builder))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
+   * ((builder))s are triggered on _save-file_ events; they _push_ information to an internal cache.
+   * Warning: ((builder))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
+* the following contributions are _on-demand_ (pull) versions of information also provided by the analyzer and builder summaries.
+   * a ((documenter)) is a fast and location specific version of the `documentation` relation in a ((Summary)).
+   * a ((definer)) is a fast and location specific version of the `definitions` relation in a ((Summary)).
+   * a ((referrer)) is a fast and location specific version of the `references` relation in a ((Summary)).
+   * an ((implementer)) is a fast and location specific version of the `implementations` relation in a ((Summary)).
+* ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
+* ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
+* ((inlayHinter)) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
 }
 data LanguageService
     = parser(Parser parser)
-    | summarizer(Summarizer summarizer
+    | analyzer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true)
+    | builder(Summarizer summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outliner(Outliner outliner)
-// TODO | completer(Completer completer)
-// TODO | builder(Builder builder)
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
@@ -130,13 +197,36 @@ data LanguageService
     | implementer(Implementer implementer)
     ;
 
+@deprecated{Please use ((builder)) or ((analyzer))}
+@synopsis{A summarizer collects information for later use in interactive IDE features.}
+LanguageService summarizer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true) {
+    println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
+    return builder(summarizer
+        , providesDocumentation = providesDocumentation
+        , providesDefinitions = providesDefinitions
+        , providesReferences = providesReferences
+        , providesImplementations = providesImplementations);
+}
+
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
+@description{
+* `src` refers to the "compilation unit" or "file" that this model is for.
+* `messages` collects all the errors, warnings and error messages.
+* `documentation` maps uses of concepts to a documentation message that can be shown as a hover.
+* `definition` maps use locations to declaration locations to implement "jump-to-definition".
+* `references` maps declaration locations to use locations to implement "jump-to-references".
+* `implementations` maps the declaration of a type/class to its implementations "jump-to-implementations".
+}
 data Summary = summary(loc src,
     rel[loc, Message] messages = {},
-    rel[loc, str]     documentation = {},   // documentation for each location
-    rel[loc, loc]     definitions = {},     // links to the definitions of names
-    rel[loc, loc]     references = {},      // links to the uses of definitions
-    rel[loc, loc]     implementations = {}  // links to the implementations of declarations
+    rel[loc, str]     documentation = {},
+    rel[loc, loc]     definitions = {},
+    rel[loc, loc]     references = {},
+    rel[loc, loc]     implementations = {}
 );
 
 data Completion = completion(str newText, str proposal=newText);
@@ -191,16 +281,25 @@ data Command(str title="")
     = noop()
     ;
 
+@synopsis{Represents one inlayHint for display in an editor}
+@description{
+* `position` where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
+* `label` text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
+* `kind` his either `type()` or `parameter()` which influences styling in the editor.
+* `toolTip` optionally show extra information when hovering over the inlayhint.
+* `atEnd` instead of appearing at the beginning of the position, appear at the end.
+}
 data InlayHint
     = hint(
-        loc position, // where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
-        str label, // text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
+        loc position,
+        str label,
         InlayKind kind,
-        str toolTip = "", // optionally show extra information when hovering over the inlayhint
-        bool atEnd = false // instead of appearing at the beginning of the position, appear at the end
+        str toolTip = "",
+        bool atEnd = false
     );
 
-data InlayKind // this determines style
+@synopsis{Style of an inlay}
+data InlayKind
     = \type()
     | parameter()
     ;

@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -40,6 +41,7 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
+@SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
 
     private final ExecutorService ownExecuter;
@@ -50,31 +52,32 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     private volatile @MonotonicNonNull ILanguageContributions parser = null;
-    private volatile CompletableFuture<ILanguageContributions> outline = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> summarizer = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> lenses = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> executor = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> outliner = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> analyzer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> builder = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> lensDetector = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> commandExecutor = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> inlayHinter = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> definer = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> documenter = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> referrer = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementer = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> hasDedicatedDocumentation = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedDefines = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedReferences = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDedicatedImplementations = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDocumenter = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDefiner = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasReferrer = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasImplementer = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> hasOutline = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasSummarize = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasLenses = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasExecuteCommand = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasOutliner = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasAnalyzer = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasBuilder = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasLensDetector = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCommandExecutor = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasInlayHinter = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> askSummaryForDocumentation = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForDefinitions = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForReferences = failedInitialization();
-    private volatile CompletableFuture<Boolean> askSummaryForImplementations = failedInitialization();
+    private volatile CompletableFuture<SummaryConfig> analyzerSummaryConfig;
+    private volatile CompletableFuture<SummaryConfig> builderSummaryConfig;
+    private volatile CompletableFuture<SummaryConfig> ondemandSummaryConfig;
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
@@ -130,32 +133,32 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // we calculate the "route" once, and then just chain onto the completed
         // future
         parser = firstOrFail();
-        outline = findFirstOrDefault(ILanguageContributions::hasOutline);
-        summarizer = findFirstOrDefault(ILanguageContributions::hasSummarize);
-        lenses = findFirstOrDefault(ILanguageContributions::hasLenses);
-        executor = findFirstOrDefault(ILanguageContributions::hasExecuteCommand);
-        inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        definer = findFirstOrDefault(ILanguageContributions::hasDedicatedDefines);
-        documenter = findFirstOrDefault(ILanguageContributions::hasDedicatedDocumentation);
-        referrer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
-        implementer = findFirstOrDefault(ILanguageContributions::hasDedicatedReferences);
+        outliner = findFirstOrDefault(ILanguageContributions::hasOutliner);
+        analyzer = findFirstOrDefault(ILanguageContributions::hasAnalyzer);
+        builder = findFirstOrDefault(ILanguageContributions::hasBuilder);
+        lensDetector = findFirstOrDefault(ILanguageContributions::hasLensDetector);
+        commandExecutor = findFirstOrDefault(ILanguageContributions::hasCommandExecutor);
+        inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHinter);
+        definer = findFirstOrDefault(ILanguageContributions::hasDefiner);
+        documenter = findFirstOrDefault(ILanguageContributions::hasDocumenter);
+        referrer = findFirstOrDefault(ILanguageContributions::hasReferrer);
+        implementer = findFirstOrDefault(ILanguageContributions::hasImplementer);
 
-        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
-        hasDedicatedDocumentation = anyTrue(ILanguageContributions::hasDedicatedDocumentation);
-        hasDedicatedDefines = anyTrue(ILanguageContributions::hasDedicatedDefines);
-        hasDedicatedReferences = anyTrue(ILanguageContributions::hasDedicatedReferences);
-        hasDedicatedImplementations = anyTrue(ILanguageContributions::hasDedicatedImplementations);
+        hasDocumenter = anyTrue(ILanguageContributions::hasDocumenter);
+        hasDefiner = anyTrue(ILanguageContributions::hasDefiner);
+        hasReferrer = anyTrue(ILanguageContributions::hasReferrer);
+        hasImplementer = anyTrue(ILanguageContributions::hasImplementer);
 
-        hasOutline = anyTrue(ILanguageContributions::hasOutline);
-        hasSummarize = anyTrue(ILanguageContributions::hasSummarize);
-        hasLenses = anyTrue(ILanguageContributions::hasLenses);
-        hasExecuteCommand = anyTrue(ILanguageContributions::hasExecuteCommand);
-        hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
+        hasOutliner = anyTrue(ILanguageContributions::hasOutliner);
+        hasAnalyzer = anyTrue(ILanguageContributions::hasAnalyzer);
+        hasBuilder = anyTrue(ILanguageContributions::hasBuilder);
+        hasLensDetector = anyTrue(ILanguageContributions::hasLensDetector);
+        hasCommandExecutor = anyTrue(ILanguageContributions::hasCommandExecutor);
+        hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHinter);
 
-        askSummaryForDocumentation = anyTrue(ILanguageContributions::askSummaryForDocumentation);
-        askSummaryForDefinitions = anyTrue(ILanguageContributions::askSummaryForDefinitions);
-        askSummaryForReferences = anyTrue(ILanguageContributions::askSummaryForReferences);
-        askSummaryForImplementations = anyTrue(ILanguageContributions::askSummaryForImplementations);
+        analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        ondemandSummaryConfig = anyTrue(ILanguageContributions::getOndemandSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
     private ILanguageContributions firstOrFail() {
@@ -187,18 +190,21 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         }, ownExecuter);
     }
 
-    private static boolean swallowExceptions(Throwable ex) {
-        return false;
+    private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
+        return anyTrue(predicate, false, Boolean::logicalOr);
     }
 
-    private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
-        var result = CompletableFuture.completedFuture(false);
+    private <T> CompletableFuture<T> anyTrue(
+            Function<ILanguageContributions, CompletableFuture<T>> predicate,
+            T falsy, BinaryOperator<T> or) {
+
+        var result = CompletableFuture.completedFuture(falsy);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
         for (var c: contributions) {
             var checkCurrent = predicate.apply(c.contrib)
-                .exceptionally(LanguageContributionsMultiplexer::swallowExceptions);
-            result = result.thenCombine(checkCurrent, Boolean::logicalOr);
+                .exceptionally(e -> falsy);
+            result = result.thenCombine(checkCurrent, or);
         }
         return result;
     }
@@ -224,22 +230,27 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> outline(ITree input) {
-        return flatten(outline, c -> c.outline(input));
+        return flatten(outliner, c -> c.outline(input));
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> summarize(ISourceLocation loc, ITree input) {
-        return flatten(summarizer, c -> c.summarize(loc, input));
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+        return flatten(analyzer, c -> c.analyze(loc, input));
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
+        return flatten(builder, c -> c.build(loc, input));
     }
 
     @Override
     public InterruptibleFuture<ISet> lenses(ITree input) {
-        return flatten(lenses, c -> c.lenses(input));
+        return flatten(lensDetector, c -> c.lenses(input));
     }
 
     @Override
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
-        return flatten(executor, c -> c.executeCommand(command));
+        return flatten(commandExecutor, c -> c.executeCommand(command));
     }
 
     @Override
@@ -253,8 +264,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> defines(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(definer, c -> c.defines(loc, input, cursor));
+    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
+        return flatten(definer, c -> c.definitions(loc, input, cursor));
     }
 
     @Override
@@ -269,68 +280,67 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDocumentation() {
-        return hasDedicatedDocumentation;
+    public CompletableFuture<Boolean> hasDocumenter() {
+        return hasDocumenter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedDefines() {
-        return hasDedicatedDefines;
+    public CompletableFuture<Boolean> hasDefiner() {
+        return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedReferences() {
-        return hasDedicatedReferences;
+    public CompletableFuture<Boolean> hasReferrer() {
+        return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDedicatedImplementations() {
-        return hasDedicatedImplementations;
+    public CompletableFuture<Boolean> hasImplementer() {
+        return hasImplementer;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDocumentation() {
-        return askSummaryForDocumentation;
+    public CompletableFuture<Boolean> hasOutliner() {
+        return hasOutliner;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForDefinitions() {
-        return askSummaryForDefinitions;
+    public CompletableFuture<Boolean> hasAnalyzer() {
+        return hasAnalyzer;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForReferences() {
-        return askSummaryForReferences;
+    public CompletableFuture<Boolean> hasBuilder() {
+        return hasBuilder;
     }
 
     @Override
-    public CompletableFuture<Boolean> askSummaryForImplementations() {
-        return askSummaryForImplementations;
+    public CompletableFuture<Boolean> hasLensDetector() {
+        return hasLensDetector;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutline() {
-        return hasOutline;
+    public CompletableFuture<Boolean> hasCommandExecutor() {
+        return hasCommandExecutor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSummarize() {
-        return hasSummarize;
+    public CompletableFuture<Boolean> hasInlayHinter() {
+        return hasInlayHinter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLenses() {
-        return hasLenses;
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return analyzerSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecuteCommand() {
-        return hasExecuteCommand;
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return builderSummaryConfig;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
-        return hasInlayHint;
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return ondemandSummaryConfig;
     }
-
 }

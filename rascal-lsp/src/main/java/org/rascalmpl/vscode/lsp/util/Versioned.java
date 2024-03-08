@@ -24,34 +24,46 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util.locations;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.time.Duration;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicReference;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+public class Versioned<T> {
+    private final int version;
+    private final T object;
 
-import org.rascalmpl.vscode.lsp.util.locations.impl.ArrayLineOffsetMap;
-
-import io.usethesource.vallang.ISourceLocation;
-
-public class ColumnMaps {
-    private final LoadingCache<ISourceLocation, LineColumnOffsetMap> currentEntries;
-
-    public ColumnMaps(Function<ISourceLocation, String> getContents) {
-        currentEntries = Caffeine.newBuilder()
-            .expireAfterAccess(Duration.ofMinutes(10))
-            .softValues()
-            .build(l -> ArrayLineOffsetMap.build(getContents.apply(l)));
+    public Versioned(int version, T object) {
+        this.version = version;
+        this.object = object;
     }
 
-    public LineColumnOffsetMap get(ISourceLocation sloc) {
-        return currentEntries.get(sloc.top());
+    public int version() {
+        return version;
     }
 
-    public void clear(ISourceLocation sloc) {
-        currentEntries.invalidate(sloc.top());
+    public T get() {
+        return object;
     }
 
+    @Override
+    public String toString() {
+        return String.format("%s [version %d]", object, version);
+    }
+
+    public static <T> AtomicReference<Versioned<T>> atomic(int version, T object) {
+        return new AtomicReference<>(new Versioned<>(version, object));
+    }
+
+    public static <T> boolean replaceIfNewer(AtomicReference<Versioned<T>> current, Versioned<T> maybeNewer) {
+        while (true) {
+            var old = current.get();
+            if (old.version() < maybeNewer.version()) {
+                if (current.compareAndSet(old, maybeNewer)) {
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
+    }
 }

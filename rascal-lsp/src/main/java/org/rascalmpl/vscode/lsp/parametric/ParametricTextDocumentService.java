@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -80,6 +82,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -95,12 +98,14 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
-import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummaryBridge;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -158,7 +163,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         file = file.top();
         TextDocumentState ideState = files.get(file);
         if (ideState != null) {
-            return ideState.getCurrentContent();
+            return ideState.getCurrentContent().get();
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
@@ -214,18 +219,27 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
         handleParsingErrors(open(params.getTextDocument()));
+        triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        logger.trace("Change contents: {}", params.getTextDocument());
+        logger.debug("Did Change file: {}", params.getTextDocument().getUri());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
-        invalidateFacts(params.getTextDocument());
+        triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
+    }
+
+    @Override
+    public void didSave(DidSaveTextDocumentParams params) {
+        logger.debug("Did Save file: {}", params.getTextDocument());
+        // on save we don't get new file contents, that already came in via didChange
+        // but we do trigger the builder on save (if a builder exists)
+        triggerBuilder(params.getTextDocument());
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        logger.debug("Did Close: {}", params.getTextDocument());
+        logger.debug("Did Close file: {}", params.getTextDocument());
         if (files.remove(Locations.toLoc(params.getTextDocument())) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
@@ -233,33 +247,37 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
 
-    private void triggerSummary(TextDocumentIdentifier doc) {
-        facts(doc).calculate(Locations.toLoc(doc));
+    private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
+        triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
+    }
+    private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
+        logger.trace("Triggering analyzer for {}", doc.getUri());
+        var fileFacts = facts(doc);
+        var location = Locations.toLoc(doc);
+        fileFacts.invalidateAnalyzer(location);
+        fileFacts.calculateAnalyzer(location, getFile(doc).getCurrentTreeAsync(), doc.getVersion(), delay);
     }
 
-    private void invalidateFacts(TextDocumentIdentifier doc) {
-        facts(doc).invalidate(Locations.toLoc(doc));
+    private void triggerBuilder(TextDocumentIdentifier doc) {
+        logger.trace("Triggering builder for {}", doc.getUri());
+        var fileFacts = facts(doc);
+        var location = Locations.toLoc(doc);
+        fileFacts.invalidateBuilder(location);
+        fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync());
     }
 
-    @Override
-    public void didSave(DidSaveTextDocumentParams params) {
-        logger.debug("Save: {}", params.getTextDocument());
-        // on save we don't get new file contents, that already came in via didChange
-        // but we do trigger the type checker on save
-        triggerSummary(params.getTextDocument());
-    }
-
-    private TextDocumentState updateContents(TextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(newContents));
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<ITree> futureTree) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
+        var version = file.getCurrentContent().version();
         futureTree.handle((tree, excp) -> {
             Diagnostic newParseError = null;
-            if (excp != null && excp instanceof CompletionException) {
+            if (excp instanceof CompletionException) {
                 excp = excp.getCause();
             }
 
@@ -279,7 +297,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     "Rascal Parser");
             }
             logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(),
+            facts(file.getLocation()).reportParseErrors(file.getLocation(), version,
                 newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
             return null;
         });
@@ -292,6 +310,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
         return recoverExceptions(file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
             .thenApply(contrib::lenses)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
@@ -307,6 +326,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
+                .thenApply(Versioned::get)
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
@@ -417,7 +437,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
         );
     }
 
@@ -439,6 +459,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
+                .thenApply(Versioned::get)
                 .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
@@ -472,33 +493,35 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
             .thenApply(contrib::outline)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
     }
 
-    private ParametricSummaryBridge summary(TextDocumentIdentifier doc) {
-        return facts(doc).getSummary(Locations.toLoc(doc));
+    private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
+        return getFile(doc)
+            .getCurrentTreeAsync()
+            .thenApply(tree -> facts(doc).lookupInSummaries(lookup, Locations.toLoc(doc), tree, cursor))
+            .thenCompose(Function.identity());
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
-        return recoverExceptions(summary(params.getTextDocument())
-            .getDefinition(params.getPosition())
+        return recoverExceptions(
+            lookup(ParametricSummary::definitions, params.getTextDocument(), params.getPosition())
             .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
-            ImplementationParams params) {
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(ImplementationParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-
-        return recoverExceptions(summary(params.getTextDocument())
-            .getImplementations(params.getPosition())
+        return recoverExceptions(
+            lookup(ParametricSummary::implementations, params.getTextDocument(), params.getPosition())
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -506,9 +529,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
         logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
-
-        return recoverExceptions(summary(params.getTextDocument())
-            .getReferences(params.getPosition())
+        return recoverExceptions(
+            lookup(ParametricSummary::references, params.getTextDocument(), params.getPosition())
             .thenApply(l -> l) // hack to help compiler see type
             , Collections::emptyList);
     }
@@ -516,9 +538,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
-
-        return recoverExceptions(summary(params.getTextDocument())
-            .getHover(params.getPosition())
+        return recoverExceptions(
+            lookup(ParametricSummary::documentation, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }
@@ -527,7 +548,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync().thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
@@ -545,7 +566,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
         );
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(multiplexer, this::getFile, columns, ownExecuter)
+            new ParametricFileFacts(ownExecuter, columns, multiplexer)
         );
 
         if (lang.getPrecompiledParser() != null) {

@@ -31,56 +31,70 @@ import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 
 import io.usethesource.vallang.ISourceLocation;
 
 /**
- * TextDocumentState encapsulates the current contents of every open file editor, 
+ * TextDocumentState encapsulates the current contents of every open file editor,
  * and the corresponding latest parse tree that belongs to it.
  * It is parametrized by the parser that must be used to map the string
- * contents to a tree. All other TextDocumentServices depend on this information. 
- * 
+ * contents to a tree. All other TextDocumentServices depend on this information.
+ *
  * Objects of this class are used by the implementations of RascalTextDocumentService
- * and ParametricTextDocumentService. 
+ * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
 
     private final ISourceLocation file;
-    private volatile String currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull ITree lastFullTree;
+    private volatile Versioned<String> currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<ITree> currentTree;
+    private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, String content) {
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent) {
         this.parser = parser;
         this.file = file;
-        this.currentContent = content;
-        currentTree = newContents(content);
+        this.currentContent = new Versioned<>(initialVersion, initialContent);
+        this.currentTree = newTreeAsync(initialVersion, initialContent);
     }
 
-    public CompletableFuture<ITree> update(String text) {
-        currentContent = text;
-        currentTree = newContents(text);
-        return currentTree;
+    /**
+     * The current call of this method guarantees that, until the next call,
+     * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
+     * *correct* versioned tree. This means that:
+     *   - the version of the tree is parameter `version`;
+     *   - the tree is produced by parsing parameter `content`.
+     *
+     * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
+     * consistent <version, tree> pair.
+     */
+    public CompletableFuture<Versioned<ITree>> update(int version, String content) {
+        currentContent = new Versioned<>(version, content);
+        var newTree = newTreeAsync(version, content);
+        currentTree = newTree;
+        return newTree;
     }
 
     @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<ITree> newContents(String contents) {
-        return parser.apply(file, contents)
-            .whenComplete((r, t) -> { 
-                if (r != null) { 
-                    lastFullTree = r; 
-                } 
+    private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
+        return parser.apply(file, content)
+            .thenApply(t -> new Versioned<ITree>(version, t))
+            .whenComplete((r, t) -> {
+                if (r != null) {
+                    lastFullTree = r;
+                }
             });
     }
 
-    public CompletableFuture<ITree> getCurrentTreeAsync() {
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
         return currentTree;
     }
 
-    public @MonotonicNonNull ITree getMostRecentTree() {
+    public @MonotonicNonNull Versioned<ITree> getMostRecentTree() {
         return lastFullTree;
     }
 
@@ -88,7 +102,7 @@ public class TextDocumentState {
         return file;
     }
 
-    public String getCurrentContent() {
+    public Versioned<String> getCurrentContent() {
         return currentContent;
     }
 }

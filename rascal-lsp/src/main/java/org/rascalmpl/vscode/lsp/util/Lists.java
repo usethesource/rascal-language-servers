@@ -24,34 +24,47 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util.locations;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.time.Duration;
-import java.util.function.Function;
+import java.util.ArrayList;
+import java.util.List;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+public class Lists {
+    private Lists() {}
 
-import org.rascalmpl.vscode.lsp.util.locations.impl.ArrayLineOffsetMap;
-
-import io.usethesource.vallang.ISourceLocation;
-
-public class ColumnMaps {
-    private final LoadingCache<ISourceLocation, LineColumnOffsetMap> currentEntries;
-
-    public ColumnMaps(Function<ISourceLocation, String> getContents) {
-        currentEntries = Caffeine.newBuilder()
-            .expireAfterAccess(Duration.ofMinutes(10))
-            .softValues()
-            .build(l -> ArrayLineOffsetMap.build(getContents.apply(l)));
+    /**
+     * @return an existing list if only `a` or only `b` is non-empty; a new list
+     * otherwise.
+     */
+    public static <T> List<T> union(List<T> a, List<T> b) {
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+        ArrayList<T> result = new ArrayList<>(a);
+        result.addAll(b);
+        return result;
     }
 
-    public LineColumnOffsetMap get(ISourceLocation sloc) {
-        return currentEntries.get(sloc.top());
+    /**
+     * @return an existing list if only `a`, or only `b`, or only `c` is
+     * non-empty; a new list otherwise.
+     */
+    public static <T> List<T> union(List<T> a, List<T> b, List<T> c) {
+        if (a.isEmpty() && b.isEmpty()) {
+            return c;
+        }
+        if (a.isEmpty() && c.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty() && c.isEmpty()) {
+            return a;
+        }
+        ArrayList<T> result = new ArrayList<>(a);
+        result.addAll(b);
+        result.addAll(c);
+        return result;
     }
-
-    public void clear(ISourceLocation sloc) {
-        currentEntries.invalidate(sloc.top());
-    }
-
 }
