@@ -52,6 +52,17 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.11.0
+
+* there is a new "Rascal Configuration" view that shows the resolved dependencies per project xml, and allows you to browse the rascal sources inside of those.
+* the `summarizer` contribution for DSLs has been replaced by `analyzer` and `builder`. Please review your language setup and migrate to builders (only on save), and analyzer (every change in the IDE). We have tried to keep the behavior as close to the original summarizer, but it will not be triggered on-demand anymore.
+* small improvements:
+  * DSLs can now register multiple extensions for a single language
+  * we check for common rascal project setup errors when starting a new REPL
+  * automatic reloading of changes now also works for cross-project dependencies
+  * We have a new and improved version of the rascal logo
+  * downstream dependencies were updated to the latest version
+
 ### 0.10.2
 
 * upgrading to rascal 0.34.1 to fix a regression in concrete syntax
