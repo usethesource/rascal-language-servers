@@ -405,7 +405,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             return Collections.emptyList();
         }
 
-        public static int tokenTypeForName(@Nullable String category) {
+        public static int tokenTypeForName(String category) {
             Integer result = cache.get(category);
             return result != null ? result : -1;
         }
