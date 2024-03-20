@@ -26,15 +26,19 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.SemanticTokenModifiers;
+import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
 import org.eclipse.lsp4j.SemanticTokensClientCapabilitiesRequests;
@@ -45,12 +49,13 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer implements ISemanticTokens {
+
+    private static final Logger logger = LogManager.getLogger();
 
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
@@ -86,7 +91,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
             requests,
             TokenTypes.getTokenTypes(),
-            Collections.emptyList(),
+            TokenTypes.getTokenModifiers(),
             Collections.emptyList());
 
         cps.setMultilineTokenSupport(true);
@@ -95,294 +100,364 @@ public class SemanticTokenizer implements ISemanticTokens {
     }
 
     private static class TokenList {
-        List<Integer> theList = new ArrayList<>(500);
-        int previousLine = 0;
-        int previousStart = 0;
+        private final List<Integer> theList = new ArrayList<>(500);
+        private int previousLine = 0;
+        private int previousStart = 0;
 
         public List<Integer> getTheList() {
             return Collections.unmodifiableList(theList);
         }
 
-        public void addToken(int startLine, int startColumn, int length, String category) {
-            // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
-            theList.add(startLine - previousLine);
-            theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
-            theList.add(length);
-            theList.add(TokenTypes.tokenTypeForName(category));
-            theList.add(0); // no support for modifiers yet
-            previousLine = startLine;
-            previousStart = startColumn;
+        public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
+            if (category != null) {
+                // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
+                theList.add(startLine - previousLine);
+                theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
+                theList.add(length);
+                TokenTypes.addTypeAndModifier(theList, category);
+                previousLine = startLine;
+                previousStart = startColumn;
+            }
         }
     }
 
     private static class TokenTypes {
-        private static final Map<String, Integer> cache = new HashMap<>();
+        private static final Map<String, Integer> tokenCache = new HashMap<>();
+        private static final Map<String, Integer> modifierCache = new HashMap<>();
 
-        /**
-         * The Rascal legacy token types are translated to
-         * textmate token types here
-         */
-        private static String[][] rascalCategories = new String[][] {
-            { TreeAdapter.NORMAL,               "source" },
-            { TreeAdapter.TYPE,                 "storage.type"},
-            { TreeAdapter.IDENTIFIER,           "variable"},
-            { TreeAdapter.VARIABLE,             "variable" },
-            { TreeAdapter.CONSTANT,             "constant" },
-            { TreeAdapter.COMMENT,              "comment" },
-            { TreeAdapter.TODO,                 "comment" },
-            { TreeAdapter.QUOTE,                "meta.string" },
-            { TreeAdapter.META_AMBIGUITY,       "invalid" },
-            { TreeAdapter.META_VARIABLE,        "variable" },
-            { TreeAdapter.META_KEYWORD,         "keyword.other" },
-            { TreeAdapter.META_SKIPPED,         "invalid" },
-            { TreeAdapter.NONTERMINAL_LABEL,    "variable.parameter"},
-            { TreeAdapter.RESULT,               "text"},
-            { TreeAdapter.STDOUT,               "text"},
-            { TreeAdapter.STDERR,               "text"}
-        };
-
-        /**
-         * These should be _all_ textmate token categories that exist
-         * See <https://www.sublimetext.com/docs/3/scope_naming.html>.
-         */
-        private static String[] textmateCategories = new String[] {
-            // The first block is what we minally need to get good
-            // highlighting support
-            "entity.name",
-            "entity.other.inherited-class",
-            "entity.name.section",
-            "entity.name.tag",
-            "entity.other.attribute-name",
-            "variable",
-            "variable.language",
-            "variable.parameter",
-            "variable.function",
-            "constant",
-            "constant.numeric",
-            "constant.language",
-            "constant.character.escape",
-            "storage.type",
-            "storage.modifier",
-            "support",
-            "keyword",
-            "keyword.control",
-            "keyword.operator",
-            "keyword.declaration",
-            "string",
-            "comment",
-            "invalid",
-            "invalid.deprecated",
+        private static String[][] backwardsCompatibleTokenTypes = new String[][] {
+            /**
+             * The Rascal legacy token types are translated to
+             * textmate token types here
+             */
+            //{ TreeAdapter.NORMAL,               null },
+            { TreeAdapter.TYPE,                 SemanticTokenTypes.Type},
+            { TreeAdapter.IDENTIFIER,           SemanticTokenTypes.Variable},
+            { TreeAdapter.VARIABLE,             SemanticTokenTypes.Variable },
+            { TreeAdapter.CONSTANT,             SemanticTokenTypes.Number }, // it's a choice between number and string, both are wrong
+            { TreeAdapter.COMMENT,              SemanticTokenTypes.Comment },
+            { TreeAdapter.TODO,                 SemanticTokenTypes.Comment },
+            { TreeAdapter.QUOTE,                SemanticTokenTypes.String },
+            { TreeAdapter.META_AMBIGUITY,       SemanticTokenTypes.Event }, // there is no good mapping for this
+            { TreeAdapter.META_VARIABLE,        SemanticTokenTypes.Variable },
+            { TreeAdapter.META_KEYWORD,         SemanticTokenTypes.Keyword },
+            { TreeAdapter.META_SKIPPED,         SemanticTokenTypes.Event }, // there is no good mapping for this
+            { TreeAdapter.NONTERMINAL_LABEL,    SemanticTokenTypes.Variable },
+            { TreeAdapter.RESULT,               SemanticTokenTypes.String},
+            { TreeAdapter.STDOUT,               SemanticTokenTypes.String},
+            { TreeAdapter.STDERR,               SemanticTokenTypes.String},
+            /**
+             * For a while, rascal-lsp was supporting these textmate cateogries as TokenTypes.
+             * That was an incorrect implementation of the feature, see issue #366.
+             *
+             * But to remain backwards compatible, we've tried to map most of them
+             */
+            // The first block is what we minally need to get good highlighting support
+            {"entity.name", SemanticTokenTypes.Class },
+            {"entity.other.inherited-class", SemanticTokenTypes.Class },
+            {"entity.name.section", SemanticTokenTypes.Type },
+            {"entity.name.tag", SemanticTokenTypes.Decorator },
+            {"entity.other.attribute-name", SemanticTokenTypes.Decorator },
+            // {"variable", SemanticTokenTypes.Variable }, // same as LSP
+            {"variable.language", SemanticTokenTypes.Variable },
+            {"variable.parameter", SemanticTokenTypes.Parameter },
+            {"variable.function", SemanticTokenTypes.Function },
+            {"constant", SemanticTokenTypes.Number },
+            {"constant.numeric", SemanticTokenTypes.Number },
+            {"constant.language", SemanticTokenTypes.Keyword },
+            {"constant.character.escape", SemanticTokenTypes.String },
+            {"storage.type", SemanticTokenTypes.Keyword },
+            {"storage.modifier", SemanticTokenTypes.Modifier },
+            {"support", SemanticTokenTypes.Keyword },
+            //{"keyword", SemanticTokenTypes.Keyword }, // same as LPS
+            {"keyword.control", SemanticTokenTypes.Keyword },
+            {"keyword.operator", SemanticTokenTypes.Operator },
+            {"keyword.declaration", SemanticTokenTypes.Keyword },
+            //{"string", SemanticTokenTypes.String },  same LSP
+            {"comment", SemanticTokenTypes.Comment },
+            //{"invalid", null },
+            //{"invalid.deprecated", null },
 
             // this second block is all additional semantic information which
-            // can slightly improve the editing experience, but may also lead
+            // can slightly improve the editing experience, SemanticTokenTypes. }, but may also lead
             // a to X-mas tree
-            "comment.block.documentation",
-            "comment.block",
-            "comment.single",
-            "comment",
-            "constant.character.escape",
-            "constant.language",
-            "constant.numeric.complex.imaginary",
-            "constant.numeric.complex.real",
-            "constant.numeric.complex",
-            "constant.numeric.float.binary",
-            "constant.numeric.float.decimal",
-            "constant.numeric.float.hexadecimal",
-            "constant.numeric.float.octal",
-            "constant.numeric.float.other",
-            "constant.numeric.float",
-            "constant.numeric.integer.binary",
-            "constant.numeric.integer.decimal",
-            "constant.numeric.integer.hexadecimal",
-            "constant.numeric.integer.octal",
-            "constant.numeric.integer.other",
-            "constant.numeric.integer",
-            "constant.numeric",
-            "constant.other.placeholder",
-            "constant.other",
-            "constant",
-            "entity.name.class.forward-decl",
-            "entity.name.class",
-            "entity.name.constant",
-            "entity.name.enum",
-            "entity.name.function.constructor",
-            "entity.name.function.destructor",
-            "entity.name.function",
-            "entity.name.impl",
-            "entity.name.interface",
-            "entity.name.label",
-            "entity.name.namespace",
-            "entity.name.section",
-            "entity.name.struct",
-            "entity.name.tag",
-            "entity.name.trait",
-            "entity.name.type",
-            "entity.name.union",
-            "entity.name",
-            "entity.other.attribute-name",
-            "entity.other.inherited-class",
-            "entity",
-            "invalid.deprecated",
-            "invalid.illegal",
-            "invalid",
-            "keyword.control.conditional",
-            "keyword.control.import",
-            "keyword.control",
-            "keyword.declaration.class",
-            "keyword.declaration.enum",
-            "keyword.declaration.function",
-            "keyword.declaration.impl",
-            "keyword.declaration.interface",
-            "keyword.declaration.struct",
-            "keyword.declaration.trait",
-            "keyword.declaration.type",
-            "keyword.declaration.union",
-            "keyword.declaration",
-            "keyword.operator.arithmetic",
-            "keyword.operator.assignment",
-            "keyword.operator.bitwise",
-            "keyword.operator.logical",
-            "keyword.operator.word",
-            "keyword.operator",
-            "keyword.other",
-            "keyword",
-            "markup.bold",
-            "markup.deleted",
-            "markup.heading",
-            "markup.inserted",
-            "markup.italic",
-            "markup.list.numbered",
-            "markup.list.unnumbered",
-            "markup.other",
-            "markup.quote",
-            "markup.raw.block",
-            "markup.raw.inline",
-            "markup.underline.link",
-            "markup.underline",
-            "markup",
-            "meta.annotation.identifier",
-            "meta.annotation.parameters",
-            "meta.annotation",
-            "meta.block",
-            "meta.braces",
-            "meta.brackets",
-            "meta.class",
-            "meta.enum",
-            "meta.function-call",
-            "meta.function.parameters",
-            "meta.function.return-type",
-            "meta.function",
-            "meta.group",
-            "meta.impl",
-            "meta.interface",
-            "meta.interpolation",
-            "meta.namespace",
-            "meta.paragraph",
-            "meta.parens",
-            "meta.path",
-            "meta.preprocessor",
-            "meta.string",
-            "meta.struct",
-            "meta.tag",
-            "meta.toc-list",
-            "meta.trait",
-            "meta.type",
-            "meta.union",
-            "meta",
-            "punctuation.accessor",
-            "punctuation.definition.annotation",
-            "punctuation.definition.comment",
-            "punctuation.definition.keyword",
-            "punctuation.definition.string.begin",
-            "punctuation.definition.string.end",
-            "punctuation.definition.variable",
-            "punctuation.section.block.begin",
-            "punctuation.section.block.end",
-            "punctuation.section.braces.begin",
-            "punctuation.section.braces.end",
-            "punctuation.section.brackets.begin",
-            "punctuation.section.brackets.end",
-            "punctuation.section.group.begin",
-            "punctuation.section.group.end",
-            "punctuation.section.interpolation.begin",
-            "punctuation.section.interpolation.end",
-            "punctuation.section.parens.begin",
-            "punctuation.section.parens.end",
-            "punctuation.separator.continuation",
-            "punctuation.separator",
-            "punctuation.terminator",
-            "source",
-            "storage.modifier",
-            "storage.type.class",
-            "storage.type.enum",
-            "storage.type.function",
-            "storage.type.impl",
-            "storage.type.interface",
-            "storage.type.struct",
-            "storage.type.trait",
-            "storage.type.union",
-            "storage.type",
-            "storage.type",
-            "string.quoted.double",
-            "string.quoted.other",
-            "string.quoted.single",
-            "string.quoted.triple",
-            "string.regexp",
-            "string.unquoted",
-            "string",
-            "support.class",
-            "support.constant",
-            "support.function",
-            "support.module",
-            "support.type",
-            "text.html",
-            "text.xml",
-            "text",
-            "variable.annotation",
-            "variable.function",
-            "variable.language",
-            "variable.other.constant",
-            "variable.other.member",
-            "variable.other.readwrite",
-            "variable.other",
-            "variable.parameter",
+            {"comment.block.documentation", SemanticTokenTypes.Comment },
+            {"comment.block", SemanticTokenTypes.Comment },
+            {"comment.single", SemanticTokenTypes.Comment },
+            {"comment", SemanticTokenTypes.Comment },
+            {"constant.character.escape", SemanticTokenTypes.String },
+            {"constant.language", SemanticTokenTypes.Keyword },
+            {"constant.numeric.complex.imaginary", SemanticTokenTypes.Number },
+            {"constant.numeric.complex.real", SemanticTokenTypes.Number },
+            {"constant.numeric.complex", SemanticTokenTypes.Number },
+            {"constant.numeric.float.binary", SemanticTokenTypes.Number },
+            {"constant.numeric.float.decimal", SemanticTokenTypes.Number },
+            {"constant.numeric.float.hexadecimal", SemanticTokenTypes.Number },
+            {"constant.numeric.float.octal", SemanticTokenTypes.Number },
+            {"constant.numeric.float.other", SemanticTokenTypes.Number },
+            {"constant.numeric.float", SemanticTokenTypes.Number },
+            {"constant.numeric.integer.binary", SemanticTokenTypes.Number },
+            {"constant.numeric.integer.decimal", SemanticTokenTypes.Number },
+            {"constant.numeric.integer.hexadecimal", SemanticTokenTypes.Number },
+            {"constant.numeric.integer.octal", SemanticTokenTypes.Number },
+            {"constant.numeric.integer.other", SemanticTokenTypes.Number },
+            {"constant.numeric.integer", SemanticTokenTypes.Number },
+            {"constant.numeric", SemanticTokenTypes.Number },
+            {"constant.other.placeholder", SemanticTokenTypes.Number },
+            {"constant.other", SemanticTokenTypes.Number },
+            {"constant", SemanticTokenTypes.Number },
+            {"entity.name.class.forward-decl", SemanticTokenTypes.Class },
+            {"entity.name.class", SemanticTokenTypes.Class },
+            {"entity.name.constant", SemanticTokenTypes.Property },
+            {"entity.name.enum", SemanticTokenTypes.Enum },
+            {"entity.name.function.constructor", SemanticTokenTypes.Function },
+            {"entity.name.function.destructor", SemanticTokenTypes.Function },
+            {"entity.name.function", SemanticTokenTypes.Function },
+            //{"entity.name.impl", null },
+            {"entity.name.interface", SemanticTokenTypes.Interface },
+            {"entity.name.label", SemanticTokenTypes.Variable },
+            {"entity.name.namespace", SemanticTokenTypes.Namespace },
+            {"entity.name.section", SemanticTokenTypes.Type },
+            {"entity.name.struct", SemanticTokenTypes.Struct },
+            {"entity.name.tag", SemanticTokenTypes.Decorator },
+            {"entity.name.trait", SemanticTokenTypes.TypeParameter },
+            {"entity.name.type", SemanticTokenTypes.Type },
+            {"entity.name.union", SemanticTokenTypes.Struct },
+            {"entity.name", SemanticTokenTypes.Type },
+            {"entity.other.attribute-name", SemanticTokenTypes.Decorator },
+            {"entity.other.inherited-class", SemanticTokenTypes.Class },
+            {"entity", SemanticTokenTypes.Type },
+            //{"invalid.deprecated", null },
+            //{"invalid.illegal", null },
+            //{"invalid", null },
+            {"keyword.control.conditional", SemanticTokenTypes.Keyword },
+            {"keyword.control.import", SemanticTokenTypes.Keyword },
+            {"keyword.control", SemanticTokenTypes.Keyword },
+            {"keyword.declaration.class", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.enum", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.function", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.impl", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.interface", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.struct", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.trait", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.type", SemanticTokenTypes.Modifier },
+            {"keyword.declaration.union", SemanticTokenTypes.Modifier },
+            {"keyword.declaration", SemanticTokenTypes.Modifier },
+            {"keyword.operator.arithmetic", SemanticTokenTypes.Operator },
+            {"keyword.operator.assignment", SemanticTokenTypes.Operator },
+            {"keyword.operator.bitwise", SemanticTokenTypes.Operator },
+            {"keyword.operator.logical", SemanticTokenTypes.Operator },
+            {"keyword.operator.word", SemanticTokenTypes.Operator },
+            {"keyword.operator", SemanticTokenTypes.Operator },
+            {"keyword.other", SemanticTokenTypes.Keyword },
+            {"keyword", SemanticTokenTypes.Keyword },
+            // {"markup.bold", null },
+            // {"markup.deleted", null },
+            // {"markup.heading", null },
+            // {"markup.inserted", null },
+            // {"markup.italic", null },
+            // {"markup.list.numbered", null },
+            // {"markup.list.unnumbered", null },
+            // {"markup.other", null },
+            // {"markup.quote", null },
+            // {"markup.raw.block", null },
+            // {"markup.raw.inline", null },
+            // {"markup.underline.link", null },
+            // {"markup.underline", null },
+            // {"markup", null },
+            // most meta are overlying scopes, but Semantic Tokens are not allowed to be overlapping
+            // {"meta.annotation.identifier", SemanticTokenTypes.Decorator },
+            // {"meta.annotation.parameters", SemanticTokenTypes.Parameter },
+            // {"meta.annotation", SemanticTokenTypes.Decorator },
+            // {"meta.block", null },
+            // {"meta.braces", null },
+            // {"meta.brackets", null },
+            // {"meta.class", null },
+            // {"meta.enum", null },
+            // {"meta.function-call", null },
+            // {"meta.function.parameters", null },
+            // {"meta.function.return-type", null },
+            // {"meta.function", null },
+            // {"meta.group", null },
+            // {"meta.impl", null },
+            // {"meta.interface", null },
+            // {"meta.interpolation", null },
+            // {"meta.namespace", null },
+            // {"meta.paragraph", null },
+            // {"meta.parens", null },
+            // {"meta.path", null },
+            // {"meta.preprocessor", null },
+            // {"meta.string", null },
+            // {"meta.struct", null },
+            // {"meta.tag", null },
+            // {"meta.toc-list", null },
+            // {"meta.trait", null },
+            // {"meta.type", null },
+            // {"meta.union", null },
+            // {"meta", null },
+            // NO support for punctuation
+            // {"punctuation.accessor", null },
+            // {"punctuation.definition.annotation", null },
+            // {"punctuation.definition.comment", null },
+            // {"punctuation.definition.keyword", null },
+            // {"punctuation.definition.string.begin", null },
+            // {"punctuation.definition.string.end", null },
+            // {"punctuation.definition.variable", null },
+            // {"punctuation.section.block.begin", null },
+            // {"punctuation.section.block.end", null },
+            // {"punctuation.section.braces.begin", null },
+            // {"punctuation.section.braces.end", null },
+            // {"punctuation.section.brackets.begin", null },
+            // {"punctuation.section.brackets.end", null },
+            // {"punctuation.section.group.begin", null },
+            // {"punctuation.section.group.end", null },
+            // {"punctuation.section.interpolation.begin", null },
+            // {"punctuation.section.interpolation.end", null },
+            // {"punctuation.section.parens.begin", null },
+            // {"punctuation.section.parens.end", null },
+            // {"punctuation.separator.continuation", null },
+            // {"punctuation.separator", null },
+            // {"punctuation.terminator", null },
+            //{"source", null },
+            {"storage.modifier", SemanticTokenTypes.Modifier },
+            {"storage.type.class", SemanticTokenTypes.Keyword },
+            {"storage.type.enum", SemanticTokenTypes.Keyword },
+            {"storage.type.function", SemanticTokenTypes.Keyword },
+            {"storage.type.impl", SemanticTokenTypes.Keyword },
+            {"storage.type.interface", SemanticTokenTypes.Keyword },
+            {"storage.type.struct", SemanticTokenTypes.Keyword },
+            {"storage.type.trait", SemanticTokenTypes.Keyword },
+            {"storage.type.union", SemanticTokenTypes.Keyword },
+            {"storage.type", SemanticTokenTypes.Keyword },
+            {"string.quoted.double", SemanticTokenTypes.String },
+            {"string.quoted.other", SemanticTokenTypes.String },
+            {"string.quoted.single", SemanticTokenTypes.String },
+            {"string.quoted.triple", SemanticTokenTypes.String },
+            {"string.regexp", SemanticTokenTypes.Regexp },
+            {"string.unquoted", SemanticTokenTypes.String },
+            // {"string", SemanticTokenTypes.String }, // same as LSP
+            {"support.class", SemanticTokenTypes.Class },
+            {"support.constant", SemanticTokenTypes.Keyword },
+            {"support.function", SemanticTokenTypes.Function },
+            {"support.module", SemanticTokenTypes.Namespace },
+            {"support.type", SemanticTokenTypes.Type },
+            {"text.html", SemanticTokenTypes.String },
+            {"text.xml", SemanticTokenTypes.String },
+            {"text", SemanticTokenTypes.String },
+            {"variable.annotation", SemanticTokenTypes.Variable },
+            {"variable.function", SemanticTokenTypes.Variable },
+            {"variable.language", SemanticTokenTypes.Keyword },
+            {"variable.other.constant", SemanticTokenTypes.Variable },
+            {"variable.other.member", SemanticTokenTypes.Variable },
+            {"variable.other.readwrite", SemanticTokenTypes.Variable },
+            {"variable.other", SemanticTokenTypes.Variable },
+            {"variable.parameter", SemanticTokenTypes.Parameter },
         };
 
+        private static String[] getPublicStaticFieldValues(Class<?> cls) {
+            return Arrays.stream(SemanticTokenTypes.class.getFields())
+                .filter(f -> f.getType() == String.class && Modifier.isStatic(f.getModifiers()))
+                .map(f -> {
+                    try {
+                        return (String)(f.get(null));
+                    } catch (Throwable e) {
+                        logger.error("We could not get field {} from {}", f, cls, e);
+                        return null;
+                    }
+                })
+                .filter(f -> f != null)
+                .toArray(String[]::new);
+
+        }
+
+
+        private static final String[] actualTokenTypes = getPublicStaticFieldValues(SemanticTokenTypes.class);
+
+        private static final String[] actualTokenModifiers = getPublicStaticFieldValues(SemanticTokenModifiers.class);
+
+
         static {
-            // the cache translates Rascal token types to textmate token indexes
-            for (int i = 0; i < rascalCategories.length; i++) {
-                cache.put(rascalCategories[i][0], indexOf(rascalCategories[i][1], textmateCategories));
+            for (int i = 0; i < actualTokenModifiers.length; i++) {
+                modifierCache.put(actualTokenModifiers[i], 1 << i);
             }
 
-            // and the cache also translates the normal textmate token types to token indexes
-            for (int i = 0; i < textmateCategories.length; i++) {
-                cache.put(textmateCategories[i], i);
+            for (int i = 0; i < actualTokenTypes.length; i++) {
+                tokenCache.put(actualTokenTypes[i], i);
+            }
+
+
+
+            // now map the legacy ones
+            for (String[] mapped: backwardsCompatibleTokenTypes) {
+                Integer ref = tokenCache.get(mapped[1]);
+                if (ref == null) {
+                    logger.error("Invalid mapping of backwards compatible tokens: {} to {}", mapped[0], mapped[1]);
+                    continue;
+                }
+                tokenCache.put(mapped[0], ref);
             }
         }
+
 
         public static List<String> getTokenTypes() {
-            return Arrays.asList(textmateCategories);
+            return Collections.unmodifiableList(Arrays.asList(actualTokenTypes));
         }
 
-        private static Integer indexOf(String needle, String[] haystack) {
-            for (int i = 0; i < haystack.length; i++) {
-                if (needle.equals(haystack[i])) {
-                    return i;
-                }
-            }
-
-            throw new RuntimeException("this should not happen: " + needle + " not found?!?");
-        }
 
         public static List<String> getTokenModifiers() {
-            return Collections.emptyList();
+            return Collections.unmodifiableList(Arrays.asList(actualTokenModifiers));
         }
 
-        public static int tokenTypeForName(String category) {
-            Integer result = cache.get(category);
-
-            return result != null ? result : 0;
+        public static void addTypeAndModifier(List<Integer> result, String category) {
+            int token = -1;
+            int modifier = 0;
+            Integer rawToken = tokenCache.get(category);
+            if (rawToken != null) {
+                token = rawToken;
+            }
+            else {
+                // it's not a bare token, nor a legacy one, so we have to split it up
+                int dot = category.indexOf('.');
+                if (dot > 0) {
+                    String categoryPart = category.substring(0, dot);
+                    Integer nestedToken = tokenCache.get(categoryPart);
+                    if (nestedToken != null) {
+                        token = nestedToken;
+                        // now we can also see if the modifiers are valid
+                        // and add them
+                        modifier = calculateModifiers(category, dot);
+                    }
+                    else {
+                        logger.trace("Skipping over category {} because it was not registered, not was the first part {} of it", category, categoryPart);
+                    }
+                }
+                else {
+                    logger.trace("Skipping over category {} because it was not registered", category);
+                }
+            }
+            result.add(token);
+            result.add(modifier);
         }
+
+
+        private static int calculateModifiers(String category, int dot) {
+            int modifier = 0;
+            dot++;
+            while (dot > 0 && dot < category.length()) {
+                int nextDot = category.indexOf('.', dot);
+                String modifierPart = category.substring(dot, nextDot == -1 ? category.length() : nextDot);
+                Integer flag = tokenCache.get(modifierPart);
+                if (flag != null) {
+                    modifier |= flag;
+                }
+                else {
+                    logger.trace("Skipping modifier {} because it was not registered", modifier);
+                }
+                dot = nextDot + 1;
+            }
+            return modifier;
+        }
+
     }
 
     private static class TokenCollector {
@@ -438,7 +513,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
 
             if (category == null && currentCategory == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
-                category = "keyword.other";
+                category = SemanticTokenTypes.Keyword;
 
                 // unless this is an operator
                 for (IValue child : TreeAdapter.getArgs(arg)) {
