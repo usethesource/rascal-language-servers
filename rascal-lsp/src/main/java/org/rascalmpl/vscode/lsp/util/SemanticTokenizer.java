@@ -134,14 +134,14 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.TYPE,                 SemanticTokenTypes.Type},
             { TreeAdapter.IDENTIFIER,           SemanticTokenTypes.Variable},
             { TreeAdapter.VARIABLE,             SemanticTokenTypes.Variable },
-            { TreeAdapter.CONSTANT,             SemanticTokenTypes.Number }, // it's a choice between number and string, both are wrong
+            { TreeAdapter.CONSTANT,             SemanticTokenTypes.String }, // it's a choice between number and string, both are wrong
             { TreeAdapter.COMMENT,              SemanticTokenTypes.Comment },
             { TreeAdapter.TODO,                 SemanticTokenTypes.Comment },
             { TreeAdapter.QUOTE,                SemanticTokenTypes.String },
             { TreeAdapter.META_AMBIGUITY,       SemanticTokenTypes.Event }, // there is no good mapping for this
             { TreeAdapter.META_VARIABLE,        SemanticTokenTypes.Variable },
             { TreeAdapter.META_KEYWORD,         SemanticTokenTypes.Keyword },
-            { TreeAdapter.META_SKIPPED,         SemanticTokenTypes.Event }, // there is no good mapping for this
+            { TreeAdapter.META_SKIPPED,         SemanticTokenTypes.String },
             { TreeAdapter.NONTERMINAL_LABEL,    SemanticTokenTypes.Variable },
             { TreeAdapter.RESULT,               SemanticTokenTypes.String},
             { TreeAdapter.STDOUT,               SemanticTokenTypes.String},
@@ -411,18 +411,18 @@ public class SemanticTokenizer implements ISemanticTokens {
         public static void addTypeAndModifier(List<Integer> result, String category) {
             int token = -1;
             int modifier = 0;
-            Integer rawToken = tokenCache.get(category);
-            if (rawToken != null) {
-                token = rawToken;
+            Integer rawCategory = tokenCache.get(category);
+            if (rawCategory != null) {
+                token = rawCategory;
             }
             else {
-                // it's not a bare token, nor a legacy one, so we have to split it up
+                // it's not a bare category, nor a legacy one, so we have to split it up
                 int dot = category.indexOf('.');
                 if (dot > 0) {
                     String categoryPart = category.substring(0, dot);
-                    Integer nestedToken = tokenCache.get(categoryPart);
-                    if (nestedToken != null) {
-                        token = nestedToken;
+                    Integer nestedCategory = tokenCache.get(categoryPart);
+                    if (nestedCategory != null) {
+                        token = nestedCategory;
                         // now we can also see if the modifiers are valid
                         // and add them
                         modifier = calculateModifiers(category, dot);
