@@ -91,7 +91,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
             requests,
             TokenTypes.getTokenTypes(),
-            TokenTypes.getTokenModifiers(),
+            Collections.emptyList(),
             Collections.emptyList());
 
         cps.setMultilineTokenSupport(true);
@@ -109,12 +109,14 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
-            if (category != null) {
+            int tokenCategory = category == null ? -1 : TokenTypes.getTokenModifiers(category);
+            if (tokenCategory != -1) {
                 // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
                 theList.add(startLine - previousLine);
                 theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
                 theList.add(length);
-                TokenTypes.addTypeAndModifier(theList, category);
+                theList.add(tokenCategory);
+                theList.add(0); // no support for modifiers yet
                 previousLine = startLine;
                 previousStart = startColumn;
             }
@@ -122,8 +124,7 @@ public class SemanticTokenizer implements ISemanticTokens {
     }
 
     private static class TokenTypes {
-        private static final Map<String, Integer> tokenCache = new HashMap<>();
-        private static final Map<String, Integer> modifierCache = new HashMap<>();
+        private static final Map<String, Integer> cache = new HashMap<>();
 
         private static String[][] backwardsCompatibleTokenTypes = new String[][] {
             /**
@@ -371,30 +372,26 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
 
+
+
         private static final String[] actualTokenTypes = getPublicStaticFieldValues(SemanticTokenTypes.class);
 
-        private static final String[] actualTokenModifiers = getPublicStaticFieldValues(SemanticTokenModifiers.class);
-
-
         static {
-            for (int i = 0; i < actualTokenModifiers.length; i++) {
-                modifierCache.put(actualTokenModifiers[i], 1 << i);
-            }
 
             for (int i = 0; i < actualTokenTypes.length; i++) {
-                tokenCache.put(actualTokenTypes[i], i);
+                cache.put(actualTokenTypes[i], i);
             }
 
 
 
             // now map the legacy ones
             for (String[] mapped: backwardsCompatibleTokenTypes) {
-                Integer ref = tokenCache.get(mapped[1]);
+                Integer ref = cache.get(mapped[1]);
                 if (ref == null) {
                     logger.error("Invalid mapping of backwards compatible tokens: {} to {}", mapped[0], mapped[1]);
                     continue;
                 }
-                tokenCache.put(mapped[0], ref);
+                cache.put(mapped[0], ref);
             }
         }
 
@@ -405,57 +402,12 @@ public class SemanticTokenizer implements ISemanticTokens {
 
 
         public static List<String> getTokenModifiers() {
-            return Collections.unmodifiableList(Arrays.asList(actualTokenModifiers));
+            return Collections.emptyList();
         }
 
-        public static void addTypeAndModifier(List<Integer> result, String category) {
-            int token = -1;
-            int modifier = 0;
-            Integer rawCategory = tokenCache.get(category);
-            if (rawCategory != null) {
-                token = rawCategory;
-            }
-            else {
-                // it's not a bare category, nor a legacy one, so we have to split it up
-                int dot = category.indexOf('.');
-                if (dot > 0) {
-                    String categoryPart = category.substring(0, dot);
-                    Integer nestedCategory = tokenCache.get(categoryPart);
-                    if (nestedCategory != null) {
-                        token = nestedCategory;
-                        // now we can also see if the modifiers are valid
-                        // and add them
-                        modifier = calculateModifiers(category, dot);
-                    }
-                    else {
-                        logger.trace("Skipping over category {} because it was not registered, not was the first part {} of it", category, categoryPart);
-                    }
-                }
-                else {
-                    logger.trace("Skipping over category {} because it was not registered", category);
-                }
-            }
-            result.add(token);
-            result.add(modifier);
-        }
-
-
-        private static int calculateModifiers(String category, int dot) {
-            int modifier = 0;
-            dot++;
-            while (dot > 0 && dot < category.length()) {
-                int nextDot = category.indexOf('.', dot);
-                String modifierPart = category.substring(dot, nextDot == -1 ? category.length() : nextDot);
-                Integer flag = tokenCache.get(modifierPart);
-                if (flag != null) {
-                    modifier |= flag;
-                }
-                else {
-                    logger.trace("Skipping modifier {} because it was not registered", modifier);
-                }
-                dot = nextDot + 1;
-            }
-            return modifier;
+        public static int getTokenModifiers(@Nullable String category) {
+            Integer result = cache.get(category);
+            return result == null ? -1 : result;
         }
 
     }
