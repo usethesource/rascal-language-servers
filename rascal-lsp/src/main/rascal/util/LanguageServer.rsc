@@ -63,6 +63,14 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
     = language(pcfg, name, {extension}, mainModule, mainFunction);
 
 @synopsis{Function profile for parser contributions to a language server}
+@description{
+    The parser function takes care of parsing the tree once after every change in the IDE.
+    This parse tree is then used for both syntax highlighting and other language server functions.
+}
+@pitfalls {
+    * use ((function::ParseTree::parser)) instead of writing your own function to ensure syntax highlighting is fast
+    * when customizing token type categories, do not use textmate scopes, but use [LSP's token types](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokenTypes)
+}
 alias Parser           = Tree (str /*input*/, loc /*origin*/);
 
 @synopsis{Function profile for summarizer contributions to a language server}
