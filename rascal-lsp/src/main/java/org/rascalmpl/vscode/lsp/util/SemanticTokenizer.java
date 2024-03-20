@@ -180,7 +180,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             //{"invalid.deprecated", null },
 
             // this second block is all additional semantic information which
-            // can slightly improve the editing experience, SemanticTokenTypes. }, but may also lead
+            // can slightly improve the editing experience, but may also lead
             // a to X-mas tree
             {"comment.block.documentation", SemanticTokenTypes.Comment },
             {"comment.block", SemanticTokenTypes.Comment },
