@@ -109,7 +109,7 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
-            int tokenCategory = category == null ? -1 : TokenTypes.getTokenModifiers(category);
+            int tokenCategory = category == null ? -1 : TokenTypes.tokenTypeForName(category);
             if (tokenCategory != -1) {
                 // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
                 theList.add(startLine - previousLine);
@@ -405,9 +405,9 @@ public class SemanticTokenizer implements ISemanticTokens {
             return Collections.emptyList();
         }
 
-        public static int getTokenModifiers(@Nullable String category) {
+        public static int tokenTypeForName(@Nullable String category) {
             Integer result = cache.get(category);
-            return result == null ? -1 : result;
+            return result != null ? result : -1;
         }
 
     }
