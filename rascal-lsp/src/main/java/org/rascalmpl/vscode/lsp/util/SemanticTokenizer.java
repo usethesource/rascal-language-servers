@@ -33,14 +33,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.SemanticTokenModifiers;
 import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
@@ -287,7 +285,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 .map(f -> {
                     try {
                         return (String)(f.get(null));
-                    } catch (Throwable e) {
+                    } catch (ReflectiveOperationException | RuntimeException e) {
                         logger.error("We could not get field {} from {}", f, cls, e);
                         return null;
                     }
