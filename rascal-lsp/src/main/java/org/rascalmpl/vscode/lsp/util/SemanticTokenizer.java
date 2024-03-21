@@ -33,6 +33,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -126,6 +129,9 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenTypes {
         private static final Map<String, Integer> cache = new HashMap<>();
 
+        /** Rascal extension to LSP categories, these require custom definitions in clients to work properly, so avoid them if possible */
+        public static final String AMBIGUITY = "ambiguity";
+
         private static String[][] backwardsCompatibleTokenTypes = new String[][] {
             /**
              * The Rascal legacy token types are translated to
@@ -139,7 +145,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.COMMENT,              SemanticTokenTypes.Comment },
             { TreeAdapter.TODO,                 SemanticTokenTypes.Comment },
             { TreeAdapter.QUOTE,                SemanticTokenTypes.String },
-            { TreeAdapter.META_AMBIGUITY,       SemanticTokenTypes.Event }, // there is no good mapping for this
+            { TreeAdapter.META_AMBIGUITY,       AMBIGUITY }, // rascal extension
             { TreeAdapter.META_VARIABLE,        SemanticTokenTypes.Variable },
             { TreeAdapter.META_KEYWORD,         SemanticTokenTypes.Keyword },
             { TreeAdapter.META_SKIPPED,         SemanticTokenTypes.String },
@@ -355,7 +361,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"variable.parameter", SemanticTokenTypes.Parameter },
         };
 
-        private static String[] getPublicStaticFieldValues(Class<?> cls) {
+        private static Stream<String> getPublicStaticFieldValues(Class<?> cls) {
             return Arrays.stream(SemanticTokenTypes.class.getFields())
                 .filter(f -> f.getType() == String.class && Modifier.isStatic(f.getModifiers()))
                 .map(f -> {
@@ -367,19 +373,24 @@ public class SemanticTokenizer implements ISemanticTokens {
                     }
                 })
                 .filter(f -> f != null)
-                .toArray(String[]::new);
-
+                ;
         }
 
 
 
+        private static final String[] rascalExtensions = new String[] {
+            AMBIGUITY
+        };
 
-        private static final String[] actualTokenTypes = getPublicStaticFieldValues(SemanticTokenTypes.class);
+
+        private static final List<String> actualTokenTypes = Stream.concat(
+            getPublicStaticFieldValues(SemanticTokenTypes.class), Arrays.stream(rascalExtensions))
+            .collect(Collectors.toUnmodifiableList());
 
         static {
 
-            for (int i = 0; i < actualTokenTypes.length; i++) {
-                cache.put(actualTokenTypes[i], i);
+            for (int i = 0; i < actualTokenTypes.size(); i++) {
+                cache.put(actualTokenTypes.get(i), i);
             }
 
 
@@ -397,7 +408,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
 
         public static List<String> getTokenTypes() {
-            return Collections.unmodifiableList(Arrays.asList(actualTokenTypes));
+            return actualTokenTypes;
         }
 
 
@@ -480,7 +491,10 @@ public class SemanticTokenizer implements ISemanticTokens {
             for (IValue child : TreeAdapter.getArgs(arg)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                if (TreeAdapter.isAmb((ITree)child)) {
+                    collect((ITree) child, TokenTypes.AMBIGUITY);
+                }
+                else if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
                         ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
                     collect((ITree) child, null);
                 } else {
@@ -494,9 +508,9 @@ public class SemanticTokenizer implements ISemanticTokens {
                 startLineCurrentToken = line;
                 startColumnCurrentToken = column;
 
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), "MetaAmbiguity");
+                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), TokenTypes.AMBIGUITY);
 
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, "MetaAmbiguity");
+                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, TokenTypes.AMBIGUITY);
             } else {
                 collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), currentCategory);
             }
