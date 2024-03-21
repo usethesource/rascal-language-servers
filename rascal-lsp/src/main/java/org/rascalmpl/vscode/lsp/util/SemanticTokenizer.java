@@ -137,7 +137,6 @@ public class SemanticTokenizer implements ISemanticTokens {
              * The Rascal legacy token types are translated to
              * textmate token types here
              */
-            //{ TreeAdapter.NORMAL,               null },
             { TreeAdapter.TYPE,                 SemanticTokenTypes.Type},
             { TreeAdapter.IDENTIFIER,           SemanticTokenTypes.Variable},
             { TreeAdapter.VARIABLE,             SemanticTokenTypes.Variable },
@@ -145,7 +144,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.COMMENT,              SemanticTokenTypes.Comment },
             { TreeAdapter.TODO,                 SemanticTokenTypes.Comment },
             { TreeAdapter.QUOTE,                SemanticTokenTypes.String },
-            { TreeAdapter.META_AMBIGUITY,       AMBIGUITY }, // rascal extension
+            { TreeAdapter.META_AMBIGUITY,       AMBIGUITY },
             { TreeAdapter.META_VARIABLE,        SemanticTokenTypes.Variable },
             { TreeAdapter.META_KEYWORD,         SemanticTokenTypes.Keyword },
             { TreeAdapter.META_SKIPPED,         SemanticTokenTypes.String },
@@ -154,18 +153,17 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.STDOUT,               SemanticTokenTypes.String},
             { TreeAdapter.STDERR,               SemanticTokenTypes.String},
             /**
-             * For a while, rascal-lsp was supporting these textmate cateogries as TokenTypes.
+             * For a while, rascal-lsp was supporting these textmate categories as TokenTypes.
              * That was an incorrect implementation of the feature, see issue #366.
              *
              * But to remain backwards compatible, we've tried to map most of them
              */
-            // The first block is what we minally need to get good highlighting support
+            // The first block is what we minimally need to get good highlighting support
             {"entity.name", SemanticTokenTypes.Class },
             {"entity.other.inherited-class", SemanticTokenTypes.Class },
             {"entity.name.section", SemanticTokenTypes.Type },
             {"entity.name.tag", SemanticTokenTypes.Decorator },
             {"entity.other.attribute-name", SemanticTokenTypes.Decorator },
-            // {"variable", SemanticTokenTypes.Variable }, // same as LSP
             {"variable.language", SemanticTokenTypes.Variable },
             {"variable.parameter", SemanticTokenTypes.Parameter },
             {"variable.function", SemanticTokenTypes.Function },
@@ -176,14 +174,10 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"storage.type", SemanticTokenTypes.Keyword },
             {"storage.modifier", SemanticTokenTypes.Modifier },
             {"support", SemanticTokenTypes.Keyword },
-            //{"keyword", SemanticTokenTypes.Keyword }, // same as LPS
             {"keyword.control", SemanticTokenTypes.Keyword },
             {"keyword.operator", SemanticTokenTypes.Operator },
             {"keyword.declaration", SemanticTokenTypes.Keyword },
-            //{"string", SemanticTokenTypes.String },  same LSP
             {"comment", SemanticTokenTypes.Comment },
-            //{"invalid", null },
-            //{"invalid.deprecated", null },
 
             // this second block is all additional semantic information which
             // can slightly improve the editing experience, but may also lead
@@ -219,7 +213,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"entity.name.function.constructor", SemanticTokenTypes.Function },
             {"entity.name.function.destructor", SemanticTokenTypes.Function },
             {"entity.name.function", SemanticTokenTypes.Function },
-            //{"entity.name.impl", null },
             {"entity.name.interface", SemanticTokenTypes.Interface },
             {"entity.name.label", SemanticTokenTypes.Variable },
             {"entity.name.namespace", SemanticTokenTypes.Namespace },
@@ -233,8 +226,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"entity.other.attribute-name", SemanticTokenTypes.Decorator },
             {"entity.other.inherited-class", SemanticTokenTypes.Class },
             {"entity", SemanticTokenTypes.Type },
-            //{"invalid.deprecated", null },
-            //{"invalid.illegal", null },
             {"keyword.control.conditional", SemanticTokenTypes.Keyword },
             {"keyword.control.import", SemanticTokenTypes.Keyword },
             {"keyword.control", SemanticTokenTypes.Keyword },
@@ -256,74 +247,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"keyword.operator", SemanticTokenTypes.Operator },
             {"keyword.other", SemanticTokenTypes.Keyword },
             {"keyword", SemanticTokenTypes.Keyword },
-            // {"markup.bold", null },
-            // {"markup.deleted", null },
-            // {"markup.heading", null },
-            // {"markup.inserted", null },
-            // {"markup.italic", null },
-            // {"markup.list.numbered", null },
-            // {"markup.list.unnumbered", null },
-            // {"markup.other", null },
-            // {"markup.quote", null },
-            // {"markup.raw.block", null },
-            // {"markup.raw.inline", null },
-            // {"markup.underline.link", null },
-            // {"markup.underline", null },
-            // {"markup", null },
-            // most meta are overlying scopes, but Semantic Tokens are not allowed to be overlapping
-            // {"meta.annotation.identifier", SemanticTokenTypes.Decorator },
-            // {"meta.annotation.parameters", SemanticTokenTypes.Parameter },
-            // {"meta.annotation", SemanticTokenTypes.Decorator },
-            // {"meta.block", null },
-            // {"meta.braces", null },
-            // {"meta.brackets", null },
-            // {"meta.class", null },
-            // {"meta.enum", null },
-            // {"meta.function-call", null },
-            // {"meta.function.parameters", null },
-            // {"meta.function.return-type", null },
-            // {"meta.function", null },
-            // {"meta.group", null },
-            // {"meta.impl", null },
-            // {"meta.interface", null },
-            // {"meta.interpolation", null },
-            // {"meta.namespace", null },
-            // {"meta.paragraph", null },
-            // {"meta.parens", null },
-            // {"meta.path", null },
-            // {"meta.preprocessor", null },
-            // {"meta.string", null },
-            // {"meta.struct", null },
-            // {"meta.tag", null },
-            // {"meta.toc-list", null },
-            // {"meta.trait", null },
-            // {"meta.type", null },
-            // {"meta.union", null },
-            // {"meta", null },
-            // NO support for punctuation
-            // {"punctuation.accessor", null },
-            // {"punctuation.definition.annotation", null },
-            // {"punctuation.definition.comment", null },
-            // {"punctuation.definition.keyword", null },
-            // {"punctuation.definition.string.begin", null },
-            // {"punctuation.definition.string.end", null },
-            // {"punctuation.definition.variable", null },
-            // {"punctuation.section.block.begin", null },
-            // {"punctuation.section.block.end", null },
-            // {"punctuation.section.braces.begin", null },
-            // {"punctuation.section.braces.end", null },
-            // {"punctuation.section.brackets.begin", null },
-            // {"punctuation.section.brackets.end", null },
-            // {"punctuation.section.group.begin", null },
-            // {"punctuation.section.group.end", null },
-            // {"punctuation.section.interpolation.begin", null },
-            // {"punctuation.section.interpolation.end", null },
-            // {"punctuation.section.parens.begin", null },
-            // {"punctuation.section.parens.end", null },
-            // {"punctuation.separator.continuation", null },
-            // {"punctuation.separator", null },
-            // {"punctuation.terminator", null },
-            //{"source", null },
             {"storage.modifier", SemanticTokenTypes.Modifier },
             {"storage.type.class", SemanticTokenTypes.Keyword },
             {"storage.type.enum", SemanticTokenTypes.Keyword },
@@ -340,7 +263,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             {"string.quoted.triple", SemanticTokenTypes.String },
             {"string.regexp", SemanticTokenTypes.Regexp },
             {"string.unquoted", SemanticTokenTypes.String },
-            // {"string", SemanticTokenTypes.String }, // same as LSP
             {"support.class", SemanticTokenTypes.Class },
             {"support.constant", SemanticTokenTypes.Keyword },
             {"support.function", SemanticTokenTypes.Function },
