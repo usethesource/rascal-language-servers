@@ -410,7 +410,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
                 if (TreeAdapter.isAmb((ITree)child)) {
-                    collect((ITree) child, TokenTypes.AMBIGUITY);
+                    collectAmb((ITree) child, category != null ? category : currentCategory);
                 }
                 else if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
                         ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
