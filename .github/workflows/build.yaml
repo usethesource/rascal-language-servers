@@ -55,13 +55,21 @@ jobs:
           path: ./rascal-vscode-extension/uitests
           key: "vscode-${{matrix.os}}"
 
-      - name: "UI test (windows & mac)"
-        shell: bash
-        if: matrix.os != 'buildjet-4vcpu-ubuntu-2204'
+      - name: "UI test (windows)"
+        if: matrix.os == 'windows-latest'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: ${{ matrix.os == 'windows' && '9' || '8' }}
-          _JAVA_OPTIONS: ${{ matrix.os == 'windows' && '-Xmx2G' || '-Xmx4G' }}
+          DELAY_FACTOR: '9'
+          _JAVA_OPTIONS: '-Xmx2G'
+        run: npx extest setup-and-run out\\test\\vscode-suite\\*.test.js --storage uitests
+
+      - name: "UI test (mac)"
+        shell: bash
+        if: matrix.os == 'macos-latest'
+        working-directory: ./rascal-vscode-extension
+        env:
+          DELAY_FACTOR: '8'
+          _JAVA_OPTIONS: '-Xmx4G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
