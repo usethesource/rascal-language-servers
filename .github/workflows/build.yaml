@@ -61,7 +61,7 @@ jobs:
         env:
           DELAY_FACTOR: '9'
           _JAVA_OPTIONS: '-Xmx2G'
-        run: npx extest setup-and-run out\\test\\vscode-suite\\*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (mac)"
         shell: bash
