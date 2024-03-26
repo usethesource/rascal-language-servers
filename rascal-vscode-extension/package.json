@@ -16,7 +16,7 @@
   },
   "version": "0.11.2-head",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.82.0"
   },
   "license": "BSD-2-Clause",
   "repository": {
@@ -194,11 +194,11 @@
   "devDependencies": {
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
-    "@types/node": "16.x",
+    "@types/node": "18.x",
     "@types/node-fetch": "2.x",
     "@types/tar": "6.x",
     "@types/temp": "0.x",
-    "@types/vscode": "1.75.0",
+    "@types/vscode": "1.82.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
@@ -212,7 +212,7 @@
     "temp": "0.x",
     "ts-loader": "9.x",
     "typescript": "5.x",
-    "vscode-extension-tester": "7.x",
+    "vscode-extension-tester": "7.2.x",
     "webpack": "5.x",
     "webpack-cli": "5.x"
   }
