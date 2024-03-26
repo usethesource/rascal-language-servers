@@ -179,9 +179,8 @@ jobs:
         working-directory: rascal-vscode-extension
         run: |
           node src/rewritePackageForNPMPublish.js
-          rm -rf assets/images/ # remove non open source assets
-          # remove non-used jars
-          rm assets/jars/rascal-core.jar  
+          rm -rf assets/images/ 
+          rm assets/jars/rascal-core.jar
           rm assets/jars/typepal.jar
           rm -rf lib/test
           rm -rf src/test

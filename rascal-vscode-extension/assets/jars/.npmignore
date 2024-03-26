@@ -1,0 +1,2 @@
+# since npm 10 the `.gitignore` is respected, even if you explicitally list the files
+# but that can be overriden by the `.npmignore` file being empty again.
