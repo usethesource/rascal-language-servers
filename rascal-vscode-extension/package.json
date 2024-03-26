@@ -138,6 +138,27 @@
         "path": "./syntaxes/parametric.tmGrammar.json"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "rascalmpl",
+        "scopes": {
+          "ambiguity": ["invalid"]
+        }
+      },
+      {
+        "language": "parametric-rascalmpl",
+        "scopes": {
+          "ambiguity": ["invalid"]
+        }
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "ambiguity",
+        "superType": "string",
+        "description": "Rascal ambiguous parts of a parse tree"
+      }
+    ],
   "configuration": {
       "title": "Rascal",
       "properties": {
