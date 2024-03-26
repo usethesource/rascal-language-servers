@@ -52,6 +52,10 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.11.1
+
+* bugfix for syntax highlighting categories
+
 ### 0.11.0
 
 * there is a new "Rascal Configuration" view that shows the resolved dependencies per project xml, and allows you to browse the rascal sources inside of those.
