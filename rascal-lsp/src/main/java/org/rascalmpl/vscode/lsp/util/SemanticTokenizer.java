@@ -56,7 +56,7 @@ import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer implements ISemanticTokens {
 
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
