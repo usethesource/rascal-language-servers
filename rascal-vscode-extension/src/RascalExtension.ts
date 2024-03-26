@@ -203,7 +203,7 @@ export class RascalExtension implements vscode.Disposable {
             // for development mode we always start the terminal with debuging ready to go
             shellArgs.push(
                 '-Xdebug'
-                , '-Xrunjdwp:transport=dt_socket,address=9001,server=y,suspend=n'
+                , '-Xrunjdwp:transport=dt_socket,address=9871,server=y,suspend=n'
             );
         }
         shellArgs.push();
