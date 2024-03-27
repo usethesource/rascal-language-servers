@@ -25,10 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as vscode from 'vscode';
-import {LanguageClient } from 'vscode-languageclient/node';
+import {BaseLanguageClient } from 'vscode-languageclient';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
-    readonly client: LanguageClient;
+    readonly client: BaseLanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly protectedSchemes:string[] = ["file", "http", "https", "unknown"];
@@ -39,7 +39,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
      *
      * @param client to use as a server for the file system provider methods
      */
-    constructor (client:LanguageClient) {
+    constructor (client:BaseLanguageClient) {
         this.client = client;
 
         client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {

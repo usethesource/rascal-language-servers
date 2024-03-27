@@ -27,13 +27,13 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { LanguageClient } from 'vscode-languageclient/node';
+import { BaseLanguageClient } from 'vscode-languageclient';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 export class ParameterizedLanguageServer implements vscode.Disposable {
     private readonly registeredFileExtensions:Map<string, Set<string>> = new Map();
-    private parametricClient: Promise<LanguageClient> | undefined = undefined;
+    private parametricClient: Promise<BaseLanguageClient> | undefined = undefined;
 
     constructor(
         context: vscode.ExtensionContext,
@@ -70,7 +70,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         this.parametricClient?.then(c => c.dispose());
     }
 
-    private activateParametricLanguageClient(): Promise<LanguageClient> {
+    private activateParametricLanguageClient(): Promise<BaseLanguageClient> {
         return activateLanguageClient({
             vfsServer: this.vfsServer,
             language: this.languageId,
@@ -85,7 +85,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
     }
 
 
-    getLanguageClient(): Promise<LanguageClient> {
+    getLanguageClient(): Promise<BaseLanguageClient> {
         if (!this.parametricClient) {
             this.parametricClient = this.activateParametricLanguageClient();
         }

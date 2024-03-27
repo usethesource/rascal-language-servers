@@ -32,7 +32,7 @@ import { DebugAdapterDescriptor, DebugAdapterDescriptorFactory, DebugAdapterExec
 export class RascalDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactory {
 
     createDebugAdapterDescriptor(session: DebugSession, _executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
-        return new DebugAdapterServer(session.configuration.serverPort, "127.0.0.1");
+        return new DebugAdapterServer(session.configuration['serverPort'], "127.0.0.1");
     }
 
 }

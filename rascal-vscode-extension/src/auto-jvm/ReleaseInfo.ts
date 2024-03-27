@@ -56,9 +56,9 @@ export async function readReleaseInfo(path:string) : Promise<ReleaseInfo> {
         const content = await readFile(path, "utf-8");
         const lines = content.split('\n');
         lines.forEach(line => {
-            const keyValue = line.split("=");
-            if(keyValue.length === 2){
-                releaseInfo[keyValue[0].toLowerCase()] = keyValue[1].substring(1, keyValue[1].length-2).trim();
+            const [key, value] = line.split("=");
+            if(key && value){
+                releaseInfo[key.toLowerCase()] = value.substring(1, value.length-2).trim();
             }
         });
     }

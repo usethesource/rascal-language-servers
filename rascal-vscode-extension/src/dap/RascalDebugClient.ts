@@ -37,6 +37,8 @@ export class RascalDebugClient {
     debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
     runningDebugSessionsPorts: Set<number>; // Stores all running debug session server ports
 
+
+
     constructor(){
         this.rascalDescriptorFactory = new RascalDebugAdapterDescriptorFactory();
         this.debugSocketServersPorts = new Map<number, number>();
@@ -53,15 +55,16 @@ export class RascalDebugClient {
         });
 
         debug.onDidStartDebugSession(async (debugsession: DebugSession) => {
-            if(debugsession.configuration.serverPort !== undefined && typeof debugsession.configuration.serverPort === "number"){
-                this.runningDebugSessionsPorts.add(debugsession.configuration.serverPort);
+            const port = getDebugPort(debugsession);
+            if(port !== undefined){
+                this.runningDebugSessionsPorts.add(port);
             }
         });
 
         debug.onDidTerminateDebugSession(async (debugsession: DebugSession) => {
-            if(debugsession.configuration.serverPort !== undefined && typeof debugsession.configuration.serverPort === "number" 
-            && this.runningDebugSessionsPorts.has(debugsession.configuration.serverPort)){
-                this.runningDebugSessionsPorts.delete(debugsession.configuration.serverPort);
+            const port = getDebugPort(debugsession);
+            if(port !== undefined){
+                this.runningDebugSessionsPorts.delete(port);
             }
         });
 
@@ -86,5 +89,14 @@ export class RascalDebugClient {
     isConnectedToDebugServer(serverPort: number){
         return this.runningDebugSessionsPorts.has(serverPort);
     }
+
+}
+
+function getDebugPort(session: DebugSession) {
+    const port = session.configuration['serverPort'];
+    if (port && typeof port === 'number') {
+        return port;
+    }
+    return undefined;
 
 }

@@ -19,6 +19,7 @@
     "vscode": "^1.82.0",
     "node": ">=18"
   },
+  "type": "commonjs",
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
@@ -26,7 +27,7 @@
   },
   "dependencies": {
     "tar": "6.x",
-    "vscode-languageclient": "8.x",
+    "vscode-languageclient": "9.x",
     "yauzl": "3.x"
   },
   "categories": [
@@ -98,34 +99,36 @@
     ],
     "breakpoints": [
       {
-          "language": "rascalmpl"
+        "language": "rascalmpl"
       }
     ],
     "debuggers": [
       {
-          "languages": ["rascalmpl"],
-          "type": "rascalmpl",
-          "label": "Rascal debugger",
-          "initialConfigurations": [
-              {
-                  "type": "rascalmpl",
-                  "request": "attach",
-                  "name": "Rascal debugger"
-              }
-          ],
-          "configurationSnippets": [
-              {
-                  "label": "Rascal debugger",
-                  "description": "Rascal debugger",
-                  "body": {
-                    "type": "rascalmpl",
-                    "request": "attach",
-                    "name": "Rascal debugger"
-                }
-              }
-          ]
+        "languages": [
+          "rascalmpl"
+        ],
+        "type": "rascalmpl",
+        "label": "Rascal debugger",
+        "initialConfigurations": [
+          {
+            "type": "rascalmpl",
+            "request": "attach",
+            "name": "Rascal debugger"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Rascal debugger",
+            "description": "Rascal debugger",
+            "body": {
+              "type": "rascalmpl",
+              "request": "attach",
+              "name": "Rascal debugger"
+            }
+          }
+        ]
       }
-  ],
+    ],
     "grammars": [
       {
         "language": "rascalmpl",
@@ -142,13 +145,17 @@
       {
         "language": "rascalmpl",
         "scopes": {
-          "ambiguity": ["invalid"]
+          "ambiguity": [
+            "invalid"
+          ]
         }
       },
       {
         "language": "parametric-rascalmpl",
         "scopes": {
-          "ambiguity": ["invalid"]
+          "ambiguity": [
+            "invalid"
+          ]
         }
       }
     ],
@@ -159,16 +166,22 @@
         "description": "Rascal ambiguous parts of a parse tree"
       }
     ],
-  "configuration": {
+    "configuration": {
       "title": "Rascal",
       "properties": {
         "rascal.interpreter.maxHeapSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
@@ -192,6 +205,8 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
+    "@tsconfig/node18": "^18.2.4",
+    "@tsconfig/strictest": "^2.0.5",
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
     "@types/node": "18.x",

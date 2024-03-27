@@ -33,7 +33,6 @@ import {promisify} from 'util';
 import * as fs from 'fs';
 import { mkdir } from 'fs/promises';
 import * as yauzl from 'yauzl';
-import { buffer } from 'stream/consumers';
 
 type ProgressFunc = (percIncrement: number, message: string) => void;
 
@@ -177,10 +176,21 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
         throw new Error("Adoptium returned no releases");
     }
     const rel =releases.versions[0];
+    if (!rel) {
+        throw new Error("Missing versions in api result" + rel);
+    }
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
     }
     return `jdk-${rel.openjdk_version}`;
+}
+
+function safeGetGroup(r: RegExpMatchArray, group: number): string {
+    const result = r[group];
+    if (!result) {
+        throw new Error(`unexpected group ${group} missing in ${r}`);
+    }
+    return result;
 }
 
 export async function identifyLatestCorrettoRelease(version: number, arch: TemurinArchitectures, platform: CorrettoPlatforms): Promise<string> {
@@ -192,7 +202,7 @@ export async function identifyLatestCorrettoRelease(version: number, arch: Temur
     if(!match){
         throw new Error(`unexpected response url ${response}`);
     }
-    return match[1];
+    return safeGetGroup(match, 1);
 }
 
 
@@ -206,7 +216,7 @@ export async function identifyLatestMicrofotJDKRelease(version: number, arch: MS
     if(!match){
         throw new Error(`unexpected response url ${response}`);
     }
-    return match[1];
+    return safeGetGroup(match, 1);
 }
 
 export function mapTemuringCorrettoArch(): TemurinArchitectures {
@@ -280,7 +290,7 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
         const size = Number(response.headers.get("Content-Length") || "0");
         pipeline(response.body,
             new Transform({
-                transform: function (chunk, encoding, callback) {
+                transform: function (chunk, _encoding, callback) {
                     progress(100 * (chunk.length / size), "Downloading and extracting tar");
                     this.push(chunk);
                     callback();
@@ -291,7 +301,7 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
                 strip: strip,
                 onentry: e => {
                     if ((detectedRootPath === "" || detectedRootPath === ".") && !e.meta) {
-                        detectedRootPath = e.path.split('/')[strip];
+                        detectedRootPath = e.path.split('/')[strip] ?? detectedRootPath;
                     }
                 }
             }), e => { if (e) { reject(e);}}
@@ -364,7 +374,7 @@ async function fetchUnpackZipInMemory(url: string, subpath: string, mainJVMPath:
             progress(50 / zipFile.entryCount, "Unpacking zip file");
 
             if (detectedRootPath === "" && entry.fileName.includes('/')) {
-                detectedRootPath = entry.fileName.split('/')[0];
+                detectedRootPath = entry.fileName.split('/')[0] ?? detectedRootPath;
             }
             const destFile = path.join(mainJVMPath, entry.fileName);
             await mkdir(path.dirname(destFile), {recursive: true});

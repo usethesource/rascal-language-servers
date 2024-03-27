@@ -107,7 +107,7 @@ export class RascalREPL {
             const lastPrompt = lines.lastIndexOf("rascal>");
             let secondToLastPrompt = -1;
             for (let l = 0; l < lastPrompt; l++) {
-                if (lines[l].startsWith("rascal>")) {
+                if (lines[l]!.startsWith("rascal>")) {
                     secondToLastPrompt = l;
                 }
             }
@@ -191,11 +191,11 @@ export class IDEOperations {
         return this.driver.wait(() => editor.findElement(selector), timeout, message );
     }
 
-    hasWarningSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
+    hasWarningSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-warning")), timeout, message);
     }
 
-    hasErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
+    hasErrorSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message);
     }
 

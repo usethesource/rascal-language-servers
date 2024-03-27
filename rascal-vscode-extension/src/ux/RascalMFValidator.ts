@@ -134,10 +134,10 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
     let hasProjectName = false;
     for (let l = 0; l < mfBody.lineCount; l++) {
         const line = mfBody.lineAt(l);
-        const kvPair = line.text.split(":");
-        if (kvPair.length === 2 && kvPair[0].trim() === "Project-Name") {
+        const [key, value] = line.text.split(":");
+        if (key && value && key.trim() === "Project-Name") {
             hasProjectName = true;
-            const prName = kvPair[1].split("#")[0].trim();
+            const prName = value.split("#")[0]!.trim();
             const offset = line.text.indexOf(prName);
             const targetRange = new vscode.Range(
                 l, offset,
@@ -170,11 +170,10 @@ const commonTypos = new Set<string>(['required-libraries', 'require-library', 'r
 function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
     for (let l = 0; l < mfBody.lineCount; l++) {
         const line = mfBody.lineAt(l);
-        const kvPair = line.text.split(":");
-        if (kvPair.length >= 2) {
-            const key = kvPair[0].trim();
-            if (commonTypos.has(key.toLocaleLowerCase())) {
-                const originalLabel = kvPair[0];
+        const [key, value] = line.text.split(":");
+        if (key && value) {
+            if (commonTypos.has(key.trim().toLocaleLowerCase())) {
+                const originalLabel = value;
                 const diag = new vscode.Diagnostic(
                     new vscode.Range(l, 0, l, originalLabel.length),
                     `"${originalLabel} was not recognized. Did you mean Require-Libraries?`
@@ -192,7 +191,7 @@ export function buildMFChildPath(uri: vscode.Uri) {
 }
 
 class FixMFErrors implements vscode.CodeActionProvider {
-    provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
+    provideCodeActions(document: vscode.TextDocument, _range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
         const result: vscode.CodeAction[] = [];
         for (const diag of context.diagnostics) {
             switch (diag.code) {

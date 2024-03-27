@@ -2,6 +2,8 @@
 
 'use strict';
 
+
+//import * as path from 'path';
 const path = require('path');
 
 //@ts-check
@@ -12,6 +14,9 @@ const extensionConfig = {
   target: 'node',
 	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 
+  stats: {
+    errorDetails: true,
+  },
   entry: './src/extension.ts',  // compile this as start of the application
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -23,7 +28,10 @@ const extensionConfig = {
     // modules added here also need to be added in the .vscodeignore file
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.js'],
+    extensionAlias: {
+      '.js': [ '.ts', '.js']
+    }
   },
   module: {
     rules: [
