@@ -129,7 +129,7 @@ jobs:
         run: |
           npm ci
           npm run license-check
-          npm run compile
+          npm run esbuild
           npm run lint 
           npm run compile-tests
           npm run normalTest
