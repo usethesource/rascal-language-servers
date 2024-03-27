@@ -26,7 +26,6 @@
  */
 import * as os from 'os';
 import * as path from 'path';
-//import fetch, { Response } from 'node-fetch';
 import * as tar from 'tar';
 import {pipeline, Transform} from 'stream';
 import {promisify} from 'util';
@@ -177,7 +176,7 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
     }
     const rel =releases.versions[0];
     if (!rel) {
-        throw new Error("Missing versions in api result" + rel);
+        throw new Error("Missing versions in Adotium result for the JDK downloader" + releases);
     }
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
