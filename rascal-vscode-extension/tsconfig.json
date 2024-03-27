@@ -11,5 +11,6 @@
 		"strict": true,
 		"noImplicitReturns": true,
 		"noFallthroughCasesInSwitch": true,
+		"types": []
 	}
 }

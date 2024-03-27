@@ -26,13 +26,14 @@
  */
 import * as os from 'os';
 import * as path from 'path';
-import fetch, { Response } from 'node-fetch';
+//import fetch, { Response } from 'node-fetch';
 import * as tar from 'tar';
 import {pipeline, Transform} from 'stream';
 import {promisify} from 'util';
 import * as fs from 'fs';
 import { mkdir } from 'fs/promises';
 import * as yauzl from 'yauzl';
+import { buffer } from 'stream/consumers';
 
 type ProgressFunc = (percIncrement: number, message: string) => void;
 
@@ -273,6 +274,7 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
     return new Promise((resolve, reject) => {
         if (!response.body) {
             reject(new Error("Empty body in response"));
+            return;
         }
         let detectedRootPath = "";
         const size = Number(response.headers.get("Content-Length") || "0");
@@ -310,42 +312,35 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
 
 async function streamToBuffer(response: Response, progress: ProgressFunc): Promise<Buffer> {
     const size = Number(response.headers.get("Content-Length") || "0");
-    if (size === 0) {
-        console.log("No content-length found");
-        return new Promise((resolve, reject) => {
-            const data: Buffer[] = [];
-
-            response.body.on('data', (chunk) => {
-                data.push(chunk);
-            });
-
-            response.body.on('end', () => {
-                resolve(Buffer.concat(data));
-            });
-
-            response.body.on('error', (err) => {
-                progress(50, "Downloaded zip");
-                reject(err);
-            });
-        });
+    if (!response.body) {
+        throw new Error("Missing body in responds");
     }
-    return new Promise((resolve, reject) => {
-        const data = Buffer.alloc(size);
-        let written = 0;
-        response.body.on('data', (chunk: Buffer) => {
-            const wrote = chunk.copy(data, written, 0);
+    if (!response.ok) {
+        throw new Error("Response was incorrect: " + response.statusText);
+    }
+    if (size === 0) {
+        try {
+            return Buffer.from(new Uint8Array(await response.arrayBuffer()));
+        }
+        finally {
+            progress(50, "Downloaded zip");
+        }
+    }
+    const body = response.body.getReader();
+    const data = Buffer.alloc(size);
+    let written = 0;
+    while (written < size) {
+        const chunk = await body.read();
+        if (chunk.value) {
+            const wrote = Buffer.from((<Uint8Array>chunk.value)).copy(data, written, 0);
             progress(50 * (wrote / size), "Downloading zip");
             written += wrote;
-        });
-
-        response.body.on('end', () => {
-            resolve(data);
-        });
-
-        response.body.on('error', (err) => {
-            reject(err);
-        });
-    });
+        }
+        if (chunk.done) {
+            break;
+        }
+    }
+    return data;
 }
 
 const zipFromBuffer = promisify<Buffer, yauzl.Options, yauzl.ZipFile | undefined>(yauzl.fromBuffer);

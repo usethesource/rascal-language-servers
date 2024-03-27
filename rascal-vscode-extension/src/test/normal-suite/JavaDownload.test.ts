@@ -106,6 +106,7 @@ describe('JVM Download', function () {
         }
         it(`Linux x64`, testMSOpenJDK(17, "x64", "linux")).timeout(downloadTimeout);
     });
+
     after(() => {
         console.log(tempDir);
         // do the rm in the background, since it might take a while
