@@ -20,7 +20,7 @@ jobs:
         os: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
       fail-fast: true
     env:
-      CODE_VERSION: "1.75.1"
+      CODE_VERSION: "1.82.3"
     runs-on:  ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
