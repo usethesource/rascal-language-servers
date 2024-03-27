@@ -43,8 +43,8 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
         return [conf];
     }
 
-    async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken | undefined): Promise<DebugConfiguration> {
-        
+    async resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, debugConfiguration: DebugConfiguration, token?: CancellationToken | undefined): Promise<DebugConfiguration> {
+
         if(token !== undefined){
             token.onCancellationRequested((e) => {
                 throw Error(e);
@@ -57,7 +57,7 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
             debugConfiguration.request = "attach";
         }
 
-        if (!debugConfiguration.serverPort){
+        if (!debugConfiguration['serverPort']){
             const terminalProcessID = await window.activeTerminal?.processId;
             const port = this.debugClient.getServerPort(terminalProcessID);
             if(port === undefined) {
@@ -66,7 +66,7 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
                 if(this.debugClient.isConnectedToDebugServer(port)){
                     throw Error("This REPL has already a running debug session !");
                 } else {
-                    debugConfiguration.serverPort = port;
+                    debugConfiguration['serverPort'] = port;
                 }
             }
         }

@@ -75,13 +75,13 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     const externalURL = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString();
     const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
     const tabsForThisPanel = allOpenTabs.filter(t => t.input instanceof vscode.TabInputWebview && t.label === externalURL);
-    
+
     await vscode.window.tabGroups.close(tabsForThisPanel);
 
     const panel = vscode.window.createWebviewPanel(
         "text/html",
         title,
-        { 
+        {
             viewColumn: viewColumn,
             preserveFocus: true /* the next editor should appear in the old column */
         },

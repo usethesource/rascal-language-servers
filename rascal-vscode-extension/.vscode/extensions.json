@@ -1,5 +1,8 @@
 {
   // See http://go.microsoft.com/fwlink/?LinkId=827846
   // for the documentation about the extensions.json format
-  "recommendations": ["dbaeumer.vscode-eslint", "amodio.tsl-problem-matcher" /* needed for getting error messages in vscode to show */ ]
+  "recommendations": [
+    "dbaeumer.vscode-eslint",  // for lint messages
+    "connor4312.esbuild-problem-matchers" // esbuild output messages
+  ]
 }

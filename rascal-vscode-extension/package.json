@@ -16,17 +16,18 @@
   },
   "version": "0.11.2-head",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.82.0",
+    "node": ">=18"
   },
+  "type": "commonjs",
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "node-fetch": "2.x",
     "tar": "6.x",
-    "vscode-languageclient": "8.x",
+    "vscode-languageclient": "9.x",
     "yauzl": "3.x"
   },
   "categories": [
@@ -98,34 +99,36 @@
     ],
     "breakpoints": [
       {
-          "language": "rascalmpl"
+        "language": "rascalmpl"
       }
     ],
     "debuggers": [
       {
-          "languages": ["rascalmpl"],
-          "type": "rascalmpl",
-          "label": "Rascal debugger",
-          "initialConfigurations": [
-              {
-                  "type": "rascalmpl",
-                  "request": "attach",
-                  "name": "Rascal debugger"
-              }
-          ],
-          "configurationSnippets": [
-              {
-                  "label": "Rascal debugger",
-                  "description": "Rascal debugger",
-                  "body": {
-                    "type": "rascalmpl",
-                    "request": "attach",
-                    "name": "Rascal debugger"
-                }
-              }
-          ]
+        "languages": [
+          "rascalmpl"
+        ],
+        "type": "rascalmpl",
+        "label": "Rascal debugger",
+        "initialConfigurations": [
+          {
+            "type": "rascalmpl",
+            "request": "attach",
+            "name": "Rascal debugger"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Rascal debugger",
+            "description": "Rascal debugger",
+            "body": {
+              "type": "rascalmpl",
+              "request": "attach",
+              "name": "Rascal debugger"
+            }
+          }
+        ]
       }
-  ],
+    ],
     "grammars": [
       {
         "language": "rascalmpl",
@@ -142,13 +145,17 @@
       {
         "language": "rascalmpl",
         "scopes": {
-          "ambiguity": ["invalid"]
+          "ambiguity": [
+            "invalid"
+          ]
         }
       },
       {
         "language": "parametric-rascalmpl",
         "scopes": {
-          "ambiguity": ["invalid"]
+          "ambiguity": [
+            "invalid"
+          ]
         }
       }
     ],
@@ -159,16 +166,22 @@
         "description": "Rascal ambiguous parts of a parse tree"
       }
     ],
-  "configuration": {
+    "configuration": {
       "title": "Rascal",
       "properties": {
         "rascal.interpreter.maxHeapSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         }
@@ -178,10 +191,11 @@
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "compile": "npx webpack",
+    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "package": "npm run esbuild-base -- --minify",
     "compile-lib": "npx tsc -p . --outDir lib --declaration true",
-    "watch": "npx webpack --watch",
-    "package": "npx webpack --mode production --devtool hidden-source-map",
     "compile-tests": "npx tsc -p . --outDir out",
     "watch-tests": "npx tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -192,28 +206,27 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
+    "@tsconfig/node18": "18.x",
+    "@tsconfig/strictest": "2.x",
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
-    "@types/node": "16.x",
-    "@types/node-fetch": "2.x",
+    "@types/node": "18.x",
     "@types/tar": "6.x",
     "@types/temp": "0.x",
-    "@types/vscode": "1.75.0",
+    "@types/vscode": "1.82.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
+    "esbuild": "0.20.x",
     "eslint": "8.x",
-    "glob": "10.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
     "temp": "0.x",
     "ts-loader": "9.x",
     "typescript": "5.x",
-    "vscode-extension-tester": "7.x",
-    "webpack": "5.x",
-    "webpack-cli": "5.x"
+    "vscode-extension-tester": "7.x"
   }
 }

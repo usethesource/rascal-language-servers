@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { BaseLanguageClient } from 'vscode-languageclient';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
@@ -44,7 +44,7 @@ interface SourceLocation {
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
 
-    constructor (private readonly client: Promise<LanguageClient>) {
+    constructor (private readonly client: Promise<BaseLanguageClient>) {
     }
 
     linkDetector() {

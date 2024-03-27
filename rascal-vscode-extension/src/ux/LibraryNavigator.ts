@@ -27,13 +27,13 @@
 import * as vscode from 'vscode';
 import { buildMFChildPath } from './RascalMFValidator';
 import {posix} from 'path'; // posix path join is always correct, also on windows
-import { LanguageClient } from 'vscode-languageclient/node';
+import { BaseLanguageClient } from 'vscode-languageclient';
 
 export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibNode> {
     private changeEmitter = new vscode.EventEmitter<RascalLibNode | undefined>();
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
-    constructor(private readonly rascalClient: Promise<LanguageClient>) {
+    constructor(private readonly rascalClient: Promise<BaseLanguageClient>) {
         vscode.workspace.onDidChangeWorkspaceFolders(_e => {
             this.changeEmitter.fire(undefined);
         });
@@ -69,7 +69,7 @@ enum PathConfigMode {
     compiler = 1
 }
 class RascalProjectRoot extends RascalLibNode {
-    constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<LanguageClient>) {
+    constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<BaseLanguageClient>) {
         super(name, vscode.TreeItemCollapsibleState.Collapsed, undefined);
         this.id = `$project__${name}`;
         this.iconPath = new vscode.ThemeIcon("outline-view-icon");
@@ -186,7 +186,7 @@ class RascalFSFileEntry extends RascalLibNode {
     }
 }
 
-async function getRascalProjects(rascalClient: Promise<LanguageClient>): Promise<RascalLibNode[]> {
+async function getRascalProjects(rascalClient: Promise<BaseLanguageClient>): Promise<RascalLibNode[]> {
     const result: RascalLibNode[] = [];
     for (const wf of vscode.workspace.workspaceFolders || []) {
         try {

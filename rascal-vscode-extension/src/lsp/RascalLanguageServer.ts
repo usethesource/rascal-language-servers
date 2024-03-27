@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 
-import { LanguageClient } from 'vscode-languageclient/node';
+import { BaseLanguageClient } from 'vscode-languageclient';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
@@ -34,11 +34,11 @@ import { RascalDebugClient } from '../dap/RascalDebugClient';
 
 
 export class RascalLanguageServer implements vscode.Disposable {
-    public readonly rascalClient: Promise<LanguageClient>;
+    public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
 
     constructor(
-        context: vscode.ExtensionContext,
+        _context: vscode.ExtensionContext,
         vfsServer: VSCodeUriResolverServer,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,

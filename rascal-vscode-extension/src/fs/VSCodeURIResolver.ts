@@ -40,8 +40,7 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 /**
  * Rascal side should implement this on the other side of the stream
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-unused-vars
-interface VSCodeResolverClient extends WatchEventReceiver {}
+//interface VSCodeResolverClient extends WatchEventReceiver {}
 
 
 // Rascal's interface reduce to a subset we can support

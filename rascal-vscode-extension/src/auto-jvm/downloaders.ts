@@ -26,7 +26,6 @@
  */
 import * as os from 'os';
 import * as path from 'path';
-import fetch, { Response } from 'node-fetch';
 import * as tar from 'tar';
 import {pipeline, Transform} from 'stream';
 import {promisify} from 'util';
@@ -176,10 +175,21 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
         throw new Error("Adoptium returned no releases");
     }
     const rel =releases.versions[0];
+    if (!rel) {
+        throw new Error("Missing versions in Adotium result for the JDK downloader" + releases);
+    }
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
     }
     return `jdk-${rel.openjdk_version}`;
+}
+
+function safeGetGroup(r: RegExpMatchArray, group: number): string {
+    const result = r[group];
+    if (!result) {
+        throw new Error(`unexpected group ${group} missing in ${r}`);
+    }
+    return result;
 }
 
 export async function identifyLatestCorrettoRelease(version: number, arch: TemurinArchitectures, platform: CorrettoPlatforms): Promise<string> {
@@ -191,7 +201,7 @@ export async function identifyLatestCorrettoRelease(version: number, arch: Temur
     if(!match){
         throw new Error(`unexpected response url ${response}`);
     }
-    return match[1];
+    return safeGetGroup(match, 1);
 }
 
 
@@ -205,7 +215,7 @@ export async function identifyLatestMicrofotJDKRelease(version: number, arch: MS
     if(!match){
         throw new Error(`unexpected response url ${response}`);
     }
-    return match[1];
+    return safeGetGroup(match, 1);
 }
 
 export function mapTemuringCorrettoArch(): TemurinArchitectures {
@@ -273,12 +283,13 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
     return new Promise((resolve, reject) => {
         if (!response.body) {
             reject(new Error("Empty body in response"));
+            return;
         }
         let detectedRootPath = "";
         const size = Number(response.headers.get("Content-Length") || "0");
         pipeline(response.body,
             new Transform({
-                transform: function (chunk, encoding, callback) {
+                transform: function (chunk, _encoding, callback) {
                     progress(100 * (chunk.length / size), "Downloading and extracting tar");
                     this.push(chunk);
                     callback();
@@ -289,7 +300,7 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
                 strip: strip,
                 onentry: e => {
                     if ((detectedRootPath === "" || detectedRootPath === ".") && !e.meta) {
-                        detectedRootPath = e.path.split('/')[strip];
+                        detectedRootPath = e.path.split('/')[strip] ?? detectedRootPath;
                     }
                 }
             }), e => { if (e) { reject(e);}}
@@ -310,42 +321,35 @@ async function fetchUnpackTarGZ(url: string, subpath: string, mainJVMPath: strin
 
 async function streamToBuffer(response: Response, progress: ProgressFunc): Promise<Buffer> {
     const size = Number(response.headers.get("Content-Length") || "0");
-    if (size === 0) {
-        console.log("No content-length found");
-        return new Promise((resolve, reject) => {
-            const data: Buffer[] = [];
-
-            response.body.on('data', (chunk) => {
-                data.push(chunk);
-            });
-
-            response.body.on('end', () => {
-                resolve(Buffer.concat(data));
-            });
-
-            response.body.on('error', (err) => {
-                progress(50, "Downloaded zip");
-                reject(err);
-            });
-        });
+    if (!response.body) {
+        throw new Error("Missing body in responds");
     }
-    return new Promise((resolve, reject) => {
-        const data = Buffer.alloc(size);
-        let written = 0;
-        response.body.on('data', (chunk: Buffer) => {
-            const wrote = chunk.copy(data, written, 0);
+    if (!response.ok) {
+        throw new Error("Response was incorrect: " + response.statusText);
+    }
+    if (size === 0) {
+        try {
+            return Buffer.from(new Uint8Array(await response.arrayBuffer()));
+        }
+        finally {
+            progress(50, "Downloaded zip");
+        }
+    }
+    const body = response.body.getReader();
+    const data = Buffer.alloc(size);
+    let written = 0;
+    while (written < size) {
+        const chunk = await body.read();
+        if (chunk.value) {
+            const wrote = Buffer.from((<Uint8Array>chunk.value)).copy(data, written, 0);
             progress(50 * (wrote / size), "Downloading zip");
             written += wrote;
-        });
-
-        response.body.on('end', () => {
-            resolve(data);
-        });
-
-        response.body.on('error', (err) => {
-            reject(err);
-        });
-    });
+        }
+        if (chunk.done) {
+            break;
+        }
+    }
+    return data;
 }
 
 const zipFromBuffer = promisify<Buffer, yauzl.Options, yauzl.ZipFile | undefined>(yauzl.fromBuffer);
@@ -369,7 +373,7 @@ async function fetchUnpackZipInMemory(url: string, subpath: string, mainJVMPath:
             progress(50 / zipFile.entryCount, "Unpacking zip file");
 
             if (detectedRootPath === "" && entry.fileName.includes('/')) {
-                detectedRootPath = entry.fileName.split('/')[0];
+                detectedRootPath = entry.fileName.split('/')[0] ?? detectedRootPath;
             }
             const destFile = path.join(mainJVMPath, entry.fileName);
             await mkdir(path.dirname(destFile), {recursive: true});

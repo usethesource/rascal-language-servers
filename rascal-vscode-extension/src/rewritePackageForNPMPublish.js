@@ -30,7 +30,7 @@ const fs = require("fs");
  * This file takes the regular package.json and rewrites it so that it's ready for publishing on the npm registry
  */
 
-let packageContents = JSON.parse(fs.readFileSync("package.json"));
+let packageContents = JSON.parse(fs.readFileSync("package.json").toString('utf8'));
 
 // first we remove some VS Code specific
 delete packageContents.contributes;
