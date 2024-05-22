@@ -36,7 +36,7 @@
     <junit.version>5.10.2</junit.version>
     <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
     <log4j2.version>2.23.1</log4j2.version>
-    <lsp4j.version>0.22.0</lsp4j.version>
+    <lsp4j.version>0.23.1</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -259,7 +259,7 @@
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <version>3.5.2</version>
+          <version>3.5.3</version>
           <executions>
               <execution>
                   <phase>package</phase>
@@ -314,7 +314,7 @@
         <!-- check and possible add license header
           run mvn license:format to automatically update all license headers
           and add missing ones -->
-        <version>4.3</version>
+        <version>4.5</version>
         <configuration>
           <headerDefinitions>
             <headerDefinition>rascal_style.xml</headerDefinition>
@@ -385,7 +385,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.11</version>
+          <version>0.8.12</version>
           <executions>
             <execution>
               <id>prepare-agent</id>
