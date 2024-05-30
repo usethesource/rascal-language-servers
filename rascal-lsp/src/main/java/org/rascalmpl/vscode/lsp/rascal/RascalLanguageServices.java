@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Position;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -52,6 +54,7 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -69,6 +72,7 @@ public class RascalLanguageServices {
     private final CompletableFuture<Evaluator> outlineEvaluator;
     private final CompletableFuture<Evaluator> summaryEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
+    private final CompletableFuture<Evaluator> renameEvaluator;
 
     private final ExecutorService exec;
 
@@ -78,6 +82,7 @@ public class RascalLanguageServices {
         outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
         summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
+        renameEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal rename", null, true, "lang::rascal::lsp::Rename");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
@@ -156,6 +161,16 @@ public class RascalLanguageServices {
 
         return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
             VF.list(), exec, false);
+    }
+
+
+    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, String newName, ColumnMaps columns) {
+        var line = cursor.getLine() + 1;
+        var translatedOffset = columns.get(TreeAdapter.getLocation(module)).translateInverseColumn(line, cursor.getCharacter(), false);
+        var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
+
+        return runEvaluator("Rascal rename", renameEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName)),
+            VF.list(), exec, true);
     }
 
 
