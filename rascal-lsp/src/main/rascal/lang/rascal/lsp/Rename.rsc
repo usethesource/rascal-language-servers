@@ -28,13 +28,63 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Rename
 
 import IO;
-import String;
 import ParseTree;
+import Set;
+import String;
+
 import lang::rascal::\syntax::Rascal;
+import lang::rascalcore::check::Summary;
 import analysis::diff::edits::TextEdits;
+
+// For testing
+import util::Reflective;
 
 // TODO Implement
 // Compute the edits for the complete workspace here
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, str newName) {
-    throw "Unsupported: renaming <cursor>";
+list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
+    loc cursorLoc = cursor.src;
+
+    println("Calculating renames from <cursor> to <newName> at <cursorLoc>");
+    println("Workspace folders: <workspaceFolders>");
+
+    loc moduleLoc = m.src.top;
+    str qualifiedModuleName = getModuleName(moduleLoc, pcfg);
+    println("Name of current module: <qualifiedModuleName>");
+    ModuleSummary summary = makeSummary(qualifiedModuleName, pcfg);
+
+    set[loc] defs = getDefinitions(summary, cursorLoc);
+    set[loc] uses = getUses(summary, cursorLoc);
+
+    // TODO Detect shadowing by rename
+
+    println("Definition locations (excluding cursor): <defs>");
+    println("Usage locations      (excluding cursor): <uses>");
+
+    set[loc] useDefs = defs + uses + cursorLoc;
+    set[loc] useDefFiles = {useDef.top | loc useDef <- useDefs};
+    map[loc, set[loc]] useDefsPerFile = (file : {useDef | loc useDef <- useDefs, useDef.top == file} | loc file <- useDefFiles);
+    println("Use/Defs per file: <useDefsPerFile>");
+
+    // TODO If the cursor was a module name, we need to rename a file as well
+
+    // TODO If the cursor was a function call, be sure to rename the definition correctly
+    // It seems that the definition location points to the whole function definition (instead of the name)
+
+    // TODO Check type/alias renames
+
+    list[DocumentEdit] renames = [];
+    list[DocumentEdit] changes = [changed(file, [replace(useDef, newName) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile];
+
+    return changes + renames;
+}
+
+void main() {
+    loc f = |file:///C:/Users/toine/swat/projects/Rascal/rascal-language-servers/rascal-vscode-extension/test-workspace/test-project/src/main/rascal/Main.rsc|;
+    start[Module] m = parseModuleWithSpaces(f);
+    Tree cursor = [n | /FunctionBody b := m.top, /Name n := b, "<n>" == "x"][0];
+    set[loc] workspaceFolders = {};
+
+    list[DocumentEdit] edits = renameRascalSymbol(m, cursor, workspaceFolders, "y");
+
+    println(edits);
 }

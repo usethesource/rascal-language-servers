@@ -121,11 +121,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private final ColumnMaps columns;
     private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
+    private final DocumentChanges docChanges;
 
     public RascalTextDocumentService(ExecutorService exec) {
         this.ownExecuter = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+        this.docChanges = new DocumentChanges(this);
     }
 
     @Override
@@ -279,14 +281,16 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("textDocument/rename: {} at {} to {}", params.getTextDocument(), params.getPosition(), params.getNewName());
 
         TextDocumentState file = getFile(params.getTextDocument());
-        DocumentChanges changes = new DocumentChanges(this);
-        Set<ISourceLocation> workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(Collectors.toSet());
+        Set<ISourceLocation> workspaceFolders = workspaceService.workspaceFolders()
+            .stream()
+            .map(f -> Locations.toLoc(f.getUri()))
+            .collect(Collectors.toSet());
 
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, params.getNewName(), columns).get())
-            .thenApply(c -> new WorkspaceEdit(changes.translateDocumentChanges(c)))
+            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts, params.getNewName(), columns).get())
+            .thenApply(c -> new WorkspaceEdit(docChanges.translateDocumentChanges(c)))
             // TODO This should probably be a generic error handler for any service that might throw errors (see issue #384)
             .exceptionally(ex -> {
                 final String message;
