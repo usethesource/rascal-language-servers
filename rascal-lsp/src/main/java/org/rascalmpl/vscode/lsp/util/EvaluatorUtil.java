@@ -57,6 +57,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -115,23 +116,36 @@ public class EvaluatorUtil {
     private static String formatMessage(Throw e) {
         String message = "";
         IValue thrown = e.getException();
-        if (thrown instanceof IString) {
-            message = ((IString)thrown).getValue();
+        if (thrown instanceof IConstructor) {
+            IConstructor exp = (IConstructor)thrown;
+            if (exp.has("message")) {
+                message = asString(exp.get("message"));
+            }
+            else {
+                message = exp.getName();
+            }
         }
         else {
-            LimitedResultWriter res = new LimitedResultWriter(512);
-            try {
-                new StandardTextWriter(false).write(thrown, res);
-            }
-            catch (/*IO Limit*/ RuntimeException | IOException _ignored) {
-            }
-            message = res.toString();
+            message = asString(thrown);
         }
         return message + "\nat: " + e.getLocation();
     }
 
+    private static String asString(IValue v) {
+        if (v instanceof IString) {
+            return ((IString)v).getValue();
+        }
+        LimitedResultWriter res = new LimitedResultWriter(512);
+        try {
+            new StandardTextWriter(false).write(v, res);
+        }
+        catch (/*IO Limit*/ RuntimeException | IOException _ignored) {
+        }
+        return res.toString();
+    }
+
     private static String formatMessage(StaticError e) {
-        return "Static error in rascal code: " + e.getMessage() + "\nat: " + e.getLocation();
+        return "Static error: " + e.getMessage();
     }
 
     public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, boolean addRascalCore, final String... imports) {
