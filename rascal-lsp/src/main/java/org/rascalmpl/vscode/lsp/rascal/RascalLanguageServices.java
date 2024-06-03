@@ -86,7 +86,7 @@ public class RascalLanguageServices {
             return runEvaluator("Rascal makeSummary", summaryEvaluator, eval -> {
                 IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec, false);
+            }, null, exec);
         } catch (IOException e) {
             logger.error("Error looking up module name from source location {}", occ, e);
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {
@@ -98,7 +98,7 @@ public class RascalLanguageServices {
         Executor exec) {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
             e -> translateCheckResults((IList) e.call("checkAll", folder, pcfg.asConstructor())),
-            Collections.emptyMap(), exec, false);
+            Collections.emptyMap(), exec);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
@@ -126,7 +126,7 @@ public class RascalLanguageServices {
         logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
             e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
-            buildEmptyResult(files), exec, false);
+            buildEmptyResult(files), exec);
     }
 
 
@@ -155,7 +155,7 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
-            VF.list(), exec, false);
+            VF.list(), exec);
     }
 
 

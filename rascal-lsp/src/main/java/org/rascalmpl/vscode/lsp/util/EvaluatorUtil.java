@@ -27,23 +27,27 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.interpreter.staticErrors.StaticError;
+import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
@@ -53,14 +57,15 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.io.StandardTextWriter;
 
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean throwFailure) {
+    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
         return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
@@ -80,34 +85,23 @@ public class EvaluatorUtil {
                         return defaultResult;
                     } finally {
                         actualEval.jobEnd(task, jobSuccess);
-                        actualEval.__setInterrupt(false);
                         runningEvaluator.set(null);
+                        actualEval.__setInterrupt(false);
                     }
                 }
             }
             catch (Throw e) {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
-                // logger.error("Full internal error: ", e);
-                if (throwFailure) {
-                    throw e;
-                }
-                return defaultResult;
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, formatMessage(e), null));
             }
             catch (StaticError e) {
                 logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
-                // logger.error("Full internal error: ", e);
-                if (throwFailure) {
-                    throw e;
-                }
-                return defaultResult;
-            } 
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, formatMessage(e), null));
+            }
             catch (Throwable e) {
                 logger.error("{} failed", task, e);
-                if (throwFailure) {
-                    throw e;
-                }
-                return defaultResult;
+                throw e;
             }
         }, exec), () -> {
             interrupted.set(true);
@@ -116,6 +110,28 @@ public class EvaluatorUtil {
                 actualEval.interrupt();
             }
         });
+    }
+
+    private static String formatMessage(Throw e) {
+        String message = "";
+        IValue thrown = e.getException();
+        if (thrown instanceof IString) {
+            message = ((IString)thrown).getValue();
+        }
+        else {
+            LimitedResultWriter res = new LimitedResultWriter(512);
+            try {
+                new StandardTextWriter(false).write(thrown, res);
+            }
+            catch (/*IO Limit*/ RuntimeException | IOException _ignored) {
+            }
+            message = res.toString();
+        }
+        return message + "\nat: " + e.getLocation();
+    }
+
+    private static String formatMessage(StaticError e) {
+        return "Static error in rascal code: " + e.getMessage() + "\nat: " + e.getLocation();
     }
 
     public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, boolean addRascalCore, final String... imports) {
@@ -161,4 +177,5 @@ public class EvaluatorUtil {
             }
         }, exec);
     }
+
 }
