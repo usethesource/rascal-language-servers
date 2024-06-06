@@ -27,19 +27,34 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::Rename
 
+import Exception;
 import IO;
+import List;
+import Node;
 import ParseTree;
 import Set;
 import String;
 
 import lang::rascal::\syntax::Rascal;
+
+import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::Checker;
+import analysis::typepal::TypePal;
 import lang::rascalcore::check::Summary;
+
 import analysis::diff::edits::TextEdits;
+
+import vis::Text;
 
 // For testing
 import util::Reflective;
 
-// TODO Implement
+data RuntimeException
+    = IllegalRename(loc location, str message)
+    | UnsupportedRename(loc location, str message)
+    | UnexpectedFailure(str message)
+;
+
 // Compute the edits for the complete workspace here
 list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
     loc cursorLoc = cursor.src;
@@ -47,44 +62,120 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     println("Calculating renames from <cursor> to <newName> at <cursorLoc>");
     println("Workspace folders: <workspaceFolders>");
 
-    loc moduleLoc = m.src.top;
-    str qualifiedModuleName = getModuleName(moduleLoc, pcfg);
-    println("Name of current module: <qualifiedModuleName>");
-    ModuleSummary summary = makeSummary(qualifiedModuleName, pcfg);
+    str moduleName = getModuleName(m.src.top, pcfg);
+    ModuleSummary summary = makeSummary(moduleName, pcfg);
 
-    set[loc] defs = getDefinitions(summary, cursorLoc);
+    if (newName in summary.vocabulary) {
+        // This is VERY conservative.
+        // As long as we cannot deduce (from the TModel) whether a rename is type and
+        // semantics preserving, we reject any new name that is already used in the module.
+        throw IllegalRename(cursorLoc, newName);
+    }
+
+    if (summary == moduleSummary()) {
+        throw UnexpectedFailure("No TPL file found for module <moduleName>!");
+    }
+
     set[loc] uses = getUses(summary, cursorLoc);
+    set[loc] defs = ({} | it + getDefinitions(summary, use) | loc use <- uses + cursorLoc);
 
-    // TODO Detect shadowing by rename
+    if (uses == {}) {
+        uses += cursorLoc;
+    } else {
+        defs += cursorLoc;
+    }
 
-    println("Definition locations (excluding cursor): <defs>");
-    println("Usage locations      (excluding cursor): <uses>");
+    // TODO Check if all definitions are user-defined;
+    // i.e. we're not trying to rename something from stdlib or compiled libraries(?)
 
-    set[loc] useDefs = defs + uses + cursorLoc;
-    set[loc] useDefFiles = {useDef.top | loc useDef <- useDefs};
-    map[loc, set[loc]] useDefsPerFile = (file : {useDef | loc useDef <- useDefs, useDef.top == file} | loc file <- useDefFiles);
-    println("Use/Defs per file: <useDefsPerFile>");
+    print("Definition locations ");
+    iprintln(defs);
 
-    // TODO If the cursor was a module name, we need to rename a file as well
+    print("Usage locations ");
+    iprintln(uses);
 
-    // TODO If the cursor was a function call, be sure to rename the definition correctly
-    // It seems that the definition location points to the whole function definition (instead of the name)
+    set[loc] useDefs = uses + defs;
 
-    // TODO Check type/alias renames
+    rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- useDefs};
+    println("Use/Defs per file:");
+    iprintln(toMap(useDefsPerFile));
 
+    list[DocumentEdit] changes = [changed(file, [replace(findNameLocation(m, useDef), newName) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
+
+    // TODO If the cursor was a module name, we need to rename files as well
     list[DocumentEdit] renames = [];
-    list[DocumentEdit] changes = [changed(file, [replace(useDef, newName) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile];
 
-    return changes + renames;
+    list[DocumentEdit] edits = changes + renames;
+
+    println("Edits:");
+    iprintln(edits);
+
+    return edits;
+}
+
+// Workaround to be able to pattern match on the emulated `src` field
+data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
+
+loc findNameLocation(start[Module] m, loc declLoc) {
+    // we want to find the smallest tree of defined non-terminal type with source location `declLoc`
+    visit(m.top) {
+        case t: appl(prod(_, _, _), _, src = declLoc): {
+            return findNameLocation(t);
+        }
+    }
+
+    throw "No declaration at <declLoc> found within module <m>";
+}
+
+loc findNameLocation(Name n) = n.src;
+loc findNameLocation(QualifiedName qn) = (qn.names[-1]).src;
+loc findNameLocation(FunctionDeclaration f) = f.signature.name.src when f.visibility is \private;
+loc findNameLocation(FunctionDeclaration f) {
+    throw UnsupportedRename(f.src, "Renaming public functions is not supported");
+}
+
+default loc findNameLocation(Tree t) {
+    println("Unsupported: cannot find name in <t.src>");
+    print(prettyTree(t));
+    rprintln(t);
+    throw UnsupportedRename(t, "Cannot find name in <t>");
+}
+
+test bool shadowRenameWhatever() {
+    try {
+    renameTextFixture("
+        'int foo = 8;
+        '{
+        '    int bar = 9;
+        '}
+    ");
+    }
+    catch IllegalArgument(_, _): {
+        return true;
+    }
+
+    return false;
 }
 
 void main() {
-    loc f = |file:///C:/Users/toine/swat/projects/Rascal/rascal-language-servers/rascal-vscode-extension/test-workspace/test-project/src/main/rascal/Main.rsc|;
+    PathConfig pcfg = pathConfig(
+        bin=|target://test-project|,
+        libs=[
+            |lib://rascal|,
+            |target://test-lib|],
+        srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|)]);
+
+    // PathConfig pcfg = getDefaultTestingPathConfig();
+    TypePalConfig compilerConfig = rascalTypePalConfig();
+
+    loc f = resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/RenameTest.rsc|);
+
+    // TODO Trigger type checker
+    // list[ModuleMessages] msgs = checkAll(f, compilerConfig);
+
     start[Module] m = parseModuleWithSpaces(f);
     Tree cursor = [n | /FunctionBody b := m.top, /Name n := b, "<n>" == "x"][0];
     set[loc] workspaceFolders = {};
 
-    list[DocumentEdit] edits = renameRascalSymbol(m, cursor, workspaceFolders, "y");
-
-    println(edits);
+    list[DocumentEdit] edits = renameRascalSymbol(m, cursor, workspaceFolders, pcfg, "y");
 }
