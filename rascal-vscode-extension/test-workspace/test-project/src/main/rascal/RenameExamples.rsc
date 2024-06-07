@@ -78,16 +78,16 @@ void examples() { // renaming foo -> bar in all examples
 
     {   // declaration in inner scope becomes use
         // illegal: type-correct but not semantics-preserving
-        int foo = 0;
-        if (bar := 3) {
-            foo = 2 * bar;
+        int foo = 8;
+        if (bar := 9) {
+            temp = 2 * bar;
         }
     }
 
     {   // declaration in outer scope becomes shadowed
         // illegal: type-correct but not semantics-preserving
-        int foo = 0;
-        if (int bar := 3) {
+        int foo = 8;
+        if (int bar := 9) {
             foo = 2 * bar;
         }
     }

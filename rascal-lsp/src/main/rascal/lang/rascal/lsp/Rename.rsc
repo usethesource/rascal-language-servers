@@ -32,22 +32,25 @@ import IO;
 import List;
 import Node;
 import ParseTree;
+import Relation;
 import Set;
 import String;
 
 import lang::rascal::\syntax::Rascal;
-
-import lang::rascalcore::check::BasicRascalConfig;
-import lang::rascalcore::check::Checker;
+// import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::Import;
 import analysis::typepal::TypePal;
-import lang::rascalcore::check::Summary;
+import analysis::typepal::TModel;
 
 import analysis::diff::edits::TextEdits;
 
 import vis::Text;
 
-// For testing
 import util::Reflective;
+
+// Only needed until we move to newer type checker
+// TODO Remove
+import ValueIO;
 
 data RuntimeException
     = IllegalRename(loc location, str message)
@@ -55,35 +58,33 @@ data RuntimeException
     | UnexpectedFailure(str message)
 ;
 
-// Compute the edits for the complete workspace here
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
+private set[loc] getUses(TModel tm, loc def) {
+    return invert(getUseDef(tm))[def];
+}
+
+private set[loc] getDefinitions(TModel tm, loc use) {
+    return getUseDef(tm)[use] ? {};
+}
+
+list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
     loc cursorLoc = cursor.src;
 
     println("Calculating renames from <cursor> to <newName> at <cursorLoc>");
     println("Workspace folders: <workspaceFolders>");
 
-    str moduleName = getModuleName(m.src.top, pcfg);
-    ModuleSummary summary = makeSummary(moduleName, pcfg);
-
-    if (newName in summary.vocabulary) {
+    if (newName in getVocabulary(tm)) {
         // This is VERY conservative.
         // As long as we cannot deduce (from the TModel) whether a rename is type and
         // semantics preserving, we reject any new name that is already used in the module.
         throw IllegalRename(cursorLoc, newName);
     }
 
-    if (summary == moduleSummary()) {
-        throw UnexpectedFailure("No TPL file found for module <moduleName>!");
-    }
-
-    set[loc] uses = getUses(summary, cursorLoc);
-    set[loc] defs = ({} | it + getDefinitions(summary, use) | loc use <- uses + cursorLoc);
-
-    if (uses == {}) {
-        uses += cursorLoc;
-    } else {
+    set[loc] defs = getDefinitions(tm, cursorLoc);
+    if (defs == {}) {
+        // Cursor points at a definition
         defs += cursorLoc;
     }
+    set[loc] uses = ({} | it + getUses(tm, def) | loc def <- defs);
 
     // TODO Check if all definitions are user-defined;
     // i.e. we're not trying to rename something from stdlib or compiled libraries(?)
@@ -107,10 +108,50 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
 
     list[DocumentEdit] edits = changes + renames;
 
-    println("Edits:");
-    iprintln(edits);
-
     return edits;
+}
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+data ModuleStatus =
+    moduleStatus(
+      map[str, list[Message]] messages,
+      PathConfig pathConfig
+   );
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+ModuleStatus newModuleStatus(PathConfig pcfg) = moduleStatus((), pcfg);
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+private tuple[bool, TModel, ModuleStatus] getTModelForModule(str m, ModuleStatus ms) {
+    pcfg = ms.pathConfig;
+    <found, tplLoc> = getTPLReadLoc(m, pcfg);
+    if (!found) {
+        return <found, tmodel(), moduleStatus((), pcfg)>;
+    }
+
+    try {
+        tpl = readBinaryValueFile(#TModel, tplLoc);
+        return <true, tpl, ms>;
+    } catch e: {
+        //ms.status[qualifiedModuleName] ? {} += not_found();
+        return <false, tmodel(modelName=qualifiedModuleName, messages=[error("Cannot read TPL for <qualifiedModuleName>: <e>", tplLoc)]), ms>;
+        //throw IO("Cannot read tpl for <qualifiedModuleName>: <e>");
+    }
+}
+
+// Compute the edits for the complete workspace here
+list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
+    str moduleName = getModuleName(m.src.top, pcfg);
+    ModuleStatus ms = newModuleStatus(pcfg);
+    <success, tm, ms> = getTModelForModule(moduleName, ms);
+    if (!success) {
+        throw UnexpectedFailure(tm.messages[0].msg);
+    }
+
+    return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
 }
 
 // Workaround to be able to pattern match on the emulated `src` field
@@ -139,43 +180,4 @@ default loc findNameLocation(Tree t) {
     print(prettyTree(t));
     rprintln(t);
     throw UnsupportedRename(t, "Cannot find name in <t>");
-}
-
-test bool shadowRenameWhatever() {
-    try {
-    renameTextFixture("
-        'int foo = 8;
-        '{
-        '    int bar = 9;
-        '}
-    ");
-    }
-    catch IllegalArgument(_, _): {
-        return true;
-    }
-
-    return false;
-}
-
-void main() {
-    PathConfig pcfg = pathConfig(
-        bin=|target://test-project|,
-        libs=[
-            |lib://rascal|,
-            |target://test-lib|],
-        srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|)]);
-
-    // PathConfig pcfg = getDefaultTestingPathConfig();
-    TypePalConfig compilerConfig = rascalTypePalConfig();
-
-    loc f = resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/RenameTest.rsc|);
-
-    // TODO Trigger type checker
-    // list[ModuleMessages] msgs = checkAll(f, compilerConfig);
-
-    start[Module] m = parseModuleWithSpaces(f);
-    Tree cursor = [n | /FunctionBody b := m.top, /Name n := b, "<n>" == "x"][0];
-    set[loc] workspaceFolders = {};
-
-    list[DocumentEdit] edits = renameRascalSymbol(m, cursor, workspaceFolders, pcfg, "y");
 }
