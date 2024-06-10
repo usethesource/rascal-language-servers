@@ -12,6 +12,11 @@ import analysis::diff::edits::TextEdits;
 import util::Math;
 import util::Reflective;
 
+test bool freshName() = [] != renameTest("
+    'int foo = 8;
+    'int qux = 10;
+");
+
 test bool shadowVariableInInnerScope() = renameTest("
     'int foo = 8;
     '{
