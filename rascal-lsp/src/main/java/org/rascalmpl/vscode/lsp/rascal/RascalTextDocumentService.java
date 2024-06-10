@@ -291,21 +291,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts, params.getNewName(), columns).get())
             .thenApply(c -> new WorkspaceEdit(docChanges.translateDocumentChanges(c)))
-            // TODO This should probably be a generic error handler for any service that might throw errors (see issue #384)
-            .exceptionally(ex -> {
-                final String message;
-                if (ex.getCause() instanceof Throw) {
-                    // This error comes from Rascal; provide a nice error message to the user
-                    var thrown = (Throw) ex.getCause();
-                    message = String.format("%s at %s", thrown.getException(), thrown.getLocation());
-                } else {
-                    // This error does not come from Rascal; we might want to swallow it
-                    // For now, it might be useful during development
-                    // TODO Remove or handle differently?
-                    message = ex.getMessage();
-                }
-                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
-            })
             ;
     }
 

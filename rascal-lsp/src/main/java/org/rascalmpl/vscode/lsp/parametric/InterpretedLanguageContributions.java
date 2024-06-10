@@ -189,7 +189,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
-                exec, true).get();
+                exec).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.parser = getFunctionFor(contributions, LanguageContributions.PARSER);
             this.outliner = getFunctionFor(contributions, LanguageContributions.OUTLINER);
@@ -443,7 +443,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, false)
+            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec)
         ), exec);
     }
 
@@ -454,7 +454,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return InterruptibleFuture.completedFuture(defaultResult);
                 }
 
-                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, false);
+                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec);
             }),
             exec);
     }
