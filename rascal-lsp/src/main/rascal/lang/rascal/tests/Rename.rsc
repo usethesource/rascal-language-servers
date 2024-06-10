@@ -110,8 +110,38 @@ test bool shadowDeclaration() = [] != renameTest("
     '}
 ");
 
+@expected{IllegalRename}
+test bool doubleVariableAndFunctionDeclaration() = [] != renameTest("
+    'int foo = 8;
+    'void bar() {}
+");
 
+test bool renameToReservedName() {
+    edits = renameTest("int foo = 8;", newName = "int");
 
+    newNames = {name | e <- edits, changed(_, replaces) := e
+                     , r <- replaces, replace(_, name) := r};
+
+    return newNames == {"\\int"};
+}
+
+@expected{IllegalRename}
+test bool renameToUsedReservedName() = [] != renameTest("
+    'int \\int = 0;
+    'int foo = 8;
+", newName = "int");
+
+@expected{IllegalRename}
+test bool newNameIsNonAlphaNumeric() = [] != renameTest("int foo = 8;", newName = "b@r");
+
+@expected{IllegalRename}
+test bool newNameIsNumber() = [] != renameTest("int foo = 8;", newName = "8");
+
+@expected{IllegalRename}
+test bool newNameHasNumericPrefix() = [] != renameTest("int foo = 8;", newName = "8abc");
+
+@expected{IllegalRename}
+test bool newNameIsEscapedInvalid() = [] != renameTest("int foo = 8;", newName = "\\8int");
 //// Fixtures and utility functions
 
 private PathConfig testPathConfig = pathConfig(
