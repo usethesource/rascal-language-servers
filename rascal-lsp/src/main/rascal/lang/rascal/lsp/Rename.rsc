@@ -66,18 +66,38 @@ private set[loc] getDefinitions(TModel tm, loc use) {
     return getUseDef(tm)[use] ? {};
 }
 
+// // queries voor illegal renaming
+// // 1. Is <new-name> already resolvable from a scope where <current-name> is currently used?
+// // 2. Is <new-name> implicitly declared in a scope from where <current-name> can be resolved?
+
+// bool isLegalRename(TModel tm, set[loc] usesOfOldName, str newName) {
+//     for (loc use <- currentUses) {
+//         for (Scope scope <- tm.scopes, isContainedInScope(scope, use)) {
+//             // 1. Is <newName> already reachable in *any* scope where <oldName> is used
+//             // In this case, renaming will lead to changes in name capturing
+//             if (isDeclaredInThisOrParentScope(tm, scope, newName)) {
+//                 return false;
+//             }
+//             if (isDeclaredInThisScope(tm, scope, newName), isDeclaredInThisOrParentScope(tm, scope, use)) {
+//                 return false;
+//             }
+//         }
+//     }
+//     return true;
+// }
+
+// This is VERY conservative.
+// As long as we cannot deduce (from the TModel) whether a rename is type and
+// semantics preserving, we reject any new name that is already used in the module.
+bool isLegalRename(TModel tm, set[loc] usesOfOldName, str newName) {
+    return newName notin getVocabulary(tm);
+}
+
 list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
     loc cursorLoc = cursor.src;
 
     println("Calculating renames from <cursor> to <newName> at <cursorLoc>");
     println("Workspace folders: <workspaceFolders>");
-
-    if (newName in getVocabulary(tm)) {
-        // This is VERY conservative.
-        // As long as we cannot deduce (from the TModel) whether a rename is type and
-        // semantics preserving, we reject any new name that is already used in the module.
-        throw IllegalRename(cursorLoc, newName);
-    }
 
     set[loc] defs = getDefinitions(tm, cursorLoc);
     if (defs == {}) {
@@ -85,6 +105,10 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
         defs += cursorLoc;
     }
     set[loc] uses = ({} | it + getUses(tm, def) | loc def <- defs);
+
+    if (!isLegalRename(tm, uses, newName)) {
+        throw IllegalRename(cursorLoc, newName);
+    }
 
     // TODO Check if all definitions are user-defined;
     // i.e. we're not trying to rename something from stdlib or compiled libraries(?)
