@@ -24,7 +24,7 @@ test bool shadowVariableInInnerScope() = renameTest("
     '}
 ");
 
-test bool shadowParameter() = renameTest("
+test bool shadowParameter() = [] != renameTest("
     'int foo = 8;
     'int f(int bar) {
     '   return bar;
@@ -32,13 +32,13 @@ test bool shadowParameter() = renameTest("
 ");
 
 @expected{IllegalRename}
-test bool implicitVariableDeclarationInSameScopeBecomesUse() = renameTest("
+test bool implicitVariableDeclarationInSameScopeBecomesUse() = [] != renameTest("
     'int foo = 8;
     'bar = 9;
 ");
 
 @expected{IllegalRename}
-test bool implicitVariableDeclarationInInnerScopeBecomesUse() = renameTest("
+test bool implicitVariableDeclarationInInnerScopeBecomesUse() = [] != renameTest("
     'int foo = 8;
     '{
     '   bar = 9;
@@ -46,20 +46,20 @@ test bool implicitVariableDeclarationInInnerScopeBecomesUse() = renameTest("
 ");
 
 @expected{IllegalRename}
-test bool doubleVariableDeclaration() = renameTest("
+test bool doubleVariableDeclaration() = [] != renameTest("
     'int foo = 8;
     'int bar = 9;
 ");
 
 @expected{IllegalRename}
-test bool doubleVariableAndParameterDeclaration() = renameTest("
+test bool doubleVariableAndParameterDeclaration() = [] != renameTest("
     'int f(int foo) {
     '   int bar = 9;
     '   return foo + bar;
     '}
 ");
 
-test bool adjacentScopes() = renameTest("
+test bool adjacentScopes() = [] != renameTest("
     '{
     '   int foo = 8;
     '}
@@ -69,7 +69,7 @@ test bool adjacentScopes() = renameTest("
 ");
 
 @expected{IllegalRename}
-test bool implicitPatterVariableInInnerScopeBecomesUse() = renameTest("
+test bool implicitPatterVariableInInnerScopeBecomesUse() = [] != renameTest("
     'int foo = 8;
     'if (bar := 9) {
     '   temp = 2 * bar;
@@ -77,7 +77,7 @@ test bool implicitPatterVariableInInnerScopeBecomesUse() = renameTest("
 ");
 
 @expected{IllegalRename}
-test bool shadowDeclaration() = renameTest("
+test bool shadowDeclaration() = [] != renameTest("
     'int foo = 8;
     'if (int bar := 9) {
     '   foo = 2 * bar;
