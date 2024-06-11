@@ -30,6 +30,7 @@ module lang::rascal::lsp::Rename
 import Exception;
 import IO;
 import List;
+import Location;
 import Node;
 import ParseTree;
 import Relation;
@@ -66,47 +67,56 @@ private set[loc] getDefinitions(TModel tm, loc use) {
     return getUseDef(tm)[use] ? {};
 }
 
-// // queries voor illegal renaming
-// // 1. Is <new-name> already resolvable from a scope where <current-name> is currently used?
-// // 2. Is <new-name> implicitly declared in a scope from where <current-name> can be resolved?
+bool isLegalName(str name) {
+    try {
+        parse(#Name, name);
+        return true;
+    } catch ParseError: {
+        return false;
+    }
+}
 
-// bool isLegalRename(TModel tm, set[loc] usesOfOldName, str newName) {
-//     for (loc use <- currentUses) {
-//         for (Scope scope <- tm.scopes, isContainedInScope(scope, use)) {
-//             // 1. Is <newName> already reachable in *any* scope where <oldName> is used
-//             // In this case, renaming will lead to changes in name capturing
-//             if (isDeclaredInThisOrParentScope(tm, scope, newName)) {
-//                 return false;
-//             }
-//             if (isDeclaredInThisScope(tm, scope, newName), isDeclaredInThisOrParentScope(tm, scope, use)) {
-//                 return false;
-//             }
-//         }
-//     }
-//     return true;
-// }
+loc findSmallestEnclosingScope(TModel tm, loc l) {
+    return (l.top | isContainedIn(inner, it) && isContainedIn(l, inner) ? inner : it | inner <- tm.scopes);
+}
 
-// This is VERY conservative.
-// As long as we cannot deduce (from the TModel) whether a rename is type and
-// semantics preserving, we reject any new name that is already used in the module.
-bool isLegalRename(TModel tm, set[loc] usesOfOldName, str newName) {
-    return newName notin getVocabulary(tm);
+bool renameCausesDoubleDeclaration(TModel tm, set[loc] useLocs, str newName) {
+    // Is newName already resolvable from a scope where <current-name> is currently used?
+    set[loc] newNameScopes = {def.scope | def <- tm.defines, def.id == newName};
+
+    return any(loc dS <- newNameScopes, loc u <- useLocs, isContainedIn(u, dS));
+}
+
+bool isImplicitDefinition(Define def) = size(def.id) == def.defined.length;
+
+bool renameCausesCapture(TModel tm, start[Module] m, set[loc] currentNameDefLocs, str newName) {
+    // Is newName implicitly declared in a scope from where <current-name> can be resolved?
+    set[loc] currentNameScopes = {tm.definitions[dL].scope | loc dL <- currentNameDefLocs};
+    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(def)};
+
+    return any(loc iD <- newNameImplicitDeclLocs, loc dS <- currentNameScopes, isContainedIn(iD, dS));
+}
+
+bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLocs, str newName) {
+    if (!isLegalName(newName)) return false;
+    if (renameCausesDoubleDeclaration(tm, useLocs, newName)) return false;
+    if (renameCausesCapture(tm, m, defLocs, newName)) return false;
+
+    return true;
 }
 
 list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
     loc cursorLoc = cursor.src;
-
-    println("Calculating renames from <cursor> to <newName> at <cursorLoc>");
-    println("Workspace folders: <workspaceFolders>");
-
     set[loc] defs = getDefinitions(tm, cursorLoc);
+
     if (defs == {}) {
         // Cursor points at a definition
         defs += cursorLoc;
     }
+
     set[loc] uses = ({} | it + getUses(tm, def) | loc def <- defs);
 
-    if (!isLegalRename(tm, uses, newName)) {
+    if (!isLegalRename(tm, m, defs, uses, newName)) {
         throw IllegalRename(cursorLoc, newName);
     }
 

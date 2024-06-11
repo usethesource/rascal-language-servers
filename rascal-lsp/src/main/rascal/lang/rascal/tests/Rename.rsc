@@ -43,7 +43,7 @@ test bool freshName() = [] != renameTest("
     'int qux = 10;
 ");
 
-test bool shadowVariableInInnerScope() = renameTest("
+test bool shadowVariableInInnerScope() = [] != renameTest("
     'int foo = 8;
     '{
     '    int bar = 9;
@@ -95,6 +95,18 @@ test bool adjacentScopes() = [] != renameTest("
 ");
 
 @expected{IllegalRename}
+test bool implicitPatterVariableInSameScopeBecomesUse() = [] != renameTest("
+    'int foo = 8;
+    'bar := 9;
+");
+
+@expected{IllegalRename}
+test bool implicitNestedPatterVariableInSameScopeBecomesUse() = [] != renameTest("
+    'int foo = 8;
+    '\<bar, _\> := \<9, 99\>;
+");
+
+@expected{IllegalRename}
 test bool implicitPatterVariableInInnerScopeBecomesUse() = [] != renameTest("
     'int foo = 8;
     'if (bar := 9) {
@@ -110,7 +122,6 @@ test bool shadowDeclaration() = [] != renameTest("
     '}
 ");
 
-@expected{IllegalRename}
 test bool doubleVariableAndFunctionDeclaration() = [] != renameTest("
     'int foo = 8;
     'void bar() {}
@@ -142,6 +153,9 @@ test bool newNameHasNumericPrefix() = [] != renameTest("int foo = 8;", newName =
 
 @expected{IllegalRename}
 test bool newNameIsEscapedInvalid() = [] != renameTest("int foo = 8;", newName = "\\8int");
+
+
+
 //// Fixtures and utility functions
 
 private PathConfig testPathConfig = pathConfig(
