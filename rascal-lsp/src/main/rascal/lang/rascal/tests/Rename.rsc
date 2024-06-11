@@ -114,6 +114,13 @@ test bool implicitPatterVariableInInnerScopeBecomesUse() = [] != renameTest("
     '}
 ");
 
+test bool explicitPatternVariableInInnerScope() = [] != renameTest("
+    'int foo = 8;
+    'if (int bar := 9) {
+    '   bar = 2 * bar;
+    '}
+");
+
 @expected{IllegalRename}
 test bool shadowDeclaration() = [] != renameTest("
     'int foo = 8;
