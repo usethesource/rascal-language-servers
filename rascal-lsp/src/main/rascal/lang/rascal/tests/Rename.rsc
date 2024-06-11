@@ -122,6 +122,9 @@ test bool shadowDeclaration() = [] != renameTest("
     '}
 ");
 
+// Although this is fine statically, it will cause runtime errors when `bar` is called
+// > A value of type int is not something you can call like a function, a constructor or a closure.
+@expected{IllegalRename}
 test bool doubleVariableAndFunctionDeclaration() = [] != renameTest("
     'int foo = 8;
     'void bar() {}
