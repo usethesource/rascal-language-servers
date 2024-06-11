@@ -71,7 +71,7 @@ bool isLegalName(str name) {
     try {
         parse(#Name, escapeName(name));
         return true;
-    } catch ParseError: {
+    } catch ParseError(_): {
         return false;
     }
 }
