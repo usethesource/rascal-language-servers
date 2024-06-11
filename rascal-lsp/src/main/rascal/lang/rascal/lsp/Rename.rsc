@@ -69,7 +69,7 @@ private set[loc] getDefinitions(TModel tm, loc use) {
 
 bool isLegalName(str name) {
     try {
-        parse(#Name, name);
+        parse(#Name, escapeName(name));
         return true;
     } catch ParseError: {
         return false;
@@ -125,6 +125,8 @@ bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLoc
     return true;
 }
 
+str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
+
 list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
     loc cursorLoc = cursor.src;
     set[loc] defs = getDefinitions(tm, cursorLoc);
@@ -155,7 +157,7 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     println("Use/Defs per file:");
     iprintln(toMap(useDefsPerFile));
 
-    list[DocumentEdit] changes = [changed(file, [replace(findNameLocation(m, useDef), newName) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
+    list[DocumentEdit] changes = [changed(file, [replace(findNameLocation(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
 
     // TODO If the cursor was a module name, we need to rename files as well
     list[DocumentEdit] renames = [];
