@@ -80,27 +80,47 @@ loc findSmallestEnclosingScope(TModel tm, loc l) {
     return (l.top | isContainedIn(inner, it) && isContainedIn(l, inner) ? inner : it | inner <- tm.scopes);
 }
 
-bool renameCausesDoubleDeclaration(TModel tm, set[loc] useLocs, str newName) {
-    // Is newName already resolvable from a scope where <current-name> is currently used?
+bool renameCausesDoubleDeclaration(TModel tm, set[loc] defLocs, set[loc] useLocs, str newName) {
+    // Is newName already resolvable from a scope where <current-name> is currently used or declared?
     set[loc] newNameScopes = {def.scope | def <- tm.defines, def.id == newName};
-
-    return any(loc dS <- newNameScopes, loc u <- useLocs, isContainedIn(u, dS));
+    return any(loc dS <- newNameScopes, loc l <- (useLocs + defLocs), isContainedIn(l, dS));
 }
 
-bool isImplicitDefinition(Define def) = size(def.id) == def.defined.length;
+bool isImplicitDefinition(map[loc, loc] useDef, Define def) = size(def.id) == def.defined.length
+    when def.idRole is variableId
+      && def.defined in useDef; // use of name at implicit declaration loc
+
+bool isImplicitDefinition(map[loc, loc] _, Define def) = size(def.id) == def.defined.length
+    when def.idRole is patternVariableId;
+      // How can we distinguish (explicit) `int bar = 9;` from (implicit) `bar := 0;` and `<bar, _> := <9, 99>;`?
+      // The following condition correctly distuishes the first and second case, but will incorrectly flag the third as being an explicit declaration
+      // !beginsBefore(def.scope, def.defined); // no type in front of name
+      // TODO Fix
+
+default bool isImplicitDefinition(map[loc, loc] _, Define _) = false;
 
 bool renameCausesCapture(TModel tm, start[Module] m, set[loc] currentNameDefLocs, str newName) {
     // Is newName implicitly declared in a scope from where <current-name> can be resolved?
     set[loc] currentNameScopes = {tm.definitions[dL].scope | loc dL <- currentNameDefLocs};
-    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(def)};
+    map[loc, loc] useDef = toMapUnique(tm.useDef);
+    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(useDef, def)};
 
     return any(loc iD <- newNameImplicitDeclLocs, loc dS <- currentNameScopes, isContainedIn(iD, dS));
 }
 
 bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLocs, str newName) {
-    if (!isLegalName(newName)) return false;
-    if (renameCausesDoubleDeclaration(tm, useLocs, newName)) return false;
-    if (renameCausesCapture(tm, m, defLocs, newName)) return false;
+    if (!isLegalName(newName)) {
+        println("Rename rejected: illegal name \'<newName>\'");
+        return false;
+    }
+    if (renameCausesDoubleDeclaration(tm, defLocs, useLocs, newName)) {
+        println("Rename rejected: causes double declaration");
+        return false;
+    }
+    if (renameCausesCapture(tm, m, defLocs, newName)) {
+        println("Rename rejected: causes capture at implicit declaration");
+        return false;
+    }
 
     return true;
 }

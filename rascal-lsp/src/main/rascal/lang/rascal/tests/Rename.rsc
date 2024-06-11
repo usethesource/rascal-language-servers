@@ -46,7 +46,7 @@ test bool freshName() = [] != renameTest("
 test bool shadowVariableInInnerScope() = [] != renameTest("
     'int foo = 8;
     '{
-    '    int bar = 9;
+    '   int bar = 9;
     '}
 ");
 
