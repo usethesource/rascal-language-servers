@@ -86,24 +86,31 @@ bool renameCausesDoubleDeclaration(TModel tm, set[loc] defLocs, set[loc] useLocs
     return any(loc dS <- newNameScopes, loc l <- (useLocs + defLocs), isContainedIn(l, dS));
 }
 
-bool isImplicitDefinition(map[loc, loc] useDef, Define def) = size(def.id) == def.defined.length
-    when def.idRole is variableId
-      && def.defined in useDef; // use of name at implicit declaration loc
+bool isImplicitDefinition(start[Module] _, map[loc, loc] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef; // use of name at implicit declaration loc
 
-bool isImplicitDefinition(map[loc, loc] _, Define def) = size(def.id) == def.defined.length
-    when def.idRole is patternVariableId;
-      // How can we distinguish (explicit) `int bar = 9;` from (implicit) `bar := 0;` and `<bar, _> := <9, 99>;`?
-      // The following condition correctly distuishes the first and second case, but will incorrectly flag the third as being an explicit declaration
-      // !beginsBefore(def.scope, def.defined); // no type in front of name
-      // TODO Fix
+bool isImplicitDefinition(start[Module] m, map[loc, loc] _, Define _: <_, _, _, patternVariableId(), defined, _>) {
+    visit (m) {
+        case qualifiedName(qn): {
+            if (findNameLocation(qn) == defined) return true;
+        }
+        case multiVariable(qn): {
+            if (findNameLocation(qn) == defined) return true;
+        }
+        case variableBecomes(n, _): {
+            if (findNameLocation(n) == defined) return true;
+        }
+    }
 
-default bool isImplicitDefinition(map[loc, loc] _, Define _) = false;
+    return false;
+}
+
+default bool isImplicitDefinition(start[Module] _, map[loc, loc] _, Define _) = false;
 
 bool renameCausesCapture(TModel tm, start[Module] m, set[loc] currentNameDefLocs, str newName) {
     // Is newName implicitly declared in a scope from where <current-name> can be resolved?
     set[loc] currentNameScopes = {tm.definitions[dL].scope | loc dL <- currentNameDefLocs};
     map[loc, loc] useDef = toMapUnique(tm.useDef);
-    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(useDef, def)};
+    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(m, useDef, def)};
 
     return any(loc iD <- newNameImplicitDeclLocs, loc dS <- currentNameScopes, isContainedIn(iD, dS));
 }
