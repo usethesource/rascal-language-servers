@@ -258,11 +258,9 @@ test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8i
 //// Fixtures and utility functions
 
 private PathConfig testPathConfig = pathConfig(
-        bin=|target://test-project|,
-        libs=[
-            |lib://rascal|,
-            |target://test-lib|],
-        srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|)]);
+        bin=|memory://tests/rename/bin|,
+        libs=[|lib://rascal|],
+        srcs=[|memory://tests/rename/src|]);
 
 // Test renaming given the location of a module and rename parameters
 list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName) {
@@ -291,7 +289,7 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     '}";
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
-    loc moduleFileName = resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/<moduleName>.rsc|);
+    loc moduleFileName = |memory://tests/rename/src/<moduleName>.rsc|;
     writeFile(moduleFileName, moduleStr);
     list[DocumentEdit] edits = [];
     try {
