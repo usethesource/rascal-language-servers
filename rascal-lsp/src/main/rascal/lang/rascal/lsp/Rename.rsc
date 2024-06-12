@@ -152,18 +152,8 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     // TODO Check if all definitions are user-defined;
     // i.e. we're not trying to rename something from stdlib or compiled libraries(?)
 
-    print("Definition locations ");
-    iprintln(defs);
-
-    print("Usage locations ");
-    iprintln(uses);
-
     set[loc] useDefs = uses + defs;
-
     rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- useDefs};
-    println("Use/Defs per file:");
-    iprintln(toMap(useDefsPerFile));
-
     list[DocumentEdit] changes = [changed(file, [replace(findNameLocation(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
 
     // TODO If the cursor was a module name, we need to rename files as well

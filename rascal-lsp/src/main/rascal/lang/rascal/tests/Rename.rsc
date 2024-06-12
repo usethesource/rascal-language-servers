@@ -137,6 +137,53 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
     'void bar() {}
 ");
 
+// Although this is fine statically, it will cause runtime errors when `bar` is called
+// > A value of type int is not something you can call like a function, a constructor or a closure.
+@expected{IllegalRename}
+test bool doubleFunctionAndVariableDeclaration() = testRename("
+    'void bar() {}
+    'foo = 8;
+");
+
+@expected{IllegalRename}
+test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
+    'bool bar() = true;
+    'void f() {
+    '   int foo = 0;
+    '}
+");
+
+@expected{IllegalRename}
+test bool doubleParameterDeclaration() = {0, 1} == testRenameOccurrences("
+    'int f(int foo, int bar) {
+    '   return foo;
+    '}
+");
+
+test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
+    'int f(int foo, int baz) {
+    '   return foo;
+    '}
+");
+
+test bool publicFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+    'public int f(int foo) {
+    '   return foo;
+    '}
+");
+
+test bool defaultFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+    'int f(int foo) {
+    '   return foo;
+    '}
+");
+
+test bool privateFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+    'private int f(int foo) {
+    '   return foo;
+    '}
+");
+
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int");
 
@@ -187,14 +234,16 @@ list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str
 
 // Test renaming given a module Tree and rename parameters
 list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName) {
-    Tree cursor = [n | /FunctionBody b := m.top, /Name n := b, "<n>" == oldName][cursorAtOldNameOccurrence];
+    Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
     return renameRascalSymbol(m, cursor, {}, testPathConfig, newName);
 }
 
-tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName) {
+tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "", str imports = "") {
     str moduleName = "TestModule<abs(arbInt())>";
     str moduleStr =
     "module <moduleName>
+    '<decls>
+    '
     'void main() {
     '<stmtsStr>
     '}";
@@ -205,7 +254,7 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     list[DocumentEdit] edits = [];
     try {
         edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
-    } catch RuntimeException e: {
+    } catch e: {
         remove(moduleFileName);
         throw e;
     }
@@ -213,14 +262,14 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     return <edits, moduleFileName>;
 }
 
-list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName) {
-    <edits, l> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "") {
+    <edits, l> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
     remove(l);
     return edits;
 }
 
-set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar") {
-    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
+    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
     start[Module] m = parseModuleWithSpaces(moduleFileName);
     occs = extractRenameOccurrences(m, edits, oldName);
     remove(moduleFileName);
@@ -228,8 +277,8 @@ set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, 
 }
 
 // Test renames that are expected to throw an exception
-bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar") {
-    getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
+    getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName decls=decls);
     return false;
 }
 
