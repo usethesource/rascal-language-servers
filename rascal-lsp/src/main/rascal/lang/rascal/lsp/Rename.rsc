@@ -130,7 +130,21 @@ bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLoc
         return false;
     }
 
+    checkUnsupported(m.src, tm, defLocs);
+
     return true;
+}
+
+void checkUnsupported(loc moduleLoc, TModel tm, set[loc] defLocs) {
+    Maybe[str] isUnsupportedDefinition(Define _: <scope, id, _, functionId(), _, _>) = just("Global function definitions might span multiple modules; unsupported for now.")
+        when moduleLoc == scope; // function is defined in module scope
+    Maybe[str] isUnsupportedDefinition(Define _) = nothing();
+
+    println("Module scope: <moduleLoc>");
+
+    if (loc def <- defLocs, just(msg) := isUnsupportedDefinition(tm.definitions[def])) {
+        throw UnsupportedRename(def, msg);
+    }
 }
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
@@ -140,8 +154,8 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     set[loc] defs = getDefinitions(tm, cursorLoc);
 
     if (defs == {}) {
-        // Cursor points at a definition
-        defs += cursorLoc;
+        // Cursor points at *name* within definition
+        defs += findDeclarationAroundName(m, cursorLoc);
     }
 
     set[loc] uses = ({} | it + getUses(tm, def) | loc def <- defs);
@@ -211,6 +225,19 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
+loc findDeclarationAroundName(start[Module]m, loc nameLoc) {
+    // we want to find the *largest* tree of defined non-terminal type of which the declared name is at nameLoc
+    top-down visit (m.top) {
+        case t: appl(prod(_, _, _), _): {
+            if (just(nameLoc) := locationOfName(t)) {
+                return t.src;
+            }
+        }
+    }
+
+    throw UnexpectedFailure("No declaration found with name at <nameLoc> in module <m>");
+}
+
 loc findNameInDeclaration(start[Module] m, loc declLoc) {
     // we want to find the smallest tree of defined non-terminal type with source location `declLoc`
     visit(m.top) {
@@ -228,10 +255,4 @@ loc findNameInDeclaration(start[Module] m, loc declLoc) {
 Maybe[loc] locationOfName(Name n) = just(n.src);
 Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
 Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
-
-default Maybe[loc] locationOfName(Tree t) {
-    println("Unsupported: cannot find name in <t.src>");
-    print(prettyTree(t));
-    rprintln(t);
-    return nothing();
-}
+default Maybe[loc] locationOfName(Tree t) = nothing();

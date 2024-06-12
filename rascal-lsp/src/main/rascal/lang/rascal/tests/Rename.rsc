@@ -166,6 +166,48 @@ test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
     '}
 ");
 
+test bool nestedPublicFunction() = {0, 1} == testRenameOccurrences("
+    'public int foo(int f) {
+    '   return f;
+    '}
+    'foo(1);
+");
+
+test bool nestedDefaultFunction() = {0, 1} == testRenameOccurrences("
+    'int foo(int f) {
+    '   return f;
+    '}
+    'foo(1);
+");
+
+test bool nestedPrivateFunction() = {0, 1} == testRenameOccurrences("
+    'private int foo(int f) {
+    '   return f;
+    '}
+    'foo(1);
+");
+
+@expected{UnsupportedRename}
+test bool publicFunction() = testRename("foo(1);", decls = "
+    'public int foo(int f) {
+    '   return f;
+    '}
+");
+
+@expected{UnsupportedRename}
+test bool defaultFunction() = testRename("", decls = "
+    'int foo(int f) {
+    '   return f;
+    '}
+");
+
+@expected{UnsupportedRename}
+test bool privateFunction() = testRename("", decls = "
+    'private int foo(int f) {
+    '   return f;
+    '}
+");
+
 test bool publicFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
     'public int f(int foo) {
     '   return foo;
