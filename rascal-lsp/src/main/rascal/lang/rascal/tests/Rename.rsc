@@ -38,19 +38,19 @@ import analysis::diff::edits::TextEdits;
 import util::Math;
 import util::Reflective;
 
-test bool freshName() = [] != renameTest("
+test bool freshName() = {0} == testRenameOccurrences("
     'int foo = 8;
     'int qux = 10;
 ");
 
-test bool shadowVariableInInnerScope() = [] != renameTest("
+test bool shadowVariableInInnerScope() = {0} == testRenameOccurrences("
     'int foo = 8;
     '{
     '   int bar = 9;
     '}
 ");
 
-test bool shadowParameter() = [] != renameTest("
+test bool shadowParameter() = {0} == testRenameOccurrences("
     'int foo = 8;
     'int f(int bar) {
     '   return bar;
@@ -58,13 +58,13 @@ test bool shadowParameter() = [] != renameTest("
 ");
 
 @expected{IllegalRename}
-test bool implicitVariableDeclarationInSameScopeBecomesUse() = [] != renameTest("
+test bool implicitVariableDeclarationInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     'bar = 9;
 ");
 
 @expected{IllegalRename}
-test bool implicitVariableDeclarationInInnerScopeBecomesUse() = [] != renameTest("
+test bool implicitVariableDeclarationInInnerScopeBecomesUse() = testRename("
     'int foo = 8;
     '{
     '   bar = 9;
@@ -72,20 +72,20 @@ test bool implicitVariableDeclarationInInnerScopeBecomesUse() = [] != renameTest
 ");
 
 @expected{IllegalRename}
-test bool doubleVariableDeclaration() = [] != renameTest("
+test bool doubleVariableDeclaration() = testRename("
     'int foo = 8;
     'int bar = 9;
 ");
 
 @expected{IllegalRename}
-test bool doubleVariableAndParameterDeclaration() = [] != renameTest("
+test bool doubleVariableAndParameterDeclaration() = testRename("
     'int f(int foo) {
     '   int bar = 9;
     '   return foo + bar;
     '}
 ");
 
-test bool adjacentScopes() = [] != renameTest("
+test bool adjacentScopes() = {0} == testRenameOccurrences("
     '{
     '   int foo = 8;
     '}
@@ -95,26 +95,26 @@ test bool adjacentScopes() = [] != renameTest("
 ");
 
 @expected{IllegalRename}
-test bool implicitPatterVariableInSameScopeBecomesUse() = [] != renameTest("
+test bool implicitPatterVariableInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     'bar := 9;
 ");
 
 @expected{IllegalRename}
-test bool implicitNestedPatterVariableInSameScopeBecomesUse() = [] != renameTest("
+test bool implicitNestedPatterVariableInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     '\<bar, _\> := \<9, 99\>;
 ");
 
 @expected{IllegalRename}
-test bool implicitPatterVariableInInnerScopeBecomesUse() = [] != renameTest("
+test bool implicitPatterVariableInInnerScopeBecomesUse() = testRename("
     'int foo = 8;
     'if (bar := 9) {
     '   temp = 2 * bar;
     '}
 ");
 
-test bool explicitPatternVariableInInnerScope() = [] != renameTest("
+test bool explicitPatternVariableInInnerScope() =  {0} == testRenameOccurrences("
     'int foo = 8;
     'if (int bar := 9) {
     '   bar = 2 * bar;
@@ -122,7 +122,7 @@ test bool explicitPatternVariableInInnerScope() = [] != renameTest("
 ");
 
 @expected{IllegalRename}
-test bool shadowDeclaration() = [] != renameTest("
+test bool shadowDeclaration() = testRename("
     'int foo = 8;
     'if (int bar := 9) {
     '   foo = 2 * bar;
@@ -132,13 +132,13 @@ test bool shadowDeclaration() = [] != renameTest("
 // Although this is fine statically, it will cause runtime errors when `bar` is called
 // > A value of type int is not something you can call like a function, a constructor or a closure.
 @expected{IllegalRename}
-test bool doubleVariableAndFunctionDeclaration() = [] != renameTest("
+test bool doubleVariableAndFunctionDeclaration() = testRename("
     'int foo = 8;
     'void bar() {}
 ");
 
 test bool renameToReservedName() {
-    edits = renameTest("int foo = 8;", newName = "int");
+    edits = getEdits("int foo = 8;", 0, "foo", "int");
 
     newNames = {name | e <- edits, changed(_, replaces) := e
                      , r <- replaces, replace(_, name) := r};
@@ -147,22 +147,22 @@ test bool renameToReservedName() {
 }
 
 @expected{IllegalRename}
-test bool renameToUsedReservedName() = [] != renameTest("
+test bool renameToUsedReservedName() = testRename("
     'int \\int = 0;
     'int foo = 8;
 ", newName = "int");
 
 @expected{IllegalRename}
-test bool newNameIsNonAlphaNumeric() = [] != renameTest("int foo = 8;", newName = "b@r");
+test bool newNameIsNonAlphaNumeric() = testRename("int foo = 8;", newName = "b@r");
 
 @expected{IllegalRename}
-test bool newNameIsNumber() = [] != renameTest("int foo = 8;", newName = "8");
+test bool newNameIsNumber() = testRename("int foo = 8;", newName = "8");
 
 @expected{IllegalRename}
-test bool newNameHasNumericPrefix() = [] != renameTest("int foo = 8;", newName = "8abc");
+test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc");
 
 @expected{IllegalRename}
-test bool newNameIsEscapedInvalid() = [] != renameTest("int foo = 8;", newName = "\\8int");
+test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
 
 
 
@@ -176,23 +176,22 @@ private PathConfig testPathConfig = pathConfig(
         srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|)]);
 
 // Test renaming given the location of a module and rename parameters
-list[DocumentEdit] renameTest(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName) {
+list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName) {
     loc f = resolveLocation(singleModule);
 
     list[ModuleMessages] modMsgs = checkAll(f, testPathConfig);
     // TODO Check if there are no errors
 
-    return renameTest(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName);
+    return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName);
 }
 
 // Test renaming given a module Tree and rename parameters
-list[DocumentEdit] renameTest(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName) {
+list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName) {
     Tree cursor = [n | /FunctionBody b := m.top, /Name n := b, "<n>" == oldName][cursorAtOldNameOccurrence];
     return renameRascalSymbol(m, cursor, {}, testPathConfig, newName);
 }
 
-// Test renaming given a module as a string and rename parameters
-list[DocumentEdit] renameTest(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar") {
+tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName) {
     str moduleName = "TestModule<abs(arbInt())>";
     str moduleStr =
     "module <moduleName>
@@ -201,24 +200,55 @@ list[DocumentEdit] renameTest(str stmtsStr, int cursorAtOldNameOccurrence = 0, s
     '}";
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
-    loc moduleFileName = |project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/<moduleName>.rsc|;
+    loc moduleFileName = resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/<moduleName>.rsc|);
     writeFile(moduleFileName, moduleStr);
     list[DocumentEdit] edits = [];
     try {
-        edits = renameTest(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
-    } catch bool _: {
-        // A catch block is mandatory, but we do not want to catch anything.
-        // We just want to use `finally` here to clean up regardless if the rename call fails.
-        fail;
-    } finally {
+        edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
+    } catch RuntimeException e: {
         remove(moduleFileName);
+        throw e;
     }
 
+    return <edits, moduleFileName>;
+}
+
+list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName) {
+    <edits, l> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+    remove(l);
     return edits;
 }
 
+set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar") {
+    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+    start[Module] m = parseModuleWithSpaces(moduleFileName);
+    occs = extractRenameOccurrences(m, edits, oldName);
+    remove(moduleFileName);
+    return occs;
+}
+
+// Test renames that are expected to throw an exception
+bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar") {
+    getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName);
+    return false;
+}
+
+set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str name) {
+    list[loc] oldNameOccurrences = [];
+    for (/Name n := m, "<n>" == name) {
+        oldNameOccurrences += n.src;
+    }
+
+    if ([changed(_, replaces)] := edits) {
+        idx = {indexOf(oldNameOccurrences, l) | replace(l, _) <- replaces};
+        return idx;
+    } else {
+        throw "Unexpected changes: <edits>";
+    }
+}
+
 void main() {
-    edits = renameTest(
+    edits = getEdits(
         |project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/SingleModuleRenameTest.rsc|,
         0, "x", "y"
     );
