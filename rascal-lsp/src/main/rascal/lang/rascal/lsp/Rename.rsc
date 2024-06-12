@@ -47,6 +47,7 @@ import analysis::diff::edits::TextEdits;
 
 import vis::Text;
 
+import util::Maybe;
 import util::Reflective;
 
 // Only needed until we move to newer type checker
@@ -91,13 +92,13 @@ bool isImplicitDefinition(start[Module] _, map[loc, loc] useDef, Define _: <_, _
 bool isImplicitDefinition(start[Module] m, map[loc, loc] _, Define _: <_, _, _, patternVariableId(), defined, _>) {
     visit (m) {
         case qualifiedName(qn): {
-            if (findNameLocation(qn) == defined) return true;
+            if (locationOfName(qn) == just(defined)) return true;
         }
         case multiVariable(qn): {
-            if (findNameLocation(qn) == defined) return true;
+            if (locationOfName(qn) == just(defined)) return true;
         }
         case variableBecomes(n, _): {
-            if (findNameLocation(n) == defined) return true;
+            if (locationOfName(n) == just(defined)) return true;
         }
     }
 
@@ -154,7 +155,7 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
 
     set[loc] useDefs = uses + defs;
     rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- useDefs};
-    list[DocumentEdit] changes = [changed(file, [replace(findNameLocation(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
+    list[DocumentEdit] changes = [changed(file, [replace(findNameInDeclaration(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
 
     // TODO If the cursor was a module name, we need to rename files as well
     list[DocumentEdit] renames = [];
@@ -210,27 +211,27 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
-loc findNameLocation(start[Module] m, loc declLoc) {
+loc findNameInDeclaration(start[Module] m, loc declLoc) {
     // we want to find the smallest tree of defined non-terminal type with source location `declLoc`
     visit(m.top) {
         case t: appl(prod(_, _, _), _, src = declLoc): {
-            return findNameLocation(t);
+            if (just(nameLoc) := locationOfName(t)) {
+                return nameLoc;
+            }
+            throw UnsupportedRename(t, "Cannot find name in <t>");
         }
     }
 
-    throw "No declaration at <declLoc> found within module <m>";
+    throw UnexpectedFailure("No declaration at <declLoc> found within module <m>");
 }
 
-loc findNameLocation(Name n) = n.src;
-loc findNameLocation(QualifiedName qn) = (qn.names[-1]).src;
-loc findNameLocation(FunctionDeclaration f) = f.signature.name.src when f.visibility is \private;
-loc findNameLocation(FunctionDeclaration f) {
-    throw UnsupportedRename(f.src, "Renaming public functions is not supported");
-}
+Maybe[loc] locationOfName(Name n) = just(n.src);
+Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
+Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
 
-default loc findNameLocation(Tree t) {
+default Maybe[loc] locationOfName(Tree t) {
     println("Unsupported: cannot find name in <t.src>");
     print(prettyTree(t));
     rprintln(t);
-    throw UnsupportedRename(t, "Cannot find name in <t>");
+    return nothing();
 }
