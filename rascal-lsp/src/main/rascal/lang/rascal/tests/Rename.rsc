@@ -253,6 +253,9 @@ test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc
 @expected{IllegalRename}
 test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
 
+@expected{IllegalRename}
+test bool renameStdLibModule() = testRename("", decls = "import IO;", oldName = "IO");
+
 
 
 //// Fixtures and utility functions

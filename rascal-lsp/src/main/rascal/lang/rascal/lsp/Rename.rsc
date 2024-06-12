@@ -117,9 +117,14 @@ bool renameCausesCapture(TModel tm, start[Module] m, set[loc] currentNameDefLocs
 }
 
 bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLocs, str newName) {
+    bool isEditableLocation(loc l) = l.scheme in {"file", "cwd", "home", "memory", "project"};
+
     if (!isLegalName(newName)) {
         println("Rename rejected: illegal name \'<newName>\'");
         return false;
+    }
+    for (loc def <- defLocs, !isEditableLocation(def)) {
+        throw IllegalRename(def, "Cannot rename definition in <def.scheme>.");
     }
     if (renameCausesDoubleDeclaration(tm, defLocs, useLocs, newName)) {
         println("Rename rejected: causes double declaration");
@@ -163,9 +168,6 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     if (!isLegalRename(tm, m, defs, uses, newName)) {
         throw IllegalRename(cursorLoc, newName);
     }
-
-    // TODO Check if all definitions are user-defined;
-    // i.e. we're not trying to rename something from stdlib or compiled libraries(?)
 
     set[loc] useDefs = uses + defs;
     rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- useDefs};
