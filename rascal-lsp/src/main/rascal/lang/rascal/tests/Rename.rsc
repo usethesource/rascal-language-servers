@@ -166,6 +166,41 @@ test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
     '}
 ");
 
+test bool nestedRecursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences("
+    'int fib(int n) {
+    '   switch (n) {
+    '       case 0: {
+    '           return 1;
+    '       }
+    '       case 1: {
+    '           return 1;
+    '       }
+    '       default: {
+    '           return fib(n - 1) + fib(n - 2);
+    '       }
+    '   }
+    '}
+    '
+    'fib(7);
+", oldName = "fib", newName = "fibonacci", cursorAtOldNameOccurrence = -1);
+
+@expected{UnsupportedRename}
+test bool recursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences("fib(7);", decls = "
+    'int fib(int n) {
+    '   switch (n) {
+    '       case 0: {
+    '           return 1;
+    '       }
+    '       case 1: {
+    '           return 1;
+    '       }
+    '       default: {
+    '           return fib(n - 1) + fib(n - 2);
+    '       }
+    '   }
+    '}
+", oldName = "fib", newName = "fibonacci", cursorAtOldNameOccurrence = -1);
+
 test bool nestedPublicFunction() = {0, 1} == testRenameOccurrences("
     'public int foo(int f) {
     '   return f;
