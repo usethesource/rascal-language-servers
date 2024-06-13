@@ -79,6 +79,12 @@ private set[Define] getDefines(TModel tm, loc useDef) {
     return {tm.definitions[d] | d <- defLocs};
 }
 
+void throwIfNotEmpty(&T(&A) R, &A arg) {
+    if (arg != {}) {
+        throw R(arg);
+    }
+}
+
 void checkLegalName(str name) {
     try {
         parse(#Name, escapeName(name));
@@ -89,12 +95,10 @@ void checkLegalName(str name) {
 
 void checkCausesDoubleDeclaration(set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    if (defs := {<nD.defined, cD> | Define nD <- newDefs
-                                  , loc cD <- currentDefs.defined
-                                  , isContainedIn(cD, nD.scope)
-                }, defs != {}) {
-        throw CausesDoubleDeclaration(defs);
-    }
+    throwIfNotEmpty(CausesDoubleDeclaration, {<nD.defined, cD> | Define nD <- newDefs
+                                                               , loc cD <- currentDefs.defined
+                                                               , isContainedIn(cD, nD.scope)
+                                             });
 }
 
 bool isImplicitDefinition(start[Module] _, rel[loc use, loc def] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef.use; // use of name at implicit declaration loc
@@ -134,17 +138,12 @@ void checkCausesCapture(TModel tm, start[Module] m, set[Define] currentDefs, set
                                       , isStrictlyContainedIn(nD.scope, cD.scope)
         };
 
-    if (captures := implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl, captures != {}) {
-        throw CausesCapture(captures);
-    }
+    throwIfNotEmpty(CausesCapture, implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl);
 }
 
 void checkEditableDefinitions(set[Define] currentDefs) {
     bool isEditableLocation(loc l) = l.scheme in {"file", "cwd", "home", "memory", "project"};
-
-    if (defs := {def | loc def <- currentDefs<defined>, !isEditableLocation(def)}, size(defs) > 0) {
-        throw DeclarationsNotEditable(defs);
-    }
+    throwIfNotEmpty(DeclarationsNotEditable, {def | loc def <- currentDefs<defined>, !isEditableLocation(def)});
 }
 
 void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] currentDefs, set[loc] currentUses, str newName) {
@@ -165,9 +164,7 @@ void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
         when moduleLoc == scope; // function is defined in module scope
     default Maybe[str] isUnsupportedDefinition(Define _) = nothing();
 
-    if (unsupportedDefs := {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)}, unsupportedDefs != {}) {
-        throw UnsupportedRename(unsupportedDefs);
-    }
+    throwIfNotEmpty(UnsupportedRename, {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)});
 }
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
