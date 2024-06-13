@@ -50,7 +50,7 @@ test bool shadowVariableInInnerScope() = {0} == testRenameOccurrences("
     '}
 ");
 
-test bool shadowParameter() = {0} == testRenameOccurrences("
+test bool parameterShadowsVariable() = {0} == testRenameOccurrences("
     'int foo = 8;
     'int f(int bar) {
     '   return bar;
@@ -159,6 +159,34 @@ test bool doubleParameterDeclaration() = {0, 1} == testRenameOccurrences("
     '   return foo;
     '}
 ");
+
+@expected{IllegalRename}
+test bool captureFunctionParameter() = testRename("
+    'int f(int foo) {
+    '   int bar = 9;
+    '   return foo + bar;
+    '}
+");
+
+test bool paremeterShadowsParameter1() = {0, 3} == testRenameOccurrences("
+    'int f1(int foo) {
+    '   int f2(int foo) {
+    '       int baz = 9;
+    '       return foo + baz;
+    '   }
+    '   return f2(foo);
+    '}
+");
+
+test bool paremeterShadowsParameter2() = {1, 2} == testRenameOccurrences("
+    'int f1(int foo) {
+    '   int f2(int foo) {
+    '       int baz = 9;
+    '       return foo + baz;
+    '   }
+    '   return f2(foo);
+    '}
+", cursorAtOldNameOccurrence = 1);
 
 test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
     'int f(int foo, int baz) {
@@ -375,9 +403,8 @@ set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str
 }
 
 void main() {
-    edits = getEdits(
-        |project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/SingleModuleRenameTest.rsc|,
-        0, "x", "y"
-    );
+    loc memoryLoc = |memory://tests/rename/src/SingleModuleRenameTest.rsc|;
+    copyFile(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/SingleModuleRenameTest.rsc|, memoryLoc);
+    edits = getEdits(memoryLoc, 0, "foo", "bar");
     iprintln(edits);
 }
