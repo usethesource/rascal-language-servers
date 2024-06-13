@@ -54,9 +54,16 @@ import util::Reflective;
 // TODO Remove
 import ValueIO;
 
+data IllegalRenameReason
+    = InvalidName(str name)
+    | CausesDoubleDeclaration(rel[loc, loc] defs)
+    | CausesCapture(rel[loc use, loc oldDef, loc newDef] captures)
+    | DeclarationsNotEditable(set[loc] decls)
+    ;
+
 data RuntimeException
-    = IllegalRename(loc location, str message)
-    | UnsupportedRename(loc location, str message)
+    = IllegalRename(loc location, IllegalRenameReason reason)
+    | UnsupportedRename(set[tuple[loc location, str message]])
     | UnexpectedFailure(str message)
 ;
 
@@ -64,168 +71,106 @@ private set[loc] getUses(TModel tm, loc def) {
     return invert(getUseDef(tm))[def];
 }
 
-private set[loc] getDefinitions(TModel tm, loc use) {
-    return getUseDef(tm)[use] ? {};
+private set[Define] getDefines(TModel tm, loc useDef) {
+    set[loc] defLocs = tm.useDef[useDef] != {}
+                     ? tm.useDef[useDef] // `useDef` is a use location
+                     : {useDef};         // `useDef` is a definition location
+
+    return {tm.definitions[d] | d <- defLocs};
 }
 
-bool isLegalName(str name) {
+void checkLegalName(str name) {
     try {
         parse(#Name, escapeName(name));
-        return true;
     } catch ParseError(_): {
-        return false;
+        throw InvalidName(name);
     }
 }
 
-loc findSmallestEnclosingScope(TModel tm, loc l) {
-    return (l.top | isContainedIn(inner, it) && isContainedIn(l, inner) ? inner : it | inner <- tm.scopes);
+void checkCausesDoubleDeclaration(set[Define] currentDefs, set[Define] newDefs) {
+    // Is newName already resolvable from a scope where <current-name> is currently declared?
+    if (defs := {<nD.defined, cD> | Define nD <- newDefs
+                                  , loc cD <- currentDefs.defined
+                                  , isContainedIn(cD, nD.scope)
+                }, defs != {}) {
+        throw CausesDoubleDeclaration(defs);
+    }
 }
 
-bool renameCausesDoubleDeclaration(TModel tm, set[loc] defLocs, set[loc] useLocs, str newName) {
-    // Is newName already resolvable from a scope where <current-name> is currently used or declared?
-    set[loc] newNameScopes = {def.scope | def <- tm.defines, def.id == newName};
-    return any(loc dS <- newNameScopes, loc l <- (useLocs + defLocs), isContainedIn(l, dS));
-}
+bool isImplicitDefinition(start[Module] _, rel[loc use, loc def] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef.use; // use of name at implicit declaration loc
 
-bool isImplicitDefinition(start[Module] _, map[loc, loc] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef; // use of name at implicit declaration loc
-
-bool isImplicitDefinition(start[Module] m, map[loc, loc] _, Define _: <_, _, _, patternVariableId(), defined, _>) {
+bool isImplicitDefinition(start[Module] m, rel[loc, loc] _, Define _: <_, _, _, patternVariableId(), defined, _>) {
     visit (m) {
-        case qualifiedName(qn): {
+        case qualifiedName(qn):
             if (locationOfName(qn) == just(defined)) return true;
-        }
-        case multiVariable(qn): {
+        case multiVariable(qn):
             if (locationOfName(qn) == just(defined)) return true;
-        }
-        case variableBecomes(n, _): {
+        case variableBecomes(n, _):
             if (locationOfName(n) == just(defined)) return true;
-        }
     }
 
     return false;
 }
 
-default bool isImplicitDefinition(start[Module] _, map[loc, loc] _, Define _) = false;
+default bool isImplicitDefinition(start[Module] _, rel[loc, loc] _, Define _) = false;
 
-bool renameCausesCapture(TModel tm, start[Module] m, set[loc] currentNameDefLocs, str newName) {
-    // Is newName implicitly declared in a scope from where <current-name> can be resolved?
-    set[loc] currentNameScopes = {tm.definitions[dL].scope | loc dL <- currentNameDefLocs};
-    map[loc, loc] useDef = toMapUnique(tm.useDef);
-    set[loc] newNameImplicitDeclLocs = {def.defined | def <- tm.defines, def.id == newName, isImplicitDefinition(m, useDef, def)};
+void checkCausesCapture(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+    set[Define] newNameImplicitDefs = {def | Define def <- newDefs, isImplicitDefinition(m, tm.useDef, def)};
+    set[Define] newNameExplicitDefs = {def | Define def <- newDefs, !isImplicitDefinition(m, tm.useDef, def)};
 
-    return any(loc iD <- newNameImplicitDeclLocs, loc dS <- currentNameScopes, isContainedIn(iD, dS));
+    // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
+    rel[loc use, loc oldDef, loc newDef] implicitDeclBecomesUseOfCurrentDecl =
+        {<nD.defined, nD.defined, cD> | Define nD <- newNameImplicitDefs
+                                      , <loc cS, loc cD> <- currentDefs<scope, defined>
+                                      , isContainedIn(nD.defined, cS)
+        };
+
+    // Will this rename turn a use of <oldName> into a use of an existing declaration of <newName> (shadowing)?
+    rel[loc use, loc oldDef, loc newDef] explicitDeclShadowsCurrentDecl =
+        {<cU, cD.defined, nD.defined> | Define nD <- newNameExplicitDefs
+                                      , loc cU <- currentUses
+                                      , Define cD <- getDefines(tm, cU)
+                                      , isContainedIn(cU, nD.scope)
+                                      , isStrictlyContainedIn(nD.scope, cD.scope)
+        };
+
+    if (captures := implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl, captures != {}) {
+        throw CausesCapture(captures);
+    }
 }
 
-bool isLegalRename(TModel tm, start[Module] m, set[loc] defLocs, set[loc] useLocs, str newName) {
+void checkEditableDefinitions(set[Define] currentDefs) {
     bool isEditableLocation(loc l) = l.scheme in {"file", "cwd", "home", "memory", "project"};
 
-    if (!isLegalName(newName)) {
-        println("Rename rejected: illegal name \'<newName>\'");
-        return false;
+    if (defs := {def | loc def <- currentDefs<defined>, !isEditableLocation(def)}, size(defs) > 0) {
+        throw DeclarationsNotEditable(defs);
     }
-    for (loc def <- defLocs, !isEditableLocation(def)) {
-        throw IllegalRename(def, "Cannot rename definition in <def.scheme>.");
-    }
-    if (renameCausesDoubleDeclaration(tm, defLocs, useLocs, newName)) {
-        println("Rename rejected: causes double declaration");
-        return false;
-    }
-    if (renameCausesCapture(tm, m, defLocs, newName)) {
-        println("Rename rejected: causes capture at implicit declaration");
-        return false;
-    }
-
-    checkUnsupported(m.src, tm, defLocs);
-
-    return true;
 }
 
-void checkUnsupported(loc moduleLoc, TModel tm, set[loc] defLocs) {
+void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] currentDefs, set[loc] currentUses, str newName) {
+    set[Define] newNameDefs = {def | def <- tm.defines, def.id == newName};
+    try {
+        checkEditableDefinitions(currentDefs);
+        checkLegalName(newName);
+        checkCausesDoubleDeclaration(currentDefs, newNameDefs);
+        checkCausesCapture(tm, m, currentDefs, currentUses, newNameDefs);
+    } catch IllegalRenameReason r: {
+        throw IllegalRename(cursorLoc, r);
+    }
+    checkUnsupported(m.src, currentDefs);
+}
+
+void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
     Maybe[str] isUnsupportedDefinition(Define _: <scope, id, _, functionId(), _, _>) = just("Global function definitions might span multiple modules; unsupported for now.")
         when moduleLoc == scope; // function is defined in module scope
-    Maybe[str] isUnsupportedDefinition(Define _) = nothing();
+    default Maybe[str] isUnsupportedDefinition(Define _) = nothing();
 
-    println("Module scope: <moduleLoc>");
-
-    if (loc def <- defLocs, just(msg) := isUnsupportedDefinition(tm.definitions[def])) {
-        throw UnsupportedRename(def, msg);
+    if (unsupportedDefs := {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)}, unsupportedDefs != {}) {
+        throw UnsupportedRename(unsupportedDefs);
     }
 }
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
-
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
-    loc cursorLoc = cursor.src;
-    set[loc] defs = getDefinitions(tm, cursorLoc);
-
-    if (defs == {}) {
-        // Cursor points at *name* within definition
-        defs += findDeclarationAroundName(m, cursorLoc);
-    }
-
-    set[loc] uses = ({} | it + getUses(tm, def) | loc def <- defs);
-
-    if (!isLegalRename(tm, m, defs, uses, newName)) {
-        throw IllegalRename(cursorLoc, newName);
-    }
-
-    set[loc] useDefs = uses + defs;
-    rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- useDefs};
-    list[DocumentEdit] changes = [changed(file, [replace(findNameInDeclaration(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
-
-    // TODO If the cursor was a module name, we need to rename files as well
-    list[DocumentEdit] renames = [];
-
-    list[DocumentEdit] edits = changes + renames;
-
-    return edits;
-}
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-data ModuleStatus =
-    moduleStatus(
-      map[str, list[Message]] messages,
-      PathConfig pathConfig
-   );
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-ModuleStatus newModuleStatus(PathConfig pcfg) = moduleStatus((), pcfg);
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-private tuple[bool, TModel, ModuleStatus] getTModelForModule(str m, ModuleStatus ms) {
-    pcfg = ms.pathConfig;
-    <found, tplLoc> = getTPLReadLoc(m, pcfg);
-    if (!found) {
-        return <found, tmodel(), moduleStatus((), pcfg)>;
-    }
-
-    try {
-        tpl = readBinaryValueFile(#TModel, tplLoc);
-        return <true, tpl, ms>;
-    } catch e: {
-        //ms.status[qualifiedModuleName] ? {} += not_found();
-        return <false, tmodel(modelName=qualifiedModuleName, messages=[error("Cannot read TPL for <qualifiedModuleName>: <e>", tplLoc)]), ms>;
-        //throw IO("Cannot read tpl for <qualifiedModuleName>: <e>");
-    }
-}
-
-// Compute the edits for the complete workspace here
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
-    str moduleName = getModuleName(m.src.top, pcfg);
-    ModuleStatus ms = newModuleStatus(pcfg);
-    <success, tm, ms> = getTModelForModule(moduleName, ms);
-    if (!success) {
-        throw UnexpectedFailure(tm.messages[0].msg);
-    }
-
-    return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
-}
-
-// Workaround to be able to pattern match on the emulated `src` field
-data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
 loc findDeclarationAroundName(start[Module]m, loc nameLoc) {
     // we want to find the *largest* tree of defined non-terminal type of which the declared name is at nameLoc
@@ -258,3 +203,76 @@ Maybe[loc] locationOfName(Name n) = just(n.src);
 Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
 Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
+
+list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
+    loc cursorLoc = cursor.src;
+
+    set[Define] defs = {};
+    if (cursorLoc in tm.useDef) {
+        // Cursor is at a use
+        defs = getDefines(tm, cursorLoc);
+    } else {
+        // Cursor is at a name within a declaration
+        defs = getDefines(tm, findDeclarationAroundName(m, cursorLoc));
+    }
+
+    set[loc] uses = ({} | it + getUses(tm, def.defined) | Define def <- defs);
+
+    checkLegalRename(tm, m, cursorLoc, defs, uses, newName);
+
+    rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- uses + defs<defined>};
+    list[DocumentEdit] changes = [changed(file, [replace(findNameInDeclaration(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
+    // TODO If the cursor was a module name, we need to rename files as well
+    list[DocumentEdit] renames = [];
+
+    return changes + renames;
+}
+
+// Compute the edits for the complete workspace here
+list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
+    str moduleName = getModuleName(m.src.top, pcfg);
+    ModuleStatus ms = newModuleStatus(pcfg);
+    <success, tm, ms> = getTModelForModule(moduleName, ms);
+    if (!success) {
+        throw UnexpectedFailure(tm.messages[0].msg);
+    }
+
+    return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
+}
+
+//// WORKAROUNDS
+//// Most (copied) definitions below can probably go once we depend on the new typechecker and new release of Rascal (Core)
+
+// Workaround to be able to pattern match on the emulated `src` field
+data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+data ModuleStatus =
+    moduleStatus(
+      map[str, list[Message]] messages,
+      PathConfig pathConfig
+   );
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+ModuleStatus newModuleStatus(PathConfig pcfg) = moduleStatus((), pcfg);
+
+// This is copied from the newest version of the type-checker and simplified for future compatibilty.
+// TODO Remove once we migrate to a newer type checker version
+private tuple[bool, TModel, ModuleStatus] getTModelForModule(str m, ModuleStatus ms) {
+    pcfg = ms.pathConfig;
+    <found, tplLoc> = getTPLReadLoc(m, pcfg);
+    if (!found) {
+        return <found, tmodel(), moduleStatus((), pcfg)>;
+    }
+
+    try {
+        tpl = readBinaryValueFile(#TModel, tplLoc);
+        return <true, tpl, ms>;
+    } catch e: {
+        //ms.status[qualifiedModuleName] ? {} += not_found();
+        return <false, tmodel(modelName=qualifiedModuleName, messages=[error("Cannot read TPL for <qualifiedModuleName>: <e>", tplLoc)]), ms>;
+        //throw IO("Cannot read tpl for <qualifiedModuleName>: <e>");
+    }
+}
