@@ -157,7 +157,7 @@ public class EvaluatorUtil {
                 monitor.jobStart("Loading " + label);
                 Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
                         IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
+                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(), monitor);
                 eval.setMonitor(monitor);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));

@@ -300,6 +300,15 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
+    public void endAllJobs() {
+        Deque<String> progressStack = activeProgress.get();
+        String top;
+        while ((top = progressStack.peekFirst()) != null) {
+            jobEnd(top, true);
+        }
+    }
+
+    @Override
     public void jobTodo(String name, int work) {
         // TODO
     }

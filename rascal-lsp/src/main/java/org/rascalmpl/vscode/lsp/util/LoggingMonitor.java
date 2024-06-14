@@ -59,6 +59,10 @@ public class LoggingMonitor implements IRascalMonitor {
     }
 
     @Override
+    public void endAllJobs() {
+    }
+
+    @Override
     public boolean jobIsCanceled(String name) {
         return false;
     }

@@ -48,11 +48,14 @@ import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.jline.Terminal;
+import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
+import org.rascalmpl.shell.RascalShell;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -70,8 +73,6 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
-import jline.Terminal;
-import jline.TerminalFactory;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -99,37 +100,10 @@ public class LSPTerminalREPL extends BaseREPL {
         }
     }
 
-    private static boolean isUTF8() {
-        String lang = System.getenv("LANG");
-        return lang != null && lang.contains("UTF-8");
-    }
-
-    /**
-     * a JNA interface that we can use to call Windows Kernel functions without
-     * having to go and add JNI compiled libraries just for this work around
-     */
-    public interface Kernel32 extends StdCallLibrary {
-        boolean SetConsoleOutputCP(int wCodePageID);
-        boolean SetConsoleCP(int wCodePageID);
-    }
-
-    private static final int WINDOWS_UTF8_CODE_PAGE = 65001;
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        if (Platform.isWindows() && isUTF8()) {
-            // VS Code doesn't properly set the codepage for the terminal process
-            // but xterm.js and VS Code expect us to print in utf8, so we have to quickly set the
-            // codepage ourself, just to make sure we are not getting the default
-            // that the user has (mostly some old codepoint that breaks any unicode character)
-            try {
-                Kernel32 windowsKernel = Native.load("kernel32", Kernel32.class);
-                windowsKernel.SetConsoleCP(WINDOWS_UTF8_CODE_PAGE);
-                windowsKernel.SetConsoleOutputCP(WINDOWS_UTF8_CODE_PAGE);
-            } catch (Exception e) {
-                System.err.println("Error setting console code point to UTF8: " + e.getMessage());
-                System.err.println("Most likely, non-ascii characters will not print correctly, please report this on our github.");
-            }
-        }
+        RascalShell.setupWindowsCodepage();
+        boolean ansiEnabled = RascalShell.enableAnsiEscapes();
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
@@ -173,7 +147,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
-                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
+                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, services, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 

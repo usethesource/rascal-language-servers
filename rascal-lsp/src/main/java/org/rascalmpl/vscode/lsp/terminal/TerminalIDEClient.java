@@ -32,8 +32,12 @@ import java.io.Reader;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Stack;
 import java.util.concurrent.ExecutionException;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
@@ -52,15 +56,11 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParame
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * This class provides IDE services to a Rascal REPL by
@@ -73,6 +73,7 @@ public class TerminalIDEClient implements IDEServices {
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
     private PrintWriter err;
+    private final ThreadLocal<Deque<String>> activeJobs = ThreadLocal.withInitial(ArrayDeque<String>::new);
 
     public TerminalIDEClient(int port) throws IOException {
         @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
@@ -159,6 +160,7 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
+        activeJobs.get().push(name);
         server.jobStart(new JobStartParameter(name, workShare, totalWork));
     }
 
@@ -170,14 +172,38 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public int jobEnd(String name, boolean succeeded) {
         try {
-             server.jobEnd(new JobEndParameter(name, succeeded)).get().getAmount();
-             return 1;
+            var ourJobs = activeJobs.get();
+            String top;
+            while ((top = ourJobs.pollFirst()) != null) {
+                if (top.equals(name)) {
+                    break;
+                }
+            }
+            activeJobs.remove();
+            server.jobEnd(new JobEndParameter(name, succeeded)).get().getAmount();
+            return 1;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return 0;
         } catch (ExecutionException e) {
             throw RuntimeExceptionFactory.io(e.getMessage());
         }
+    }
+
+    @Override
+    public void endAllJobs() {
+        var ourJobs = activeJobs.get();
+        String top;
+        while ((top = ourJobs.pollFirst()) != null) {
+            try {
+                server.jobEnd(new JobEndParameter(top, true)).get().getAmount();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException e) {
+                throw RuntimeExceptionFactory.io(e.getMessage());
+            }
+        }
+        activeJobs.remove();
     }
 
     @Override

@@ -150,6 +150,20 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         }
 
         @Override
+        public void endAllJobs() {
+            Deque<String> progressStack = activeProgress.get();
+            String topName;
+            while ((topName = progressStack.pollFirst()) != null) {
+                if (progressStack.isEmpty()) {
+                    // the last one should be special name
+                    topName = namePrefix + topName;
+                }
+                original.jobEnd(topName, true);
+            }
+            activeProgress.remove(); // clear memory
+        }
+
+        @Override
         public boolean jobIsCanceled(String name) {
             if (activeProgress.get().size() == 1) {
                 name = namePrefix + name;

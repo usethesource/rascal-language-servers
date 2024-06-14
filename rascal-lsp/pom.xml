@@ -63,17 +63,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.34.1</version>
+      <version>0.40.2</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.7.8</version>
+      <version>0.10.1</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.7.8</version>
+      <version>0.13.1</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -164,7 +164,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.22.0</version>
+                    <version>0.27.3</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
@@ -199,7 +199,6 @@
                                 <enableStandardLibrary>false</enableStandardLibrary>
                                 <errorsAsWarnings>false</errorsAsWarnings>
                                 <bin>${project.build.outputDirectory}</bin>
-                                <license>${project.basedir}/LICENSE</license>
                                 <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
                                 <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
                                 <srcs>
