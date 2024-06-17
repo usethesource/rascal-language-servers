@@ -52,7 +52,6 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
-import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -163,13 +162,13 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, FileFacts facts, String newName, ColumnMaps columns) {
+    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, PathConfig pcfg, String newName, ColumnMaps columns) {
         var line = cursor.getLine() + 1;
         var moduleLocation = TreeAdapter.getLocation(module);
         var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
-        return runEvaluator("Rascal rename", summaryEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), facts.getPathConfig(moduleLocation).asConstructor(), VF.string(newName)),
+        return runEvaluator("Rascal rename", summaryEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), pcfg.asConstructor(), VF.string(newName)),
             VF.list(), exec);
     }
 

@@ -286,7 +286,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts, params.getNewName(), columns).get())
+            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts.getPathConfig(file.getLocation()), params.getNewName(), columns).get())
             .thenApply(c -> new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, c)))
             ;
     }
