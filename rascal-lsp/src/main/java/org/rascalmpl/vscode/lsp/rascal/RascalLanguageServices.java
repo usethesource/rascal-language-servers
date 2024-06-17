@@ -70,7 +70,7 @@ public class RascalLanguageServices {
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
     private final CompletableFuture<Evaluator> outlineEvaluator;
-    private final CompletableFuture<Evaluator> summaryEvaluator;
+    private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
 
     private final ExecutorService exec;
@@ -79,14 +79,14 @@ public class RascalLanguageServices {
         this.exec = exec;
 
         outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::Rename");
+        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantic analysis", null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::Rename");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
         try {
             IString moduleName = VF.string(pcfg.getModuleName(occ));
-            return runEvaluator("Rascal makeSummary", summaryEvaluator, eval -> {
+            return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
                 IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
             }, null, exec);
@@ -168,7 +168,7 @@ public class RascalLanguageServices {
         var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
-        return runEvaluator("Rascal rename", summaryEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), pcfg.asConstructor(), VF.string(newName)),
+        return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), pcfg.asConstructor(), VF.string(newName)),
             VF.list(), exec);
     }
 
