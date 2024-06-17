@@ -174,13 +174,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
-        <configuration>
-          <includes>
-              <include>**/*Tests.java</include>
-          </includes>
-          <!-- <testSourceDirectory>${basedir}/src/</testSourceDirectory>
-          <testClassesDirectory>${project.build.directory}/classes/</testClassesDirectory> -->
-        </configuration>
     </plugin>
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
