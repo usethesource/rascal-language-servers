@@ -326,19 +326,19 @@ private PathConfig testPathConfig = pathConfig(
         srcs=[|memory://tests/rename/src|]);
 
 // Test renaming given the location of a module and rename parameters
-list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName) {
+list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
     loc f = resolveLocation(singleModule);
 
-    list[ModuleMessages] modMsgs = checkAll(f, testPathConfig);
+    list[ModuleMessages] modMsgs = checkAll(f, pcfg);
     // TODO Check if there are no errors
 
-    return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName);
+    return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName, pcfg=pcfg);
 }
 
 // Test renaming given a module Tree and rename parameters
-list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName) {
+list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(m, cursor, {}, testPathConfig, newName);
+    return renameRascalSymbol(m, cursor, {}, pcfg, newName);
 }
 
 tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "", str imports = "") {
@@ -399,9 +399,15 @@ set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str
     }
 }
 
-void main() {
-    loc memoryLoc = |memory://tests/rename/src/SingleModuleRenameTest.rsc|;
-    copyFile(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/SingleModuleRenameTest.rsc|, memoryLoc);
-    edits = getEdits(memoryLoc, 0, "foo", "bar");
-    iprintln(edits);
+list[DocumentEdit] multiModuleTest() {
+    PathConfig pcfg = pathConfig(
+        bin=|memory://tests/rename/bin|,
+        libs=[|lib://rascal|
+            , resolveLocation(|project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal/|)],
+        srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/|)
+            , resolveLocation(|project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal/|)]
+    );
+
+    return getEdits(resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/LibCall.rsc|)
+                  , 0, "fib", "fibonacci", pcfg=pcfg);
 }
