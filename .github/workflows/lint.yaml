@@ -73,9 +73,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - language: java-kotlin
+          - language: java
             build-mode: manual
-          - language: javascript-typescript
+          - language: typescript
             build-mode: none
     name: githubql
     runs-on: ubuntu-latest
@@ -95,13 +95,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - if: ${{ matrix.language == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - if: ${{ matrix.language == 'java-kotlin' }}
+      - if: ${{ matrix.language == 'java' }}
         name: Build java 
         run: mvn -B compile -Drascal.compile.skip -Drascal.tutor.skip -DskipTests
         working-directory: rascal-lsp/
