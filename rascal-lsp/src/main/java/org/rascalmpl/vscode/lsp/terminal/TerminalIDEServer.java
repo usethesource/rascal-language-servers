@@ -31,8 +31,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
@@ -72,7 +72,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
-    private final DocumentChanges docChanges;
     private final Set<String> jobs = new HashSet<>();
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
@@ -80,7 +79,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
-        this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
     }
 
@@ -149,7 +147,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         IList list = edits.getEdits();
 
         return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(list))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(docService, list))));
         });
     }
 

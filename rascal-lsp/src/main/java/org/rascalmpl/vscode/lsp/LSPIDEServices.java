@@ -77,7 +77,6 @@ public class LSPIDEServices implements IDEServices {
     private final Logger logger;
 
     private final IBaseLanguageClient languageClient;
-    private final DocumentChanges docChanges;
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
     private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
@@ -85,7 +84,6 @@ public class LSPIDEServices implements IDEServices {
     public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
-        this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
         this.logger = logger;
     }
@@ -150,7 +148,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void applyDocumentsEdits(IList edits) {
-        languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
+        languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(docService, edits))));
     }
 
     private CompletableFuture<Void> tryRegisterProgress(String id) {
