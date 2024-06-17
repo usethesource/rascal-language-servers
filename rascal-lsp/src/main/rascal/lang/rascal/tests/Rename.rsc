@@ -57,13 +57,13 @@ test bool parameterShadowsVariable() = {0} == testRenameOccurrences("
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool implicitVariableDeclarationInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     'bar = 9;
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool implicitVariableDeclarationInInnerScopeBecomesUse() = testRename("
     'int foo = 8;
     '{
@@ -71,13 +71,13 @@ test bool implicitVariableDeclarationInInnerScopeBecomesUse() = testRename("
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleVariableDeclaration() = testRename("
     'int foo = 8;
     'int bar = 9;
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleVariableAndParameterDeclaration() = testRename("
     'int f(int foo) {
     '   int bar = 9;
@@ -94,19 +94,19 @@ test bool adjacentScopes() = {0} == testRenameOccurrences("
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool implicitPatterVariableInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     'bar := 9;
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool implicitNestedPatterVariableInSameScopeBecomesUse() = testRename("
     'int foo = 8;
     '\<bar, _\> := \<9, 99\>;
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool implicitPatterVariableInInnerScopeBecomesUse() = testRename("
     'int foo = 8;
     'if (bar := 9) {
@@ -121,7 +121,7 @@ test bool explicitPatternVariableInInnerScope() =  {0} == testRenameOccurrences(
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool shadowDeclaration() = testRename("
     'int foo = 8;
     'if (int bar := 9) {
@@ -131,7 +131,7 @@ test bool shadowDeclaration() = testRename("
 
 // Although this is fine statically, it will cause runtime errors when `bar` is called
 // > A value of type int is not something you can call like a function, a constructor or a closure.
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleVariableAndFunctionDeclaration() = testRename("
     'int foo = 8;
     'void bar() {}
@@ -139,13 +139,13 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
 
 // Although this is fine statically, it will cause runtime errors when `bar` is called
 // > A value of type int is not something you can call like a function, a constructor or a closure.
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleFunctionAndVariableDeclaration() = testRename("
     'void bar() {}
     'foo = 8;
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
     'bool bar() = true;
     'void f() {
@@ -153,14 +153,14 @@ test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool doubleParameterDeclaration() = {0, 1} == testRenameOccurrences("
     'int f(int foo, int bar) {
     '   return foo;
     '}
 ");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool captureFunctionParameter() = testRename("
     'int f(int foo) {
     '   int bar = 9;
@@ -212,7 +212,7 @@ test bool nestedRecursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences(
     'fib(7);
 ", oldName = "fib", newName = "fibonacci", cursorAtOldNameOccurrence = -1);
 
-@expected{UnsupportedRename}
+@expected{unsupportedRename}
 test bool recursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences("fib(7);", decls = "
     'int fib(int n) {
     '   switch (n) {
@@ -250,21 +250,21 @@ test bool nestedPrivateFunction() = {0, 1} == testRenameOccurrences("
     'foo(1);
 ");
 
-@expected{UnsupportedRename}
+@expected{unsupportedRename}
 test bool publicFunction() = testRename("foo(1);", decls = "
     'public int foo(int f) {
     '   return f;
     '}
 ");
 
-@expected{UnsupportedRename}
+@expected{unsupportedRename}
 test bool defaultFunction() = testRename("", decls = "
     'int foo(int f) {
     '   return f;
     '}
 ");
 
-@expected{UnsupportedRename}
+@expected{unsupportedRename}
 test bool privateFunction() = testRename("", decls = "
     'private int foo(int f) {
     '   return f;
@@ -298,26 +298,23 @@ test bool renameToReservedName() {
     return newNames == {"\\int"};
 }
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool renameToUsedReservedName() = testRename("
     'int \\int = 0;
     'int foo = 8;
 ", newName = "int");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool newNameIsNonAlphaNumeric() = testRename("int foo = 8;", newName = "b@r");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool newNameIsNumber() = testRename("int foo = 8;", newName = "8");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc");
 
-@expected{IllegalRename}
+@expected{illegalRename}
 test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
-
-@expected{IllegalRename}
-test bool renameStdLibModule() = testRename("", decls = "import IO;", oldName = "IO");
 
 
 

@@ -55,16 +55,15 @@ import util::Reflective;
 import ValueIO;
 
 data IllegalRenameReason
-    = InvalidName(str name)
-    | CausesDoubleDeclaration(rel[loc, loc] defs)
-    | CausesCapture(rel[loc use, loc oldDef, loc newDef] captures)
-    | DeclarationsNotEditable(set[loc] decls)
+    = invalidName(str name)
+    | doubleDeclaration(rel[loc, loc] defs)
+    | captures(rel[loc use, loc oldDef, loc newDef] captures)
     ;
 
-data RuntimeException
-    = IllegalRename(loc location, IllegalRenameReason reason)
-    | UnsupportedRename(set[tuple[loc location, str message]])
-    | UnexpectedFailure(str message)
+data RenameException
+    = illegalRename(loc location, set[IllegalRenameReason] reason)
+    | unsupportedRename(rel[loc location, str message] issues)
+    | unexpectedFailure(str message)
 ;
 
 private set[loc] getUses(TModel tm, loc def) {
@@ -85,20 +84,27 @@ void throwIfNotEmpty(&T(&A) R, &A arg) {
     }
 }
 
-void checkLegalName(str name) {
+set[IllegalRenameReason] checkLegalName(str name) {
     try {
         parse(#Name, escapeName(name));
+        return {};
     } catch ParseError(_): {
-        throw InvalidName(name);
+        return {invalidName(name)};
     }
 }
 
-void checkCausesDoubleDeclaration(set[Define] currentDefs, set[Define] newDefs) {
+set[IllegalRenameReason] checkCausesDoubleDeclarations(set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    throwIfNotEmpty(CausesDoubleDeclaration, {<nD.defined, cD> | Define nD <- newDefs
-                                                               , loc cD <- currentDefs.defined
-                                                               , isContainedIn(cD, nD.scope)
-                                             });
+    rel[loc new, loc old] doubleDeclarations = {<nD.defined, cD.defined> | Define nD <- newDefs
+                                                               , Define cD <- currentDefs
+                                                               , isContainedIn(cD.defined, nD.scope)
+    };
+
+    if (doubleDeclarations != {}) {
+        return {doubleDeclaration(doubleDeclarations)};
+    }
+
+    return {};
 }
 
 bool isImplicitDefinition(start[Module] _, rel[loc use, loc def] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef.use; // use of name at implicit declaration loc
@@ -118,7 +124,7 @@ bool isImplicitDefinition(start[Module] m, rel[loc, loc] _, Define _: <_, _, _, 
 
 default bool isImplicitDefinition(start[Module] _, rel[loc, loc] _, Define _) = false;
 
-void checkCausesCapture(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
     set[Define] newNameImplicitDefs = {def | Define def <- newDefs, isImplicitDefinition(m, tm.useDef, def)};
     set[Define] newNameExplicitDefs = {def | Define def <- newDefs, !isImplicitDefinition(m, tm.useDef, def)};
 
@@ -138,25 +144,28 @@ void checkCausesCapture(TModel tm, start[Module] m, set[Define] currentDefs, set
                                       , isStrictlyContainedIn(nD.scope, cD.scope)
         };
 
-    throwIfNotEmpty(CausesCapture, implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl);
-}
+    rel[loc use, loc oldDef, loc newDef] allCaptures = implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl;
+    if (allCaptures != {}) {
+        return {captures(allCaptures)};
+    }
 
-void checkEditableDefinitions(set[Define] currentDefs) {
-    bool isEditableLocation(loc l) = l.scheme in {"file", "cwd", "home", "memory", "project"};
-    throwIfNotEmpty(DeclarationsNotEditable, {def | loc def <- currentDefs<defined>, !isEditableLocation(def)});
+    return {};
 }
 
 void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] currentDefs, set[loc] currentUses, str newName) {
     set[Define] newNameDefs = {def | def <- tm.defines, def.id == newName};
-    try {
-        checkEditableDefinitions(currentDefs);
-        checkLegalName(newName);
-        checkCausesDoubleDeclaration(currentDefs, newNameDefs);
-        checkCausesCapture(tm, m, currentDefs, currentUses, newNameDefs);
-    } catch IllegalRenameReason r: {
-        throw IllegalRename(cursorLoc, r);
-    }
+
     checkUnsupported(m.src, currentDefs);
+
+    set[IllegalRenameReason] reasons =
+        checkLegalName(newName)
+      + checkCausesDoubleDeclarations(currentDefs, newNameDefs)
+      + checkCausesCaptures(tm, m, currentDefs, currentUses, newNameDefs)
+    ;
+
+    if (reasons != {}) {
+        throw illegalRename(cursorLoc, reasons);
+    }
 }
 
 void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
@@ -164,7 +173,7 @@ void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
         when moduleLoc == scope; // function is defined in module scope
     default Maybe[str] isUnsupportedDefinition(Define _) = nothing();
 
-    throwIfNotEmpty(UnsupportedRename, {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)});
+    throwIfNotEmpty(unsupportedRename, {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)});
 }
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
@@ -179,7 +188,7 @@ loc findDeclarationAroundName(start[Module]m, loc nameLoc) {
         }
     }
 
-    throw UnexpectedFailure("No declaration found with name at <nameLoc> in module <m>");
+    throw unexpectedFailure("No declaration found with name at <nameLoc> in module <m>");
 }
 
 loc findNameInDeclaration(start[Module] m, loc declLoc) {
@@ -193,7 +202,7 @@ loc findNameInDeclaration(start[Module] m, loc declLoc) {
         }
     }
 
-    throw UnexpectedFailure("No declaration at <declLoc> found within module <m>");
+    throw unexpectedFailure("No declaration at <declLoc> found within module <m>");
 }
 
 Maybe[loc] locationOfName(Name n) = just(n.src);
@@ -231,7 +240,7 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     ModuleStatus ms = newModuleStatus(pcfg);
     <success, tm, ms> = getTModelForModule(moduleName, ms);
     if (!success) {
-        throw UnexpectedFailure(tm.messages[0].msg);
+        throw unexpectedFailure(tm.messages[0].msg);
     }
 
     return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
