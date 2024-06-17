@@ -120,7 +120,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     }
 
-    private final ThreadLocal<LSPProgressBar> activeProgress = ThreadLocal.withInitial(() -> null);
+    private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
@@ -170,7 +170,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
                 activeProgress.nested--;
                 return 1;
             }
-            this.activeProgress.set(null);
+            this.activeProgress.remove();
             activeProgress.finish();
         }
         return 1;
@@ -181,7 +181,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
     public void endAllJobs() {
         var activeProgress = this.activeProgress.get();
         if (activeProgress != null) {
-            this.activeProgress.set(null);
+            this.activeProgress.remove();
             activeProgress.finish();
         }
     }
