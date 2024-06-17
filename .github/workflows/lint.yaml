@@ -76,7 +76,7 @@ jobs:
           - language: java-kotlin
             build-mode: manual
           - language: javascript-typescript
-            build-mode: autobuild
+            build-mode: none
     name: githubql
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -100,12 +100,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - if: ${{ matrix.language == 'javascript-typescript' }}
-        name: build node
-        uses: github/codeql-action/autobuild@v3
-        with: 
-          working-directory: rascal-vscode-extension/
 
       - if: ${{ matrix.language == 'java-kotlin' }}
         name: Build java 
