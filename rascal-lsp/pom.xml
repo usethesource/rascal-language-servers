@@ -118,11 +118,6 @@
       <artifactId>org.eclipse.lsp4j.debug</artifactId>
       <version>${lsp4j.version}</version>
     </dependency>
-    <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna</artifactId>
-      <version>5.14.0</version>
-    </dependency>
   </dependencies>
   <build>
       <resources>

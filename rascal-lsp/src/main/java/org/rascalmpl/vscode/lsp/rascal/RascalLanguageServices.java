@@ -50,6 +50,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
@@ -75,9 +76,11 @@ public class RascalLanguageServices {
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
+        var monitor = new RascalLSPMonitor(client, logger);
+
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", monitor, null, true, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {

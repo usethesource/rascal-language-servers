@@ -40,6 +40,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.library.Prelude;
@@ -72,10 +73,10 @@ public class TerminalIDEClient implements IDEServices {
     private final ITerminalIDEServer server;
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
+    private final IRascalMonitor monitor;
     private PrintWriter err;
-    private final ThreadLocal<Deque<String>> activeJobs = ThreadLocal.withInitial(ArrayDeque<String>::new);
 
-    public TerminalIDEClient(int port) throws IOException {
+    public TerminalIDEClient(int port, IRascalMonitor monitor) throws IOException {
         @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
@@ -87,6 +88,7 @@ public class TerminalIDEClient implements IDEServices {
             .create();
         launch.startListening();
         server = launch.getRemoteProxy();
+        this.monitor = monitor;
     }
 
     @Override
@@ -160,83 +162,37 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        activeJobs.get().push(name);
-        server.jobStart(new JobStartParameter(name, workShare, totalWork));
+        monitor.jobStart(name, workShare, totalWork);
     }
 
     @Override
     public void jobStep(String name, String message, int inc) {
-        server.jobStep(new JobStepParameter(name, message, inc));
+        monitor.jobStep(name, message, inc);
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
-        try {
-            var ourJobs = activeJobs.get();
-            String top;
-            while ((top = ourJobs.pollFirst()) != null) {
-                if (top.equals(name)) {
-                    break;
-                }
-            }
-            activeJobs.remove();
-            server.jobEnd(new JobEndParameter(name, succeeded)).get().getAmount();
-            return 1;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return 0;
-        } catch (ExecutionException e) {
-            throw RuntimeExceptionFactory.io(e.getMessage());
-        }
+        return monitor.jobEnd(name, succeeded);
     }
 
     @Override
     public void endAllJobs() {
-        var ourJobs = activeJobs.get();
-        String top;
-        while ((top = ourJobs.pollFirst()) != null) {
-            try {
-                server.jobEnd(new JobEndParameter(top, true)).get().getAmount();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException e) {
-                throw RuntimeExceptionFactory.io(e.getMessage());
-            }
-        }
-        activeJobs.remove();
+        monitor.endAllJobs();;
     }
 
     @Override
     public boolean jobIsCanceled(String name) {
-        try {
-            return server.jobIsCanceled().get().isTrue();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return true;
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e.getCause());
-        }
+        return monitor.jobIsCanceled(name);
     }
 
     @Override
     public void jobTodo(String name, int work) {
-        // server.jobTodo(new AmountOfWork(work));
+        monitor.jobTodo(name, work);
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
-        if (err != null) {
-            // normally we want to see the errors where we triggered them,
-            // i.e. inside the terminal window:
-            err.println(src + ":" + message);
-        }
-        else {
-            // but, this may happen if something is already writing warnings before the interpreter
-            // is fully initialized and connected to an output stream.
-            // to be sure nothing is lost, we use log4j here to store the message in the
-            // right place.
-            logger.warn("{}: {}", src, message);
-        }
+        monitor.warning(message, src);
     }
 
     @Override

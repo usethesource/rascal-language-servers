@@ -49,6 +49,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
@@ -194,12 +195,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         try {
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
+            var monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
+
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, false, lang.getMainModule())
-                .thenApply(e -> {
-                    e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
-                    return e;
-                });
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), monitor, pcfg, false, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),

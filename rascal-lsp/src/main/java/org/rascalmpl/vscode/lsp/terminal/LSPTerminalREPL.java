@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -66,9 +67,6 @@ import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
-import com.sun.jna.Native;
-import com.sun.jna.Platform;
-import com.sun.jna.win32.StdCallLibrary;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -82,11 +80,10 @@ import io.usethesource.vallang.io.StandardTextWriter;
 public class LSPTerminalREPL extends BaseREPL {
     private static final InputStream stdin = System.in;
     private static final OutputStream stderr = System.err;
-    private static final OutputStream stdout = System.out;
     private static final boolean prettyPrompt = true;
     private static final boolean allowColors = true;
 
-    public LSPTerminalREPL(Terminal terminal, IDEServices services) throws IOException, URISyntaxException {
+    public LSPTerminalREPL(Terminal terminal, IDEServices services, OutputStream stdout) throws IOException, URISyntaxException {
         super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
     }
 
@@ -102,8 +99,6 @@ public class LSPTerminalREPL extends BaseREPL {
 
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        RascalShell.setupWindowsCodepage();
-        boolean ansiEnabled = RascalShell.enableAnsiEscapes();
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
@@ -321,13 +316,18 @@ public class LSPTerminalREPL extends BaseREPL {
             throw new IllegalArgumentException("missing --ideServicesPort commandline parameter");
         }
 
+        RascalShell.setupWindowsCodepage();
+        boolean ansiEnabled = RascalShell.enableAnsiEscapes();
+
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
         try {
+            IRascalMonitor monitor = IRascalMonitor.buildConsoleMonitor(System.in, System.out, ansiEnabled);
+
             LSPTerminalREPL terminal =
-                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort));
+                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort, monitor), monitor instanceof OutputStream ? (OutputStream) monitor : System.out);
             if (loadModule != null) {
                 terminal.queueCommand("import " + loadModule + ";");
                 if (runModule) {
