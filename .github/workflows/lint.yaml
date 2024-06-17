@@ -103,7 +103,7 @@ jobs:
 
       - if: ${{ matrix.language == 'java-kotlin' }}
         name: Build java 
-        run: mvn compile -Drascal.compile.skip -Drascal.tutor.skip -DskipTests
+        run: mvn -B compile -Drascal.compile.skip -Drascal.tutor.skip -DskipTests
         working-directory: rascal-lsp/
 
       - name: Perform CodeQL Analysis
