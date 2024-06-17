@@ -75,7 +75,7 @@ private set[Define] getDefines(TModel tm, loc useDef) {
                      ? tm.useDef[useDef] // `useDef` is a use location
                      : {useDef};         // `useDef` is a definition location
 
-    return {tm.definitions[d] | d <- defLocs};
+    return {tm.definitions[d] | d <- defLocs, tm.definitions[d]?};
 }
 
 void throwIfNotEmpty(&T(&A) R, &A arg) {
