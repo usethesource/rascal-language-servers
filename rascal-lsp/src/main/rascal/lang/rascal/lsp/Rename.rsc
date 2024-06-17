@@ -178,7 +178,7 @@ void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
-loc findDeclarationAroundName(start[Module]m, loc nameLoc) {
+loc findDeclarationAroundName(start[Module] m, loc nameLoc) {
     // we want to find the *largest* tree of defined non-terminal type of which the declared name is at nameLoc
     top-down visit (m.top) {
         case t: appl(prod(_, _, _), _): {
