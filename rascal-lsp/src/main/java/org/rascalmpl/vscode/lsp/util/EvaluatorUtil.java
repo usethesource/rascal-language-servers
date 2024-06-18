@@ -154,8 +154,9 @@ public class EvaluatorUtil {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             IDEServices services = new LSPIDEServices(client, docService, workspaceService, customLog, monitor);
             boolean jobSuccess = false;
+            String jobName = "Loading " + label;
             try {
-                services.jobStart("Loading " + label);
+                services.jobStart(jobName, imports.length);
                 Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
                         IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
                         IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(), services);
@@ -183,11 +184,14 @@ public class EvaluatorUtil {
                         logger.error("Failure to import, RascalResolver: {}", eval.getRascalResolver());
                         throw new RuntimeException("Failure to import required module " + i, e);
                     }
+                    finally {
+                        services.jobStep(jobName, "Imported: " + i);
+                    }
                 }
                 jobSuccess = true;
                 return eval;
             } finally {
-                services.jobEnd("Loading " + label, jobSuccess);
+                services.jobEnd(jobName, jobSuccess);
             }
         }, exec);
     }
