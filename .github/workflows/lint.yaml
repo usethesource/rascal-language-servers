@@ -67,3 +67,53 @@ jobs:
           eslint_dir: ./rascal-vscode-extension
           eslint_args: "src"
           eslint_extensions: ts
+
+
+  githubql:
+    strategy:
+      matrix:
+        include:
+          - language: java
+            build-mode: manual
+          - language: typescript
+            build-mode: none
+    name: githubql
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - if: ${{ matrix.language == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - if: ${{ matrix.language == 'java' }}
+        name: Build java 
+        run: mvn -B compile -Drascal.compile.skip -Drascal.tutor.skip -DskipTests
+        working-directory: rascal-lsp/
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"   
