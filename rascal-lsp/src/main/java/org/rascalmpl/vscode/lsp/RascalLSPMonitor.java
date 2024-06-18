@@ -124,18 +124,18 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
-        var activeProgress = this.activeProgress.get();
-        if (activeProgress != null) {
-            if (activeProgress.rootName.equals(name)) {
-                activeProgress.nested++;
+        var progress = this.activeProgress.get();
+        if (progress != null) {
+            if (progress.rootName.equals(name)) {
+                progress.nested++;
             }
             // an top-level progress is already active, so just report this as sub-progress
-            activeProgress.progress(name);
+            progress.progress(name);
         }
         else {
             // we have to register a progress bar, since we're the first one on this thread
-            activeProgress = new LSPProgressBar(name, generateProgressId(name));
-            this.activeProgress.set(activeProgress);
+            progress = new LSPProgressBar(name, generateProgressId(name));
+            this.activeProgress.set(progress);
         }
     }
 
@@ -148,30 +148,30 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     @Override
     public void jobStep(String name, String message, int workShare) {
-        var activeProgress = this.activeProgress.get();
-        if (activeProgress == null) {
+        var progress = this.activeProgress.get();
+        if (progress == null) {
             logger.warn("Got a job-step while we never started something. Name: {} - Message: {}", name, message);
             return;
         }
-        activeProgress.progress(message);
+        progress.progress(message);
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
-        var activeProgress = this.activeProgress.get();
-        if (activeProgress == null) {
-            logger.warn("Got a job-End while we never started something. Name: {}", name);
+        var progress = this.activeProgress.get();
+        if (progress == null) {
+            logger.warn("Got a jobEnd while we never started something. Name: {}", name);
             return 1;
         }
-        if (name != null && name.equals(activeProgress.rootName)){
+        if (name != null && name.equals(progress.rootName)){
             // okay, we might want to stop the progress bar
-            if (activeProgress.nested > 0) {
+            if (progress.nested > 0) {
                 // unless the top level was started multiple times (aka nested)
-                activeProgress.nested--;
+                progress.nested--;
                 return 1;
             }
             this.activeProgress.remove();
-            activeProgress.finish();
+            progress.finish();
         }
         return 1;
     }
@@ -179,21 +179,19 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     @Override
     public void endAllJobs() {
-        var activeProgress = this.activeProgress.get();
-        if (activeProgress != null) {
+        var progress = this.activeProgress.get();
+        if (progress != null) {
             this.activeProgress.remove();
-            activeProgress.finish();
+            progress.finish();
         }
     }
 
     @Override
     public void jobTodo(String name, int work) {
-        // TODO
     }
 
     @Override
     public boolean jobIsCanceled(String name) {
-        // TODO
         return false;
     }
 
