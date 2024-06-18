@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -53,7 +54,9 @@ import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.ideservices.BasicIDEServices;
+import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -226,7 +229,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerLocations(RegisterLocationsParameters param) {
-        new BasicIDEServices(new PrintWriter(PrintWriter.nullWriter()), new NullRascalMonitor()).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+        new BasicIDEServices(new PrintWriter(Writer.nullWriter()), new NullRascalMonitor()).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
     }
 
     @Override

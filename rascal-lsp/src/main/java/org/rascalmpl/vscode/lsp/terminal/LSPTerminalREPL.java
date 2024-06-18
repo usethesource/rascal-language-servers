@@ -172,10 +172,6 @@ public class LSPTerminalREPL extends BaseREPL {
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
-                        if (services instanceof TerminalIDEClient) {
-                            ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
-                        }
-
                         for (IValue srcPath : pcfg.getSrcs()) {
                             ISourceLocation path = (ISourceLocation)srcPath;
                             evaluator.addRascalSearchPath(path);

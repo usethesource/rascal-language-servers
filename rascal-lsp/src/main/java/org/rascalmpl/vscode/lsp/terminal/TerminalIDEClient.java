@@ -67,7 +67,6 @@ public class TerminalIDEClient implements IDEServices {
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
     private final IRascalMonitor monitor;
-    private PrintWriter err;
 
     public TerminalIDEClient(int port, IRascalMonitor monitor) throws IOException {
         @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
@@ -170,7 +169,7 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void endAllJobs() {
-        monitor.endAllJobs();;
+        monitor.endAllJobs();
     }
 
     @Override
@@ -214,7 +213,4 @@ public class TerminalIDEClient implements IDEServices {
         server.registerDebugServerPort(processID, serverPort);
     }
 
-    public void registerErrorPrinter(PrintWriter errorPrinter) {
-        this.err = errorPrinter;
-    }
 }
