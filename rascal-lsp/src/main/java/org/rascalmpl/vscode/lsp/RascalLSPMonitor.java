@@ -188,6 +188,8 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     @Override
     public void jobTodo(String name, int work) {
+        // left empty, since we don't support progress bar right now
+        // it's left for future work
     }
 
     @Override
