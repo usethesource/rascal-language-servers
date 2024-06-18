@@ -25,10 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, Key, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Delays, IDEOperations, TestWorkspace, ignoreFails, sleep } from './utils';
+import { expect } from 'chai';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -151,6 +152,22 @@ describe('IDE', function () {
         const mainItem = await driver.wait(async() => ignoreFails(outline.findItem("main()", 0)), Delays.slow, "Main function should show in the outline");
         await driver.actions().doubleClick(mainItem!).perform();
         await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, Delays.normal, "Cursor should have moved to line that contains the println function");
+    });
+
+    it ("rename works", async() => {
+        const editor = await ide.openModule(TestWorkspace.libFile);
+        await editor.moveCursor(7, 15);
+
+        await bench.executeCommand("Rename Symbol");
+        const renameBox = await driver.wait(async () => await bench.getEditorView().findElement(By.className("rename-input")), Delays.fast, "Rename box should appear");
+        await renameBox.sendKeys(Key.BACK_SPACE, "i", Key.ENTER);
+        await driver.wait(async () => (await editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
+
+        const editorText = await editor.getText();
+        expect(editorText).to.contain("int i");
+        expect(editorText).to.contain("i < 2");
+        expect(editorText).to.contain("i - 1");
+        expect(editorText).to.contain("i -2");
     });
 });
 
