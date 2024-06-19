@@ -54,10 +54,12 @@ import util::Reflective;
 // TODO Remove
 import ValueIO;
 
+alias Capture = tuple[loc def, loc use];
+
 data IllegalRenameReason
     = invalidName(str name)
-    | doubleDeclaration(rel[loc, loc] defs)
-    | captures(rel[loc use, loc oldDef, loc newDef] captures)
+    | doubleDeclaration(loc old, set[loc] new)
+    | captureChange(set[Capture] captures)
     ;
 
 data RenameException
@@ -70,12 +72,8 @@ private set[loc] getUses(TModel tm, loc def) {
     return invert(getUseDef(tm))[def];
 }
 
-private set[Define] getDefines(TModel tm, loc useDef) {
-    set[loc] defLocs = tm.useDef[useDef] != {}
-                     ? tm.useDef[useDef] // `useDef` is a use location
-                     : {useDef};         // `useDef` is a definition location
-
-    return {tm.definitions[d] | d <- defLocs, tm.definitions[d]?};
+private set[Define] getDefines(TModel tm, loc use) {
+    return {tm.definitions[d] | d <- tm.useDef[use]};
 }
 
 void throwIfNotEmpty(&T(&A) R, &A arg) {
@@ -95,21 +93,18 @@ set[IllegalRenameReason] checkLegalName(str name) {
 
 set[IllegalRenameReason] checkCausesDoubleDeclarations(set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc new, loc old] doubleDeclarations = {<nD.defined, cD.defined> | Define nD <- newDefs
-                                                               , Define cD <- currentDefs
-                                                               , isContainedIn(cD.defined, nD.scope)
+    rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define nD <- newDefs
+                                                                         , Define cD <- currentDefs
+                                                                         , isContainedIn(cD.defined, nD.scope)
     };
 
-    if (doubleDeclarations != {}) {
-        return {doubleDeclaration(doubleDeclarations)};
-    }
-
-    return {};
+    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
 }
 
 set[Define] findImplicitDefinitions(TModel tm, start[Module] m, set[Define] newDefs) {
     set[loc] maybeImplicitDefs = {l | /QualifiedName n := m, just(l) := locationOfName(n)};
-    return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in tm.useDef<0>) || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
+    return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in tm.useDef<0>)
+                                      || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 }
 
 set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
@@ -117,31 +112,26 @@ set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Def
     set[Define] newNameExplicitDefs = newDefs - newNameImplicitDefs;
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
-    rel[loc use, loc oldDef, loc newDef] implicitDeclBecomesUseOfCurrentDecl =
-        {<nD.defined, nD.defined, cD> | Define nD <- newNameImplicitDefs
-                                      , <loc cS, loc cD> <- currentDefs<scope, defined>
-                                      , isContainedIn(nD.defined, cS)
+    set[Capture] implicitDeclBecomesUseOfCurrentDecl =
+        {<cD, nD.defined> | Define nD <- newNameImplicitDefs
+                          , <loc cS, loc cD> <- currentDefs<scope, defined>
+                          , isContainedIn(nD.defined, cS)
         };
 
     // Will this rename turn a use of <oldName> into a use of an existing declaration of <newName> (shadowing)?
-    rel[loc use, loc oldDef, loc newDef] explicitDeclShadowsCurrentDecl =
-        {<cU, cD.defined, nD.defined> | Define nD <- newNameExplicitDefs
-                                      , loc cU <- currentUses
-                                      , Define cD <- getDefines(tm, cU)
-                                      , isContainedIn(cU, nD.scope)
-                                      , isStrictlyContainedIn(nD.scope, cD.scope)
+    set[Capture] explicitDeclShadowsCurrentDecl =
+        {<nD.defined, cU> | Define nD <- newNameExplicitDefs
+                          , <cU, cS> <- ident(currentUses) o tm.useDef o tm.defines<defined, scope>
+                          , isContainedIn(cU, nD.scope)
+                          , isStrictlyContainedIn(nD.scope, cS)
         };
 
-    rel[loc use, loc oldDef, loc newDef] allCaptures = implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl;
-    if (allCaptures != {}) {
-        return {captures(allCaptures)};
-    }
-
-    return {};
+    allCaptures = implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl;
+    return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
 void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] currentDefs, set[loc] currentUses, str newName) {
-    set[Define] newNameDefs = {def | def <- tm.defines, def.id == newName};
+    set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- tm.defines};
 
     checkUnsupported(m.src, currentDefs);
 
@@ -202,15 +192,16 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     loc cursorLoc = cursor.src;
 
     set[Define] defs = {};
-    if (cursorLoc in tm.useDef) {
+    if (cursorLoc in tm.useDef<0>) {
         // Cursor is at a use
         defs = getDefines(tm, cursorLoc);
     } else {
         // Cursor is at a name within a declaration
-        defs = getDefines(tm, findDeclarationAroundName(m, cursorLoc));
+        loc cursorAtDef = findDeclarationAroundName(m, cursorLoc);
+        defs = tm.definitions[cursorAtDef] + getDefines(tm, cursorAtDef);
     }
 
-    set[loc] uses = ({} | it + getUses(tm, def.defined) | Define def <- defs);
+    set[loc] uses = ({} | it + getUses(tm, def) | def <- defs.defined);
 
     checkLegalRename(tm, m, cursorLoc, defs, uses, newName);
 

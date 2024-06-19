@@ -114,14 +114,14 @@ test bool implicitPatterVariableInInnerScopeBecomesUse() = testRename("
     '}
 ");
 
-test bool explicitPatternVariableInInnerScope() =  {0} == testRenameOccurrences("
+test bool explicitPatternVariableInInnerScope() = {0} == testRenameOccurrences("
     'int foo = 8;
     'if (int bar := 9) {
     '   bar = 2 * bar;
     '}
 ");
 
-test bool becomesPatternInInnerScope() =  {0} == testRenameOccurrences("
+test bool becomesPatternInInnerScope() = {0} == testRenameOccurrences("
     'int foo = 8;
     'if (bar : int _ := 9) {
     '   bar = 2 * bar;
@@ -129,7 +129,7 @@ test bool becomesPatternInInnerScope() =  {0} == testRenameOccurrences("
 ");
 
 @expected{illegalRename}
-test bool implicitPatternVariableBecomesInInnerScope() =  {0} == testRenameOccurrences("
+test bool implicitPatternVariableBecomesInInnerScope() = testRename("
     'int foo = 8;
     'if (bar : _ := 9) {
     '   bar = 2 * foo;
@@ -137,7 +137,7 @@ test bool implicitPatternVariableBecomesInInnerScope() =  {0} == testRenameOccur
 ");
 
 @expected{illegalRename}
-test bool explicitPatternVariableBecomesInInnerScope() =  {0} == testRenameOccurrences("
+test bool explicitPatternVariableBecomesInInnerScope() = testRename("
     'int foo = 8;
     'if (bar : int _ := 9) {
     '   bar = 2 * foo;
@@ -377,13 +377,7 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
     loc moduleFileName = |memory://tests/rename/src/<moduleName>.rsc|;
     writeFile(moduleFileName, moduleStr);
-    list[DocumentEdit] edits = [];
-    try {
-        edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
-    } catch e: {
-        remove(moduleFileName);
-        throw e;
-    }
+    list[DocumentEdit] edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
 
     return <edits, moduleFileName>;
 }
