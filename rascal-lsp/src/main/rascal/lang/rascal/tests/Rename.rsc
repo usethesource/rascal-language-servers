@@ -121,6 +121,29 @@ test bool explicitPatternVariableInInnerScope() =  {0} == testRenameOccurrences(
     '}
 ");
 
+test bool becomesPatternInInnerScope() =  {0} == testRenameOccurrences("
+    'int foo = 8;
+    'if (bar : int _ := 9) {
+    '   bar = 2 * bar;
+    '}
+");
+
+@expected{illegalRename}
+test bool implicitPatternVariableBecomesInInnerScope() =  {0} == testRenameOccurrences("
+    'int foo = 8;
+    'if (bar : _ := 9) {
+    '   bar = 2 * foo;
+    '}
+");
+
+@expected{illegalRename}
+test bool explicitPatternVariableBecomesInInnerScope() =  {0} == testRenameOccurrences("
+    'int foo = 8;
+    'if (bar : int _ := 9) {
+    '   bar = 2 * foo;
+    '}
+");
+
 @expected{illegalRename}
 test bool shadowDeclaration() = testRename("
     'int foo = 8;

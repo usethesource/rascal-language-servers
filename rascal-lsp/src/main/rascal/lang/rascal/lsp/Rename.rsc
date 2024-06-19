@@ -107,26 +107,14 @@ set[IllegalRenameReason] checkCausesDoubleDeclarations(set[Define] currentDefs, 
     return {};
 }
 
-bool isImplicitDefinition(start[Module] _, rel[loc use, loc def] useDef, Define _: <_, _, _, variableId(), defined, _>) = defined in useDef.use; // use of name at implicit declaration loc
-
-bool isImplicitDefinition(start[Module] m, rel[loc, loc] _, Define _: <_, _, _, patternVariableId(), defined, _>) {
-    visit (m) {
-        case qualifiedName(qn):
-            if (locationOfName(qn) == just(defined)) return true;
-        case multiVariable(qn):
-            if (locationOfName(qn) == just(defined)) return true;
-        case variableBecomes(n, _):
-            if (locationOfName(n) == just(defined)) return true;
-    }
-
-    return false;
+set[Define] findImplicitDefinitions(TModel tm, start[Module] m, set[Define] newDefs) {
+    set[loc] maybeImplicitDefs = {l | /QualifiedName n := m, just(l) := locationOfName(n)};
+    return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in tm.useDef<0>) || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 }
 
-default bool isImplicitDefinition(start[Module] _, rel[loc, loc] _, Define _) = false;
-
 set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
-    set[Define] newNameImplicitDefs = {def | Define def <- newDefs, isImplicitDefinition(m, tm.useDef, def)};
-    set[Define] newNameExplicitDefs = {def | Define def <- newDefs, !isImplicitDefinition(m, tm.useDef, def)};
+    set[Define] newNameImplicitDefs = findImplicitDefinitions(tm, m, newDefs);
+    set[Define] newNameExplicitDefs = newDefs - newNameImplicitDefs;
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
     rel[loc use, loc oldDef, loc newDef] implicitDeclBecomesUseOfCurrentDecl =
