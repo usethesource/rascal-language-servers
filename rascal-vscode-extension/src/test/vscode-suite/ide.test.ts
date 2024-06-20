@@ -159,7 +159,7 @@ describe('IDE', function () {
         await editor.moveCursor(7, 15);
 
         await bench.executeCommand("Rename Symbol");
-        const renameBox = await driver.wait(async () => await editor.findElement(By.className("rename-input")), Delays.fast, "Rename box should appear");
+        const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.fast, "Rename box should appear");
         await renameBox.sendKeys(Key.BACK_SPACE, "i", Key.ENTER);
         await driver.wait(async () => (await editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
