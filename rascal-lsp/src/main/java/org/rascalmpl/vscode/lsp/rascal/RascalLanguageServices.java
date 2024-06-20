@@ -100,11 +100,15 @@ public class RascalLanguageServices {
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
         Executor exec) {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("checkAll", folder, pcfg.asConstructor())),
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", pcfg.asConstructor());
+                return translateCheckResults((IList) e.call("checkAll", folder, config));
+            },
             Collections.emptyMap(), exec);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
+        logger.trace("Translating messages: {}", messages);
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
@@ -128,10 +132,12 @@ public class RascalLanguageServices {
         Executor exec) {
         logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", pcfg.asConstructor());
+                return translateCheckResults((IList) e.call("check", files, config));
+            },
             buildEmptyResult(files), exec);
     }
-
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
         try {
