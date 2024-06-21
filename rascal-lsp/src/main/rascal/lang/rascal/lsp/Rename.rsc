@@ -76,12 +76,6 @@ data RenameException
     | unexpectedFailure(str message)
 ;
 
-void throwIfNotEmpty(&T(&A) R, &A arg) {
-    if (arg != {}) {
-        throw R(arg);
-    }
-}
-
 set[IllegalRenameReason] checkLegalName(str name) {
     try {
         parse(#Name, escapeName(name));
@@ -150,22 +144,12 @@ set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, 
 set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
     set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- ws.defines};
 
-    checkUnsupported(m.src, currentDefs);
-
     return reasons =
         checkLegalName(newName)
       + checkDefinitionsOutsideWorkspace(ws, currentDefs.defined)
       + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)
       + checkCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
     ;
-}
-
-void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
-    Maybe[str] isUnsupportedDefinition(Define _: <scope, id, _, functionId(), _, _>) = just("Global function definitions might span multiple modules; unsupported for now.")
-        when moduleLoc == scope; // function is defined in module scope
-    default Maybe[str] isUnsupportedDefinition(Define _) = nothing();
-
-    throwIfNotEmpty(unsupportedRename, {<def.defined, msg> | def <- defsToRename, just(msg) := isUnsupportedDefinition(def)});
 }
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
@@ -195,6 +179,9 @@ set[loc] findNames(start[Module] m, set[loc] useDefs) {
 Maybe[loc] locationOfName(Name n) = just(n.src);
 Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
 Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
+Maybe[loc] locationOfName(Variable v) = just(v.name.src);
+Maybe[loc] locationOfName(Declaration d) = just(d.name.src) when d is annotation
+                                                              || d is \tag;
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 
