@@ -375,7 +375,6 @@ test bool renameParamToUsedConstructorName() = testRename(
 
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int");
-
     newNames = {name | e <- edits, changed(_, replaces) := e
                      , r <- replaces, replace(_, name) := r};
 
@@ -428,7 +427,7 @@ list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str
 // Test renaming given a module Tree and rename parameters
 list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(m, cursor, {}, pcfg, newName);
+    return renameRascalSymbol(m, cursor, {src | src <- pcfg.srcs}, pcfg, newName);
 }
 
 tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "", str imports = "") {
@@ -443,7 +442,13 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
     loc moduleFileName = |memory://tests/rename/src/<moduleName>.rsc|;
     writeFile(moduleFileName, moduleStr);
-    list[DocumentEdit] edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
+    list[DocumentEdit] edits = [];
+    try {
+        edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
+    } catch e: {
+        remove(moduleFileName);
+        throw e;
+    }
 
     return <edits, moduleFileName>;
 }
@@ -493,7 +498,7 @@ set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str
 
 list[DocumentEdit] multiModuleTest() {
     PathConfig pcfg = pathConfig(
-        bin=|memory://tests/rename/bin|,
+        bin=resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/target/classes|),
         libs=[|lib://rascal|
             , resolveLocation(|project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal/|)],
         srcs=[resolveLocation(|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal/|)

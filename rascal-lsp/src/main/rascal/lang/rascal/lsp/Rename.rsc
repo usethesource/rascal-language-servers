@@ -47,11 +47,12 @@ import String;
 
 import lang::rascal::\syntax::Rascal;
 
-import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::Import;
+import lang::rascalcore::check::RascalConfig;
 
 import analysis::typepal::TypePal;
-import analysis::typepal::TModel;
+
+import lang::rascal::lsp::WorkspaceInfo;
 
 import analysis::diff::edits::TextEdits;
 
@@ -66,6 +67,7 @@ data IllegalRenameReason
     = invalidName(str name)
     | doubleDeclaration(loc old, set[loc] new)
     | captureChange(set[Capture] captures)
+    | definitionsOutsideWorkspace(set[loc] defs)
     ;
 
 data RenameException
@@ -73,14 +75,6 @@ data RenameException
     | unsupportedRename(rel[loc location, str message] issues)
     | unexpectedFailure(str message)
 ;
-
-private set[loc] getUses(TModel tm, loc def) {
-    return invert(getUseDef(tm))[def];
-}
-
-private set[Define] getDefines(TModel tm, loc use) {
-    return {tm.definitions[d] | d <- tm.useDef[use]};
-}
 
 void throwIfNotEmpty(&T(&A) R, &A arg) {
     if (arg != {}) {
@@ -97,25 +91,28 @@ set[IllegalRenameReason] checkLegalName(str name) {
     }
 }
 
-set[IllegalRenameReason] checkCausesDoubleDeclarations(TModel tm, set[Define] currentDefs, set[Define] newDefs) {
+set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) = { definitionsOutsideWorkspace(d) | d <- groupRangeByDomain({<f, d> | d <- defs, f := d.top, f notin ws.modules}) };
+
+set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
+    map[loc, Define] defMap = (def.defined: def | def <- ws.defines);
     rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define cD <- currentDefs
                                                                          , Define nD <- newDefs
                                                                          , isContainedIn(cD.defined, nD.scope)
-                                                                         , !rascalMayOverload({cD.defined, nD.defined}, tm.definitions)
+                                                                         , !rascalMayOverload({cD.defined, nD.defined}, defMap)
     };
 
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
 }
 
-set[Define] findImplicitDefinitions(TModel tm, start[Module] m, set[Define] newDefs) {
+set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {
     set[loc] maybeImplicitDefs = {l | /QualifiedName n := m, just(l) := locationOfName(n)};
-    return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in tm.useDef<0>)
+    return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in ws.useDef<0>)
                                       || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 }
 
-set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
-    set[Define] newNameImplicitDefs = findImplicitDefinitions(tm, m, newDefs);
+set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+    set[Define] newNameImplicitDefs = findImplicitDefinitions(ws, m, newDefs);
     set[Define] newNameExplicitDefs = newDefs - newNameImplicitDefs;
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
@@ -128,7 +125,7 @@ set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Def
     // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
     set[Capture] currentUseShadowedByRename =
         {<nD.defined, cU> | Define nD <- newDefs
-                          , <cU, cS> <- ident(currentUses) o tm.useDef o tm.defines<defined, scope>
+                          , <cU, cS> <- ident(currentUses) o ws.useDef o ws.defines<defined, scope>
                           , isContainedIn(cU, nD.scope)
                           , isStrictlyContainedIn(nD.scope, cS)
         };
@@ -136,7 +133,7 @@ set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Def
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     set[Capture] newUseShadowedByRename =
         {<cD.defined, nU> | Define nD <- newDefs
-                        , nU <- invert(tm.useDef)[newDefs.defined]
+                        , nU <- invert(ws.useDef)[newDefs.defined]
                         , Define cD <- currentDefs
                         , isContainedIn(cD.scope, nD.scope)
                         , isContainedIn(nU, cD.scope)
@@ -150,20 +147,17 @@ set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Def
     return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
-void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] currentDefs, set[loc] currentUses, str newName) {
-    set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- tm.defines};
+set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
+    set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- ws.defines};
 
     checkUnsupported(m.src, currentDefs);
 
-    set[IllegalRenameReason] reasons =
+    return reasons =
         checkLegalName(newName)
-      + checkCausesDoubleDeclarations(tm, currentDefs, newNameDefs)
-      + checkCausesCaptures(tm, m, currentDefs, currentUses, newNameDefs)
+      + checkDefinitionsOutsideWorkspace(ws, currentDefs.defined)
+      + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)
+      + checkCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
     ;
-
-    if (reasons != {}) {
-        throw illegalRename(cursorLoc, reasons);
-    }
 }
 
 void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
@@ -176,9 +170,9 @@ void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
-// Find the smallest declaration that contains `nameLoc`
-loc findDeclarationAroundName(TModel tm, loc nameLoc) =
-    (|unknown:///| | l < it && isContainedIn(nameLoc, l) ? l : it | l <- tm.defines.defined);
+// TODO Move to stdlib?
+loc findSmallestContaining(set[loc] wrappers, loc l) =
+    (|unknown:///| | w < it && isContainedIn(l, w) ? w : it | w <- wrappers);
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 set[loc] findNames(start[Module] m, set[loc] useDefs) {
@@ -203,44 +197,49 @@ Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
 Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, TModel tm, str newName) {
-    loc cursorLoc = cursor.src;
 
-    set[Define] defs = {};
-    if (cursorLoc in tm.useDef<0>) {
-        // Cursor is at a use
-        defs = getDefines(tm, cursorLoc);
-    } else {
-        // Cursor is at a name within a declaration
-        loc cursorAtDef = findDeclarationAroundName(tm, cursorLoc);
-        defs = tm.definitions[cursorAtDef] + getDefines(tm, cursorAtDef);
+tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[Define] defs, set[loc] uses, str name) {
+    if (reasons := collectIllegalRenames(ws, m, defs, uses, name), reasons != {}) {
+        return <reasons, []>;
     }
 
-    set[loc] uses = ({} | it + getUses(tm, def) | def <- defs.defined);
+    replaceName = escapeName(name);
+    return <{}, [replace(l, replaceName) | l <- findNames(m, defs.defined + uses)]>;
+}
 
-    checkLegalRename(tm, m, cursorLoc, defs, uses, newName);
+tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[Define] defs, set[loc] uses, str name) =
+    computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
 
-    rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- uses + defs<defined>};
-    list[DocumentEdit] changes = [changed(file, [replace(nameLoc, escapeName(newName)) | nameLoc <- findNames(m, useDefsPerFile[file])]) | loc file <- useDefsPerFile.file];;
+list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, set[Define] defs, set[loc] uses, str name) {
+    rel[loc file, Define defines] defsPerFile = {<d.defined.top, d> | d <- defs};
+    rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
+
+    files = defsPerFile.file + usesPerFile.file;
+    map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
+        (file: <reasons, edits> | file <- files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], name));
+
+    if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
+        throw illegalRename(cursor, reasons);
+    }
+
+    list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];
+
     // TODO If the cursor was a module name, we need to rename files as well
     list[DocumentEdit] renames = [];
 
     return changes + renames;
 }
 
-// Compute the edits for the complete workspace here
-list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
-    str moduleName = getModuleName(m.src.top, pcfg);
+list[DocumentEdit] renameRascalSymbol(start[Module] _, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
+    loc cursorLoc = cursor.src;
 
-    ModuleStatus ms = rascalTModelForLocs([m.src.top], getRascalCoreCompilerConfig(pcfg), dummy_compile1);
+    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, pcfg);
 
-    TModel tm = tmodel();
-    try
-        tm = convertTModel2PhysicalLocs(ms.tmodels[moduleName]);
-    catch NoSuchKey(): {
-        throw unsupportedRename({<cursor.src, "TPL out-of-date. Please save/compile the module before renaming.">});
-    }
-    return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
+    loc useDefAtCursor = findSmallestContaining(ws.defines.defined + ws.useDef<0>, cursorLoc);
+    set[Define] defs = getDefines(ws, useDefAtCursor);
+    set[loc] uses = ({} | it + getUses(ws, def) | def <- defs.defined);
+
+    return computeDocumentEdits(ws, cursorLoc, defs, uses, newName);
 }
 
 //// WORKAROUNDS
