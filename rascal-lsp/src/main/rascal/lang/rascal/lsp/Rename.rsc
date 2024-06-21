@@ -164,31 +164,26 @@ void checkUnsupported(loc moduleLoc, set[Define] defsToRename) {
 
 str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
-loc findDeclarationAroundName(start[Module] m, loc nameLoc) {
-    // we want to find the *largest* tree of defined non-terminal type of which the declared name is at nameLoc
-    top-down visit (m.top) {
-        case t: appl(prod(_, _, _), _): {
-            if (just(nameLoc) := locationOfName(t)) {
-                return t.src;
-            }
-        }
-    }
+// Find the smallest declaration that contains `nameLoc`
+loc findDeclarationAroundName(TModel tm, loc nameLoc) =
+    (|unknown:///| | l < it && isContainedIn(nameLoc, l) ? l : it | l <- tm.defines.defined);
 
-    throw unexpectedFailure("No declaration found with name at <nameLoc> in module <m>");
-}
-
-loc findNameInDeclaration(start[Module] m, loc declLoc) {
-    // we want to find the smallest tree of defined non-terminal type with source location `declLoc`
+// Find the smallest trees of defined non-terminal type with a source location in `useDefs`
+set[loc] findNames(start[Module] m, set[loc] useDefs) {
+    set[loc] names = {};
     visit(m.top) {
-        case t: appl(prod(_, _, _), _, src = declLoc): {
-            if (just(nameLoc) := locationOfName(t)) {
-                return nameLoc;
+        case t: appl(prod(_, _, _), _): {
+            if (t.src in useDefs && just(nameLoc) := locationOfName(t)) {
+                names += nameLoc;
             }
-            throw UnsupportedRename(t, "Cannot find name in <t>");
         }
     }
 
-    throw unexpectedFailure("No declaration at <declLoc> found within module <m>");
+    if (size(names) != size(useDefs)) {
+        throw "Expected <size(useDefs)> name locations, but found <size(names)>!";
+    }
+
+    return names;
 }
 
 Maybe[loc] locationOfName(Name n) = just(n.src);
@@ -205,7 +200,7 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
         defs = getDefines(tm, cursorLoc);
     } else {
         // Cursor is at a name within a declaration
-        loc cursorAtDef = findDeclarationAroundName(m, cursorLoc);
+        loc cursorAtDef = findDeclarationAroundName(tm, cursorLoc);
         defs = tm.definitions[cursorAtDef] + getDefines(tm, cursorAtDef);
     }
 
@@ -214,7 +209,7 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
     checkLegalRename(tm, m, cursorLoc, defs, uses, newName);
 
     rel[loc file, loc useDefs] useDefsPerFile = { <useDef.top, useDef> | loc useDef <- uses + defs<defined>};
-    list[DocumentEdit] changes = [changed(file, [replace(findNameInDeclaration(m, useDef), escapeName(newName)) | useDef <- useDefsPerFile[file]]) | loc file <- useDefsPerFile.file];;
+    list[DocumentEdit] changes = [changed(file, [replace(nameLoc, escapeName(newName)) | nameLoc <- findNames(m, useDefsPerFile[file])]) | loc file <- useDefsPerFile.file];;
     // TODO If the cursor was a module name, we need to rename files as well
     list[DocumentEdit] renames = [];
 
