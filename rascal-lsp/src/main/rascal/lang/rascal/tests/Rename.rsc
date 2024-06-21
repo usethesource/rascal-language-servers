@@ -430,7 +430,7 @@ list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str
 // Test renaming given a module Tree and rename parameters
 list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(m, cursor, {src | src <- pcfg.srcs}, pcfg, newName);
+    return renameRascalSymbol(cursor, {src | src <- pcfg.srcs}, pcfg, newName);
 }
 
 tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "", str imports = "") {
@@ -464,8 +464,7 @@ list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str old
 
 set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
     <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
-    start[Module] m = parseModuleWithSpaces(moduleFileName);
-    occs = extractRenameOccurrences(m, edits, oldName);
+    occs = extractRenameOccurrences(moduleFileName, edits, oldName);
     remove(moduleFileName);
     return occs;
 }
@@ -480,7 +479,8 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str name) {
+set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
+    start[Module] m = parseModuleWithSpaces(moduleFileName);
     list[loc] oldNameOccurrences = [];
     for (/Name n := m, "<n>" == name) {
         oldNameOccurrences += n.src;
