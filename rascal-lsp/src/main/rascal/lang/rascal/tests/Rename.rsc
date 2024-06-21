@@ -246,7 +246,6 @@ test bool nestedRecursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences(
     'fib(7);
 ", oldName = "fib", newName = "fibonacci", cursorAtOldNameOccurrence = -1);
 
-@expected{unsupportedRename}
 test bool recursiveFunctionName() = {0, 1, 2, 3} == testRenameOccurrences("fib(7);", decls = "
     'int fib(int n) {
     '   switch (n) {
@@ -302,22 +301,19 @@ test bool innerNestedFunctionParameter() = {1, 2} == testRenameOccurrences("
     '}
 ", cursorAtOldNameOccurrence = 1);
 
-@expected{unsupportedRename}
-test bool publicFunction() = testRename("foo(1);", decls = "
+test bool publicFunction() = {0, 1} == testRenameOccurrences("foo(1);", decls = "
     'public int foo(int f) {
     '   return f;
     '}
 ");
 
-@expected{unsupportedRename}
-test bool defaultFunction() = testRename("", decls = "
+test bool defaultFunction() = {0, 1} == testRenameOccurrences("foo(1);", decls = "
     'int foo(int f) {
     '   return f;
     '}
 ");
 
-@expected{unsupportedRename}
-test bool privateFunction() = testRename("", decls = "
+test bool privateFunction() = {0, 1} == testRenameOccurrences("foo(1);", decls = "
     'private int foo(int f) {
     '   return f;
     '}
@@ -366,6 +362,13 @@ test bool renameParamToConstructorName() = {0, 1} == testRenameOccurrences(
     "int f(int foo) = foo;",
     decls = "data Bar = bar();"
 );
+
+test bool globalVar() = {0, 3} == testRenameOccurrences("
+    'int f(int foo) = foo;
+    'foo = 16;
+", decls = "
+    'int foo = 8;
+");
 
 @expected{illegalRename}
 test bool renameParamToUsedConstructorName() = testRename(
