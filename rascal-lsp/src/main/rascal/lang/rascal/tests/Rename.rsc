@@ -177,13 +177,6 @@ test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
 ");
 
 @expected{illegalRename}
-test bool doubleParameterDeclaration() = {0, 1} == testRenameOccurrences("
-    'int f(int foo, int bar) {
-    '   return foo;
-    '}
-");
-
-@expected{illegalRename}
 test bool captureFunctionParameter() = testRename("
     'int f(int foo) {
     '   int bar = 9;
@@ -210,6 +203,19 @@ test bool paremeterShadowsParameter2() = {1, 2} == testRenameOccurrences("
     '   return f2(foo);
     '}
 ", cursorAtOldNameOccurrence = 1);
+
+@expected{illegalRename}
+test bool paremeterShadowsParameter3() = testRename("
+    'int f(int bar) {
+    '   int g(int baz) {
+    '       int h(int foo) {
+    '           return bar;
+    '       }
+    '       return h(baz);
+    '   }
+    '   return g(bar);
+    '}
+");
 
 test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
     'int f(int foo, int baz) {
@@ -273,6 +279,24 @@ test bool nestedPrivateFunction() = {0, 1} == testRenameOccurrences("
     'foo(1);
 ");
 
+test bool outerNestedFunctionParameter() = {0, 3} == testRenameOccurrences("
+    'int f(int foo) {
+    '   int g(int foo) {
+    '       return foo;
+    '   }
+    '   return f(foo);
+    '}
+");
+
+test bool innerNestedFunctionParameter() = {1, 2} == testRenameOccurrences("
+    'int f(int foo) {
+    '   int g(int foo) {
+    '       return foo;
+    '   }
+    '   return f(foo);
+    '}
+", cursorAtOldNameOccurrence = 1);
+
 @expected{unsupportedRename}
 test bool publicFunction() = testRename("foo(1);", decls = "
     'public int foo(int f) {
@@ -311,6 +335,26 @@ test bool privateFunctionParameter() = {0, 1} == testRenameOccurrences("", decls
     '   return foo;
     '}
 ");
+
+@expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
+@expected{illegalRename} test bool doubleParameterDeclaration2() = testRename("int f(int bar, int foo) = 1;");
+
+@expected{illegalRename} test bool doubleNormalAndKeywordParameterDeclaration1() = testRename("int f(int foo, int bar = 9) = 1;");
+@expected{illegalRename} test bool doubleNormalAndKeywordParameterDeclaration2() = testRename("int f(int bar, int foo = 8) = 1;");
+
+@expected{illegalRename} test bool doubleKeywordParameterDeclaration1() = testRename("int f(int foo = 8, int bar = 9) = 1;");
+@expected{illegalRename} test bool doubleKeywordParameterDeclaration2() = testRename("int f(int bar = 9, int foo = 8) = 1;");
+
+test bool renameParamToConstructorName() = {0, 1} == testRenameOccurrences(
+    "int f(int foo) = foo;",
+    decls = "data Bar = bar();"
+);
+
+@expected{illegalRename}
+test bool renameParamToUsedConstructorName() = testRename(
+    "Bar f(int foo) = bar(foo);",
+    decls = "data Bar = bar(int x);"
+);
 
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int");

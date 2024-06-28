@@ -99,11 +99,12 @@ set[IllegalRenameReason] checkLegalName(str name) {
     }
 }
 
-set[IllegalRenameReason] checkCausesDoubleDeclarations(set[Define] currentDefs, set[Define] newDefs) {
+set[IllegalRenameReason] checkCausesDoubleDeclarations(TModel tm, set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define nD <- newDefs
-                                                                         , Define cD <- currentDefs
+    rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define cD <- currentDefs
+                                                                         , Define nD <- newDefs
                                                                          , isContainedIn(cD.defined, nD.scope)
+                                                                         , !rascalMayOverload({cD.defined, nD.defined}, tm.definitions)
     };
 
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
@@ -126,15 +127,28 @@ set[IllegalRenameReason] checkCausesCaptures(TModel tm, start[Module] m, set[Def
                           , isContainedIn(nD.defined, cS)
         };
 
-    // Will this rename turn a use of <oldName> into a use of an existing declaration of <newName> (shadowing)?
-    set[Capture] explicitDeclShadowsCurrentDecl =
-        {<nD.defined, cU> | Define nD <- newNameExplicitDefs
+    // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
+    set[Capture] currentUseShadowedByRename =
+        {<nD.defined, cU> | Define nD <- newDefs
                           , <cU, cS> <- ident(currentUses) o tm.useDef o tm.defines<defined, scope>
                           , isContainedIn(cU, nD.scope)
                           , isStrictlyContainedIn(nD.scope, cS)
         };
 
-    allCaptures = implicitDeclBecomesUseOfCurrentDecl + explicitDeclShadowsCurrentDecl;
+    // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
+    set[Capture] newUseShadowedByRename =
+        {<cD.defined, nU> | Define nD <- newDefs
+                        , nU <- invert(tm.useDef)[newDefs.defined]
+                        , Define cD <- currentDefs
+                        , isContainedIn(cD.scope, nD.scope)
+                        , isContainedIn(nU, cD.scope)
+        };
+
+    allCaptures =
+        implicitDeclBecomesUseOfCurrentDecl
+      + currentUseShadowedByRename
+      + newUseShadowedByRename;
+
     return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
@@ -145,7 +159,7 @@ void checkLegalRename(TModel tm, start[Module] m, loc cursorLoc, set[Define] cur
 
     set[IllegalRenameReason] reasons =
         checkLegalName(newName)
-      + checkCausesDoubleDeclarations(currentDefs, newNameDefs)
+      + checkCausesDoubleDeclarations(tm, currentDefs, newNameDefs)
       + checkCausesCaptures(tm, m, currentDefs, currentUses, newNameDefs)
     ;
 
@@ -263,4 +277,49 @@ private tuple[bool, TModel, ModuleStatus] getTModelForModule(str m, ModuleStatus
         return <false, tmodel(modelName=qualifiedModuleName, messages=[error("Cannot read TPL for <qualifiedModuleName>: <e>", tplLoc)]), ms>;
         //throw IO("Cannot read tpl for <qualifiedModuleName>: <e>");
     }
+}
+
+// Copied from a newer version of lang::rascalcore::check::RascalConfig
+// TODO Remove
+// Define the name overloading that is allowed
+bool rascalMayOverload(set[loc] defs, map[loc, Define] defines){
+    bool seenVAR = false;
+    bool seenNT  = false;
+    bool seenLEX = false;
+    bool seenLAY = false;
+    bool seenKEY = false;
+    bool seenALIAS = false;
+    bool seenFUNCTION = false;
+
+    for(def <- defs){
+        // Forbid:
+        // - overloading of variables/formals/pattern variables
+        // - overloading of incompatible syntax definitions
+        switch(defines[def].idRole){
+        case functionId():
+            { if(seenVAR) return false; seenFUNCTION = true; }
+        case variableId():
+            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
+        case moduleVariableId():
+            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
+        case formalId():
+            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
+        case keywordFormalId():
+            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
+        case patternVariableId():
+            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
+        case nonterminalId():
+            { if(seenLEX || seenLAY || seenKEY){  return false; } seenNT = true; }
+        case lexicalId():
+            { if(seenNT || seenLAY || seenKEY) {  return false; } seenLEX= true; }
+        case layoutId():
+            { if(seenNT || seenLEX || seenKEY) {  return false; } seenLAY = true; }
+        case keywordId():
+            { if(seenNT || seenLAY || seenLEX) {  return false; } seenKEY = true; }
+        case aliasId():
+            { if(seenALIAS) return false; seenALIAS = true; }
+
+        }
+    }
+    return true;
 }
