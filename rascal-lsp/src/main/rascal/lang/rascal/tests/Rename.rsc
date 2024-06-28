@@ -350,10 +350,14 @@ private PathConfig testPathConfig = pathConfig(
 
 // Test renaming given the location of a module and rename parameters
 list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
+    void checkNoErrors(list[ModuleMessages] msgs) {
+        if (errors := {p | p:program(_, pmsgs) <- msgs, m <- pmsgs, m is error}, errors != {})
+            throw errors;
+    }
+
     loc f = resolveLocation(singleModule);
 
-    list[ModuleMessages] modMsgs = checkAll(f, pcfg);
-    // TODO Check if there are no errors
+    checkNoErrors(checkAll(f, pcfg));
 
     return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName, pcfg=pcfg);
 }
