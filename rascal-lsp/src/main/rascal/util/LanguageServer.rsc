@@ -70,7 +70,7 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 @pitfalls {
     * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
-alias Parser           = Tree (str /*input*/, loc /*origin*/);
+alias Parser           = Tree (str _input, loc _origin);
 
 @synopsis{Function profile for summarizer contributions to a language server}
 @description{
@@ -91,19 +91,19 @@ A summarizer provides the same information as the following contributors combine
 The difference is that these contributions are executed on-demand (pulled), while Summarizers
 are executed after build or after typing (push).
 }
-alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
+alias Summarizer       = Summary (loc _origin, Tree _input);
 
 @synopsis{Function profile for outliner contributions to a language server}
-alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
+alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
-alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
+alias LensDetector     = rel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
-alias CommandExecutor  = value (Command /*command*/);
+alias CommandExecutor  = value (Command _command);
 
 @synopsis{Function profile for inlay contributions to a language server}
-alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+alias InlayHinter      = list[InlayHint] (Tree _input);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
@@ -116,7 +116,18 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Documenter       = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for retrieving code actions focused around the current cursor}
+@description{
+Next to the quickfix commands that may be attached to diagnostic ((Message))s, the LSP
+can produce refactoring and quickfix or visualization actions specific for what is near
+or under the current cursor.
+
+An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
+The implementor is asked to produce only actions that pertain what is under the current cursor.
+}
+alias ActionContributor = list[Command] (loc _focus, Tree _fullTree, Tree _treeAroundFocus_);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -129,7 +140,7 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -142,7 +153,7 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Referrer         = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -155,7 +166,7 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Implementer      = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
