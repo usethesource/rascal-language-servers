@@ -41,6 +41,7 @@ module util::LanguageServer
 import util::Reflective;
 import IO;
 import ParseTree;
+import Message;
 
 @synopsis{Definition of a language server by its meta-data}
 @description{
@@ -127,7 +128,7 @@ or under the current cursor.
 An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
 The implementor is asked to produce only actions that pertain what is under the current cursor.
 }
-alias ActionContributor = list[Command] (loc _focus, Tree _fullTree, Tree _treeAroundFocus_);
+alias CodeActionContributor = list[Command] (loc _focus, Tree _fullTree, Tree _treeAroundFocus_);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -213,6 +214,7 @@ data LanguageService
     | definer(Definer definer)
     | referrer(Referrer reference)
     | implementer(Implementer implementer)
+    | actions(CodeActionContributor actions)
     ;
 
 @deprecated{Please use ((builder)) or ((analyzer))}
@@ -295,6 +297,36 @@ data DocumentSymbolTag
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
+@synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
+data Message(Command quickfix=noop());
+
+@synopsis{A Command is a parameter to a CommandExecutor function.}
+@description{
+Commands can be any closed term. Add any constructor you need to express the execution parameters
+of a command.
+}
+@examples{
+```rascal
+// here we invent a new command name `shouldBeInt` which is parametrized by a loc:
+data Command = shouldBeInt(loc src);
+
+// and we have the evaluator:
+value evaluator(shouldBeInt(loc src)) {
+    // overwrite that part of a file with `int`:
+    writeFile("int", src);
+}
+```
+}
+@benefits{
+* Commands can be attached to diagnostic ((Message)) or ((LensDetector)) or produced by ((CodeActionContributor)).
+It allows you to hook DSL-specific code to the editor for any DSL.
+}
+@pitfalls{
+* the `noop()` command will always be ignored.
+* _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
+be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be
+serialized, so that would lead to run-time errors.
+}
 data Command(str title="")
     = noop()
     ;
@@ -342,7 +374,6 @@ However since language contributions are just Rascal functions, it is advised to
 Use `util::Reflective::getProjectPathConfig` for a representative configuration.
 }
 java void registerLanguage(Language lang);
-
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Spins down and removes a previously registered language server}
