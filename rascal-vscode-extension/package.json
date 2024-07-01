@@ -220,7 +220,7 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
-    "esbuild": "0.21.x",
+    "esbuild": "0.22.x",
     "eslint": "8.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
