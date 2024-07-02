@@ -56,13 +56,9 @@ import io.usethesource.vallang.IValue;
  * TODO: document versions feature
  */
 public class DocumentChanges {
-    private final IBaseTextDocumentService docService;
+    private DocumentChanges() { }
 
-    public DocumentChanges(IBaseTextDocumentService docService) {
-        this.docService = docService;
-    }
-
-    public List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(IList list) {
+    public static List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
 
         for (IValue elem : list) {
@@ -83,7 +79,7 @@ public class DocumentChanges {
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits((IList) edit.get("edits")))));
+                            translateTextEdits(docService, (IList) edit.get("edits")))));
                     break;
             }
         }
@@ -91,14 +87,14 @@ public class DocumentChanges {
         return result;
     }
 
-    private List<TextEdit> translateTextEdits(IList edits) {
+    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits) {
         return edits.stream()
             .map(e -> (IConstructor) e)
-            .map(c -> new TextEdit(locationToRange((ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue()))
+            .map(c -> new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue()))
             .collect(Collectors.toList());
     }
 
-    private Range locationToRange(ISourceLocation loc) {
+    private static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
         LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
         return Locations.toRange(loc, columnMap);
     }

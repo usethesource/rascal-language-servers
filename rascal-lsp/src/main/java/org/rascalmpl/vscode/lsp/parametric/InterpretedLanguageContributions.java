@@ -170,6 +170,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             original.warning(message, src);
         }
 
+        @Override
+        public void endAllJobs() {
+            // TODO Auto-generated method stub
+        }
+
     }
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
