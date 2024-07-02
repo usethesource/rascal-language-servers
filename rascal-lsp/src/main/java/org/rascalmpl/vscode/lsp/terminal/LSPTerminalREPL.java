@@ -313,14 +313,14 @@ public class LSPTerminalREPL extends BaseREPL {
         }
 
         RascalShell.setupWindowsCodepage();
-        boolean ansiEnabled = RascalShell.enableAnsiEscapes();
+        RascalShell.enableWindowsAnsiEscapesIfPossible();
 
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
         try {
-            IRascalMonitor monitor = IRascalMonitor.buildConsoleMonitor(System.in, System.out, ansiEnabled);
+            IRascalMonitor monitor = IRascalMonitor.buildConsoleMonitor(System.in, System.out, false);
 
             LSPTerminalREPL terminal =
                 new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort, monitor), monitor instanceof OutputStream ? (OutputStream) monitor : System.out);

@@ -87,7 +87,7 @@ public class RascalLanguageServices {
         try {
             IString moduleName = VF.string(pcfg.getModuleName(occ));
             return runEvaluator("Rascal makeSummary", summaryEvaluator, eval -> {
-                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, addResources(pcfg));
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
             }, null, exec);
         } catch (IOException e) {
@@ -97,11 +97,17 @@ public class RascalLanguageServices {
         }
     }
 
+    private static IConstructor addResources(PathConfig pcfg) {
+        var result = pcfg.asConstructor();
+        return result.asWithKeywordParameters()
+            .setParameter("resources", pcfg.getBin());
+    }
+
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
         Executor exec) {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
             e -> {
-                var config = e.call("getRascalCoreCompilerConfig", pcfg.asConstructor());
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("checkAll", folder, config));
             },
             Collections.emptyMap(), exec);
@@ -133,7 +139,7 @@ public class RascalLanguageServices {
         logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
             e -> {
-                var config = e.call("getRascalCoreCompilerConfig", pcfg.asConstructor());
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("check", files, config));
             },
             buildEmptyResult(files), exec);
