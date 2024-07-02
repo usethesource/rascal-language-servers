@@ -173,7 +173,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         @Override
         public void endAllJobs() {
             // TODO Auto-generated method stub
-            throw new UnsupportedOperationException("Unimplemented method 'endAllJobs'");
         }
 
     }

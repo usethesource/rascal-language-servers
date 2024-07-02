@@ -339,7 +339,6 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void endAllJobs() {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'endAllJobs'");
     }
 
 }
