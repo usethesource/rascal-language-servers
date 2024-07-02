@@ -30,6 +30,7 @@ import lang::rascal::lsp::Rename;
 
 import Exception;
 import IO;
+import String;
 
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
@@ -428,10 +429,9 @@ tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     str moduleName = "TestModule<abs(arbInt())>";
     str moduleStr =
     "module <moduleName>
-    '<decls>
-    '
+    '<trim(decls)>
     'void main() {
-    '<stmtsStr>
+    '<trim(stmtsStr)>
     '}";
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
