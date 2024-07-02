@@ -31,7 +31,9 @@ import lang::rascal::lsp::Rename;
 import Exception;
 import IO;
 import List;
+import Map;
 import Message;
+import Set;
 import String;
 
 import lang::rascal::\syntax::Rascal;
@@ -592,6 +594,17 @@ private PathConfig getMultiModuleConfig(loc testDir) {
     );
 }
 
+private PathConfig getTestWorkspaceConfig() {
+    return pathConfig(
+        bin=|project://rascal-vscode-extension/test-workspace/test-project/target|,
+        libs=[|lib://rascal|],
+        srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main|
+            , |project://rascal-vscode-extension/test-workspace/test-lib/src/main|],
+        resources=|memory://tests/rename/resources|,
+        generatedSources=|memory://tests/rename/generatedSources|
+    );
+}
+
 str moduleNameToPath(str name) = replaceAll(name, "::", "/");
 str modulePathToName(str path) = replaceAll(path, "/", "::");
 
@@ -625,26 +638,25 @@ bool testRenameOccurrences(map[str, TestModule] modules, tuple[str moduleName, s
 
     PathConfig pcfg = getMultiModuleConfig(testDir);
 
-    Tree cursorT = char(0);
-    for (name <- modules) {
-        m = modules[name];
-        l = storeTestModule(testDir, name, m.body);
-        if (cursor.moduleName == name) {
-            cursorT = findCursor(l, cursor.id, cursor.occ);
-        }
-    }
+    map[loc file, set[int] expectedRenameOccs] modulesByLocation = (l: m.expectedRenameOccs | name <- modules, m := modules[name], l := storeTestModule(testDir, name, m.body));
 
-    checkNoErrors(checkAll(testDir, getRascalCoreCompilerConfig(pcfg)));
+    res = testRenameOccurrences(modulesByLocation, cursor, newName=newName, pcfg=pcfg);
+    remove(testDir);
+    return res;
+}
 
-    edits = renameRascalSymbol(cursorT, {testDir}, pcfg, newName);
+bool testRenameOccurrences(map[loc file, set[int] expectedRenameOccs] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar", PathConfig pcfg = getTestWorkspaceConfig()) {
+    checkNoErrors(check(toList(domain(modules)), rascalCompilerConfig(pcfg)));
+
+    Tree cursorT = findCursor([l | l <- modules, getModuleName(l, pcfg) == cursor.moduleName][0], cursor.id, cursor.occ);
+
+    edits = renameRascalSymbol(cursorT, {d| d <- pcfg.srcs}, pcfg, newName);
 
     editsPerModule = (name: locsToOccs(m, cursor.id, locs) | changed(f, textedits) <- edits
                                 , start[Module] m := parseModuleWithSpaces(f)
                                 , str name := getModuleName(f, pcfg)
                                 , set[loc] locs := {l | replace(l, _) <- textedits});
-    expectedEditsPerModule = (name: modules[name].expectedRenameOccs | name <- modules);
-
-    remove(testDir);
+    expectedEditsPerModule = (name: modules[l] | l <- modules, name := getModuleName(l, pcfg));
 
     return editsPerModule == expectedEditsPerModule;
 }
