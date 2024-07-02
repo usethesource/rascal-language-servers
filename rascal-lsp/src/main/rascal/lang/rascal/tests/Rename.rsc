@@ -365,13 +365,6 @@ test bool renameParamToConstructorName() = {0, 1} == testRenameOccurrences(
     decls = "data Bar = bar();"
 );
 
-test bool globalVar() = {0, 3} == testRenameOccurrences("
-    'int f(int foo) = foo;
-    'foo = 16;
-", decls = "
-    'int foo = 8;
-");
-
 @expected{illegalRename}
 test bool renameParamToUsedConstructorName() = testRename(
     "Bar f(int foo) = bar(foo);",
@@ -404,7 +397,14 @@ test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc
 @expected{illegalRename}
 test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
 
-test bool multiModuleTest() = testRenameOccurrences((
+test bool globalVar() = {0, 3} == testRenameOccurrences("
+    'int f(int foo) = foo;
+    'foo = 16;
+", decls = "
+    'int foo = 8;
+");
+
+test bool multiModuleVar() = testRenameOccurrences((
     "Fib": <"int foo = 8;
             '
             'int fib(int n) {
@@ -421,7 +421,52 @@ test bool multiModuleTest() = testRenameOccurrences((
                '   return 0;
                '}"
                , {0}>
-    ), <"Main", "foo", 0>);
+    ), <"Main", "foo", 0>, newName = "Bar");
+
+test bool globalAlias() = {0, 1, 2, 3} == testRenameOccurrences("
+    'Foo f(Foo x) = x;
+    'Foo foo = 8;
+    'y = f(foo);
+", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar");
+
+test bool multiModuleAlias() = testRenameOccurrences((
+    "Fib": <"alias Foo = int;
+            'Foo fib(int n) {
+            '   if (n \< 2) {
+            '       return 1;
+            '   }
+            '   return fib(n - 1) + fib(n -2);
+            '}"
+            , {0, 1}>
+    , "Main": <"import Fib;
+               '
+               'int main() {
+               '   Foo result = fib(8);
+               '   return 0;
+               '}"
+               , {0}>
+    ), <"Main", "Foo", 0>, newName = "Bar");
+
+test bool globalData() = {0, 1, 2, 3} == testRenameOccurrences("
+    'Foo f(Foo x) = x;
+    'Foo x = foo();
+    'y = f(x);
+", decls = "data Foo = foo();", oldName = "Foo", newName = "Bar");
+
+test bool multiModuleData() = testRenameOccurrences((
+    "values::Bool": <"
+            'data Bool = t() | f();
+            '
+            'Bool and(Bool l, Bool r) = r is t ? l : f;
+            '"
+            , {1, 2, 3, 4}>
+    , "Main": <"import values::Bool;
+               '
+               'void main() {
+               '   Bool b = and(t(), f());
+               '}"
+               , {1}>
+    ), <"Main", "Bool", 1>, newName = "Boolean");
 
 int LARGE_TEST_SIZE = 200;
 test bool largeTest() = ({0} | it + {foos + 3, foos + 4, foos + 5} | i <- [0..LARGE_TEST_SIZE], foos := 5 * i) == testRenameOccurrences((

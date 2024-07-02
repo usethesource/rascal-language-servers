@@ -182,6 +182,10 @@ Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
 Maybe[loc] locationOfName(Variable v) = just(v.name.src);
 Maybe[loc] locationOfName(Declaration d) = just(d.name.src) when d is annotation
                                                               || d is \tag;
+Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is \alias
+                                                                         || d is dataAbstract
+                                                                         || d is \data;
+
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 
