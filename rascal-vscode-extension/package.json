@@ -191,7 +191,7 @@
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "package": "npm run esbuild-base -- --minify",
@@ -220,7 +220,7 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
-    "esbuild": "0.21.x",
+    "esbuild": "0.22.x",
     "eslint": "8.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
