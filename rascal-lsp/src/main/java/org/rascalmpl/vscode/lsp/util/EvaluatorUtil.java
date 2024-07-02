@@ -51,6 +51,7 @@ import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -163,11 +164,15 @@ public class EvaluatorUtil {
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
+                ClassLoader cl = new SourceLocationClassLoader(pcfg.getClassloaders(), ShellEvaluatorFactory.class.getClassLoader());
+                eval.addClassLoader(cl);
                 if (addRascalCore) {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+
+
 
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
