@@ -194,7 +194,7 @@ set[loc] findNames(start[Module] m, set[loc] useDefs) {
     }
 
     if (size(names) != size(useDefs)) {
-        throw "Expected <size(useDefs)> name locations, but found <size(names)>!";
+        throw unsupportedRename({<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefs - names});
     }
 
     return names;

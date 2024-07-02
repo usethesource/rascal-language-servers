@@ -336,6 +336,18 @@ test bool privateFunctionParameter() = {0, 1} == testRenameOccurrences("", decls
     '}
 ");
 
+@expected{unsupportedRename}
+test bool nestedKeywordParameter() = {0, 1, 2} == testRenameOccurrences("
+    'int f(int foo = 8) = foo;
+    'int x = f(foo = 10);
+");
+
+@expected{unsupportedRename}
+test bool keywordParameter() = testRename(
+    "int x = f(foo = 10);"
+    decls="int f(int foo = 8) = foo;"
+);
+
 @expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
 @expected{illegalRename} test bool doubleParameterDeclaration2() = testRename("int f(int bar, int foo) = 1;");
 
@@ -446,7 +458,11 @@ set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, 
 
 // Test renames that are expected to throw an exception
 bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
-    getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName decls=decls);
+    edits = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName decls=decls);
+
+    print("UNEXPECTED EDITS: ");
+    iprintln(edits);
+
     return false;
 }
 
