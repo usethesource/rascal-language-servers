@@ -46,8 +46,10 @@ import Set;
 import String;
 
 import lang::rascal::\syntax::Rascal;
-// import lang::rascalcore::check::Checker;
+
+import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::Import;
+
 import analysis::typepal::TypePal;
 import analysis::typepal::TModel;
 
@@ -57,10 +59,6 @@ import vis::Text;
 
 import util::Maybe;
 import util::Reflective;
-
-// Only needed until we move to newer type checker
-// TODO Remove
-import ValueIO;
 
 alias Capture = tuple[loc def, loc use];
 
@@ -233,93 +231,19 @@ list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] wor
 // Compute the edits for the complete workspace here
 list[DocumentEdit] renameRascalSymbol(start[Module] m, Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
     str moduleName = getModuleName(m.src.top, pcfg);
-    ModuleStatus ms = newModuleStatus(pcfg);
-    <success, tm, ms> = getTModelForModule(moduleName, ms);
-    if (!success) {
-        throw unexpectedFailure(tm.messages[0].msg);
-    }
 
+    ModuleStatus ms = rascalTModelForLocs([m.src.top], getRascalCoreCompilerConfig(pcfg), dummy_compile1);
+
+    TModel tm = tmodel();
+    try
+        tm = convertTModel2PhysicalLocs(ms.tmodels[moduleName]);
+    catch NoSuchKey(): {
+        throw unsupportedRename({<cursor.src, "TPL out-of-date. Please save/compile the module before renaming.">});
+    }
     return renameRascalSymbol(m, cursor, workspaceFolders, tm, newName);
 }
 
 //// WORKAROUNDS
-//// Most (copied) definitions below can probably go once we depend on the new typechecker and new release of Rascal (Core)
 
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-data ModuleStatus =
-    moduleStatus(
-      map[str, list[Message]] messages,
-      PathConfig pathConfig
-   );
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-ModuleStatus newModuleStatus(PathConfig pcfg) = moduleStatus((), pcfg);
-
-// This is copied from the newest version of the type-checker and simplified for future compatibilty.
-// TODO Remove once we migrate to a newer type checker version
-private tuple[bool, TModel, ModuleStatus] getTModelForModule(str m, ModuleStatus ms) {
-    pcfg = ms.pathConfig;
-    <found, tplLoc> = getTPLReadLoc(m, pcfg);
-    if (!found) {
-        return <found, tmodel(), moduleStatus((), pcfg)>;
-    }
-
-    try {
-        tpl = readBinaryValueFile(#TModel, tplLoc);
-        return <true, tpl, ms>;
-    } catch e: {
-        //ms.status[qualifiedModuleName] ? {} += not_found();
-        return <false, tmodel(modelName=qualifiedModuleName, messages=[error("Cannot read TPL for <qualifiedModuleName>: <e>", tplLoc)]), ms>;
-        //throw IO("Cannot read tpl for <qualifiedModuleName>: <e>");
-    }
-}
-
-// Copied from a newer version of lang::rascalcore::check::RascalConfig
-// TODO Remove
-// Define the name overloading that is allowed
-bool rascalMayOverload(set[loc] defs, map[loc, Define] defines){
-    bool seenVAR = false;
-    bool seenNT  = false;
-    bool seenLEX = false;
-    bool seenLAY = false;
-    bool seenKEY = false;
-    bool seenALIAS = false;
-    bool seenFUNCTION = false;
-
-    for(def <- defs){
-        // Forbid:
-        // - overloading of variables/formals/pattern variables
-        // - overloading of incompatible syntax definitions
-        switch(defines[def].idRole){
-        case functionId():
-            { if(seenVAR) return false; seenFUNCTION = true; }
-        case variableId():
-            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
-        case moduleVariableId():
-            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
-        case formalId():
-            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
-        case keywordFormalId():
-            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
-        case patternVariableId():
-            { if(seenVAR || seenFUNCTION) return false;  seenVAR = true;}
-        case nonterminalId():
-            { if(seenLEX || seenLAY || seenKEY){  return false; } seenNT = true; }
-        case lexicalId():
-            { if(seenNT || seenLAY || seenKEY) {  return false; } seenLEX= true; }
-        case layoutId():
-            { if(seenNT || seenLEX || seenKEY) {  return false; } seenLAY = true; }
-        case keywordId():
-            { if(seenNT || seenLAY || seenLEX) {  return false; } seenKEY = true; }
-        case aliasId():
-            { if(seenALIAS) return false; seenALIAS = true; }
-
-        }
-    }
-    return true;
-}

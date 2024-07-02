@@ -33,7 +33,11 @@ import IO;
 import String;
 
 import lang::rascal::\syntax::Rascal;
+
 import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::RascalConfig;
+
 import analysis::diff::edits::TextEdits;
 
 import util::Math;
@@ -403,7 +407,9 @@ test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8i
 private PathConfig testPathConfig = pathConfig(
         bin=|memory://tests/rename/bin|,
         libs=[|lib://rascal|],
-        srcs=[|memory://tests/rename/src|]);
+        srcs=[|memory://tests/rename/src|],
+        resources=|memory://tests/rename/resources|,
+        generatedSources=|memory://tests/rename/generated-sources|);
 
 // Test renaming given the location of a module and rename parameters
 list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
@@ -414,7 +420,7 @@ list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str
 
     loc f = resolveLocation(singleModule);
 
-    checkNoErrors(checkAll(f, pcfg));
+    checkNoErrors(checkAll(f, getRascalCoreCompilerConfig(pcfg)));
 
     return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName, pcfg=pcfg);
 }

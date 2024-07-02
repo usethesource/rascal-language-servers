@@ -44,7 +44,9 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
+import org.rascalmpl.interpreter.ConsoleRascalMonitor;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.interpreter.utils.LimitedResultWriter;
@@ -157,7 +159,7 @@ public class EvaluatorUtil {
                 monitor.jobStart("Loading " + label);
                 Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
                         IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
+                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(), new ConsoleRascalMonitor());
                 eval.setMonitor(monitor);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));

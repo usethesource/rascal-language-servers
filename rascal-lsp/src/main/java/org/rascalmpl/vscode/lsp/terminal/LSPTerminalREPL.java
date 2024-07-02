@@ -173,7 +173,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
-                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, root, heap);
+                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, null, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 

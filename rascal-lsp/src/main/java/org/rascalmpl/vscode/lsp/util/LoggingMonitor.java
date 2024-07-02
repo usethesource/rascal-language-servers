@@ -67,4 +67,10 @@ public class LoggingMonitor implements IRascalMonitor {
     public void jobTodo(String name, int work) {
         // ignore
     }
+
+    @Override
+    public void endAllJobs() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'endAllJobs'");
+    }
 }

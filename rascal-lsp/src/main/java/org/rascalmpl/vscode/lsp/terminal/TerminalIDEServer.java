@@ -222,7 +222,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerLocations(RegisterLocationsParameters param) {
-        new BasicIDEServices(null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+        new BasicIDEServices(null, null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
     }
 
     @Override

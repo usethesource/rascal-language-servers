@@ -85,7 +85,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
         GlobalEnvironment unusedHeap = new GlobalEnvironment();
-        Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
+        Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), null, new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
         // this is what we are after: a factory that can load back parsers.
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
         IConstructor reifiedType = makeReifiedType(spec, vf);
