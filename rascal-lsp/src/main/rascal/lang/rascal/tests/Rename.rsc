@@ -473,7 +473,12 @@ set[int] extractRenameOccurrences(start[Module] m, list[DocumentEdit] edits, str
     }
 
     if ([changed(_, replaces)] := edits) {
-        idx = {indexOf(oldNameOccurrences, l) | replace(l, _) <- replaces};
+        idx = {};
+        for (replace(l, _) <- replaces, i := indexOf(oldNameOccurrences, l)) {
+            if (i == -1) throw "Cannot find <l> in <oldNameOccurrences>";
+            idx += i;
+        }
+
         return idx;
     } else {
         throw "Unexpected changes: <edits>";
