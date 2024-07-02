@@ -37,7 +37,9 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
@@ -95,15 +97,33 @@ public class Diagnostics {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange(getMessageLocation(d), cm));
+        Range range = Locations.toRange(getMessageLocation(d), cm);
+        result.setRange(range);
+
+        storeFixCommands(d, result, range);
         return result;
+    }
+
+    private static void storeFixCommands(IConstructor d, Diagnostic result, Range range) {
+        // Here we attach quick-fix commands to every Diagnostic, if present.
+        // Later when codeActions are requested, the LSP client sends selected
+        // messages back to us, in which we can find these commands and send
+        // them right back in response to the codeActions request.
+
+        if (d.asWithKeywordParameters().hasParameter("fixes")) {
+            // setData is meant exactly for this!
+            result.setData(d.asWithKeywordParameters().getParameter("fixes").toString());
+        }
     }
 
     public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange(getMessageLocation(d), cm));
+        Range range = Locations.toRange(getMessageLocation(d), cm);
+        result.setRange(range);
+
+        storeFixCommands(d, result, range);
         return result;
     }
 

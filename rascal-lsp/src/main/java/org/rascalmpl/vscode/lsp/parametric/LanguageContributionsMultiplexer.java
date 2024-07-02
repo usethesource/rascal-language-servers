@@ -62,6 +62,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> documenter = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> referrer = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementer = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> codeActionContributor = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasDocumenter = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDefiner = failedInitialization();
@@ -74,6 +75,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasLensDetector = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCommandExecutor = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHinter = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCodeActionContributor = failedInitialization();
 
     private volatile CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private volatile CompletableFuture<SummaryConfig> builderSummaryConfig;
@@ -254,6 +256,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IList> parseCommands(String command) {
+        return commandExecutor.thenApply(c -> c.parseCommands(command)).thenCompose(Function.identity());
+    }
+
+    @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
         return flatten(inlayHinter, c -> c.inlayHint(input));
     }
@@ -278,6 +285,15 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return flatten(implementer, c -> c.implementations(loc, input, cursor));
     }
 
+    @Override
+    public InterruptibleFuture<ISet> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
+        return flatten(codeActionContributor, c -> c.codeActions(focus, input, cursor));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
+        return hasCodeActionContributor;
+    }
 
     @Override
     public CompletableFuture<Boolean> hasDocumenter() {

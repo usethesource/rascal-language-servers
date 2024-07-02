@@ -62,6 +62,7 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
+import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class InterpretedLanguageContributions implements ILanguageContributions {
@@ -86,6 +87,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> definer;
     private final CompletableFuture<@Nullable IFunction> referrer;
     private final CompletableFuture<@Nullable IFunction> implementer;
+    private final CompletableFuture<@Nullable IFunction> codeActionContributor;
 
     private final CompletableFuture<Boolean> hasOutliner;
     private final CompletableFuture<Boolean> hasAnalyzer;
@@ -97,10 +99,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasDefiner;
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
+    private final CompletableFuture<Boolean> hasCodeActionContributor;
 
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
+    
 
     private class MonitorWrapper implements IRascalMonitor {
         private final IRascalMonitor original;
@@ -202,6 +206,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.definer = getFunctionFor(contributions, LanguageContributions.DEFINER);
             this.referrer = getFunctionFor(contributions, LanguageContributions.REFERRER);
             this.implementer = getFunctionFor(contributions, LanguageContributions.IMPLEMENTER);
+            this.codeActionContributor = getFunctionFor(contributions, LanguageContributions.CODE_ACTION_CONTRIBUTOR);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
@@ -214,6 +219,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasDefiner = nonNull(this.definer);
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
+            this.hasCodeActionContributor = nonNull(this.codeActionContributor);
 
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYZER);
             this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILDER);
@@ -278,13 +284,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
             .getValue();
     }
+ 
+    @Override
+    public CompletableFuture<IList> parseCommands(String command) {
+        return store.thenApply(commandStore -> {
+            try {
+                var TF = TypeFactory.getInstance();
+                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("Command")), new StringReader(command));
+            } catch (FactTypeUseException | IOException e) {
+                logger.catching(e);
+                return VF.list();
+            }
+        });
+    }
 
-    private CompletableFuture<IConstructor> parseCommand(String command) {
+    public CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException(e);
+               throw new RuntimeException(e);
             }
         });
     }
@@ -359,10 +378,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         debug(LanguageContributions.IMPLEMENTER, TreeAdapter.getLocation(cursor));
         return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), loc, input, cursor);
     }
+
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
         debug(LanguageContributions.REFERRER, TreeAdapter.getLocation(cursor));
         return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), loc, input, cursor);
+    }
+
+    @Override
+    public InterruptibleFuture<ISet> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
+        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, TreeAdapter.getLocation(cursor));
+        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.set(), focus, input, cursor);
     }
 
     private void debug(String name, Object param) {
@@ -411,6 +437,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasOutliner() {
         return hasOutliner;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
+        return hasCodeActionContributor;
     }
 
     @Override

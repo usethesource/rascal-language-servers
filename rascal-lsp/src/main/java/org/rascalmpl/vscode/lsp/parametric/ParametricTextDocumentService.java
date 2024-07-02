@@ -33,18 +33,24 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -92,7 +98,9 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -112,10 +120,12 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.exceptions.FactParseError;
 
@@ -183,6 +193,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
+        result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setFoldingRangeProvider(true);
@@ -372,7 +383,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(languageName, command), null);
     }
-
+    
     private Command constructorToCommand(String languageName, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
@@ -498,6 +509,62 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        // TODO: clean this up a bit; (this is an experiment to see how to wire it all up_.
+        String language = registeredExtensions.get(extension(params.getTextDocument().getUri()));
+        ILanguageContributions contribs = contributions.get(language);
+        var loc = Locations.toLoc(params.getTextDocument());
+        var cursor = params.getRange().getStart();
+        var line = cursor.getLine() + 1;
+        var offset = columns.get(loc).translateInverseColumn(line, cursor.getCharacter(), false);
+        var values = IRascalValueFactory.getInstance();
+        var start = values.sourceLocation(loc, offset, 1);
+        var empty = IRascalValueFactory.getInstance().list();
+
+        if (contribs != null) {
+            // first we filter out the quickfixes that were sent along with diagnostics
+            // and which came back with the codeAction's list of relevant diagnostics:
+            Stream<Either<Command,CodeAction>> quickfixes = params.getContext().getDiagnostics()
+                .stream()
+                .map(d -> (String) d.getData())
+                .map(s -> {
+                    // TODO: I don't like this try-catch. Should be avoidable @davylandman?
+                    try {
+                        return contribs.parseCommands(s).toCompletableFuture().get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        logger.catching(e);
+                        return empty;
+                    }
+                })
+                .flatMap(lst -> lst.stream())
+                .map(cons -> constructorToCommand(language, (IConstructor) cons))
+                .map(cmd -> Either.<Command,CodeAction>forLeft(cmd))
+                ;
+                
+
+            // here we dynamically ask the contributions for more actions:
+            return getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get) // latest version
+                .thenApply(tree -> {
+                    ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
+                    return contribs.codeActions(start, tree, focus).get();
+                })
+                .thenCompose(Function.identity()) // flatten TODO: @davylandman can this be done better?
+                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // quickfixes are merged in front
+                    .map(cmdv -> (IConstructor) cmdv)
+                    .map(cons -> constructorToCommand(language, cons))
+                    .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
+                    ).collect(Collectors.toList())
+                );
+        }
+        else {
+            logger.warn("ignoring command execution (no code actions configured for this language): {}", language);
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {

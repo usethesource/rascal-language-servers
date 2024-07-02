@@ -214,7 +214,7 @@ data LanguageService
     | definer(Definer definer)
     | referrer(Referrer reference)
     | implementer(Implementer implementer)
-    | actions(CodeActionContributor actions)
+    | codeActionContributor(CodeActionContributor actions)
     ;
 
 @deprecated{Please use ((builder)) or ((analyzer))}
@@ -298,7 +298,7 @@ data DocumentSymbolTag
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
-data Message(Command quickfix=noop());
+data Message(list[Command] fixes=noop());
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
