@@ -34,7 +34,8 @@ First a "pre-release" of the supporting compiler/typechecker tools must be done,
 
 # Actual release
 
-- [ ] write release notes in README.md (used on the marketplace pages)
+- [ ] write release notes in rascal-vscode-extensions/README.md (used on the marketplace pages)
+- [ ] write release notes in rascal-lsp/RELEASE-NOTES.md (used in the tutor)
 - [ ] release rascal project (when resolving SNAPSHOT dependencies choose the right versions of vallang etc, and make sure to bump the new rascal SNAPSHOT release one minor version)
 - [ ] release rascal-language-servers project (take care to choose the right release versions of typepal and rascal-core you release earlier and choose their new SNAPSHOT dependencies to the latest)
    - [ ] Set the proper version inside `rascal-lsp/pom.xml` (in most cases, remove `-SNAPSHOT)

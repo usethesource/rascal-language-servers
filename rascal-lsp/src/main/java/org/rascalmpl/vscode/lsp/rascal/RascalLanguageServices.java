@@ -50,6 +50,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
@@ -75,16 +76,18 @@ public class RascalLanguageServices {
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
+        var monitor = new RascalLSPMonitor(client, logger);
+
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::Outline");
+        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", monitor, null, true, "lang::rascalcore::check::Summary");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
         try {
             IString moduleName = VF.string(pcfg.getModuleName(occ));
             return runEvaluator("Rascal makeSummary", summaryEvaluator, eval -> {
-                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, addResources(pcfg));
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
             }, null, exec);
         } catch (IOException e) {
@@ -94,14 +97,24 @@ public class RascalLanguageServices {
         }
     }
 
+    private static IConstructor addResources(PathConfig pcfg) {
+        var result = pcfg.asConstructor();
+        return result.asWithKeywordParameters()
+            .setParameter("resources", pcfg.getBin());
+    }
+
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
         Executor exec) {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("checkAll", folder, pcfg.asConstructor())),
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
+                return translateCheckResults((IList) e.call("checkAll", folder, config));
+            },
             Collections.emptyMap(), exec);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
+        logger.trace("Translating messages: {}", messages);
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
@@ -125,10 +138,12 @@ public class RascalLanguageServices {
         Executor exec) {
         logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
+                return translateCheckResults((IList) e.call("check", files, config));
+            },
             buildEmptyResult(files), exec);
     }
-
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
         try {
