@@ -515,13 +515,8 @@ set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, 
     }
 
     if ([changed(_, replaces)] := edits) {
-        idx = {};
-        for (replace(l, _) <- replaces, i := indexOf(oldNameOccurrences, l)) {
-            if (i == -1) throw "Cannot find <l> in <oldNameOccurrences>";
-            idx += i;
-        }
-
-        return idx;
+        repls = {l | replace(l, _) <- replaces};
+        return {i | i <- [0..size(oldNameOccurrences)], oldNameOccurrences[i] in repls};;
     } else {
         throw "Unexpected changes: <edits>";
     }
