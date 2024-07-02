@@ -34,6 +34,9 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
 
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
@@ -229,6 +232,39 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void unregisterDiagnostics(IList resources) {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
+    }
+
+    @Override
+    public void logMessage(IConstructor msg) {
+        server.logMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
+    }
+
+    @Override
+    public void showMessage(IConstructor msg) {
+        server.showMessage(new MessageParams(getMessageType(msg), getMessageString(msg)));
+    }
+
+    private String getMessageString(IConstructor msg) {
+        return ((IString) msg.get("msg")).getValue();
+    }
+
+    private MessageType getMessageType(IConstructor msg) {
+        MessageType type = null;
+        switch (msg.getName()) {
+            case "error":
+                type = MessageType.Error;
+                break;
+            case "warning":
+                type = MessageType.Warning;
+                break;
+            case "info":
+                type = MessageType.Info;
+                break;
+            default:
+                type = MessageType.Log;
+                break;
+        }
+        return type;
     }
 
     public void startDebuggingSession(int serverPort){
