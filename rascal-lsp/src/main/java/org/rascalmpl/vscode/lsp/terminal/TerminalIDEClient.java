@@ -242,4 +242,9 @@ public class TerminalIDEClient implements IDEServices {
     public void registerErrorPrinter(PrintWriter errorPrinter) {
         this.err = errorPrinter;
     }
+
+    @Override
+    public void endAllJobs() {
+        // TODO Auto-generated method stub
+    }
 }
