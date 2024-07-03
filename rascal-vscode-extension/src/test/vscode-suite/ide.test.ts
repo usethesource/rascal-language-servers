@@ -25,10 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
-import * as path from 'path';
 import * as fs from 'fs/promises';
-import { Delays, IDEOperations, TestWorkspace, ignoreFails, sleep } from './utils';
+import * as path from 'path';
+import { TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -41,6 +41,8 @@ describe('IDE', function () {
     const originalFiles = new Map<string, Buffer>();
 
     this.timeout(Delays.extremelySlow * 2);
+
+    printRascalOutputOnFailure();
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -68,6 +70,7 @@ describe('IDE', function () {
             await fs.writeFile(f, b);
         }
     });
+
 
     async function makeSureRascalModulesAreLoaded(delay = Delays.verySlow) {
         try {

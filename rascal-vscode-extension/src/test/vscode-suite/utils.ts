@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -53,11 +53,11 @@ export class TestWorkspace {
     public static readonly testProject = path.join(this.workspacePrefix, 'test-project');
     public static readonly libProject = path.join(this.workspacePrefix, 'test-lib');
     public static readonly mainFile = path.join(src(this.testProject), 'Main.rsc');
-    public static readonly mainFileTpl = path.join(target(this.testProject),'Main.tpl');
+    public static readonly mainFileTpl = path.join(target(this.testProject),'$Main.tpl');
     public static readonly libCallFile = path.join(src(this.testProject), 'LibCall.rsc');
-    public static readonly libCallFileTpl = path.join(target(this.testProject),'LibCall.tpl');
+    public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
-    public static readonly libFileTpl = path.join(target(this.libProject),'Lib.tpl');
+    public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
@@ -232,15 +232,19 @@ export class IDEOperations {
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
         await sleep(50);
         await editor.save();
-        await sleep(50);
         if (waitForFinish) {
-            let doneChecking = async () => (await this.bench.getStatusBar().getItem(checkName)) === undefined;
+            await ignoreFails(this.driver.wait(this.statusContains(checkName), Delays.normal, `${checkName} should have started after a save`));
+
+            let doneChecking = async () => !(await this.statusContains(checkName));
             if (tplFile) {
                 const oldDone = doneChecking;
                 doneChecking = async () => await oldDone() && (await ignoreFails(stat(tplFile)) !== undefined);
             }
 
             await this.driver.wait(doneChecking, timeout, `${checkName} should be finished processing the module`);
+        }
+        else {
+            await sleep(50);
         }
     }
 
@@ -262,4 +266,67 @@ export class IDEOperations {
     screenshot(name: string): Promise<void> {
         return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
+}
+
+
+async function clearOutput() {
+    try {
+        const bbp = new BottomBarPanel();
+        const outputView = await showRascalOutput(bbp);
+        await outputView.clearText();
+        await bbp.closePanel();
+    }
+    catch (_e) {
+        console.log("Ignoring failure when clearing the output window");
+    }
+
+}
+
+async function showRascalOutput(bbp: BottomBarPanel) {
+    const outputView = await bbp.openOutputView();
+    await outputView.selectChannel("Rascal MPL Language Server");
+    return outputView;
+}
+
+export function printRascalOutputOnFailure() {
+    before(clearOutput);
+
+    let first = true;
+    beforeEach(async () => {
+        if (!first) {
+            await clearOutput();
+        }
+        else {
+            first = false;
+        }
+    });
+
+    const ZOOM_OUT_FACTOR = 5;
+    afterEach("print output in case of failure", async function () {
+        if (!this.currentTest || this.currentTest.state !== "failed") { return; }
+        const bench = new Workbench();
+        try {
+            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                await bench.executeCommand('workbench.action.zoomOut');
+            }
+            const bbp = bench.getBottomBar();
+            await bbp.maximize();
+            await showRascalOutput(bbp);
+            console.log("**********************************************");
+            console.log("***** Rascal MPL output for the failed tests: ");
+            const textLines = await bbp.findElements(By.className("view-line"));
+            for (const l of textLines) {
+                console.log(await l.getText());
+            }
+            await bbp.closePanel();
+        } catch (e) {
+            console.log("Error capturing output: ", e);
+        }
+        finally {
+            console.log("*******End output*****************************");
+            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                await bench.executeCommand('workbench.action.zoomIn');
+            }
+        }
+    });
 }
