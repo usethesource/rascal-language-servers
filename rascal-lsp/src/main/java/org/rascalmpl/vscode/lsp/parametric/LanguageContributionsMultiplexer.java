@@ -145,6 +145,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         documenter = findFirstOrDefault(ILanguageContributions::hasDocumenter);
         referrer = findFirstOrDefault(ILanguageContributions::hasReferrer);
         implementer = findFirstOrDefault(ILanguageContributions::hasImplementer);
+        codeActionContributor = findFirstOrDefault(ILanguageContributions::hasCodeActionsContributor);
 
         hasDocumenter = anyTrue(ILanguageContributions::hasDocumenter);
         hasDefiner = anyTrue(ILanguageContributions::hasDefiner);
@@ -286,7 +287,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
+    public InterruptibleFuture<IList> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
         return flatten(codeActionContributor, c -> c.codeActions(focus, input, cursor));
     }
 

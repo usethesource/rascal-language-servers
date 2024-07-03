@@ -33,7 +33,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -120,12 +119,10 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.exceptions.FactParseError;
 
@@ -513,6 +510,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        logger.debug("codeActions: {}", params);
+
         // TODO: clean this up a bit; (this is an experiment to see how to wire it all up_.
         String language = registeredExtensions.get(extension(params.getTextDocument().getUri()));
         ILanguageContributions contribs = contributions.get(language);
@@ -553,8 +552,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
                     return contribs.codeActions(start, tree, focus).get();
                 })
-                .thenCompose(Function.identity()) // flatten TODO: @davylandman can this be done better?
-                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // quickfixes are merged in front
+                .thenCompose(Function.identity()) // flatten TODO: @davylandman do you have tips?
+                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // TODO: quickfixes are merged in front, should that be?
                     .map(cmdv -> (IConstructor) cmdv)
                     .map(cons -> constructorToCommand(language, cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
