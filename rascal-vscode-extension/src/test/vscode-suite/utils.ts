@@ -233,15 +233,13 @@ export class IDEOperations {
         await sleep(50);
         await editor.save();
         if (waitForFinish) {
-            await ignoreFails(this.driver.wait(this.statusContains(checkName), Delays.normal, `${checkName} should have started after a save`));
+            const hasStatus = this.statusContains(checkName);
+            await ignoreFails(this.driver.wait(hasStatus, Delays.normal, `${checkName} should have started after a save`));
 
-            let doneChecking = async () => !(await this.statusContains(checkName));
             if (tplFile) {
-                const oldDone = doneChecking;
-                doneChecking = async () => await oldDone() && (await ignoreFails(stat(tplFile)) !== undefined);
+                await this.driver.wait(() => ignoreFails(stat(tplFile)), timeout, `${tplFile} should exist by now`);
             }
-
-            await this.driver.wait(doneChecking, timeout, `${checkName} should be finished processing the module`);
+            await this.driver.wait(async () => !(await hasStatus()), timeout, `${checkName} should be finished processing the module`);
         }
         else {
             await sleep(50);
@@ -269,19 +267,6 @@ export class IDEOperations {
 }
 
 
-async function clearOutput(channel: string) {
-    try {
-        const bbp = new BottomBarPanel();
-        const outputView = await showRascalOutput(bbp, channel);
-        await outputView.clearText();
-        await bbp.closePanel();
-    }
-    catch (_e) {
-        // ignoring exception
-    }
-
-}
-
 async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
     await outputView.selectChannel(`${channel} Language Server`);
@@ -289,17 +274,6 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
 }
 
 export function printRascalOutputOnFailure(channel: 'Parametric Rascal LSP' | 'Rascal MPL') {
-    before(() => clearOutput(channel));
-
-    let first = true;
-    beforeEach(async () => {
-        if (!first) {
-            await clearOutput(channel);
-        }
-        else {
-            first = false;
-        }
-    });
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
@@ -310,10 +284,16 @@ export function printRascalOutputOnFailure(channel: 'Parametric Rascal LSP' | 'R
             }
             const bbp = new BottomBarPanel();
             await bbp.maximize();
-            await showRascalOutput(bbp, channel);
             console.log('**********************************************');
             console.log('***** Rascal MPL output for the failed tests: ');
-            const textLines = await bbp.findElements(By.className('view-line'));
+            let textLines: WebElement[] = [];
+            let tries = 0;
+            while (textLines.length === 0 && tries < 3) {
+                await showRascalOutput(bbp, channel);
+                textLines = await bbp.findElements(By.className('view-line'));
+                tries++;
+            }
+
             for (const l of textLines) {
                 console.log(await l.getText());
             }
