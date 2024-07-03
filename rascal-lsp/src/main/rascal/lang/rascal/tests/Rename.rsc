@@ -407,7 +407,7 @@ test bool globalVar() = {0, 3} == testRenameOccurrences("
 ");
 
 test bool multiModuleVar() = testRenameOccurrences((
-    "Fib": <"int foo = 8;
+    "alg::Fib": <"int foo = 8;
             '
             'int fib(int n) {
             '   if (n \< 2) {
@@ -416,10 +416,10 @@ test bool multiModuleVar() = testRenameOccurrences((
             '   return fib(n - 1) + fib(n -2);
             '}"
             , {0}>
-    , "Main": <"import Fib;
+    , "Main": <"import alg::Fib;
                '
                'int main() {
-               '   fib(Fib::foo);
+               '   fib(alg::Fib::foo);
                '   return 0;
                '}"
                , {0}>
@@ -432,7 +432,7 @@ test bool globalAlias() = {0, 1, 2, 3} == testRenameOccurrences("
 ", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar");
 
 test bool multiModuleAlias() = testRenameOccurrences((
-    "Fib": <"alias Foo = int;
+    "alg::Fib": <"alias Foo = int;
             'Foo fib(int n) {
             '   if (n \< 2) {
             '       return 1;
@@ -440,7 +440,7 @@ test bool multiModuleAlias() = testRenameOccurrences((
             '   return fib(n - 1) + fib(n -2);
             '}"
             , {0, 1}>
-    , "Main": <"import Fib;
+    , "Main": <"import alg::Fib;
                '
                'int main() {
                '   Foo result = fib(8);
