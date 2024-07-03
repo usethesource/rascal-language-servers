@@ -50,6 +50,7 @@ alias TestModule = tuple[str body, set[int] expectedRenameOccs];
 bool testRenameOccurrences(map[str, TestModule] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar") {
     str testName = "Test<abs(arbInt())>";
     loc testDir = |memory://tests/rename/<testName>|;
+    remove(testDir);
 
     PathConfig pcfg = getMultiModuleConfig(testDir);
 
@@ -112,8 +113,8 @@ private PathConfig getMultiModuleConfig(loc testDir) {
         bin=testDir + "bin",
         libs=[|lib://rascal|],
         srcs=[testDir + "rascal"],
-        resources=|memory://tests/rename/resources|,
-        generatedSources=|memory://tests/rename/generated-sources|
+        resources=testDir + "resources",
+        generatedSources=testDir + "generated-sources"
     );
 }
 
