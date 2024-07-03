@@ -37,7 +37,7 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
-    printRascalOutputOnFailure();
+    printRascalOutputOnFailure('Rascal MPL');
 
     before(async () => {
         browser = VSBrowser.instance;

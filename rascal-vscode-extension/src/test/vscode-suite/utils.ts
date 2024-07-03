@@ -269,32 +269,32 @@ export class IDEOperations {
 }
 
 
-async function clearOutput() {
+async function clearOutput(channel: string) {
     try {
         const bbp = new BottomBarPanel();
-        const outputView = await showRascalOutput(bbp);
+        const outputView = await showRascalOutput(bbp, channel);
         await outputView.clearText();
         await bbp.closePanel();
     }
     catch (_e) {
-        console.log("Ignoring failure when clearing the output window");
+        // ignoring exception
     }
 
 }
 
-async function showRascalOutput(bbp: BottomBarPanel) {
+async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
-    await outputView.selectChannel("Rascal MPL Language Server");
+    await outputView.selectChannel(`${channel} Language Server`);
     return outputView;
 }
 
-export function printRascalOutputOnFailure() {
-    before(clearOutput);
+export function printRascalOutputOnFailure(channel: 'Parametric Rascal LSP' | 'Rascal MPL') {
+    before(() => clearOutput(channel));
 
     let first = true;
     beforeEach(async () => {
         if (!first) {
-            await clearOutput();
+            await clearOutput(channel);
         }
         else {
             first = false;
@@ -304,28 +304,27 @@ export function printRascalOutputOnFailure() {
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        const bench = new Workbench();
         try {
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await bench.executeCommand('workbench.action.zoomOut');
+                await new Workbench().executeCommand('workbench.action.zoomOut');
             }
-            const bbp = bench.getBottomBar();
+            const bbp = new BottomBarPanel();
             await bbp.maximize();
-            await showRascalOutput(bbp);
-            console.log("**********************************************");
-            console.log("***** Rascal MPL output for the failed tests: ");
-            const textLines = await bbp.findElements(By.className("view-line"));
+            await showRascalOutput(bbp, channel);
+            console.log('**********************************************');
+            console.log('***** Rascal MPL output for the failed tests: ');
+            const textLines = await bbp.findElements(By.className('view-line'));
             for (const l of textLines) {
                 console.log(await l.getText());
             }
             await bbp.closePanel();
         } catch (e) {
-            console.log("Error capturing output: ", e);
+            console.log('Error capturing output: ', e);
         }
         finally {
-            console.log("*******End output*****************************");
+            console.log('*******End output*****************************');
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await bench.executeCommand('workbench.action.zoomIn');
+                await new Workbench().executeCommand('workbench.action.zoomIn');
             }
         }
     });

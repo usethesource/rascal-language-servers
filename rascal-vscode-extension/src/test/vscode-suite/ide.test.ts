@@ -42,7 +42,7 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure();
+    printRascalOutputOnFailure('Rascal MPL');
 
     before(async () => {
         browser = VSBrowser.instance;

@@ -40,7 +40,7 @@ describe('DSL', function () {
     this.timeout(Delays.extremelySlow * 2);
 
 
-    printRascalOutputOnFailure();
+    printRascalOutputOnFailure('Parametric Rascal LSP');
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
