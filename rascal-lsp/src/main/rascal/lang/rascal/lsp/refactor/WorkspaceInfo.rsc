@@ -1,4 +1,4 @@
-module lang::rascal::lsp::WorkspaceInfo
+module lang::rascal::lsp::refactor::WorkspaceInfo
 
 import IO;
 import Relation;

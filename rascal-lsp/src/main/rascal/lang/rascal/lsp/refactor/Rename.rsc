@@ -25,7 +25,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::lsp::Rename
+module lang::rascal::lsp::refactor::Rename
 
 /**
  * Rename refactoring
@@ -52,7 +52,8 @@ import lang::rascalcore::check::RascalConfig;
 
 import analysis::typepal::TypePal;
 
-import lang::rascal::lsp::WorkspaceInfo;
+import lang::rascal::lsp::refactor::Exception;
+import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import analysis::diff::edits::TextEdits;
 
@@ -60,21 +61,6 @@ import vis::Text;
 
 import util::Maybe;
 import util::Reflective;
-
-alias Capture = tuple[loc def, loc use];
-
-data IllegalRenameReason
-    = invalidName(str name)
-    | doubleDeclaration(loc old, set[loc] new)
-    | captureChange(set[Capture] captures)
-    | definitionsOutsideWorkspace(set[loc] defs)
-    ;
-
-data RenameException
-    = illegalRename(loc location, set[IllegalRenameReason] reason)
-    | unsupportedRename(rel[loc location, str message] issues)
-    | unexpectedFailure(str message)
-;
 
 set[IllegalRenameReason] checkLegalName(str name) {
     try {
@@ -85,9 +71,10 @@ set[IllegalRenameReason] checkLegalName(str name) {
     }
 }
 
-set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) = { definitionsOutsideWorkspace(d) | d <- groupRangeByDomain({<f, d> | d <- defs, f := d.top, f notin ws.modules}) };
+private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
+    { definitionsOutsideWorkspace(d) | d <- groupRangeByDomain({<f, d> | d <- defs, f := d.top, f notin ws.modules}) };
 
-set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
+private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
     map[loc, Define] defMap = (def.defined: def | def <- ws.defines);
     rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define cD <- currentDefs
@@ -99,13 +86,13 @@ set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Def
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
 }
 
-set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {
+private set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {
     set[loc] maybeImplicitDefs = {l | /QualifiedName n := m, just(l) := locationOfName(n)};
     return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in ws.useDef<0>)
                                       || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 }
 
-set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
     set[Define] newNameImplicitDefs = findImplicitDefinitions(ws, m, newDefs);
     set[Define] newNameExplicitDefs = newDefs - newNameImplicitDefs;
 
@@ -141,7 +128,7 @@ set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, 
     return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
-set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
+private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
     set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- ws.defines};
 
     return reasons =
@@ -152,14 +139,14 @@ set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m
     ;
 }
 
-str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
+private str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
 // TODO Move to stdlib?
-loc findSmallestContaining(set[loc] wrappers, loc l) =
+private loc findSmallestContaining(set[loc] wrappers, loc l) =
     (|unknown:///| | w < it && isContainedIn(l, w) ? w : it | w <- wrappers);
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
-set[loc] findNames(start[Module] m, set[loc] useDefs) {
+private set[loc] findNames(start[Module] m, set[loc] useDefs) {
     set[loc] names = {};
     visit(m.top) {
         case t: appl(prod(_, _, _), _): {
@@ -189,7 +176,7 @@ Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 
-tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[Define] defs, set[loc] uses, str name) {
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[Define] defs, set[loc] uses, str name) {
     if (reasons := collectIllegalRenames(ws, m, defs, uses, name), reasons != {}) {
         return <reasons, []>;
     }
@@ -198,10 +185,10 @@ tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(W
     return <{}, [replace(l, replaceName) | l <- findNames(m, defs.defined + uses)]>;
 }
 
-tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[Define] defs, set[loc] uses, str name) =
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[Define] defs, set[loc] uses, str name) =
     computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
 
-list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, set[Define] defs, set[loc] uses, str name) {
+private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, set[Define] defs, set[loc] uses, str name) {
     rel[loc file, Define defines] defsPerFile = {<d.defined.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
 
