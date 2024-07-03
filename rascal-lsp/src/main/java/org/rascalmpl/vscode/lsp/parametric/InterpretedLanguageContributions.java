@@ -298,7 +298,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    public CompletableFuture<IConstructor> parseCommand(String command) {
+    private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));

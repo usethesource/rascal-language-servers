@@ -83,7 +83,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 
     // Provide errors (cheap to compute) both in analyze mode and in build mode.
     // We also connect quick-fixes immediately to every error
-    s.messages += {<src, error("<id> is not defined", src, fixes=[changeToFix(src, existing<0>) | existing <- defs])> 
+    s.messages += {<src, error("<id> is not defined", src, fixes=[changeToFix(src, existing<0>, title="Change to <existing<0>>") | existing <- defs])> 
                   | <src, id> <- uses, id notin defs<0>};
                   
     // "references" are links for loc to loc (from def to use)
@@ -153,25 +153,25 @@ value picoCommands(changeToFix(loc src, str newName)) {
 @synopsis{Command hamlder for the removeDecl command}
 value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
     // we use concrete tree transformation here for demo purposes
-    newProgram = visit(program) {
-        case (Program) `begin 
-                       'declare 
-                       '  <{IdType ","}* pre> 
-                       '  <IdType x>
-                       '  <{IdType ","}* post> 
-                       '<{Statement ";"}* body> 
-                       'end` 
-          => (Program) `begin
-                       'declare
-                       '  <{IdType ","} * pre>
-                       '  <{IdType ","} * post>
-                       '<{Statement ";"}* body>
-                       'end`
-        when x := toBeRemoved
-    }
+    // newProgram = visit(program) {
+    //     case (Program) `begin 
+    //                    'declare 
+    //                    '  <{IdType ","}* pre> 
+    //                    '  <IdType x>
+    //                    '  <{IdType ","}* post> 
+    //                    '<{Statement ";"}* body> 
+    //                    'end` 
+    //       => (Program) `begin
+    //                    'declare
+    //                    '  <{IdType ","} * pre>
+    //                    '  <{IdType ","} * post>
+    //                    '<{Statement ";"}* body>
+    //                    'end`
+    //     when x := toBeRemoved
+    // }
 
-    // replace the whole program
-    applyDocumentsEdits([changed(program@\loc.top, [replace(program@\loc, "<newProgram>")])]);
+    // // replace the whole program
+    // applyDocumentsEdits([changed(program@\loc.top, [replace(program@\loc, "<newProgram>")])]);
     return ("result": true);
 }
 
@@ -192,11 +192,18 @@ the loading and pre-fetching of indexes is finished.
 For Pico these two steps are unnecessary, but for larger language implementations with longer loading times,
 it is essential to split up the registration process. Typically this is done when experimentation is finished
 and we are fine-tuning for a smooth deployment of a VScode extension.
+
+:::tip
+Before registering a language, it is advisable to _use the terminal and first run each contribution_ at least once
+on an example parse tree for an example file. Possible static or run-time errors would be reported directly in the terminal,
+instead of inside one of VScode's many log files. Fixing those minor issues also has a faster turn-around cycle
+when testing from the terminal. 
+:::
 }
 void main() {
     registerLanguage(
         language(
-            pathConfig(srcs=[|project://rascal-lsp/src/main/rascal|,|std:///|]),
+            pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -205,7 +212,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(srcs=[|project://rascal-lsp/src/main/rascal|,|std:///|]),
+            pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

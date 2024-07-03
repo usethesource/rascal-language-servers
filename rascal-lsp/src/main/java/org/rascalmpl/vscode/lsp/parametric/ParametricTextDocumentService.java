@@ -117,6 +117,9 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
+import com.google.gson.JsonPrimitive;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -193,6 +196,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
@@ -510,7 +514,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        logger.debug("codeActions: {}", params);
+         logger.error("codeActions: {}", params);
 
         // TODO: clean this up a bit; (this is an experiment to see how to wire it all up_.
         String language = registeredExtensions.get(extension(params.getTextDocument().getUri()));
@@ -528,7 +532,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             // and which came back with the codeAction's list of relevant diagnostics:
             Stream<Either<Command,CodeAction>> quickfixes = params.getContext().getDiagnostics()
                 .stream()
-                .map(d -> (String) d.getData())
+                .map(d -> ((JsonPrimitive) d.getData()).getAsString())
                 .map(s -> {
                     // TODO: I don't like this try-catch. Should be avoidable @davylandman?
                     try {
