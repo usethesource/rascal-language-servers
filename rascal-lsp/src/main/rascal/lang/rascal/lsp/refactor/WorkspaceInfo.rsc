@@ -16,34 +16,24 @@ data WorkspaceInfo (
     set[loc] modules = {}
 ) = workspaceInfo(set[loc] folders, PathConfig pcfg);
 
-private WorkspaceInfo loadModule(WorkspaceInfo ws, loc l) {
-    WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
-        ws.useDef += tm.useDef;
-        ws.defines += tm.defines;
-
-        return ws;
-    }
-
-    moduleLoc = l.top;
-
-    if (moduleLoc notin ws.modules) {
-        moduleName = getModuleName(moduleLoc, ws.pcfg);
-
-        // Only check one module at a time, to limit the amount of memory used
-        ms = rascalTModelForLocs([moduleLoc], getRascalCoreCompilerConfig(ws.pcfg), dummy_compile1);
-
-        ws = loadModel(ws, ms.tmodels[moduleName]);
-        ws.modules += { moduleLoc };
-    }
+private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
+    ws.useDef += tm.useDef;
+    ws.defines += tm.defines;
 
     return ws;
 }
 
 WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
     ws = workspaceInfo(folders, pcfg);
-    for (f <- folders, m <- find(f, "rsc")) {
-        ws = loadModule(ws, m);
+
+    mods = [m | f <- folders, m <- find(f, "rsc")];
+    ms = rascalTModelForLocs(mods, getRascalCoreCompilerConfig(pcfg), dummy_compile1);
+
+    for (m <- ms.tmodels) {
+        ws = loadModel(ws, ms.tmodels[m]);
+        ws.modules += {ms.moduleLocs[m].top};
     }
+
     return ws;
 }
 
