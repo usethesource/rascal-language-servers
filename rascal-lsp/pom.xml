@@ -33,7 +33,7 @@
   <version>2.20.2-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.3</junit.version>
+    <junit.version>4.13.1</junit.version>
     <maven-surefire-plugin.version>3.3.0</maven-surefire-plugin.version>
     <log4j2.version>2.23.1</log4j2.version>
     <lsp4j.version>0.23.1</lsp4j.version>
@@ -75,29 +75,10 @@
       <artifactId>typepal</artifactId>
       <version>0.13.2</version>
     </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Required to run JUnit 4 and 5 tests in the same test run -->
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
@@ -169,6 +150,13 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit47</artifactId>
+            <version>3.3.0</version>
+          </dependency>
+        </dependencies>
     </plugin>
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
