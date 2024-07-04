@@ -50,6 +50,7 @@ import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -168,7 +169,9 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
+                if (!URIResolverRegistry.getInstance().exists(URIUtil.correctLocation("lib", "rascal-lsp",""))) {
+                    throw new RuntimeException("|lib://rascal-lsp| does not exist???");
+                }
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);

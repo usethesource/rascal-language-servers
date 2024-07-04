@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -122,6 +123,7 @@ import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -525,24 +527,20 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var offset = columns.get(loc).translateInverseColumn(line, cursor.getCharacter(), false);
         var values = IRascalValueFactory.getInstance();
         var start = values.sourceLocation(loc, offset, 1);
-        var empty = IRascalValueFactory.getInstance().list();
 
         if (contribs != null) {
             // first we filter out the quickfixes that were sent along with diagnostics
             // and which came back with the codeAction's list of relevant diagnostics:
             Stream<Either<Command,CodeAction>> quickfixes = params.getContext().getDiagnostics()
                 .stream()
-                .map(d -> ((JsonPrimitive) d.getData()).getAsString())
-                .map(s -> {
-                    // TODO: I don't like this try-catch. Should be avoidable @davylandman?
-                    try {
-                        return contribs.parseCommands(s).toCompletableFuture().get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        logger.catching(e);
-                        return empty;
-                    }
-                })
-                .flatMap(lst -> lst.stream())
+                .map(Diagnostic::getData)
+                .filter(Objects::nonNull)
+                .filter(JsonPrimitive.class::isInstance)
+                .map(JsonPrimitive.class::cast)
+                .map(JsonPrimitive::getAsString)
+                .map(contribs::parseCommands)
+                .map(handler(CompletableFuture::get))
+                .flatMap(IList::stream)
                 .map(cons -> constructorToCommand(language, (IConstructor) cons))
                 .map(cmd -> Either.<Command,CodeAction>forLeft(cmd))
                 ;
@@ -554,11 +552,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(Versioned::get) // latest version
                 .thenApply(tree -> {
                     ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
+                    logger.info(focus);
                     return contribs.codeActions(start, tree, focus).get();
                 })
                 .thenCompose(Function.identity()) // flatten TODO: @davylandman do you have tips?
                 .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // TODO: quickfixes are merged in front, should that be?
-                    .map(cmdv -> (IConstructor) cmdv)
+                    .map(IConstructor.class::cast)
                     .map(cons -> constructorToCommand(language, cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
                     ).collect(Collectors.toList())
@@ -569,6 +568,34 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return CompletableFuture.completedFuture(null);
         }
     }
+
+    /**
+     * A type of higher-order function which throws exceptions, for wrapping by the `handler` method
+     * below.
+     * 
+     * TODO: find a handy place for this
+     */
+    @FunctionalInterface
+    private interface CheckedExceptionFunction<T, R, E extends Exception> {
+        R apply(T t) throws E;
+    }
+
+    /**
+     * Exception handler function for use in streams.
+     * 
+     * TODO: find a handy place for this
+     */
+    private <T, R, E extends Exception> Function<T, R> handler(CheckedExceptionFunction<T, R, E> fe) {
+        return arg -> {
+            try {
+                return fe.apply(arg);
+            } catch (Exception e) {
+                logger.debug(e.getMessage(), e);
+                throw new RuntimeException(e);
+            }
+        };
+    }
+
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         return getFile(doc)

@@ -31,6 +31,8 @@ import util::IDEServices;
 import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import Location;
+import IO;
 
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
 set[LanguageService] picoLanguageContributor() = {
@@ -105,8 +107,12 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[Command] contributeActions(loc src, start[Program] program, Tree focus)
-    = [ removeDecl(program, x, title="remove <x>") | /IdType x := focus];
+list[Command] contributeActions(loc src, start[Program] program, Tree focus) {
+    println("src: <src>
+            'program: <program>
+            'focus: <focus>");
+    return [ removeDecl(program, x, title="remove <x>") | /IdType x := focus, isOverlapping(src, x@\loc)];
+}
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
@@ -203,7 +209,7 @@ when testing from the terminal.
 void main() {
     registerLanguage(
         language(
-            pathConfig(),
+            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|],classpath=[|lib://rascal|,|lib://rascal-lsp|]),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -212,7 +218,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],lib=[|lib://rascal-lsp/|,|std:///|], classpath=[|lib://rascal|,|lib://rascal-lsp|]),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

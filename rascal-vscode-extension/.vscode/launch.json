@@ -7,7 +7,7 @@
 	"compounds": [
         {
             "name": "Second Level Dev Rascal",
-            "configurations": ["Run Extension (extensions enabled)", "Parametric Server", "Rascal Server"],
+            "configurations": ["Rascal Server", "Parametric Server", "Run Extension (extensions enabled)"],
             "stopAll": true
         }
     ],
