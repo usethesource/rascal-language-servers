@@ -10,15 +10,19 @@ import lang::rascalcore::check::Checker;
 import util::FileSystem;
 import util::Reflective;
 
+alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
+
 data WorkspaceInfo (
     rel[loc use, loc def] useDef = {},
     set[Define] defines = {},
-    set[loc] modules = {}
+    set[loc] modules = {},
+    map[loc, Define] definitions = ()
 ) = workspaceInfo(set[loc] folders, PathConfig pcfg);
 
 private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
     ws.useDef += tm.useDef;
     ws.defines += tm.defines;
+    ws.definitions += tm.definitions;
 
     return ws;
 }
@@ -38,6 +42,26 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
 }
 
 set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];
+
 set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
-set[Define] getDefines(WorkspaceInfo ws, set[loc] defs) = {def | d <- defs, def:<_, _, _, _, d, _> <- ws.defines};
-set[Define] getDefines(WorkspaceInfo ws, loc useDef) = getDefines(ws, getDefs(ws, useDef) + useDef);
+
+set[Define] getOverloadedDefines(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
+    set[loc] overloadedLocs = defs;
+    set[Define] overloadedDefs = {ws.definitions[l] | l <- defs};
+
+    // Pre-condition
+    assert mayOverloadF(overloadedLocs, ws.definitions):
+        "Initial defs are invalid overloads!";
+
+    for (loc d <- ws.definitions) {
+        if (mayOverloadF(defs + d, ws.definitions)) {
+            overloadedLocs += d;
+            overloadedDefs += ws.definitions[d];
+        }
+    }
+
+    return overloadedDefs;
+}
+
+set[Define] getOverloadedDefines(WorkspaceInfo ws, loc useDef, MayOverloadFun mayOverloadF) =
+    getOverloadedDefines(ws, getDefs(ws, useDef) != {} ? getDefs(ws, useDef) : {useDef}, mayOverloadF);

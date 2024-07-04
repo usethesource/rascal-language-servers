@@ -188,7 +188,22 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[Define] defs, set[loc] uses, str name) =
     computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
 
-private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, set[Define] defs, set[loc] uses, str name) {
+private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
+    set[str] names = {definitions[l].id | l <- defs};
+    if (size(names) > 1) {
+        return false;
+    }
+
+    map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
+    return rascalMayOverload(defs, potentialOverloadDefinitions);
+}
+
+private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, str name) {
+    loc useDefAtCursor = findSmallestContaining(ws.defines.defined + ws.useDef<0>, cursor);
+
+    set[Define] defs = getOverloadedDefines(ws, useDefAtCursor, rascalMayOverloadSameName);
+    set[loc] uses = ({} | it + getUses(ws, def) | def <- defs.defined);
+
     rel[loc file, Define defines] defsPerFile = {<d.defined.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
 
@@ -209,15 +224,8 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, se
 }
 
 list[DocumentEdit] renameRascalSymbol(Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
-    loc cursorLoc = cursor.src;
-
     WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, pcfg);
-
-    loc useDefAtCursor = findSmallestContaining(ws.defines.defined + ws.useDef<0>, cursorLoc);
-    set[Define] defs = getDefines(ws, useDefAtCursor);
-    set[loc] uses = ({} | it + getUses(ws, def) | def <- defs.defined);
-
-    return computeDocumentEdits(ws, cursorLoc, defs, uses, newName);
+    return computeDocumentEdits(ws, cursor.src, newName);
 }
 
 //// WORKAROUNDS
