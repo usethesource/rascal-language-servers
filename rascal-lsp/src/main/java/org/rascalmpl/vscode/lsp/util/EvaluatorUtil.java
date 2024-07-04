@@ -59,6 +59,7 @@ import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -162,17 +163,25 @@ public class EvaluatorUtil {
                 eval.setMonitor(monitor);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
+
+                // for the rascal-lsp jar
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
+
+                // for rascal.jar
                 eval.addClassLoader(IValue.class.getClassLoader());
-                ClassLoader cl = new SourceLocationClassLoader(pcfg.getClassloaders(), ShellEvaluatorFactory.class.getClassLoader());
+
+                // for loading classes from the current project and its dependencies
+                IList classloaders = pcfg.getClassloaders();
+                ClassLoader cl = new SourceLocationClassLoader(
+                    classloaders.contains(pcfg.getBin()) ? classloaders : classloaders.append(pcfg.getBin()), 
+                    ShellEvaluatorFactory.class.getClassLoader());
                 eval.addClassLoader(cl);
+
                 if (addRascalCore) {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
-
 
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
