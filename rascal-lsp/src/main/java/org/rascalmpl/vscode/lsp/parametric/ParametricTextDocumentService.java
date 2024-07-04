@@ -519,14 +519,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
          logger.error("codeActions: {}", params);
 
         // TODO: clean this up a bit; (this is an experiment to see how to wire it all up_.
-        String language = registeredExtensions.get(extension(params.getTextDocument().getUri()));
-        ILanguageContributions contribs = contributions.get(language);
-        var loc = Locations.toLoc(params.getTextDocument());
-        var cursor = params.getRange().getStart();
-        var line = cursor.getLine() + 1;
-        var offset = columns.get(loc).translateInverseColumn(line, cursor.getCharacter(), false);
-        var values = IRascalValueFactory.getInstance();
-        var start = values.sourceLocation(loc, offset, 1);
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+        final var loc = Locations.toLoc(params.getTextDocument());
+        final var start = params.getRange().getStart();
+        final var startLine = params.getRange().getStart().getLine();
+        final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
 
         if (contribs != null) {
             // first we filter out the quickfixes that were sent along with diagnostics
@@ -541,7 +538,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(contribs::parseCommands)
                 .map(handler(CompletableFuture::get))
                 .flatMap(IList::stream)
-                .map(cons -> constructorToCommand(language, (IConstructor) cons))
+                .map(cons -> constructorToCommand(contribs.getName(), (IConstructor) cons))
                 .map(cmd -> Either.<Command,CodeAction>forLeft(cmd))
                 ;
                 
@@ -553,12 +550,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(tree -> {
                     ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
                     logger.info(focus);
-                    return contribs.codeActions(start, tree, focus).get();
+                    return contribs.codeActions(IRascalValueFactory.getInstance().sourceLocation(loc, offset, 1), tree, focus).get();
                 })
                 .thenCompose(Function.identity()) // flatten TODO: @davylandman do you have tips?
                 .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // TODO: quickfixes are merged in front, should that be?
                     .map(IConstructor.class::cast)
-                    .map(cons -> constructorToCommand(language, cons))
+                    .map(cons -> constructorToCommand(contribs.getName(), cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
                     ).collect(Collectors.toList())
                 );
