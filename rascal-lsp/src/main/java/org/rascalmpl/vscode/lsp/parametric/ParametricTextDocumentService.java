@@ -118,6 +118,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.OffsetSearchInTree;
 
 import com.google.gson.JsonPrimitive;
 
@@ -524,7 +525,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var start = params.getRange().getStart();
         final var startLine = params.getRange().getStart().getLine();
         final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
-
+        
         if (contribs != null) {
             // first we filter out the quickfixes that were sent along with diagnostics
             // and which came back with the codeAction's list of relevant diagnostics:
@@ -541,29 +542,34 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(cons -> constructorToCommand(contribs.getName(), (IConstructor) cons))
                 .map(cmd -> Either.<Command,CodeAction>forLeft(cmd))
                 ;
-                
 
-            // here we dynamically ask the contributions for more actions:
+            // here we dynamically ask the contributions for more actions,
+            // based on the cursor position in the file and the current parse tree
             return getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get) // latest version
-                .thenApply(tree -> {
-                    ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
-                    logger.info(focus);
-                    return contribs.codeActions(IRascalValueFactory.getInstance().sourceLocation(loc, offset, 1), tree, focus).get();
-                })
+                .thenApply(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
                 .thenCompose(Function.identity()) // flatten TODO: @davylandman do you have tips?
-                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() // TODO: quickfixes are merged in front, should that be?
+                // not that quickfixes from above are merged here in front
+                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() 
                     .map(IConstructor.class::cast)
                     .map(cons -> constructorToCommand(contribs.getName(), cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
-                    ).collect(Collectors.toList())
-                );
+                )
+                .collect(Collectors.toList())
+            );
         }
         else {
             logger.warn("ignoring command execution (no code actions configured for this language): {}", language);
             return CompletableFuture.completedFuture(null);
         }
+    }
+
+    private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
+            final int startLine, final int startColumn, ITree tree) {
+        int offset = OffsetSearchInTree.offsetFromLineColumn(tree, startLine, startColumn);
+        ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
+        return contribs.codeActions(IRascalValueFactory.getInstance().sourceLocation(loc, offset, 1), tree, focus).get();
     }
 
     /**
