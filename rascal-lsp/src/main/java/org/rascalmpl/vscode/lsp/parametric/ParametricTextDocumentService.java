@@ -37,7 +37,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -523,7 +522,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contribs = contributions(params.getTextDocument());
         final var loc = Locations.toLoc(params.getTextDocument());
         final var start = params.getRange().getStart();
-        final var startLine = params.getRange().getStart().getLine();
+        final var startLine = params.getRange().getStart().getLine() + 1;
         final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
         
         if (contribs != null) {

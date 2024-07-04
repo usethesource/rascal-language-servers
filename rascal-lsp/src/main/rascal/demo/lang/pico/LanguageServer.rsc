@@ -108,9 +108,6 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[Command] contributeActions(loc src, start[Program] program, Tree focus) {
-    println("src: <src>
-            'program: <program>
-            'focus: <focus>");
     return [ removeDecl(program, x, title="remove <x>") | /IdType x := focus, isOverlapping(src, x@\loc)];
 }
 
@@ -209,7 +206,7 @@ when testing from the terminal.
 void main() {
     registerLanguage(
         language(
-            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|],classpath=[|lib://rascal|,|lib://rascal-lsp|]),
+            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|],classloaders=[|lib://rascal|,|lib://rascal-lsp|]),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -218,7 +215,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],lib=[|lib://rascal-lsp/|,|std:///|], classpath=[|lib://rascal|,|lib://rascal-lsp|]),
+            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|], classloaders=[|lib://rascal|,|lib://rascal-lsp|]),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

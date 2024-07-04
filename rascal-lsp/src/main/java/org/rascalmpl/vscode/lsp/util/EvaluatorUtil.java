@@ -169,9 +169,7 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-                if (!URIResolverRegistry.getInstance().exists(URIUtil.correctLocation("lib", "rascal-lsp",""))) {
-                    throw new RuntimeException("|lib://rascal-lsp| does not exist???");
-                }
+                
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);

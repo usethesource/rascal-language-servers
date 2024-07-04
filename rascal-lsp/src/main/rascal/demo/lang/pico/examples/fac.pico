@@ -4,7 +4,7 @@ begin
     output  : natural,           
     repnr   : natural,
     rep     : natural;
-
+ 
     input := 6;
     while input - 1 do 
         rep := output;
