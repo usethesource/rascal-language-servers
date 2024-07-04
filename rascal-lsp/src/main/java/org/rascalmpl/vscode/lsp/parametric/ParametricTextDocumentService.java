@@ -560,7 +560,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             );
         }
         else {
-            logger.warn("ignoring command execution (no code actions configured for this language): {}", language);
+            logger.warn("ignoring command execution (no code actions configured for this document): {}", params.getTextDocument());
             return CompletableFuture.completedFuture(null);
         }
     }
