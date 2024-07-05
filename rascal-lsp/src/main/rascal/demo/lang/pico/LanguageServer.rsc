@@ -40,7 +40,7 @@ set[LanguageService] picoLanguageContributor() = {
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef),
-    codeActionContributor(contributeActions)
+    codeActionContributor(picoActions)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
@@ -105,9 +105,10 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[Command] contributeActions([*_, IdType x, *_]) = [ removeDecl(program, x, title="remove <x>") ];
+list[Command] picoActions([*_, IdType x, *_, start[Program] program]) 
+    = [removeDecl(program, x, title="remove <x>")];
 
-default list[Command]contributeActions(list[value] _) = [];
+default list[Command] picoActions(list[value] _) = [];
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
@@ -153,52 +154,21 @@ value picoCommands(changeToFix(loc src, str newName)) {
 
 @synopsis{Command hamlder for the removeDecl command}
 value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
-    // we use concrete tree transformation here for demo purposes
-    // newProgram = visit(program) {
-    //     case (Program) `begin 
-    //                    'declare 
-    //                    '  <{IdType ","}* pre> 
-    //                    '  <IdType x>
-    //                    '  <{IdType ","}* post> 
-    //                    '<{Statement ";"}* body> 
-    //                    'end` 
-    //       => (Program) `begin
-    //                    'declare
-    //                    '  <{IdType ","} * pre>
-    //                    '  <{IdType ","} * post>
-    //                    '<{Statement ";"}* body>
-    //                    'end`
-    //     when x := toBeRemoved
-    // }
-
-    // // replace the whole program
-    // applyDocumentsEdits([changed(program@\loc.top, [replace(program@\loc, "<newProgram>")])]);
+    applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
-What _registerLanguage_ does for Pico here:
-1. First the registerLanguage identifies the meta data for the language; the name, the file extension, the location of the code to load and run.
-2. Second the code is run to create and link the call-backs that implement the server side of the language server protocol (picoLanguageContributor).
-3. The LSP server from now on responds to calls from the IDE client and supplies highlights, references, documentation, code actions, etc.
+Register the Pico language and the contributions that supply the IDE with features.
 
-There are _two_ calls to registerLanguage here to demonstrate that sequential calls to registerLanguage can have an incremental
-registration effect:
-1. First the cheaper/faster language features are registered, giving the user already quick feedback on their code.
-2. The second (asynchronous) registration may be slower to load and execute, but it merges with the previous registrations after
-the loading and pre-fetching of indexes is finished. 
-3. Now more detailed, more complete or more accurate information is also available.
-
-For Pico these two steps are unnecessary, but for larger language implementations with longer loading times,
-it is essential to split up the registration process. Typically this is done when experimentation is finished
-and we are fine-tuning for a smooth deployment of a VScode extension.
+((registerLanguage)) is called twice here:
+1. first for fast and cheap contributions
+2. asynchronously for the full monty that loads slower
 
 :::tip
-Before registering a language, it is advisable to _use the terminal and first run each contribution_ at least once
-on an example parse tree for an example file. Possible static or run-time errors would be reported directly in the terminal,
-instead of inside one of VScode's many log files. Fixing those minor issues also has a faster turn-around cycle
-when testing from the terminal. 
+Run each contribution on an example in the terminal to test it first.
+Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 :::
 }
 void main() {

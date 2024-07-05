@@ -66,7 +66,6 @@ public class TreeSearch {
      */
     public static IList computeFocusList(ITree tree, int line, int column) {
         var lw = IRascalValueFactory.getInstance().listWriter();
-        lw.append(tree);
         computeFocusList(lw, tree, line, column);
         return lw.done();
     }
@@ -110,9 +109,8 @@ public class TreeSearch {
 					boolean result = computeFocusList(focus, (ITree) child, line, column);
 
 					if (result) {
-						return result;
+                        break;
 					}
-					break;
 				}
 			}
 
