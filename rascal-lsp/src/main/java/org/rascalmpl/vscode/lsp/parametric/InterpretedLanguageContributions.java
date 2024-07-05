@@ -387,7 +387,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> codeActions(IList focus) {
-        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, focus);
+        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, "(focus list has " + focus.length() + " elements)");
         return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
     }
 
