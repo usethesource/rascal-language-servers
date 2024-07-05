@@ -122,8 +122,8 @@ private PathConfig getTestWorkspaceConfig() {
     return pathConfig(
         bin=|project://rascal-vscode-extension/test-workspace/test-project/target|,
         libs=[|lib://rascal|],
-        srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main|
-            , |project://rascal-vscode-extension/test-workspace/test-lib/src/main|],
+        srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|
+            , |project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal|],
         resources=|memory://tests/rename/resources|,
         generatedSources=|memory://tests/rename/generatedSources|
     );
