@@ -26,7 +26,7 @@
  */
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails } from './utils';
+import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 import * as fs from 'fs/promises';
 
 
@@ -39,6 +39,8 @@ describe('DSL', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
+
+    printRascalOutputOnFailure('Parametric Rascal LSP');
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);

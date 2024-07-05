@@ -30,27 +30,18 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -59,9 +50,6 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
-import com.google.gson.JsonObject;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -80,14 +68,16 @@ public class LSPIDEServices implements IDEServices {
     private final DocumentChanges docChanges;
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
-    private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
-    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger) {
+    private final IRascalMonitor monitor;
+
+    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger, IRascalMonitor monitor) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
         this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
         this.logger = logger;
+        this.monitor = monitor;
     }
 
     @Override
@@ -153,167 +143,6 @@ public class LSPIDEServices implements IDEServices {
         languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(edits))));
     }
 
-    private CompletableFuture<Void> tryRegisterProgress(String id) {
-       return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
-    }
-
-    public CompletableFuture<Void> createProgressBar(String id) {
-        return tryRegisterProgress(id)
-            .thenApply(CompletableFuture::completedFuture)
-            .exceptionally(t -> retry(t, 0, id))
-            .thenCompose(Function.identity());
-    }
-    private CompletableFuture<Void> retry(Throwable first, int retry, String id) {
-        if(retry >= 100) return failedFuture(first);
-        return tryRegisterProgress(id)
-            .thenApply(CompletableFuture::completedFuture)
-            .exceptionally(t -> { first.addSuppressed(t); return retry(first, retry+1, id); })
-            .thenCompose(Function.identity());
-    }
-
-    public static <T> CompletableFuture<T> failedFuture(Throwable t) {
-        final CompletableFuture<T> cf = new CompletableFuture<>();
-        cf.completeExceptionally(t);
-        return cf;
-    }
-
-
-    private final ThreadLocal<CompletableFuture<Void>> progressBarRegistration
-        = new ThreadLocal<>();
-
-    @Override
-    public void jobStart(String name, int workShare, int totalWork) {
-        Deque<String> progress = activeProgress.get();
-        String id = getProgressId();
-        if (progress.isEmpty()) {
-            logger.info("Creating new progress bar: {} {} {}", id, name, progress);
-            // we are the first one, so we have to create a new progress bar
-            // first we request the progress bar
-            progressBarRegistration.set(
-                createProgressBar(id)
-                .thenRun(() -> {
-                    logger.info("Valid initialized progress bar: {}", id);
-                    // then we initialize it it
-                    languageClient.notifyProgress(
-                        new ProgressParams(
-                                Either.forLeft(id),
-                                Either.forRight(buildProgressBeginObject(name))
-                    ));
-                })
-            );
-        }
-        else {
-            CompletableFuture<Void> current = progressBarRegistration.get();
-            if (current == null) {
-                logger.error("Unexpected empty registration");
-                return;
-            }
-            // other wise we have to update the progress bar to a new message
-            current.thenRun(() -> languageClient.notifyProgress(
-                new ProgressParams(
-                    Either.forLeft(id),
-                    Either.forRight(buildProgressStepObject(name)))));
-
-        }
-        progress.push(name);
-    }
-
-    private String getProgressId() {
-        Thread t = Thread.currentThread();
-        return "T" + Integer.toHexString(t.hashCode()) + "" + Long.toHexString(t.getId()) + "" + Integer.toHexString(System.identityHashCode(activeProgress.get()));
-
-    }
-
-    private Object buildProgressBeginObject(String name) {
-        JsonObject result = new JsonObject();
-        result.addProperty("kind", "begin");
-        result.addProperty("title", name);
-        result.addProperty("cancellable", false);
-        return result;
-    }
-
-
-    private Object buildProgressStepObject(String message) {
-        JsonObject result = new JsonObject();
-        result.addProperty("kind", "report");
-        result.addProperty("message", message);
-        //result.addProperty("percentage", percentage);
-        return result;
-    }
-
-    @Override
-    public void jobStep(String name, String message, int workShare) {
-        Deque<String> progressStack = activeProgress.get();
-        while (!progressStack.isEmpty() && !Objects.equals(name, progressStack.peekFirst())) {
-            progressStack.pollFirst(); // drop head if we've missed some ends
-        }
-        String topName = progressStack.peekFirst();
-        if (!Objects.equals(topName, name)) {
-            logger.warn("Incorrect jobstep for non-top job, got {} expected {}", topName, name);
-            return;
-        }
-        CompletableFuture<Void> current = progressBarRegistration.get();
-        if (current == null) {
-            logger.error("Unexpected empty registration");
-            return;
-        }
-        String id = getProgressId();
-        current.thenRun(() -> languageClient.notifyProgress(
-            new ProgressParams(
-                    Either.forLeft(id),
-                    Either.forRight(buildProgressStepObject(message))
-        )));
-    }
-
-    @Override
-    public int jobEnd(String name, boolean succeeded) {
-        Deque<String> progressStack = activeProgress.get();
-        String topName;
-        while ((topName = progressStack.pollFirst()) != null) {
-            if (topName.equals(name)) {
-                break;
-            }
-        }
-
-        if (progressStack.isEmpty()) {
-            String id = getProgressId();
-            logger.info("Finishing progress bar: {} - {}", id, name);
-            // bottom of the stack, done with progress
-            CompletableFuture<Void> current = progressBarRegistration.get();
-            activeProgress.remove(); // clear the memory to avoid lingering stacks per thread
-            progressBarRegistration.remove(); // clear the memory to avoid lingering futures per thread
-            if (current == null) {
-                logger.error("Unexpected empty registration");
-                return 1;
-            }
-            current
-                .handle((e,r) -> null) // always close, also in case of exception
-                .thenRun(() -> {
-                    logger.info("Finished progress bar: {} - {}", id, name);
-                    languageClient.notifyProgress(
-                        new ProgressParams(
-                            Either.forLeft(id),
-                            Either.forLeft(new WorkDoneProgressEnd())));
-                });
-        }
-        return 1;
-    }
-
-    @Override
-    public void jobTodo(String name, int work) {
-        // TODO
-    }
-
-    @Override
-    public boolean jobIsCanceled(String name) {
-        // TODO
-        return false;
-    }
-
-    @Override
-    public void warning(String message, ISourceLocation src) {
-        logger.warn("{} : {}", src, message);
-    }
 
     @Override
     public void registerLocations(IString scheme, IString auth, IMap map) {
@@ -336,6 +165,41 @@ public class LSPIDEServices implements IDEServices {
             ISourceLocation loc = (ISourceLocation) elem;
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
+    }
+
+    @Override
+    public void jobStart(String name, int workShare, int totalWork) {
+        monitor.jobStart(name, workShare, totalWork);
+    }
+
+    @Override
+    public void jobStep(String name, String message, int workShare) {
+        monitor.jobStep(name, message, workShare);
+    }
+
+    @Override
+    public int jobEnd(String name, boolean succeeded) {
+        return monitor.jobEnd(name, succeeded);
+    }
+
+    @Override
+    public boolean jobIsCanceled(String name) {
+        return monitor.jobIsCanceled(name);
+    }
+
+    @Override
+    public void jobTodo(String name, int work) {
+        monitor.jobTodo(name, work);
+    }
+
+    @Override
+    public void endAllJobs() {
+        monitor.endAllJobs();
+    }
+
+    @Override
+    public void warning(String message, ISourceLocation src) {
+        monitor.warning(message, src);
     }
 
 }

@@ -28,15 +28,12 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -49,6 +46,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
@@ -102,76 +100,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
 
-    private class MonitorWrapper implements IRascalMonitor {
-        private final IRascalMonitor original;
-        private final String namePrefix;
-        private final ThreadLocal<Deque<String>> activeProgress = ThreadLocal.withInitial(ArrayDeque::new);
-
-        public MonitorWrapper(IRascalMonitor original, String namePrefix) {
-            this.original = original;
-            this.namePrefix = namePrefix + ": ";
-        }
-
-        @Override
-        public void jobStart(String name, int workShare, int totalWork) {
-            var progressStack = activeProgress.get();
-            if (progressStack.isEmpty()) {
-                progressStack.push(name);
-                name = namePrefix + name;
-            }
-            else {
-                progressStack.push(name);
-            }
-            original.jobStart(name, workShare, totalWork);
-        }
-
-        @Override
-        public void jobStep(String name, String message, int workShare) {
-            if (activeProgress.get().size() == 1) {
-                name = namePrefix + name;
-            }
-            original.jobStep(name, message, workShare);
-        }
-
-        @Override
-        public int jobEnd(String name, boolean succeeded) {
-            Deque<String> progressStack = activeProgress.get();
-            String topName;
-            while ((topName = progressStack.pollFirst()) != null) {
-                if (topName.equals(name)) {
-                    break;
-                }
-            }
-            if (progressStack.isEmpty()) {
-                name = namePrefix + name;
-                activeProgress.remove(); // clear memory
-            }
-            return original.jobEnd(name, succeeded);
-        }
-
-        @Override
-        public boolean jobIsCanceled(String name) {
-            if (activeProgress.get().size() == 1) {
-                name = namePrefix + name;
-            }
-            return original.jobIsCanceled(name);
-        }
-
-        @Override
-        public void jobTodo(String name, int work) {
-            if (activeProgress.get().size() == 1) {
-                name = namePrefix + name;
-            }
-            original.jobTodo(name, work);
-        }
-
-        @Override
-        public void warning(String message, ISourceLocation src) {
-            original.warning(message, src);
-        }
-
-    }
-
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();
@@ -180,12 +108,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         try {
             PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
 
+            var monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
+
             this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), pcfg, false, lang.getMainModule())
-                .thenApply(e -> {
-                    e.setMonitor(new MonitorWrapper(e.getMonitor(), lang.getName()));
-                    return e;
-                });
+                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), monitor, pcfg, false, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),

@@ -44,6 +44,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
+import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.interpreter.staticErrors.StaticError;
@@ -148,17 +149,17 @@ public class EvaluatorUtil {
         return "Static error: " + e.getMessage();
     }
 
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, PathConfig pcfg, boolean addRascalCore, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, IRascalMonitor monitor, PathConfig pcfg, boolean addRascalCore, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            IRascalMonitor monitor = new LSPIDEServices(client, docService, workspaceService, customLog);
+            IDEServices services = new LSPIDEServices(client, docService, workspaceService, customLog, monitor);
             boolean jobSuccess = false;
+            String jobName = "Loading " + label;
             try {
-                monitor.jobStart("Loading " + label);
+                services.jobStart(jobName, imports.length);
                 Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
                         IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream());
-                eval.setMonitor(monitor);
+                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(), services);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
@@ -175,19 +176,12 @@ public class EvaluatorUtil {
                     }
                 }
 
-                for (String i : imports) {
-                    try {
-                        eval.doImport(eval, i);
-                    } catch (Exception e) {
-                        logger.catching(e);
-                        logger.error("Failure to import, RascalResolver: {}", eval.getRascalResolver());
-                        throw new RuntimeException("Failure to import required module " + i, e);
-                    }
-                }
+                eval.doImport(services, imports);
+
                 jobSuccess = true;
                 return eval;
             } finally {
-                monitor.jobEnd("Loading " + label, jobSuccess);
+                services.jobEnd(jobName, jobSuccess);
             }
         }, exec);
     }
