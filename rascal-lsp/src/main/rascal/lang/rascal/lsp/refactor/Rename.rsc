@@ -39,7 +39,6 @@ import Exception;
 import IO;
 import List;
 import Location;
-import Node;
 import ParseTree;
 import Relation;
 import Set;
@@ -72,7 +71,7 @@ set[IllegalRenameReason] checkLegalName(str name) {
 }
 
 private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
-    { definitionsOutsideWorkspace(d) | d <- groupRangeByDomain({<f, d> | d <- defs, f := d.top, f notin ws.modules}) };
+    { definitionsOutsideWorkspace(d) | set[loc] d <- groupRangeByDomain({<f, d> | loc d <- defs, f := d.top, f notin ws.modules}) };
 
 private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
@@ -129,9 +128,9 @@ private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Mod
 }
 
 private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
-    set[Define] newNameDefs = {def | def:<_, newName, _, _, _, _>  <- ws.defines};
+    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
 
-    return reasons =
+    return
         checkLegalName(newName)
       + checkDefinitionsOutsideWorkspace(ws, currentDefs.defined)
       + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)

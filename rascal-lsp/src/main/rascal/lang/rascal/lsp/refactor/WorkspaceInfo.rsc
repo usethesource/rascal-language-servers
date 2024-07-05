@@ -1,6 +1,5 @@
 module lang::rascal::lsp::refactor::WorkspaceInfo
 
-import IO;
 import Relation;
 
 import analysis::typepal::TModel;
