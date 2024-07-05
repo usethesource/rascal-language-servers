@@ -10,7 +10,7 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 /**
- * Utility for finding sub-trees based on UTF-24 line/column indexing.
+ * Utilities for finding sub-trees based on UTF-24 line/column indexing.
  */
 public class TreeSearch {
     
@@ -50,19 +50,17 @@ public class TreeSearch {
     }
     
     /**
-     * Locates the smallest parse tree at given line and column offset (UTF-24).
+     * Produces a list of trees that are "in focus" at given line and column offset (UTF-24).
      * 
-     * Tree search is faster then reading in the source file again and counting
-     * lines because the tree is already there and we only have to recurse over
-     * the spine/path that fits around the requested line and column. Since the
-     * depth of the tree is the limiting factor we usually reach a solution
-     * with 5 to 10 recursive steps. Also the tree is possibly in cache because
-     * we use it for every feature for the currently opened document.
+     * This log(filesize) algorithm quickly collects the trees along a spine from the
+     * root to the smallest lexical or context-free node. The list is returned in
+     * reverse order such that you can select the "most specific" tree by starting
+     * at the start of the list.
      * 
      * @param tree   parse tree
      * @param line   search term in lines (1-based)
      * @param column search term in columns (0-based, UTF-24 codepoints)
-     * @return found the smallest tree that has the line and column offset inside of it.
+     * @return list of tree that are around the given line/column position, ordered from child to parent.
      */
     public static IList computeFocusList(ITree tree, int line, int column) {
         var lw = IRascalValueFactory.getInstance().listWriter();
