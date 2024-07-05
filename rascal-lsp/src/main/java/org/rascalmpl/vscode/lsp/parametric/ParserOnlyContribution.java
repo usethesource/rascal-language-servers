@@ -138,6 +138,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public CompletableFuture<IList> parseCommands(String commands) {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
@@ -155,6 +160,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
         return InterruptibleFuture.completedFuture(VF.set());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> codeActions(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
@@ -194,6 +204,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasBuilder() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
         return CompletableFuture.completedFuture(false);
     }
 

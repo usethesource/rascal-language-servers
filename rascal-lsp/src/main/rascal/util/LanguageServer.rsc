@@ -41,6 +41,7 @@ module util::LanguageServer
 import util::Reflective;
 import IO;
 import ParseTree;
+import Message;
 
 @synopsis{Definition of a language server by its meta-data}
 @description{
@@ -70,7 +71,7 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 @pitfalls {
     * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
-alias Parser           = Tree (str /*input*/, loc /*origin*/);
+alias Parser           = Tree (str _input, loc _origin);
 
 @synopsis{Function profile for summarizer contributions to a language server}
 @description{
@@ -91,19 +92,19 @@ A summarizer provides the same information as the following contributors combine
 The difference is that these contributions are executed on-demand (pulled), while Summarizers
 are executed after build or after typing (push).
 }
-alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
+alias Summarizer       = Summary (loc _origin, Tree _input);
 
 @synopsis{Function profile for outliner contributions to a language server}
-alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
+alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
-alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
+alias LensDetector     = rel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
-alias CommandExecutor  = value (Command /*command*/);
+alias CommandExecutor  = value (Command _command);
 
 @synopsis{Function profile for inlay contributions to a language server}
-alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+alias InlayHinter      = list[InlayHint] (Tree _input);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
@@ -116,7 +117,21 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Documenter       = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for retrieving code actions focused around the current cursor}
+@description{
+Next to the quickfix commands that may be attached to diagnostic ((Message))s, the LSP
+can produce refactoring and quickfix or visualization actions specific for what is near
+or under the current cursor.
+
+An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
+The implementor is asked to produce only actions that pertain what is under the current cursor.
+
+The parameter `inFocus` lists all the subtrees ordered from inside to outside that the current
+selection in the editor overlaps.
+}
+alias CodeActionContributor = list[Command] (list[Tree] inFocus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -129,7 +144,7 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -142,7 +157,7 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Referrer         = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -155,7 +170,7 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Implementer      = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
@@ -202,6 +217,7 @@ data LanguageService
     | definer(Definer definer)
     | referrer(Referrer reference)
     | implementer(Implementer implementer)
+    | codeActionContributor(CodeActionContributor actions)
     ;
 
 @deprecated{Please use ((builder)) or ((analyzer))}
@@ -284,6 +300,36 @@ data DocumentSymbolTag
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
+@synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
+data Message(list[Command] fixes=noop());
+
+@synopsis{A Command is a parameter to a CommandExecutor function.}
+@description{
+Commands can be any closed term. Add any constructor you need to express the execution parameters
+of a command.
+}
+@examples{
+```rascal
+// here we invent a new command name `shouldBeInt` which is parametrized by a loc:
+data Command = shouldBeInt(loc src);
+
+// and we have the evaluator:
+value evaluator(shouldBeInt(loc src)) {
+    // overwrite that part of a file with `int`:
+    writeFile("int", src);
+}
+```
+}
+@benefits{
+* Commands can be attached to diagnostic ((Message)) or ((LensDetector)) or produced by ((CodeActionContributor)).
+It allows you to hook DSL-specific code to the editor for any DSL.
+}
+@pitfalls{
+* the `noop()` command will always be ignored.
+* _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
+be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be
+serialized, so that would lead to run-time errors.
+}
 data Command(str title="")
     = noop()
     ;
@@ -331,7 +377,6 @@ However since language contributions are just Rascal functions, it is advised to
 Use `util::Reflective::getProjectPathConfig` for a representative configuration.
 }
 java void registerLanguage(Language lang);
-
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Spins down and removes a previously registered language server}

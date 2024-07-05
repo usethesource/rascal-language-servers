@@ -168,7 +168,7 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
+                
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);
@@ -180,9 +180,9 @@ public class EvaluatorUtil {
                         eval.doImport(eval, i);
                     } catch (Exception e) {
                         logger.catching(e);
-                        logger.error("Failure to import, RascalResolver: {}", eval.getRascalResolver());
-                        throw new RuntimeException("Failure to import required module " + i, e);
-                    }
+                        logger.error("Failure to import, due to {}, RascalResolver: {}", e.getMessage(), eval.getRascalResolver());
+                        throw new RuntimeException("Failure to import required module " + i + " due to:" + e.getMessage(), e);
+                    } 
                 }
                 jobSuccess = true;
                 return eval;
