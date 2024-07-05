@@ -206,7 +206,7 @@ when testing from the terminal.
 void main() {
     registerLanguage(
         language(
-            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|],classloaders=[|lib://rascal|,|lib://rascal-lsp|]),
+            pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -215,7 +215,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(srcs=[|lib://rascal-lsp/|,|std:///|],libs=[|lib://rascal-lsp/|,|std:///|], classloaders=[|lib://rascal|,|lib://rascal-lsp|]),
+            pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

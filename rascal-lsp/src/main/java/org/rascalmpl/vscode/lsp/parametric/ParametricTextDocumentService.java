@@ -97,7 +97,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -516,19 +515,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-         logger.error("codeActions: {}", params);
+        logger.debug("codeActions: {}", params);
 
-        // TODO: clean this up a bit; (this is an experiment to see how to wire it all up_.
         final ILanguageContributions contribs = contributions(params.getTextDocument());
         final var loc = Locations.toLoc(params.getTextDocument());
         final var start = params.getRange().getStart();
-        final var startLine = params.getRange().getStart().getLine() + 1;
+        final var startLine = start.getLine() + 1;
         final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
         
         if (contribs != null) {
-            // first we filter out the quickfixes that were sent along with diagnostics
-            // and which came back with the codeAction's list of relevant diagnostics:
-            Stream<Either<Command,CodeAction>> quickfixes = params.getContext().getDiagnostics()
+            // first we filter out the "fixes" that were optionally sent along with earlier diagnostics
+            // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+            var quickfixes = params.getContext().getDiagnostics()
                 .stream()
                 .map(Diagnostic::getData)
                 .filter(Objects::nonNull)
@@ -536,27 +534,27 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(JsonPrimitive.class::cast)
                 .map(JsonPrimitive::getAsString)
                 .map(contribs::parseCommands)
-                .map(handler(CompletableFuture::get))
-                .flatMap(IList::stream)
-                .map(cons -> constructorToCommand(contribs.getName(), (IConstructor) cons))
-                .map(cmd -> Either.<Command,CodeAction>forLeft(cmd))
+                .map(CompletableFuture::join)
                 ;
 
             // here we dynamically ask the contributions for more actions,
             // based on the cursor position in the file and the current parse tree
-            return getFile(params.getTextDocument())
+           var codeActions = getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
-                .thenApply(Versioned::get) // latest version
+                .thenApply(Versioned::get) 
                 .thenApply(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
-                .thenCompose(Function.identity()) // flatten TODO: @davylandman do you have tips?
-                // not that quickfixes from above are merged here in front
-                .thenApply(actions -> Stream.concat(quickfixes, actions.stream() 
+                .thenApply(CompletableFuture::join)
+                .thenApply(actions -> actions.stream())
+                ;
+
+            // final merge and conversion to LSP Command data-type
+            return codeActions.thenApply(actions -> 
+                    Stream.concat(quickfixes, actions)
                     .map(IConstructor.class::cast)
                     .map(cons -> constructorToCommand(contribs.getName(), cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
-                )
-                .collect(Collectors.toList())
-            );
+                    .collect(Collectors.toList())
+                );
         }
         else {
             logger.warn("ignoring command execution (no code actions configured for this document): {}", params.getTextDocument());
@@ -566,38 +564,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
             final int startLine, final int startColumn, ITree tree) {
-        int offset = OffsetSearchInTree.offsetFromLineColumn(tree, startLine, startColumn);
-        ITree focus = (ITree) TreeAdapter.locateDeepestContextFreeNode(tree, offset);
-        return contribs.codeActions(IRascalValueFactory.getInstance().sourceLocation(loc, offset, 1), tree, focus).get();
+        ITree focus = (ITree) OffsetSearchInTree.locateDeepestTreeAtLineColumn(tree, startLine, startColumn);
+        return contribs.codeActions(TreeAdapter.getLocation(focus), tree, focus).get();
     }
-
-    /**
-     * A type of higher-order function which throws exceptions, for wrapping by the `handler` method
-     * below.
-     * 
-     * TODO: find a handy place for this
-     */
-    @FunctionalInterface
-    private interface CheckedExceptionFunction<T, R, E extends Exception> {
-        R apply(T t) throws E;
-    }
-
-    /**
-     * Exception handler function for use in streams.
-     * 
-     * TODO: find a handy place for this
-     */
-    private <T, R, E extends Exception> Function<T, R> handler(CheckedExceptionFunction<T, R, E> fe) {
-        return arg -> {
-            try {
-                return fe.apply(arg);
-            } catch (Exception e) {
-                logger.debug(e.getMessage(), e);
-                throw new RuntimeException(e);
-            }
-        };
-    }
-
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         return getFile(doc)
