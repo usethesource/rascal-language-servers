@@ -57,7 +57,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<IList> codeActions(ISourceLocation focus, ITree input, ITree cursor);
+    public InterruptibleFuture<IList> codeActions(IList focus);
 
     public CompletableFuture<Boolean> hasAnalyzer();
     public CompletableFuture<Boolean> hasBuilder();

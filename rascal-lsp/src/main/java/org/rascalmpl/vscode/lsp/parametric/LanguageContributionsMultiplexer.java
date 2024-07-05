@@ -287,8 +287,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
-        return flatten(codeActionContributor, c -> c.codeActions(focus, input, cursor));
+    public InterruptibleFuture<IList> codeActions(IList focus) {
+        return flatten(codeActionContributor, c -> c.codeActions(focus));
     }
 
     @Override

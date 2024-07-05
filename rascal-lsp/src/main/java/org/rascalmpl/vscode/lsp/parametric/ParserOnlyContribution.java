@@ -163,7 +163,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
+    public InterruptibleFuture<IList> codeActions(IList focus) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 

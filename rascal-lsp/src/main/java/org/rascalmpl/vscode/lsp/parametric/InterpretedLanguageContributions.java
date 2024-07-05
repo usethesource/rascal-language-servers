@@ -386,9 +386,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> codeActions(ISourceLocation focus, ITree input, ITree cursor) {
-        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, TreeAdapter.getLocation(cursor));
-        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus, input, cursor);
+    public InterruptibleFuture<IList> codeActions(IList focus) {
+        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, focus);
+        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
     }
 
     private void debug(String name, Object param) {

@@ -105,9 +105,9 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[Command] contributeActions(loc _src, start[Program] program, Tree focus) {
-    return [ removeDecl(program, x, title="remove <x>") | /IdType x := program, /focus := x];
-}
+list[Command] contributeActions([*_, IdType x, *_]) = [ removeDecl(program, x, title="remove <x>") ];
+
+default list[Command]contributeActions(list[value] _) = [];
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};

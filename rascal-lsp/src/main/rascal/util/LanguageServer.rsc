@@ -127,8 +127,11 @@ or under the current cursor.
 
 An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
 The implementor is asked to produce only actions that pertain what is under the current cursor.
+
+The parameter `inFocus` lists all the subtrees ordered from inside to outside that the current
+selection in the editor overlaps.
 }
-alias CodeActionContributor = list[Command] (loc _focus, Tree _fullTree, Tree _treeAroundFocus_);
+alias CodeActionContributor = list[Command] (list[Tree] inFocus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{

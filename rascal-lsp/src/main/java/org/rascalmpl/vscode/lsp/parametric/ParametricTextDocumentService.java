@@ -569,8 +569,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
             final int startLine, final int startColumn, ITree tree) {
-        ITree focus = (ITree) TreeSearch.locateDeepestTreeAtLineColumn(tree, startLine, startColumn);
-        return contribs.codeActions(TreeAdapter.getLocation(focus), tree, focus).get();
+        IList focus = (IList) TreeSearch.computeFocusList(tree, startLine, startColumn);
+        return contribs.codeActions(focus).get();
     }
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {

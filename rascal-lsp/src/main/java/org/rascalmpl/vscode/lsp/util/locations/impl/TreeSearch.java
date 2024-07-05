@@ -1,9 +1,11 @@
 package org.rascalmpl.vscode.lsp.util.locations.impl;
 
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IListWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -62,28 +64,36 @@ public class TreeSearch {
      * @param column search term in columns (0-based, UTF-24 codepoints)
      * @return found the smallest tree that has the line and column offset inside of it.
      */
-    public static ITree locateDeepestTreeAtLineColumn(ITree tree, int line, int column) {
+    public static IList computeFocusList(ITree tree, int line, int column) {
+        var lw = IRascalValueFactory.getInstance().listWriter();
+        lw.append(tree);
+        computeFocusList(lw, tree, line, column);
+        return lw.done();
+    }
+
+    private static boolean computeFocusList(IListWriter focus, ITree tree, int line, int column) {
 		ISourceLocation l = TreeAdapter.getLocation(tree);
 
 		if (l == null) {
             // inside a layout, literal or character
-			return null;
+			return false;
 		}
 
 		if (TreeAdapter.isLexical(tree)) {
 			if (inside(l, line, column)) {
+                focus.append(tree);
                 // stop and return success
-				return tree;
+				return true;
 			}   
             else {
                 // stop and return failure
-                return null;
+                return false;
             }
 		}
 
 		if (TreeAdapter.isAmb(tree)) {
             // pick any tree to make the best of it.
-			return locateDeepestTreeAtLineColumn((ITree) tree.getAlternatives().iterator().next(), line, column);
+			return computeFocusList(focus, (ITree) tree.getAlternatives().iterator().next(), line, column);
 		}
 
 		if (TreeAdapter.isAppl(tree)) {
@@ -97,22 +107,22 @@ public class TreeSearch {
 				}
 
 				if (inside(childLoc, line, column)) {
-					ITree result = locateDeepestTreeAtLineColumn((ITree) child, line, column);
+					boolean result = computeFocusList(focus, (ITree) child, line, column);
 
-					if (result != null) {
+					if (result) {
 						return result;
 					}
 					break;
 				}
 			}
 
-            // can't find a child that fits, then return the current node
 			if (inside(l, line, column)) {
-				return tree;
+                focus.append(tree);
+				return true;
 			}
 		}
 
         // cycles and characters do not have locations
-		return null;
+		return false;
 	}
 }
