@@ -48,7 +48,15 @@ public class TreeSearch {
     }
     
     /**
-     * Locates the smallest parse tree at given line and column offset (UTF-24)
+     * Locates the smallest parse tree at given line and column offset (UTF-24).
+     * 
+     * Tree search is faster then reading in the source file again and counting
+     * lines because the tree is already there and we only have to recurse over
+     * the spine/path that fits around the requested line and column. Since the
+     * depth of the tree is the limiting factor we usually reach a solution
+     * with 5 to 10 recursive steps. Also the tree is possibly in cache because
+     * we use it for every feature for the currently opened document.
+     * 
      * @param tree   parse tree
      * @param line   search term in lines (1-based)
      * @param column search term in columns (0-based, UTF-24 codepoints)
