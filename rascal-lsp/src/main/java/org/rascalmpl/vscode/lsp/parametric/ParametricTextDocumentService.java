@@ -116,7 +116,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import org.rascalmpl.vscode.lsp.util.locations.impl.OffsetSearchInTree;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import com.google.gson.JsonPrimitive;
 
@@ -564,7 +564,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
             final int startLine, final int startColumn, ITree tree) {
-        ITree focus = (ITree) OffsetSearchInTree.locateDeepestTreeAtLineColumn(tree, startLine, startColumn);
+        ITree focus = (ITree) TreeSearch.locateDeepestTreeAtLineColumn(tree, startLine, startColumn);
         return contribs.codeActions(TreeAdapter.getLocation(focus), tree, focus).get();
     }
 

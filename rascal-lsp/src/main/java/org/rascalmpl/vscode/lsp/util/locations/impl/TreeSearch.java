@@ -8,9 +8,9 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 /**
- * Utility for finding UTF-24 offsets starting from line and column information and a given ITree.
+ * Utility for finding sub-trees based on UTF-24 line/column indexing.
  */
-public class OffsetSearchInTree {
+public class TreeSearch {
     
     /**
      * Helper to test if a line/column position is within the scope of a source location's 
@@ -107,5 +107,4 @@ public class OffsetSearchInTree {
         // cycles and characters do not have locations
 		return null;
 	}
-
-   }
+}
