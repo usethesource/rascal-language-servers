@@ -31,8 +31,6 @@ import util::IDEServices;
 import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
-import Location;
-import IO;
 
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
 set[LanguageService] picoLanguageContributor() = {
@@ -107,8 +105,8 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[Command] contributeActions(loc src, start[Program] program, Tree focus) {
-    return [ removeDecl(program, x, title="remove <x>") | /IdType x := focus, isOverlapping(src, x@\loc)];
+list[Command] contributeActions(loc _src, start[Program] program, Tree focus) {
+    return [ removeDecl(program, x, title="remove <x>") | /IdType x := program, /focus := x];
 }
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =

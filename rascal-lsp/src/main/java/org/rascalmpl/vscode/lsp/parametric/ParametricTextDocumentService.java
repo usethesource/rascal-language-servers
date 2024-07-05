@@ -43,6 +43,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
@@ -97,6 +98,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -526,7 +528,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         if (contribs != null) {
             // first we filter out the "fixes" that were optionally sent along with earlier diagnostics
             // and which came back with the codeAction's list of relevant (in scope) diagnostics:
-            var quickfixes = params.getContext().getDiagnostics()
+            Stream<IValue> quickfixes = params.getContext().getDiagnostics()
                 .stream()
                 .map(Diagnostic::getData)
                 .filter(Objects::nonNull)
@@ -535,16 +537,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(JsonPrimitive::getAsString)
                 .map(contribs::parseCommands)
                 .map(CompletableFuture::join)
+                .flatMap(IList::stream)
                 ;
 
             // here we dynamically ask the contributions for more actions,
             // based on the cursor position in the file and the current parse tree
-           var codeActions = getFile(params.getTextDocument())
-                .getCurrentTreeAsync()
-                .thenApply(Versioned::get) 
-                .thenApply(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
-                .thenApply(CompletableFuture::join)
-                .thenApply(actions -> actions.stream())
+            CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+                getFile(params.getTextDocument())
+                    .getCurrentTreeAsync()
+                    .thenApply(Versioned::get) 
+                    .thenApply(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
+                    .thenApply(CompletableFuture::join)
+                    .thenApply(actions -> actions.stream()),
+                () -> Stream.empty())
                 ;
 
             // final merge and conversion to LSP Command data-type
