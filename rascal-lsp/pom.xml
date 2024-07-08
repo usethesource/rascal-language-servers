@@ -33,8 +33,8 @@
   <version>2.20.2-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.2</junit.version>
-    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+    <junit.version>5.10.3</junit.version>
+    <maven-surefire-plugin.version>3.3.0</maven-surefire-plugin.version>
     <log4j2.version>2.23.1</log4j2.version>
     <lsp4j.version>0.23.1</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
@@ -63,17 +63,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.1</version>
+      <version>0.40.4</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.10.2-RC2</version>
+      <version>0.11.1</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.13.1</version>
+      <version>0.13.2</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -132,11 +132,6 @@
       <artifactId>org.eclipse.lsp4j.debug</artifactId>
       <version>${lsp4j.version}</version>
     </dependency>
-    <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna</artifactId>
-      <version>5.14.0</version>
-    </dependency>
   </dependencies>
   <build>
       <resources>
@@ -178,7 +173,7 @@
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.22.0</version>
+                    <version>0.27.5</version>
                     <configuration>
                         <errorsAsWarnings>false</errorsAsWarnings>
                         <bin>${project.build.outputDirectory}</bin>
@@ -213,7 +208,6 @@
                                 <enableStandardLibrary>false</enableStandardLibrary>
                                 <errorsAsWarnings>false</errorsAsWarnings>
                                 <bin>${project.build.outputDirectory}</bin>
-                                <license>${project.basedir}/LICENSE</license>
                                 <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
                                 <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
                                 <srcs>
@@ -229,7 +223,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.7.1</version>
         <executions>
           <execution> <?m2e ignore?>
             <id>copy</id>

@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -51,7 +50,8 @@ import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.ideservices.BasicIDEServices;
+import org.rascalmpl.uri.LogicalMapResolver;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -59,7 +59,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -222,7 +221,13 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerLocations(RegisterLocationsParameters param) {
-        new BasicIDEServices(null, null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+        URIResolverRegistry.getInstance().registerLogical(
+            new LogicalMapResolver(
+                param.getRawScheme(),
+                param.getRawAuthority(),
+                param.getMapping()
+            )
+        );
     }
 
     @Override

@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
@@ -48,11 +49,14 @@ import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.jline.Terminal;
+import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.ILanguageProtocol;
 import org.rascalmpl.repl.RascalInterpreterREPL;
+import org.rascalmpl.shell.RascalShell;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -63,15 +67,10 @@ import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
-import com.sun.jna.Native;
-import com.sun.jna.Platform;
-import com.sun.jna.win32.StdCallLibrary;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
-import jline.Terminal;
-import jline.TerminalFactory;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -81,11 +80,10 @@ import jline.TerminalFactory;
 public class LSPTerminalREPL extends BaseREPL {
     private static final InputStream stdin = System.in;
     private static final OutputStream stderr = System.err;
-    private static final OutputStream stdout = System.out;
     private static final boolean prettyPrompt = true;
     private static final boolean allowColors = true;
 
-    public LSPTerminalREPL(Terminal terminal, IDEServices services) throws IOException, URISyntaxException {
+    public LSPTerminalREPL(Terminal terminal, IDEServices services, OutputStream stdout) throws IOException, URISyntaxException {
         super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
     }
 
@@ -99,37 +97,8 @@ public class LSPTerminalREPL extends BaseREPL {
         }
     }
 
-    private static boolean isUTF8() {
-        String lang = System.getenv("LANG");
-        return lang != null && lang.contains("UTF-8");
-    }
-
-    /**
-     * a JNA interface that we can use to call Windows Kernel functions without
-     * having to go and add JNI compiled libraries just for this work around
-     */
-    public interface Kernel32 extends StdCallLibrary {
-        boolean SetConsoleOutputCP(int wCodePageID);
-        boolean SetConsoleCP(int wCodePageID);
-    }
-
-    private static final int WINDOWS_UTF8_CODE_PAGE = 65001;
 
     private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        if (Platform.isWindows() && isUTF8()) {
-            // VS Code doesn't properly set the codepage for the terminal process
-            // but xterm.js and VS Code expect us to print in utf8, so we have to quickly set the
-            // codepage ourself, just to make sure we are not getting the default
-            // that the user has (mostly some old codepoint that breaks any unicode character)
-            try {
-                Kernel32 windowsKernel = Native.load("kernel32", Kernel32.class);
-                windowsKernel.SetConsoleCP(WINDOWS_UTF8_CODE_PAGE);
-                windowsKernel.SetConsoleOutputCP(WINDOWS_UTF8_CODE_PAGE);
-            } catch (Exception e) {
-                System.err.println("Error setting console code point to UTF8: " + e.getMessage());
-                System.err.println("Most likely, non-ascii characters will not print correctly, please report this on our github.");
-            }
-        }
         RascalInterpreterREPL repl =
             new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
                 private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
@@ -173,7 +142,7 @@ public class LSPTerminalREPL extends BaseREPL {
                     GlobalEnvironment heap = new GlobalEnvironment();
                     ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
-                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, null, root, heap);
+                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, services, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
                     evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
 
@@ -202,10 +171,6 @@ public class LSPTerminalREPL extends BaseREPL {
                         evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
-
-                        if (services instanceof TerminalIDEClient) {
-                            ((TerminalIDEClient) services).registerErrorPrinter(evaluator.getErrorPrinter());
-                        }
 
                         for (IValue srcPath : pcfg.getSrcs()) {
                             ISourceLocation path = (ISourceLocation)srcPath;
@@ -347,13 +312,18 @@ public class LSPTerminalREPL extends BaseREPL {
             throw new IllegalArgumentException("missing --ideServicesPort commandline parameter");
         }
 
+        RascalShell.setupWindowsCodepage();
+        RascalShell.enableWindowsAnsiEscapesIfPossible();
+
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
         try {
+            IRascalMonitor monitor = IRascalMonitor.buildConsoleMonitor(System.in, System.out, false);
+
             LSPTerminalREPL terminal =
-                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort));
+                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort, monitor), monitor instanceof OutputStream ? (OutputStream) monitor : System.out);
             if (loadModule != null) {
                 terminal.queueCommand("import " + loadModule + ";");
                 if (runModule) {

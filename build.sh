@@ -7,7 +7,7 @@ extra_flags=''
 clean="clean"
 while getopts 'fd' flag; do
   case "${flag}" in
-    f) extra_flags='-Drascal.compile.skip' ;;
+    f) extra_flags='-Drascal.compile.skip -Drascal.tutor.skip' ;;
     d) clean='' ;;
     *) printf "incorrect param, valid params:
     Use -f to skip rascal-compile
