@@ -149,7 +149,7 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(10, "az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
-        await ide.hasWarningSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
+        await ide.hasErrorSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
         const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there is should be a content assist menu at this spot.");
 
         await assist!.getItems()
