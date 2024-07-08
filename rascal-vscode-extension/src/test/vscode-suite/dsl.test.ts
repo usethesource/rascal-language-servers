@@ -152,15 +152,13 @@ describe('DSL', function () {
         await ide.hasWarningSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
         const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there is should be a content assist menu at this spot.");
 
-        const fixClicked = await assist!.getItems()
+        await assist!.getItems()
             .then(items => items
                 .filter(ca => ca.getLabel().then(lp => lp.trim() === "Change to a"))
-                .forEach(it => it.click());
-
-        await fixClicked!;
+                .forEach(it => it.click()));
 
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a);
-
-    }
+    });
+    
 });
 
