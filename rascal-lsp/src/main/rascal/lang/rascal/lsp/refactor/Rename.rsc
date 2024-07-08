@@ -141,8 +141,8 @@ private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[M
 private str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
 // TODO Move to stdlib?
-private loc findSmallestContaining(set[loc] wrappers, loc l) =
-    (|unknown:///| | w < it && isContainedIn(l, w) ? w : it | w <- wrappers);
+private loc findSmallestContaining(set[loc] wrappers, loc l, loc sentinel = |unknown:///|) =
+    (sentinel | (it == sentinel || w < it) && isContainedIn(l, w) ? w : it | w <- wrappers);
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 private set[loc] findNames(start[Module] m, set[loc] useDefs) {

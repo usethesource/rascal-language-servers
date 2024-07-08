@@ -33,7 +33,8 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
     ms = rascalTModelForLocs(mods, getRascalCoreCompilerConfig(pcfg), dummy_compile1);
 
     for (m <- ms.tmodels) {
-        ws = loadModel(ws, ms.tmodels[m]);
+        tm = convertTModel2PhysicalLocs(ms.tmodels[m]);
+        ws = loadModel(ws, tm);
         ws.modules += {ms.moduleLocs[m].top};
     }
 
