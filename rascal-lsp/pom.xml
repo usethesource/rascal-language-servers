@@ -87,6 +87,20 @@
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- Rascal tests require JUnit 4 -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Required to run JUnit 4 and 5 tests in the same test run -->
+    <dependency>
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
@@ -166,6 +180,10 @@
                         <srcs>
                             <src>${project.basedir}/src/main/rascal</src>
                         </srcs>
+                        <srcIgnores>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/Rename.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/Rename.rsc</ignore>
+                        </srcIgnores>
                         <sourceLookup>|lib://rascal-lsp|</sourceLookup>
                         <enableStandardLibrary>false</enableStandardLibrary>
                     </configuration>
