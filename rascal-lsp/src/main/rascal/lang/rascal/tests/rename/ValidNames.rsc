@@ -4,7 +4,7 @@ import lang::rascal::tests::rename::TestUtils;
 import lang::rascal::lsp::refactor::Exception;
 
 test bool renameToReservedName() {
-    edits = getEdits("int foo = 8;", 0, "foo", "int");
+    edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");
     newNames = {name | e <- edits, changed(_, replaces) := e
                      , r <- replaces, replace(_, name) := r};
 

@@ -29,6 +29,7 @@ module lang::rascal::tests::rename::TestUtils
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
 import IO;
+import List;
 import Map;
 import Message;
 import Set;
@@ -50,23 +51,19 @@ alias TestModule = tuple[str body, set[int] expectedRenameOccs];
 bool testRenameOccurrences(map[str, TestModule] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar") {
     str testName = "Test<abs(arbInt())>";
     loc testDir = |memory://tests/rename/<testName>|;
+
     remove(testDir);
 
-    PathConfig pcfg = getMultiModuleConfig(testDir);
+    PathConfig pcfg = getTestPathConfig(testName=testName, testDir=testDir);
 
     map[loc file, set[int] expectedRenameOccs] modulesByLocation = (l: m.expectedRenameOccs | name <- modules, m := modules[name], l := storeTestModule(testDir, name, m.body));
-
-    res = testRenameOccurrences(modulesByLocation, cursor, newName=newName, pcfg=pcfg);
-    remove(testDir);
-    return res;
+    return testRenameOccurrences(modulesByLocation, cursor, newName=newName, pcfg=pcfg);
 }
 
 bool testRenameOccurrences(map[loc file, set[int] expectedRenameOccs] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar", PathConfig pcfg = getTestWorkspaceConfig()) {
-    checkNoErrors(check(toList(domain(modules)), rascalCompilerConfig(pcfg)));
-
     Tree cursorT = findCursor([l | l <- modules, getModuleName(l, pcfg) == cursor.moduleName][0], cursor.id, cursor.occ);
 
-    edits = renameRascalSymbol(cursorT, {d| d <- pcfg.srcs}, pcfg, newName);
+    edits = renameRascalSymbol(cursorT, toSet(pcfg.srcs), pcfg, newName);
 
     editsPerModule = (name: locsToOccs(m, cursor.id, locs) | changed(f, textedits) <- edits
                                 , start[Module] m := parseModuleWithSpaces(f)
@@ -77,22 +74,15 @@ bool testRenameOccurrences(map[loc file, set[int] expectedRenameOccs] modules, t
     return editsPerModule == expectedEditsPerModule;
 }
 
-set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
-    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
+set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
+    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
     occs = extractRenameOccurrences(moduleFileName, edits, oldName);
-    remove(moduleFileName);
     return occs;
 }
 
-list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "") {
-    <edits, l> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
-    remove(l);
-    return edits;
-}
-
 // Test renames that are expected to throw an exception
-bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "") {
-    edits = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls=decls);
+bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
+    edits = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
 
     print("UNEXPECTED EDITS: ");
     iprintln(edits);
@@ -100,15 +90,7 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-
-private PathConfig testPathConfig = pathConfig(
-        bin=|memory://tests/rename/bin|,
-        libs=[|lib://rascal|],
-        srcs=[|memory://tests/rename/src|],
-        resources=|memory://tests/rename/resources|,
-        generatedSources=|memory://tests/rename/generated-sources|);
-
-private PathConfig getMultiModuleConfig(loc testDir) {
+private PathConfig getTestPathConfig(str testName = "Test<abs(arbInt())>", loc testDir = |memory://tests/rename/<testName>|) {
     return pathConfig(
         bin=testDir + "bin",
         libs=[|lib://rascal|],
@@ -129,28 +111,20 @@ private PathConfig getTestWorkspaceConfig() {
     );
 }
 
-// Test renaming given the location of a module and rename parameters
-list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
-    void checkNoErrors(list[ModuleMessages] msgs) {
-        if (errors := {p | p:program(_, pmsgs) <- msgs, m <- pmsgs, m is error}, errors != {})
-            throw errors;
-    }
-
+list[DocumentEdit] getEdits(loc singleModule, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig()) {
     loc f = resolveLocation(singleModule);
+    m = parseModuleWithSpaces(f);
 
-    checkNoErrors(checkAll(f, getRascalCoreCompilerConfig(pcfg)));
-
-    return getEdits(parseModuleWithSpaces(f), cursorAtOldNameOccurrence, oldName, newName, pcfg=pcfg);
-}
-
-// Test renaming given a module Tree and rename parameters
-list[DocumentEdit] getEdits(start[Module] m, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = testPathConfig) {
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(cursor, {src | src <- pcfg.srcs}, pcfg, newName);
+    return renameRascalSymbol(cursor, toSet(pcfg.srcs), pcfg, newName);
 }
 
-private tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls = "", str imports = "") {
-    str moduleName = "TestModule<abs(arbInt())>";
+list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports) {
+    <edits, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
+    return edits;
+}
+
+private tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>", PathConfig pcfg = getTestPathConfig(testName=moduleName)) {
     str moduleStr =
     "module <moduleName>
     '<trim(decls)>
@@ -158,20 +132,17 @@ private tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int curso
     '<trim(stmtsStr)>
     '}";
 
-    // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
-    loc moduleFileName = |memory://tests/rename/src/<moduleName>.rsc|;
-    writeFile(moduleFileName, moduleStr);
-    list[DocumentEdit] edits = [];
-    try {
-        edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName);
-    } catch e: {
-        remove(moduleFileName);
-        throw e;
+    for (src <- pcfg.srcs) {
+        remove(src.parent); // strip off `/rascal`
     }
 
+    // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
+    loc moduleFileName = pcfg.srcs[0] + "<moduleName>.rsc";
+    writeFile(moduleFileName, moduleStr);
+
+    edits = getEdits(moduleFileName, cursorAtOldNameOccurrence, oldName, newName, pcfg=pcfg);
     return <edits, moduleFileName>;
 }
-
 
 private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
     start[Module] m = parseModuleWithSpaces(moduleFileName);
@@ -224,7 +195,5 @@ private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i
 private set[loc] occsToLocs(start[Module] m, str name, set[int] occs) = {t.src | t <- occsToTrees(m, name, occs)};
 private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | /Name n := m.top, "<n>" == name], occ <- occs};
 
-private void checkNoErrors(list[ModuleMessages] msgs) {
-    if (errors := {p | p:program(_, pmsgs) <- msgs, m <- pmsgs, m is error}, errors != {})
-        throw errors;
-}
+// Workaround to be able to pattern match on the emulated `src` field
+data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
