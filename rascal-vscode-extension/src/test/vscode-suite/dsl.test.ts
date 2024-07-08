@@ -157,8 +157,8 @@ describe('DSL', function () {
                 .filter(ca => ca.getLabel().then(lp => lp.trim() === "Change to a"))
                 .forEach(it => it.click()));
 
-        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a);
-    });
+        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a");
+    };
     
 });
 
