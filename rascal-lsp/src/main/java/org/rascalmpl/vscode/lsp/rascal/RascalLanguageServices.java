@@ -183,7 +183,7 @@ public class RascalLanguageServices {
         var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
-        return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), pcfg.asConstructor(), VF.string(newName)),
+        return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName)),
             VF.list(), exec);
     }
 
