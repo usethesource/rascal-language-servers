@@ -9,6 +9,11 @@ import lang::rascalcore::check::Checker;
 import util::FileSystem;
 import util::Reflective;
 
+data Cursor = use(loc l)
+            | def(loc l)
+            | field(loc l)
+            ;
+
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 
 data WorkspaceInfo (
@@ -63,5 +68,8 @@ set[Define] getOverloadedDefines(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     return overloadedDefs;
 }
 
-set[Define] getOverloadedDefines(WorkspaceInfo ws, loc useDef, MayOverloadFun mayOverloadF) =
-    getOverloadedDefines(ws, getDefs(ws, useDef) != {} ? getDefs(ws, useDef) : {useDef}, mayOverloadF);
+set[Define] getOverloadedDefines(WorkspaceInfo ws, use(cursor), MayOverloadFun mayOverloadF) =
+    getOverloadedDefines(ws, getDefs(ws, cursor), mayOverloadF);
+
+set[Define] getOverloadedDefines(WorkspaceInfo ws, def(cursor), MayOverloadFun mayOverloadF) =
+    getOverloadedDefines(ws, {cursor}, mayOverloadF);

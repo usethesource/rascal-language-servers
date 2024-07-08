@@ -197,10 +197,20 @@ private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitio
     return rascalMayOverload(defs, potentialOverloadDefinitions);
 }
 
-private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, str name) {
-    loc useDefAtCursor = findSmallestContaining(ws.defines.defined + ws.useDef<0>, cursor);
+private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, str name) {
+    loc cursorLoc = cursorT.src;
+    str cursorName = "<cursorT>";
 
-    set[Define] defs = getOverloadedDefines(ws, useDefAtCursor, rascalMayOverloadSameName);
+    cursorNamedDefs = (ws.defines<id, defined>)[cursorName];
+    smallestUse = findSmallestContaining(ws.useDef<0>, cursorLoc);
+    smallestDef = findSmallestContaining(cursorNamedDefs, cursorLoc);
+
+    Cursor cursor = smallestUse < smallestDef ? use(smallestUse) : def(smallestDef);
+
+    if (field(l) := cursor) throw unsupportedRename({<l, "Field names">});
+    if (cursor.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
+
+    set[Define] defs = getOverloadedDefines(ws, cursor, rascalMayOverloadSameName);
     set[loc] uses = ({} | it + getUses(ws, def) | def <- defs.defined);
 
     rel[loc file, Define defines] defsPerFile = {<d.defined.top, d> | d <- defs};
@@ -224,7 +234,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, loc cursor, st
 
 list[DocumentEdit] renameRascalSymbol(Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
     WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, pcfg);
-    return computeDocumentEdits(ws, cursor.src, newName);
+    return computeDocumentEdits(ws, cursor, newName);
 }
 
 //// WORKAROUNDS
