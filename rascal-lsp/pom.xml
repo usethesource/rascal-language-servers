@@ -180,6 +180,10 @@
                         <srcs>
                             <src>${project.basedir}/src/main/rascal</src>
                         </srcs>
+                        <srcIgnores>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/Rename.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/Rename.rsc</ignore>
+                        </srcIgnores>
                         <sourceLookup>|lib://rascal-lsp|</sourceLookup>
                         <enableStandardLibrary>false</enableStandardLibrary>
                     </configuration>
