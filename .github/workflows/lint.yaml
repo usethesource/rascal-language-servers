@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # sonar needs full checkout for better blame information
       - uses: actions/setup-java@v4
         with:
           java-version: 17
@@ -41,7 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -f ./rascal-lsp/pom.xml -Pcoverage -B -Drascal.compile.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
+        run: mvn -f ./rascal-lsp/pom.xml -Pcoverage -B -Drascal.compile.skip -Drascal.tutor.skip verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers
 
   eslint:
     name: eslint
@@ -51,7 +53,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 18
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
@@ -67,3 +69,53 @@ jobs:
           eslint_dir: ./rascal-vscode-extension
           eslint_args: "src"
           eslint_extensions: ts
+
+
+  githubql:
+    strategy:
+      matrix:
+        include:
+          - language: java
+            build-mode: manual
+          - language: typescript
+            build-mode: none
+    name: githubql
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - if: ${{ matrix.language == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - if: ${{ matrix.language == 'java' }}
+        name: Build java 
+        run: mvn -B compile -Drascal.compile.skip -Drascal.tutor.skip -DskipTests
+        working-directory: rascal-lsp/
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"   
