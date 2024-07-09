@@ -75,11 +75,10 @@ private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo 
 
 private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    map[loc, Define] defMap = (def.defined: def | def <- ws.defines);
     rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define cD <- currentDefs
                                                                          , Define nD <- newDefs
                                                                          , isContainedIn(cD.defined, nD.scope)
-                                                                         , !rascalMayOverload({cD.defined, nD.defined}, defMap)
+                                                                         , !rascalMayOverload({cD.defined, nD.defined}, ws.definitions)
     };
 
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
@@ -93,7 +92,6 @@ private set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, s
 
 private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
     set[Define] newNameImplicitDefs = findImplicitDefinitions(ws, m, newDefs);
-    set[Define] newNameExplicitDefs = newDefs - newNameImplicitDefs;
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
     set[Capture] implicitDeclBecomesUseOfCurrentDecl =
@@ -127,14 +125,15 @@ private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Mod
     return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
-private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, str newName) {
+private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[loc] currentDefs, set[loc] currentUses, str newName) {
+    set[Define] currentDefines = {ws.definitions[d] | d <- currentDefs};
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
 
     return
         checkLegalName(newName)
-      + checkDefinitionsOutsideWorkspace(ws, currentDefs.defined)
-      + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)
-      + checkCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
+      + checkDefinitionsOutsideWorkspace(ws, currentDefs)
+      + checkCausesDoubleDeclarations(ws, currentDefines, newNameDefs)
+      + checkCausesCaptures(ws, m, currentDefines, currentUses, newNameDefs)
     ;
 }
 
@@ -174,17 +173,16 @@ Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is
 
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
-
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[Define] defs, set[loc] uses, str name) {
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
     if (reasons := collectIllegalRenames(ws, m, defs, uses, name), reasons != {}) {
         return <reasons, []>;
     }
 
     replaceName = escapeName(name);
-    return <{}, [replace(l, replaceName) | l <- findNames(m, defs.defined + uses)]>;
+    return <{}, [replace(l, replaceName) | l <- findNames(m, defs + uses)]>;
 }
 
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[Define] defs, set[loc] uses, str name) =
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[loc] defs, set[loc] uses, str name) =
     computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
 
 private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
@@ -210,10 +208,10 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     if (field(l) := cursor) throw unsupportedRename({<l, "Field names">});
     if (cursor.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
 
-    set[Define] defs = getOverloadedDefines(ws, cursor, rascalMayOverloadSameName);
-    set[loc] uses = ({} | it + getUses(ws, def) | def <- defs.defined);
+    set[loc] defs = getRelatedDefs(ws, cursor, rascalMayOverloadSameName);
+    set[loc] uses = getUses(ws, defs);
 
-    rel[loc file, Define defines] defsPerFile = {<d.defined.top, d> | d <- defs};
+    rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
 
     files = defsPerFile.file + usesPerFile.file;

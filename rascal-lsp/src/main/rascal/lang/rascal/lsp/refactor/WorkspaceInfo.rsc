@@ -46,13 +46,17 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
     return ws;
 }
 
+@memo
 set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];
 
+@memo
+set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = invert(ws.useDef)[defs];
+
+@memo
 set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
-set[Define] getOverloadedDefines(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
+set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     set[loc] overloadedLocs = defs;
-    set[Define] overloadedDefs = {ws.definitions[l] | l <- defs};
 
     // Pre-condition
     assert mayOverloadF(overloadedLocs, ws.definitions):
@@ -61,15 +65,14 @@ set[Define] getOverloadedDefines(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     for (loc d <- ws.definitions) {
         if (mayOverloadF(defs + d, ws.definitions)) {
             overloadedLocs += d;
-            overloadedDefs += ws.definitions[d];
         }
     }
 
-    return overloadedDefs;
+    return overloadedLocs;
 }
 
-set[Define] getOverloadedDefines(WorkspaceInfo ws, use(cursor), MayOverloadFun mayOverloadF) =
-    getOverloadedDefines(ws, getDefs(ws, cursor), mayOverloadF);
+set[loc] getRelatedDefs(WorkspaceInfo ws, use(cursor), MayOverloadFun mayOverloadF) =
+    getOverloadedDefs(ws, getDefs(ws, cursor), mayOverloadF);
 
-set[Define] getOverloadedDefines(WorkspaceInfo ws, def(cursor), MayOverloadFun mayOverloadF) =
-    getOverloadedDefines(ws, {cursor}, mayOverloadF);
+set[loc] getRelatedDefs(WorkspaceInfo ws, def(cursor), MayOverloadFun mayOverloadF) =
+    getOverloadedDefs(ws, {cursor}, mayOverloadF);
