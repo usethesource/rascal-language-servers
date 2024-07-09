@@ -41,8 +41,8 @@ This extension is stabilizing, some stuff is still a bit slow, but people are us
 **This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
 The Rascal type-checker has a known issue that makes **new binary library code backward incompatible** after every release, always. This means that you
-should update your dependency on the `rascal` project to at least 0.33.7 and maximally 0.33.8 in your own projects to avoid spurious error messages. For the
-same reason you have to set your use of the `rascal-maven-plugin` to 0.22.1. Until
+should update your dependency on the `rascal` project to at least 0.34.1 and maximally 0.34.2 in your own projects to avoid spurious error messages. For the
+same reason you have to set your use of the `rascal-maven-plugin` to 0.22.0 Until
 we release a fix for the type-checker, all rascal projects and library packages on http://www.rascal-mpl.org are released synchronously. Consequently, after you
 installed an update, it is immediately necessary to bump your dependencies on `rascal` and `rascal-maven-plugin`.
 
@@ -51,6 +51,12 @@ For other things we are working on have a look here:
    * https://github.com/usethesource/rascal/issues ; on the Rascal language independent of the IDE
 
 ## Release Notes
+
+### 0.11.2
+
+* bumping to rascal 0.34.2:
+  * improved heuristic of json mapping for an empty map
+  * fixed bugs related to grammar fusing for modules with extends & imports
 
 ### 0.11.1
 
