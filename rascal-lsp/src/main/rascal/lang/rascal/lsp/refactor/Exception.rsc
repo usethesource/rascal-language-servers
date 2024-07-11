@@ -1,5 +1,7 @@
 module lang::rascal::lsp::refactor::Exception
 
+import Message;
+
 data Cursor;
 
 alias Capture = tuple[loc def, loc use];
@@ -14,5 +16,6 @@ data IllegalRenameReason
 data RenameException
     = illegalRename(Cursor cursor, set[IllegalRenameReason] reason)
     | unsupportedRename(rel[loc location, str message] issues)
+    | unsupportedRename(list[Message] msgs)
     | unexpectedFailure(str message)
     ;

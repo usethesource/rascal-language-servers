@@ -27,8 +27,15 @@ private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
     ws.useDef += tm.useDef;
     ws.defines += tm.defines;
     ws.definitions += tm.definitions;
+    ws.facts += tm.facts;
 
     return ws;
+}
+
+private void checkNoErrors(ModuleStatus ms) {
+    errors = [msg | m <- ms.messages, msg <- ms.messages[m], msg is error];
+    if (errors != [])
+        throw unsupportedRename(errors);
 }
 
 WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
@@ -36,6 +43,7 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
 
     mods = [m | f <- folders, m <- find(f, "rsc")];
     ms = rascalTModelForLocs(mods, getRascalCoreCompilerConfig(pcfg), dummy_compile1);
+    checkNoErrors(ms);
 
     for (m <- ms.tmodels) {
         tm = convertTModel2PhysicalLocs(ms.tmodels[m]);
