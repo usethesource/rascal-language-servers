@@ -52,6 +52,7 @@ import lang::rascalcore::check::RascalConfig;
 import analysis::typepal::TypePal;
 
 import lang::rascal::lsp::refactor::Exception;
+import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import analysis::diff::edits::TextEdits;
@@ -73,12 +74,12 @@ set[IllegalRenameReason] checkLegalName(str name) {
 private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
     { definitionsOutsideWorkspace(d) | set[loc] d <- groupRangeByDomain({<f, d> | loc d <- defs, f := d.top, f notin ws.modules}) };
 
-private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[Define] currentDefs, set[Define] newDefs) {
+private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[loc] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc old, loc new] doubleDeclarations = {<cD.defined, nD.defined> | Define cD <- currentDefs
-                                                                         , Define nD <- newDefs
-                                                                         , isContainedIn(cD.defined, nD.scope)
-                                                                         , !rascalMayOverload({cD.defined, nD.defined}, ws.definitions)
+    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | loc cD <- currentDefs
+                                                                 , Define nD <- newDefs
+                                                                 , isContainedIn(cD, nD.scope)
+                                                                 , !rascalMayOverload({cD, nD.defined}, ws.definitions)
     };
 
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
@@ -90,14 +91,14 @@ private set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, s
                                       || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 }
 
-private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[Define] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Module] m, set[loc] currentDefs, set[loc] currentUses, set[Define] newDefs) {
     set[Define] newNameImplicitDefs = findImplicitDefinitions(ws, m, newDefs);
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
     set[Capture] implicitDeclBecomesUseOfCurrentDecl =
         {<cD, nD.defined> | Define nD <- newNameImplicitDefs
-                          , <loc cS, loc cD> <- currentDefs<scope, defined>
-                          , isContainedIn(nD.defined, cS)
+                          , loc cD <- currentDefs
+                          , isContainedIn(nD.defined, ws.definitions[cD].scope)
         };
 
     // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
@@ -110,11 +111,12 @@ private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Mod
 
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     set[Capture] newUseShadowedByRename =
-        {<cD.defined, nU> | Define nD <- newDefs
-                        , nU <- invert(ws.useDef)[newDefs.defined]
-                        , Define cD <- currentDefs
-                        , isContainedIn(cD.scope, nD.scope)
-                        , isContainedIn(nU, cD.scope)
+        {<cD, nU> | Define nD <- newDefs
+                  , nU <- invert(ws.useDef)[newDefs.defined]
+                  , loc cD <- currentDefs
+                  , loc cS := ws.definitions[cD].scope
+                  , isContainedIn(cS, nD.scope)
+                  , isContainedIn(nU, cS)
         };
 
     allCaptures =
@@ -126,22 +128,17 @@ private set[IllegalRenameReason] checkCausesCaptures(WorkspaceInfo ws, start[Mod
 }
 
 private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[loc] currentDefs, set[loc] currentUses, str newName) {
-    set[Define] currentDefines = {ws.definitions[d] | d <- currentDefs};
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
 
     return
         checkLegalName(newName)
       + checkDefinitionsOutsideWorkspace(ws, currentDefs)
-      + checkCausesDoubleDeclarations(ws, currentDefines, newNameDefs)
-      + checkCausesCaptures(ws, m, currentDefines, currentUses, newNameDefs)
+      + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)
+      + checkCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
     ;
 }
 
 private str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
-
-// TODO Move to stdlib?
-private loc findSmallestContaining(set[loc] wrappers, loc l, loc sentinel = |unknown:///|) =
-    (sentinel | (it == sentinel || w < it) && isContainedIn(l, w) ? w : it | w <- wrappers);
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 private set[loc] findNames(start[Module] m, set[loc] useDefs) {
@@ -170,7 +167,7 @@ Maybe[loc] locationOfName(Declaration d) = just(d.name.src) when d is annotation
 Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is \alias
                                                                          || d is dataAbstract
                                                                          || d is \data;
-
+Maybe[loc] locationOfName(TypeVar tv) = just(tv.name.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
@@ -186,10 +183,8 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
     computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
 
 private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
-    set[str] names = {definitions[l].id | l <- defs};
-    if (size(names) > 1) {
-        return false;
-    }
+    set[str] names = {definitions[l].id | l <- defs, definitions[l]?};
+    if (size(names) > 1) return false;
 
     map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
     return rascalMayOverload(defs, potentialOverloadDefinitions);
@@ -199,17 +194,51 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
+    println("Cursor is at id \'<cursorName>\' at <cursorLoc>");
+
     cursorNamedDefs = (ws.defines<id, defined>)[cursorName];
-    smallestUse = findSmallestContaining(ws.useDef<0>, cursorLoc);
-    smallestDef = findSmallestContaining(cursorNamedDefs, cursorLoc);
 
-    Cursor cursor = smallestUse < smallestDef ? use(smallestUse) : def(smallestDef);
+    rel[loc l, CursorKind kind] locsContainingCursor = {
+        <l, k>
+        | <just(l), k> <- {
+                <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
+              , <findSmallestContaining(cursorNamedDefs, cursorLoc), def()>
+              , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
+            }
+    };
 
-    if (field(l) := cursor) throw unsupportedRename({<l, "Field names">});
-    if (cursor.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
+    if (size(locsContainingCursor) == 0) {
+        throw unsupportedRename({<cursorLoc, "Cannot find cursor in TModel">});
+    }
 
-    set[loc] defs = getRelatedDefs(ws, cursor, rascalMayOverloadSameName);
-    set[loc] uses = getUses(ws, defs);
+    loc c = min(locsContainingCursor.l);
+    Cursor cur = cursor(use(), |unknown:///|, "");
+    switch (locsContainingCursor[c]) {
+        case {def(), *_}: {
+            // Cursor is at a definition
+            cur = cursor(def(), c, cursorName);
+        }
+        case {use(), *_}: {
+            if (size(getDefs(ws, c) & ws.defines.defined) > 0) {
+                // The cursor is at a use with corresponding definitions.
+                cur = cursor(use(), c, cursorName);
+            } else if (ws.facts[c]? && aparameter(cursorName, _) := ws.facts[c]) {
+                // The cursor is at a type parameter
+                cur = cursor(typeParam(), c, cursorName);
+            } else {
+                fail;
+            }
+        }
+        case {k}: {
+            cur = cursor(k, c, cursorName);
+        }
+        default:
+            throw unsupportedRename({<c, "Unsupported cursor type: <locsContainingCursor[c]>">});
+    }
+
+    if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
+
+    <defs, uses> = getDefsUses(ws, cur, rascalMayOverloadSameName);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
@@ -219,7 +248,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
         (file: <reasons, edits> | file <- files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], name));
 
     if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
-        throw illegalRename(cursor, reasons);
+        throw illegalRename(cur, reasons);
     }
 
     list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];

@@ -145,3 +145,36 @@ test bool crossModuleOverload() = testRenameOccurrences((
         'str concat(str s1, str s2, str s3) = s1 + concat(s2, s3);
     ", {0, 1}>
 ), <"Main", "concat", 0>, newName = "conc");
+
+test bool simpleTypeParams() = {0, 1} == testRenameOccurrences("
+    '&T foo(&T l) = l;
+", oldName = "T", newName = "U");
+
+test bool typeParamsFromReturn() = {0, 1, 2} == testRenameOccurrences("
+    '&T foo(&T l) {
+    '   &T m = l;
+    '   return m;
+    '}
+", oldName = "T", newName = "U");
+
+test bool keywordTypeParamFromReturn() = {0, 1, 2} == testRenameOccurrences("
+    '&T foo(&T \<: int l, &T \<: int kw = 1) = l + kw;
+", oldName = "T", newName = "U");
+
+test bool typeParamsFromFormal() = {0, 1, 2} == testRenameOccurrences("
+    '&T foo(&T l) {
+    '   &T m = l;
+    '   return m;
+    '}
+", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
+
+test bool typeParamsClash() = {0, 1} == testRenameOccurrences("
+    '&T foo(&T l, &U m) = l;
+", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
+
+test bool typeParamsListReturn() = {0, 1, 2} == testRenameOccurrences("
+    'list[&T] foo(&T l) {
+    '   list[&T] m = [l, l];
+    '   return m;
+    '}
+", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
