@@ -38,10 +38,8 @@ loc min(list[loc] locs) =
     (getFirstFrom(locs) | l < l ? l : it | l <- locs);
 
 loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
-    return |<l.scheme>://<l.authority><l.path><l.query><l.fragment>|(
-        l.offset + removePrefix - removeSuffix,
-        l.length - removePrefix - removeSuffix,
-        <l.begin.line, l.begin.column + removePrefix>,
-        <l.end.line, l.end.column - removeSuffix>
-    );
+    return l[offset = l.offset + removePrefix - removeSuffix]
+            [length = l.length - removePrefix - removeSuffix]
+            [begin = <l.begin.line, l.begin.column + removePrefix>]
+            [end = <l.end.line, l.end.column + - removeSuffix>];
 }
