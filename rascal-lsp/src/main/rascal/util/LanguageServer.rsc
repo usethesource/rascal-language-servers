@@ -301,7 +301,7 @@ data DocumentSymbolTag
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
-data Message(list[Command] fixes=noop());
+data Message(list[Command] fixes = []);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
