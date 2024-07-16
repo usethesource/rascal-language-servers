@@ -43,7 +43,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
@@ -100,7 +99,6 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -526,35 +524,40 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
         
         if (contribs != null) {
-            // first we filter out the "fixes" that were optionally sent along with earlier diagnostics
+            var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+
+            // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
             // and which came back with the codeAction's list of relevant (in scope) diagnostics:
-            Stream<IValue> quickfixes = params.getContext().getDiagnostics()
-                .stream()
-                .map(Diagnostic::getData)
-                .filter(Objects::nonNull)
-                .filter(JsonPrimitive.class::isInstance)
-                .map(JsonPrimitive.class::cast)
-                .map(JsonPrimitive::getAsString)
-                .map(contribs::parseCommands)
-                .map(CompletableFuture::join)
-                .flatMap(IList::stream)
+            // CompletableFuture<Stream<IValue>> 
+            CompletableFuture<Stream<IValue>> quickfixes 
+                = params.getContext().getDiagnostics()
+                    .stream()
+                    .map(Diagnostic::getData)
+                    .filter(Objects::nonNull)
+                    .filter(JsonPrimitive.class::isInstance)
+                    .map(JsonPrimitive.class::cast)
+                    .map(JsonPrimitive::getAsString)
+                    // this is the "magic" resurrection of command terms from the JSON data field
+                    .map(contribs::parseCommands)
+                    // this serializes the stream of futures and accumulates their results as a flat list again
+                    .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat)  
+                    ).thenApply(IList::stream)
                 ;
 
             // here we dynamically ask the contributions for more actions,
             // based on the cursor position in the file and the current parse tree
-            CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+           CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
                 getFile(params.getTextDocument())
                     .getCurrentTreeAsync()
                     .thenApply(Versioned::get) 
-                    .thenApply(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
-                    .thenApply(CompletableFuture::join)
-                    .thenApply(actions -> actions.stream()),
-                () -> Stream.empty())
+                    .thenCompose(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
+                    .thenApply(IList::stream)
+                , () -> Stream.<IValue>empty())
                 ;
 
-            // final merge and conversion to LSP Command data-type
-            return codeActions.thenApply(actions -> 
-                    Stream.concat(quickfixes, actions)
+            // final merging the two streams of commmands, and their conversion to LSP Command data-type
+            return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
+                    Stream.concat(quicks, actions)
                     .map(IConstructor.class::cast)
                     .map(cons -> constructorToCommand(contribs.getName(), cons))
                     .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
