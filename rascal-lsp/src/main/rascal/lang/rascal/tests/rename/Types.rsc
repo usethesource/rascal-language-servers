@@ -40,23 +40,23 @@ test bool globalAliasFromUse() = {0, 1, 2, 3} == testRenameOccurrences("
     'y = f(foo);
 ", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar", cursorAtOldNameOccurrence = 1);
 
-test bool multiModuleAlias() = testRenameOccurrences((
-    "alg::Fib": <"alias Foo = int;
+test bool multiModuleAlias() = testRenameOccurrences({
+    byText("alg::Fib", "alias Foo = int;
             'Foo fib(int n) {
             '   if (n \< 2) {
             '       return 1;
             '   }
             '   return fib(n - 1) + fib(n -2);
             '}"
-            , {0, 1}>
-    , "Main": <"import alg::Fib;
+            , {0, 1})
+    , byText("Main", "import alg::Fib;
                '
                'int main() {
                '   Foo result = fib(8);
                '   return 0;
                '}"
-               , {0}>
-    ), <"Main", "Foo", 0>, newName = "Bar");
+               , {0})
+    }, <"Main", "Foo", 0>, newName = "Bar");
 
 test bool globalData() = {0, 1, 2, 3} == testRenameOccurrences("
     'Foo f(Foo x) = x;
@@ -64,17 +64,17 @@ test bool globalData() = {0, 1, 2, 3} == testRenameOccurrences("
     'y = f(x);
 ", decls = "data Foo = foo();", oldName = "Foo", newName = "Bar");
 
-test bool multiModuleData() = testRenameOccurrences((
-    "values::Bool": <"
+test bool multiModuleData() = testRenameOccurrences({
+    byText("values::Bool", "
             'data Bool = t() | f();
             '
             'Bool and(Bool l, Bool r) = r is t ? l : f;
             '"
-            , {1, 2, 3, 4}>
-    , "Main": <"import values::Bool;
+            , {1, 2, 3, 4})
+    , byText("Main", "import values::Bool;
                '
                'void main() {
                '   Bool b = and(t(), f());
                '}"
-               , {1}>
-    ), <"Main", "Bool", 1>, newName = "Boolean");
+               , {1})
+    }, <"Main", "Bool", 1>, newName = "Boolean");

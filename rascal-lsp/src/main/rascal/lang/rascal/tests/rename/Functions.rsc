@@ -161,16 +161,16 @@ test bool overloadClash() = {0} == testRenameOccurrences("", decls = "
     'int foo(int x) = x when x \< 2;
 ");
 
-test bool crossModuleOverload() = testRenameOccurrences((
-    "Str": <"
+test bool crossModuleOverload() = testRenameOccurrences({
+    byText("Str", "
         'str concat(str s) = s;
         'str concat(str s1, str s2) = s1 + concat(s2);
-    ", {0, 1, 2}>
-    , "Main": <"
+    ", {0, 1, 2})
+    , byText("Main", "
         'extend Str;
         'str concat(str s1, str s2, str s3) = s1 + concat(s2, s3);
-    ", {0, 1}>
-), <"Main", "concat", 0>, newName = "conc");
+    ", {0, 1})
+}, <"Main", "concat", 0>, newName = "conc");
 
 test bool simpleTypeParams() = {0, 1} == testRenameOccurrences("
     '&T foo(&T l) = l;

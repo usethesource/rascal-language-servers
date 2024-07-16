@@ -179,8 +179,8 @@ test bool globalVar() = {0, 3} == testRenameOccurrences("
     'int foo = 8;
 ");
 
-test bool multiModuleVar() = testRenameOccurrences((
-    "alg::Fib": <"int foo = 8;
+test bool multiModuleVar() = testRenameOccurrences({
+    byText("alg::Fib", "int foo = 8;
             '
             'int fib(int n) {
             '   if (n \< 2) {
@@ -188,12 +188,12 @@ test bool multiModuleVar() = testRenameOccurrences((
             '   }
             '   return fib(n - 1) + fib(n -2);
             '}"
-            , {0}>
-    , "Main": <"import alg::Fib;
+            , {0})
+    , byText("Main", "import alg::Fib;
                '
                'int main() {
                '   fib(alg::Fib::foo);
                '   return 0;
                '}"
-               , {0}>
-    ), <"Main", "foo", 0>, newName = "Bar");
+               , {0})
+    }, <"Main", "foo", 0>, newName = "Bar");
