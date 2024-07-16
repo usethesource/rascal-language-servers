@@ -178,3 +178,10 @@ test bool typeParamsListReturn() = {0, 1, 2} == testRenameOccurrences("
     '   return m;
     '}
 ", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
+
+test bool localOverloadedFunction() = {0, 1, 2, 3} == testRenameOccurrences("
+    'bool foo(g()) = true;
+    'bool foo(h()) = foo(g());
+    '
+    'foo(h());
+", decls = "data D = g() | h();");

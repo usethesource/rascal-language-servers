@@ -136,6 +136,13 @@ test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
     '}
 ");
 
+test bool tupleVariable() = {0} == testRenameOccurrences("\<foo, baz\> = \<0, 1\>;");
+
+test bool tuplePatternVariable() = {0, 1} == testRenameOccurrences("
+    'if (\<foo, baz\> := \<0, 1\>)
+    '   qux = foo;
+");
+
 
 //// Global
 
