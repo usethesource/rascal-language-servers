@@ -52,6 +52,12 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.11.2
+
+* bumping to rascal 0.34.2:
+  * improved heuristic of json mapping for an empty map
+  * fixed bugs related to grammar fusing for modules with extends & imports
+
 ### 0.11.1
 
 * bugfix for syntax highlighting categories

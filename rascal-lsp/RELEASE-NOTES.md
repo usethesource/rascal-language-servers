@@ -2,6 +2,12 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.20.2 (VS Code: 0.11.2)
+
+* bumping to rascal 0.34.2:
+  * improved heuristic of json mapping for an empty map
+  * fixed bugs related to grammar fusing for modules with extends & imports
+
 ## Release 2.20.1 (VS Code: 0.11.1)
 
 * bugfix for syntax highlighting categories
