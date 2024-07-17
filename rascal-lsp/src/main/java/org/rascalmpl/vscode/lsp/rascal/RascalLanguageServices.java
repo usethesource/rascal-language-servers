@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -48,6 +49,7 @@ import org.eclipse.lsp4j.Position;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -64,6 +66,9 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
@@ -73,6 +78,10 @@ public class RascalLanguageServices {
     private final CompletableFuture<Evaluator> outlineEvaluator;
     private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
+
+    private final TypeFactory tf = TypeFactory.getInstance();
+    private final TypeStore store = new TypeStore();
+    private final Type getPathConfigType = tf.functionType(tf.abstractDataType(store, "PathConfig"), tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
 
     private final ExecutorService exec;
 
@@ -177,14 +186,16 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, PathConfig pcfg, String newName, ColumnMaps columns) {
+    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName, ColumnMaps columns) {
         var line = cursor.getLine() + 1;
         var moduleLocation = TreeAdapter.getLocation(module);
         var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
-        return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName)),
-            VF.list(), exec);
+        return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
+            IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+            return (IList) eval.call("renameRascalSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName), rascalGetPathConfig);
+        }, VF.list(), exec);
     }
 
 

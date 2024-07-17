@@ -59,7 +59,7 @@ data WorkspaceInfo (
     set[loc] modules = {},
     map[loc, Define] definitions = (),
     map[loc, AType] facts = ()
-) = workspaceInfo(set[loc] folders, PathConfig pcfg);
+) = workspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig);
 
 private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
     ws.useDef += tm.useDef;
@@ -76,17 +76,21 @@ private void checkNoErrors(ModuleStatus ms) {
         throw unsupportedRename(errors);
 }
 
-WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig pcfg) {
-    ws = workspaceInfo(folders, pcfg);
+WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) {
+    ws = workspaceInfo(folders, getPathConfig);
 
-    mods = [m | f <- folders, m <- find(f, "rsc")];
-    ms = rascalTModelForLocs(mods, getRascalCoreCompilerConfig(pcfg), dummy_compile1);
-    checkNoErrors(ms);
+    for (f <- folders) {
+        PathConfig pcfg = getPathConfig(f);
+        RascalCompilerConfig ccfg = getRascalCoreCompilerConfig(pcfg);
 
-    for (m <- ms.tmodels) {
-        tm = convertTModel2PhysicalLocs(ms.tmodels[m]);
-        ws = loadModel(ws, tm);
-        ws.modules += {ms.moduleLocs[m].top};
+        ms = rascalTModelForLocs(toList(find(f, "rsc")), ccfg, dummy_compile1);
+        checkNoErrors(ms);
+
+        for (m <- ms.tmodels) {
+            tm = convertTModel2PhysicalLocs(ms.tmodels[m]);
+            ws = loadModel(ws, tm);
+            ws.modules += {ms.moduleLocs[m].top};
+        }
     }
 
     return ws;

@@ -259,8 +259,8 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     return changes + renames;
 }
 
-list[DocumentEdit] renameRascalSymbol(Tree cursor, set[loc] workspaceFolders, PathConfig pcfg, str newName) {
-    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, pcfg);
+list[DocumentEdit] renameRascalSymbol(Tree cursor, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) {
+    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig);
     return computeDocumentEdits(ws, cursor, newName);
 }
 
