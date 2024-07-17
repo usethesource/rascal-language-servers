@@ -149,10 +149,9 @@ public class SemanticTokenizer implements ISemanticTokens {
             return theList.get(previousIndexOf(field));
         }
 
-        private void growPreviousToken(int newLength) {
+        private void growPreviousToken(int length) {
             int i = previousIndexOf(TokenField.LENGTH);
-            int oldLength = theList.remove(i);
-            theList.add(i, oldLength + newLength);
+            theList.set(i, theList.get(i) + length);
         }
     }
 
