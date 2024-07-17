@@ -102,25 +102,57 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     private static class TokenList {
         private final List<Integer> theList = new ArrayList<>(500);
-        private int previousLine = 0;
-        private int previousStart = 0;
+        private int previousLineAbsolute = 0;
+        private int previousStartAbsolute = 0;
 
         public List<Integer> getTheList() {
             return Collections.unmodifiableList(theList);
         }
 
-        public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
-            int tokenCategory = TokenTypes.tokenTypeForName(category);
+        public void addToken(int lineAbsolute, int startAbsolute, int length, @Nullable String category) {
+            int type = TokenTypes.tokenTypeForName(category);
 
-            // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
-            theList.add(startLine - previousLine);
-            theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
-            theList.add(length);
-            theList.add(tokenCategory);
-            theList.add(0); // no support for modifiers yet
+            // If the token-to-add occurs right after the previous token, and if
+            // it has the same category, then the previous token can just be
+            // made longer (instead of adding a new token)
+            boolean canGrowPreviousToken =
+                !theList.isEmpty() &&
+                lineAbsolute == previousLineAbsolute &&
+                startAbsolute == previousStartAbsolute + previous(TokenField.LENGTH) &&
+                type == previous(TokenField.TYPE);
 
-            previousLine = startLine;
-            previousStart = startColumn;
+            if (canGrowPreviousToken) {
+                growPreviousToken(length);
+            } else {
+                // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
+                theList.add(lineAbsolute - previousLineAbsolute);
+                theList.add(lineAbsolute == previousLineAbsolute ? startAbsolute - previousStartAbsolute : startAbsolute);
+                theList.add(length);
+                theList.add(type);
+                theList.add(0); // no support for modifiers yet
+                previousLineAbsolute = lineAbsolute;
+                previousStartAbsolute = startAbsolute;
+            }
+        }
+
+        private enum TokenField {
+            // The order of these values is significant (consistent with the
+            // order of integers in `theList`)
+            LINE, START, LENGTH, TYPE, MODIFIER
+        }
+
+        private int previousIndexOf(TokenField field) {
+            return theList.size() - (5 - field.ordinal());
+        }
+
+        private int previous(TokenField field) {
+            return theList.get(previousIndexOf(field));
+        }
+
+        private void growPreviousToken(int newLength) {
+            int i = previousIndexOf(TokenField.LENGTH);
+            int oldLength = theList.remove(i);
+            theList.add(i, oldLength + newLength);
         }
     }
 
