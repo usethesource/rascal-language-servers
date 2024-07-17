@@ -110,17 +110,17 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
-            int tokenCategory = category == null ? -1 : TokenTypes.tokenTypeForName(category);
-            if (tokenCategory != -1) {
-                // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
-                theList.add(startLine - previousLine);
-                theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
-                theList.add(length);
-                theList.add(tokenCategory);
-                theList.add(0); // no support for modifiers yet
-                previousLine = startLine;
-                previousStart = startColumn;
-            }
+            int tokenCategory = TokenTypes.tokenTypeForName(category);
+
+            // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
+            theList.add(startLine - previousLine);
+            theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
+            theList.add(length);
+            theList.add(tokenCategory);
+            theList.add(0); // no support for modifiers yet
+
+            previousLine = startLine;
+            previousStart = startColumn;
         }
     }
 
@@ -129,8 +129,14 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         /** Rascal extension to LSP categories, these require custom definitions in clients to work properly, so avoid them if possible */
         public static final String AMBIGUITY = "ambiguity";
+        public static final String UNCATEGORIZED = "uncategorized";
 
         private static String[][] backwardsCompatibleTokenTypes = new String[][] {
+            /**
+             * Special token category to indicate "absence of highlighting"
+             */
+            { UNCATEGORIZED, UNCATEGORIZED },
+
             /**
              * The Rascal legacy token types are translated to
              * textmate token types here
@@ -150,12 +156,14 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.RESULT,               SemanticTokenTypes.String},
             { TreeAdapter.STDOUT,               SemanticTokenTypes.String},
             { TreeAdapter.STDERR,               SemanticTokenTypes.String},
+
             /**
              * For a while, rascal-lsp was supporting these textmate categories as TokenTypes.
              * That was an incorrect implementation of the feature, see issue #366.
              *
              * But to remain backwards compatible, we've tried to map most of them
              */
+
             // The first block is what we minimally need to get good highlighting support
             {"entity.name", SemanticTokenTypes.Class },
             {"entity.other.inherited-class", SemanticTokenTypes.Class },
@@ -294,24 +302,18 @@ public class SemanticTokenizer implements ISemanticTokens {
                 ;
         }
 
-
-
         private static final String[] rascalExtensions = new String[] {
-            AMBIGUITY
+            AMBIGUITY, UNCATEGORIZED
         };
-
 
         private static final List<String> actualTokenTypes = Stream.concat(
             getPublicStaticFieldValues(SemanticTokenTypes.class), Arrays.stream(rascalExtensions))
             .collect(Collectors.toUnmodifiableList());
 
         static {
-
             for (int i = 0; i < actualTokenTypes.size(); i++) {
                 cache.put(actualTokenTypes.get(i), i);
             }
-
-
 
             // now map the legacy ones
             for (String[] mapped: backwardsCompatibleTokenTypes) {
@@ -324,21 +326,22 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
         }
 
-
         public static List<String> getTokenTypes() {
             return actualTokenTypes;
         }
-
 
         public static List<String> getTokenModifiers() {
             return Collections.emptyList();
         }
 
-        public static int tokenTypeForName(String category) {
+        public static int tokenTypeForName(@Nullable String category) {
+            if (category == null) {
+                category = UNCATEGORIZED;
+            }
+
             Integer result = cache.get(category);
             return result != null ? result : -1;
         }
-
     }
 
     private static class TokenCollector {
@@ -437,8 +440,8 @@ public class SemanticTokenizer implements ISemanticTokens {
         private void collectChar(ITree ch, @Nullable String currentCategory) {
             int currentChar = TreeAdapter.getCharacter(ch);
             //First check whether the token category has changed
-            if (currentCategory == null && currentTokenCategory != null) {
-                //character has no semantic category, but there is a running token
+            if (currentCategory == null) {
+                //character has no semantic category
                 if (column > startColumnCurrentToken) {
                     //add token and set column offset
                     tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);

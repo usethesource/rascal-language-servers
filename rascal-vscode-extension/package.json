@@ -147,6 +147,9 @@
         "scopes": {
           "ambiguity": [
             "invalid"
+          ],
+          "uncategorized": [
+            "meta.embedded"
           ]
         }
       },
@@ -155,6 +158,9 @@
         "scopes": {
           "ambiguity": [
             "invalid"
+          ],
+          "uncategorized": [
+            "meta.embedded"
           ]
         }
       }
@@ -164,6 +170,10 @@
         "id": "ambiguity",
         "superType": "string",
         "description": "Rascal ambiguous parts of a parse tree"
+      },
+      {
+        "id": "uncategorized",
+        "description": "Absence of highlighting"
       }
     ],
     "configuration": {
