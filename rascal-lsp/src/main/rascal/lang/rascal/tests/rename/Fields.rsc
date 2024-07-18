@@ -26,5 +26,78 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::tests::rename::Fields
 
-// import lang::rascal::tests::rename::TestUtils;
-// import lang::rascal::lsp::refactor::Exception;
+import lang::rascal::tests::rename::TestUtils;
+import lang::rascal::lsp::refactor::Exception;
+
+test bool dataFieldAtDef() = {0, 1} == testRenameOccurrences("
+    'D oneTwo = d(1, 2);
+    'x = d.foo;
+    ", decls = "data D = d(int foo, int bar);"
+);
+
+test bool dataFieldAtUse() = {0, 1} == testRenameOccurrences("
+    'D oneTwo = d(1, 2);
+    'x = d.foo;
+    ", decls = "data D = d(int foo, int bar);"
+, cursorAtOldNameOccurrence = 1);
+
+test bool duplicateDataField() = {0, 1, 2} == testRenameOccurrences("
+    'x = d(1, 2);
+    'y = x.foo;
+    ", decls = "data D = d(int foo) | d(int foo, int bar);"
+, cursorAtOldNameOccurrence = 1);
+
+test bool crossModuleDataFieldAtDef() = testRenameOccurrences({
+    byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
+    byText("Main", "
+    'import Foo;
+    'void main() {
+    '   f = a(8);
+    '   g = a.foo;
+    '}
+    ", {0})
+}, <"Foo", "foo", 0>);
+
+test bool crossModuleDataFieldAtUse() = testRenameOccurrences({
+    byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
+    byText("Main", "
+    'import Foo;
+    'void main() {
+    '   f = a(8);
+    '   g = a.foo;
+    '}
+    ", {0})
+}, <"Main", "foo", 0>);
+
+@expected{unsupportedRename}
+test bool relFieldAtDef() = {0, 1} == testRenameOccurrences("
+    'rel[str foo, str baz] r1 = {};
+    'foos = r1.foo;
+    'rel[str foo, str baz] r2 = {};
+");
+
+@expected{unsupportedRename}
+test bool relFieldAtUse() = {0, 1} == testRenameOccurrences("
+    'rel[str foo, str baz] r1 = {};
+    'foos = r1.foo;
+    'rel[str foo, str baz] r2 = {};
+", cursorAtOldNameOccurrence = 1);
+
+@expected{unsupportedRename}
+test bool tupleFieldAtDef() = {0, 1} == testRenameOccurrences("
+    'tuple[int foo] t = \<8\>;
+    'y = t.foo;
+");
+
+@expected{unsupportedRename}
+test bool tupleFieldAtUse() = {0, 1} == testRenameOccurrences("
+    'tuple[int foo] t = \<8\>;
+    'y = t.foo;
+", cursorAtOldNameOccurrence = 1);
+
+// We would prefer an illegalRename exception here
+@expected{unsupportedRename}
+test bool builtinField() = testRename("
+    'loc l = |unknown:///|;
+    'f = l.top;
+", oldName = "top", newName = "summit");

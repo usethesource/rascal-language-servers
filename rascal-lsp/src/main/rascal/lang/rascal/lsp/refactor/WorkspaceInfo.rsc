@@ -47,7 +47,9 @@ import String;
 
 data CursorKind = use()
                 | def()
-                | typeParam();
+                | typeParam()
+                | collectionField()
+                ;
 
 data Cursor = cursor(CursorKind kind, loc l, str name);
 

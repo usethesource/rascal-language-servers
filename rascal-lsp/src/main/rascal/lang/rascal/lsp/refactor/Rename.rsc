@@ -204,6 +204,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
                 <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
               , <findSmallestContaining(cursorNamedDefs, cursorLoc), def()>
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
+              , <findSmallestContaining({l | l <- ws.facts, ws.facts[l].alabel == cursorName}, cursorLoc), collectionField()>
             }
     };
 
@@ -222,9 +223,14 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
             if (size(getDefs(ws, c) & ws.defines.defined) > 0) {
                 // The cursor is at a use with corresponding definitions.
                 cur = cursor(use(), c, cursorName);
-            } else if (ws.facts[c]? && aparameter(cursorName, _) := ws.facts[c]) {
-                // The cursor is at a type parameter
-                cur = cursor(typeParam(), c, cursorName);
+            } else if (ws.facts[c]?) {
+                if (aparameter(cursorName, _) := ws.facts[c]) {
+                    // The cursor is at a type parameter
+                    cur = cursor(typeParam(), c, cursorName);
+                } else if (ws.facts[c].alabel == cursorName) {
+                    // The cursor is at a collection field
+                    cur = cursor(collectionField(), c, cursorName);
+                }
             } else {
                 fail;
             }
@@ -237,6 +243,11 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     }
 
     if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
+
+    switch (cur.kind) {
+        case collectionField():
+            throw unsupportedRename("Renaming fields of collections is not supported");
+    }
 
     <defs, uses> = getDefsUses(ws, cur, rascalMayOverloadSameName);
 
