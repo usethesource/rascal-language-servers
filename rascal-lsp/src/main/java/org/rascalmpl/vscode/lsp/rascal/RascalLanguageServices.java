@@ -194,12 +194,14 @@ public class RascalLanguageServices {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();
                     if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
-                        String message = "Rename failed: ";
+                        // instead of the generic exception handler, we deal with these ourselfs
+                        // and report an LSP error, such that the IDE shows them in a user friendly way
+                        String message;
                         if (exception.has("message")) {
-                            message += ((IString)exception.get("message")).getValue();
+                            message = ((IString)exception.get("message")).getValue();
                         }
                         else {
-                            message += exception.getName();
+                            message = "Rename failed: " + exception.getName();
                         }
                         throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
                     }

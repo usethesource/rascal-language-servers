@@ -144,14 +144,14 @@ public class EvaluatorUtil {
         String stackTrace;
         if (e instanceof Throw) {
             stackTrace = ((Throw)e).getTrace().toString();
-            title = task + " crashed with: " + formatMessage((Throw)e);
+            title = task + " crashed unexpectedly with: " + formatMessage((Throw)e);
         }
         else {
             if (e instanceof StaticError) {
-                title = task + " crashed with: " + formatMessage((StaticError)e).replaceAll("\n", " ");
+                title = task + " crashed unexpectedly with: " + formatMessage((StaticError)e).replaceAll("\n", " ");
             }
             else {
-                title = task + " crashed with: " + e.getMessage();
+                title = task + " crashed unexpectedly with: " + e.getMessage();
             }
             var trace = new StringWriter();
             e.printStackTrace(new PrintWriter(trace));
@@ -174,6 +174,10 @@ public class EvaluatorUtil {
                         var bodyWriter = new PrintWriter(body);
                         bodyWriter.println("Context: ***Please provide context***");
                         bodyWriter.println();
+                        bodyWriter.println("Exception thrown:");
+                        bodyWriter.println("```");
+                        bodyWriter.println(e.getMessage());
+                        bodyWriter.println("```");
                         bodyWriter.println("Stacktrace:");
                         bodyWriter.println("```");
                         bodyWriter.println(stackTrace);
