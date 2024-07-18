@@ -169,7 +169,8 @@
                             <src>${project.basedir}/src/main/rascal</src>
                         </srcs>
                         <srcIgnores>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/Refactor</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
                           <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
                         </srcIgnores>
                         <sourceLookup>|lib://rascal-lsp|</sourceLookup>
