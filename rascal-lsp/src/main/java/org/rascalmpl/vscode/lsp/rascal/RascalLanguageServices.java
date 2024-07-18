@@ -76,7 +76,10 @@ public class RascalLanguageServices {
 
     private final ExecutorService exec;
 
+    private final IBaseLanguageClient client;
+
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+        this.client = client;
         this.exec = exec;
 
         var monitor = new RascalLSPMonitor(client, logger);
@@ -92,7 +95,7 @@ public class RascalLanguageServices {
             return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
                 IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, addResources(pcfg));
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec);
+            }, null, exec, false, client);
         } catch (IOException e) {
             logger.error("Error looking up module name from source location {}", occ, e);
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {
@@ -113,7 +116,7 @@ public class RascalLanguageServices {
                 var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("checkAll", folder, config));
             },
-            Collections.emptyMap(), exec);
+            Collections.emptyMap(), exec, false, client);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
@@ -145,7 +148,7 @@ public class RascalLanguageServices {
                 var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("check", files, config));
             },
-            buildEmptyResult(files), exec);
+            buildEmptyResult(files), exec, false, client);
     }
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
@@ -173,7 +176,7 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
-            VF.list(), exec);
+            VF.list(), exec, false, client);
     }
 
 
@@ -184,7 +187,7 @@ public class RascalLanguageServices {
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName)),
-            VF.list(), exec);
+            VF.list(), exec, false, client);
     }
 
 

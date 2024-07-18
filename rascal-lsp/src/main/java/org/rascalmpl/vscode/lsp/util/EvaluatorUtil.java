@@ -26,8 +26,15 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.awt.Desktop;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -39,9 +46,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.MessageActionItem;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.ideservices.IDEServices;
@@ -67,7 +79,7 @@ import io.usethesource.vallang.io.StandardTextWriter;
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec) {
+    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean isParametric, LanguageClient client) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
         return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
@@ -95,14 +107,23 @@ public class EvaluatorUtil {
             catch (Throw e) {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, formatMessage(e), null));
             }
             catch (StaticError e) {
                 logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, formatMessage(e), null));
             }
             catch (Throwable e) {
                 logger.error("{} failed", task, e);
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw e;
             }
         }, exec), () -> {
@@ -112,6 +133,47 @@ public class EvaluatorUtil {
                 actualEval.interrupt();
             }
         });
+    }
+
+    private static void reportInternalError(Throwable e, String task, LanguageClient client) {
+        String title = task + " crashed with: " + e.getMessage();
+        String stackTrace;
+        if (e instanceof Throw) {
+            stackTrace = ((Throw)e).getTrace().toString();
+        }
+        else {
+            var trace = new StringWriter();
+            e.printStackTrace(new PrintWriter(trace));
+            stackTrace = trace.toString();
+        }
+        var msg = new ShowMessageRequestParams();
+        msg.setMessage(title);
+        msg.setType(MessageType.Error);
+        msg.setActions(Arrays.asList(new MessageActionItem("Open Github Issue"), new MessageActionItem("Ignore")));
+        client.showMessageRequest(msg)
+            .thenAccept(responds -> {
+                if (responds != null && responds.getTitle().equals("Open Github Issue")) {
+                    Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+                    if (desktop == null) {
+                        client.showMessage(new MessageParams(MessageType.Error, "Cannot open browser github automatically"));
+                        return;
+                    }
+                    try {
+                        var body = new StringWriter();
+                        var bodyWriter = new PrintWriter(body);
+                        bodyWriter.println("Context: ***Please provide context***");
+                        bodyWriter.println();
+                        bodyWriter.println("Stacktrace:");
+                        bodyWriter.println("```");
+                        bodyWriter.println(stackTrace);
+                        bodyWriter.println("```");
+                        desktop.browse(new URI("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, "utf-8") + "&body=" + URLEncoder.encode(body.toString(), "utf-8")));
+                    } catch (IOException | URISyntaxException e1) {
+                        logger.catching(e1);
+                    }
+
+                }
+            });
     }
 
     private static String formatMessage(Throw e) {
