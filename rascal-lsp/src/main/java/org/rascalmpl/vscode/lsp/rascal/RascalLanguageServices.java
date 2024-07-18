@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,11 +39,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -56,7 +58,6 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -186,8 +187,26 @@ public class RascalLanguageServices {
         var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
-        return runEvaluator("Rascal rename", semanticEvaluator, eval -> (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName)),
-            VF.list(), exec, false, client);
+        return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
+            try {
+                return (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName));
+            } catch (Throw e) {
+                if (e.getException() instanceof IConstructor) {
+                    var exception = (IConstructor)e.getException();
+                    if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
+                        String message = "Rename failed: ";
+                        if (exception.has("message")) {
+                            message += ((IString)exception.get("message")).getValue();
+                        }
+                        else {
+                            message += exception.getName();
+                        }
+                        throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
+                    }
+                }
+                throw e;
+            }
+        }, VF.list(), exec, false, client);
     }
 
 

@@ -119,6 +119,10 @@ public class EvaluatorUtil {
                 }
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, formatMessage(e), null));
             }
+            catch (ResponseErrorException e) {
+                logger.debug("{} threw an intentional error that should be forwarded to the lsp client without our involvement: {}", task, e.getMessage());
+                throw e;
+            }
             catch (Throwable e) {
                 logger.error("{} failed", task, e);
                 if (!isParametric) {
