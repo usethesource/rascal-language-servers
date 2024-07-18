@@ -136,12 +136,19 @@ public class EvaluatorUtil {
     }
 
     private static void reportInternalError(Throwable e, String task, LanguageClient client) {
-        String title = task + " crashed with: " + e.getMessage();
+        String title;
         String stackTrace;
         if (e instanceof Throw) {
             stackTrace = ((Throw)e).getTrace().toString();
+            title = task + " crashed with: " + formatMessage((Throw)e);
         }
         else {
+            if (e instanceof StaticError) {
+                title = task + " crashed with: " + formatMessage((StaticError)e).replaceAll("\n", " ");
+            }
+            else {
+                title = task + " crashed with: " + e.getMessage();
+            }
             var trace = new StringWriter();
             e.printStackTrace(new PrintWriter(trace));
             stackTrace = trace.toString();
@@ -149,10 +156,10 @@ public class EvaluatorUtil {
         var msg = new ShowMessageRequestParams();
         msg.setMessage(title);
         msg.setType(MessageType.Error);
-        msg.setActions(Arrays.asList(new MessageActionItem("Open Github Issue"), new MessageActionItem("Ignore")));
+        msg.setActions(Arrays.asList(new MessageActionItem("Report on GitHub"), new MessageActionItem("Ignore")));
         client.showMessageRequest(msg)
             .thenAccept(responds -> {
-                if (responds != null && responds.getTitle().equals("Open Github Issue")) {
+                if (responds != null && responds.getTitle().equals("Report on GitHub")) {
                     Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
                     if (desktop == null) {
                         client.showMessage(new MessageParams(MessageType.Error, "Cannot open browser github automatically"));
