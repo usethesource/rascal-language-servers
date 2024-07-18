@@ -34,6 +34,7 @@ import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -140,23 +141,24 @@ public class EvaluatorUtil {
     }
 
     private static void reportInternalError(Throwable e, String task, LanguageClient client) {
-        String title;
+        String reason;
         String stackTrace;
         if (e instanceof Throw) {
             stackTrace = ((Throw)e).getTrace().toString();
-            title = task + " crashed unexpectedly with: " + formatMessage((Throw)e);
+            reason = formatMessage((Throw)e);
         }
         else {
             if (e instanceof StaticError) {
-                title = task + " crashed unexpectedly with: " + formatMessage((StaticError)e).replaceAll("\n", " ");
+                reason = formatMessage((StaticError)e).replace('\n', ' ');
             }
             else {
-                title = task + " crashed unexpectedly with: " + e.getMessage();
+                reason = e.getMessage();
             }
             var trace = new StringWriter();
             e.printStackTrace(new PrintWriter(trace));
             stackTrace = trace.toString();
         }
+        String title = task + " crashed unexpectedly with: " + reason;
         var msg = new ShowMessageRequestParams();
         msg.setMessage(title);
         msg.setType(MessageType.Error);
@@ -164,31 +166,31 @@ public class EvaluatorUtil {
         client.showMessageRequest(msg)
             .thenAccept(responds -> {
                 if (responds != null && responds.getTitle().equals("Report on GitHub")) {
-                    Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
-                    if (desktop == null) {
-                        client.showMessage(new MessageParams(MessageType.Error, "Cannot open browser github automatically"));
-                        return;
-                    }
-                    try {
-                        var body = new StringWriter();
-                        var bodyWriter = new PrintWriter(body);
-                        bodyWriter.println("Context: ***Please provide context***");
-                        bodyWriter.println();
-                        bodyWriter.println("Exception thrown:");
-                        bodyWriter.println("```");
-                        bodyWriter.println(e.getMessage());
-                        bodyWriter.println("```");
-                        bodyWriter.println("Stacktrace:");
-                        bodyWriter.println("```");
-                        bodyWriter.println(stackTrace);
-                        bodyWriter.println("```");
-                        desktop.browse(new URI("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, "utf-8") + "&body=" + URLEncoder.encode(body.toString(), "utf-8")));
-                    } catch (IOException | URISyntaxException e1) {
-                        logger.catching(e1);
-                    }
-
+                    var body = new StringWriter();
+                    var bodyWriter = new PrintWriter(body);
+                    bodyWriter.println("Context: ***Please provide context***");
+                    bodyWriter.println();
+                    bodyWriter.println("Exception thrown:");
+                    bodyWriter.println("```");
+                    bodyWriter.println(e.getMessage());
+                    bodyWriter.println("```");
+                    bodyWriter.println("Stacktrace:");
+                    bodyWriter.println("```");
+                    bodyWriter.println(stackTrace);
+                    bodyWriter.println("```");
+                    browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
                 }
             });
+    }
+
+    private static void browse(String url, LanguageClient client) {
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (IOException | URISyntaxException | RuntimeException e) {
+            client.showMessage(new MessageParams(MessageType.Error, "Cannot open browser github automatically: " + e.getMessage()));
+            logger.catching(e);
+        }
+
     }
 
     private static String formatMessage(Throw e) {
