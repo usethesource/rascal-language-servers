@@ -38,8 +38,10 @@ loc min(list[loc] locs) =
     (getFirstFrom(locs) | l < l ? l : it | l <- locs);
 
 loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
-    return l[offset = l.offset + removePrefix - removeSuffix]
+    assert l.begin.line == l.end.line :
+        "Cannot trim a multi-line location";
+    return l[offset = l.offset + removePrefix]
             [length = l.length - removePrefix - removeSuffix]
             [begin = <l.begin.line, l.begin.column + removePrefix>]
-            [end = <l.end.line, l.end.column + - removeSuffix>];
+            [end = <l.end.line, l.end.column - removeSuffix>];
 }

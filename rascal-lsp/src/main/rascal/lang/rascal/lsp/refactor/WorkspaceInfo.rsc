@@ -152,12 +152,11 @@ tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), curs
         loc sentinel = |unknown:///|(0, 0, <0, 0>, <0, 0>);
         defs = {(sentinel | (it == sentinel || f.length < it.length) && f.offset == nextOffset ? f : it | f <- facts<0>) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
 
-        useDefs = {trim(l, removePrefix=prefixLength)
+        useDefs = {trim(l, removePrefix = l.length - size(cursorName))
                     | l <- facts<0>
                     , !ws.definitions[l]? // If there is a definition at this location, this is a formal argument name
                     , !any(ud <- ws.useDef[l], ws.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
                     , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
-                    , prefixLength := l.length - size(cursorName)
         };
 
         return <defs, useDefs - defs>;
