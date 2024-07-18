@@ -73,7 +73,7 @@ private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
 private void checkNoErrors(ModuleStatus ms) {
     errors = [msg | m <- ms.messages, msg <- ms.messages[m], msg is error];
     if (errors != [])
-        throw unsupportedRename(errors);
+        throw unsupportedRename("Cannot rename; some modules in workspace have errors.", issues={<l, reason> | error(reason, l) <- errors});
 }
 
 WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) {
@@ -161,5 +161,5 @@ tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), curs
         return <defs, useDefs - defs>;
     }
 
-    throw unsupportedRename({<cursorLoc, "Cannot find function definition which defines template variable \'<cursorName>\'">});
+    throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
 }

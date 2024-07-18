@@ -152,7 +152,7 @@ private set[loc] findNames(start[Module] m, set[loc] useDefs) {
     }
 
     if (size(names) != size(useDefs)) {
-        throw unsupportedRename({<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefs - names});
+        throw unsupportedRename("Rename unsupported", issues={<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefs - names});
     }
 
     return names;
@@ -208,7 +208,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     };
 
     if (size(locsContainingCursor) == 0) {
-        throw unsupportedRename({<cursorLoc, "Cannot find cursor in TModel">});
+        throw unsupportedRename("Cannot find type information in TPL for <cursorLoc>");
     }
 
     loc c = min(locsContainingCursor.l);
@@ -233,7 +233,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
             cur = cursor(k, c, cursorName);
         }
         default:
-            throw unsupportedRename({<c, "Unsupported cursor type: <locsContainingCursor[c]>">});
+            throw unsupportedRename("Unsupported cursor type <locsContainingCursor[c]>");
     }
 
     if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
