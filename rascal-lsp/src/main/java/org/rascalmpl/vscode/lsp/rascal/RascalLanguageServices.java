@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,11 +40,14 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -58,7 +60,6 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -85,7 +86,10 @@ public class RascalLanguageServices {
 
     private final ExecutorService exec;
 
+    private final IBaseLanguageClient client;
+
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+        this.client = client;
         this.exec = exec;
 
         var monitor = new RascalLSPMonitor(client, logger);
@@ -101,7 +105,7 @@ public class RascalLanguageServices {
             return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
                 IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, addResources(pcfg));
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec);
+            }, null, exec, false, client);
         } catch (IOException e) {
             logger.error("Error looking up module name from source location {}", occ, e);
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {
@@ -122,7 +126,7 @@ public class RascalLanguageServices {
                 var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("checkAll", folder, config));
             },
-            Collections.emptyMap(), exec);
+            Collections.emptyMap(), exec, false, client);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
@@ -154,7 +158,7 @@ public class RascalLanguageServices {
                 var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
                 return translateCheckResults((IList) e.call("check", files, config));
             },
-            buildEmptyResult(files), exec);
+            buildEmptyResult(files), exec, false, client);
     }
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
@@ -182,7 +186,7 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
-            VF.list(), exec);
+            VF.list(), exec, false, client);
     }
 
 
@@ -193,9 +197,28 @@ public class RascalLanguageServices {
         var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
 
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
-            IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
-            return (IList) eval.call("renameRascalSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName), rascalGetPathConfig);
-        }, VF.list(), exec);
+            try {
+                IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+                return (IList) eval.call("renameRascalSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName), rascalGetPathConfig);
+            } catch (Throw e) {
+                if (e.getException() instanceof IConstructor) {
+                    var exception = (IConstructor)e.getException();
+                    if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
+                        // instead of the generic exception handler, we deal with these ourselfs
+                        // and report an LSP error, such that the IDE shows them in a user friendly way
+                        String message;
+                        if (exception.has("message")) {
+                            message = ((IString)exception.get("message")).getValue();
+                        }
+                        else {
+                            message = "Rename failed: " + exception.getName();
+                        }
+                        throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
+                    }
+                }
+                throw e;
+            }
+        }, VF.list(), exec, false, client);
     }
 
 

@@ -26,8 +26,16 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.awt.Desktop;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -39,9 +47,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.MessageActionItem;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.ideservices.IDEServices;
@@ -67,7 +80,7 @@ import io.usethesource.vallang.io.StandardTextWriter;
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec) {
+    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean isParametric, LanguageClient client) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
         return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
@@ -95,14 +108,27 @@ public class EvaluatorUtil {
             catch (Throw e) {
                 logger.error("Internal error during {}\n{}: {}\n{}", task, e.getLocation(), e.getMessage(),
                         e.getTrace());
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, formatMessage(e), null));
             }
             catch (StaticError e) {
                 logger.error("Static Rascal error in {}\n{}: {}", task, e.getLocation(), e.getMessage());
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, formatMessage(e), null));
+            }
+            catch (ResponseErrorException e) {
+                logger.debug("{} threw an intentional error that should be forwarded to the lsp client without our involvement: {}", task, e.getMessage());
+                throw e;
             }
             catch (Throwable e) {
                 logger.error("{} failed", task, e);
+                if (!isParametric) {
+                    reportInternalError(e, task, client);
+                }
                 throw e;
             }
         }, exec), () -> {
@@ -112,6 +138,59 @@ public class EvaluatorUtil {
                 actualEval.interrupt();
             }
         });
+    }
+
+    private static void reportInternalError(Throwable e, String task, LanguageClient client) {
+        String reason;
+        String stackTrace;
+        if (e instanceof Throw) {
+            stackTrace = ((Throw)e).getTrace().toString();
+            reason = formatMessage((Throw)e);
+        }
+        else {
+            if (e instanceof StaticError) {
+                reason = formatMessage((StaticError)e).replace('\n', ' ');
+            }
+            else {
+                reason = e.getMessage();
+            }
+            var trace = new StringWriter();
+            e.printStackTrace(new PrintWriter(trace));
+            stackTrace = trace.toString();
+        }
+        String title = task + " crashed unexpectedly with: " + reason;
+        var msg = new ShowMessageRequestParams();
+        msg.setMessage(title);
+        msg.setType(MessageType.Error);
+        msg.setActions(Arrays.asList(new MessageActionItem("Report on GitHub"), new MessageActionItem("Ignore")));
+        client.showMessageRequest(msg)
+            .thenAccept(responds -> {
+                if (responds != null && responds.getTitle().equals("Report on GitHub")) {
+                    var body = new StringWriter();
+                    var bodyWriter = new PrintWriter(body);
+                    bodyWriter.println("Context: ***Please provide context***");
+                    bodyWriter.println();
+                    bodyWriter.println("Exception thrown:");
+                    bodyWriter.println("```");
+                    bodyWriter.println(e.getMessage());
+                    bodyWriter.println("```");
+                    bodyWriter.println("Stacktrace:");
+                    bodyWriter.println("```");
+                    bodyWriter.println(stackTrace);
+                    bodyWriter.println("```");
+                    browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
+                }
+            });
+    }
+
+    private static void browse(String url, LanguageClient client) {
+        try {
+            Desktop.getDesktop().browse(new URI(url));
+        } catch (IOException | URISyntaxException | RuntimeException e) {
+            client.showMessage(new MessageParams(MessageType.Error, "Cannot open browser github automatically: " + e.getMessage()));
+            logger.catching(e);
+        }
+
     }
 
     private static String formatMessage(Throw e) {
