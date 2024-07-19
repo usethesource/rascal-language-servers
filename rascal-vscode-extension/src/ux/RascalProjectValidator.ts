@@ -27,12 +27,11 @@
 import * as vscode from 'vscode';
 import {posix} from 'path'; // posix path join is always correct, also on windows
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
-import { Diagnostic, Position, Range, Uri } from 'vscode';
+import { Diagnostic, DiagnosticSeverity, Position, Range, Uri } from 'vscode';
 import { MF_FILE, buildMFChildPath } from './RascalMFValidator';
-import { DiagnosticSeverity } from 'vscode-languageclient';
 
 const FIRST_WORD = new Range(new Position(0,0), new Position(0,0));
-const EXPLAIN_PROBLEM = "this degraded Rascal's VS Code plugin's capabilities if you want to type-check or execute this module.";
+const EXPLAIN_PROBLEM = "this reduces Rascal's capabilities for typechecking or executing this module.";
 
 export class RascalProjectValidator implements vscode.Disposable {
     private readonly toDispose: vscode.Disposable[] = [];
@@ -59,7 +58,11 @@ export class RascalProjectValidator implements vscode.Disposable {
         const folder = vscode.workspace.getWorkspaceFolder(e.uri);
         const messages: Diagnostic[] = [];
         if (!folder) {
-            messages.push(new Diagnostic(FIRST_WORD, "This Rascal file is not part of a project opened as a workspace folder, " + EXPLAIN_PROBLEM, vscode.DiagnosticSeverity.Warning));
+            messages.push(new Diagnostic(
+                FIRST_WORD,
+                "This Rascal file is not part of a project opened as a workspace folder, " + EXPLAIN_PROBLEM,
+                vscode.DiagnosticSeverity.Warning
+            ));
         }
         else {
             await reportMissingFile(buildPOMChildPath(folder.uri), folder, messages);
@@ -69,7 +72,11 @@ export class RascalProjectValidator implements vscode.Disposable {
                 try {
                     const sources = await this.getSourcePaths(mf);
                     if (sources.find(s => isChild(s, e.uri)) === undefined) {
-                        messages.push(new Diagnostic(FIRST_WORD, `This file is in the source path of the ${folder.name} project, please review the RASCAL.MF file. Otherwise ${EXPLAIN_PROBLEM}`, DiagnosticSeverity.Warning));
+                        messages.push(new Diagnostic(
+                            FIRST_WORD,
+                            `This file is not in the source path of the ${folder.name} project, please review the RASCAL.MF file. Since ${EXPLAIN_PROBLEM}`,
+                            DiagnosticSeverity.Warning
+                        ));
                     }
                 } catch (ex) {
                     console.log("Swallowing: ", ex);
@@ -134,10 +141,9 @@ async function reportMissingFile(file: vscode.Uri, project: vscode.WorkspaceFold
 }
 
 function isChild(parent: Uri, child: Uri): unknown {
-    const parentPath = parent.path.endsWith('/') ? parent.path : (parent.path + '/');
     return parent.scheme === child.scheme
         && parent.authority === child.authority
-        && child.path.startsWith(parentPath);
+        && child.path.startsWith(parent.path.endsWith('/') ? parent.path : (parent.path + '/'));
 }
 
 async function parseSourcePaths(mf: Uri): Promise<vscode.Uri[]> {
@@ -164,6 +170,6 @@ async function parseSourcePaths(mf: Uri): Promise<vscode.Uri[]> {
 }
 
 function removeComments(entry: string): string {
-    return entry.replace(/;.*$/, "");
+    return entry.replace(/#.*$/, "");
 }
 
