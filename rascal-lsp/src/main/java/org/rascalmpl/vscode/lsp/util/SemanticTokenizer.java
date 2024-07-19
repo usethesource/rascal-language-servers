@@ -540,8 +540,9 @@ public class SemanticTokenizer implements ISemanticTokens {
     }
 
     // The idea behind the patch is to dynamically map productions in Rascal's
-    // own grammar with no category, or with a legacy category (e.g., string
-    // literals), to current categories (i.e., semantic token types).
+    // own grammar with no category (e.g, number literals), or with a legacy
+    // category (e.g., string literals), to current categories (i.e., semantic
+    // token types).
     private static class RascalPatch {
 
         // As an optimization, productions that have already been mapped in the
