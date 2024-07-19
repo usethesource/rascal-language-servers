@@ -69,6 +69,16 @@ test bool crossModuleDataFieldAtUse() = testRenameOccurrences({
     ", {0})
 }, <"Main", "foo", 0>);
 
+test bool extendedDataField() = testRenameOccurrences({
+    byText("Scratch1", "
+        'data Foo = f(int foo);
+        ", {0}),
+    byText("Scratch2", "
+        'extend Scratch1;
+        'data Foo = g(int foo);
+        ", {0})
+}, <"Scratch2", "foo", 0>);
+
 @expected{unsupportedRename}
 test bool relFieldAtDef() = {0, 1} == testRenameOccurrences("
     'rel[str foo, str baz] r1 = {};
