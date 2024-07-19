@@ -539,16 +539,18 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
     }
 
+    // The idea behind the patch is to dynamically map productions in Rascal's
+    // own grammar with no category, or with a legacy category (e.g., string
+    // literals), to current categories (i.e., semantic token types).
     private static class RascalPatch {
 
-        // The idea behind the patch is to dynamically map category-less
-        // productions to categories. As an optimization, productions that have
-        // been mapped before are cached in an identity map/set for fast
-        // lookups.
+        // As an optimization, productions that have already been mapped in the
+        // past, are cached in an identity map/set for fast lookups in the
+        // future.
         Map<IConstructor, String> positiveCache = new IdentityHashMap<>();
         Set<IConstructor> negativeCache = Collections.newSetFromMap(new IdentityHashMap<>());
 
-        @SuppressWarnings("java:S131") // Switches without defaults are intended here
+        @SuppressWarnings("java:S131") // Switches without defaults are intended in this method
         public String apply(IConstructor prod, String defaultCategory) {
 
             // Check the caches
@@ -561,6 +563,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
             // Apply the patch (positively)
             var def = ProductionAdapter.getDefined(prod);
+
             if (isLabeledLiteral(def)) {
                 switch (SymbolAdapter.getLabel(def)) {
                 case "integer":
@@ -573,6 +576,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                     return putIntoPositiveCache(prod, SemanticTokenTypes.Regexp);
                 }
             }
+
             if (SymbolAdapter.isLex(def)) {
                 switch (SymbolAdapter.getName(def)) {
                 case "StringConstant":
