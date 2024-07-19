@@ -1,3 +1,75 @@
 {
-    "scopeName": "source.rascalmpl"
+  "repository": {
+    "literal.rational": {
+      "match": "((?:[1-9][0-9]*?r[0-9](?:[0-9]*?(?!(?:[0-9]|[A-Z]|\\_|[a-z]))))|(?:[0-9][0-9]*?r))",
+      "name": "literal.rational",
+      "captures": {
+        "1": {
+          "name": "constant.numeric"
+        }
+      }
+    },
+    "$keywords": {
+      "match": "((?:\\blexical\\b)|(?:\\bloc\\b)|(?:\\bif\\b)|(?:\\bassoc\\b)|(?:\\btest\\b)|(?:\\blrel\\b)|(?:\\bthrows\\b)|(?:\\bclear\\b)|(?:\\bmodule\\b)|(?:\\bany\\b)|(?:\\bint\\b)|(?:\\bquit\\b)|(?:\\bo\\b)|(?:\\banno\\b)|(?:\\btrue\\b)|(?:\\bpublic\\b)|(?:\\bkeyword\\b)|(?:\\bfor\\b)|(?:\\btuple\\b)|(?:\\bbracket\\b)|(?:\\bbag\\b)|(?:\\bit\\b)|(?:\\bvisit\\b)|(?:\\bdo\\b)|(?:\\bdata\\b)|(?:\\blayout\\b)|(?:\\bbool\\b)|(?:\\bedit\\b)|(?:\\bjoin\\b)|(?:\\bis\\b)|(?:\\bimport\\b)|(?:\\bview\\b)|(?:\\bin\\b)|(?:\\brat\\b)|(?:\\bmodules\\b)|(?:\\bcontinue\\b)|(?:\\bleft\\b)|(?:\\bnum\\b)|(?:\\bassert\\b)|(?:\\bthrow\\b)|(?:\\bone\\b)|(?:\\bhelp\\b)|(?:\\bdefault\\b)|(?:\\ball\\b)|(?:\\bglobal\\b)|(?:\\bsyntax\\b)|(?:\\bfalse\\b)|(?:\\bfinally\\b)|(?:\\bprivate\\b)|(?:\\bmod\\b)|(?:\\bjava\\b)|(?:\\bnode\\b)|(?:\\bstart\\b)|(?:\\bset\\b)|(?:\\bright\\b)|(?:\\bvariable\\b)|(?:\\bmap\\b)|(?:\\b10\\b)|(?:\\bon\\b)|(?:\\bbreak\\b)|(?:\\bdynamic\\b)|(?:\\bsolve\\b)|(?:\\bfail\\b)|(?:\\bunimport\\b)|(?:\\boutermost\\b)|(?:\\breal\\b)|(?:\\blist\\b)|(?:\\binsert\\b)|(?:\\binnermost\\b)|(?:\\bdeclarations\\b)|(?:\\belse\\b)|(?:\\brel\\b)|(?:\\bfunction\\b)|(?:\\bnotin\\b)|(?:\\bfilter\\b)|(?:\\bdatetime\\b)|(?:\\bcatch\\b)|(?:\\btry\\b)|(?:\\brenaming\\b)|(?:\\btag\\b)|(?:\\bhas\\b)|(?:\\bZ\\b)|(?:\\bwhen\\b)|(?:\\btype\\b)|(?:\\bappend\\b)|(?:\\bextend\\b)|(?:\\bswitch\\b)|(?:\\bvoid\\b)|(?:\\bhistory\\b)|(?:\\bT\\b)|(?:\\bwhile\\b)|(?:\\bstr\\b)|(?:\\bvalue\\b)|(?:\\bundeclare\\b)|(?:\\bcase\\b)|(?:\\balias\\b)|(?:\\breturn\\b)|(?:\\b0\\b))",
+      "name": "$keywords",
+      "captures": {
+        "1": {
+          "name": "keyword.control"
+        }
+      }
+    },
+    "$delimiters": {
+      "match": "(?:(?:bottom\\-up\\-break)|(?:\\))|(?:\\x{226B})|(?:\\n)|(?:\\!\\:\\=)|(?:\\')|(?:\\!\\=)|(?:\\>\\=)|(?:\\:\\/\\/)|(?:non\\-assoc)|(?:\\&\\=)|(?:\\<\\-)|(?:\\*\\=)|(?:\\+\\=)|(?:top\\-down\\-break)|(?:\\,)|(?:\\.\\.\\.)|(?:\\/\\=)|(?:\\x{21E8})|(?:\\()|(?:\\*\\/)|(?:\\%)|(?:\\!\\<\\<)|(?:\\=\\>)|(?:\\!\\>\\>)|(?:\\|\\|)|(?:\\>\\>)|(?:\\:\\:)|(?:\\x{26A0})|(?:\\&\\&)|(?:\\@)|(?:\\:\\=)|(?:\\#)|(?:\\<\\=\\=\\>)|(?:\\\")|(?:\\<\\<\\=)|(?:\\})|(?:\\?\\=)|(?:\\<\\:)|(?:\\=\\=\\>)|(?:\\^)|(?:\\/\\*)|(?:\\;)|(?:\\{)|(?:\\-\\=)|(?:\\$T))",
+      "name": "$delimiters",
+      "captures": {}
+    },
+    "literal.real": {
+      "match": "((?:(?:(?<!\\.)(?:\\.))[0-9]+?(?:E|e)(?:\\+|\\-)??[0-9]+?(?:D|F|d|f)??)|(?:[0-9]+?(?:(?:\\.)(?!(?:\\.)))[0-9]*?(?:D|F|d|f)??)|(?:(?:(?<!\\.)(?:\\.))[0-9]+?(?:D|F|d|f)??)|(?:[0-9]+?(?:E|e)(?:\\+|\\-)??[0-9]+?(?:D|F|d|f)??)|(?:[0-9]+?(?:D|F|d|f))|(?:[0-9]+?(?:\\.)[0-9]*?(?:E|e)(?:\\+|\\-)??[0-9]+?(?:D|F|d|f)??))",
+      "name": "literal.real",
+      "captures": {
+        "1": {
+          "name": "constant.numeric"
+        }
+      }
+    },
+    "comment": {
+      "match": "((?:\\/\\/)(?:(?:[\\x{01}-\\t]|[\\x{0B}-\\x{10FFFF}])*?(?!(?:\\t|\\r|\\x{20}|\\x{A0}|\\x{1680}|[\\x{2000}-\\x{200A}]|\\x{202F}|\\x{205F}|\\x{3000}))(?:$)))",
+      "name": "comment",
+      "captures": {
+        "1": {
+          "name": "comment"
+        }
+      }
+    },
+    "literal.integer": {
+      "match": "((?:0(?:[0-7]+?(?!(?:[0-9]|[A-Z]|\\_|[a-z]))))|(?:(?:[1-9](?:[0-9]*?(?!(?:[0-9]|[A-Z]|\\_|[a-z]))))|(?:(?:\\b0\\b)(?!(?:[0-9]|[A-Z]|\\_|[a-z]))))|(?:0(?:X|x)(?:(?:[0-9]|[A-F]|[a-f])+?(?!(?:[0-9]|[A-Z]|\\_|[a-z])))))",
+      "name": "literal.integer",
+      "captures": {
+        "1": {
+          "name": "constant.numeric"
+        }
+      }
+    }
+  },
+  "scopeName": "source.rascalmpl",
+  "patterns": [
+    {
+      "include": "#$delimiters"
+    },
+    {
+      "include": "#literal.integer"
+    },
+    {
+      "include": "#literal.real"
+    },
+    {
+      "include": "#literal.rational"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#$keywords"
+    }
+  ]
 }
