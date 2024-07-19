@@ -585,6 +585,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 case "PreStringChars":
                 case "MidStringChars":
                 case "PostStringChars":
+                case "Char":
                     return putIntoPositiveCache(prod, SemanticTokenTypes.String);
                 }
             }
