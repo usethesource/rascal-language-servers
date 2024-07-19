@@ -457,11 +457,10 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
             }
 
-            // If this semantic tokenizer is working with Rascal's own grammar,
-            // then hot-patch the parse tree by adding categories to otherwise
-            // uncategorized literals. These categories should eventually be
-            // incorporated directly in the grammar. Additional background:
-            // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
+            // Apply a patch to the parse tree to dynamically add categories. In
+            // case of the rascal server, the patch adds categories to otherwise
+            // uncategorized literals. In case of parametric servers, the patch
+            // is empty and does nothing.
             category = patch.apply(prod, category);
 
             // now we go down in the tree to find more tokens and to advance the counters
@@ -542,7 +541,9 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     // The idea behind the patch is to dynamically map productions in Rascal's
     // own grammar with no category (e.g, number literals) to current categories
-    // (i.e., semantic token types).
+    // (i.e., semantic token types). These categories should eventually be
+    // incorporated directly in the grammar. Additional background:
+    // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
     private interface CategoryPatch extends BiFunction<IConstructor, String, String> {};
 
     private static class DefaultCategoryPatch implements CategoryPatch {
@@ -558,8 +559,8 @@ public class SemanticTokenizer implements ISemanticTokens {
         // past, are cached for fast lookups in the future. There are separate
         // caches for productions that *do* need to be mapped to a new category
         // and those that *do not* need this.
-        private Cache<IConstructor, String>  doPatch = Caches.build();
-        private Cache<IConstructor, Boolean> doNotPatch = Caches.build();
+        private Cache<IConstructor, String>  doPatch = buildCache();
+        private Cache<IConstructor, Boolean> doNotPatch = buildCache();
 
         @SuppressWarnings("java:S131") // Switches without defaults are intended in this method
         @Override
@@ -582,11 +583,11 @@ public class SemanticTokenizer implements ISemanticTokens {
                 case "integer":
                 case "real":
                 case "rational":
-                    return Caches.putThenGet(doPatch, prod, SemanticTokenTypes.Number);
+                    return doPatch.get(prod, p -> SemanticTokenTypes.Number);
                 case "location":
-                    return Caches.putThenGet(doPatch, prod, SemanticTokenTypes.String);
+                    return doPatch.get(prod, p -> SemanticTokenTypes.String);
                 case "regExp":
-                    return Caches.putThenGet(doPatch, prod, SemanticTokenTypes.Regexp);
+                    return doPatch.get(prod, p -> SemanticTokenTypes.Regexp);
                 }
             }
 
@@ -598,23 +599,17 @@ public class SemanticTokenizer implements ISemanticTokens {
             return SymbolAdapter.isLabel(def) &&
                 SymbolAdapter.getName(SymbolAdapter.getLabeledSymbol(def)).equals("Literal");
         }
-    }
 
-    private static class Caches {
-
-        public static <K, V> Cache<K, V> build() {
-            // The usage of weak keys and values ensures: (1) identity equality
-            // is used to compare keys; (2) entries are automatically evicted
-            // and garbage-collected when they are no longer strongly reachable.
+        private static <V> Cache<IConstructor, V> buildCache() {
+            // The usage of weak keys ensures: (1) identity equality is used to
+            // compare keys; (2) entries are automatically evicted and
+            // garbage-collected when they are no longer strongly reachable.
+            //
+            // Note: Parsers have static fields that contain references to the
+            // IConstructors, so using weak keys is safe.
             return Caffeine.newBuilder()
                 .weakKeys()
-                .weakValues()
                 .build();
-        }
-
-        private static <K, V> V putThenGet(Cache<K, V> cache, K k, V v) {
-            cache.put(k, v);
-            return v;
         }
     }
 }
