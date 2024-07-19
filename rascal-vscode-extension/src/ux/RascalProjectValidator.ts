@@ -171,6 +171,7 @@ function isChild(parent: Uri, child: Uri): unknown {
         && child.path.startsWith(parent.path.endsWith('/') ? parent.path : (parent.path + '/'));
 }
 
+// TODO: at a later point, merge this with code in the RascalMF validator
 async function parseSourcePaths(mf: Uri): Promise<vscode.Uri[]> {
     try {
         const body = new TextDecoder("UTF8").decode(await vscode.workspace.fs.readFile(mf));
