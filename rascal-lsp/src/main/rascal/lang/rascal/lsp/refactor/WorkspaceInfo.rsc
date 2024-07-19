@@ -33,6 +33,7 @@ import analysis::typepal::TModel;
 import lang::rascalcore::check::Checker;
 
 import util::FileSystem;
+import util::Monitor;
 import util::Reflective;
 
 import lang::rascal::lsp::refactor::Exception;
@@ -40,6 +41,7 @@ import lang::rascal::lsp::refactor::Util;
 
 import List;
 import Location;
+import Map;
 import Message;
 import Set;
 import String;
@@ -73,15 +75,18 @@ private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
 }
 
 private void checkNoErrors(ModuleStatus ms) {
-    errors = [msg | m <- ms.messages, msg <- ms.messages[m], msg is error];
-    if (errors != [])
-        throw unsupportedRename("Cannot rename; some modules in workspace have errors.", issues={<l, reason> | error(reason, l) <- errors});
+    errors = (m: msgs | m <- ms.messages
+                      , msgs := [msg | msg <- ms.messages[m], msg is error]
+                      , msgs != []);
+    if (errors != ())
+        throw unsupportedRename("Cannot rename: some modules in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | m <- errors, error <- errors[m]});
 }
 
-WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) {
+WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) = job("loading workspace information", WorkspaceInfo(void(str, int) step) {
     ws = workspaceInfo(folders, getPathConfig);
 
     for (f <- folders) {
+        step("loading modules for project \'<f.file>\'", 1);
         PathConfig pcfg = getPathConfig(f);
         RascalCompilerConfig ccfg = getRascalCoreCompilerConfig(pcfg);
 
@@ -96,7 +101,7 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfi
     }
 
     return ws;
-}
+}, totalWork = size(folders));
 
 @memo
 set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];

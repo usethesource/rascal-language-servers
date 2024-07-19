@@ -28,6 +28,7 @@ module lang::rascal::lsp::refactor::Util
 
 import List;
 import Location;
+import Message;
 
 import util::Maybe;
 
@@ -45,3 +46,14 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
             [begin = <l.begin.line, l.begin.column + removePrefix>]
             [end = <l.end.line, l.end.column - removeSuffix>];
 }
+
+str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
+str toString(error(msg)) = "[error] \'<msg>\'";
+str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
+str toString(info(msg, l)) = "[info] \'<msg>\' at <l>";
+
+str toString(list[Message] msgs, int indent = 1) =
+    intercalate("\n", ([] | it + "<for (i <- [0..indent]) {> <}>- <toString(msg)>" | msg <- msgs));
+
+str toString(map[str, list[Message]] moduleMsgs) =
+    intercalate("\n", ([] | it + "Messages for <m>:\n<toString(moduleMsgs[m])>" | m <- moduleMsgs));

@@ -36,3 +36,6 @@ test bool largeTest() = ({0} | it + {foos + 3, foos + 4, foos + 5} | i <- [0..LA
       'foo = foo + foo;"
     | i <- [0..LARGE_TEST_SIZE])
 );
+
+@expected{unsupportedRename}
+test bool failOnError() = testRename("int foo = x + y;");

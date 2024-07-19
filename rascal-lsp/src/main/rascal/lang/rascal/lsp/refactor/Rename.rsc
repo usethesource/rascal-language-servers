@@ -60,6 +60,7 @@ import analysis::diff::edits::TextEdits;
 import vis::Text;
 
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 
 set[IllegalRenameReason] checkLegalName(str name) {
@@ -190,7 +191,11 @@ private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitio
     return rascalMayOverload(defs, potentialOverloadDefinitions);
 }
 
-private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, str name) {
+list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+    step("collecting workspace information", 1);
+    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig);
+
+    step("analyzing name at cursor", 1);
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
@@ -249,14 +254,17 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
             throw unsupportedRename("Renaming fields of collections is not supported");
     }
 
+    step("collecting uses of \'<cursorName>\'", 1);
     <defs, uses> = getDefsUses(ws, cur, rascalMayOverloadSameName);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
 
     files = defsPerFile.file + usesPerFile.file;
+
+    step("checking rename validity", 1);
     map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
-        (file: <reasons, edits> | file <- files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], name));
+        (file: <reasons, edits> | file <- files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
     if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
         throw illegalRename(cur, reasons);
@@ -268,12 +276,7 @@ private list[DocumentEdit] computeDocumentEdits(WorkspaceInfo ws, Tree cursorT, 
     list[DocumentEdit] renames = [];
 
     return changes + renames;
-}
-
-list[DocumentEdit] renameRascalSymbol(Tree cursor, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) {
-    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig);
-    return computeDocumentEdits(ws, cursor, newName);
-}
+}, totalWork = 4);
 
 //// WORKAROUNDS
 
