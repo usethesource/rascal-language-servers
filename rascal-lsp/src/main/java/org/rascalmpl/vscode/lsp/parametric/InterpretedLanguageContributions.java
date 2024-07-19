@@ -99,8 +99,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
+    private final IBaseLanguageClient client;
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+        this.client = client;
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();
         this.exec = exec;
@@ -115,7 +117,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
-                exec).get();
+                exec, true, client).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
             this.parser = getFunctionFor(contributions, LanguageContributions.PARSER);
             this.outliner = getFunctionFor(contributions, LanguageContributions.OUTLINER);
@@ -369,7 +371,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec)
+            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, true, client)
         ), exec);
     }
 
@@ -380,7 +382,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return InterruptibleFuture.completedFuture(defaultResult);
                 }
 
-                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec);
+                return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true, client);
             }),
             exec);
     }
