@@ -570,7 +570,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             if (category != null) {
                 return category;
             }
-            if (doNotPatch.getIfPresent(prod)) {
+            if (doNotPatch.getIfPresent(prod) != null) {
                 return defaultCategory; // Possibly different each time this cache is hit
             }
 
