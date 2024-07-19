@@ -44,10 +44,35 @@ export class RascalProjectValidator implements vscode.Disposable {
         vscode.workspace.onDidOpenTextDocument(this.validate, this, this.toDispose);
         vscode.workspace.onDidCloseTextDocument(this.closeFile, this, this.toDispose);
 
+        // clear the cached source paths on changes to the rascal.mf file
         const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
         this.toDispose.push(watcher);
-        watcher.onDidChange(e => this.cachedSourcePaths.delete(e.toString()));
-        watcher.onDidDelete(e => this.cachedSourcePaths.delete(e.toString()));
+        watcher.onDidChange(this.rascalMFChanged, this, this.toDispose);
+        watcher.onDidDelete(this.rascalMFChanged, this, this.toDispose);
+
+        this.validateAllOpenEditors();
+    }
+
+    async validateAllOpenEditors() {
+        for (const tab of vscode.window.tabGroups.all.flatMap(t => t.tabs)) {
+            if (tab.input instanceof vscode.TabInputText) {
+                try {
+                const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
+                this.validate(document);
+                } catch (e) {
+                    console.log("Swallowing: ", e);
+                }
+            }
+
+        }
+    }
+
+    async rascalMFChanged(mfFile : Uri) {
+        if (this.cachedSourcePaths.delete(mfFile.toString())) {
+            // we had calculated the source paths before
+            // lets see re-validate all messages we've reported
+            this.validateAllOpenEditors();
+        }
     }
 
 
@@ -60,7 +85,7 @@ export class RascalProjectValidator implements vscode.Disposable {
         if (!folder) {
             messages.push(new Diagnostic(
                 FIRST_WORD,
-                "This Rascal file is not part of a project opened as a workspace folder, " + EXPLAIN_PROBLEM,
+                "This Rascal file is not part of a project opened in this VS Code window, " + EXPLAIN_PROBLEM,
                 vscode.DiagnosticSeverity.Warning
             ));
         }
@@ -74,7 +99,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                     if (sources.find(s => isChild(s, e.uri)) === undefined) {
                         messages.push(new Diagnostic(
                             FIRST_WORD,
-                            `This file is not in the source path of the ${folder.name} project, please review the RASCAL.MF file. Since ${EXPLAIN_PROBLEM}`,
+                            `This file is not in the source path of the "${folder.name}" project, please review the RASCAL.MF file. Since ${EXPLAIN_PROBLEM}`,
                             DiagnosticSeverity.Warning
                         ));
                     }
@@ -154,7 +179,7 @@ async function parseSourcePaths(mf: Uri): Promise<vscode.Uri[]> {
             line = removeComments(line);
             const [key, value] = line.split(":");
             if (key && value && key.trim() === "Source") {
-                const parent = mf.with({path : posix.basename(posix.basename(mf.path))});
+                const parent = mf.with({path : posix.dirname(posix.dirname(mf.path))});
                 return value.split(',')
                     .map(s => s.trim())
                     .map(s => Uri.joinPath(parent, s));
