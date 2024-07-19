@@ -31,8 +31,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
@@ -49,6 +51,7 @@ import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
@@ -58,10 +61,20 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
+    private final @Nullable RascalPatch patch;
+
+    public SemanticTokenizer() {
+        this(false);
+    }
+
+    public SemanticTokenizer(boolean rascal) {
+        this.patch = rascal ? new RascalPatch() : null;
+    }
+
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens).collect(tree);
+        new TokenCollector(tokens, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
@@ -350,9 +363,11 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         private final boolean showAmb = false;
         private TokenList tokens;
+        private final @Nullable RascalPatch patch;
 
-        public TokenCollector(TokenList tokens) {
+        public TokenCollector(TokenList tokens, @Nullable RascalPatch patch) {
             this.tokens = tokens;
+            this.patch = patch;
             line = 0;
             column = 0;
         }
@@ -403,6 +418,15 @@ public class SemanticTokenizer implements ISemanticTokens {
                         category = null;
                     }
                 }
+            }
+
+            // If this semantic tokenizer is working with Rascal's own grammar,
+            // then hot-patch that grammar by adding categories to otherwise
+            // uncategorized literals. These categories should eventually be
+            // incorporated directly in the grammar. Additional background:
+            // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
+            if (patch != null) {
+                category = patch.apply(prod, category);
             }
 
             // now we go down in the tree to find more tokens and to advance the counters
@@ -478,6 +502,67 @@ public class SemanticTokenizer implements ISemanticTokens {
             else {
                 column++;
             }
+        }
+    }
+
+    private static class RascalPatch {
+
+        // The idea behind the patch is to dynamically map category-less
+        // productions to categories. As an optimization, productions that have
+        // been mapped before are cached in an identity map/set for fast
+        // lookups.
+        Map<IConstructor, String> positiveCache = new IdentityHashMap<>();
+        Set<IConstructor> negativeCache = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        @SuppressWarnings("java:S131") // Switches without defaults are intended here
+        public String apply(IConstructor prod, String defaultCategory) {
+
+            // Check the caches
+            if (positiveCache.containsKey(prod)) {
+                return positiveCache.get(prod);
+            }
+            if (negativeCache.contains(prod)) {
+                return defaultCategory; // Possibly different each time the negative cache is hit
+            }
+
+            // Apply the patch (positively)
+            var def = ProductionAdapter.getDefined(prod);
+            if (isLabeledLiteral(def)) {
+                switch (SymbolAdapter.getLabel(def)) {
+                case "integer":
+                case "real":
+                case "rational":
+                    return putIntoPositiveCache(prod, SemanticTokenTypes.Number);
+                case "location":
+                    return putIntoPositiveCache(prod, SemanticTokenTypes.String);
+                case "regExp":
+                    return putIntoPositiveCache(prod, SemanticTokenTypes.Regexp);
+                }
+            }
+            if (SymbolAdapter.isLex(def)) {
+                switch (SymbolAdapter.getName(def)) {
+                case "StringConstant":
+                case "CaseInsensitiveStringConstant":
+                case "PreStringChars":
+                case "MidStringChars":
+                case "PostStringChars":
+                    return putIntoPositiveCache(prod, SemanticTokenTypes.String);
+                }
+            }
+
+            // Apply the patch (negatively)
+            negativeCache.add(prod);
+            return defaultCategory;
+        }
+
+        private String putIntoPositiveCache(IConstructor prod, String category) {
+            positiveCache.put(prod, category);
+            return category;
+        }
+
+        private boolean isLabeledLiteral(IConstructor def) {
+            return SymbolAdapter.isLabel(def) &&
+                SymbolAdapter.getLabeledSymbol(def).getName().equals("Literal");
         }
     }
 }
