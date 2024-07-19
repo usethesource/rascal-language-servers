@@ -596,7 +596,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         private boolean isLabeledLiteral(IConstructor def) {
             return SymbolAdapter.isLabel(def) &&
-                SymbolAdapter.getLabeledSymbol(def).getName().equals("Literal");
+                SymbolAdapter.getName(SymbolAdapter.getLabeledSymbol(def)).equals("Literal");
         }
     }
 }
