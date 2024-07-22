@@ -85,12 +85,12 @@ private void checkNoErrors(ModuleStatus ms) {
 WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) = job("loading workspace information", WorkspaceInfo(void(str, int) step) {
     ws = workspaceInfo(folders, getPathConfig);
 
-    for (f <- folders) {
-        step("loading modules for project \'<f.file>\'", 1);
-        PathConfig pcfg = getPathConfig(f);
+    for (projectFolder <- folders) {
+        step("loading modules for project \'<projectFolder.file>\'", 1);
+        PathConfig pcfg = getPathConfig(projectFolder);
         RascalCompilerConfig ccfg = getRascalCoreCompilerConfig(pcfg);
 
-        ms = rascalTModelForLocs(toList(find(f, "rsc")), ccfg, dummy_compile1);
+        ms = rascalTModelForLocs([file | srcFolder <- pcfg.srcs, file <- find(srcFolder, "rsc")], ccfg, dummy_compile1);
         checkNoErrors(ms);
 
         for (m <- ms.tmodels) {
