@@ -193,13 +193,27 @@ private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitio
 
 list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
     step("collecting workspace information", 1);
-    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig);
 
-    step("analyzing name at cursor", 1);
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
-
     println("Cursor is at id \'<cursorName>\' at <cursorLoc>");
+
+    cursorAsName = [Name] cursorName;
+    escapedCursorAsName = startsWith(cursorName, "\\") ? cursorName : [Name] "\\<cursorName>";
+
+    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig, fileFilter = bool(loc l) {
+        // If we do not find any occurrences of the name under the cursor in a module,
+        // we are not interested in it at all, and will skip loading its TPL.
+        m = parseModuleWithSpacesCached(l);
+        if (/cursorAsName := m) {
+            return true;
+        } else if (escapedCursorAsName != cursorAsName, /escapedCursorAsName := m) {
+            return true;
+        }
+        return false;
+    });
+
+    step("analyzing name at cursor", 1);
 
     cursorNamedDefs = (ws.defines<id, defined>)[cursorName];
 

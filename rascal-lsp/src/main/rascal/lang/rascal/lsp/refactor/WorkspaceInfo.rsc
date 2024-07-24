@@ -31,6 +31,7 @@ import Relation;
 import analysis::typepal::TModel;
 
 import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::RascalConfig;
 
 import util::FileSystem;
 import util::Monitor;
@@ -63,7 +64,7 @@ data WorkspaceInfo (
     set[loc] modules = {},
     map[loc, Define] definitions = (),
     map[loc, AType] facts = ()
-) = workspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig);
+) = workspaceInfo(set[loc] folders);
 
 private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
     ws.useDef += tm.useDef;
@@ -82,15 +83,20 @@ private void checkNoErrors(ModuleStatus ms) {
         throw unsupportedRename("Cannot rename: some modules in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | m <- errors, error <- errors[m]});
 }
 
-WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig) = job("loading workspace information", WorkspaceInfo(void(str, int) step) {
-    ws = workspaceInfo(folders, getPathConfig);
+WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig, bool(loc) fileFilter = bool(loc l) { return true; }) = job("loading workspace information", WorkspaceInfo(void(str, int) step) {
+    ws = workspaceInfo(folders);
 
     for (projectFolder <- folders) {
         step("loading modules for project \'<projectFolder.file>\'", 1);
         PathConfig pcfg = getPathConfig(projectFolder);
-        RascalCompilerConfig ccfg = getRascalCoreCompilerConfig(pcfg);
 
-        ms = rascalTModelForLocs([file | srcFolder <- pcfg.srcs, file <- find(srcFolder, "rsc")], ccfg, dummy_compile1);
+        fs = [file | srcFolder <- pcfg.srcs, file <- find(srcFolder, "rsc"), fileFilter(file)];
+
+        if (fs == [])
+            continue;
+
+        RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
+        ms = rascalTModelForLocs(fs, ccfg, dummy_compile1);
         checkNoErrors(ms);
 
         for (m <- ms.tmodels) {
@@ -103,13 +109,10 @@ WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfi
     return ws;
 }, totalWork = size(folders));
 
-@memo
 set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];
 
-@memo
 set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = invert(ws.useDef)[defs];
 
-@memo
 set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
 set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {

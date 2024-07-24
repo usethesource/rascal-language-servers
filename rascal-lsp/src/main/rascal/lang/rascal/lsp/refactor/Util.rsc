@@ -26,11 +26,16 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::lsp::refactor::Util
 
+import IO;
 import List;
 import Location;
 import Message;
 
 import util::Maybe;
+import util::Memo;
+import util::Reflective;
+
+import lang::rascal::\syntax::Rascal;
 
 Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) =
     (nothing() | (it == nothing() || (just(itt) := it && w < itt)) && isContainedIn(l, w) ? just(w) : it | w <- wrappers);
@@ -45,6 +50,11 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
             [length = l.length - removePrefix - removeSuffix]
             [begin = <l.begin.line, l.begin.column + removePrefix>]
             [end = <l.end.line, l.end.column - removeSuffix>];
+}
+
+start[Module] parseModuleWithSpacesCached(loc l) {
+    @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
+    return parseModuleWithSpacesCached(l, lastModified(l));
 }
 
 str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
