@@ -79,27 +79,75 @@ test bool extendedDataField() = testRenameOccurrences({
         ", {0})
 }, <"Scratch2", "foo", 0>);
 
-@expected{unsupportedRename}
 test bool relFieldAtDef() = {0, 1} == testRenameOccurrences("
-    'rel[str foo, str baz] r1 = {};
-    'foos = r1.foo;
-    'rel[str foo, str baz] r2 = {};
+    'rel[str foo, str baz] r = {};
+    'f = r.foo;
 ");
 
-@expected{unsupportedRename}
 test bool relFieldAtUse() = {0, 1} == testRenameOccurrences("
-    'rel[str foo, str baz] r1 = {};
-    'foos = r1.foo;
-    'rel[str foo, str baz] r2 = {};
+    'rel[str foo, str baz] r = {};
+    'f = r.foo;
 ", cursorAtOldNameOccurrence = 1);
 
-@expected{unsupportedRename}
+test bool lrelFieldAtDef() = {0, 1} == testRenameOccurrences("
+    'lrel[str foo, str baz] r = [];
+    'f = r.foo;
+");
+
+test bool lrelFieldAtUse() = {0, 1} == testRenameOccurrences("
+    'lrel[str foo, str baz] r = [];
+    'foos = r.foo;
+", cursorAtOldNameOccurrence = 1);
+
+test bool relSubscript() = {0, 1} == testRenameOccurrences("
+    'rel[str foo, str baz] r = {};
+    'x = r\<foo\>;
+");
+
+test bool relSubscriptWithVar() = {0, 2} == testRenameOccurrences("
+    'rel[str foo, str baz] r = {};
+    'str foo = \"foo\";
+    'x = r\<foo\>;
+");
+
+test bool tupleFieldSubscriptUpdate() = {0, 1, 2} == testRenameOccurrences("
+    'tuple[str foo, int baz] t = \<\"one\", 1\>;
+    'u = t[foo = \"two\"];
+    'v = u.foo;
+");
+
+test bool tupleFieldAccessUpdate() = {0, 1} == testRenameOccurrences("
+    'tuple[str foo, int baz] t = \<\"one\", 1\>;
+    't.foo = \"two\";
+");
+
+test bool similarCollectionTypes() = {0, 1, 2, 3, 4} == testRenameOccurrences("
+    'rel[str foo, int baz] r = {};
+    'lrel[str foo, int baz] lr = [];
+    'set[tuple[str foo, int baz]] st = {};
+    'list[tuple[str foo, int baz]] lt = [];
+    'tuple[str foo, int baz] t = \<\"\", 0\>;
+");
+
+test bool differentRelWithSameFieldAtDef() = {0, 1} == testRenameOccurrences("
+    'rel[str foo, int baz] r1 = {};
+    'foos1 = r1.foo;
+    'rel[int n, str foo] r2 = {};
+    'foos2 = r2.foo;
+");
+
+test bool differentRelWithSameFieldAtUse() = {0, 1} == testRenameOccurrences("
+    'rel[str foo, int baz] r1 = {};
+    'foos1 = r1.foo;
+    'rel[int n, str foo] r2 = {};
+    'foos2 = r2.foo;
+", cursorAtOldNameOccurrence = 1);
+
 test bool tupleFieldAtDef() = {0, 1} == testRenameOccurrences("
     'tuple[int foo] t = \<8\>;
     'y = t.foo;
 ");
 
-@expected{unsupportedRename}
 test bool tupleFieldAtUse() = {0, 1} == testRenameOccurrences("
     'tuple[int foo] t = \<8\>;
     'y = t.foo;
@@ -107,7 +155,14 @@ test bool tupleFieldAtUse() = {0, 1} == testRenameOccurrences("
 
 // We would prefer an illegalRename exception here
 @expected{unsupportedRename}
-test bool builtinField() = testRename("
+test bool builtinFieldSimpleType() = testRename("
     'loc l = |unknown:///|;
     'f = l.top;
 ", oldName = "top", newName = "summit");
+// We would prefer an illegalRename exception here
+
+@expected{unsupportedRename}
+test bool builtinFieldCollectionType() = testRename("
+    'loc l = |unknown:///|;
+    'f = l.ls;
+", oldName = "ls", newName = "contents");

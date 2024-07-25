@@ -32,7 +32,6 @@ import Location;
 import Message;
 
 import util::Maybe;
-import util::Memo;
 import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
@@ -67,3 +66,7 @@ str toString(list[Message] msgs, int indent = 1) =
 
 str toString(map[str, list[Message]] moduleMsgs) =
     intercalate("\n", ([] | it + "Messages for <m>:\n<toString(moduleMsgs[m])>" | m <- moduleMsgs));
+
+rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
+    {<pred(v), v> | v <- s};
+

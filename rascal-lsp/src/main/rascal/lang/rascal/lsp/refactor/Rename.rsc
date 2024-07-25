@@ -223,7 +223,7 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
                 <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
               , <findSmallestContaining(cursorNamedDefs, cursorLoc), def()>
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
-              , <findSmallestContaining({l | l <- ws.facts, ws.facts[l].alabel == cursorName}, cursorLoc), collectionField()>
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at.alabel == cursorName || ((at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName)}, cursorLoc), collectionField()>
             }
     };
 
@@ -262,11 +262,6 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
     }
 
     if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
-
-    switch (cur.kind) {
-        case collectionField():
-            throw unsupportedRename("Renaming fields of collections is not supported");
-    }
 
     step("collecting uses of \'<cursorName>\'", 1);
     <defs, uses> = getDefsUses(ws, cur, rascalMayOverloadSameName);

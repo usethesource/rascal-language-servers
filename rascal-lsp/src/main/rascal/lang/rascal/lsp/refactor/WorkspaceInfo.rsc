@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::lsp::refactor::WorkspaceInfo
 
 import Relation;
@@ -33,13 +34,17 @@ import analysis::typepal::TModel;
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::RascalConfig;
 
+import lang::rascal::\syntax::Rascal;
+
 import util::FileSystem;
+import util::Maybe;
 import util::Monitor;
 import util::Reflective;
 
 import lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 
+import IO;
 import List;
 import Location;
 import Map;
@@ -172,3 +177,78 @@ tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), curs
 
     throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
 }
+
+tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _) {
+    AType cursorType = ws.facts[cursorLoc];
+    println("Cursor type: <cursorType>");
+    factLocsSortedBySize = sort(domain(ws.facts), bool(loc l1, loc l2) { return l1.length < l2.length; });
+
+    AType fieldType = avoid();
+    AType collectionType = avoid();
+    if (l <- factLocsSortedBySize, isStrictlyContainedIn(cursorLoc, l), at := ws.facts[l], (at is arel || at is alrel || at is atuple), at.elemType is atypeList) {
+        // We are at a definition site
+        collectionType = at;
+        fieldType = cursorType;
+    }
+    else {
+        // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
+        fieldType = cursorType.alabel == ""
+            // Collection type
+            ? cursorType.elmType
+            // Tuple type
+            : cursorType;
+
+        // We need to find the collection type by looking for the first use to the left of the cursor that has a collection type
+        usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
+        if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType at) := define.defInfo, (at is arel || at is alrel || at is atuple)) {
+            collectionType = at;
+        } else {
+            throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
+        }
+    }
+
+    set[loc] collectionFacts = invert(ws.facts)[collectionType];
+    rel[loc file, loc u] factsByModule = groupBy(collectionFacts, loc(loc l) { return l.top; });
+
+    set[loc] defs = {};
+    set[loc] uses = {};
+    for (file <- factsByModule.file) {
+        fileFacts = factsByModule[file];
+        visit(parseModuleWithSpacesCached(file)) {
+            case (Expression) `<Expression e>.<Name field>`: {
+                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, e.src))) {
+                    uses += field.src;
+                }
+            }
+            case (Assignable) `<Assignable rec>.<Name field>`: {
+                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, rec.src))) {
+                    uses += field.src;
+                }
+            }
+            case (Expression) `<Expression e>\< <{Field ","}+ fields> \>`: {
+                if (any(f <- fileFacts, isContainedIn(e.src, f))) {
+                    uses += {field.src | field <- fields
+                                       , field is name
+                                       , "<field.fieldName>" == cursorName};
+                }
+            }
+            case (Expression) `<Expression e>[<Name field> = <Expression _>]`: {
+                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, e.src))) {
+                    uses += field.src;
+                }
+            }
+            case t:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
+                for (at := ws.facts[t.src], collectionType.elemType == at.elemType, (TypeArg) `<Type _> <Name name>` <- args, fieldType == ws.facts[name.src]) {
+                    defs += name.src;
+                }
+            }
+        }
+    }
+
+    if (defs == {}) {
+        throw unsupportedRename("Cannot rename field that is not declared inside this workspace.");
+    }
+
+    return <defs, uses>;
+}
+
