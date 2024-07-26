@@ -132,16 +132,16 @@ private PathConfig getTestPathConfig(loc testDir) {
     );
 }
 
-private PathConfig getTestWorkspaceConfig() {
-    return pathConfig(
-        bin=|project://rascal-vscode-extension/test-workspace/test-project/target|,
-        libs=[|lib://rascal|],
-        srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|
-            , |project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal|],
-        resources=|memory://tests/rename/resources|,
-        generatedSources=|memory://tests/rename/generated-sources|
-    );
-}
+// private PathConfig getTestWorkspaceConfig() {
+//     return pathConfig(
+//         bin=|project://rascal-vscode-extension/test-workspace/test-project/target|,
+//         libs=[|lib://rascal|],
+//         srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|
+//             , |project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal|],
+//         resources=testDir + "resources",
+//         generatedSources=testDir + "generated-sources"
+//     );
+// }
 
 list[DocumentEdit] getEdits(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
     loc f = resolveLocation(singleModule);

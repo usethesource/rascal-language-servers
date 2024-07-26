@@ -70,7 +70,7 @@ str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
 str toString(info(msg, l)) = "[info] \'<msg>\' at <l>";
 
 str toString(list[Message] msgs, int indent = 1) =
-    intercalate("\n", ([] | it + "<for (i <- [0..indent]) {> <}>- <toString(msg)>" | msg <- msgs));
+    intercalate("\n", ([] | it + "<for (_ <- [0..indent]) {> <}>- <toString(msg)>" | msg <- msgs));
 
 str toString(map[str, list[Message]] moduleMsgs) =
     intercalate("\n", ([] | it + "Messages for <m>:\n<toString(moduleMsgs[m])>" | m <- moduleMsgs));
