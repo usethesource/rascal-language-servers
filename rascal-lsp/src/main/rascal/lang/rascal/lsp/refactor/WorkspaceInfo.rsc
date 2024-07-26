@@ -57,6 +57,7 @@ data CursorKind = use()
                 | def()
                 | typeParam()
                 | collectionField()
+                | moduleName()
                 ;
 
 data Cursor = cursor(CursorKind kind, loc l, str name);
@@ -68,7 +69,8 @@ data WorkspaceInfo (
     set[Define] defines = {},
     set[loc] modules = {},
     map[loc, Define] definitions = (),
-    map[loc, AType] facts = ()
+    map[loc, AType] facts = (),
+    map[loc, str] moduleNames = ()
 ) = workspaceInfo(set[loc] folders);
 
 private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
@@ -76,6 +78,7 @@ private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
     ws.defines += tm.defines;
     ws.definitions += tm.definitions;
     ws.facts += tm.facts;
+    ws.moduleNames += (tm.moduleLocs[n].top: n | n <- tm.moduleLocs);
 
     return ws;
 }
@@ -120,6 +123,8 @@ set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = invert(ws.useDef)[defs];
 
 set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
+Maybe[AType] getFact(WorkspaceInfo ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
+
 set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     set[loc] overloadedLocs = defs;
 
@@ -136,19 +141,22 @@ set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOv
     return overloadedLocs;
 }
 
-tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(use(), l, _), MayOverloadFun mayOverloadF) {
+private rel[loc, loc] NO_RENAMES(str _) = {};
+private int qualSepSize = size("::");
+
+tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF) {
     defs = getOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     uses = getUses(ws, defs);
-    return <defs, uses>;
+    return <defs, uses, NO_RENAMES>;
 }
 
-tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(def(), l, _), MayOverloadFun mayOverloadF) {
+tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(def(), l, _), MayOverloadFun mayOverloadF) {
     defs = getOverloadedDefs(ws, {l}, mayOverloadF);
     uses = getUses(ws, defs);
-    return <defs, uses>;
+    return <defs, uses, NO_RENAMES>;
 }
 
-tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {
+tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {
     AType at = ws.facts[cursorLoc];
     if(Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
@@ -172,13 +180,13 @@ tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), curs
                     , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
         };
 
-        return <defs, useDefs - defs>;
+        return <defs, useDefs - defs, NO_RENAMES>;
     }
 
     throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
 }
 
-tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _) {
+tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _) {
     AType cursorType = ws.facts[cursorLoc];
     println("Cursor type: <cursorType>");
     factLocsSortedBySize = sort(domain(ws.facts), bool(loc l1, loc l2) { return l1.length < l2.length; });
@@ -249,6 +257,47 @@ tuple[set[loc], set[loc]] getDefsUses(WorkspaceInfo ws, cursor(collectionField()
         throw unsupportedRename("Cannot rename field that is not declared inside this workspace.");
     }
 
-    return <defs, uses>;
+    return <defs, uses, NO_RENAMES>;
 }
 
+tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _) {
+    loc moduleFile = |unknown:///|;
+    if (d <- ws.useDef[cursorLoc], amodule(_) := ws.facts[d]) {
+        // Cursor is at an import
+        moduleFile = d.top;
+    } else if (just(l) := findSmallestContaining(ws.facts<0>, cursorLoc), amodule(_) := ws.facts[l]) {
+        // Cursor is at a module header
+        moduleFile = l.top;
+    } else {
+        // Cursor is at the module part of a qualified use
+        if (<u, d> <- ws.useDef, u.begin <= cursorLoc.begin, u.end == cursorLoc.end) {
+            moduleFile = d.top;
+        } else {
+            throw unsupportedRename("Could not find cursor location in TPL.");
+        }
+    }
+
+    modName = ws.moduleNames[moduleFile];
+
+    defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
+
+    imports = {u | u <- ws.useDef<0>, amodule(modName) := ws.facts[u]};
+    qualifiedUses = {
+        // We compute the location of the module name in the qualified name at `u`
+        // some::qualified::path::to::Foo::SomeVar
+        // \____________________________/\/\_____/
+        // moduleNameSize ^  qualSepSize ^   ^ idSize
+        trim(u, removePrefix = moduleNameSize - size(cursorName)
+              , removeSuffix = idSize + qualSepSize)
+        | <loc u, Define d> <- ws.useDef o toRel(ws.definitions)
+        , idSize := size(d.id)
+        , u.length > idSize // There might be a qualified prefix
+        , moduleNameSize := size(modName)
+        , u.length == moduleNameSize + qualSepSize + idSize
+    };
+    uses = imports + qualifiedUses;
+
+    rel[loc, loc] getRenames(str newName) = {<file, file[file = "<newName>.rsc"]> | d <- defs, file := d.top};
+
+    return <defs, uses, getRenames>;
+}

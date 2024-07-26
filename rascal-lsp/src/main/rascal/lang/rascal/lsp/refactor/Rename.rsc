@@ -169,6 +169,7 @@ Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is
                                                                          || d is dataAbstract
                                                                          || d is \data;
 Maybe[loc] locationOfName(TypeVar tv) = just(tv.name.src);
+Maybe[loc] locationOfName(Header h) = locationOfName(h.name);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
@@ -224,6 +225,7 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
               , <findSmallestContaining(cursorNamedDefs, cursorLoc), def()>
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
               , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at.alabel == cursorName || ((at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName)}, cursorLoc), collectionField()>
+              , <flatMap(locationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
             }
     };
 
@@ -234,19 +236,28 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
     loc c = min(locsContainingCursor.l);
     Cursor cur = cursor(use(), |unknown:///|, "");
     switch (locsContainingCursor[c]) {
+        case {moduleName(), *_}: {
+            cur = cursor(moduleName(), c, cursorName);
+        }
         case {def(), *_}: {
             // Cursor is at a definition
             cur = cursor(def(), c, cursorName);
         }
         case {use(), *_}: {
-            if (size(getDefs(ws, c) & ws.defines.defined) > 0) {
+            if (d <- ws.useDef[c], just(amodule(_)) := getFact(ws, d)) {
+                // Cursor is at an import
+                cur = cursor(moduleName(), c, cursorName);
+            } else if (u <- ws.useDef<0>, u.begin <= cursorLoc.begin && u.end > cursorLoc.end) {
+                // Cursor is at a qualified name
+                cur = cursor(moduleName(), c, cursorName);
+            } else if (size(getDefs(ws, c) & ws.defines.defined) > 0) {
                 // The cursor is at a use with corresponding definitions.
                 cur = cursor(use(), c, cursorName);
-            } else if (ws.facts[c]?) {
-                if (aparameter(cursorName, _) := ws.facts[c]) {
+            } else if (just(at) := getFact(ws, c)) {
+                if (aparameter(cursorName, _) := at) {
                     // The cursor is at a type parameter
                     cur = cursor(typeParam(), c, cursorName);
-                } else if (ws.facts[c].alabel == cursorName) {
+                } else if (at.alabel == cursorName) {
                     // The cursor is at a collection field
                     cur = cursor(collectionField(), c, cursorName);
                 }
@@ -264,7 +275,7 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
     if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
 
     step("collecting uses of \'<cursorName>\'", 1);
-    <defs, uses> = getDefsUses(ws, cur, rascalMayOverloadSameName);
+    <defs, uses, getRenames> = getDefsUses(ws, cur, rascalMayOverloadSameName);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
@@ -280,9 +291,7 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
     }
 
     list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];
-
-    // TODO If the cursor was a module name, we need to rename files as well
-    list[DocumentEdit] renames = [];
+    list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
     return changes + renames;
 }, totalWork = 4);

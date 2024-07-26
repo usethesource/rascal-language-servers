@@ -67,24 +67,43 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
 
     edits = renameRascalSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
 
-    editsPerModule = ();
-    for (changed(f, textedits) <- edits) {
-        start[Module] m = parseModuleWithSpaces(f);
-        str name = getModuleName(f, pcfg);
-        set[loc] locs = {l | replace(l, _) <- textedits};
-        set[int] occs = locsToOccs(m, cursor.id, locs);
+    renamesPerModule = (
+        beforeRename: afterRename
+        | renamed(oldLoc, newLoc) <- edits
+        , beforeRename := getModuleName(oldLoc, pcfg)
+        , afterRename := getModuleName(newLoc, pcfg)
+    );
 
-        str newName = name;
-        if (renamed(f, newLoc) <- edits) {
-            newName = getModuleName(newLoc, pcfg);
-        }
+    replacesPerModule = (
+        name: occs
+        | changed(file, changes) <- edits
+        , name := getModuleName(file, pcfg)
+        , locs := {l | replace(l, _) <- changes}
+        , occs := locsToOccs(parseModuleWithSpaces(file), cursor.id, locs)
+    );
 
-        editsPerModule[name] = <occs, newName>;
-    }
+    editsPerModule = (
+        name : <occs, nameAfterRename>
+        | srcDir <- pcfg.srcs
+        , file <- find(srcDir, "rsc")
+        , name := getModuleName(file, pcfg)
+        , occs := replacesPerModule[name] ? {}
+        , nameAfterRename := renamesPerModule[name] ? name
+    );
 
     expectedEditsPerModule = (name: <m.expectedRenameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
 
-    return editsPerModule == expectedEditsPerModule;
+    if (editsPerModule != expectedEditsPerModule) {
+        print("EXPECTED: ");
+        iprintln(expectedEditsPerModule);
+        println();
+
+        print("ACTUAL:   ");
+        iprintln(editsPerModule);
+        println();
+        return false;
+    }
+    return true;
 }
 
 set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
@@ -173,7 +192,10 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
 private str moduleNameToPath(str name) = replaceAll(name, "::", "/");
 private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
-private Tree findCursor(loc f, str id, int occ) = [n | m := parseModuleWithSpaces(f), /Name n := m.top, "<n>" == id][occ];
+private Tree findCursor(loc f, str id, int occ) {
+    m = parseModuleWithSpaces(f);
+    return [n | /Name n := m.top, "<n>" == id][occ];
+}
 
 private loc storeTestModule(loc dir, str name, str body) {
     str moduleStr = "

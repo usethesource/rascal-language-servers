@@ -30,6 +30,7 @@ import IO;
 import List;
 import Location;
 import Message;
+import String;
 
 import util::Maybe;
 import util::Reflective;
@@ -51,10 +52,17 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
             [end = <l.end.line, l.end.column - removeSuffix>];
 }
 
+bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
+                                  && l.authority == prefix.authority
+                                  && startsWith(l.path, prefix.path);
+
 start[Module] parseModuleWithSpacesCached(loc l) {
     @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
     return parseModuleWithSpacesCached(l, lastModified(l));
 }
+
+Maybe[&B] flatMap(nothing(), Maybe[&B](&A) _) = nothing();
+Maybe[&B] flatMap(just(&A a), Maybe[&B](&A) f) = f(a);
 
 str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
 str toString(error(msg)) = "[error] \'<msg>\'";
@@ -69,4 +77,3 @@ str toString(map[str, list[Message]] moduleMsgs) =
 
 rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
     {<pred(v), v> | v <- s};
-
