@@ -46,12 +46,14 @@ import String;
 
 import lang::rascal::\syntax::Rascal;
 
+import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::Import;
 import lang::rascalcore::check::RascalConfig;
 
 import analysis::typepal::TypePal;
+import analysis::typepal::Collector;
 
-import lang::rascal::lsp::refactor::Exception;
+extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
@@ -62,6 +64,16 @@ import vis::Text;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
+
+void throwAnyErrors(list[ModuleMessages] mmsgs) {
+    for (mmsg <- mmsgs) {
+        throwAnyErrors(mmsg);
+    }
+}
+
+void throwAnyErrors(program(_, msgs)) {
+    throwAnyErrors(msgs);
+}
 
 set[IllegalRenameReason] checkLegalName(str name) {
     try {

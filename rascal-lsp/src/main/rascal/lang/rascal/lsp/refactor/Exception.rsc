@@ -26,6 +26,11 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::lsp::refactor::Exception
 
+import analysis::typepal::TModel;
+
+import Message;
+import Set;
+
 data Cursor;
 
 alias Capture = tuple[loc def, loc use];
@@ -42,3 +47,16 @@ data RenameException
     | unsupportedRename(str message, rel[loc location, str message] issues = {})
     | unexpectedFailure(str message)
     ;
+
+void throwAnyErrors(TModel tm) {
+    throwAnyErrors(tm.messages);
+}
+
+void throwAnyErrors(set[Message] msgs) {
+    throwAnyErrors(toList(msgs));
+}
+
+void throwAnyErrors(list[Message] msgs) {
+    errors = {msg | msg <- msgs, msg is error};
+    if (errors != {}) throw errors;
+}

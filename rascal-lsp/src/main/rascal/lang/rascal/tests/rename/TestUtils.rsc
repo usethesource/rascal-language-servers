@@ -37,10 +37,12 @@ import String;
 
 import lang::rascal::\syntax::Rascal; // `Name`
 
+import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::compile::util::Names;
 
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
 import util::Math;
@@ -50,6 +52,34 @@ import util::Reflective;
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] expectedRenameOccs, str newName = name)
                 | byLoc(loc file, set[int] expectedRenameOccs, str newName = name);
+
+private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
+
+private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed(l, sort(edits, bool(TextEdit e1, TextEdit e2) {
+    return e1.range.offset < e2.range.offset;
+}));
+private default DocumentEdit sortChanges(DocumentEdit e) = e;
+
+private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+    executeDocumentEdits(sortEdits(edits));
+    remove(pcfg.resources);
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
+    throwAnyErrors(checkAll(root, ccfg));
+}
+
+bool ASSERT_EQ(&T expected, &T actual) {
+    if (expected != actual) {
+        print("EXPECTED: ");
+        iprintln(expected);
+        println();
+
+        print("ACTUAL:   ");
+        iprintln(actual);
+        println();
+        return false;
+    }
+    return true;
+}
 
 bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar") {
     str testName = "Test<abs(arbInt())>";
@@ -94,28 +124,21 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
 
     expectedEditsPerModule = (name: <m.expectedRenameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
 
-    if (editsPerModule != expectedEditsPerModule) {
-        print("EXPECTED: ");
-        iprintln(expectedEditsPerModule);
-        println();
-
-        print("ACTUAL:   ");
-        iprintln(editsPerModule);
-        println();
-        return false;
+    for (src <- pcfg.srcs) {
+        verifyTypeCorrectRenaming(src, edits, pcfg);
     }
-    return true;
+
+    return ASSERT_EQ(editsPerModule, expectedEditsPerModule);
 }
 
 set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
-    <edits, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
-    occs = extractRenameOccurrences(moduleFileName, edits, oldName);
+    <edits, occs, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
     return occs;
 }
 
 // Test renames that are expected to throw an exception
 bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
-    edits = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
+    <edits, _> = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
 
     print("UNEXPECTED EDITS: ");
     iprintln(edits);
@@ -144,20 +167,28 @@ private PathConfig getTestPathConfig(loc testDir) {
 //     );
 // }
 
-list[DocumentEdit] getEdits(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
+tuple[list[DocumentEdit], set[int]] getEdits(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
     loc f = resolveLocation(singleModule);
     m = parseModuleWithSpaces(f);
 
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(cursor, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+    edits = renameRascalSymbol(cursor, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+
+    occs = extractRenameOccurrences(singleModule, edits, oldName);
+
+    for (src <- pcfg.srcs) {
+        verifyTypeCorrectRenaming(src, edits, pcfg);
+    }
+
+    return <edits, occs>;
 }
 
 list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports) {
-    <edits, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
+    <edits, _, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
     return edits;
 }
 
-private tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>") {
+private tuple[list[DocumentEdit], set[int], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>") {
     str moduleStr =
     "module <moduleName>
     '<trim(imports)>
@@ -171,8 +202,8 @@ private tuple[list[DocumentEdit], loc] getEditsAndModule(str stmtsStr, int curso
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
 
-    edits = getEdits(moduleFileName, testDir, cursorAtOldNameOccurrence, oldName, newName);
-    return <edits, moduleFileName>;
+    <edits, occs> = getEdits(moduleFileName, testDir, cursorAtOldNameOccurrence, oldName, newName);
+    return <edits, occs, moduleFileName>;
 }
 
 private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
