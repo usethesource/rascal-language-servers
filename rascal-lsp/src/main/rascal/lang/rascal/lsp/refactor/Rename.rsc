@@ -95,7 +95,18 @@ private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws,
                                                                  , !rascalMayOverload({cD, nD.defined}, ws.definitions)
     };
 
-    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- doubleDeclarations.old};
+    rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
+        | Define _: <fieldScope, _, _, fieldId(), nD, _> <- newDefs
+        , loc cD <- currentDefs
+        , ws.definitions[cD]?
+        , Define _: <fieldScope, _, _, fieldId(), cD, _> := ws.definitions[cD]
+        , fL <- ws.facts, at := ws.facts[fL]
+        , acons(aadt(_, _, _), _, _) := at
+        , isStrictlyContainedIn(cD, fL)
+        , isStrictlyContainedIn(nD, fL)
+    };
+
+    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- (doubleDeclarations + doubleFieldDeclarations).old};
 }
 
 private set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {

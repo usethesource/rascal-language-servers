@@ -41,11 +41,16 @@ test bool dataFieldAtUse() = {0, 1} == testRenameOccurrences("
     ", decls = "data D = d(int foo, int baz);"
 , cursorAtOldNameOccurrence = 1);
 
-test bool duplicateDataField() = {0, 1, 2} == testRenameOccurrences("
+test bool multipleConstructorDataField() = {0, 1, 2} == testRenameOccurrences("
     'x = d(1, 2);
     'y = x.foo;
-    ", decls = "data D = d(int foo) | d(int foo, int bar);"
+    ", decls = "data D = d(int foo) | d(int foo, int baz);"
 , cursorAtOldNameOccurrence = 1);
+
+@expected{illegalRename}
+test bool duplicateDataField() = testRename("", decls =
+    "data D = d(int foo, int bar);"
+);
 
 test bool crossModuleDataFieldAtDef() = testRenameOccurrences({
     byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
