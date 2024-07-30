@@ -63,6 +63,8 @@ data CursorKind = use()
 data Cursor = cursor(CursorKind kind, loc l, str name);
 
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
+alias FileRenamesF = rel[loc old, loc new](str newName);
+alias DefsUsesRenames = tuple[set[loc] defs, set[loc] uses, FileRenamesF renames];
 
 data WorkspaceInfo (
     rel[loc use, loc def] useDef = {},
@@ -144,19 +146,19 @@ set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOv
 private rel[loc, loc] NO_RENAMES(str _) = {};
 private int qualSepSize = size("::");
 
-tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     uses = getUses(ws, defs);
     return <defs, uses, NO_RENAMES>;
 }
 
-tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(def(), l, _), MayOverloadFun mayOverloadF) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, _), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, {l}, mayOverloadF);
     uses = getUses(ws, defs);
     return <defs, uses, NO_RENAMES>;
 }
 
-tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     AType at = ws.facts[cursorLoc];
     if(Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
@@ -186,7 +188,7 @@ tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, curs
     throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
 }
 
-tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     AType cursorType = ws.facts[cursorLoc];
     println("Cursor type: <cursorType>");
     factLocsSortedBySize = sort(domain(ws.facts), bool(loc l1, loc l2) { return l1.length < l2.length; });
@@ -260,7 +262,7 @@ tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, curs
     return <defs, uses, NO_RENAMES>;
 }
 
-tuple[set[loc], set[loc], rel[loc, loc](str)] getDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) getPathConfig) {
     loc moduleFile = |unknown:///|;
     if (d <- ws.useDef[cursorLoc], amodule(_) := ws.facts[d]) {
         // Cursor is at an import
