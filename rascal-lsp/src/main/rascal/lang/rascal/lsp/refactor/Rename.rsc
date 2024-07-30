@@ -61,6 +61,7 @@ import analysis::diff::edits::TextEdits;
 
 import vis::Text;
 
+import util::FileSystem;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
@@ -215,29 +216,32 @@ private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitio
     return rascalMayOverload(defs, potentialOverloadDefinitions);
 }
 
-list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
-    step("collecting workspace information", 1);
-
-    loc cursorLoc = cursorT.src;
-    str cursorName = "<cursorT>";
-    println("Cursor is at id \'<cursorName>\' at <cursorLoc>");
-
-    cursorAsName = [Name] cursorName;
-    escapedCursorAsName = startsWith(cursorName, "\\") ? cursorName : [Name] "\\<cursorName>";
-
-    WorkspaceInfo ws = gatherWorkspaceInfo(workspaceFolders, getPathConfig, fileFilter = bool(loc l) {
-        // If we do not find any occurrences of the name under the cursor in a module,
-        // we are not interested in it at all, and will skip loading its TPL.
-        m = parseModuleWithSpacesCached(l);
-        if (/cursorAsName := m) {
-            return true;
-        } else if (escapedCursorAsName != cursorAsName, /escapedCursorAsName := m) {
-            return true;
+private bool isFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
+    for (d <- defs) {
+        if (Define _: <_, _, _, _, funDef, defType(afunc(_, _, _))> <- ws.defines
+          , isContainedIn(ws.definitions[d].scope, funDef)) {
+            continue;
         }
         return false;
-    });
+    }
+    return true;
+}
 
-    step("analyzing name at cursor", 1);
+private bool isFunctionLocal(WorkspaceInfo ws, cursor(def(), cursorLoc, _)) =
+    isFunctionLocalDefs(ws, getOverloadedDefs(ws, {cursorLoc}, rascalMayOverloadSameName));
+private bool isFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)) =
+    isFunctionLocalDefs(ws, getOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
+private bool isFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
+private bool isFunctionLocal(WorkspaceInfo _, cursor(collectionField(), _, _)) = false;
+private bool isFunctionLocal(WorkspaceInfo _, cursor(moduleName(), _, _)) = false;
+
+tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
+    loc cursorLoc = cursorT.src;
+    str cursorName = "<cursorT>";
+
+    println("Cursor is at id \'<cursorName>\' at <cursorLoc>");
+
+    ws = preLoad(ws);
 
     cursorNamedDefs = (ws.defines<id, defined>)[cursorName];
 
@@ -297,17 +301,85 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
 
     if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
 
+    return <cur, ws>;
+}
+
+private bool containsName(loc l, str name) {
+    // If we do not find any occurrences of the name under the cursor in a module,
+    // we are not interested in it at all, and will skip loading its TPL.
+    cursorAsName = [Name] name;
+    escapedCursorAsName = startsWith(name, "\\") ? name : [Name] "\\<name>";
+
+    m = parseModuleWithSpacesCached(l);
+    if (/cursorAsName := m) {
+        return true;
+    } else if (escapedCursorAsName != cursorAsName, /escapedCursorAsName := m) {
+        return true;
+    }
+    return false;
+}
+
+list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+    loc cursorLoc = cursorT.src;
+    str cursorName = "<cursorT>";
+
+    step("collecting workspace information", 1);
+    WorkspaceInfo ws = workspaceInfo(
+        // Preload
+        ProjectFiles() {
+            return { <
+                min([f | f <- workspaceFolders, isPrefixOf(f, cursorLoc)]),
+                cursorLoc.top
+            > };
+        },
+        // Full load
+        ProjectFiles() {
+            return { <folder, file>
+                | folder <- workspaceFolders
+                , PathConfig pcfg := getPathConfig(folder)
+                , srcFolder <- pcfg.srcs
+                , file <- find(srcFolder, "rsc")
+                , file != cursorLoc.top // because we loaded that during preload
+                , containsName(file, cursorName)
+            };
+        },
+        // Load TModel for loc
+        set[TModel](ProjectFiles projectFiles) {
+            set[TModel] tmodels = {};
+
+            if (projectFiles == {}) return tmodels;
+
+            for (projectFolder <- projectFiles.projectFolder, \files := projectFiles[projectFolder]) {
+                PathConfig pcfg = getPathConfig(projectFolder);
+                RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]
+                                                                      [verbose = false]
+                                                                      [logPathConfig = false];
+                ms = rascalTModelForLocs(toList(\files), ccfg, dummy_compile1);
+                tmodels += {convertTModel2PhysicalLocs(tm) | m <- ms.tmodels, tm := ms.tmodels[m]};
+            }
+            return tmodels;
+        }
+    );
+
+    step("analyzing name at cursor", 1);
+    <cur, ws> = getCursor(ws, cursorT);
+
+    step("loading required type information", 1);
+    if (!isFunctionLocal(ws, cur)) {
+        ws = loadWorkspace(ws);
+    }
+
     step("collecting uses of \'<cursorName>\'", 1);
-    <defs, uses, getRenames> = getDefsUses(ws, cur, rascalMayOverloadSameName);
+    <defs, uses, getRenames> = getDefsUses(ws, cur, rascalMayOverloadSameName, getPathConfig);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
 
-    files = defsPerFile.file + usesPerFile.file;
+    set[loc] \files = defsPerFile.file + usesPerFile.file;
 
     step("checking rename validity", 1);
     map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
-        (file: <reasons, edits> | file <- files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
+        (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
     if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
         throw illegalRename(cur, reasons);
@@ -317,7 +389,7 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
     return changes + renames;
-}, totalWork = 4);
+}, totalWork = 5);
 
 //// WORKAROUNDS
 

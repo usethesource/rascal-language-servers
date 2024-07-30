@@ -32,7 +32,6 @@ import Relation;
 import analysis::typepal::TModel;
 
 import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::RascalConfig;
 
 import lang::rascal::\syntax::Rascal;
 
@@ -48,10 +47,8 @@ import IO;
 import List;
 import Location;
 import Map;
-import Message;
 import Set;
 import String;
-
 
 data CursorKind = use()
                 | def()
@@ -65,59 +62,63 @@ data Cursor = cursor(CursorKind kind, loc l, str name);
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 alias FileRenamesF = rel[loc old, loc new](str newName);
 alias DefsUsesRenames = tuple[set[loc] defs, set[loc] uses, FileRenamesF renames];
+alias ProjectFiles = rel[loc projectFolder, loc file];
 
 data WorkspaceInfo (
+    // Instance fields
+    // Read-only
     rel[loc use, loc def] useDef = {},
     set[Define] defines = {},
     set[loc] modules = {},
     map[loc, Define] definitions = (),
     map[loc, AType] facts = (),
-    map[loc, str] moduleNames = ()
-) = workspaceInfo(set[loc] folders);
+    set[loc] projects = {}
+) = workspaceInfo(
+    ProjectFiles() preloadFiles,
+    ProjectFiles() allFiles,
+    set[TModel](ProjectFiles) tmodelsForLocs
+);
 
-private WorkspaceInfo loadModel(WorkspaceInfo ws, TModel tm) {
-    ws.useDef += tm.useDef;
-    ws.defines += tm.defines;
-    ws.definitions += tm.definitions;
-    ws.facts += tm.facts;
-    ws.moduleNames += (tm.moduleLocs[n].top: n | n <- tm.moduleLocs);
+WorkspaceInfo loadLocs(WorkspaceInfo ws, ProjectFiles projectFiles) {
+    for (tm <- ws.tmodelsForLocs(projectFiles)) {
+        ws = loadTModel(ws, tm);
+    }
+    ws.modules += projectFiles.file;
+    ws.projects += projectFiles.projectFolder;
 
     return ws;
 }
 
-private void checkNoErrors(ModuleStatus ms) {
-    errors = (m: msgs | m <- ms.messages
-                      , msgs := [msg | msg <- ms.messages[m], msg is error]
-                      , msgs != []);
-    if (errors != ())
-        throw unsupportedRename("Cannot rename: some modules in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | m <- errors, error <- errors[m]});
+WorkspaceInfo preLoad(WorkspaceInfo ws) {
+    return loadLocs(ws, ws.preloadFiles());
 }
 
-WorkspaceInfo gatherWorkspaceInfo(set[loc] folders, PathConfig(loc) getPathConfig, bool(loc) fileFilter = bool(loc l) { return true; }) = job("loading workspace information", WorkspaceInfo(void(str, int) step) {
-    ws = workspaceInfo(folders);
+WorkspaceInfo loadWorkspace(WorkspaceInfo ws) {
+    return loadLocs(ws, ws.allFiles());
+}
 
-    for (projectFolder <- folders) {
-        step("loading modules for project \'<projectFolder.file>\'", 1);
-        PathConfig pcfg = getPathConfig(projectFolder);
-
-        fs = [file | srcFolder <- pcfg.srcs, file <- find(srcFolder, "rsc"), fileFilter(file)];
-
-        if (fs == [])
-            continue;
-
-        RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
-        ms = rascalTModelForLocs(fs, ccfg, dummy_compile1);
-        checkNoErrors(ms);
-
-        for (m <- ms.tmodels) {
-            tm = convertTModel2PhysicalLocs(ms.tmodels[m]);
-            ws = loadModel(ws, tm);
-            ws.modules += {ms.moduleLocs[m].top};
-        }
+WorkspaceInfo loadTModel(WorkspaceInfo ws, TModel tm) {
+    try {
+        throwAnyErrors(tm);
+    } catch set[Message] errors: {
+        throw unsupportedRename("Cannot rename: some modules in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
     }
 
+    ws.useDef      += tm.useDef;
+    ws.defines     += tm.defines;
+    ws.definitions += tm.definitions;
+    ws.facts       += tm.facts;
+
     return ws;
-}, totalWork = size(folders));
+}
+
+loc getProjectFolder(WorkspaceInfo ws, loc l) {
+    if (project <- ws.projects, isPrefixOf(project, l)) {
+        return project;
+    }
+
+    throw "Could not find project containing <l>";
+}
 
 set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];
 
@@ -279,7 +280,7 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cu
         }
     }
 
-    modName = ws.moduleNames[moduleFile];
+    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(ws, moduleFile)));
 
     defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
 
