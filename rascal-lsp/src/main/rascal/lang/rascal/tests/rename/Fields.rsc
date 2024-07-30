@@ -32,13 +32,13 @@ import lang::rascal::lsp::refactor::Exception;
 test bool dataFieldAtDef() = {0, 1} == testRenameOccurrences("
     'D oneTwo = d(1, 2);
     'x = d.foo;
-    ", decls = "data D = d(int foo, int bar);"
+    ", decls = "data D = d(int foo, int baz);"
 );
 
 test bool dataFieldAtUse() = {0, 1} == testRenameOccurrences("
     'D oneTwo = d(1, 2);
     'x = d.foo;
-    ", decls = "data D = d(int foo, int bar);"
+    ", decls = "data D = d(int foo, int baz);"
 , cursorAtOldNameOccurrence = 1);
 
 test bool duplicateDataField() = {0, 1, 2} == testRenameOccurrences("
