@@ -54,7 +54,7 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
 
 bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && l.authority == prefix.authority
-                                  && startsWith(l.path, prefix.path);
+                                  && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
 
 start[Module] parseModuleWithSpacesCached(loc l) {
     @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
