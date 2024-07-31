@@ -31,6 +31,7 @@ import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
+import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 
 
 export class RascalLanguageServer implements vscode.Disposable {
@@ -48,7 +49,7 @@ export class RascalLanguageServer implements vscode.Disposable {
             devPort: 8888,
             isParametricServer: false,
             jarPath: absoluteJarPath,
-            language: "rascalmpl",
+            language: RASCAL_LANGUAGE_ID,
             title: 'Rascal MPL Language Server',
             vfsServer: vfsServer,
             dedicated: false,

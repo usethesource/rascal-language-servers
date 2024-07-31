@@ -133,7 +133,7 @@
       {
         "language": "rascalmpl",
         "scopeName": "source.rascalmpl",
-        "path": "./syntaxes/simple.tmGrammar.json"
+        "path": "./syntaxes/rascal.tmGrammar.json"
       },
       {
         "language": "parametric-rascalmpl",

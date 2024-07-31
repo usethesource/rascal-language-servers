@@ -113,7 +113,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private final ExecutorService ownExecuter;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
-    private final SemanticTokenizer tokenizer = new SemanticTokenizer();
+    private final SemanticTokenizer tokenizer = new SemanticTokenizer(true);
     private @MonotonicNonNull LanguageClient client;
 
     private final Map<ISourceLocation, TextDocumentState> documents;

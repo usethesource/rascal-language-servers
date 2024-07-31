@@ -28,7 +28,7 @@ import * as vscode from 'vscode';
 import {posix} from 'path'; // posix path join is always correct, also on windows
 
 
-const MF_FILE = "RASCAL.MF";
+export const MF_FILE = "RASCAL.MF";
 const MF_DIR = "META-INF";
 
 /**
