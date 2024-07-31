@@ -382,7 +382,8 @@ list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, s
         (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
     if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
-        throw illegalRename(cur, reasons);
+        list[str] reasonDescs = toList({describe(r) | r <- reasons});
+        throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", reasonDescs)>", reasons);
     }
 
     list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];

@@ -43,10 +43,15 @@ data IllegalRenameReason
     ;
 
 data RenameException
-    = illegalRename(Cursor cursor, set[IllegalRenameReason] reason)
+    = illegalRename(str message, set[IllegalRenameReason] reason)
     | unsupportedRename(str message, rel[loc location, str message] issues = {})
     | unexpectedFailure(str message)
     ;
+
+str describe(invalidName(name)) = "\'<name>\' is not a valid identifier";
+str describe(doubleDeclaration(_, _)) = "it causes double declarations";
+str describe(captureChange(_)) = "it changes program semantics";
+str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
 
 void throwAnyErrors(TModel tm) {
     throwAnyErrors(tm.messages);
