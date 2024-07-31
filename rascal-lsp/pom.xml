@@ -151,6 +151,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
         <dependencies>
+          <!-- Make sure to use the JUnit 4 test runner -->
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
