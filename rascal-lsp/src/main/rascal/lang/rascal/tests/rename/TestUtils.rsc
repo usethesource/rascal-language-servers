@@ -151,29 +151,66 @@ private PathConfig getTestPathConfig(loc testDir) {
         bin=testDir + "bin",
         libs=[|lib://rascal|],
         srcs=[testDir + "rascal"],
-        resources=testDir + "resources",
+        resources=testDir + "bin",
         generatedSources=testDir + "generated-sources"
     );
 }
 
-// private PathConfig getTestWorkspaceConfig() {
-//     return pathConfig(
-//         bin=|project://rascal-vscode-extension/test-workspace/test-project/target|,
-//         libs=[|lib://rascal|],
-//         srcs=[|project://rascal-vscode-extension/test-workspace/test-project/src/main/rascal|
-//             , |project://rascal-vscode-extension/test-workspace/test-lib/src/main/rascal|],
-//         resources=testDir + "resources",
-//         generatedSources=testDir + "generated-sources"
-//     );
-// }
+PathConfig getRascalCorePathConfig(loc rascalCoreProject, loc typepalProject) {
+   return pathConfig(
+        srcs = [
+                |std:///|,
+                rascalCoreProject + "src/org/rascalmpl/core/library",
+                typepalProject + "src"
+               ],
+        bin = rascalCoreProject + "target/test-classes",
+        generatedSources = rascalCoreProject + "target/generated-test-sources",
+        resources = rascalCoreProject + "target/generated-test-resources",
+        libs = []
+    );
+}
 
-tuple[list[DocumentEdit], set[int]] getEdits(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
+PathConfig resolveLocations(PathConfig pcfg) {
+    visit(pcfg) {
+        case loc l: resolveLocation(l);
+    }
+
+    return pcfg;
+}
+
+PathConfig getPathConfig(loc project) {
+    println("Getting path config for <project.file> (<project>)");
+
+    if (project.file == "rascal-core") {
+        pcfg = getRascalCorePathConfig();
+        return resolveLocations(pcfg);
+    }
+
+    pcfg = getProjectPathConfig(project);
+    return resolveLocations(pcfg);
+}
+
+list[DocumentEdit] testRascalCore(loc rascalCoreDir, loc typepalDir) {
+    registerLocations("project", "", (
+        |project://rascal-core/target/test-classes|: rascalCoreDir + "target/test-classes",
+        |project://rascal-core/target/generated-test-sources|: rascalCoreDir + "target/generated-test-sources",
+        |project://rascal-core/target/generated-test-resources|: rascalCoreDir + "target/generated-test-resources",
+        |project://rascal-core/src/org/rascalmpl/core/library|: rascalCoreDir + "src/org/rascalmpl/core/library",
+        |project://typepal/src|: typepalDir + "src"));
+
+    return getEdits(rascalCoreDir + "src/org/rascalmpl/core/library/lang/rascalcore/check/ATypeBase.rsc", {resolveLocation(rascalCoreDir), resolveLocation(typepalDir)}, 0, "arat", "arational", getPathConfig);
+}
+
+list[DocumentEdit] getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
     loc f = resolveLocation(singleModule);
     m = parseModuleWithSpaces(f);
 
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    edits = renameRascalSymbol(cursor, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+    return renameRascalSymbol(cursor, projectDirs, newName, getPathConfig);
+}
 
+tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
+    edits = getEdits(singleModule, {projectDir}, cursorAtOldNameOccurrence, oldName, newName, PathConfig(loc _) { return pcfg; });
     occs = extractRenameOccurrences(singleModule, edits, oldName);
 
     for (src <- pcfg.srcs) {
@@ -202,7 +239,7 @@ private tuple[list[DocumentEdit], set[int], loc] getEditsAndModule(str stmtsStr,
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
 
-    <edits, occs> = getEdits(moduleFileName, testDir, cursorAtOldNameOccurrence, oldName, newName);
+    <edits, occs> = getEditsAndOccurrences(moduleFileName, testDir, cursorAtOldNameOccurrence, oldName, newName);
     return <edits, occs, moduleFileName>;
 }
 
@@ -217,6 +254,8 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
         idx = {indexOf(oldNameOccurrences, l) | replace(l, _) <- replaces};
         return idx;
     } else {
+        print("Unexpected changes: ");
+        iprintln(edits);
         throw "Unexpected changes: <edits>";
     }
 }
