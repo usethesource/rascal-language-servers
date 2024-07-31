@@ -40,9 +40,6 @@ import lang::rascal::\syntax::Rascal;
 Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) =
     (nothing() | (it == nothing() || (just(itt) := it && w < itt)) && isContainedIn(l, w) ? just(w) : it | w <- wrappers);
 
-loc min(list[loc] locs) =
-    (getFirstFrom(locs) | l < l ? l : it | l <- locs);
-
 loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
     assert l.begin.line == l.end.line :
         "Cannot trim a multi-line location";

@@ -174,7 +174,7 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cur
         nextOffsets = toMapUnique(zip2(prefix(offsets), tail(offsets)));
 
         loc sentinel = |unknown:///|(0, 0, <0, 0>, <0, 0>);
-        defs = {(sentinel | (it == sentinel || f.length < it.length) && f.offset == nextOffset ? f : it | f <- facts<0>) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
+        defs = {min([f | f <- facts<0>, f.offset == nextOffset]) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
 
         useDefs = {trim(l, removePrefix = l.length - size(cursorName))
                     | l <- facts<0>
