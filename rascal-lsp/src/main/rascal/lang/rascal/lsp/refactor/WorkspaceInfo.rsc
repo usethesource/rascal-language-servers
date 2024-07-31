@@ -191,7 +191,6 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cur
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     AType cursorType = ws.facts[cursorLoc];
-    println("Cursor type: <cursorType>");
     factLocsSortedBySize = sort(domain(ws.facts), bool(loc l1, loc l2) { return l1.length < l2.length; });
 
     AType fieldType = avoid();

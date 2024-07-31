@@ -240,19 +240,22 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
-    println("Cursor is at id \'<cursorName>\' at <cursorLoc>");
-
     ws = preLoad(ws);
-
-    cursorNamedDefs = (ws.defines<id, defined>)[cursorName];
 
     rel[loc l, CursorKind kind] locsContainingCursor = {
         <l, k>
         | <just(l), k> <- {
+                // Uses
                 <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
-              , <findSmallestContaining(cursorNamedDefs, cursorLoc), def()>
+                // Defs with an identifier equals the name under the cursor
+              , <findSmallestContaining((ws.defines<id, defined>)[cursorName], cursorLoc), def()>
+                // Type parameters
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
-              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at.alabel == cursorName || ((at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName)}, cursorLoc), collectionField()>
+                // Collection field definitions; any location where the label equals the name under the cursor
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at.alabel == cursorName}, cursorLoc), collectionField()>
+                // Collection field uses; any location which is of set or list type, where the label of the collection element equals the name under the cursor
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName}, cursorLoc), collectionField()>
+                // Module name declaration, where the cursor location is in the module header
               , <flatMap(locationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
             }
     };
