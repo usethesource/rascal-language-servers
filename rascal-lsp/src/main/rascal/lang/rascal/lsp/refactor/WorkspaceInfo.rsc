@@ -50,14 +50,17 @@ import Map;
 import Set;
 import String;
 
-data CursorKind = use()
-                | def()
-                | typeParam()
-                | collectionField()
-                | moduleName()
-                ;
+data CursorKind
+    = use()
+    | def()
+    | typeParam()
+    | collectionField()
+    | moduleName()
+    ;
 
-data Cursor = cursor(CursorKind kind, loc l, str name);
+data Cursor
+    = cursor(CursorKind kind, loc l, str name)
+    ;
 
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 alias FileRenamesF = rel[loc old, loc new](str newName);

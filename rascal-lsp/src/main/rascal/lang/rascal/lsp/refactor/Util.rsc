@@ -37,8 +37,16 @@ import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
 
-Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) =
-    (nothing() | (it == nothing() || (just(itt) := it && w < itt)) && isContainedIn(l, w) ? just(w) : it | w <- wrappers);
+Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) {
+    Maybe[loc] result = nothing();
+    for (w <- wrappers, isContainedIn(l, w)) {
+        switch (result) {
+            case just(loc current): if (w < current) result = just(w);
+            case nothing(): result = just(w);
+        }
+    }
+    return result;
+}
 
 loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
     assert l.begin.line == l.end.line :

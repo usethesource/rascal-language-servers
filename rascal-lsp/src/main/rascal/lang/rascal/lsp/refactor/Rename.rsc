@@ -90,8 +90,7 @@ private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo 
 
 private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[loc] currentDefs, set[Define] newDefs) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | loc cD <- currentDefs
-                                                                 , Define nD <- newDefs
+    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | <loc cD, Define nD> <- (currentDefs * newDefs)
                                                                  , isContainedIn(cD, nD.scope)
                                                                  , !rascalMayOverload({cD, nD.defined}, ws.definitions)
     };
@@ -260,7 +259,7 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
             }
     };
 
-    if (size(locsContainingCursor) == 0) {
+    if (locsContainingCursor == {}) {
         throw unsupportedRename("Cannot find type information in TPL for <cursorLoc>");
     }
 
@@ -292,8 +291,6 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
                     // The cursor is at a collection field
                     cur = cursor(collectionField(), c, cursorName);
                 }
-            } else {
-                fail;
             }
         }
         case {k}: {
@@ -323,7 +320,8 @@ private bool containsName(loc l, str name) {
     return false;
 }
 
-list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+list[DocumentEdit] renameRascalSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
+    = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
