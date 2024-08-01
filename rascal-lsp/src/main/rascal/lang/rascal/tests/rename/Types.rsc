@@ -180,3 +180,11 @@ test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
                        'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
                                                                         'bool func(Foo foo) = foo == g();", {})
 }, <"LeftDefiner", "Foo", 0>, newName = "Bar");
+
+test bool asType() = expectEq({0, 1}, testRenameOccurrences("
+    'str s = \"text\";
+    'if (t := [Foo] s) {
+    '   str u = t;
+    '}
+", decls = "alias Foo = str;"
+, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));

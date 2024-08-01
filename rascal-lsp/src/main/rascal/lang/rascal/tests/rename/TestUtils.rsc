@@ -32,6 +32,7 @@ import lang::rascal::lsp::refactor::Rename; // Module under test
 import IO;
 import List;
 import Location;
+import ParseTree;
 import Set;
 import String;
 
@@ -204,8 +205,7 @@ list[DocumentEdit] testRascalCore(loc rascalCoreDir, loc typepalDir) {
 list[DocumentEdit] getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
     loc f = resolveLocation(singleModule);
     m = parseModuleWithSpaces(f);
-
-    Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
+    Tree cursor = collectNameTrees(m, oldName)[cursorAtOldNameOccurrence];
     return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
 }
 
@@ -243,20 +243,39 @@ private tuple[list[DocumentEdit], set[int], loc] getEditsAndModule(str stmtsStr,
     return <edits, occs, moduleFileName>;
 }
 
+private list[Tree] collectNameTrees(start[Module] m, str name) {
+    list[Tree] names = [];
+        visit (m) {
+        // 'Normal' names
+        case Name n:
+            if ("<n>" == name) names += n;
+        // Symbols as used in grammars
+        case Sym s:
+            if ("<s>" == name) names += s;
+    }
+    return names;
+}
+
 private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
     start[Module] m = parseModuleWithSpaces(moduleFileName);
-    list[loc] oldNameOccurrences = [];
-    for (/Name n := m, "<n>" == name) {
-        oldNameOccurrences += n.src;
-    }
+    list[loc] oldNameOccurrences = [n.src | n <- collectNameTrees(m, name)];
 
     if ([changed(_, replaces)] := edits) {
-        set[int] idx = {};
-        for (replace(replaceAt, replaceWith) <- replaces) {
-            if (oldText := readFile(replaceAt), "<oldText>" != name) throw "Unexpected change for \'<oldText>\' at <replaceAt>";
-            idx += indexOf(oldNameOccurrences, replaceAt);
+        set[int] occs = {};
+        set[loc] nonOldNameLocs = {};
+        for (replace(l, _) <- replaces) {
+            if (idx := indexOf(oldNameOccurrences, l), idx >= 0) {
+                occs += idx;
+            } else {
+                nonOldNameLocs += l;
+            }
         }
-        return idx;
+
+        if (nonOldNameLocs != {}) {
+            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <nonOldNameLocs>";
+        }
+
+        return occs;
     } else {
         print("Unexpected changes: ");
         iprintln(edits);
@@ -269,7 +288,7 @@ private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
 private Tree findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
-    return [n | /Name n := m.top, "<n>" == id][occ];
+    return collectNameTrees(m, id)[occ];
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
@@ -284,6 +303,6 @@ private loc storeTestModule(loc dir, str name, str body) {
     return moduleFile;
 }
 
-private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i <- occs, n := [n | /Name n := m.top, "<n>" == name][i]};
+private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i <- occs, n := collectNameTrees(m, name)[i]};
 private set[loc] occsToLocs(start[Module] m, str name, set[int] occs) = {t.src | t <- occsToTrees(m, name, occs)};
-private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | /Name n := m.top, "<n>" == name], occ <- occs};
+private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | n <- collectNameTrees(m, name)], occ <- occs};
