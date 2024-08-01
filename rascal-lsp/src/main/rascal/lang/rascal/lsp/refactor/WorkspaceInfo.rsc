@@ -67,6 +67,10 @@ alias FileRenamesF = rel[loc old, loc new](str newName);
 alias DefsUsesRenames = tuple[set[loc] defs, set[loc] uses, FileRenamesF renames];
 alias ProjectFiles = rel[loc projectFolder, loc file];
 
+/**
+ * This is a subset of the fields from analysis::typepal::TModel, specifically tailored to refactorings.
+ * WorkspaceInfo comes with a set of functions that allow (incrementally) loading information from multiple TModels, and doing (cached) queries on this data.
+ */
 data WorkspaceInfo (
     // Instance fields
     // Read-only
@@ -86,6 +90,8 @@ WorkspaceInfo loadLocs(WorkspaceInfo ws, ProjectFiles projectFiles) {
     for (tm <- ws.tmodelsForLocs(projectFiles)) {
         ws = loadTModel(ws, tm);
     }
+
+    // In addition to data from the TModel, we keep track of which projects/modules we loaded.
     ws.modules += projectFiles.file;
     ws.projects += projectFiles.projectFolder;
 
