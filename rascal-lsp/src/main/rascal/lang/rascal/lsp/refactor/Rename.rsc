@@ -210,6 +210,8 @@ Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is
                                                                          || d is \data;
 Maybe[loc] locationOfName(TypeVar tv) = just(tv.name.src);
 Maybe[loc] locationOfName(Header h) = locationOfName(h.name);
+Maybe[loc] locationOfName(SyntaxDefinition sd) = locationOfName(sd.defined);
+Maybe[loc] locationOfName(Sym sym) = just(sym.nonterminal.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
