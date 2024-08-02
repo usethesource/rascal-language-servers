@@ -76,6 +76,22 @@ decls = "
     'syntax S[&Foo] = s: &Foo foo;
 ", cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
 
+test bool parameterizedProductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
+, decls = "syntax Foo[&T] = Foo[&T] child &T t;"
+, oldName = "Foo", newName = "Bar"));
+
+test bool parameterizedProductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
+, decls = "syntax Foo[&T] = Foo[&T] child &T t;"
+, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
+
+test bool startPoductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
+, decls = "start syntax Foo = start[Foo] child;"
+, oldName = "Foo", newName = "Bar"));
+
+test bool startPoductionFromUse() = expectEq({0, 1}, testRenameOccurrences(""
+, decls = "start syntax Foo = start[Foo] child;"
+, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
+
 test bool constructorFromDef() = expectEq({0, 1}, testRenameOccurrences("
     'S getChild(foo(child)) = child;
 ", decls = "syntax S = foo: S child;"));
@@ -151,6 +167,18 @@ test bool fieldFromUse() = expectEq({0, 1}, testRenameOccurrences("
     'S getChild(S x) = x.foo;
 ", decls = "syntax S = S foo;"
 , cursorAtOldNameOccurrence = 1));
+
+test bool referencedConstructorFromDef() = expectEq({0, 1}, testRenameOccurrences("", decls = "
+    'lexical L = \"l\"+;
+    'syntax S = foo: L l;
+    'syntax T =: foo;
+"));
+
+test bool referencedConstructorFromDef() = expectEq({0, 1}, testRenameOccurrences("", decls = "
+    'lexical L = \"l\"+;
+    'syntax S = foo: L l;
+    'syntax T =: foo;
+", cursorAtOldNameOccurrence = 1));
 
 test bool lexicalFromDef() = expectEq({0, 1}, testRenameOccurrences("
     'if (f := [Foo] \"foo\") g = f;
