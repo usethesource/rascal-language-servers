@@ -30,28 +30,28 @@ import lang::rascal::tests::rename::TestUtils;
 
 test bool productionFromDef() = expectEq({0, 1, 2, 3}, testRenameOccurrences("
     'Foo func(Foo f) = f.child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , oldName = "Foo", newName = "Bar"));
 
 test bool productionFromTypeUse() = expectEq({0, 1, 2, 3}, testRenameOccurrences("
     'Foo func(Foo f) = f.child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromConcreteUse() = expectEq({0, 1, 2, 3, 4}, testRenameOccurrences("
     'Foo func((Foo) `\<Foo child\>`) = child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromConcreteFieldUse() = expectEq({0, 1, 2, 3, 4}, testRenameOccurrences("
     'Foo func((Foo) `\<Foo child\>`) = child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromPatternUse() = expectEq({0, 1, 2}, testRenameOccurrences("
     'value t = \"tree\";
     'if (/Foo f := t) x = f;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromReifiedType() = expectEq({0, 1, 2}, testRenameOccurrences("
