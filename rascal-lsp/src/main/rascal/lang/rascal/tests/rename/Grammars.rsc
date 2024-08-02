@@ -85,6 +85,15 @@ test bool constructorFromUse() = ASSERT_EQ({0, 1}, testRenameOccurrences("
 ", decls = "syntax S = foo: S child;"
 , cursorAtOldNameOccurrence = 1));
 
+test bool fieldFromDef() = ASSERT_EQ({0, 1}, testRenameOccurrences("
+    'S getChild(S x) = x.foo;
+", decls = "syntax S = S foo;"));
+
+test bool fieldFromUse() = ASSERT_EQ({0, 1}, testRenameOccurrences("
+    'S getChild(S x) = x.foo;
+", decls = "syntax S = S foo;"
+, cursorAtOldNameOccurrence = 1));
+
 test bool lexicalFromDef() = ASSERT_EQ({0, 1}, testRenameOccurrences("
     'if (f := [Foo] \"foo\") g = f;
 ", decls = "lexical Foo = \"foo\"+;"

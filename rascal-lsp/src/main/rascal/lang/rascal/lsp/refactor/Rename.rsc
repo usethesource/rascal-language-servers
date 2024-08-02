@@ -213,6 +213,7 @@ Maybe[loc] locationOfName(Header h) = locationOfName(h.name);
 Maybe[loc] locationOfName(SyntaxDefinition sd) = locationOfName(sd.defined);
 Maybe[loc] locationOfName(Sym sym) = just(sym.nonterminal.src);
 Maybe[loc] locationOfName(Nonterminal nt) = just(nt.src);
+Maybe[loc] locationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
