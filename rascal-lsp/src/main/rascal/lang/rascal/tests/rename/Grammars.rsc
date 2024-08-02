@@ -64,6 +64,18 @@ test bool productionFromReifiedType() = expectEq({0, 1, 2}, testRenameOccurrence
     'import ParseTree;
 ", oldName = "Foo", newName = "Bar", cursorAtOldNameOccurrence = 1));
 
+test bool productionParameterFromDef() = expectEq({0, 1}, testRenameOccurrences("",
+decls = "
+    'lexical L = \"l\"+;
+    'syntax S[&Foo] = s: &Foo foo;
+", oldName = "Foo", newName = "Bar"));
+
+test bool productionParameterFromUse() = expectEq({0, 1}, testRenameOccurrences("",
+decls = "
+    'lexical L = \"l\"+;
+    'syntax S[&Foo] = s: &Foo foo;
+", cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
+
 test bool constructorFromDef() = expectEq({0, 1}, testRenameOccurrences("
     'S getChild(foo(child)) = child;
 ", decls = "syntax S = foo: S child;"));
@@ -82,4 +94,12 @@ test bool lexicalFromUse() = expectEq({0, 1}, testRenameOccurrences("
     'if (f := [Foo] \"foo\") g = f;
 ", decls = "lexical Foo = \"foo\"+;"
 , oldName = "Foo", newName = "Bar"
+, cursorAtOldNameOccurrence = 1));
+
+test bool lexicalFromParameter() = expectEq({0, 1}, testRenameOccurrences("
+    'x = [S[Foo]] \"foo\";
+", decls = "
+    'lexical Foo = \"foo\"+;
+    'syntax S[&L] = s: &L l;
+", oldName = "Foo", newName = "Bar"
 , cursorAtOldNameOccurrence = 1));

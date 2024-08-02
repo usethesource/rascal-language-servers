@@ -262,14 +262,32 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName)
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
-    AType at = ws.facts[cursorLoc];
-    if(Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
+    set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
+    set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
+        perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
+        // Per parameter name, keep the top-left-most occurrence
+        return mapper(groupRangeByDomain(perName), loc(set[loc] locs) {
+            return (getFirstFrom(locs) | l.offset < it.offset ? l : it | l <- locs);
+        });
+    }
+
+    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(dT)>, AType paramType) =
+        afunc(_, /paramType, _) := dT;
+    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(dT)>, AType paramType) =
+        aadt(_, /paramType, _) := dT;
+    default bool definesTypeParam(Define _, AType _) = false;
+
+    AType cursorType = ws.facts[cursorLoc];
+
+    if(Define containingDef <- ws.defines
+     , isContainedIn(cursorLoc, containingDef.defined)
+     , definesTypeParam(containingDef, cursorType)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
         facts = {<l, ws.facts[l]> | l <- ws.facts
-                                  , at := ws.facts[l]
-                                  , isContainedIn(l, d.defined)};
+                                  , cursorType := ws.facts[l]
+                                  , isContainedIn(l, containingDef.defined)};
 
-        formals = {l | <l, f> <- facts, f.alabel != ""};
+        formals = getFormals(containingDef.defInfo.atype, facts);
 
         // Given the location/offset of `&T`, find the location/offset of `T`
         offsets = sort({l.offset | l <- facts<0>});
@@ -288,7 +306,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
         return <defs, useDefs - defs, NO_RENAMES>;
     }
 
-    throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
+    throw unsupportedRename("Cannot find function or nonterminal which defines type parameter \'<cursorName>\'");
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {

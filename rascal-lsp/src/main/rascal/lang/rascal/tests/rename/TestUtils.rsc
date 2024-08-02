@@ -249,8 +249,8 @@ private list[Tree] collectNameTrees(start[Module] m, str name) {
         // 'Normal' names
         case Name n:
             if ("<n>" == name) names += n;
-        // Symbols as used in grammars
-        case Sym s:
+        // Nonterminals (grammars)
+        case Nonterminal s:
             if ("<s>" == name) names += s;
     }
     return names;
