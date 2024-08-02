@@ -30,28 +30,28 @@ import lang::rascal::tests::rename::TestUtils;
 
 test bool productionFromDef() = ASSERT_EQ({0, 1, 2, 3}, testRenameOccurrences("
     'Foo func(Foo f) = f.child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , oldName = "Foo", newName = "Bar"));
 
 test bool productionFromTypeUse() = ASSERT_EQ({0, 1, 2, 3}, testRenameOccurrences("
     'Foo func(Foo f) = f.child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromConcreteUse() = ASSERT_EQ({0, 1, 2, 3, 4}, testRenameOccurrences("
     'Foo func((Foo) `\<Foo child\>`) = child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromConcreteFieldUse() = ASSERT_EQ({0, 1, 2, 3, 4}, testRenameOccurrences("
     'Foo func((Foo) `\<Foo child\>`) = child;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromPatternUse() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("
     'value t = \"tree\";
     'if (/Foo f := t) x = f;
-", decls = "syntax Foo = c: Foo child;"
+", decls = "syntax Foo = Foo child;"
 , cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
 
 test bool productionFromReifiedType() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("
