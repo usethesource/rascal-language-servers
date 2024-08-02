@@ -214,6 +214,7 @@ Maybe[loc] rascalLocationOfName(Header h) = rascalLocationOfName(h.name);
 Maybe[loc] rascalLocationOfName(SyntaxDefinition sd) = rascalLocationOfName(sd.defined);
 Maybe[loc] rascalLocationOfName(Sym sym) = just(sym.nonterminal.src);
 Maybe[loc] rascalLocationOfName(Nonterminal nt) = just(nt.src);
+Maybe[loc] rascalLocationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {

@@ -85,6 +85,15 @@ test bool constructorFromUse() = expectEq({0, 1}, testRenameOccurrences("
 ", decls = "syntax S = foo: S child;"
 , cursorAtOldNameOccurrence = 1));
 
+test bool fieldFromDef() = expectEq({0, 1}, testRenameOccurrences("
+    'S getChild(S x) = x.foo;
+", decls = "syntax S = S foo;"));
+
+test bool fieldFromUse() = expectEq({0, 1}, testRenameOccurrences("
+    'S getChild(S x) = x.foo;
+", decls = "syntax S = S foo;"
+, cursorAtOldNameOccurrence = 1));
+
 test bool lexicalFromDef() = expectEq({0, 1}, testRenameOccurrences("
     'if (f := [Foo] \"foo\") g = f;
 ", decls = "lexical Foo = \"foo\"+;"

@@ -252,6 +252,9 @@ private list[Tree] collectNameTrees(start[Module] m, str name) {
         // Nonterminals (grammars)
         case Nonterminal s:
             if ("<s>" == name) names += s;
+        // Labels for nonterminals (grammars)
+        case NonterminalLabel label:
+            if ("<label>" == name) names += label;
     }
     return names;
 }
