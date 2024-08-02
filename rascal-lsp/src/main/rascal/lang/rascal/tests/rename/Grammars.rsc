@@ -85,6 +85,64 @@ test bool constructorFromUse() = ASSERT_EQ({0, 1}, testRenameOccurrences("
 ", decls = "syntax S = foo: S child;"
 , cursorAtOldNameOccurrence = 1));
 
+test bool exceptedConstructorFromDef() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+"));
+
+test bool exceptedConstructorFromUse() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+", cursorAtOldNameOccurrence = -1));
+
+@expected{unsupportedRename}
+test bool exceptedConstructorFromExcept() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+", cursorAtOldNameOccurrence = 1));
+
+test bool exceptedConstructorMultiple() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  | probablyBaz: S s!foo!notFoo!probablyBaz
+    '  ;
+"));
+
+test bool exceptedDuplicateConstructor1() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!notFoo!foo
+    '  ;
+    'syntax T = foo: \"Tfoo\";
+"));
+
+test bool exceptedDuplicateConstructor2() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+    'syntax S = foo: \"Tfoo\";
+"));
+
 test bool fieldFromDef() = ASSERT_EQ({0, 1}, testRenameOccurrences("
     'S getChild(S x) = x.foo;
 ", decls = "syntax S = S foo;"));
