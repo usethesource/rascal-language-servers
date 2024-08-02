@@ -85,6 +85,64 @@ test bool constructorFromUse() = expectEq({0, 1}, testRenameOccurrences("
 ", decls = "syntax S = foo: S child;"
 , cursorAtOldNameOccurrence = 1));
 
+test bool exceptedConstructorFromDef() = expectEq({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+"));
+
+test bool exceptedConstructorFromUse() = expectEq({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+", cursorAtOldNameOccurrence = -1));
+
+@expected{unsupportedRename}
+test bool exceptedConstructorFromExcept() = expectEq({0, 1, 2}, testRenameOccurrences("
+    'S getChild(foo(child)) = child;
+", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+", cursorAtOldNameOccurrence = 1));
+
+test bool exceptedConstructorMultiple() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  | probablyBaz: S s!foo!notFoo!probablyBaz
+    '  ;
+"));
+
+test bool exceptedDuplicateConstructor1() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!notFoo!foo
+    '  ;
+    'syntax T = foo: \"Tfoo\";
+"));
+
+test bool exceptedDuplicateConstructor2() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | baz: \"baz\"
+    '  | notFoo: S s!foo!notFoo
+    '  ;
+    'syntax S = foo: \"Tfoo\";
+"));
+
 test bool fieldFromDef() = expectEq({0, 1}, testRenameOccurrences("
     'S getChild(S x) = x.foo;
 ", decls = "syntax S = S foo;"));
