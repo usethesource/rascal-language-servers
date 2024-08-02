@@ -39,6 +39,7 @@ import Exception;
 import IO;
 import List;
 import Location;
+import Map;
 import ParseTree;
 import Relation;
 import Set;
@@ -179,20 +180,22 @@ private str escapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 private set[loc] findNames(start[Module] m, set[loc] useDefs) {
-    set[loc] names = {};
+    map[loc, loc] useDefNameAt = ();
+    useDefsToDo = useDefs;
     visit(m.top) {
         case t: appl(prod(_, _, _), _): {
-            if (t.src in useDefs && just(nameLoc) := locationOfName(t)) {
-                names += nameLoc;
+            if (t.src in useDefsToDo && just(nameLoc) := locationOfName(t)) {
+                useDefNameAt[t.src] = nameLoc;
+                useDefsToDo -= t.src;
             }
         }
     }
 
-    if (size(names) != size(useDefs)) {
-        throw unsupportedRename("Rename unsupported", issues={<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefs - names});
+    if (useDefsToDo != {}) {
+        throw unsupportedRename("Rename unsupported", issues={<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefsToDo});
     }
 
-    return names;
+    return range(useDefNameAt);
 }
 
 Maybe[loc] locationOfName(Name n) = just(n.src);
