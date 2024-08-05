@@ -138,7 +138,7 @@ set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, 
 
 // Test renames that are expected to throw an exception
 bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
-    <edits, _> = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
+    edits = getEdits(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
 
     print("UNEXPECTED EDITS: ");
     iprintln(edits);
@@ -172,7 +172,7 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject, loc typepalProject) {
 
 PathConfig resolveLocations(PathConfig pcfg) {
     visit(pcfg) {
-        case loc l: resolveLocation(l);
+        case loc l => resolveLocation(l)
     }
 
     return pcfg;
@@ -283,6 +283,3 @@ private loc storeTestModule(loc dir, str name, str body) {
 private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i <- occs, n := [n | /Name n := m.top, "<n>" == name][i]};
 private set[loc] occsToLocs(start[Module] m, str name, set[int] occs) = {t.src | t <- occsToTrees(m, name, occs)};
 private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | /Name n := m.top, "<n>" == name], occ <- occs};
-
-// Workaround to be able to pattern match on the emulated `src` field
-data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));

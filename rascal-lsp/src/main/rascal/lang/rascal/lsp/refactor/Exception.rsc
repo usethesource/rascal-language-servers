@@ -31,8 +31,6 @@ import analysis::typepal::TModel;
 import Message;
 import Set;
 
-data Cursor;
-
 alias Capture = tuple[loc def, loc use];
 
 data IllegalRenameReason

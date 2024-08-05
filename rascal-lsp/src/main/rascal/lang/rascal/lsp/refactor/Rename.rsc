@@ -234,6 +234,7 @@ private bool isFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)) =
 private bool isFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private bool isFunctionLocal(WorkspaceInfo _, cursor(collectionField(), _, _)) = false;
 private bool isFunctionLocal(WorkspaceInfo _, cursor(moduleName(), _, _)) = false;
+private default bool isFunctionLocal(_, _) = false;
 
 tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
     loc cursorLoc = cursorT.src;
@@ -308,8 +309,8 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
 private bool containsName(loc l, str name) {
     // If we do not find any occurrences of the name under the cursor in a module,
     // we are not interested in it at all, and will skip loading its TPL.
-    cursorAsName = [Name] name;
-    escapedCursorAsName = startsWith(name, "\\") ? name : [Name] "\\<name>";
+    Name cursorAsName = [Name] name;
+    Name escapedCursorAsName = startsWith(name, "\\") ? name : [Name] "\\<name>";
 
     m = parseModuleWithSpacesCached(l);
     if (/cursorAsName := m) {

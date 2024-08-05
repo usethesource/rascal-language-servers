@@ -27,7 +27,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Modules
 
 import lang::rascal::tests::rename::TestUtils;
-// import lang::rascal::lsp::refactor::Exception;
 
 test bool singleModuleFromHeader() = testRenameOccurrences({
     byText("Foo", "

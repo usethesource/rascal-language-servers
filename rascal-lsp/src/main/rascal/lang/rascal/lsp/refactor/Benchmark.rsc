@@ -36,11 +36,11 @@ import util::Benchmark;
 import util::FileSystem;
 import util::Reflective;
 
-void main() {
+void benchmarkDeepTreeMatch(loc projectPath) {
     name = "val";
 
     println("Collecting files...");
-    fs = find(|home:///swat/projects/Rascal/rascal/src|, "rsc");
+    fs = find(projectPath, "rsc");
 
     println("Parsing <size(fs)> modules...");
     trees = {parseModuleWithSpaces(f) | f <- fs};

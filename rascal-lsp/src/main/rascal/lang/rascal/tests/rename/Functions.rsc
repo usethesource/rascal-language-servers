@@ -27,7 +27,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Functions
 
 import lang::rascal::tests::rename::TestUtils;
-// import lang::rascal::lsp::refactor::Exception;
 
 test bool nestedFunctionParameter() = {0, 1} == testRenameOccurrences("
     'int f(int foo, int baz) {
