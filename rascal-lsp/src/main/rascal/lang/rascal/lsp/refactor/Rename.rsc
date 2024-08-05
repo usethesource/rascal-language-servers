@@ -310,7 +310,7 @@ private bool containsName(loc l, str name) {
     // If we do not find any occurrences of the name under the cursor in a module,
     // we are not interested in it at all, and will skip loading its TPL.
     Name cursorAsName = [Name] name;
-    Name escapedCursorAsName = startsWith(name, "\\") ? name : [Name] "\\<name>";
+    Name escapedCursorAsName = startsWith(name, "\\") ? cursorAsName : [Name] "\\<name>";
 
     m = parseModuleWithSpacesCached(l);
     if (/cursorAsName := m) {
