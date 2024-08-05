@@ -88,7 +88,7 @@ set[IllegalRenameReason] checkLegalName(str name) {
 private set[IllegalRenameReason] checkDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
     { definitionsOutsideWorkspace(d) | set[loc] d <- groupRangeByDomain({<f, d> | loc d <- defs, f := d.top, f notin ws.modules}) };
 
-private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[loc] currentDefs, set[Define] newDefs) {
+private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws, set[loc] currentDefs, set[Define] newDefs, str newName) {
     // Is newName already resolvable from a scope where <current-name> is currently declared?
     rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | <loc cD, Define nD> <- (currentDefs * newDefs)
                                                                  , isContainedIn(cD, nD.scope)
@@ -106,7 +106,19 @@ private set[IllegalRenameReason] checkCausesDoubleDeclarations(WorkspaceInfo ws,
         , isStrictlyContainedIn(nD, fL)
     };
 
-    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- (doubleDeclarations + doubleFieldDeclarations).old};
+    rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
+        | loc cD <- currentDefs
+        , ws.facts[cD]?
+        , cT: aparameter(_, _) := ws.facts[cD]
+        , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- ws.defines
+        , isContainedIn(cD, fD.defined)
+        , loc nD <- ws.facts
+        , isContainedIn(nD, fD.defined)
+        , nT: aparameter(newName, _) := ws.facts[nD]
+        , /nT := funcParams
+    };
+
+    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- (doubleDeclarations + doubleFieldDeclarations + doubleTypeParamDeclarations).old};
 }
 
 private set[Define] findImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {
@@ -158,7 +170,7 @@ private set[IllegalRenameReason] collectIllegalRenames(WorkspaceInfo ws, start[M
     return
         checkLegalName(newName)
       + checkDefinitionsOutsideWorkspace(ws, currentDefs)
-      + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs)
+      + checkCausesDoubleDeclarations(ws, currentDefs, newNameDefs, newName)
       + checkCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
     ;
 }
@@ -206,7 +218,7 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
 }
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[loc] defs, set[loc] uses, str name) =
-    computeTextEdits(ws, parseModuleWithSpaces(moduleLoc), defs, uses, name);
+    computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, name);
 
 private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     set[str] names = {definitions[l].id | l <- defs, definitions[l]?};

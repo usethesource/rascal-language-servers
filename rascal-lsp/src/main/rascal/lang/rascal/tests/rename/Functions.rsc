@@ -193,9 +193,30 @@ test bool typeParamsFromFormal() = {0, 1, 2} == testRenameOccurrences("
     '}
 ", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
 
-test bool typeParamsClash() = {0, 1} == testRenameOccurrences("
+@expected{illegalRename}
+test bool typeParamsClash() = testRename("
     '&T foo(&T l, &U m) = l;
 ", oldName = "T", newName = "U", cursorAtOldNameOccurrence = 1);
+
+test bool nestedTypeParams() = {0, 1, 2, 3} == testRenameOccurrences("
+    '&T f(&T t) {
+    '   &T g(&T t) = t;
+    '   return g(t);
+    '}
+", oldName = "T", newName = "U");
+
+@expected{illegalRename}
+test bool nestedTypeParamClash() = testRename("
+    'void f(&S s, &T t) {
+    '   &S g(&S s) = s;
+    '   &T g(&T t) = t;
+    }
+", oldName = "S", newName = "T", cursorAtOldNameOccurrence = 1);
+
+test bool adjacentTypeParams() = {0, 1} == testRenameOccurrences("
+    '&S f(&S s) = s;
+    '&T f(&T t) = t;
+", oldName = "S", newName = "T");
 
 test bool typeParamsListReturn() = {0, 1, 2} == testRenameOccurrences("
     'list[&T] foo(&T l) {
