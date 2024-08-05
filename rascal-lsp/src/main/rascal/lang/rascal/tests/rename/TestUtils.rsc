@@ -171,11 +171,9 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject, loc typepalProject) {
 }
 
 PathConfig resolveLocations(PathConfig pcfg) {
-    visit(pcfg) {
+    return visit(pcfg) {
         case loc l => resolveLocation(l)
-    }
-
-    return pcfg;
+    };
 }
 
 PathConfig getPathConfig(loc project) {
