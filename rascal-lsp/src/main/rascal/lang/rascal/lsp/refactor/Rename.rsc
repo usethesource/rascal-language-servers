@@ -285,6 +285,8 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , <smallestFieldContainingCursor, collectionField()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
+                // Nonterminal constructor names in exception productions
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at is conditional}, cursorLoc), exceptConstructor()>
             }
     };
 
@@ -327,6 +329,7 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     }
 
     if (cur.l.scheme == "unknown") throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
+    if (cur.kind is exceptConstructor) throw unsupportedRename("Constructors can not be renamed from except productions.");
 
     return <cur, ws>;
 }

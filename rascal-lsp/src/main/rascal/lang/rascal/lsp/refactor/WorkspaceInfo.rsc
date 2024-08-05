@@ -55,6 +55,7 @@ data CursorKind
     | typeParam()
     | collectionField()
     | moduleName()
+    | exceptConstructor()
     ;
 
 data Cursor
