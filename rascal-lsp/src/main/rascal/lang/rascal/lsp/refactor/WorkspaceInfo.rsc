@@ -156,15 +156,34 @@ set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOv
 private rel[loc, loc] NO_RENAMES(str _) = {};
 private int qualSepSize = size("::");
 
+set[loc] getKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
+    set[loc] uses = {};
+
+    ifacts = invert(ws.facts);
+    for (d <- defs
+       , f <- ws.facts
+       , isStrictlyContainedIn(d, f)
+       , afunc(retType, _, [*_, kwField(kwAType, cursorName, _), *_]) := ws.facts[f]
+       , funcName <- getUses(ws, f)
+       ) {
+        loc funcCall = min({l | l <- ifacts[retType], l.offset == funcName.offset});
+        uses += {name.src | /Name name := parseModuleWithSpacesCached(funcCall.top)
+                          , isStrictlyContainedIn(name.src, funcCall)
+                          , "<name>" == kwAType.alabel};
+    }
+
+    return uses;
+}
+
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
-    uses = getUses(ws, defs);
+    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
     return <defs, uses, NO_RENAMES>;
 }
 
-DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, _), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, {l}, mayOverloadF);
-    uses = getUses(ws, defs);
+    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
     return <defs, uses, NO_RENAMES>;
 }
 

@@ -65,17 +65,21 @@ test bool privateFunctionParameter() = {0, 1} == testRenameOccurrences("", decls
     '}
 ");
 
-@expected{unsupportedRename}
 test bool nestedKeywordParameter() = {0, 1, 2} == testRenameOccurrences("
     'int f(int foo = 8) = foo;
     'int x = f(foo = 10);
 ");
 
-@expected{unsupportedRename}
-test bool keywordParameter() = testRename(
+test bool keywordParameterFromDef() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences(
     "int x = f(foo = 10);"
-    decls="int f(int foo = 8) = foo;"
-);
+    , decls="int f(int foo = 8) = foo;"
+));
+
+test bool keywordParameterFromUse() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences(
+    "int x = f(foo = 10);"
+    , decls="int f(int foo = 8) = foo;"
+    , cursorAtOldNameOccurrence = 1
+));
 
 @expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
 @expected{illegalRename} test bool doubleParameterDeclaration2() = testRename("int f(int bar, int foo) = 1;");

@@ -199,6 +199,7 @@ Maybe[loc] locationOfName(Name n) = just(n.src);
 Maybe[loc] locationOfName(QualifiedName qn) = just((qn.names[-1]).src);
 Maybe[loc] locationOfName(FunctionDeclaration f) = just(f.signature.name.src);
 Maybe[loc] locationOfName(Variable v) = just(v.name.src);
+Maybe[loc] locationOfName(KeywordFormal kw) = just(kw.name.src);
 Maybe[loc] locationOfName(Declaration d) = just(d.name.src) when d is annotation
                                                               || d is \tag;
 Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is \alias
