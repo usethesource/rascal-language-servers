@@ -26,13 +26,14 @@
  */
 package engineering.swat.rascal.lsp.util;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.Assert.assertSame;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
 
 public class LookupTests {
@@ -157,7 +158,7 @@ public class LookupTests {
         ranges.forEach(target::put);
         for (var e: ranges.entrySet()) {
             var found = target.lookup(e.getKey());
-            assertSame(e.getValue(), found, "Entry " + e + "should be found");
+            assertSame("Entry " + e + "should be found", e.getValue(), found);
         }
     }
 
