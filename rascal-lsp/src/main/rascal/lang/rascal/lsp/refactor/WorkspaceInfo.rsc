@@ -35,15 +35,12 @@ import lang::rascalcore::check::Checker;
 
 import lang::rascal::\syntax::Rascal;
 
-import util::FileSystem;
 import util::Maybe;
-import util::Monitor;
 import util::Reflective;
 
 import lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 
-import IO;
 import List;
 import Location;
 import Map;
