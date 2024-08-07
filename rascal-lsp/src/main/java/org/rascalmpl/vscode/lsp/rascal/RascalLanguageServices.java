@@ -199,7 +199,7 @@ public class RascalLanguageServices {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
                 IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
-                return (IList) eval.call("renameRascalSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName), rascalGetPathConfig);
+                return (IList) eval.call("rascalRenameSymbol", cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), VF.string(newName), rascalGetPathConfig);
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();

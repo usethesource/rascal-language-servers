@@ -73,7 +73,7 @@ data WorkspaceInfo (
     // Read-only
     rel[loc use, loc def] useDef = {},
     set[Define] defines = {},
-    set[loc] modules = {},
+    set[loc] sourceFiles = {},
     map[loc, Define] definitions = (),
     map[loc, AType] facts = (),
     set[loc] projects = {}
@@ -89,7 +89,7 @@ WorkspaceInfo loadLocs(WorkspaceInfo ws, ProjectFiles projectFiles) {
     }
 
     // In addition to data from the TModel, we keep track of which projects/modules we loaded.
-    ws.modules += projectFiles.file;
+    ws.sourceFiles += projectFiles.file;
     ws.projects += projectFiles.projectFolder;
 
     return ws;
@@ -107,7 +107,7 @@ WorkspaceInfo loadTModel(WorkspaceInfo ws, TModel tm) {
     try {
         throwAnyErrors(tm);
     } catch set[Message] errors: {
-        throw unsupportedRename("Cannot rename: some modules in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
+        throw unsupportedRename("Cannot rename: some files in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
     }
 
     ws.useDef      += tm.useDef;

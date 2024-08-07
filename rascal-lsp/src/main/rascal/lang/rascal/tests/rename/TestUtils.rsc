@@ -96,7 +96,7 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
     modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.expectedRenameOccs, newName = m.newName))};
     cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == cursor.moduleName][0], cursor.id, cursor.occ);
 
-    edits = renameRascalSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+    edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
 
     renamesPerModule = (
         beforeRename: afterRename
@@ -204,7 +204,7 @@ list[DocumentEdit] getEdits(loc singleModule, set[loc] projectDirs, int cursorAt
     m = parseModuleWithSpaces(f);
 
     Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
-    return renameRascalSymbol(cursor, projectDirs, newName, getPathConfig);
+    return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
 }
 
 tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
