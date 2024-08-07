@@ -277,7 +277,7 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
     };
 
     if (locsContainingCursor == {}) {
-        throw unsupportedRename("Cannot find type information in TPL for <cursorLoc>");
+        throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
     }
 
     loc c = min(locsContainingCursor.l);
@@ -313,11 +313,9 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
         case {k}: {
             cur = cursor(k, c, cursorName);
         }
-        default:
-            throw unsupportedRename("Unsupported cursor type <locsContainingCursor[c]>");
     }
 
-    if (cur.l.scheme == "unknown") throw unexpectedFailure("Could not find cursor location.");
+    if (cur.l.scheme == "unknown") throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
 
     return <cur, ws>;
 }

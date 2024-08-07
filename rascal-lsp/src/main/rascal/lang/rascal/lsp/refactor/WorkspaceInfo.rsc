@@ -280,10 +280,6 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLo
         }
     }
 
-    if (defs == {}) {
-        throw unsupportedRename("Cannot rename field that is not declared inside this workspace.");
-    }
-
     return <defs, uses, NO_RENAMES>;
 }
 
