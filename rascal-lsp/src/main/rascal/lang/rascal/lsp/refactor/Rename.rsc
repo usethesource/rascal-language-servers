@@ -210,6 +210,10 @@ Maybe[loc] locationOfName(Declaration d) = locationOfName(d.user.name) when d is
                                                                          || d is \data;
 Maybe[loc] locationOfName(TypeVar tv) = just(tv.name.src);
 Maybe[loc] locationOfName(Header h) = locationOfName(h.name);
+Maybe[loc] locationOfName(SyntaxDefinition sd) = locationOfName(sd.defined);
+Maybe[loc] locationOfName(Sym sym) = just(sym.nonterminal.src);
+Maybe[loc] locationOfName(Nonterminal nt) = just(nt.src);
+Maybe[loc] locationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] locationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
@@ -273,6 +277,8 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
               , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName}, cursorLoc), collectionField()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(locationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
+                // Nonterminal constructor names in exception productions
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at is conditional}, cursorLoc), exceptConstructor()>
             }
     };
 
@@ -316,6 +322,7 @@ tuple[Cursor, WorkspaceInfo] getCursor(WorkspaceInfo ws, Tree cursorT) {
     }
 
     if (cur.l.scheme == "unknown") throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
+    if (cur.kind is exceptConstructor) throw unsupportedRename("Constructors can not be renamed from except productions.");
 
     return <cur, ws>;
 }

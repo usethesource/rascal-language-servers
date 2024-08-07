@@ -53,6 +53,7 @@ data CursorKind
     | typeParam()
     | collectionField()
     | moduleName()
+    | exceptConstructor()
     ;
 
 data Cursor
@@ -172,27 +173,73 @@ set[loc] getKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     return uses;
 }
 
+private set[loc] getExceptUses(WorkspaceInfo ws, set[loc] defs) {
+
+    constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := ws.definitions[l]};
+    if (constructorDefs == {}) return {};
+
+    // We consider constructor definitions; we need to additionally find any uses at excepts (`!constructor``)
+    sortedFacts = [<l, ws.facts[l]> | l <- sort(domain(ws.facts), bool(loc l1, loc l2) {
+        // Sort facts by end location (ascending), then by length (ascending)
+        return l1.end != l2.end ? l1.end < l2.end : l1.length < l2.length;
+    })];
+
+    set[loc] uses = {};
+    for (Define d: <_, consName, _, _, _, defType(acons(aadt(aadtName, _, _), _, _))> <- constructorDefs) {
+        // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
+        for (
+            [ _*
+            , <l1, at1: !/\a-except(consName)>
+            , <l2, at2:  /\a-except(consName)>
+            , _*] := sortedFacts
+        ) {
+            // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
+            uses += trim(l2, removePrefix = l2.length - size(consName));
+        }
+    }
+
+    return uses;
+}
+
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
-    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
+    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName) + getExceptUses(ws, defs);
     return <defs, uses, NO_RENAMES>;
 }
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, {l}, mayOverloadF);
-    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
+    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName) + getExceptUses(ws, defs);
     return <defs, uses, NO_RENAMES>;
 }
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
-    AType at = ws.facts[cursorLoc];
-    if(Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
+    set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
+    set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
+        perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
+        // Per parameter name, keep the top-left-most occurrence
+        return mapper(groupRangeByDomain(perName), loc(set[loc] locs) {
+            return (getFirstFrom(locs) | l.offset < it.offset ? l : it | l <- locs);
+        });
+    }
+
+    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(dT)>, AType paramType) =
+        afunc(_, /paramType, _) := dT;
+    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(dT)>, AType paramType) =
+        aadt(_, /paramType, _) := dT;
+    default bool definesTypeParam(Define _, AType _) = false;
+
+    AType cursorType = ws.facts[cursorLoc];
+
+    if(Define containingDef <- ws.defines
+     , isContainedIn(cursorLoc, containingDef.defined)
+     , definesTypeParam(containingDef, cursorType)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
         facts = {<l, ws.facts[l]> | l <- ws.facts
-                                  , at := ws.facts[l]
-                                  , isContainedIn(l, d.defined)};
+                                  , cursorType := ws.facts[l]
+                                  , isContainedIn(l, containingDef.defined)};
 
-        formals = {l | <l, f> <- facts, f.alabel != ""};
+        formals = getFormals(containingDef.defInfo.atype, facts);
 
         // Given the location/offset of `&T`, find the location/offset of `T`
         offsets = sort({l.offset | l <- facts<0>});
@@ -211,7 +258,7 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cur
         return <defs, useDefs - defs, NO_RENAMES>;
     }
 
-    throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
+    throw unsupportedRename("Cannot find function or nonterminal which defines type parameter \'<cursorName>\'");
 }
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {

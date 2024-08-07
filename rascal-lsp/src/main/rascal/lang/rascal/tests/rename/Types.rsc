@@ -78,3 +78,11 @@ test bool multiModuleData() = testRenameOccurrences({
                '}"
                , {1})
     }, <"Main", "Bool", 1>, newName = "Boolean");
+
+test bool asTypeFromDef() = ASSERT_EQ({0, 1}, testRenameOccurrences("
+    'str s = \"text\";
+    'if (t := [Foo] s) {
+    '   str u = t;
+    '}
+", decls = "alias Foo = str;"
+, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
