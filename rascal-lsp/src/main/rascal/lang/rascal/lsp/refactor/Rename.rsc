@@ -149,13 +149,12 @@ private set[IllegalRenameReason] rascalCheckCausesCaptures(WorkspaceInfo ws, sta
         };
 
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
-    iUseDef = invert(ws.useDef);
     set[Capture] newUseShadowedByRename =
         {<cD, nU> | Define nD <- newDefs
                   , loc cD <- currentDefs
                   , loc cS := ws.definitions[cD].scope
                   , isContainedIn(cS, nD.scope)
-                  , nU <- iUseDef[newDefs.defined]
+                  , nU <- defUse(ws)[newDefs.defined]
                   , isContainedIn(nU, cS)
         };
 

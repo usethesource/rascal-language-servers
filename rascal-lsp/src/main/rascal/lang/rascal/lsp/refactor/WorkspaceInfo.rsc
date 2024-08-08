@@ -126,9 +126,15 @@ loc getProjectFolder(WorkspaceInfo ws, loc l) {
     throw "Could not find project containing <l>";
 }
 
-set[loc] getUses(WorkspaceInfo ws, loc def) = invert(ws.useDef)[def];
+@memo{maximumSize=1, minutes=5}
+rel[loc, loc] defUse(WorkspaceInfo ws) = invert(ws.useDef);
 
-set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = invert(ws.useDef)[defs];
+@memo{maximumSize=1, minutes=5}
+map[AType, set[loc]] factsInvert(WorkspaceInfo ws) = invert(ws.facts);
+
+set[loc] getUses(WorkspaceInfo ws, loc def) = defUse(ws)[def];
+
+set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = defUse(ws)[defs];
 
 set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
@@ -156,14 +162,13 @@ private int qualSepSize = size("::");
 set[loc] getKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};
 
-    ifacts = invert(ws.facts);
     for (d <- defs
        , f <- ws.facts
        , isStrictlyContainedIn(d, f)
        , afunc(retType, _, [*_, kwField(kwAType, cursorName, _), *_]) := ws.facts[f]
        , funcName <- getUses(ws, f)
        ) {
-        loc funcCall = min({l | l <- ifacts[retType], l.offset == funcName.offset});
+        loc funcCall = min({l | l <- factsInvert(ws)[retType], l.offset == funcName.offset});
         uses += {name.src | /Name name := parseModuleWithSpacesCached(funcCall.top)
                           , isStrictlyContainedIn(name.src, funcCall)
                           , "<name>" == kwAType.alabel};
@@ -242,7 +247,7 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLo
         }
     }
 
-    set[loc] collectionFacts = invert(ws.facts)[collectionType];
+    set[loc] collectionFacts = factsInvert(ws)[collectionType];
     rel[loc file, loc u] factsByModule = groupBy(collectionFacts, loc(loc l) { return l.top; });
 
     set[loc] defs = {};
