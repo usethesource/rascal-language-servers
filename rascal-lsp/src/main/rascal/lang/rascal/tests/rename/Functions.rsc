@@ -231,3 +231,58 @@ test bool localOverloadedFunction() = {0, 1, 2, 3} == testRenameOccurrences("
     '
     'foo(h());
 ", decls = "data D = g() | h();");
+
+test bool functionsInVModuleStructureFromLeft() = testRenameOccurrences({
+    byText("Left", "str foo(str s) = s when s == \"x\";", {0}), byText("Right", "str foo(str s) = s when s == \"y\";", {0})
+                    , byText("Merger",
+                        "import Left;
+                        'import Right;
+                        'void main() { x = foo(\"foo\"); }
+                        ", {0})
+}, <"Left", "foo", 0>);
+
+test bool functionsInVModuleStructureFromMerger() = testRenameOccurrences({
+    byText("Left", "str foo(str s) = s when s == \"x\";", {0}), byText("Right", "str foo(str s) = s when s == \"y\";", {0})
+                    , byText("Merger",
+                        "import Left;
+                        'import Right;
+                        'void main() { foo(\"foo\"); }
+                        ", {0})
+}, <"Merger", "foo", 0>);
+
+test bool functionsInYModuleStructure() = testRenameOccurrences({
+    byText("Left", "str foo(str s) = s when s == \"x\";", {0}), byText("Right", "str foo(str s) = s when s == \"x\";", {0})
+                    , byText("Merger",
+                        "extend Left;
+                        'extend Right;
+                        ", {})
+                    , byText("User",
+                        "import Merger;
+                        'void main() { foo(\"foo\"); }
+                        ", {0})
+}, <"Left", "foo", 0>);
+
+test bool functionsInInvertedVModuleStructure() = testRenameOccurrences({
+            byText("Definer", "str foo(str s) = s when s == \"x\";
+                              'str foo(str s) = s when s == \"y\";", {0, 1}),
+    byText("Left", "import Definer;
+                   'void main() { foo(\"foo\"); }", {0}), byText("Right", "import Definer;
+                                                                          'void main() { foo(\"fu\"); }", {0})
+}, <"Left", "foo", 0>);
+
+test bool functionsInDiamondModuleStructure() = testRenameOccurrences({
+            byText("Definer", "str foo(str s) = s when s == \"x\";
+                              'str foo(str s) = s when s == \"y\";", {0, 1}),
+    byText("Left", "extend Definer;", {}), byText("Right", "extend Definer;", {}),
+            byText("User", "import Left;
+                           'import Right;
+                           'void main() { foo(\"foo\"); }", {0})
+}, <"Definer", "foo", 0>);
+
+test bool functionsInIIModuleStructure() = testRenameOccurrences({
+    byText("LeftDefiner",  "str foo(str s) = s when s == \"x\";", {0}), byText("RightDefiner",  "str foo(str s) = s when s == \"y\";", {}),
+    byText("LeftExtender", "extend LeftDefiner;", {}),                  byText("RightExtender", "extend RightDefiner;", {}),
+    byText("LeftUser",     "import LeftExtender;
+                           'void main() { foo(\"foo\"); }", {0}),       byText("RightUser",     "import RightExtender;
+                                                                                                'void main() { foo(\"fu\"); }", {})
+}, <"LeftDefiner", "foo", 0>);

@@ -372,8 +372,10 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
                 RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]
                                                                       [verbose = false]
                                                                       [logPathConfig = false];
-                ms = rascalTModelForLocs(toList(\files), ccfg, dummy_compile1);
-                tmodels += {convertTModel2PhysicalLocs(tm) | m <- ms.tmodels, tm := ms.tmodels[m]};
+                for (file <- \files) {
+                    ms = rascalTModelForLocs([file], ccfg, dummy_compile1);
+                    tmodels += {convertTModel2PhysicalLocs(tm) | m <- ms.tmodels, tm := ms.tmodels[m]};
+                }
             }
             return tmodels;
         }

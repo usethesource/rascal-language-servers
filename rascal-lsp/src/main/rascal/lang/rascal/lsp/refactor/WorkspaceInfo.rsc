@@ -76,6 +76,8 @@ data WorkspaceInfo (
     set[loc] sourceFiles = {},
     map[loc, Define] definitions = (),
     map[loc, AType] facts = (),
+    Scopes scopes = (),
+    Paths paths = {},
     set[loc] projects = {}
 ) = workspaceInfo(
     ProjectFiles() preloadFiles,
@@ -114,6 +116,8 @@ WorkspaceInfo loadTModel(WorkspaceInfo ws, TModel tm) {
     ws.defines     += tm.defines;
     ws.definitions += tm.definitions;
     ws.facts       += tm.facts;
+    ws.scopes      += tm.scopes;
+    ws.paths       += tm.paths;
 
     return ws;
 }
@@ -140,20 +144,50 @@ set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
 Maybe[AType] getFact(WorkspaceInfo ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
 
+@memo{maximumSize=1, minutes=5}
+set[loc] getModuleScopes(WorkspaceInfo ws) = invert(ws.scopes)[|global-scope:///|];
+
+@memo{maximumSize=1, minutes=5}
+map[loc, loc] getModuleScopePerFile(WorkspaceInfo ws) = (scope.top: scope | loc scope <- getModuleScopes(ws));
+
+@memo{maximumSize=1, minutes=5}
+rel[loc from, loc to] getTransitiveReflexiveModulePaths(WorkspaceInfo ws) {
+    rel[loc from, loc to] moduleI = ident(getModuleScopes(ws));
+    rel[loc from, loc to] imports = (ws.paths<pathRole, from, to>)[importPath()];
+    rel[loc from, loc to] extends = (ws.paths<pathRole, from, to>)[extendPath()];
+
+    return (moduleI + imports)  // o or 1 imports
+         o (moduleI + extends+) // 0 or more extends
+         ;
+}
+
 set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
-    set[loc] overloadedLocs = defs;
+    set[loc] overloadedDefs = defs;
 
     // Pre-condition
-    assert mayOverloadF(overloadedLocs, ws.definitions):
+    assert mayOverloadF(overloadedDefs, ws.definitions):
         "Initial defs are invalid overloads!";
 
-    for (loc d <- ws.definitions) {
-        if (mayOverloadF(defs + d, ws.definitions)) {
-            overloadedLocs += d;
-        }
+    map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(ws);
+    rel[loc d, loc scope] scopesOfDefUses = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
+    rel[loc def, loc scope] defAndTheirUseScopes = ws.defines<defined, scope> + scopesOfDefUses;
+    rel[loc from, loc to] modulePaths = getTransitiveReflexiveModulePaths(ws);
+
+    solve(overloadedDefs) {
+        rel[loc from, loc to] reachableDefs =
+            ident(overloadedDefs)       // Start from all current defs
+          o defAndTheirUseScopes        // - Look up their scope and scopes of their uses
+          o modulePaths                 // - Follow import/extend relations to reachable scopes
+          o ws.defines<scope, defined>  // - Find definitions in the reached scope
+          ;
+
+        overloadedDefs += {d
+            | loc d <- reachableDefs<1>
+            , mayOverloadF(overloadedDefs + d, ws.definitions)
+        };
     }
 
-    return overloadedLocs;
+    return overloadedDefs;
 }
 
 private rel[loc, loc] NO_RENAMES(str _) = {};
@@ -184,8 +218,11 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayO
 }
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
-    defs = getOverloadedDefs(ws, {l}, mayOverloadF);
+    set[loc] initialUses = getUses(ws, l);
+    set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
+    defs = getOverloadedDefs(ws, initialDefs, mayOverloadF);
     uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
+
     return <defs, uses, NO_RENAMES>;
 }
 

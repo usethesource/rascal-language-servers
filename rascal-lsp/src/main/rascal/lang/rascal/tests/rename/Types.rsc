@@ -78,3 +78,105 @@ test bool multiModuleData() = testRenameOccurrences({
                '}"
                , {1})
     }, <"Main", "Bool", 1>, newName = "Boolean");
+
+test bool dataTypesInVModuleStructureFromLeft() = testRenameOccurrences({
+    byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
+                    , byText("Merger",
+                        "import Left;
+                        'import Right;
+                        'bool f(Foo foo) = (foo == f() || foo == g());
+                        ", {0})
+}, <"Left", "Foo", 0>, newName = "Bar");
+
+test bool dataTypesInVModuleStructureFromMerger() = testRenameOccurrences({
+    byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
+                    , byText("Merger",
+                        "import Left;
+                        'import Right;
+                        'bool f(Foo foo) = (foo == f() || foo == g());
+                        ", {0})
+}, <"Merger", "Foo", 0>, newName = "Bar");
+
+@synopsis{
+    (defs)
+    /    \
+    A  B  C
+     \/ \/
+      D E
+     /   \
+     (uses)
+}
+test bool dataTypesInWModuleStructureWithoutMerge() = testRenameOccurrences({
+    byText("A", "data Foo = f();", {0}), byText("B", "", {}), byText("C", "data Foo = h();", {})
+                    , byText("D",
+                        "import A;
+                        'import B;
+                        'bool func(Foo foo) = foo == f();
+                        ", {0}),    byText("E",
+                                        "import B;
+                                        'import C;
+                                        'bool func(Foo foo) = foo == h();", {})
+}, <"D", "Foo", 0>, newName = "Bar");
+
+@synopsis{
+    (defs)
+    /  | \
+    v  v  v
+    A  B  C
+     \/ \/
+      D E
+      ^ ^
+     /   \
+     (uses)
+}
+test bool dataTypesInWModuleStructureWithMerge() = testRenameOccurrences({
+    byText("A", "data Foo = f();", {0}), byText("B", "data Foo = g();", {0}), byText("C", "data Foo = h();", {0})
+                    , byText("D",
+                        "import A;
+                        'import B;
+                        'bool func(Foo foo) = foo == f();
+                        ", {0}),    byText("E",
+                                        "import B;
+                                        'import C;
+                                        'bool func(Foo foo) = foo == h();", {0})
+}, <"D", "Foo", 0>, newName = "Bar");
+
+test bool dataTypesInYModuleStructure() = testRenameOccurrences({
+    byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
+                    , byText("Merger",
+                        "extend Left;
+                        'extend Right;
+                        ", {})
+                    , byText("User",
+                        "import Merger;
+                        'bool f(Foo foo) = (foo == f() || foo == g());
+                        ", {0})
+}, <"Left", "Foo", 0>, newName = "Bar");
+
+test bool dataTypesInInvertedVModuleStructure() = testRenameOccurrences({
+            byText("Definer", "data Foo = f() | g();", {0}),
+    byText("Left", "import Definer;
+                   'bool isF(Foo foo) = foo == f();", {0}), byText("Right", "import Definer;
+                                                                            'bool isG(Foo foo) = foo == g();", {0})
+}, <"Left", "Foo", 0>, newName = "Bar");
+
+test bool dataTypesInDiamondModuleStructure() = testRenameOccurrences({
+            byText("Definer", "data Foo = f() | g();", {0}),
+    byText("Left", "extend Definer;", {}), byText("Right", "extend Definer;", {}),
+            byText("User", "import Left;
+                           'import Right;
+                           'bool isF(Foo foo) = foo == f();
+                           'bool isG(Foo foo) = foo == g();", {0, 1})
+}, <"Definer", "Foo", 0>, newName = "Bar");
+
+@synopsis{
+    Two disjunct module trees. Both trees define `data Foo`. Since the trees are disjunct,
+    we expect a renaming triggered from the left side leaves the right side untouched.
+}
+test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
+    byText("LeftDefiner", "data Foo = f();", {0}),              byText("RightDefiner", "data Foo = g();", {}),
+    byText("LeftExtender", "extend LeftDefiner;", {}),          byText("RightExtender", "extend RightDefiner;", {}),
+    byText("LeftUser", "import LeftExtender;
+                       'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
+                                                                        'bool func(Foo foo) = foo == g();", {})
+}, <"LeftDefiner", "Foo", 0>, newName = "Bar");

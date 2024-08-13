@@ -124,11 +124,13 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
 
     expectedEditsPerModule = (name: <m.expectedRenameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
 
+    if (!ASSERT_EQ(expectedEditsPerModule, editsPerModule)) return false;
+
     for (src <- pcfg.srcs) {
         verifyTypeCorrectRenaming(src, edits, pcfg);
     }
 
-    return ASSERT_EQ(editsPerModule, expectedEditsPerModule);
+    return true;
 }
 
 set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
