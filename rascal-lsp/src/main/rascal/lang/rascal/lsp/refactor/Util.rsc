@@ -82,3 +82,12 @@ str toString(map[str, list[Message]] moduleMsgs) =
 
 rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
     {<pred(v), v> | v <- s};
+
+bool byLength(loc l1, loc l2) = l1.length < l2.length;
+bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
+
+bool(&T, &T) desc(bool(&T, &T) f) {
+    return bool(&T t1, &T t2) {
+        return f(t2, t1);
+    };
+}

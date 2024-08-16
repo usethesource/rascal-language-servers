@@ -259,6 +259,15 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
     ws = preLoad(ws);
 
+    rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
+        | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
+        , just(<containerLoc, fieldLocs>) := getFieldLocs(cursorName, t)
+        , loc fieldLoc <- fieldLocs
+    };
+
+
+    Maybe[loc] smallestFieldContainingCursor = findSmallestContaining(fields.field, cursorLoc);
+
     rel[loc l, CursorKind kind] locsContainingCursor = {
         <l, k>
         | <just(l), k> <- {
@@ -268,10 +277,8 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , <findSmallestContaining((ws.defines<id, defined>)[cursorName], cursorLoc), def()>
                 // Type parameters
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
-                // Collection field definitions; any location where the label equals the name under the cursor
-              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at.alabel == cursorName}, cursorLoc), collectionField()>
-                // Collection field uses; any location which is of set or list type, where the label of the collection element equals the name under the cursor
-              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is aset || at is alist) && at.elmType.alabel? && at.elmType.alabel == cursorName}, cursorLoc), collectionField()>
+                // Any kind of field; we'll decide which exactly later
+              , <smallestFieldContainingCursor, collectionField()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
             }
@@ -292,23 +299,22 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
             cur = cursor(def(), c, cursorName);
         }
         case {use(), *_}: {
-            if (d <- ws.useDef[c], just(amodule(_)) := getFact(ws, d)) {
+            set[loc] defs = getDefs(ws, c);
+            set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
+
+            if (d <- defs, just(amodule(_)) := getFact(ws, d)) {
                 // Cursor is at an import
                 cur = cursor(moduleName(), c, cursorName);
             } else if (u <- ws.useDef<0>, u.begin <= cursorLoc.begin && u.end > cursorLoc.end) {
                 // Cursor is at a qualified name
                 cur = cursor(moduleName(), c, cursorName);
-            } else if (size(getDefs(ws, c) & ws.defines.defined) > 0) {
+            } else if (defines != {}) {
                 // The cursor is at a use with corresponding definitions.
                 cur = cursor(use(), c, cursorName);
-            } else if (just(at) := getFact(ws, c)) {
-                if (aparameter(cursorName, _) := at) {
-                    // The cursor is at a type parameter
-                    cur = cursor(typeParam(), c, cursorName);
-                } else if (at.alabel == cursorName) {
-                    // The cursor is at a collection field
-                    cur = cursor(collectionField(), c, cursorName);
-                }
+            } else if (just(at) := getFact(ws, c)
+                     , aparameter(cursorName, _) := at) {
+                // The cursor is at a type parameter
+                cur = cursor(typeParam(), c, cursorName);
             }
         }
         case {k}: {
@@ -386,7 +392,10 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
 
     step("loading required type information", 1);
     if (!rascalIsFunctionLocal(ws, cur)) {
+        println("Renaming not module-local; loading more information from workspace.");
         ws = loadWorkspace(ws);
+    } else {
+        println("Renaming guaranteed to be module-local.");
     }
 
     step("collecting uses of \'<cursorName>\'", 1);

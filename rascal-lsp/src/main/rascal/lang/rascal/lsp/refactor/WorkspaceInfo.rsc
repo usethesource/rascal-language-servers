@@ -193,6 +193,8 @@ set[loc] getOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOv
 private rel[loc, loc] NO_RENAMES(str _) = {};
 private int qualSepSize = size("::");
 
+bool isCollectionType(AType at) = at is arel || at is alrel || at is atuple;
+
 set[loc] getKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};
 
@@ -211,9 +213,37 @@ set[loc] getKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     return uses;
 }
 
+set[loc] getKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
+    set[loc] uses = getUses(ws, defs);
+
+    for (d <- defs
+       , Define dataDef: <_, _, _, dataId(), _, _> <- ws.defines
+       , isStrictlyContainedIn(d, dataDef.defined)
+       , Define consDef: <_, _, _, constructorId(), _, _> <- ws.defines
+       , isStrictlyContainedIn(consDef.defined, dataDef.defined)
+    ) {
+        if (AType fieldType := ws.definitions[d].defInfo.atype) {
+            // println("Def: <ws.definitions[d]>");
+            if (<{}, consUses, _> := getFieldDefsUses(ws, dataDef.defInfo.atype, fieldType, cursorName)) {
+                uses += consUses;
+            }
+        } else {
+            throw unsupportedRename("Unknown type for definition at <d>: <ws.definitions[d].defInfo>");
+        }
+    }
+
+    return uses;
+}
+
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     defs = getOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
-    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
+    uses = getUses(ws, defs);
+
+    if (keywordFormalId() in {ws.definitions[d].idRole | d <- defs}) {
+        uses += getKeywordFormalUses(ws, defs, cursorName);
+        uses += getKeywordFieldUses(ws, defs, cursorName);
+    }
+
     return <defs, uses, NO_RENAMES>;
 }
 
@@ -221,7 +251,12 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayO
     set[loc] initialUses = getUses(ws, l);
     set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
     defs = getOverloadedDefs(ws, initialDefs, mayOverloadF);
-    uses = getUses(ws, defs) + getKeywordFormalUses(ws, defs, cursorName);
+    uses = getUses(ws, defs);
+
+    if (keywordFormalId() in {ws.definitions[d].idRole | d <- defs}) {
+        uses += getKeywordFormalUses(ws, defs, cursorName);
+        uses += getKeywordFieldUses(ws, defs, cursorName);
+    }
 
     return <defs, uses, NO_RENAMES>;
 }
@@ -257,67 +292,68 @@ DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cur
 }
 
 DefsUsesRenames getDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
+    bool isTupleField(AType fieldType) = fieldType.alabel == "";
+
     AType cursorType = ws.facts[cursorLoc];
-    factLocsSortedBySize = sort(domain(ws.facts), bool(loc l1, loc l2) { return l1.length < l2.length; });
+    list[loc] factLocsSortedBySize = sort(domain(ws.facts), byLength);
 
-    AType fieldType = avoid();
-    AType collectionType = avoid();
-    if (l <- factLocsSortedBySize, isStrictlyContainedIn(cursorLoc, l), at := ws.facts[l], (at is arel || at is alrel || at is atuple), at.elemType is atypeList) {
-        // We are at a definition site
-        collectionType = at;
-        fieldType = cursorType;
+    if (l <- factLocsSortedBySize, isStrictlyContainedIn(cursorLoc, l), collUseType := ws.facts[l], isCollectionType(collUseType), collUseType.elemType is atypeList) {
+        // We are at a collection definition site
+        return getFieldDefsUses(ws, collUseType, cursorType, cursorName);
     }
-    else {
+
+    // We can find the collection type by looking for the first use to the left of the cursor that has a collection type
+    lrel[loc use, loc def] usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
+    if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType collDefType) := define.defInfo, isCollectionType(collDefType)) {
         // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
-        fieldType = cursorType.alabel == ""
-            // Collection type
-            ? cursorType.elmType
-            // Tuple type
-            : cursorType;
-
-        // We need to find the collection type by looking for the first use to the left of the cursor that has a collection type
-        usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
-        if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType at) := define.defInfo, (at is arel || at is alrel || at is atuple)) {
-            collectionType = at;
-        } else {
-            throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
-        }
+        return getFieldDefsUses(ws, collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
+    } else {
+        throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
     }
+}
 
-    set[loc] collectionFacts = factsInvert(ws)[collectionType];
-    rel[loc file, loc u] factsByModule = groupBy(collectionFacts, loc(loc l) { return l.top; });
+Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, (Expression) `<Expression e>.<Name field>`) =
+    just(<e.src, {field.src}>) when fieldName == "<field>";
+
+Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, (Assignable) `<Assignable rec>.<Name field>`) =
+    just(<rec.src, {field.src}>) when fieldName == "<field>";
+
+Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, (Expression) `<Expression e>\< <{Field ","}+ fields> \>`) {
+    fieldLocs = {field.src
+        | field <- fields
+        , field is name
+        , "<field.fieldName>" == fieldName
+    };
+
+    return fieldLocs != {} ? just(<e.src, fieldLocs>) : nothing();
+}
+
+Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, (Expression) `<Expression e>[<Name field> = <Expression _>]`) =
+    just(<e.src, {field.src}>) when fieldName == "<field>";
+
+Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, (StructuredType) `<BasicType tp>[<{TypeArg ","}+ args>]`) {
+    fieldLocs = {name.src | (TypeArg) `<Type _> <Name name>` <- args, fieldName == "<name>"};
+    return fieldLocs != {} ? just(<tp.src, fieldLocs>) : nothing();
+}
+
+default Maybe[tuple[loc, set[loc]]] getFieldLocs(str fieldName, Tree _) = nothing();
+
+private DefsUsesRenames getFieldDefsUses(WorkspaceInfo ws, AType containerType, AType fieldType, str cursorName) {
+    set[loc] containerFacts = factsInvert(ws)[containerType];
+    rel[loc file, loc u] factsByModule = groupBy(containerFacts, loc(loc l) { return l.top; });
 
     set[loc] defs = {};
     set[loc] uses = {};
     for (file <- factsByModule.file) {
         fileFacts = factsByModule[file];
-        visit(parseModuleWithSpacesCached(file)) {
-            case (Expression) `<Expression e>.<Name field>`: {
-                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, e.src))) {
-                    uses += field.src;
-                }
-            }
-            case (Assignable) `<Assignable rec>.<Name field>`: {
-                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, rec.src))) {
-                    uses += field.src;
-                }
-            }
-            case (Expression) `<Expression e>\< <{Field ","}+ fields> \>`: {
-                if (any(f <- fileFacts, isContainedIn(e.src, f))) {
-                    uses += {field.src | field <- fields
-                                       , field is name
-                                       , "<field.fieldName>" == cursorName};
-                }
-            }
-            case (Expression) `<Expression e>[<Name field> = <Expression _>]`: {
-                if ("<field>" == cursorName && any(f <- fileFacts, isContainedIn(f, e.src))) {
-                    uses += field.src;
-                }
-            }
-            case t:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
-                for (at := ws.facts[t.src], collectionType.elemType == at.elemType, (TypeArg) `<Type _> <Name name>` <- args, fieldType == ws.facts[name.src]) {
-                    defs += name.src;
-                }
+        for (/Tree t := parseModuleWithSpacesCached(file), just(<lhs, fields>) := getFieldLocs(cursorName, t)) {
+            if ((StructuredType) `<BasicType _>[<{TypeArg ","}+ _>]` := t
+              , at := ws.facts[t.src]
+              , containerType.elemType?
+              , containerType.elemType == at.elemType) {
+                defs += {f | f <- fields, fieldType == ws.facts[f]};
+            } else if (any(f <- fileFacts, isContainedIn(f, lhs))) {
+                uses += fields;
             }
         }
     }

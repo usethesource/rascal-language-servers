@@ -251,7 +251,11 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
     }
 
     if ([changed(_, replaces)] := edits) {
-        idx = {indexOf(oldNameOccurrences, l) | replace(l, _) <- replaces};
+        set[int] idx = {};
+        for (replace(replaceAt, replaceWith) <- replaces) {
+            if (oldText := readFile(replaceAt), "<oldText>" != name) throw "Unexpected change for \'<oldText>\' at <replaceAt>";
+            idx += indexOf(oldNameOccurrences, replaceAt);
+        }
         return idx;
     } else {
         print("Unexpected changes: ");
