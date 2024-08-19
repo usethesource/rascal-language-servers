@@ -263,7 +263,9 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName)
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     AType at = ws.facts[cursorLoc];
-    if(Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
+    set[loc] defs = {};
+    set[loc] useDefs = {};
+    for (Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
         facts = {<l, ws.facts[l]> | l <- ws.facts
                                   , at := ws.facts[l]
@@ -276,19 +278,19 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
         nextOffsets = toMapUnique(zip2(prefix(offsets), tail(offsets)));
 
         loc sentinel = |unknown:///|(0, 0, <0, 0>, <0, 0>);
-        defs = {min([f | f <- facts<0>, f.offset == nextOffset]) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
+        defs += {min([f | f <- facts<0>, f.offset == nextOffset]) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
 
-        useDefs = {trim(l, removePrefix = l.length - size(cursorName))
+        useDefs += {trim(l, removePrefix = l.length - size(cursorName))
                     | l <- facts<0>
                     , !ws.definitions[l]? // If there is a definition at this location, this is a formal argument name
                     , !any(ud <- ws.useDef[l], ws.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
                     , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
         };
 
-        return <defs, useDefs - defs, NO_RENAMES>;
+
     }
 
-    throw unsupportedRename("Cannot find function definition which defines template variable \'<cursorName>\'");
+    return <defs, useDefs - defs, NO_RENAMES>;
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
