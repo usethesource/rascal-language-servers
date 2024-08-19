@@ -29,6 +29,8 @@ module lang::rascal::tests::rename::TestUtils
 
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
+import lang::rascal::lsp::refactor::Util;
+
 import IO;
 import List;
 import Location;
@@ -64,6 +66,10 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     executeDocumentEdits(sortEdits(edits));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
+    // for (f <- find(root, "rsc")) {
+    //     println(f);
+    //     println(parseModuleWithSpaces(f));
+    // }
     throwAnyErrors(checkAll(root, ccfg));
 }
 
@@ -237,6 +243,8 @@ tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc
     edits = getEdits(singleModule, {projectDir}, cursorAtOldNameOccurrence, oldName, newName, PathConfig(loc _) { return pcfg; });
     occs = extractRenameOccurrences(singleModule, edits, oldName);
 
+    // println("Occurrences: <occs>");
+
     for (src <- pcfg.srcs) {
         verifyTypeCorrectRenaming(src, edits, pcfg);
     }
@@ -273,6 +281,9 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
     for (/Name n := m, "<n>" == name) {
         oldNameOccurrences += n.src;
     }
+
+    print("All locations of \'<name>\': ");
+    iprintln(sort(oldNameOccurrences, byOffset));
 
     if ([changed(_, replaces)] := edits) {
         set[int] idx = {};

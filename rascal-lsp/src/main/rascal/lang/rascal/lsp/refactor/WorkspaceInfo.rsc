@@ -47,11 +47,17 @@ import Map;
 import Set;
 import String;
 
+import IO;
+
 data CursorKind
     = use()
     | def()
     | typeParam()
     | collectionField()
+    | dataField(loc dataTypeDef)
+    | dataKeywordField(loc dataTypeDef)
+    | dataCommonKeywordField(loc dataTypeDef)
+    | keywordParam()
     | moduleName()
     ;
 
@@ -161,6 +167,20 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) 
          ;
 }
 
+@memo{maximumSize=1, minutes=5}
+rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(WorkspaceInfo ws) = toRel(ws.scopes)*;
+
+set[loc] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
+    rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
+    rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
+    rel[loc from, loc to] reachableDefs =
+        (ws.defines<defined, defined, scope>)[defs]
+      o scopes // Find the module scope
+      o modulePaths
+      o ws.defines<scope, defined>;
+    return reachableDefs.to;
+}
+
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     set[loc] overloadedDefs = defs;
 
@@ -194,6 +214,8 @@ private rel[loc, loc] NO_RENAMES(str _) = {};
 private int qualSepSize = size("::");
 
 bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atuple;
+bool rascalIsConstructorType(AType at) = at is acons;
+bool rascalIsDataType(AType at) = at is aadt;
 
 set[loc] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};
@@ -212,6 +234,12 @@ set[loc] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorN
 
     return uses;
 }
+
+set[loc] rascalGetKeywordArgs(none(), _) = {};
+set[loc] rascalGetKeywordArgs(\default(_, kwArgList), str cursorName) =
+    { kwArg.name.src
+    | kwArg <- kwArgList
+    , "<kwArg.name>" == cursorName};
 
 set[loc] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = getUses(ws, defs);
@@ -293,6 +321,84 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
     return <defs, useDefs - defs, NO_RENAMES>;
 }
 
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc), cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+    set[loc] initialDefs = {};
+    if (cursorLoc in ws.useDef<0>) {
+        // println("Data field is a use");
+        initialDefs = getDefs(ws, cursorLoc);
+    } else if (cursorLoc in ws.defines<defined>) {
+        // println("Data field is a def");
+        initialDefs = {cursorLoc};
+    } else if (just(AType adtType) := getFact(ws, cursorLoc)) {
+        // println("Data field is something else");
+        initialDefs = {
+            kwDef.defined
+            | Define dataDef: <_, _, _, dataId(), _, defType(adtType)> <- ws.defines
+            , Define kwDef: <_, _, cursorName, keywordFormalId(), _, _> <- ws.defines
+            , isStrictlyContainedIn(kwDef.defined, dataDef.defined)
+        };
+    } else {
+        throw unsupportedRename("Cannot rename data field \'<cursorName>\' from <cursorLoc>");
+    }
+
+    set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
+    set[loc] uses = getUses(ws, defs) + getKeywordFieldUses(ws, defs, cursorName);
+
+    return <defs, uses, NO_RENAMES>;
+}
+
+bool debug = false;
+
+&T printlnExpD(str msg, &T t) = debug ? printlnExp(msg, t) : t;
+
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataKeywordField(loc adtLoc), cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+    set[loc] defs = {};
+    set[loc] uses = {};
+
+    print("Defs: ");
+    iprintln(ws.defines);
+
+    print("Use/defs: ");
+    iprintln(ws.useDef);
+
+    set[loc] adtDefs = rascalGetOverloadedDefs(ws, {adtLoc}, mayOverloadF);
+    for (d <- adtDefs, dataTypeDef := ws.definitions[d], dataType := dataTypeDef.defInfo.atype) {
+        for (Define c:<_, _, _, constructorId(), _, _> <- ws.defines) {
+            for (u <- getUses(ws, c.defined) + c.defined) {
+                if (f <- sort(factsInvert(ws)[dataType], byLength)
+                  , isContainedIn(u, f)
+                  , m := parseModuleWithSpacesCached(f.top)
+                  , /Tree t := m
+                  , t.src?, t.src == f
+                  , just(<_, kwLocs>) := rascalGetKeywordLocs(cursorName, t)) {
+                    print("Keyword locs (of use <u>): ");
+                    iprintln(kwLocs);
+
+                    uses += kwLocs + printlnExpD("Uses of kw locs: ", getUses(ws, kwLocs));
+                }
+            }
+        }
+        for (Define dt:<_, _, _, _, _, defType(acons(dataType, _, _))> <- ws.defines
+           , dt.idRole != dataId()) {
+            println("dt: <dt>");
+            if (f <- sort(factsInvert(ws)[dataType], desc(byLength))
+                  , isContainedIn(dt.defined, f)) {
+                m = parseModuleWithSpacesCached(f.top);
+                for (/Tree t := m
+                   , t.src?, isContainedIn(t.src, f)
+                   , just(<_, kwLocs>) := rascalGetKeywordLocs(cursorName, t)) {
+                    print("Keyword locs (of <t.src>): ");
+                    iprintln(kwLocs);
+
+                    uses += kwLocs + printlnExpD("Uses of kw locs: ", getUses(ws, kwLocs));
+                }
+            }
+        }
+    }
+
+    return <defs, uses, NO_RENAMES>;
+}
+
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
@@ -339,6 +445,23 @@ Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (StructuredType) `
 }
 
 default Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, Tree _) = nothing();
+
+Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`) {
+    kwArgLocs = rascalGetKeywordArgs(kwArgs, fieldName);
+    return kwArgLocs != {} ? just(<e.src, kwArgLocs>) : nothing();
+}
+
+Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Pattern) `<Pattern p>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`) {
+    kwArgLocs = rascalGetKeywordArgs(kwArgs, fieldName);
+    return kwArgLocs != {} ? just(<p.src, kwArgLocs>) : nothing();
+}
+
+Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Variant) `<Name name>(<{TypeArg ","}* _> <KeywordFormals kwArgs>)`) {
+    kwArgLocs = rascalGetKeywordArgs(kwArgs, fieldName);
+    return kwArgLocs != {} ? just(<name.src, kwArgLocs>) : nothing();
+}
+
+default Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, Tree _) = nothing();
 
 private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, AType containerType, AType fieldType, str cursorName) {
     set[loc] containerFacts = factsInvert(ws)[containerType];
