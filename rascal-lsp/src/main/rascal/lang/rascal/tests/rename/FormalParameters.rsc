@@ -70,12 +70,12 @@ test bool nestedKeywordParameter() = {0, 1, 2} == testRenameOccurrences("
     'int x = f(foo = 10);
 ");
 
-test bool keywordParameterFromDef() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences(
+test bool keywordParameterFromDef() = expectEq({0, 1, 2}, testRenameOccurrences(
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;"
 ));
 
-test bool keywordParameterFromUse() = ASSERT_EQ({0, 1, 2}, testRenameOccurrences(
+test bool keywordParameterFromUse() = expectEq({0, 1, 2}, testRenameOccurrences(
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;"
     , cursorAtOldNameOccurrence = 1

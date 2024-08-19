@@ -67,7 +67,7 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     throwAnyErrors(checkAll(root, ccfg));
 }
 
-bool ASSERT_EQ(&T expected, &T actual) {
+bool expectEq(&T expected, &T actual) {
     if (expected != actual) {
         print("EXPECTED: ");
         iprintln(expected);
@@ -124,7 +124,7 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
 
     expectedEditsPerModule = (name: <m.expectedRenameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
 
-    if (!ASSERT_EQ(expectedEditsPerModule, editsPerModule)) return false;
+    if (!expectEq(expectedEditsPerModule, editsPerModule)) return false;
 
     for (src <- pcfg.srcs) {
         verifyTypeCorrectRenaming(src, edits, pcfg);
