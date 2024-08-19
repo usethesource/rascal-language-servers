@@ -245,9 +245,9 @@ private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
 }
 
 private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(def(), cursorLoc, _)) =
-    rascalIsFunctionLocalDefs(ws, getOverloadedDefs(ws, {cursorLoc}, rascalMayOverloadSameName));
+    rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, {cursorLoc}, rascalMayOverloadSameName));
 private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)) =
-    rascalIsFunctionLocalDefs(ws, getOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
+    rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(collectionField(), _, _)) = false;
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(moduleName(), _, _)) = false;
@@ -261,7 +261,7 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
     rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, fieldLocs>) := getFieldLocs(cursorName, t)
+        , just(<containerLoc, fieldLocs>) := rascalGetFieldLocs(cursorName, t)
         , loc fieldLoc <- fieldLocs
     };
 
@@ -332,9 +332,7 @@ private set[Name] rascalNameToEquivalentNames(str name) = {
     startsWith(name, "\\") ? [Name] name : [Name] "\\<name>"
 };
 
-private bool containsName(loc l, str name) {
-    // If we do not find any occurrences of the name under the cursor in a module,
-    // we are not interested in it at all, and will skip loading its TPL.
+private bool rascalContainsName(loc l, str name) {
     m = parseModuleWithSpacesCached(l);
     for (n <- rascalNameToEquivalentNames(name)) {
         if (/n := m) return true;
@@ -364,7 +362,9 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
                 , srcFolder <- pcfg.srcs
                 , file <- find(srcFolder, "rsc")
                 , file != cursorLoc.top // because we loaded that during preload
-                , containsName(file, cursorName)
+                // If we do not find any occurrences of the name under the cursor in a module,
+                // we are not interested in it at all, and will skip loading its TPL.
+                , rascalContainsName(file, cursorName)
             };
         },
         // Load TModel for loc
@@ -399,7 +399,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     }
 
     step("collecting uses of \'<cursorName>\'", 1);
-    <defs, uses, getRenames> = getDefsUses(ws, cur, rascalMayOverloadSameName, getPathConfig);
+    <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, getPathConfig);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
