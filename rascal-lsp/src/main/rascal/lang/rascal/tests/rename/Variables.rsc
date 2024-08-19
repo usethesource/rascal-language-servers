@@ -32,19 +32,19 @@ import lang::rascal::lsp::refactor::Exception;
 
 //// Local
 
-test bool freshName() = {0} == testRenameOccurrences("
+test bool freshName() = testRenameOccurrences({0}, "
     'int foo = 8;
     'int qux = 10;
 ");
 
-test bool shadowVariableInInnerScope() = {0} == testRenameOccurrences("
+test bool shadowVariableInInnerScope() = testRenameOccurrences({0}, "
     'int foo = 8;
     '{
     '   int bar = 9;
     '}
 ");
 
-test bool parameterShadowsVariable() = {0} == testRenameOccurrences("
+test bool parameterShadowsVariable() = testRenameOccurrences({0}, "
     'int foo = 8;
     'int f(int bar) {
     '   return bar;
@@ -71,7 +71,7 @@ test bool doubleVariableDeclaration() = testRename("
     'int bar = 9;
 ");
 
-test bool adjacentScopes() = {0} == testRenameOccurrences("
+test bool adjacentScopes() = testRenameOccurrences({0}, "
     '{
     '   int foo = 8;
     '}
@@ -100,14 +100,14 @@ test bool implicitPatterVariableInInnerScopeBecomesUse() = testRename("
     '}
 ");
 
-test bool explicitPatternVariableInInnerScope() = {0} == testRenameOccurrences("
+test bool explicitPatternVariableInInnerScope() = testRenameOccurrences({0}, "
     'int foo = 8;
     'if (int bar := 9) {
     '   bar = 2 * bar;
     '}
 ");
 
-test bool becomesPatternInInnerScope() = {0} == testRenameOccurrences("
+test bool becomesPatternInInnerScope() = testRenameOccurrences({0}, "
     'int foo = 8;
     'if (bar : int _ := 9) {
     '   bar = 2 * bar;
@@ -162,9 +162,9 @@ test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
     '}
 ");
 
-test bool tupleVariable() = {0} == testRenameOccurrences("\<foo, baz\> = \<0, 1\>;");
+test bool tupleVariable() = testRenameOccurrences({0}, "\<foo, baz\> = \<0, 1\>;");
 
-test bool tuplePatternVariable() = {0, 1} == testRenameOccurrences("
+test bool tuplePatternVariable() = testRenameOccurrences({0, 1}, "
     'if (\<foo, baz\> := \<0, 1\>)
     '   qux = foo;
 ");
@@ -172,7 +172,7 @@ test bool tuplePatternVariable() = {0, 1} == testRenameOccurrences("
 
 //// Global
 
-test bool globalVar() = {0, 3} == testRenameOccurrences("
+test bool globalVar() = testRenameOccurrences({0, 3}, "
     'int f(int foo) = foo;
     'foo = 16;
 ", decls = "

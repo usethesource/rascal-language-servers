@@ -28,17 +28,11 @@ module lang::rascal::tests::rename::Types
 
 import lang::rascal::tests::rename::TestUtils;
 
-test bool globalAliasFromDef() = {0, 1, 2, 3} == testRenameOccurrences("
+test bool globalAlias() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo f(Foo x) = x;
     'Foo foo = 8;
     'y = f(foo);
 ", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar");
-
-test bool globalAliasFromUse() = {0, 1, 2, 3} == testRenameOccurrences("
-    'Foo f(Foo x) = x;
-    'Foo foo = 8;
-    'y = f(foo);
-", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar", cursorAtOldNameOccurrence = 1);
 
 test bool multiModuleAlias() = testRenameOccurrences({
     byText("alg::Fib", "alias Foo = int;
@@ -58,7 +52,7 @@ test bool multiModuleAlias() = testRenameOccurrences({
                , {0})
     }, <"Main", "Foo", 0>, newName = "Bar");
 
-test bool globalData() = {0, 1, 2, 3} == testRenameOccurrences("
+test bool globalData() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo f(Foo x) = x;
     'Foo x = foo();
     'y = f(x);

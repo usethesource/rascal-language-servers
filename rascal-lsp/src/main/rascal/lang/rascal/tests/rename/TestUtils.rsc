@@ -133,9 +133,21 @@ bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id
     return true;
 }
 
-set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
-    <edits, occs, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
-    return occs;
+bool testRenameOccurrences(set[int] oldNameOccurrences, str stmtsStr, str oldName = "foo", str newName = "bar", str decls = "", str imports = "", set[int] skipCursors = {}) {
+    bool success = true;
+    map[int, set[int]] results = ();
+    for (cursor <- oldNameOccurrences - skipCursors) {
+        <_, renamedOccs, _> = getEditsAndModule(stmtsStr, cursor, oldName, newName, decls, imports);
+        results[cursor] = renamedOccs;
+        if (renamedOccs != oldNameOccurrences) success = false;
+    }
+
+    if (!success) {
+        println("Test returned unexpected renames for some possible cursors (expected: <oldNameOccurrences>):");
+        iprintln(results);
+    }
+
+    return success;
 }
 
 // Test renames that are expected to throw an exception

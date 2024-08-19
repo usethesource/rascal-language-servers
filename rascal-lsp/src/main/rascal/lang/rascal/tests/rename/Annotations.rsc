@@ -29,32 +29,17 @@ module lang::rascal::tests::rename::Annotations
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascal::lsp::refactor::Exception;
 
-test bool annoAtDecl() = {0, 1} == testRenameOccurrences("
+test bool userDefinedAnno() = testRenameOccurrences({0, 1, 2}, "
     'x = d();
     'x@foo = 8;
+    'int i = x@foo;
     ", decls = "
     'data D = d();
     'anno int D@foo;
 ");
 
-test bool annoAtUse() = {0, 1} == testRenameOccurrences("
-    'x = d();
-    'int i = x@foo;
-    ", decls = "
-    'data D = d();
-    'anno int D@foo;
-", cursorAtOldNameOccurrence = 1);
-
-test bool annoAtAssign() = {0, 1} == testRenameOccurrences("
-    'x = d();
-    'x@foo = 8;
-    ", decls = "
-    'data D = d();
-    'anno int D@foo;
-", cursorAtOldNameOccurrence = 1);
-
 @expected{illegalRename}
-test bool builtinAnno() = {0, 1} == testRenameOccurrences("
+test bool builtinAnno() = testRename("
     'Tree t = char(8);
     'x = t@\\loc;
 ", oldName = "\\loc", imports = "import ParseTree;");
