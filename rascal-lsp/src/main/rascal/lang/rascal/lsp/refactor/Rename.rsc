@@ -340,6 +340,51 @@ private bool rascalContainsName(loc l, str name) {
     return false;
 }
 
+@synopsis{
+    Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.
+    Renaming is not supported for some symbols.
+}
+@description {
+    Rename the Rascal symbol under the cursor, across all currently open projects in the workspace.
+    The following symbols are supported.
+    - Variables
+    - Pattern variables
+    - Parameters (positional, keyword)
+    - Functions
+    - Annotations (on values)
+    - Collection fields (tuple, relations)
+    - Modules
+    - Aliases
+    - Data types
+    - Type parameters
+
+    The following symbols are currently unsupported.
+    - Annotations (on functions)
+    - Data constructors
+    - Data constructor fields (fields, keyword fields, common keyword fields)
+
+    *Name resolution*
+    A renaming triggers the typechecker on the currently open file to determine the scope of the renaming.
+    If the renaming is not function-local, it might trigger the type checker on all files in the workspace to find rename candidates.
+    A renaming requires all files in which the name is used to be without errors.
+
+    *Overloading*
+    Considers recognizes overloaded definitions and renames those as well.
+
+    Functions will be considered overloaded when they have the same name, even when the arity or type signature differ.
+    This means that the following functions defitions will be renamed in unison:
+    ```
+    list[&T] concat(list[&T] _, list[&T] _) = _;
+    set[&T] concat(set[&T] _, set[&T] _) = _;
+    set[&T] concat(set[&T] _, set[&T] _, set[&T] _) = _;
+    ```
+
+    *Validity checking*
+    Once all rename candidates have been resolved, validity of the renaming will be checked. A rename is valid iff
+    1. It does not introduce errors.
+    2. It does not change the semantics of the application.
+    3. It does not change definitions outside of the current workspace.
+}
 list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
     = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
     loc cursorLoc = cursorT.src;

@@ -37,9 +37,13 @@ import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
 
-Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) {
+@synopsis{
+    Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
+    Accepts a predicate deciding containment as an optional argument.
+}
+Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l, bool(loc, loc) containmentPred = isContainedIn) {
     Maybe[loc] result = nothing();
-    for (w <- wrappers, isContainedIn(l, w)) {
+    for (w <- wrappers, containmentPred(l, w)) {
         switch (result) {
             case just(loc current): if (w < current) result = just(w);
             case nothing(): result = just(w);
@@ -48,6 +52,9 @@ Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l) {
     return result;
 }
 
+@synopsis{
+    Resizes a location by removing a prefix and/or suffix.
+}
 loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
     assert l.begin.line == l.end.line :
         "Cannot trim a multi-line location";
@@ -57,10 +64,16 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
             [end = <l.end.line, l.end.column - removeSuffix>];
 }
 
+@synopsis{
+    Decides if `prefix` is a prefix of `l`.
+}
 bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && l.authority == prefix.authority
                                   && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
 
+@synopsis{
+    A cached wrapper for the Rascal whole-module parse function.
+}
 start[Module] parseModuleWithSpacesCached(loc l) {
     @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
     return parseModuleWithSpacesCached(l, lastModified(l));
@@ -83,9 +96,19 @@ str toString(map[str, list[Message]] moduleMsgs) =
 rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
     {<pred(v), v> | v <- s};
 
+@synopsis{
+    Predicate to sort locations by length.
+}
 bool byLength(loc l1, loc l2) = l1.length < l2.length;
+
+@synopsis{
+    Predicate to sort locations by offset.
+}
 bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
 
+@synopsis{
+    Predicate to reverse a sort order.
+}
 bool(&T, &T) desc(bool(&T, &T) f) {
     return bool(&T t1, &T t2) {
         return f(t2, t1);
