@@ -416,8 +416,6 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
         set[TModel](ProjectFiles projectFiles) {
             set[TModel] tmodels = {};
 
-            if (projectFiles == {}) return tmodels;
-
             for (projectFolder <- projectFiles.projectFolder, \files := projectFiles[projectFolder]) {
                 PathConfig pcfg = getPathConfig(projectFolder);
                 RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]

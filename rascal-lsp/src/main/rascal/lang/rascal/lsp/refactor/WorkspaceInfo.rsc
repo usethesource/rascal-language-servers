@@ -130,10 +130,10 @@ loc getProjectFolder(WorkspaceInfo ws, loc l) {
     throw "Could not find project containing <l>";
 }
 
-@memo{maximumSize(1), expireAfter(minutes=(5))}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc, loc] defUse(WorkspaceInfo ws) = invert(ws.useDef);
 
-@memo{maximumSize(1), expireAfter(minutes=(5))}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 map[AType, set[loc]] factsInvert(WorkspaceInfo ws) = invert(ws.facts);
 
 set[loc] getUses(WorkspaceInfo ws, loc def) = defUse(ws)[def];
@@ -144,13 +144,13 @@ set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
 
 Maybe[AType] getFact(WorkspaceInfo ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
 
-@memo{maximumSize(1), expireAfter(minutes=(5))}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 set[loc] getModuleScopes(WorkspaceInfo ws) = invert(ws.scopes)[|global-scope:///|];
 
-@memo{maximumSize(1), expireAfter(minutes=(5))}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 map[loc, loc] getModuleScopePerFile(WorkspaceInfo ws) = (scope.top: scope | loc scope <- getModuleScopes(ws));
 
-@memo{maximumSize(1), expireAfter(minutes=(5))}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) {
     rel[loc from, loc to] moduleI = ident(getModuleScopes(ws));
     rel[loc from, loc to] imports = (ws.paths<pathRole, from, to>)[importPath()];
