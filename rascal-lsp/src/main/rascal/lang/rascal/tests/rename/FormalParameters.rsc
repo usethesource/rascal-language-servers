@@ -29,7 +29,7 @@ module lang::rascal::tests::rename::FormalParameters
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascal::lsp::refactor::Exception;
 
-test bool outerNestedFunctionParameter() = {0, 3} == testRenameOccurrences("
+test bool outerNestedFunctionParameter() = testRenameOccurrences({0, 3}, "
     'int f(int foo) {
     '   int g(int foo) {
     '       return foo;
@@ -38,48 +38,43 @@ test bool outerNestedFunctionParameter() = {0, 3} == testRenameOccurrences("
     '}
 ");
 
-test bool innerNestedFunctionParameter() = {1, 2} == testRenameOccurrences("
+test bool innerNestedFunctionParameter() = testRenameOccurrences({1, 2}, "
     'int f(int foo) {
     '   int g(int foo) {
     '       return foo;
     '   }
     '   return f(foo);
     '}
-", cursorAtOldNameOccurrence = 1);
+");
 
-test bool publicFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+test bool publicFunctionParameter() = testRenameOccurrences({0, 1}, "", decls = "
     'public int f(int foo) {
     '   return foo;
     '}
 ");
 
-test bool defaultFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+test bool defaultFunctionParameter() = testRenameOccurrences({0, 1}, "", decls = "
     'int f(int foo) {
     '   return foo;
     '}
 ");
 
-test bool privateFunctionParameter() = {0, 1} == testRenameOccurrences("", decls = "
+test bool privateFunctionParameter() = testRenameOccurrences({0, 1}, "", decls = "
     'private int f(int foo) {
     '   return foo;
     '}
 ");
 
-test bool nestedKeywordParameter() = {0, 1, 2} == testRenameOccurrences("
+test bool nestedKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
     'int f(int foo = 8) = foo;
     'int x = f(foo = 10);
-");
+", skipCursors = {2});
 
-test bool keywordParameterFromDef() = expectEq({0, 1, 2}, testRenameOccurrences(
+test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;"
-));
-
-test bool keywordParameterFromUse() = expectEq({0, 1, 2}, testRenameOccurrences(
-    "int x = f(foo = 10);"
-    , decls="int f(int foo = 8) = foo;"
-    , cursorAtOldNameOccurrence = 1
-));
+    , skipCursors = {2}
+);
 
 @expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
 @expected{illegalRename} test bool doubleParameterDeclaration2() = testRename("int f(int bar, int foo) = 1;");
@@ -90,7 +85,7 @@ test bool keywordParameterFromUse() = expectEq({0, 1, 2}, testRenameOccurrences(
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration1() = testRename("int f(int foo = 8, int bar = 9) = 1;");
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration2() = testRename("int f(int bar = 9, int foo = 8) = 1;");
 
-test bool renameParamToConstructorName() = {0, 1} == testRenameOccurrences(
+test bool renameParamToConstructorName() = testRenameOccurrences({0, 1},
     "int f(int foo) = foo;",
     decls = "data Bar = bar();"
 );
@@ -101,7 +96,7 @@ test bool renameParamToUsedConstructorName() = testRename(
     decls = "data Bar = bar(int x);"
 );
 
-test bool paremeterShadowsParameter1() = {0, 3} == testRenameOccurrences("
+test bool paremeterShadowsParameter1() = testRenameOccurrences({0, 3}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -111,7 +106,7 @@ test bool paremeterShadowsParameter1() = {0, 3} == testRenameOccurrences("
     '}
 ");
 
-test bool paremeterShadowsParameter2() = {1, 2} == testRenameOccurrences("
+test bool paremeterShadowsParameter2() = testRenameOccurrences({1, 2}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -119,7 +114,7 @@ test bool paremeterShadowsParameter2() = {1, 2} == testRenameOccurrences("
     '   }
     '   return f2(foo);
     '}
-", cursorAtOldNameOccurrence = 1);
+");
 
 @expected{illegalRename}
 test bool paremeterShadowsParameter3() = testRename("

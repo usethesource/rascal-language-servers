@@ -15,3 +15,5 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/*.vsix
+uitests/**
+test-workspace/**

@@ -51,8 +51,8 @@ import util::Reflective;
 
 
 //// Fixtures and utility functions
-data TestModule = byText(str name, str body, set[int] expectedRenameOccs, str newName = name)
-                | byLoc(loc file, set[int] expectedRenameOccs, str newName = name);
+data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name)
+                | byLoc(loc file, set[int] nameOccs, str newName = name);
 
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
@@ -68,8 +68,10 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     throwAnyErrors(checkAll(root, ccfg));
 }
 
-bool expectEq(&T expected, &T actual) {
+bool expectEq(&T expected, &T actual, str epilogue = "") {
     if (expected != actual) {
+        if (epilogue != "") println(epilogue);
+
         print("EXPECTED: ");
         iprintln(expected);
         println();
@@ -82,61 +84,83 @@ bool expectEq(&T expected, &T actual) {
     return true;
 }
 
-bool testRenameOccurrences(set[TestModule] modules, tuple[str moduleName, str id, int occ] cursor, str newName = "bar") {
-    str testName = "Test<abs(arbInt())>";
-    loc testDir = |memory://tests/rename/<testName>|;
+bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
+    bool success = true;
+    for (mm <- modules, cursorOcc <- mm.nameOccs) {
+        str testName = "Test<abs(arbInt())>";
+        loc testDir = |memory://tests/rename/<testName>|;
 
-    if(any(m <- modules, m is byLoc)) {
-        testDir = cover([m.file | m <- modules, m is byLoc]);
-    } else {
-        // If none of the modules refers to an existing file, clear the test directory before writing files.
+        if(any(m <- modules, m is byLoc)) {
+            testDir = cover([m.file | m <- modules, m is byLoc]);
+        } else {
+            // If none of the modules refers to an existing file, clear the test directory before writing files.
+            remove(testDir);
+        }
+
+        pcfg = getTestPathConfig(testDir);
+        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName))};
+        cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
+
+        println("Renaming \'<oldName>\' from <cursorT.src>");
+        edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+
+        renamesPerModule = (
+            beforeRename: afterRename
+            | renamed(oldLoc, newLoc) <- edits
+            , beforeRename := getModuleName(oldLoc, pcfg)
+            , afterRename := getModuleName(newLoc, pcfg)
+        );
+
+        replacesPerModule = (
+            name: occs
+            | changed(file, changes) <- edits
+            , name := getModuleName(file, pcfg)
+            , locs := {l | replace(l, _) <- changes}
+            , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
+        );
+
+        editsPerModule = (
+            name : <occs, nameAfterRename>
+            | srcDir <- pcfg.srcs
+            , file <- find(srcDir, "rsc")
+            , name := getModuleName(file, pcfg)
+            , occs := replacesPerModule[name] ? {}
+            , nameAfterRename := renamesPerModule[name] ? name
+        );
+
+        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
+
+        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
+            success = false;
+            println("Unexpected edits: ");
+            iprintln(edits);
+        }
+
+        for (src <- pcfg.srcs) {
+            verifyTypeCorrectRenaming(src, edits, pcfg);
+        }
+
         remove(testDir);
     }
 
-    pcfg = getTestPathConfig(testDir);
-    modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.expectedRenameOccs, newName = m.newName))};
-    cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == cursor.moduleName][0], cursor.id, cursor.occ);
-
-    edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
-
-    renamesPerModule = (
-        beforeRename: afterRename
-        | renamed(oldLoc, newLoc) <- edits
-        , beforeRename := getModuleName(oldLoc, pcfg)
-        , afterRename := getModuleName(newLoc, pcfg)
-    );
-
-    replacesPerModule = (
-        name: occs
-        | changed(file, changes) <- edits
-        , name := getModuleName(file, pcfg)
-        , locs := {l | replace(l, _) <- changes}
-        , occs := locsToOccs(parseModuleWithSpaces(file), cursor.id, locs)
-    );
-
-    editsPerModule = (
-        name : <occs, nameAfterRename>
-        | srcDir <- pcfg.srcs
-        , file <- find(srcDir, "rsc")
-        , name := getModuleName(file, pcfg)
-        , occs := replacesPerModule[name] ? {}
-        , nameAfterRename := renamesPerModule[name] ? name
-    );
-
-    expectedEditsPerModule = (name: <m.expectedRenameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
-
-    if (!expectEq(expectedEditsPerModule, editsPerModule)) return false;
-
-    for (src <- pcfg.srcs) {
-        verifyTypeCorrectRenaming(src, edits, pcfg);
-    }
-
-    return true;
+    return success;
 }
 
-set[int] testRenameOccurrences(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "foo", str newName = "bar", str decls = "", str imports = "") {
-    <edits, occs, moduleFileName> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
-    return occs;
+bool testRenameOccurrences(set[int] oldNameOccurrences, str stmtsStr, str oldName = "foo", str newName = "bar", str decls = "", str imports = "", set[int] skipCursors = {}) {
+    bool success = true;
+    map[int, set[int]] results = ();
+    for (cursor <- oldNameOccurrences - skipCursors) {
+        <_, renamedOccs> = getEditsAndModule(stmtsStr, cursor, oldName, newName, decls, imports);
+        results[cursor] = renamedOccs;
+        if (renamedOccs != oldNameOccurrences) success = false;
+    }
+
+    if (!success) {
+        println("Test returned unexpected renames for some possible cursors (expected: <oldNameOccurrences>):");
+        iprintln(results);
+    }
+
+    return success;
 }
 
 // Test renames that are expected to throw an exception
@@ -221,11 +245,11 @@ tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc
 }
 
 list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports) {
-    <edits, _, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
+    <edits, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
     return edits;
 }
 
-private tuple[list[DocumentEdit], set[int], loc] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>") {
+private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>") {
     str moduleStr =
     "module <moduleName>
     '<trim(imports)>
@@ -240,7 +264,7 @@ private tuple[list[DocumentEdit], set[int], loc] getEditsAndModule(str stmtsStr,
     writeFile(moduleFileName, moduleStr);
 
     <edits, occs> = getEditsAndOccurrences(moduleFileName, testDir, cursorAtOldNameOccurrence, oldName, newName);
-    return <edits, occs, moduleFileName>;
+    return <edits, occs>;
 }
 
 private list[Tree] collectNameTrees(start[Module] m, str name) {

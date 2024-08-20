@@ -311,7 +311,12 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
             if (d <- defs, just(amodule(_)) := getFact(ws, d)) {
                 // Cursor is at an import
                 cur = cursor(moduleName(), c, cursorName);
-            } else if (u <- ws.useDef<0>, u.begin <= cursorLoc.begin && u.end > cursorLoc.end) {
+            } else if (u <- ws.useDef<0>
+                     , isContainedIn(cursorLoc, u)
+                     , u.end > cursorLoc.end
+                     // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
+                     , {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
+                ) {
                 // Cursor is at a qualified name
                 cur = cursor(moduleName(), c, cursorName);
             } else if (defines != {}) {
