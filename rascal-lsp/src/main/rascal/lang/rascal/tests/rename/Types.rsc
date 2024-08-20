@@ -28,17 +28,11 @@ module lang::rascal::tests::rename::Types
 
 import lang::rascal::tests::rename::TestUtils;
 
-test bool globalAliasFromDef() = {0, 1, 2, 3} == testRenameOccurrences("
+test bool globalAlias() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo f(Foo x) = x;
     'Foo foo = 8;
     'y = f(foo);
 ", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar");
-
-test bool globalAliasFromUse() = {0, 1, 2, 3} == testRenameOccurrences("
-    'Foo f(Foo x) = x;
-    'Foo foo = 8;
-    'y = f(foo);
-", decls = "alias Foo = int;", oldName = "Foo", newName = "Bar", cursorAtOldNameOccurrence = 1);
 
 test bool multiModuleAlias() = testRenameOccurrences({
     byText("alg::Fib", "alias Foo = int;
@@ -56,9 +50,9 @@ test bool multiModuleAlias() = testRenameOccurrences({
                '   return 0;
                '}"
                , {0})
-    }, <"Main", "Foo", 0>, newName = "Bar");
+    }, oldName = "Foo", newName = "Bar");
 
-test bool globalData() = {0, 1, 2, 3} == testRenameOccurrences("
+test bool globalData() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo f(Foo x) = x;
     'Foo x = foo();
     'y = f(x);
@@ -77,25 +71,16 @@ test bool multiModuleData() = testRenameOccurrences({
                '   Bool b = and(t(), f());
                '}"
                , {1})
-    }, <"Main", "Bool", 1>, newName = "Boolean");
+    }, oldName = "Bool", newName = "Boolean");
 
-test bool dataTypesInVModuleStructureFromLeft() = testRenameOccurrences({
+test bool dataTypesInVModuleStructure() = testRenameOccurrences({
     byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
                     , byText("Merger",
                         "import Left;
                         'import Right;
                         'bool f(Foo foo) = (foo == f() || foo == g());
                         ", {0})
-}, <"Left", "Foo", 0>, newName = "Bar");
-
-test bool dataTypesInVModuleStructureFromMerger() = testRenameOccurrences({
-    byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
-                    , byText("Merger",
-                        "import Left;
-                        'import Right;
-                        'bool f(Foo foo) = (foo == f() || foo == g());
-                        ", {0})
-}, <"Merger", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 @synopsis{
     (defs)
@@ -116,7 +101,7 @@ test bool dataTypesInWModuleStructureWithoutMerge() = testRenameOccurrences({
                                         "import B;
                                         'import C;
                                         'bool func(Foo foo) = foo == h();", {})
-}, <"D", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 @synopsis{
     (defs)
@@ -139,7 +124,7 @@ test bool dataTypesInWModuleStructureWithMerge() = testRenameOccurrences({
                                         "import B;
                                         'import C;
                                         'bool func(Foo foo) = foo == h();", {0})
-}, <"D", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 test bool dataTypesInYModuleStructure() = testRenameOccurrences({
     byText("Left", "data Foo = f();", {0}), byText("Right", "data Foo = g();", {0})
@@ -151,14 +136,14 @@ test bool dataTypesInYModuleStructure() = testRenameOccurrences({
                         "import Merger;
                         'bool f(Foo foo) = (foo == f() || foo == g());
                         ", {0})
-}, <"Left", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 test bool dataTypesInInvertedVModuleStructure() = testRenameOccurrences({
             byText("Definer", "data Foo = f() | g();", {0}),
     byText("Left", "import Definer;
                    'bool isF(Foo foo) = foo == f();", {0}), byText("Right", "import Definer;
                                                                             'bool isG(Foo foo) = foo == g();", {0})
-}, <"Left", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 test bool dataTypesInDiamondModuleStructure() = testRenameOccurrences({
             byText("Definer", "data Foo = f() | g();", {0}),
@@ -167,7 +152,7 @@ test bool dataTypesInDiamondModuleStructure() = testRenameOccurrences({
                            'import Right;
                            'bool isF(Foo foo) = foo == f();
                            'bool isG(Foo foo) = foo == g();", {0, 1})
-}, <"Definer", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
 @synopsis{
     Two disjunct module trees. Both trees define `data Foo`. Since the trees are disjunct,
@@ -179,4 +164,4 @@ test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
     byText("LeftUser", "import LeftExtender;
                        'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
                                                                         'bool func(Foo foo) = foo == g();", {})
-}, <"LeftDefiner", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
