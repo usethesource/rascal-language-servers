@@ -45,7 +45,7 @@
         "title": "Start Rascal Terminal, Import module and Run main function"
       },
       {
-        "command": "rascalmpl.importMain",
+        "command": "rascalmpl.importModule",
         "title": "Start Rascal Terminal and Import this module"
       }
     ],
