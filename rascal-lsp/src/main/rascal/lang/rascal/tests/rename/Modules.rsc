@@ -41,7 +41,7 @@ test bool deepModule() = testRenameOccurrences({
     ", {0, 1})
 }, oldName = "Foo", newName = "Bar");
 
-test bool shadowedModule() = testRenameOccurrences({
+test bool shadowedModuleWithVar() = testRenameOccurrences({
     byText("Foo", "
         'data Bool = t() | f();
         'Bool and(Bool l, Bool r) = r is t ? l : f;
@@ -51,6 +51,19 @@ test bool shadowedModule() = testRenameOccurrences({
         'import Foo;
         'void main() {
         '   Foo::Bool b = and(t(), f());
+        '}
+    ", {0, 1})
+}, oldName = "Foo", newName = "Bar");
+
+test bool shadowedModuleWithFunc() = testRenameOccurrences({
+    byText("Foo", "
+        'void f() { fail; }
+        ", {0}, newName = "Bar"),
+    byText("shadow::Foo", "", {}),
+    byText("Main", "
+        'import Foo;
+        'void main() {
+        '   Foo::f();
         '}
     ", {0, 1})
 }, oldName = "Foo", newName = "Bar");
