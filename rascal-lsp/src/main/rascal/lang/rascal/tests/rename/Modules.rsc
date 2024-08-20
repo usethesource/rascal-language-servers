@@ -28,20 +28,7 @@ module lang::rascal::tests::rename::Modules
 
 import lang::rascal::tests::rename::TestUtils;
 
-test bool singleModuleFromHeader() = testRenameOccurrences({
-    byText("Foo", "
-        'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
-        ", {0}, newName = "Bar"),
-    byText("Main", "
-        'import Foo;
-        'void main() {
-        '   Foo::Bool b = and(t(), f());
-        '}
-    ", {0, 1})
-}, <"Foo", "Foo", 0>, newName = "Bar");
-
-test bool deepModuleFromHeader() = testRenameOccurrences({
+test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
         'data Bool = t() | f();
         'Bool and(Bool l, Bool r) = r is t ? l : f;
@@ -52,9 +39,9 @@ test bool deepModuleFromHeader() = testRenameOccurrences({
         '   some::path::to::Foo::Bool b = and(t(), f());
         '}
     ", {0, 1})
-}, <"some::path::to::Foo", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
-test bool shadowedModuleFromHeader() = testRenameOccurrences({
+test bool shadowedModule() = testRenameOccurrences({
     byText("Foo", "
         'data Bool = t() | f();
         'Bool and(Bool l, Bool r) = r is t ? l : f;
@@ -66,22 +53,9 @@ test bool shadowedModuleFromHeader() = testRenameOccurrences({
         '   Foo::Bool b = and(t(), f());
         '}
     ", {0, 1})
-}, <"Foo", "Foo", 0>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");
 
-test bool singleModuleFromImport() = testRenameOccurrences({
-    byText("Foo", "
-        'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
-        ", {0}, newName = "Bar"),
-    byText("Main", "
-        'import Foo;
-        'void main() {
-        '   Foo::Bool b = and(t(), f());
-        '}
-    ", {0, 1})
-}, <"Main", "Foo", 0>, newName = "Bar");
-
-test bool singleModuleFromReference() = testRenameOccurrences({
+test bool singleModule() = testRenameOccurrences({
     byText("util::Foo", "
         'data Bool = t() | f();
         'Bool and(Bool l, Bool r) = r is t ? l : f;
@@ -92,4 +66,4 @@ test bool singleModuleFromReference() = testRenameOccurrences({
         '   util::Foo::Bool b = and(t(), f());
         '}
     ", {0, 1})
-}, <"Main", "Foo", 1>, newName = "Bar");
+}, oldName = "Foo", newName = "Bar");

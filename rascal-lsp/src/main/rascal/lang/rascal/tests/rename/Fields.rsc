@@ -47,7 +47,7 @@ test bool duplicateDataField() = testRename("", decls =
     "data D = d(int foo, int bar);"
 );
 
-test bool crossModuleDataFieldAtDef() = testRenameOccurrences({
+test bool crossModuleDataField() = testRenameOccurrences({
     byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
     byText("Main", "
     'import Foo;
@@ -56,18 +56,7 @@ test bool crossModuleDataFieldAtDef() = testRenameOccurrences({
     '   g = a.foo;
     '}
     ", {0})
-}, <"Foo", "foo", 0>);
-
-test bool crossModuleDataFieldAtUse() = testRenameOccurrences({
-    byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
-    byText("Main", "
-    'import Foo;
-    'void main() {
-    '   f = a(8);
-    '   g = a.foo;
-    '}
-    ", {0})
-}, <"Main", "foo", 0>);
+});
 
 // TODO Implement data types properly
 // test bool extendedDataField() = testRenameOccurrences({
@@ -78,7 +67,7 @@ test bool crossModuleDataFieldAtUse() = testRenameOccurrences({
 //         'extend Scratch1;
 //         'data Foo = g(int foo);
 //         ", {0})
-// }, <"Scratch2", "foo", 0>);
+// });
 
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};

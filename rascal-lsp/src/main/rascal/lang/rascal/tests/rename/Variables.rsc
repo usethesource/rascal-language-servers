@@ -196,4 +196,4 @@ test bool multiModuleVar() = testRenameOccurrences({
                '   return 0;
                '}"
                , {0})
-    }, <"Main", "foo", 0>, newName = "Bar");
+    });
