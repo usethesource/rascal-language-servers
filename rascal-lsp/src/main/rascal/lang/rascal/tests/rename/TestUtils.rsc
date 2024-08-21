@@ -228,8 +228,7 @@ list[DocumentEdit] testRascalCore(loc rascalCoreDir, loc typepalDir) {
 
 list[DocumentEdit] getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
     loc f = resolveLocation(singleModule);
-    m = parseModuleWithSpaces(f);
-    Tree cursor = collectNameTrees(m, oldName)[cursorAtOldNameOccurrence];
+    Tree cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
     return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
 }
 
@@ -315,7 +314,9 @@ private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
 private Tree findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
-    return collectNameTrees(m, id)[occ];
+    names = collectNameTrees(m, id);
+    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
+    return names[occ];
 }
 
 private loc storeTestModule(loc dir, str name, str body) {

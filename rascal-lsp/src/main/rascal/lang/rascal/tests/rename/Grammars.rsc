@@ -28,80 +28,51 @@ module lang::rascal::tests::rename::Grammars
 
 import lang::rascal::tests::rename::TestUtils;
 
-test bool productionFromDef() = expectEq({0, 1, 2, 3}, testRenameOccurrences("
+test bool productionType() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo func(Foo f) = f.child;
 ", decls = "syntax Foo = Foo child;"
-, oldName = "Foo", newName = "Bar"));
+, oldName = "Foo", newName = "Bar");
 
-test bool productionFromTypeUse() = expectEq({0, 1, 2, 3}, testRenameOccurrences("
-    'Foo func(Foo f) = f.child;
-", decls = "syntax Foo = Foo child;"
-, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
-
-test bool productionFromConcreteUse() = expectEq({0, 1, 2, 3, 4}, testRenameOccurrences("
+test bool productionConcreteType() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'Foo func((Foo) `\<Foo child\>`) = child;
 ", decls = "syntax Foo = Foo child;"
-, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
+, oldName = "Foo", newName = "Bar");
 
-test bool productionFromConcreteFieldUse() = expectEq({0, 1, 2, 3, 4}, testRenameOccurrences("
-    'Foo func((Foo) `\<Foo child\>`) = child;
-", decls = "syntax Foo = Foo child;"
-, cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
-
-test bool productionFromPatternUse() = expectEq({0, 1, 2}, testRenameOccurrences("
-    'value t = \"tree\";
+test bool productionPattern() = testRenameOccurrences({0, 1, 2}, "
+    'Tree t;
     'if (/Foo f := t) x = f;
 ", decls = "syntax Foo = Foo child;"
-, cursorAtOldNameOccurrence = 2, oldName = "Foo", newName = "Bar"));
+, imports = "import ParseTree;"
+, oldName = "Foo", newName = "Bar");
 
-test bool productionFromReifiedType() = expectEq({0, 1, 2}, testRenameOccurrences("
+test bool productionReifiedType() = testRenameOccurrences({0, 1, 2}, "
     't = parse(#Foo, \"foo(aaa)\");
     't = implode(#Foo, t);
 ", decls = "
     'lexical A = \"a\"+;
     'syntax Foo = s: \"foo\" \"(\" A a \")\";
-    '
-    'import ParseTree;
-", oldName = "Foo", newName = "Bar", cursorAtOldNameOccurrence = 1));
+", imports = "import ParseTree;
+", oldName = "Foo", newName = "Bar");
 
-test bool productionParameterFromDef() = expectEq({0, 1}, testRenameOccurrences("",
+test bool productionParameter() = testRenameOccurrences({0, 1}, "",
 decls = "
     'lexical L = \"l\"+;
     'syntax S[&Foo] = s: &Foo foo;
-", oldName = "Foo", newName = "Bar"));
+", oldName = "Foo", newName = "Bar");
 
-test bool productionParameterFromUse() = expectEq({0, 1}, testRenameOccurrences("",
-decls = "
-    'lexical L = \"l\"+;
-    'syntax S[&Foo] = s: &Foo foo;
-", cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
-
-test bool parameterizedProductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
+test bool parameterizedProduction() = testRenameOccurrences({0, 1}, ""
 , decls = "syntax Foo[&T] = Foo[&T] child &T t;"
-, oldName = "Foo", newName = "Bar"));
+, oldName = "Foo", newName = "Bar");
 
-test bool parameterizedProductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
-, decls = "syntax Foo[&T] = Foo[&T] child &T t;"
-, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
-
-test bool startPoductionFromDef() = expectEq({0, 1}, testRenameOccurrences(""
+test bool startPoduction() = testRenameOccurrences({0, 1}, ""
 , decls = "start syntax Foo = start[Foo] child;"
-, oldName = "Foo", newName = "Bar"));
+, oldName = "Foo", newName = "Bar");
 
-test bool startPoductionFromUse() = expectEq({0, 1}, testRenameOccurrences(""
-, decls = "start syntax Foo = start[Foo] child;"
-, cursorAtOldNameOccurrence = 1, oldName = "Foo", newName = "Bar"));
-
-test bool constructorFromDef() = expectEq({0, 1}, testRenameOccurrences("
+test bool constructor() = testRenameOccurrences({0, 1}, "
     'S getChild(foo(child)) = child;
-", decls = "syntax S = foo: S child;"));
+", decls = "syntax S = foo: S child;");
 
-test bool constructorFromUse() = expectEq({0, 1}, testRenameOccurrences("
-    'S getChild(foo(child)) = child;
-", decls = "syntax S = foo: S child;"
-, cursorAtOldNameOccurrence = 1));
-
-test bool exceptedConstructorFromDef() = expectEq({0, 1, 2}, testRenameOccurrences("
+test bool exceptedConstructor() = testRenameOccurrences({0, 1, 2}, "
     'S getChild(foo(child)) = child;
 ", decls = "
     'syntax S
@@ -109,92 +80,53 @@ test bool exceptedConstructorFromDef() = expectEq({0, 1, 2}, testRenameOccurrenc
     '  | baz: \"baz\"
     '  | notFoo: S s!foo!notFoo
     '  ;
-"));
+", skipCursors = {1});
 
-test bool exceptedConstructorFromUse() = expectEq({0, 1, 2}, testRenameOccurrences("
-    'S getChild(foo(child)) = child;
-", decls = "
-    'syntax S
-    '  = foo: \"foo\" S s
-    '  | baz: \"baz\"
-    '  | notFoo: S s!foo!notFoo
-    '  ;
-", cursorAtOldNameOccurrence = -1));
-
-@expected{unsupportedRename}
-test bool exceptedConstructorFromExcept() = expectEq({0, 1, 2}, testRenameOccurrences("
-    'S getChild(foo(child)) = child;
-", decls = "
-    'syntax S
-    '  = foo: \"foo\" S s
-    '  | baz: \"baz\"
-    '  | notFoo: S s!foo!notFoo
-    '  ;
-", cursorAtOldNameOccurrence = 1));
-
-test bool exceptedConstructorMultiple() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+test bool exceptedConstructorMultiple() = testRenameOccurrences({0, 1, 2}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
     '  | notFoo: S s!foo!notFoo
     '  | probablyBaz: S s!foo!notFoo!probablyBaz
     '  ;
-"));
+", skipCursors = {1, 2});
 
-test bool exceptedDuplicateConstructor1() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1, 2}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
     '  | notFoo: S s!notFoo!foo
     '  ;
     'syntax T = foo: \"Tfoo\";
-"));
+", skipCursors = {1});
 
-test bool exceptedDuplicateConstructor2() = expectEq({0, 1, 2}, testRenameOccurrences("", decls = "
+test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1, 2}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
     '  | notFoo: S s!foo!notFoo
     '  ;
     'syntax S = foo: \"Tfoo\";
-"));
+", skipCursors = {1});
 
-test bool fieldFromDef() = expectEq({0, 1}, testRenameOccurrences("
+test bool syntaxConstructorField() = testRenameOccurrences({0, 1}, "
     'S getChild(S x) = x.foo;
-", decls = "syntax S = S foo;"));
+", decls = "syntax S = S foo;");
 
-test bool fieldFromUse() = expectEq({0, 1}, testRenameOccurrences("
-    'S getChild(S x) = x.foo;
-", decls = "syntax S = S foo;"
-, cursorAtOldNameOccurrence = 1));
-
-test bool referencedConstructorFromDef() = expectEq({0, 1}, testRenameOccurrences("", decls = "
+test bool referencedConstructor() = testRenameOccurrences({0, 1}, "", decls = "
     'lexical L = \"l\"+;
     'syntax S = foo: L l;
     'syntax T =: foo;
-"));
+");
 
-test bool referencedConstructorFromDef() = expectEq({0, 1}, testRenameOccurrences("", decls = "
-    'lexical L = \"l\"+;
-    'syntax S = foo: L l;
-    'syntax T =: foo;
-", cursorAtOldNameOccurrence = 1));
-
-test bool lexicalFromDef() = expectEq({0, 1}, testRenameOccurrences("
+test bool lexicalProduction() = testRenameOccurrences({0, 1}, "
     'if (f := [Foo] \"foo\") g = f;
 ", decls = "lexical Foo = \"foo\"+;"
-, oldName = "Foo", newName = "Bar"));
+, oldName = "Foo", newName = "Bar");
 
-test bool lexicalFromUse() = expectEq({0, 1}, testRenameOccurrences("
-    'if (f := [Foo] \"foo\") g = f;
-", decls = "lexical Foo = \"foo\"+;"
-, oldName = "Foo", newName = "Bar"
-, cursorAtOldNameOccurrence = 1));
-
-test bool lexicalFromParameter() = expectEq({0, 1}, testRenameOccurrences("
+test bool lexicalAsParameter() = testRenameOccurrences({0, 1}, "
     'x = [S[Foo]] \"foo\";
 ", decls = "
     'lexical Foo = \"foo\"+;
     'syntax S[&L] = s: &L l;
-", oldName = "Foo", newName = "Bar"
-, cursorAtOldNameOccurrence = 1));
+", oldName = "Foo", newName = "Bar");
