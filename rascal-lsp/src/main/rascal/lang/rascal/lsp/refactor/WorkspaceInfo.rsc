@@ -342,7 +342,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc)
     }
 
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
-    set[loc] uses = getUses(ws, defs) + getKeywordFieldUses(ws, defs, cursorName);
+    set[loc] uses = getUses(ws, defs) + rascalGetKeywordFieldUses(ws, defs, cursorName);
 
     return <defs, uses, NO_RENAMES>;
 }
