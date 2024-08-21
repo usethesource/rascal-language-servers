@@ -41,8 +41,9 @@ test bool productionConcreteType() = testRenameOccurrences({0, 1, 2, 3, 4}, "
 test bool productionPattern() = testRenameOccurrences({0, 1, 2}, "
     'Tree t;
     'if (/Foo f := t) x = f;
-", decls = "syntax Foo = Foo child;"
-, imports = "import ParseTree;"
+", decls =
+    "syntax Foo = Foo child;
+    'data Tree;"
 , oldName = "Foo", newName = "Bar");
 
 test bool productionReifiedType() = testRenameOccurrences({0, 1, 2}, "
