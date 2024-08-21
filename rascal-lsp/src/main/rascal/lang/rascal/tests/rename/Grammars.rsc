@@ -130,3 +130,10 @@ test bool lexicalAsParameter() = testRenameOccurrences({0, 1}, "
     'lexical Foo = \"foo\"+;
     'syntax S[&L] = s: &L l;
 ", oldName = "Foo", newName = "Bar");
+
+test bool metaVariable() = testRenameOccurrences({0, 1},
+    "void f (Tree pt) { if ((S)`\<S foo\>` := pt) x = foo; }"
+, decls =
+    "syntax S = s: S child;
+    'data Tree;"
+);
