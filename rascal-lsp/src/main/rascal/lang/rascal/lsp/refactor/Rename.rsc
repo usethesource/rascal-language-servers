@@ -251,22 +251,26 @@ private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
 
-private Define rascalGetADTDefinition(WorkspaceInfo ws, AType lhsType, loc lhs) {
+private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, AType lhsType, loc lhs) {
     rel[loc, Define] definitionsRel = toRel(ws.definitions);
-    if (printlnExpD("Is constructor type [<lhsType>]: ", rascalIsConstructorType(lhsType))
-      , Define cons: <_, _, _, constructorId(), _, _> <- printlnExpD("Reachable defs (from lhs): ", definitionsRel[rascalReachableDefs(ws, printlnExpD("Defs of lhs: ", getDefs(ws, lhs)) + lhs)])
-      , AType consAdtType := cons.defInfo.atype.adt
-      , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- printlnExpD("Reachable defs (from constructor def): ", definitionsRel[rascalReachableDefs(ws, {cons.defined})])
-      , isContainedIn(cons.defined, adt.defined)) { // Probably need to follow import paths here as well
-        return adt;
-    } else if (rascalIsDataType(lhsType)
-             , Define ctr:<_, _, _, constructorId(), _, defType(acons(lhsType, _, _))> <- definitionsRel[rascalReachableDefs(ws, getDefs(ws, lhs))]
-             , Define adt:<_, _, _, dataId(), _, defType(lhsType)> <- definitionsRel[rascalReachableDefs(ws, {ctr.defined})]
-             , isContainedIn(ctr.defined, adt.defined)) {
-        return adt;
+
+    set[Define] defs = {};
+    if (printlnExpD("Is constructor type [<lhsType>]: ", rascalIsConstructorType(lhsType))) {
+        for (Define cons: <_, _, _, constructorId(), _, _> <- printlnExpD("Reachable defs (from lhs): ", definitionsRel[rascalReachableDefs(ws, printlnExpD("Defs of lhs: ", getDefs(ws, lhs)) + lhs)])
+           , AType consAdtType := cons.defInfo.atype.adt
+           , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- printlnExpD("Reachable defs (from constructor def): ", definitionsRel[rascalReachableDefs(ws, {cons.defined})])
+           , isContainedIn(cons.defined, adt.defined)) { // Probably need to follow import paths here as well
+            defs += adt;
+        }
+    } else if (printlnExpD("Is data type [<lhsType>]: ", rascalIsDataType(lhsType))) {
+        for (Define ctr:<_, _, _, constructorId(), _, defType(acons(lhsType, _, _))> <- definitionsRel[rascalReachableDefs(ws, getDefs(ws, lhs) + lhs)]
+           , Define adt:<_, _, _, dataId(), _, defType(lhsType)> <- definitionsRel[rascalReachableDefs(ws, {ctr.defined})]
+           , isContainedIn(ctr.defined, adt.defined)) {
+            defs += adt;
+        }
     }
 
-    throw "Unknown LHS type <lhsType>";
+    return defs;
 }
 
 bool rascalAdtHasCommonKeywordField(str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
@@ -324,10 +328,10 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , <smallestFieldContainingCursor, collectionField()>
               , <smallestFieldContainingCursor, dataField(|unknown:///|)>
               , <smallestFieldContainingCursor, dataKeywordField(|unknown:///|)>
-            //   , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|)>
+              , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|)>
                 // Any kind of keyword param; we'll decide which exactly later
               , <smallestKeywordContainingCursor, dataKeywordField(|unknown:///|)>
-            //   , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|)>
+              , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|)>
               , <smallestKeywordContainingCursor, keywordParam()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
@@ -346,8 +350,8 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
 
     Cursor getDataFieldCursor(AType containerType, loc container) {
-        if (Define dt := rascalGetADTDefinition(ws, containerType, container)
-          , adtType := dt.defInfo.atype) {
+        for (Define dt <- rascalGetADTDefinitions(ws, containerType, container)
+           , adtType := dt.defInfo.atype) {
             if (rascalAdtHasCommonKeywordField(cursorName, dt)) {
                 // Case 4 or 5 (or 0): common keyword field
                 return cursor(dataCommonKeywordField(dt.defined), c, cursorName);
@@ -378,7 +382,7 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
                 cur = getDataFieldCursor(containerType, container);
             }
         }
-        case {collectionField(), dataField(_), dataKeywordField(_), *_}: { //, dataCommonKeywordField(_), *_}: {
+        case {collectionField(), dataField(_), dataKeywordField(_), dataCommonKeywordField(_), *_}: {
             /* Possible cases:
                 0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
                 1. We are on a collection field
