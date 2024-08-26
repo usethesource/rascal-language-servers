@@ -189,18 +189,21 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
         "Initial defs are invalid overloads!";
 
     map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(ws);
-    rel[loc d, loc scope] scopesOfDefUses = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
-    rel[loc def, loc scope] defAndTheirUseScopes = ws.defines<defined, scope> + scopesOfDefUses;
+    rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
-    rel[loc scope, loc defined] scopeDefs = (ws.defines<scope, defined>+);
+    rel[loc def, loc scope] defScopes = ws.defines<defined, scope>+;
+    rel[loc scope, loc def] scopeDefs = invert(defScopes);
+
+    rel[loc from, loc to] fromDefPaths =
+        (defScopes + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
+      o modulePaths                // 2. Follow import/extend relations to reachable scopes
+      o scopeDefs                  // 3. Find definitions in the reached scope, and definitions within those definitions (transitively)
+      ;
+
+    rel[loc from, loc to] defPaths = fromDefPaths + invert(fromDefPaths);
 
     solve(overloadedDefs) {
-        rel[loc from, loc to] reachableDefs =
-            ident(overloadedDefs)       // Start from all current defs
-          o defAndTheirUseScopes        // - Look up their scope and scopes of their uses
-          o modulePaths                 // - Follow import/extend relations to reachable scopes
-          o scopeDefs                   // - Find definitions in the reached scope, and definitions within those definitions (transitively)
-          ;
+        rel[loc from, loc to] reachableDefs = ident(overloadedDefs) o defPaths;
 
         overloadedDefs += {d
             | loc d <- reachableDefs<1>
