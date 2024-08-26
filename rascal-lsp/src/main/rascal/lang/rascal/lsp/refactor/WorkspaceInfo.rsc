@@ -192,13 +192,14 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     rel[loc d, loc scope] scopesOfDefUses = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc def, loc scope] defAndTheirUseScopes = ws.defines<defined, scope> + scopesOfDefUses;
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
+    rel[loc scope, loc defined] scopeDefs = (ws.defines<scope, defined>+);
 
     solve(overloadedDefs) {
         rel[loc from, loc to] reachableDefs =
             ident(overloadedDefs)       // Start from all current defs
           o defAndTheirUseScopes        // - Look up their scope and scopes of their uses
           o modulePaths                 // - Follow import/extend relations to reachable scopes
-          o ws.defines<scope, defined>  // - Find definitions in the reached scope
+          o scopeDefs                   // - Find definitions in the reached scope, and definitions within those definitions (transitively)
           ;
 
         overloadedDefs += {d
