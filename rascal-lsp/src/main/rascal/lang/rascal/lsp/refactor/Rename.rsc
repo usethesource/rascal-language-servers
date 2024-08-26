@@ -405,7 +405,14 @@ tuple[Cursor, WorkspaceInfo] rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
         }
         case {def(), *_}: {
             // Cursor is at a definition
-            cur = cursor(def(), c, cursorName);
+            Define d = ws.definitions[c];
+            if (d.idRole is fieldId
+              , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
+              , isStrictlyContainedIn(c, adt.defined)) {
+                cur = getDataFieldCursor(adt.defInfo.atype, adt.defined);
+            } else {
+                cur = cursor(def(), c, cursorName);
+            }
         }
         case {use(), *_}: {
             set[loc] defs = getDefs(ws, c);
