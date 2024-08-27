@@ -226,7 +226,8 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
     computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, name);
 
 private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
-    set[str] names = {definitions[l].id | l <- defs, definitions[l]?};
+    if (l <- defs, !definitions[l]?) return false;
+    set[str] names = {definitions[l].id | l <- defs};
     if (size(names) > 1) return false;
 
     map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
@@ -273,25 +274,24 @@ private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, AType lhsType, loc
     return defs;
 }
 
-bool rascalAdtHasCommonKeywordField(str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
-    if (defInfo.commonKeywordFields?) {
-        for ((KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields, "<kwName>" == fieldName) {
-            return true;
-        }
+Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
+    if (defInfo.commonKeywordFields?
+      , kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
+      , "<kwName>" == fieldName) {
+        if (ft:just(_) := getFact(ws, kwf.src)) return ft;
+        throw "Unknown field type for <kwf.src>";
     }
-    return false;
+    return nothing();
 }
 
-bool rascalConsHasKeywordField(str fieldName, Define _:<_, _, _, constructorId(), _, defType(acons(_, _, kwFields))>) {
-    for (kwField(_, fieldName, _) <- kwFields) return true;
-    return false;
+Maybe[AType] rascalConsKeywordFieldType(str fieldName, Define _:<_, _, _, constructorId(), _, defType(acons(_, _, kwFields))>) {
+    if (kwField(fieldType, fieldName, _) <- kwFields) return just(fieldType);
+    return nothing();
 }
 
-bool rascalConsHasField(str fieldName, Define _:<_, _, _, constructorId(), _, defType(acons(_, fields, _))>) {
-    for (field <- fields) {
-        if (field.alabel == fieldName) return true;
-    }
-    return false;
+Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId(), _, defType(acons(_, fields, _))>) {
+    if (field <- fields, field.alabel == fieldName) return just(field);
+    return nothing();
 }
 
 Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
@@ -300,13 +300,13 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
     rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, fieldLocs>) := rascalGetFieldLocs(cursorName, t)
+        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t)
         , loc fieldLoc <- fieldLocs
     };
 
     rel[loc kw, loc container] keywords = {<kwLoc, containerLoc>
         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, kwLocs>) := rascalGetKeywordLocs(cursorName, t)
+        , just(<containerLoc, kwLocs, _>) := rascalGetKeywordLocs(cursorName, t)
         , loc kwLoc <- kwLocs
     };
 
@@ -324,12 +324,12 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
                 // Any kind of field; we'll decide which exactly later
               , <smallestFieldContainingCursor, collectionField()>
-              , <smallestFieldContainingCursor, dataField(|unknown:///|)>
-              , <smallestFieldContainingCursor, dataKeywordField(|unknown:///|)>
-              , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|)>
+              , <smallestFieldContainingCursor, dataField(|unknown:///|, avoid())>
+              , <smallestFieldContainingCursor, dataKeywordField(|unknown:///|, avoid())>
+              , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
                 // Any kind of keyword param; we'll decide which exactly later
-              , <smallestKeywordContainingCursor, dataKeywordField(|unknown:///|)>
-              , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|)>
+              , <smallestKeywordContainingCursor, dataKeywordField(|unknown:///|, avoid())>
+              , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
               , <smallestKeywordContainingCursor, keywordParam()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
@@ -350,21 +350,21 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     Cursor getDataFieldCursor(AType containerType, loc container) {
         for (Define dt <- rascalGetADTDefinitions(ws, containerType, container)
            , adtType := dt.defInfo.atype) {
-            if (rascalAdtHasCommonKeywordField(cursorName, dt)) {
+            if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
                 // Case 4 or 5 (or 0): common keyword field
-                return cursor(dataCommonKeywordField(dt.defined), c, cursorName);
+                return cursor(dataCommonKeywordField(dt.defined, fieldType), c, cursorName);
             } else if (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
-                if (rascalConsHasKeywordField(cursorName, d)) {
+                if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
                     // Case 3 (or 0): keyword field
-                    return cursor(dataKeywordField(dt.defined), c, cursorName);
-                } else if (rascalConsHasField(cursorName, d)) {
+                    return cursor(dataKeywordField(dt.defined, fieldType), c, cursorName);
+                } else if (just(fieldType) := rascalConsFieldType(cursorName, d)) {
                     // Case 2 (or 0): positional field
-                    return cursor(dataField(dt.defined), c, cursorName);
+                    return cursor(dataField(dt.defined, fieldType), c, cursorName);
                 }
             }
         }
 
-        throw "Cannot derive data field information for <containerType> at <container>";
+        throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(getDefs(ws, cursorLoc))});
     }
 
     loc c = min(locsContainingCursor.l);
@@ -374,12 +374,12 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
         case {moduleName(), *_}: {
             return cursor(moduleName(), c, cursorName);
         }
-        case {keywordParam(), dataKeywordField(_), *_}: {
+        case {keywordParam(), dataKeywordField(_, _), *_}: {
             if ({loc container} := keywords[c], just(containerType) := getFact(ws, container)) {
                 return getDataFieldCursor(containerType, container);
             }
         }
-        case {collectionField(), dataField(_), dataKeywordField(_), dataCommonKeywordField(_), *_}: {
+        case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
             /* Possible cases:
                 0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
                 1. We are on a collection field

@@ -47,6 +47,8 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2}, "
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
 );
 
+// Flaky. Fix for non-determinism in typepal, upcoming in future release of Rascal (Core)
+// https://github.com/usethesource/typepal/commit/55456edcc52653e42d7f534a5412147b01b68c29
 test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2}, "
     'x = d(1, 2);
     'y = x.foo;
@@ -137,7 +139,7 @@ test bool dataTypeReusedName() = testRenameOccurrences({
     byText("Scratch2", "
         'data Foo = g();
         ", {})
-});
+}, oldName = "Foo", newName = "Bar");
 
 test bool dataFieldReusedName() = testRenameOccurrences({
     byText("Scratch1", "
@@ -219,14 +221,14 @@ test bool tupleField() = testRenameOccurrences({0, 1}, "
 ");
 
 // We would prefer an illegalRename exception here
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool builtinFieldSimpleType() = testRename("
     'loc l = |unknown:///|;
     'f = l.top;
 ", oldName = "top", newName = "summit");
 // We would prefer an illegalRename exception here
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool builtinFieldCollectionType() = testRename("
     'loc l = |unknown:///|;
     'f = l.ls;

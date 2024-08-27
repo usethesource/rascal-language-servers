@@ -54,9 +54,9 @@ data CursorKind
     | def()
     | typeParam()
     | collectionField()
-    | dataField(loc dataTypeDef)
-    | dataKeywordField(loc dataTypeDef)
-    | dataCommonKeywordField(loc dataTypeDef)
+    | dataField(loc dataTypeDef, AType fieldType)
+    | dataKeywordField(loc dataTypeDef, AType fieldType)
+    | dataCommonKeywordField(loc dataTypeDef, AType fieldType)
     | keywordParam()
     | moduleName()
     ;
@@ -334,7 +334,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
     return <defs, useDefs - defs, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc), cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     set[loc] initialDefs = {};
     if (cursorLoc in ws.useDef<0>) {
         // println("Data field is a use");
@@ -372,32 +372,16 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
         loc adtLoc = cursorKind.dataTypeDef;
         set[loc] adtDefs = rascalGetOverloadedDefs(ws, {adtLoc}, mayOverloadF);
         for (d <- adtDefs, dataTypeDef := ws.definitions[d], dataType := dataTypeDef.defInfo.atype) {
-            // Any field accesses of a common keyword
-            uses += {u | u <- getUses(ws, dataTypeDef.defined), just(dataType) !:= getFact(ws, u)};
-
-            for (Define c:<_, _, _, constructorId(), _, _> <- ws.defines) {
-                for (u <- getUses(ws, c.defined) + c.defined) {
-                    if (f <- sort(factsInvert(ws)[dataType], byLength)
-                      , isContainedIn(u, f)
-                      , m := parseModuleWithSpacesCached(f.top)
-                      , /Tree t := m
-                      , t.src?, t.src == f
-                      , just(<_, kwLocs>) := rascalGetKeywordLocs(cursorName, t)) {
-                        uses += kwLocs + printlnExpD("Uses of kw locs: ", getUses(ws, kwLocs));
-                    }
-                }
+            for (Define _:<_, _, _, constructorId(), _, defType(AType consType)> <- ws.defines) {
+                <consDefs, consUses, _> = rascalGetFieldDefsUses(ws, consType, cursorKind.fieldType, cursorName);
+                defs += consDefs;
+                uses += consUses;
             }
-            for (Define dt:<_, _, _, _, _, defType(acons(dataType, _, _))> <- ws.defines
-               , dt.idRole != dataId()) {
-                if (f <- sort(factsInvert(ws)[dataType], desc(byLength))
-                  , isContainedIn(dt.defined, f)) {
-                    m = parseModuleWithSpacesCached(f.top);
-                    for (/Tree t := m
-                       , t.src?, isContainedIn(t.src, f)
-                       , just(<_, kwLocs>) := rascalGetKeywordLocs(cursorName, t)) {
-                        uses += kwLocs + printlnExpD("Uses of kw locs: ", getUses(ws, kwLocs));
-                    }
-                }
+            for (Define _:<_, _, _, IdRole idRole, _, defType(acons(dataType, _, _))> <- ws.defines
+               , idRole != dataId()) {
+                <adtDefs, adtUses, _> = rascalGetFieldDefsUses(ws, dataType, cursorKind.fieldType, cursorName);
+                defs += adtDefs;
+                uses += adtUses;
             }
         }
 
@@ -428,50 +412,49 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cu
     }
 }
 
-Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>.<Name field>`) =
-    just(<e.src, {field.src}>) when fieldName == "<field>";
+Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>.<Name field>`) =
+    just(<e.src, {field.src}, false>) when fieldName == "<field>";
 
-Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (Assignable) `<Assignable rec>.<Name field>`) =
-    just(<rec.src, {field.src}>) when fieldName == "<field>";
+Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Assignable) `<Assignable rec>.<Name field>`) =
+    just(<rec.src, {field.src}, false>) when fieldName == "<field>";
 
-Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>\< <{Field ","}+ fields> \>`) {
+Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>\< <{Field ","}+ fields> \>`) {
     fieldLocs = {field.src
         | field <- fields
         , field is name
         , "<field.fieldName>" == fieldName
     };
 
-    return fieldLocs != {} ? just(<e.src, fieldLocs>) : nothing();
+    return fieldLocs != {} ? just(<e.src, fieldLocs, false>) : nothing();
 }
 
-Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>[<Name field> = <Expression _>]`) =
-    just(<e.src, {field.src}>) when fieldName == "<field>";
+Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>[<Name field> = <Expression _>]`) =
+    just(<e.src, {field.src}, false>) when fieldName == "<field>";
 
-Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, (StructuredType) `<BasicType tp>[<{TypeArg ","}+ args>]`) {
+Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (StructuredType) `<BasicType tp>[<{TypeArg ","}+ args>]`) {
     fieldLocs = {name.src | (TypeArg) `<Type _> <Name name>` <- args, fieldName == "<name>"};
-    return fieldLocs != {} ? just(<tp.src, fieldLocs>) : nothing();
+    return fieldLocs != {} ? just(<tp.src, fieldLocs, true>) : nothing();
 }
 
-default Maybe[tuple[loc, set[loc]]] rascalGetFieldLocs(str fieldName, Tree _) = nothing();
+default Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, Tree _) = nothing();
 
-Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`) =
-    just(<e.src, rascalGetKeywordArgs(kwArgs, fieldName)>);
-
-
-Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Pattern) `<Pattern p>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`) =
-    just(<p.src, rascalGetKeywordArgs(kwArgs, fieldName)>);
-
-Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, (Variant) `<Name name>(<{TypeArg ","}* _> <KeywordFormals kwFormals>)`) =
-    just(<name.src, rascalGetKeywordFormals(kwFormals, fieldName)>);
-
-Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, d:(Declaration) `<Tags _> <Visibility _> data <UserType ut>(<{KeywordFormal ","}+ kwFormalList>) = <{Variant "|"}+ _>;`) =
-    just(<d.src, rascalGetKeywordFormalList(kwFormalList, fieldName)>);
+Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`) =
+    just(<e.src, rascalGetKeywordArgs(kwArgs, fieldName), false>);
 
 
-Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str fieldName, d:(Declaration) `<Tags _> <Visibility _> data <UserType ut>(<{KeywordFormal ","}+ kwFormalList>);`) =
-    just(<d.src, rascalGetKeywordFormalList(kwFormalList, fieldName)>);
+Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, (Pattern) `<Pattern p>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`) =
+    just(<p.src, rascalGetKeywordArgs(kwArgs, fieldName), false>);
 
-default Maybe[tuple[loc, set[loc]]] rascalGetKeywordLocs(str _, Tree _) = nothing();
+Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, (Variant) `<Name name>(<{TypeArg ","}* _> <KeywordFormals kwFormals>)`) =
+    just(<name.src, rascalGetKeywordFormals(kwFormals, fieldName), true>);
+
+Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, d:(Declaration) `<Tags _> <Visibility _> data <UserType ut>(<{KeywordFormal ","}+ kwFormalList>) = <{Variant "|"}+ _>;`) =
+    just(<d.src, rascalGetKeywordFormalList(kwFormalList, fieldName), true>);
+
+Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, d:(Declaration) `<Tags _> <Visibility _> data <UserType ut>(<{KeywordFormal ","}+ kwFormalList>);`) =
+    just(<d.src, rascalGetKeywordFormalList(kwFormalList, fieldName), true>);
+
+default Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str _, Tree _) = nothing();
 
 private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, AType containerType, AType fieldType, str cursorName) {
     set[loc] containerFacts = factsInvert(ws)[containerType];
@@ -481,12 +464,16 @@ private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, AType container
     set[loc] uses = {};
     for (file <- factsByModule.file) {
         fileFacts = factsByModule[file];
-        for (/Tree t := parseModuleWithSpacesCached(file), just(<lhs, fields>) := rascalGetFieldLocs(cursorName, t)) {
-            if ((StructuredType) `<BasicType _>[<{TypeArg ","}+ _>]` := t
-              , at := ws.facts[t.src]
-              , containerType.elemType?
-              , containerType.elemType == at.elemType) {
-                defs += {f | f <- fields, fieldType == ws.facts[f]};
+        for (/Tree t := parseModuleWithSpacesCached(file)
+           , just(<lhs, fields, isDef>) := rascalGetFieldLocs(cursorName, t) || just(<lhs, fields, isDef>) := rascalGetKeywordLocs(cursorName, t)) {
+            if((StructuredType) `<BasicType _>[<{TypeArg ","}+ _>]` := t) {
+                if(at := ws.facts[t.src]
+                 , containerType.elemType?
+                 , containerType.elemType == at.elemType) {
+                    defs += {f | f <- fields, just(fieldType) := getFact(ws, f)};
+                }
+            } else if (isDef) {
+                defs += fields;
             } else if (any(f <- fileFacts, isContainedIn(f, lhs))) {
                 uses += fields;
             }
