@@ -184,15 +184,20 @@ set[loc] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     set[loc] overloadedDefs = defs;
 
-    // Pre-condition
+    set[IdRole] roles = toRel(ws.definitions)[defs].idRole;
+
+    // Pre-conditions
+    assert size(roles) == 1:
+        "Initial defs are of different roles!";
     assert mayOverloadF(overloadedDefs, ws.definitions):
         "Initial defs are invalid overloads!";
 
+    IdRole role = getFirstFrom(roles);
     map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(ws);
     rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc def, loc scope] defScopes = ws.defines<defined, scope>+;
-    rel[loc scope, loc def] scopeDefs = invert(defScopes);
+    rel[loc scope, loc defined] scopeDefs = (ws.defines<idRole, scope, defined>)[role]+;
 
     rel[loc from, loc to] fromDefPaths =
         (defScopes + defUseScopes) // 1. Look up scopes of defs and scopes of their uses

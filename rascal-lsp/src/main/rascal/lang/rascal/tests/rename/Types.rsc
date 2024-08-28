@@ -165,3 +165,13 @@ test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
                        'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
                                                                         'bool func(Foo foo) = foo == g();", {})
 }, oldName = "Foo", newName = "Bar");
+
+test bool sameIdRoleOnly() = testRenameOccurrences({
+    byText("A", "data foo = f();", {})
+  , byText("B", "extend A;
+                'data foo = g();", {})
+  , byText("C", "extend B;
+                'int foo = 8;",{0})
+  , byText("D", "import C;
+                'int baz = C::foo + 1;", {0})
+});
