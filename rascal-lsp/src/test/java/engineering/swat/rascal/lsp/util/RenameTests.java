@@ -24,29 +24,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as path from 'path';
-import * as vscode from 'vscode';
+package engineering.swat.rascal.lsp.util;
 
-import { RascalExtension } from './RascalExtension';
-import { RascalMFValidator } from './ux/RascalMFValidator';
-import { RascalProjectValidator } from './ux/RascalProjectValidator';
+import org.junit.runner.RunWith;
+import org.rascalmpl.test.infrastructure.RascalJUnitTestPrefix;
+import org.rascalmpl.test.infrastructure.RascalJUnitTestRunner;
 
-const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
-const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
-
-
-export function activate(context: vscode.ExtensionContext) {
-    const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
-    const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo-v2.1.svg");
-    const extension = new RascalExtension(context, jars, icon, (deployMode || testDeployMode));
-    context.subscriptions.push(extension);
-    context.subscriptions.push(new RascalMFValidator());
-    context.subscriptions.push(new RascalProjectValidator());
-    return extension.externalLanguageRegistry();
-}
-
-
-export function deactivate() {
-    // no deactivation logic yet, since we push everything as a disposable
-    // although maybe we should do something here with the closing of connections to the REPLs that are still running
-}
+@RunWith(RascalJUnitTestRunner.class)
+@RascalJUnitTestPrefix("lang::rascal::tests")
+public class RenameTests {}

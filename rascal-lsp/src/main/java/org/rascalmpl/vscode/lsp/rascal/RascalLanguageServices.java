@@ -28,21 +28,25 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -50,9 +54,10 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -67,26 +72,31 @@ public class RascalLanguageServices {
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
     private final CompletableFuture<Evaluator> outlineEvaluator;
-    private final CompletableFuture<Evaluator> summaryEvaluator;
+    private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
 
     private final ExecutorService exec;
 
+    private final IBaseLanguageClient client;
+
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+        this.client = client;
         this.exec = exec;
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", null, true, "lang::rascal::lsp::Outline");
-        summaryEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", null, true, "lang::rascalcore::check::Summary");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", null, true, "lang::rascalcore::check::Checker");
+        var monitor = new RascalLSPMonitor(client, logger);
+
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::Outline");
+        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal summary", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::Rename");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
         try {
             IString moduleName = VF.string(pcfg.getModuleName(occ));
-            return runEvaluator("Rascal makeSummary", summaryEvaluator, eval -> {
-                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+            return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
+                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, addResources(pcfg));
                 return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec);
+            }, null, exec, false, client);
         } catch (IOException e) {
             logger.error("Error looking up module name from source location {}", occ, e);
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {
@@ -94,14 +104,24 @@ public class RascalLanguageServices {
         }
     }
 
+    private static IConstructor addResources(PathConfig pcfg) {
+        var result = pcfg.asConstructor();
+        return result.asWithKeywordParameters()
+            .setParameter("resources", pcfg.getBin());
+    }
+
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
         Executor exec) {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("checkAll", folder, pcfg.asConstructor())),
-            Collections.emptyMap(), exec);
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
+                return translateCheckResults((IList) e.call("checkAll", folder, config));
+            },
+            Collections.emptyMap(), exec, false, client);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
+        logger.trace("Translating messages: {}", messages);
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
@@ -125,10 +145,12 @@ public class RascalLanguageServices {
         Executor exec) {
         logger.debug("Running rascal check for: {} with: {}", files, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("check", files, pcfg.asConstructor())),
-            buildEmptyResult(files), exec);
+            e -> {
+                var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
+                return translateCheckResults((IList) e.call("check", files, config));
+            },
+            buildEmptyResult(files), exec, false, client);
     }
-
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
         try {
@@ -155,7 +177,38 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
-            VF.list(), exec);
+            VF.list(), exec, false, client);
+    }
+
+
+    public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, PathConfig pcfg, String newName, ColumnMaps columns) {
+        var line = cursor.getLine() + 1;
+        var moduleLocation = TreeAdapter.getLocation(module);
+        var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
+        var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
+
+        return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
+            try {
+                return (IList) eval.call("renameRascalSymbol", module, cursorTree, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), addResources(pcfg), VF.string(newName));
+            } catch (Throw e) {
+                if (e.getException() instanceof IConstructor) {
+                    var exception = (IConstructor)e.getException();
+                    if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
+                        // instead of the generic exception handler, we deal with these ourselfs
+                        // and report an LSP error, such that the IDE shows them in a user friendly way
+                        String message;
+                        if (exception.has("message")) {
+                            message = ((IString)exception.get("message")).getValue();
+                        }
+                        else {
+                            message = "Rename failed: " + exception.getName();
+                        }
+                        throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
+                    }
+                }
+                throw e;
+            }
+        }, VF.list(), exec, false, client);
     }
 
 

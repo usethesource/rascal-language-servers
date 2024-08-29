@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
@@ -49,7 +50,12 @@ import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -58,10 +64,20 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
+    private final CategoryPatch patch;
+
+    public SemanticTokenizer() {
+        this(false);
+    }
+
+    public SemanticTokenizer(boolean rascal) {
+        this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
+    }
+
     @Override
     public SemanticTokens semanticTokensFull(ITree tree) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens).collect(tree);
+        new TokenCollector(tokens, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
@@ -102,25 +118,56 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     private static class TokenList {
         private final List<Integer> theList = new ArrayList<>(500);
-        private int previousLine = 0;
-        private int previousStart = 0;
+        private int previousLineAbsolute = 0;
+        private int previousStartAbsolute = 0;
 
         public List<Integer> getTheList() {
             return Collections.unmodifiableList(theList);
         }
 
-        public void addToken(int startLine, int startColumn, int length, @Nullable String category) {
-            int tokenCategory = category == null ? -1 : TokenTypes.tokenTypeForName(category);
-            if (tokenCategory != -1) {
+        public void addToken(int lineAbsolute, int startAbsolute, int length, @Nullable String category) {
+            int type = TokenTypes.tokenTypeForName(category);
+
+            // If the token-to-add occurs right after the previous token, and if
+            // it has the same category, then the previous token can just be
+            // made longer (instead of adding a new token)
+            boolean canGrowPreviousToken =
+                !theList.isEmpty() &&
+                lineAbsolute == previousLineAbsolute &&
+                startAbsolute == previousStartAbsolute + previous(TokenField.LENGTH) &&
+                type == previous(TokenField.TYPE);
+
+            if (canGrowPreviousToken) {
+                growPreviousToken(length);
+            } else {
                 // https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/#textDocument_semanticTokens
-                theList.add(startLine - previousLine);
-                theList.add(startLine == previousLine ? startColumn - previousStart : startColumn);
+                theList.add(lineAbsolute - previousLineAbsolute);
+                theList.add(lineAbsolute == previousLineAbsolute ? startAbsolute - previousStartAbsolute : startAbsolute);
                 theList.add(length);
-                theList.add(tokenCategory);
+                theList.add(type);
                 theList.add(0); // no support for modifiers yet
-                previousLine = startLine;
-                previousStart = startColumn;
+                previousLineAbsolute = lineAbsolute;
+                previousStartAbsolute = startAbsolute;
             }
+        }
+
+        private enum TokenField {
+            // The order of these values is significant (consistent with the
+            // order of integers in `theList`)
+            LINE, START, LENGTH, TYPE, MODIFIER
+        }
+
+        private int previousIndexOf(TokenField field) {
+            return theList.size() - (5 - field.ordinal());
+        }
+
+        private int previous(TokenField field) {
+            return theList.get(previousIndexOf(field));
+        }
+
+        private void growPreviousToken(int length) {
+            int i = previousIndexOf(TokenField.LENGTH);
+            theList.set(i, theList.get(i) + length);
         }
     }
 
@@ -129,8 +176,14 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         /** Rascal extension to LSP categories, these require custom definitions in clients to work properly, so avoid them if possible */
         public static final String AMBIGUITY = "ambiguity";
+        public static final String UNCATEGORIZED = "uncategorized";
 
         private static String[][] backwardsCompatibleTokenTypes = new String[][] {
+            /**
+             * Special token category to indicate "absence of highlighting"
+             */
+            { UNCATEGORIZED, UNCATEGORIZED },
+
             /**
              * The Rascal legacy token types are translated to
              * textmate token types here
@@ -150,12 +203,14 @@ public class SemanticTokenizer implements ISemanticTokens {
             { TreeAdapter.RESULT,               SemanticTokenTypes.String},
             { TreeAdapter.STDOUT,               SemanticTokenTypes.String},
             { TreeAdapter.STDERR,               SemanticTokenTypes.String},
+
             /**
              * For a while, rascal-lsp was supporting these textmate categories as TokenTypes.
              * That was an incorrect implementation of the feature, see issue #366.
              *
              * But to remain backwards compatible, we've tried to map most of them
              */
+
             // The first block is what we minimally need to get good highlighting support
             {"entity.name", SemanticTokenTypes.Class },
             {"entity.other.inherited-class", SemanticTokenTypes.Class },
@@ -294,24 +349,18 @@ public class SemanticTokenizer implements ISemanticTokens {
                 ;
         }
 
-
-
         private static final String[] rascalExtensions = new String[] {
-            AMBIGUITY
+            AMBIGUITY, UNCATEGORIZED
         };
-
 
         private static final List<String> actualTokenTypes = Stream.concat(
             getPublicStaticFieldValues(SemanticTokenTypes.class), Arrays.stream(rascalExtensions))
             .collect(Collectors.toUnmodifiableList());
 
         static {
-
             for (int i = 0; i < actualTokenTypes.size(); i++) {
                 cache.put(actualTokenTypes.get(i), i);
             }
-
-
 
             // now map the legacy ones
             for (String[] mapped: backwardsCompatibleTokenTypes) {
@@ -324,21 +373,22 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
         }
 
-
         public static List<String> getTokenTypes() {
             return actualTokenTypes;
         }
-
 
         public static List<String> getTokenModifiers() {
             return Collections.emptyList();
         }
 
-        public static int tokenTypeForName(String category) {
+        public static int tokenTypeForName(@Nullable String category) {
+            if (category == null) {
+                category = UNCATEGORIZED;
+            }
+
             Integer result = cache.get(category);
             return result != null ? result : -1;
         }
-
     }
 
     private static class TokenCollector {
@@ -350,9 +400,11 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         private final boolean showAmb = false;
         private TokenList tokens;
+        private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens) {
+        public TokenCollector(TokenList tokens, CategoryPatch patch) {
             this.tokens = tokens;
+            this.patch = patch;
             line = 0;
             column = 0;
         }
@@ -405,6 +457,12 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
             }
 
+            // Apply a patch to the parse tree to dynamically add categories. In
+            // case of the rascal server, the patch adds categories to otherwise
+            // uncategorized literals. In case of parametric servers, the patch
+            // is empty and does nothing.
+            category = patch.apply(prod, category);
+
             // now we go down in the tree to find more tokens and to advance the counters
             for (IValue child : TreeAdapter.getArgs(arg)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
@@ -437,8 +495,8 @@ public class SemanticTokenizer implements ISemanticTokens {
         private void collectChar(ITree ch, @Nullable String currentCategory) {
             int currentChar = TreeAdapter.getCharacter(ch);
             //First check whether the token category has changed
-            if (currentCategory == null && currentTokenCategory != null) {
-                //character has no semantic category, but there is a running token
+            if (currentCategory == null) {
+                //character has no semantic category
                 if (column > startColumnCurrentToken) {
                     //add token and set column offset
                     tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
@@ -478,6 +536,80 @@ public class SemanticTokenizer implements ISemanticTokens {
             else {
                 column++;
             }
+        }
+    }
+
+    // The idea behind the patch is to dynamically map productions in Rascal's
+    // own grammar with no category (e.g, number literals) to current categories
+    // (i.e., semantic token types). These categories should eventually be
+    // incorporated directly in the grammar. Additional background:
+    // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
+    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {};
+
+    private static class DefaultCategoryPatch implements CategoryPatch {
+        @Override
+        public String apply(IConstructor prod, String defaultCategory) {
+            return defaultCategory;
+        }
+    }
+
+    private static class RascalCategoryPatch implements CategoryPatch {
+
+        // As an optimization, productions that have already been mapped in the
+        // past, are cached for fast lookups in the future. There are separate
+        // caches for productions that *do* need to be mapped to a new category
+        // and those that *do not* need this.
+        private Cache<IConstructor, String>  doPatch = buildCache();
+        private Cache<IConstructor, Boolean> doNotPatch = buildCache();
+
+        @SuppressWarnings("java:S131") // Switches without defaults are intended in this method
+        @Override
+        public String apply(IConstructor prod, String defaultCategory) {
+
+            // Check the caches
+            var category = doPatch.getIfPresent(prod);
+            if (category != null) {
+                return category;
+            }
+            if (doNotPatch.getIfPresent(prod) != null) {
+                return defaultCategory; // Possibly different each time this cache is hit
+            }
+
+            // Apply the patch
+            var def = ProductionAdapter.getDefined(prod);
+
+            if (isLabeledLiteral(def)) {
+                switch (SymbolAdapter.getLabel(def)) {
+                case "integer":
+                case "real":
+                case "rational":
+                    return doPatch.get(prod, p -> SemanticTokenTypes.Number);
+                case "location":
+                    return doPatch.get(prod, p -> SemanticTokenTypes.String);
+                case "regExp":
+                    return doPatch.get(prod, p -> SemanticTokenTypes.Regexp);
+                }
+            }
+
+            doNotPatch.put(prod, Boolean.TRUE);
+            return defaultCategory;
+        }
+
+        private boolean isLabeledLiteral(IConstructor def) {
+            return SymbolAdapter.isLabel(def) &&
+                SymbolAdapter.getName(SymbolAdapter.getLabeledSymbol(def)).equals("Literal");
+        }
+
+        private static <V> Cache<IConstructor, V> buildCache() {
+            // The usage of weak keys ensures: (1) identity equality is used to
+            // compare keys; (2) entries are automatically evicted and
+            // garbage-collected when they are no longer strongly reachable.
+            //
+            // Note: Parsers have static fields that contain references to the
+            // IConstructors, so using weak keys is safe.
+            return Caffeine.newBuilder()
+                .weakKeys()
+                .build();
         }
     }
 }

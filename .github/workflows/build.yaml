@@ -7,7 +7,7 @@ on:
       - 'v[0-9]+.*'
   pull_request:
     branches:
-      - main
+      - '**'
 
 permissions:
   actions: read
@@ -33,7 +33,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18.15
+          node-version: 18.x
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
@@ -68,7 +68,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 10
+          DELAY_FACTOR: 15
           _JAVA_OPTIONS: '-Xmx4G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
@@ -82,7 +82,7 @@ jobs:
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
@@ -108,7 +108,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18.15
+          node-version: 18.x
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'

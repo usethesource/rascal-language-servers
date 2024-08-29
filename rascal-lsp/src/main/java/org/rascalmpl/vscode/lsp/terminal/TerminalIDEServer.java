@@ -31,10 +31,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -51,7 +50,8 @@ import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.ideservices.BasicIDEServices;
+import org.rascalmpl.uri.LogicalMapResolver;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -59,7 +59,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -72,7 +71,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
-    private final DocumentChanges docChanges;
     private final Set<String> jobs = new HashSet<>();
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
@@ -80,7 +78,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public TerminalIDEServer(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
-        this.docChanges = new DocumentChanges(docService);
         this.docService = docService;
     }
 
@@ -149,7 +146,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         IList list = edits.getEdits();
 
         return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(docChanges.translateDocumentChanges(list))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(docService, list))));
         });
     }
 
@@ -224,7 +221,13 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerLocations(RegisterLocationsParameters param) {
-        new BasicIDEServices(null).registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+        URIResolverRegistry.getInstance().registerLogical(
+            new LogicalMapResolver(
+                param.getRawScheme(),
+                param.getRawAuthority(),
+                param.getMapping()
+            )
+        );
     }
 
     @Override

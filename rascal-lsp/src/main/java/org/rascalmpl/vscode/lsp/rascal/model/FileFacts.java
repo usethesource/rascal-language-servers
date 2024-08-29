@@ -41,6 +41,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -94,6 +95,10 @@ public class FileFacts {
             resolved = l;
         }
         return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
+    }
+
+    public PathConfig getPathConfig(ISourceLocation file) {
+        return confs.lookupConfig(file);
     }
 
     private class FileFact {

@@ -196,6 +196,14 @@ public interface ITerminalIDEServer {
         public IMap getMapping() {
             return (IMap) string2value(mapping);
         }
+
+        public String getRawScheme() {
+            return scheme;
+        }
+        public String getRawAuthority() {
+            return authority;
+        }
+
     }
 
     public static class WarningMessage {

@@ -14,7 +14,7 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.11.2-head",
+  "version": "0.12.0-head",
   "engines": {
     "vscode": "^1.82.0",
     "node": ">=18.15.0"
@@ -45,7 +45,7 @@
         "title": "Start Rascal Terminal, Import module and Run main function"
       },
       {
-        "command": "rascalmpl.importMain",
+        "command": "rascalmpl.importModule",
         "title": "Start Rascal Terminal and Import this module"
       }
     ],
@@ -133,7 +133,7 @@
       {
         "language": "rascalmpl",
         "scopeName": "source.rascalmpl",
-        "path": "./syntaxes/simple.tmGrammar.json"
+        "path": "./syntaxes/rascal.tmGrammar.json"
       },
       {
         "language": "parametric-rascalmpl",
@@ -147,6 +147,9 @@
         "scopes": {
           "ambiguity": [
             "invalid"
+          ],
+          "uncategorized": [
+            "meta.embedded"
           ]
         }
       },
@@ -155,6 +158,9 @@
         "scopes": {
           "ambiguity": [
             "invalid"
+          ],
+          "uncategorized": [
+            "meta.embedded"
           ]
         }
       }
@@ -164,6 +170,10 @@
         "id": "ambiguity",
         "superType": "string",
         "description": "Rascal ambiguous parts of a parse tree"
+      },
+      {
+        "id": "uncategorized",
+        "description": "Absence of highlighting"
       }
     ],
     "configuration": {
@@ -191,7 +201,7 @@
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "package": "npm run esbuild-base -- --minify",
@@ -220,7 +230,7 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
-    "esbuild": "0.21.x",
+    "esbuild": "0.23.x",
     "eslint": "8.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
