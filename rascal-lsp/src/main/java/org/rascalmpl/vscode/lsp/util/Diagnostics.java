@@ -91,17 +91,6 @@ public class Diagnostics {
         }
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
-        Diagnostic result = new Diagnostic();
-        result.setSeverity(severityMap.get(d.getName()));
-        result.setMessage(((IString) d.get("msg")).getValue());
-        Range range = Locations.toRange(getMessageLocation(d), cm);
-        result.setRange(range);
-
-        storeFixCommands(d, result, range);
-        return result;
-    }
-
     private static void storeFixCommands(IConstructor d, Diagnostic result, Range range) {
         // Here we attach quick-fix commands to every Diagnostic, if present.
         // Later when codeActions are requested, the LSP client sends selected
@@ -114,11 +103,18 @@ public class Diagnostics {
         }
     }
 
+    public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+    }
+      
     public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+    }
+
+    public static Diagnostic translateDiagnostic(IConstructor d, Range range) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        Range range = Locations.toRange(getMessageLocation(d), cm);
         result.setRange(range);
 
         storeFixCommands(d, result, range);
