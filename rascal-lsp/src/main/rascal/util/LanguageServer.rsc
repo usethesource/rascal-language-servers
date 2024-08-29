@@ -302,12 +302,35 @@ data DocumentSymbolTag
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
+@description{
+The fixes you provide with a message will be hinted at by a light-bulb in the editor's margin.
+Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
+}
+@benefits{
+* the information required to produce an error message is usually also required for the fix. So this
+coupling of message with fixes may come in handy.
+}
+@pitfalls{
+* the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
+and store it in a ((Commmand)) constructor inside the ((CodeAction)), and not already execute the quickfix.
+}
 data Message(list[CodeAction] fixes = []);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
 Commands can be any closed term. Add any constructor you need to express the execution parameters
 of a command.
+
+You write the ((CommandExecutor)) to interpret each kind of ((Command)) individually.
+A ((Command) constructor must have fields or keyword fields that hold the parameters of the
+to-be-executed command. 
+
+Commands are produced for delayed and optional execution by:
+* ((LensDetector)), where the will be executed if the lens is selected in the editor 
+* ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
+* ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
+
+See also ((CodeAction)); a wrapper for ((Command)) for fine-tuning UI interactions.
 }
 @examples{
 ```rascal
@@ -321,11 +344,8 @@ value evaluator(shouldBeInt(loc src)) {
 }
 ```
 }
-@benefits{
-* Commands can be attached to diagnostic ((Message)) or ((LensDetector)) or produced by ((CodeActionContributor)).
-It allows you to hook DSL-specific code to the editor for any DSL.
-}
 @pitfalls{
+* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see ((CodeActionContributor)) and ((Message)) )
 * the `noop()` command will always be ignored.
 * _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
 be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be

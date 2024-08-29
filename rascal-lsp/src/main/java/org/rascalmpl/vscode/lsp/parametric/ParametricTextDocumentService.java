@@ -182,7 +182,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
-
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
