@@ -99,14 +99,10 @@ private set[IllegalRenameReason] rascalCheckCausesDoubleDeclarations(WorkspaceIn
     };
 
     rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
-        | Define _: <fieldScope, _, _, fieldId(), nD, _> <- newDefs
-        , loc cD <- currentDefs
-        , ws.definitions[cD]?
-        , Define _: <fieldScope, _, _, fieldId(), cD, _> := ws.definitions[cD]
-        , fL <- ws.facts, at := ws.facts[fL]
-        , acons(aadt(_, _, _), _, _) := at
-        , isStrictlyContainedIn(cD, fL)
-        , isStrictlyContainedIn(nD, fL)
+        | Define _: <curFieldScope, _, _, fieldId(), cD, _> <- toRel(ws.definitions)[currentDefs]
+          // The scope of a field def is the surrounding data def
+        , loc dataDef <- rascalGetOverloadedDefs(ws, {curFieldScope}, rascalMayOverloadSameName)
+        , loc nD <- (newDefs<idRole, defined>)[fieldId()] & (ws.defines<idRole, scope, defined>)[fieldId(), dataDef]
     };
 
     rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>

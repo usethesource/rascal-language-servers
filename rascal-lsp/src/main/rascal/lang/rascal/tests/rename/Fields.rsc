@@ -112,7 +112,7 @@ test bool complexDataType() = testRenameOccurrences({0, 1},
 , oldName = "sourceFiles", newName = "sources");
 
 test bool crossModuleConstructorField() = testRenameOccurrences({
-    byText("Foo", "data D = a(int foo) | b(int bar);", {0}),
+    byText("Foo", "data D = a(int foo) | b(int baz);", {0}),
     byText("Main", "
     'import Foo;
     'void main() {
