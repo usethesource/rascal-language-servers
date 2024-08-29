@@ -442,7 +442,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return "";
         }
         else {
-            name = StringUtils.capitalize(name);
             var kw = kind.asWithKeywordParameters();
             for (String kwn : kw.getParameterNames()) {
                 String nestedName = constructorToCodeActionKind((IConstructor) kw.getParameter(kwn));
