@@ -88,7 +88,7 @@ public class TreeSearch {
             }
 		}
 
-		if (TreeAdapter.isAmb(tree)) {
+		if (TreeAdapter.isAmb(tree) && !tree.getAlternatives().isEmpty()) {
             // pick any tree to make the best of it.
 			return computeFocusList(focus, (ITree) tree.getAlternatives().iterator().next(), line, column);
 		}
