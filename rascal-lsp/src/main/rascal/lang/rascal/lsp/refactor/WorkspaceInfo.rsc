@@ -197,7 +197,10 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc def, loc scope] defScopes = ws.defines<defined, scope>+;
-    rel[loc scope, loc defined] scopeDefs = (ws.defines<idRole, scope, defined>)[role]+;
+    rel[loc scope, loc defined] scopeDefs =
+        (ws.defines<scope, defined>)+                  // Follow definition scopes ...
+      o ((ws.defines<idRole, defined, defined>)[role]) // Until we arrive at a definition with the same role ...
+      ;
 
     rel[loc from, loc to] fromDefPaths =
         (defScopes + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
