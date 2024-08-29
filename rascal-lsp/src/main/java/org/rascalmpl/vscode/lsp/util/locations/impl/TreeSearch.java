@@ -10,7 +10,7 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 /**
- * Utilities for finding sub-trees based on UTF-24 line/column indexing.
+ * Utilities for finding sub-trees based on UTF-32 line/column indexing.
  */
 public class TreeSearch {
     
