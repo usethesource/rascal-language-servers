@@ -257,8 +257,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<IList> parseCommands(String command) {
-        return commandExecutor.thenApply(c -> c.parseCommands(command)).thenCompose(Function.identity());
+    public CompletableFuture<IList> parseCodeActions(String command) {
+        return commandExecutor.thenApply(c -> c.parseCodeActions(command)).thenCompose(Function.identity());
     }
 
     @Override

@@ -39,6 +39,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
+import analysis::diff::TextEdits;
 import IO;
 import ParseTree;
 import Message;
@@ -117,7 +118,7 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Documenter       = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for retrieving code actions focused around the current cursor}
 @description{
@@ -131,7 +132,7 @@ The implementor is asked to produce only actions that pertain what is under the 
 The parameter `inFocus` lists all the subtrees ordered from inside to outside that the current
 selection in the editor overlaps.
 }
-alias CodeActionContributor = list[Command] (list[Tree] inFocus);
+alias CodeActionContributor = list[CodeAction] (list[Tree] inFocus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -301,7 +302,7 @@ data DocumentSymbolTag
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
-data Message(list[Command] fixes = []);
+data Message(list[CodeAction] fixes = []);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
@@ -332,6 +333,54 @@ serialized, so that would lead to run-time errors.
 }
 data Command(str title="")
     = noop()
+    ;
+
+data CodeAction
+    = action(
+        list[DocumentEdit] edits = [],
+        Command command          = noop(), 
+        str title                = command.title,
+        CodeActionKind kind      = quickfix()
+    );
+
+@synopsis{Kinds are used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an _open_ data type. The constructor names are used
+to compute the string values for the LSP by capitalizing and
+joining parent/children with periods.
+}
+data CodeActionKind
+    = empty()
+    | refactor(RefactorKind refactor = rewrite())
+    | quickfix()
+    | source(SourceActionKind source = organizeImports())
+    ;
+
+@synopsis{Used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an open list and can be extended by the language engineer at will.
+These names should be indicative of what will happen to the source code when the action is chosen.
+}
+@pitfalls{
+* You as language engineer are responsible for implementing the right action with these names.
+}
+data SourceActionKind
+    = organizeImports()
+    | fixAll()
+    ;
+
+@synopsis{Used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an open list and can be extended by the language engineer at will.
+These names should be indicative of what will happen to the source code when the action is chosen.
+}
+@pitfalls{
+* You as language engineer are responsible for implementing the right action with these names.
+}
+data RefactorKind
+    = extract()
+    | inline()
+    | rewrite()
     ;
 
 @synopsis{Represents one inlayHint for display in an editor}

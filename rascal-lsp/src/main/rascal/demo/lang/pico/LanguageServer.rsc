@@ -83,7 +83,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 
     // Provide errors (cheap to compute) both in analyze mode and in build mode.
     // We also connect quick-fixes immediately to every error
-    s.messages += {<src, error("<id> is not defined", src, fixes=[changeToFix(src, existing<0>, title="Change to <existing<0>>") | existing <- defs])> 
+    s.messages += {<src, error("<id> is not defined", src, fixes=[action(command=changeToFix(src, existing<0>, title="Change to <existing<0>>")) | existing <- defs])> 
                   | <src, id> <- uses, id notin defs<0>};
                   
     // "references" are links for loc to loc (from def to use)
@@ -105,10 +105,10 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[Command] picoActions([*_, IdType x, *_, start[Program] program]) 
-    = [removeDecl(program, x, title="remove <x>")];
+list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program]) 
+    = [action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[Command] picoActions(list[value] _) = [];
+default list[CodeAction] picoActions(list[value] _) = [];
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};

@@ -286,11 +286,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
  
     @Override
-    public CompletableFuture<IList> parseCommands(String command) {
+    public CompletableFuture<IList> parseCodeActions(String command) {
         return store.thenApply(commandStore -> {
             try {
                 var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("Command")), new StringReader(command));
+                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
                 return VF.list();

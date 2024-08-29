@@ -138,7 +138,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<IList> parseCommands(String commands) {
+    public CompletableFuture<IList> parseCodeActions(String commands) {
         return CompletableFuture.completedFuture(null);
     }
 
