@@ -43,7 +43,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
@@ -144,7 +143,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
-    private final DocumentChanges docChanges = new DocumentChanges(this);
 
     /** extension to language */
     private final Map<String, String> registeredExtensions = new ConcurrentHashMap<>();
@@ -414,7 +412,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
 
         if (edits != null) {
-            result.setEdit(new WorkspaceEdit(docChanges.translateDocumentChanges(edits)));
+            result.setEdit(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, edits)));
         }
         
         result.setKind(constructorToCodeActionKind(kind));
@@ -623,8 +621,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
                 Stream.concat(quicks, actions)
                 .map(IConstructor.class::cast)
-                .map(cons -> constructorToCommand(contribs.getName(), cons))
-                .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
+                .map(cons -> constructorToCodeAction(contribs.getName(), cons))
+                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
                 .collect(Collectors.toList())
             );
     }

@@ -289,6 +289,7 @@ public abstract class BaseLanguageServer {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), projectFolder.getMode().mapConfigMode());
+                    @SuppressWarnings("unchecked")
                     Two<String, URI[]>[] result = new Two[4];
                     result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
                     result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
