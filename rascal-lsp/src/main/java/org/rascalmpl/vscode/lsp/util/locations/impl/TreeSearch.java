@@ -59,7 +59,7 @@ public class TreeSearch {
      * 
      * @param tree   parse tree
      * @param line   search term in lines (1-based)
-     * @param column search term in columns (0-based, UTF-24 codepoints)
+     * @param column search term in columns (0-based, UTF-32 codepoints)
      * @return list of tree that are around the given line/column position, ordered from child to parent.
      */
     public static IList computeFocusList(ITree tree, int line, int column) {
