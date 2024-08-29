@@ -353,7 +353,9 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
             if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
                 // Case 4 or 5 (or 0): common keyword field
                 return cursor(dataCommonKeywordField(dt.defined, fieldType), c, cursorName);
-            } else if (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
+            }
+
+            for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
                 if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
                     // Case 3 (or 0): keyword field
                     return cursor(dataKeywordField(dt.defined, fieldType), c, cursorName);
