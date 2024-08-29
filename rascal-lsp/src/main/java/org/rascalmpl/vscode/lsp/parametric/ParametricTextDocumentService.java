@@ -589,52 +589,45 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var start = params.getRange().getStart();
         final var startLine = start.getLine() + 1;
         final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
-        
-        if (contribs != null) {
-            var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
 
-            // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
-            // and which came back with the codeAction's list of relevant (in scope) diagnostics:
-            // CompletableFuture<Stream<IValue>> 
-            CompletableFuture<Stream<IValue>> quickfixes 
-                = params.getContext().getDiagnostics()
-                    .stream()
-                    .map(Diagnostic::getData)
-                    .filter(Objects::nonNull)
-                    .filter(JsonPrimitive.class::isInstance)
-                    .map(JsonPrimitive.class::cast)
-                    .map(JsonPrimitive::getAsString)
-                    // this is the "magic" resurrection of command terms from the JSON data field
-                    .map(contribs::parseCodeActions)
-                    // this serializes the stream of futures and accumulates their results as a flat list again
-                    .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat)  
-                    ).thenApply(IList::stream)
-                ;
+        // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
+        // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+        // CompletableFuture<Stream<IValue>> 
+        CompletableFuture<Stream<IValue>> quickfixes 
+            = params.getContext().getDiagnostics()
+                .stream()
+                .map(Diagnostic::getData)
+                .filter(Objects::nonNull)
+                .filter(JsonPrimitive.class::isInstance)
+                .map(JsonPrimitive.class::cast)
+                .map(JsonPrimitive::getAsString)
+                // this is the "magic" resurrection of command terms from the JSON data field
+                .map(contribs::parseCodeActions)
+                // this serializes the stream of futures and accumulates their results as a flat list again
+                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat)  
+                ).thenApply(IList::stream)
+            ;
 
-            // here we dynamically ask the contributions for more actions,
-            // based on the cursor position in the file and the current parse tree
-           CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
-                getFile(params.getTextDocument())
-                    .getCurrentTreeAsync()
-                    .thenApply(Versioned::get) 
-                    .thenCompose(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
-                    .thenApply(IList::stream)
-                , () -> Stream.<IValue>empty())
-                ;
+        // here we dynamically ask the contributions for more actions,
+        // based on the cursor position in the file and the current parse tree
+        CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+            getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get) 
+                .thenCompose(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
+                .thenApply(IList::stream)
+            , () -> Stream.<IValue>empty())
+            ;
 
-            // final merging the two streams of commmands, and their conversion to LSP Command data-type
-            return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
-                    Stream.concat(quicks, actions)
-                    .map(IConstructor.class::cast)
-                    .map(cons -> constructorToCommand(contribs.getName(), cons))
-                    .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
-                    .collect(Collectors.toList())
-                );
-        }
-        else {
-            logger.warn("ignoring command execution (no code actions configured for this document): {}", params.getTextDocument());
-            return CompletableFuture.completedFuture(null);
-        }
+        // final merging the two streams of commmands, and their conversion to LSP Command data-type
+        return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
+                Stream.concat(quicks, actions)
+                .map(IConstructor.class::cast)
+                .map(cons -> constructorToCommand(contribs.getName(), cons))
+                .map(cmd  -> Either.<Command,CodeAction>forLeft(cmd))
+                .collect(Collectors.toList())
+            );
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
