@@ -4,13 +4,6 @@
 // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
 	"version": "0.2.0",
-	"compounds": [
-        {
-            "name": "Second Level Dev Rascal",
-            "configurations": ["Rascal Server", "Parametric Server", "Run Extension (extensions enabled)"],
-            "stopAll": true
-        }
-    ],
 	"configurations": [
 		{
 			"name": "Run Extension",
@@ -56,30 +49,6 @@
 				"${workspaceFolder}/out/test/**/*.js"
 			],
 			"preLaunchTask": "npm: pretest"
-		},
-		{
-			"type": "java",
-			"name": "Rascal Server",
-			"request": "launch",
-			"mainClass": "org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer",
-			"projectName": "rascal-lsp",
-			"console": "internalConsole",
-			"vmArgs": [
-			  "-Dlog4j2.level=TRACE",
-			  "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar"
-			]
-		  },
-		  {
-			"type": "java",
-			"name": "Parametric Server",
-			"request": "launch",
-			"mainClass": "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer",
-			"projectName": "rascal-lsp",
-			"console": "internalConsole",
-			"vmArgs": [
-			  "-Dlog4j2.level=TRACE",
-			  "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar"
-			]
-		  }
+		}
 	]
 }
