@@ -182,6 +182,7 @@ set[loc] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
 }
 
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
+    if (defs == {}) return {};
     set[loc] overloadedDefs = defs;
 
     set[IdRole] roles = toRel(ws.definitions)[defs].idRole;

@@ -251,23 +251,26 @@ private default bool rascalIsFunctionLocal(_, _) = false;
 private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, AType lhsType, loc lhs) {
     rel[loc, Define] definitionsRel = toRel(ws.definitions);
 
-    set[Define] defs = {};
-    if (printlnExpD("Is constructor type [<lhsType>]: ", rascalIsConstructorType(lhsType))) {
-        for (Define cons: <_, _, _, constructorId(), _, _> <- printlnExpD("Reachable defs (from lhs): ", definitionsRel[rascalReachableDefs(ws, printlnExpD("Defs of lhs: ", getDefs(ws, lhs)) + lhs)])
-           , AType consAdtType := cons.defInfo.atype.adt
-           , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- printlnExpD("Reachable defs (from constructor def): ", definitionsRel[rascalReachableDefs(ws, {cons.defined})])
-           , isContainedIn(cons.defined, adt.defined)) { // Probably need to follow import paths here as well
-            defs += adt;
-        }
-    } else if (printlnExpD("Is data type [<lhsType>]: ", rascalIsDataType(lhsType))) {
-        for (Define ctr:<_, _, _, constructorId(), _, defType(acons(lhsType, _, _))> <- definitionsRel[rascalReachableDefs(ws, getDefs(ws, lhs) + lhs)]
-           , Define adt:<_, _, _, dataId(), _, defType(lhsType)> <- definitionsRel[rascalReachableDefs(ws, {ctr.defined})]
-           , isContainedIn(ctr.defined, adt.defined)) {
-            defs += adt;
-        }
+    set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
+        ? {lhs}
+        : getDefs(ws, lhs)
+        ;
+
+    if (rascalIsConstructorType(lhsType)) {
+        return {adt
+            | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+            , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+            , AType consAdtType := cons.defInfo.atype.adt
+            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- definitionsRel[rascalReachableDefs(ws, {cons.defined})]
+        };
+    } else if (rascalIsDataType(lhsType)) {
+        return {adt
+            | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- definitionsRel[rascalReachableDefs(ws, overloads)]
+        };
     }
 
-    return defs;
+    return {};
 }
 
 Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
@@ -362,7 +365,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
             }
         }
 
-        throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(getDefs(ws, cursorLoc))});
+        set[loc] fromDefs = cursorLoc in ws.useDef<1> ? {cursorLoc} : getDefs(ws, cursorLoc);
+        throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
     }
 
     loc c = min(locsContainingCursor.l);
