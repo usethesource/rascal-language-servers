@@ -137,8 +137,6 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
             success = false;
-            println("Unexpected edits: ");
-            iprintln(edits);
         }
 
         for (src <- pcfg.srcs) {
@@ -282,8 +280,8 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
         oldNameOccurrences += n.src;
     }
 
-    print("All locations of \'<name>\': ");
-    iprintln(sort(oldNameOccurrences, byOffset));
+    // print("All locations of \'<name>\': ");
+    // iprintln(sort(oldNameOccurrences, byOffset));
 
     if ([changed(_, replaces)] := edits) {
         set[int] idx = {};

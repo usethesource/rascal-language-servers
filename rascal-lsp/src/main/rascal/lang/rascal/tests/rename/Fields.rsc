@@ -146,7 +146,7 @@ test bool dataFieldReusedName() = testRenameOccurrences({
         'data Foo = f(int foo);
         ", {0}),
     byText("Scratch2", "
-        'data Foo = g(int foo);
+        'data Foo = f(int foo);
         ", {})
 });
 
@@ -155,7 +155,7 @@ test bool dataKeywordFieldReusedName() = testRenameOccurrences({
         'data Foo = f(int foo = 0);
         ", {0}),
     byText("Scratch2", "
-        'data Foo = g(int foo = 0);
+        'data Foo = f(int foo = 0);
         ", {})
 });
 

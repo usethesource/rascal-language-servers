@@ -248,7 +248,7 @@ private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
 
-private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, AType lhsType, loc lhs) {
+private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
     rel[loc, Define] definitionsRel = toRel(ws.definitions);
 
     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
@@ -256,6 +256,7 @@ private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, AType lhsType, loc
         : getDefs(ws, lhs)
         ;
 
+    AType lhsType = ws.facts[lhs];
     if (rascalIsConstructorType(lhsType)) {
         return {adt
             | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
@@ -346,8 +347,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     // iprintln(ws.facts);
 
 
-    Cursor getDataFieldCursor(AType containerType, loc container) {
-        for (Define dt <- rascalGetADTDefinitions(ws, containerType, container)
+    Cursor getDataFieldCursor(loc container) {
+        for (Define dt <- rascalGetADTDefinitions(ws, container)
            , adtType := dt.defInfo.atype) {
             if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
                 // Case 4 or 5 (or 0): common keyword field
@@ -370,15 +371,15 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     }
 
     loc c = min(locsContainingCursor.l);
-    print("Locs containing cursor: ");
-    iprintln(locsContainingCursor);
+    // print("Locs containing cursor: ");
+    // iprintln(locsContainingCursor);
     switch (locsContainingCursor[c]) {
         case {moduleName(), *_}: {
             return cursor(moduleName(), c, cursorName);
         }
         case {keywordParam(), dataKeywordField(_, _), *_}: {
-            if ({loc container} := keywords[c], just(containerType) := getFact(ws, container)) {
-                return getDataFieldCursor(containerType, container);
+            if ({loc container} := keywords[c]) {
+                return getDataFieldCursor(container);
             }
         }
         case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
@@ -397,8 +398,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
                  || maybeContainerType == nothing()) {
                     // Case 1 (or 0): collection field
                     return cursor(collectionField(), c, cursorName);
-                } else if (just(containerType) := maybeContainerType) {
-                    return getDataFieldCursor(containerType, container);
+                } else {
+                    return getDataFieldCursor(container);
                 }
             }
         }
@@ -408,7 +409,7 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
             if (d.idRole is fieldId
               , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
               , isStrictlyContainedIn(c, adt.defined)) {
-                return getDataFieldCursor(adt.defInfo.atype, adt.defined);
+                return getDataFieldCursor(adt.defined);
             } else {
                 return cursor(def(), c, cursorName);
             }
