@@ -99,7 +99,7 @@ private set[IllegalRenameReason] rascalCheckCausesDoubleDeclarations(WorkspaceIn
     };
 
     rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
-        | Define _: <curFieldScope, _, _, fieldId(), cD, _> <- toRel(ws.definitions)[currentDefs]
+        | Define _: <curFieldScope, _, _, fieldId(), cD, _> <- definitionsRel(ws)[currentDefs]
           // The scope of a field def is the surrounding data def
         , loc dataDef <- rascalGetOverloadedDefs(ws, {curFieldScope}, rascalMayOverloadSameName)
         , loc nD <- (newDefs<idRole, defined>)[fieldId()] & (ws.defines<idRole, scope, defined>)[fieldId(), dataDef]
@@ -111,9 +111,8 @@ private set[IllegalRenameReason] rascalCheckCausesDoubleDeclarations(WorkspaceIn
         , cT: aparameter(_, _) := ws.facts[cD]
         , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- ws.defines
         , isContainedIn(cD, fD.defined)
-        , loc nD <- ws.facts
+        , <loc nD, nT: aparameter(newName, _)> <- toRel(ws.facts)
         , isContainedIn(nD, fD.defined)
-        , nT: aparameter(newName, _) := ws.facts[nD]
         , /nT := funcParams
     };
 
@@ -232,8 +231,8 @@ private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitio
 
 private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
     for (d <- defs) {
-        if (Define _: <_, _, _, _, funDef, defType(afunc(_, _, _))> <- ws.defines
-          , isContainedIn(ws.definitions[d].scope, funDef)) {
+        if (Define fun: <_, _, _, _, _, defType(afunc(_, _, _))> <- ws.defines
+          , isContainedIn(ws.definitions[d].scope, fun.defined)) {
             continue;
         }
         return false;
@@ -249,8 +248,6 @@ private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) =
 private default bool rascalIsFunctionLocal(_, _) = false;
 
 private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
-    rel[loc, Define] definitionsRel = toRel(ws.definitions);
-
     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
         ? {lhs}
         : getDefs(ws, lhs)
@@ -262,12 +259,12 @@ private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
             | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
             , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
             , AType consAdtType := cons.defInfo.atype.adt
-            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- definitionsRel[rascalReachableDefs(ws, {cons.defined})]
+            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
         };
     } else if (rascalIsDataType(lhsType)) {
         return {adt
             | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- definitionsRel[rascalReachableDefs(ws, overloads)]
+            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
         };
     }
 
@@ -340,13 +337,6 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
         throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
     }
 
-    // print("Defines: ");
-    // iprintln(ws.definitions);
-
-    // print("Facts: ");
-    // iprintln(ws.facts);
-
-
     Cursor getDataFieldCursor(loc container) {
         for (Define dt <- rascalGetADTDefinitions(ws, container)
            , adtType := dt.defInfo.atype) {
@@ -410,9 +400,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
               , isStrictlyContainedIn(c, adt.defined)) {
                 return getDataFieldCursor(adt.defined);
-            } else {
-                return cursor(def(), c, cursorName);
             }
+            return cursor(def(), c, cursorName);
         }
         case {use(), *_}: {
             set[loc] defs = getDefs(ws, c);
@@ -429,14 +418,6 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
                 ) {
                 // Cursor is at a qualified name
                 return cursor(moduleName(), c, cursorName);
-            // } else if (/Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-            //          , just(<lhs, {field, _*}>) := getFieldLoc(cursorName, t)
-            //          , just(acons(adtType, _, _)) := getFact(ws, lhs)
-            //          , Define dataDef: <_, _, _, dataId(), _, defType(AType adtType)> <- ws.defines
-            //          , Define kwDef: <_, cursorName, _, keywordFormalId(), _, _> <- ws.defines
-            //          , isStrictlyContainedIn(kwDef.defined, dataDef.defined)) {
-            //     // Cursor is at a field use
-            //     return cursor(dataField(), kwDef.defined, cursorName);
             } else if (defines != {}) {
                 // The cursor is at a use with corresponding definitions.
                 return cursor(use(), c, cursorName);
@@ -513,11 +494,11 @@ private bool rascalContainsName(loc l, str name) {
     3. It does not change definitions outside of the current workspace.
 }
 list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
-    { // }= job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+    = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
-    // step("collecting workspace information", 1);
+    step("collecting workspace information", 1);
     WorkspaceInfo ws = workspaceInfo(
         // Preload
         ProjectFiles() {
@@ -557,27 +538,18 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
         }
     );
 
-    // step("preloading minimal workspace information", 1);
+    step("preloading minimal workspace information", 1);
     ws = preLoad(ws);
 
-    // step("analyzing name at cursor", 1);
+    step("analyzing name at cursor", 1);
     cur = rascalGetCursor(ws, cursorT);
 
-    // step("loading required type information", 1);
+    step("loading required type information", 1);
     if (!rascalIsFunctionLocal(ws, cur)) {
-        // println("Renaming not module-local; loading more information from workspace.");
         ws = loadWorkspace(ws);
-    // } else {
-    //     println("Renaming guaranteed to be module-local.");
     }
 
-    // print("Defines: ");
-    // iprintln({<d.id, d> | d <- ws.defines}["Foo"]);
-
-    // print("Scopes: ");
-    // iprintln(ws.scopes);
-
-    // step("collecting uses of \'<cursorName>\'", 1);
+    step("collecting uses of \'<cursorName>\'", 1);
     <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, getPathConfig);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
@@ -585,7 +557,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
 
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
-    // step("checking rename validity", 1);
+    step("checking rename validity", 1);
     map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
         (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
@@ -598,7 +570,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
     return changes + renames;
-}//, totalWork = 6);
+}, totalWork = 6);
 
 //// WORKAROUNDS
 

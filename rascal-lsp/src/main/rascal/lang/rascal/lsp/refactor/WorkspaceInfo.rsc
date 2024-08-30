@@ -186,22 +186,26 @@ set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
     return {s.top | s <- reachable.modScope};
 }
 
-set[loc] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
+@memo{maximumSize=1, minutes=5}
+rel[loc, Define] definitionsRel(WorkspaceInfo ws) = toRel(ws.definitions);
+
+set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
-    rel[loc from, loc to] reachableDefs =
+    rel[loc from, Define define] reachableDefs =
         (ws.defines<defined, defined, scope>)[defs]
       o scopes // Find the module scope
       o modulePaths
-      o ws.defines<scope, defined>;
-    return reachableDefs.to;
+      o ws.defines<scope, defined>
+      o definitionsRel(ws);
+    return reachableDefs.define;
 }
 
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     if (defs == {}) return {};
     set[loc] overloadedDefs = defs;
 
-    set[IdRole] roles = toRel(ws.definitions)[defs].idRole;
+    set[IdRole] roles = definitionsRel(ws)[defs].idRole;
 
     // Pre-conditions
     assert size(roles) == 1:
@@ -282,10 +286,12 @@ set[loc] rascalGetKeywordArgs(\default(_, keywordArgs), str cursorName) =
 set[loc] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = getUses(ws, defs);
 
+    set[Define] reachableDefs = rascalReachableDefs(ws, defs);
+
     for (d <- defs
-       , Define dataDef: <_, _, _, dataId(), _, _> <- ws.defines
+       , Define dataDef: <_, _, _, dataId(), _, _> <- reachableDefs
        , isStrictlyContainedIn(d, dataDef.defined)
-       , Define consDef: <_, _, _, constructorId(), _, _> <- ws.defines
+       , Define consDef: <_, _, _, constructorId(), _, _> <- reachableDefs
        , isStrictlyContainedIn(consDef.defined, dataDef.defined)
     ) {
         if (AType fieldType := ws.definitions[d].defInfo.atype) {
@@ -366,10 +372,11 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
     } else if (cursorLoc in ws.defines<defined>) {
         initialDefs = {cursorLoc};
     } else if (just(AType adtType) := getFact(ws, cursorLoc)) {
+        set[Define] reachableDefs = rascalReachableDefs(ws, {cursorLoc});
         initialDefs = {
             kwDef.defined
             | Define dataDef: <_, _, _, dataId(), _, defType(adtType)> <- rascalGetADTDefinitions(ws, cursorLoc)
-            , Define kwDef: <_, _, cursorName, keywordFormalId(), _, _> <- ws.defines
+            , Define kwDef: <_, _, cursorName, keywordFormalId(), _, _> <- reachableDefs
             , isStrictlyContainedIn(kwDef.defined, dataDef.defined)
         };
     } else {
@@ -392,8 +399,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
         set[loc] uses = {};
 
         set[loc] adtDefs = rascalGetOverloadedDefs(ws, {cursorKind.dataTypeDef}, mayOverloadF);
-        rel[loc, Define] definitionsRel = toRel(ws.definitions);
-        set[Define] reachableDefs = definitionsRel[rascalReachableDefs(ws, adtDefs)];
+        set[Define] reachableDefs = rascalReachableDefs(ws, adtDefs);
         set[loc] reachableModules = rascalReachableModules(ws, reachableDefs.defined);
 
         for (Define _:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
@@ -539,7 +545,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
         // moduleNameSize ^  qualSepSize ^   ^ idSize
         trim(u, removePrefix = moduleNameSize - size(cursorName)
               , removeSuffix = idSize + qualSepSize)
-        | <loc u, Define d> <- ws.useDef o toRel(ws.definitions)
+        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
         , idSize := size(d.id)
         , u.length > idSize // There might be a qualified prefix
         , moduleNameSize := size(modName)
