@@ -39,7 +39,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
-import analysis::diff::TextEdits;
+import analysis::diff::edits::TextEdits;
 import IO;
 import ParseTree;
 import Message;
