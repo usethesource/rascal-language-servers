@@ -431,11 +431,11 @@ private bool rascalContainsName(loc l, str name) {
     - Aliases
     - Data types
     - Type parameters
+    - Data constructors
+    - Data constructor fields (fields, keyword fields, common keyword fields)
 
     The following symbols are currently unsupported.
     - Annotations (on functions)
-    - Data constructors
-    - Data constructor fields (fields, keyword fields, common keyword fields)
 
     *Name resolution*
     A renaming triggers the typechecker on the currently open file to determine the scope of the renaming.
