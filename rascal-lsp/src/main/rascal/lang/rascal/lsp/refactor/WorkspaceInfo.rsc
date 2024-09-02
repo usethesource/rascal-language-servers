@@ -47,8 +47,6 @@ import Map;
 import Set;
 import String;
 
-import IO;
-
 data CursorKind
     = use()
     | def()
@@ -423,8 +421,6 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
 }
 
 bool debug = false;
-
-&T printlnExpD(str msg, &T t) = debug ? printlnExp(msg, t) : t;
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
     if (cursorKind is dataKeywordField || cursorKind is dataCommonKeywordField) {

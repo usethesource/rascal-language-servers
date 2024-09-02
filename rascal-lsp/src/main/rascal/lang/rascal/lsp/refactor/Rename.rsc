@@ -328,8 +328,6 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     }
 
     loc c = min(locsContainingCursor.l);
-    // print("Locs containing cursor: ");
-    // iprintln(locsContainingCursor);
     switch (locsContainingCursor[c]) {
         case {moduleName(), *_}: {
             return cursor(moduleName(), c, cursorName);
