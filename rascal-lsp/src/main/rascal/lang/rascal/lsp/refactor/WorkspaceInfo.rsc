@@ -250,6 +250,39 @@ bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atupl
 bool rascalIsConstructorType(AType at) = at is acons;
 bool rascalIsDataType(AType at) = at is aadt;
 
+bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
+    if (l <- defs, !definitions[l]?) return false;
+    set[str] names = {definitions[l].id | l <- defs};
+    if (size(names) > 1) return false;
+
+    map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
+    return rascalMayOverload(defs, potentialOverloadDefinitions);
+}
+
+set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
+    set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
+        ? {lhs}
+        : getDefs(ws, lhs)
+        ;
+
+    AType lhsType = ws.facts[lhs];
+    if (rascalIsConstructorType(lhsType)) {
+        return {adt
+            | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+            , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+            , AType consAdtType := cons.defInfo.atype.adt
+            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
+        };
+    } else if (rascalIsDataType(lhsType)) {
+        return {adt
+            | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
+        };
+    }
+
+    return {};
+}
+
 set[loc] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};
 

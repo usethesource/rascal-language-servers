@@ -220,15 +220,6 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[loc] defs, set[loc] uses, str name) =
     computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, name);
 
-private bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
-    if (l <- defs, !definitions[l]?) return false;
-    set[str] names = {definitions[l].id | l <- defs};
-    if (size(names) > 1) return false;
-
-    map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
-    return rascalMayOverload(defs, potentialOverloadDefinitions);
-}
-
 private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
     for (d <- defs) {
         if (Define fun: <_, _, _, _, _, defType(afunc(_, _, _))> <- ws.defines
@@ -246,30 +237,6 @@ private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)
     rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
-
-private set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
-    set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
-        ? {lhs}
-        : getDefs(ws, lhs)
-        ;
-
-    AType lhsType = ws.facts[lhs];
-    if (rascalIsConstructorType(lhsType)) {
-        return {adt
-            | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
-            , AType consAdtType := cons.defInfo.atype.adt
-            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
-        };
-    } else if (rascalIsDataType(lhsType)) {
-        return {adt
-            | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
-        };
-    }
-
-    return {};
-}
 
 Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
@@ -388,9 +355,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
                  || maybeContainerType == nothing()) {
                     // Case 1 (or 0): collection field
                     return cursor(collectionField(), c, cursorName);
-                } else {
-                    return getDataFieldCursor(container);
                 }
+                return getDataFieldCursor(container);
             }
         }
         case {def(), *_}: {
