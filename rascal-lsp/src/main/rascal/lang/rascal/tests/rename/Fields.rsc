@@ -181,13 +181,13 @@ test bool lrelField() = testRenameOccurrences({0, 1}, "
 test bool relSubscript() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
     'x = r\<foo\>;
-", skipCursors = {1});
+");
 
 test bool relSubscriptWithVar() = testRenameOccurrences({0, 2}, "
     'rel[str foo, str baz] r = {};
     'str foo = \"foo\";
     'x = r\<foo\>;
-", skipCursors = {2});
+");
 
 test bool tupleFieldSubscriptUpdate() = testRenameOccurrences({0, 1, 2}, "
     'tuple[str foo, int baz] t = \<\"one\", 1\>;

@@ -101,6 +101,8 @@ rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
 }
 bool byLength(loc l1, loc l2) = l1.length < l2.length;
 
+bool byLengthTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = byLength(t1[0], t2[0]);
+
 @synopsis{
     Predicate to sort locations by offset.
 }

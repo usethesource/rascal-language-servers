@@ -456,12 +456,18 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
-    AType cursorType = ws.facts[cursorLoc];
-    list[loc] factLocsSortedBySize = sort(domain(ws.facts), byLength);
+    lrel[loc, AType] factsBySize = sort(toRel(ws.facts), byLengthTuple);
+    AType cursorType = avoid();
 
-    if (l <- factLocsSortedBySize
+    if (ws.facts[cursorLoc]?) {
+        cursorType = ws.facts[cursorLoc];
+    } else if (just(loc fieldAccess) := findSmallestContaining(ws.facts<0>, cursorLoc)
+             , just(AType collectionType) := getFact(ws, fieldAccess)) {
+        cursorType = collectionType;
+    }
+
+    if (<l, collUseType> <- factsBySize
       , isStrictlyContainedIn(cursorLoc, l)
-      , collUseType := ws.facts[l]
       , rascalIsCollectionType(collUseType)
       , collUseType.elemType is atypeList) {
         // We are at a collection definition site
