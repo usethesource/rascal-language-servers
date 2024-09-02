@@ -312,7 +312,7 @@ coupling of message with fixes may come in handy.
 }
 @pitfalls{
 * the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
-and store it in a ((Commmand)) constructor inside the ((CodeAction)), and not already execute the quickfix.
+and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), and not already execute the quickfix.
 }
 data Message(list[CodeAction] fixes = []);
 
@@ -321,7 +321,7 @@ data Message(list[CodeAction] fixes = []);
 Commands can be any closed term. Add any constructor you need to express the execution parameters
 of a command.
 
-You write the ((CommandExecutor)) to interpret each kind of ((Command)) individually.
+You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
 A ((Command) constructor must have fields or keyword fields that hold the parameters of the
 to-be-executed command. 
 
@@ -330,7 +330,7 @@ Commands are produced for delayed and optional execution by:
 * ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
 * ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
 
-See also ((CodeAction)); a wrapper for ((Command)) for fine-tuning UI interactions.
+See also ((CodeAction)); a wrapper for ((util::LanguageServer::Command)) for fine-tuning UI interactions.
 }
 @examples{
 ```rascal
