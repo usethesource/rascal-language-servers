@@ -94,8 +94,7 @@ class RascalPathNode extends RascalLibNode {
                 return vscode.Uri.file(s);
             }
             return vscode.Uri.parse(s);
-        })
-        .map(u => new RascalLibraryRoot(u, this));
+        }).map(u => new RascalLibraryRoot(u, this));
     }
 }
 
