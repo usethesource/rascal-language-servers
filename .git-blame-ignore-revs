@@ -1,0 +1,14 @@
+# Run this command to always ignore formatting commits in `git blame`
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# removed all tabs
+5688f2fa4ea023a8e2b0818470ffa2010392216f
+1d8496df76f0ad82cc977a357e84b663f07d89df
+a7c162753abd2ade66cefae7c2b0cf041328300f
+fbcd5bcc0aaf62c9fc536b5e54b6110da1a525c4
+
+# white space normalistion after copying files from different repos
+dcce49b29c96c645dff2b2e623cb76fc0c30ea83
+
+# fixed incorrect whitespace in typescript
+0427908d04ee6862a496a8f94a3f6e8110c8d3f5
