@@ -35,9 +35,9 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 
 public interface ISemanticTokens {
-	SemanticTokensCapabilities capabilities();
-	SemanticTokensWithRegistrationOptions options();
+    SemanticTokensCapabilities capabilities();
+    SemanticTokensWithRegistrationOptions options();
     SemanticTokens semanticTokensFull(ITree tree);
-	Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousDelta, ITree tree);
-	SemanticTokens semanticTokensRange(Range range, ITree tree);
+    Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousDelta, ITree tree);
+    SemanticTokens semanticTokensRange(Range range, ITree tree);
 }

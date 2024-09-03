@@ -452,10 +452,10 @@ public interface ITerminalIDEServer {
     }
     public static class LanguageParameter {
         private final String pathConfig;
-	    private final String name; // name of the language
-	    private final String[] extensions; // extension for files in this language
-	    private final String mainModule; // main module to locate mainFunction in
-	    private final String mainFunction; // main function which contributes the language implementation
+        private final String name; // name of the language
+        private final String[] extensions; // extension for files in this language
+        private final String mainModule; // main module to locate mainFunction in
+        private final String mainFunction; // main function which contributes the language implementation
         private final @Nullable ParserSpecification precompiledParser;
 
         public LanguageParameter(String pathConfig, String name, String[] extensions, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {

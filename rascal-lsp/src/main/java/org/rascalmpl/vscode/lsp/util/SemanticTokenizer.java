@@ -83,7 +83,7 @@ public class SemanticTokenizer implements ISemanticTokens {
 
     @Override
     public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousId, ITree tree) {
-       return Either.forLeft(semanticTokensFull(tree));
+        return Either.forLeft(semanticTokensFull(tree));
     }
 
     @Override
