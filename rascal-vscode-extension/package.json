@@ -26,7 +26,6 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
-    "rascalmpl": "file:",
     "tar": "7.x",
     "vscode-languageclient": "9.x",
     "yauzl": "3.x"
