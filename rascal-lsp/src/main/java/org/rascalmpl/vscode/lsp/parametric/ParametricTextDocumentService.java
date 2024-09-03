@@ -512,7 +512,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::definitions, params.getTextDocument(), params.getPosition())
-            .thenApply(d -> { logger.debug("Definitions: {}", d); return d;})
+            .thenApply(d -> {
+                logger.debug("Definitions: {}", d);
+                return d;
+            })
             .thenApply(Either::forLeft)
             , () -> Either.forLeft(Collections.emptyList()));
     }

@@ -38,7 +38,7 @@ import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
-        {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
+    {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
     const serverOptions: ServerOptions = deployMode
         ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg)
