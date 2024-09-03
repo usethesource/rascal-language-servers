@@ -336,6 +336,7 @@
                 <header>../LICENSE.txt</header>
               <excludes>
                 <exclude>rascal_style.xml</exclude>
+                <exclude>checkstyle.xml</exclude>
                 <exclude>**/README</exclude>
                 <exclude>src/test/resources/**</exclude>
                 <exclude>src/main/resources/**</exclude>
@@ -380,6 +381,14 @@
           </execution>
         </executions>
       </plugin>
+      <plugin> <!-- needs to be explictily envoked using mvn checkstyle:check -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <licenses>
@@ -422,4 +431,23 @@
       </build>
     </profile>
   </profiles>
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+        </configuration>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>checkstyle</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>
