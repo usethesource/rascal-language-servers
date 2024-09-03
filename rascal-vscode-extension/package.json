@@ -26,6 +26,7 @@
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
   "dependencies": {
+    "rascalmpl": "file:",
     "tar": "7.x",
     "vscode-languageclient": "9.x",
     "yauzl": "3.x"
@@ -224,14 +225,14 @@
     "@types/tar": "6.x",
     "@types/vscode": "1.82.0",
     "@types/yauzl": "2.x",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
     "esbuild": "0.23.x",
-    "eslint": "^8.57.0",
-    "eslint-plugin-editorconfig": "^4.0.3",
+    "eslint": "8.x",
+    "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
     "typescript": "5.x",
