@@ -580,14 +580,14 @@ public class SemanticTokenizer implements ISemanticTokens {
 
             if (isLabeledLiteral(def)) {
                 switch (SymbolAdapter.getLabel(def)) {
-                case "integer":
-                case "real":
-                case "rational":
-                    return doPatch.get(prod, p -> SemanticTokenTypes.Number);
-                case "location":
-                    return doPatch.get(prod, p -> SemanticTokenTypes.String);
-                case "regExp":
-                    return doPatch.get(prod, p -> SemanticTokenTypes.Regexp);
+                    case "integer":
+                    case "real":
+                    case "rational":
+                        return doPatch.get(prod, p -> SemanticTokenTypes.Number);
+                    case "location":
+                        return doPatch.get(prod, p -> SemanticTokenTypes.String);
+                    case "regExp":
+                        return doPatch.get(prod, p -> SemanticTokenTypes.Regexp);
                 }
             }
 
