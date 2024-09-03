@@ -33,8 +33,8 @@
   <version>2.21.0-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.3</junit.version>
-    <maven-surefire-plugin.version>3.3.0</maven-surefire-plugin.version>
+    <junit.version>5.11.0</junit.version>
+    <maven-surefire-plugin.version>3.5.0</maven-surefire-plugin.version>
     <log4j2.version>2.23.1</log4j2.version>
     <lsp4j.version>0.23.1</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
@@ -91,7 +91,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <!-- Required to run JUnit 4 and 5 tests in the same test run -->
@@ -227,7 +227,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.7.1</version>
+        <version>3.8.0</version>
         <executions>
           <execution> <?m2e ignore?>
             <id>copy</id>
