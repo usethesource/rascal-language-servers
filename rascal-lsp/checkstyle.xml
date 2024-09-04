@@ -7,7 +7,7 @@
   <module name="SuppressWarningsFilter"/>
   <property name="charset" value="UTF-8"/>
   <property name="severity" value="error"/>
-  <property name="fileExtensions" value="java, properties, xml"/>
+  <property name="fileExtensions" value="java, properties, rsc, xml"/>
 
   <!-- allow suppression of errors for certain files -->
   <module name="SuppressionFilter">
@@ -19,6 +19,12 @@
   <!-- Whitespace -->
   <module name="FileTabCharacter"> <!-- no tabs -->
     <property name="eachLine" value="true"/>
+  </module>
+  <module name="RegexpSingleline">
+    <property name="format" value="[^\s]\s+$"/> <!-- we only care about statements with trailing whitespace, empty lines with some whitespace we're not gointg to be picky about -->
+
+    <property name="message" value="Remove trailing whitespace" />
+    <property name="fileExtensions" value="xml, java, rsc"/>
   </module>
 
   <!-- java style things -->
@@ -34,7 +40,7 @@
       <property name="tokens" value="LITERAL_DO, LITERAL_ELSE, LITERAL_FOR, LITERAL_IF, LITERAL_WHILE"/>
     </module>
     <module name="OneStatementPerLine"/>
-    <module name="FallThrough"/> <!-- can be relieved by explicitly adding a comment to say that mentions falls?through-->
+    <module name="FallThrough"/> <!-- can be relieved by explicitly adding a comment that mentions fall[s]?through-->
     <module name="ModifierOrder"/>
     <module name="NoFinalizer"/>
 
