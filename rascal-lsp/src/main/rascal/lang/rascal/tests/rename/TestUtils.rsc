@@ -29,6 +29,8 @@ module lang::rascal::tests::rename::TestUtils
 
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
+import lang::rascal::lsp::refactor::Util;
+
 import IO;
 import List;
 import Location;
@@ -50,8 +52,8 @@ import util::Reflective;
 
 
 //// Fixtures and utility functions
-data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name)
-                | byLoc(loc file, set[int] nameOccs, str newName = name);
+data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
+                | byLoc(loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
 
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
@@ -85,7 +87,7 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
 
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
-    for (mm <- modules, cursorOcc <- mm.nameOccs) {
+    for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
         str testName = "Test<abs(arbInt())>";
         loc testDir = |memory://tests/rename/<testName>|;
 
@@ -97,7 +99,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         }
 
         pcfg = getTestPathConfig(testDir);
-        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName))};
+        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
         cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <cursorT.src>");
@@ -131,8 +133,6 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
             success = false;
-            println("Unexpected edits: ");
-            iprintln(edits);
         }
 
         for (src <- pcfg.srcs) {
@@ -273,6 +273,9 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
     for (/Name n := m, "<n>" == name) {
         oldNameOccurrences += n.src;
     }
+
+    // print("All locations of \'<name>\': ");
+    // iprintln(sort(oldNameOccurrences, byOffset));
 
     if ([changed(_, replaces)] := edits) {
         set[int] idx = {};
