@@ -33,7 +33,7 @@
   <version>2.21.0-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.3</junit.version>
+    <junit.version>4.13.1</junit.version>
     <maven-surefire-plugin.version>3.3.0</maven-surefire-plugin.version>
     <log4j2.version>2.23.1</log4j2.version>
     <lsp4j.version>0.23.1</lsp4j.version>
@@ -68,36 +68,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.3</version>
+      <version>0.12.4</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.13.4</version>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
+      <version>0.14.0</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Required to run JUnit 4 and 5 tests in the same test run -->
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
@@ -169,6 +150,14 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+        <dependencies>
+          <!-- Make sure to use the JUnit 4 test runner -->
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit47</artifactId>
+            <version>3.3.0</version>
+          </dependency>
+        </dependencies>
     </plugin>
                 <plugin>
                     <groupId>org.rascalmpl</groupId>
@@ -181,8 +170,9 @@
                             <src>${project.basedir}/src/main/rascal</src>
                         </srcs>
                         <srcIgnores>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/Rename.rsc</ignore>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/Rename.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
+                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
                         </srcIgnores>
                         <sourceLookup>|lib://rascal-lsp|</sourceLookup>
                         <enableStandardLibrary>false</enableStandardLibrary>
