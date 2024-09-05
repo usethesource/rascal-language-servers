@@ -242,7 +242,7 @@ private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
 
-Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
+Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
       , kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
       , "<kwName>" == fieldName) {
@@ -270,7 +270,7 @@ private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container,
             return dataCommonKeywordField(dt.defined, fieldType);
         }
 
-        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
+        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- rascalReachableDefs(ws, {dt.defined})) {
             if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
                 // Case 3 (or 0): keyword field
                 return dataKeywordField(dt.defined, fieldType);
@@ -278,6 +278,10 @@ private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container,
                 // Case 2 (or 0): positional field
                 return dataField(dt.defined, fieldType);
             }
+        }
+
+        if (Define d: <_, cursorName, _, fieldId(), _, defType(adtType)> <- rascalReachableDefs(ws, {dt.defined})) {
+            return dataField(dt.defined, d.defInfo.atype);
         }
     }
 

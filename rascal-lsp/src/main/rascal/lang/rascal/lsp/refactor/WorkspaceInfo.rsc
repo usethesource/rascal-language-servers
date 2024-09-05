@@ -195,12 +195,19 @@ set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
     rel[loc from, Define define] reachableDefs =
-        (ws.defines<defined, defined, scope>)[defs] // <definition, scope> pairs
-      o scopes                                      // All scopes surrounding defs
-      o modulePaths                                 // Transitive-reflexive paths from scope to reachable modules
-      o ws.defines<scope, defined>                  // Definitions in these scopes
-      o definitionsRel(ws);                         // Full define tuples
-    return reachableDefs.define;                    // We are only interested in reached defines; not *from where* they were reached
+        (ws.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
+      o (
+         (scopes                                                // All scopes surrounding defs
+        o modulePaths                                           // Transitive-reflexive paths from scope to reachable modules
+        ) + (                                                   // In ADT and syntax definitions, search inwards to find field scopes
+          (ws.defines<idRole, scope, defined>)[dataId()]
+        + (ws.defines<idRole, scope, defined>)[nonterminalId()]
+        + (ws.defines<idRole, scope, defined>)[lexicalId()]
+        )
+      )
+      o ws.defines<scope, defined>                              // Definitions in these scopes
+      o definitionsRel(ws);                                     // Full define tuples
+    return reachableDefs.define;                                // We are only interested in reached defines; not *from where* they were reached
 }
 
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
@@ -262,24 +269,32 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
 }
 
 set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
+    bool isDataTypeLike(dataId()) = true;
+    bool isDataTypeLike(nonterminalId()) = true;
+    bool isDataTypeLike(lexicalId()) = true;
+    default bool isDataTypeLike(IdRole _) = false;
+
     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
         ? {lhs}
         : getDefs(ws, lhs)
         ;
 
-    AType lhsType = ws.facts[lhs];
-    if (rascalIsConstructorType(lhsType)) {
-        return {adt
-            | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
-            , AType consAdtType := cons.defInfo.atype.adt
-            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
-        };
-    } else if (rascalIsDataType(lhsType)) {
-        return {adt
-            | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
-        };
+    if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
+        if (rascalIsConstructorType(lhsType)) {
+            return {adt
+                | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+                , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+                , AType consAdtType := cons.defInfo.atype.adt
+                , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
+                , isDataTypeLike(adt.idRole)
+            };
+        } else if (rascalIsDataType(lhsType)) {
+            return {adt
+                | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+                , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
+                , isDataTypeLike(adt.idRole)
+            };
+        }
     }
 
     return {};
