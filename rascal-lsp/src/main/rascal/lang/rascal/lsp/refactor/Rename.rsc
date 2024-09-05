@@ -258,7 +258,103 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
     return nothing();
 }
 
-Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
+private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container, loc cursorLoc, str cursorName) {
+    for (Define dt <- rascalGetADTDefinitions(ws, container)
+        , adtType := dt.defInfo.atype) {
+        if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
+            // Case 4 or 5 (or 0): common keyword field
+            return dataCommonKeywordField(dt.defined, fieldType);
+        }
+
+        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
+            if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
+                // Case 3 (or 0): keyword field
+                return dataKeywordField(dt.defined, fieldType);
+            } else if (just(fieldType) := rascalConsFieldType(cursorName, d)) {
+                // Case 2 (or 0): positional field
+                return dataField(dt.defined, fieldType);
+            }
+        }
+    }
+
+    set[loc] fromDefs = cursorLoc in ws.useDef<1> ? {cursorLoc} : getDefs(ws, cursorLoc);
+    throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
+}
+
+private CursorKind rascalGetCursorKind(WorkspaceInfo ws, loc cursorLoc, str cursorName, rel[loc l, CursorKind kind] locsContainingCursor, rel[loc field, loc container] fields, rel[loc kw, loc container] keywords) {
+    loc c = min(locsContainingCursor.l);
+    switch (locsContainingCursor[c]) {
+        case {moduleName(), *_}: {
+            return moduleName();
+        }
+        case {keywordParam(), dataKeywordField(_, _), *_}: {
+            if ({loc container} := keywords[c]) {
+                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
+            }
+        }
+        case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
+            /* Possible cases:
+                0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
+                1. We are on a collection field
+                2. We are on a positional field definition (inside a constructor variant, inside a data def)
+                3. We are on a keyword field definition (inside a constructor variant)
+                4. We are on a common keyword field definition (inside a data def)
+                5. We are on a (common) keyword argument (inside a constructor call)
+             */
+
+            // Let's figure out what kind of field we are exactly
+            if ({loc container} := fields[c], maybeContainerType := getFact(ws, container)) {
+                if ((just(containerType) := maybeContainerType && rascalIsCollectionType(containerType))
+                 || maybeContainerType == nothing()) {
+                    // Case 1 (or 0): collection field
+                    return collectionField();
+                }
+                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
+            }
+        }
+        case {def(), *_}: {
+            // Cursor is at a definition
+            Define d = ws.definitions[c];
+            if (d.idRole is fieldId
+              , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
+              , isStrictlyContainedIn(c, adt.defined)) {
+                return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName);
+            }
+            return def();
+        }
+        case {use(), *_}: {
+            set[loc] defs = getDefs(ws, c);
+            set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
+
+            if (d <- defs, just(amodule(_)) := getFact(ws, d)) {
+                // Cursor is at an import
+                return moduleName();
+            } else if (u <- ws.useDef<0>
+                     , isContainedIn(cursorLoc, u)
+                     , u.end > cursorLoc.end
+                     // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
+                     , {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
+                ) {
+                // Cursor is at a qualified name
+                return moduleName();
+            } else if (defines != {}) {
+                // The cursor is at a use with corresponding definitions.
+                return use();
+            } else if (just(at) := getFact(ws, c)
+                     , aparameter(cursorName, _) := at) {
+                // The cursor is at a type parameter
+                return typeParam();
+            }
+        }
+        case {k}: {
+            return k;
+        }
+    }
+
+    throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
+}
+
+private Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
@@ -304,99 +400,8 @@ Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
         throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
     }
 
-    Cursor getDataFieldCursor(loc container) {
-        for (Define dt <- rascalGetADTDefinitions(ws, container)
-           , adtType := dt.defInfo.atype) {
-            if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
-                // Case 4 or 5 (or 0): common keyword field
-                return cursor(dataCommonKeywordField(dt.defined, fieldType), c, cursorName);
-            }
-
-            for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
-                if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
-                    // Case 3 (or 0): keyword field
-                    return cursor(dataKeywordField(dt.defined, fieldType), c, cursorName);
-                } else if (just(fieldType) := rascalConsFieldType(cursorName, d)) {
-                    // Case 2 (or 0): positional field
-                    return cursor(dataField(dt.defined, fieldType), c, cursorName);
-                }
-            }
-        }
-
-        set[loc] fromDefs = cursorLoc in ws.useDef<1> ? {cursorLoc} : getDefs(ws, cursorLoc);
-        throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
-    }
-
-    loc c = min(locsContainingCursor.l);
-    switch (locsContainingCursor[c]) {
-        case {moduleName(), *_}: {
-            return cursor(moduleName(), c, cursorName);
-        }
-        case {keywordParam(), dataKeywordField(_, _), *_}: {
-            if ({loc container} := keywords[c]) {
-                return getDataFieldCursor(container);
-            }
-        }
-        case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
-            /* Possible cases:
-                0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
-                1. We are on a collection field
-                2. We are on a positional field definition (inside a constructor variant, inside a data def)
-                3. We are on a keyword field definition (inside a constructor variant)
-                4. We are on a common keyword field definition (inside a data def)
-                5. We are on a (common) keyword argument (inside a constructor call)
-             */
-
-            // Let's figure out what kind of field we are exactly
-            if ({loc container} := fields[c], maybeContainerType := getFact(ws, container)) {
-                if ((just(containerType) := maybeContainerType && rascalIsCollectionType(containerType))
-                 || maybeContainerType == nothing()) {
-                    // Case 1 (or 0): collection field
-                    return cursor(collectionField(), c, cursorName);
-                }
-                return getDataFieldCursor(container);
-            }
-        }
-        case {def(), *_}: {
-            // Cursor is at a definition
-            Define d = ws.definitions[c];
-            if (d.idRole is fieldId
-              , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
-              , isStrictlyContainedIn(c, adt.defined)) {
-                return getDataFieldCursor(adt.defined);
-            }
-            return cursor(def(), c, cursorName);
-        }
-        case {use(), *_}: {
-            set[loc] defs = getDefs(ws, c);
-            set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
-
-            if (d <- defs, just(amodule(_)) := getFact(ws, d)) {
-                // Cursor is at an import
-                return cursor(moduleName(), c, cursorName);
-            } else if (u <- ws.useDef<0>
-                     , isContainedIn(cursorLoc, u)
-                     , u.end > cursorLoc.end
-                     // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
-                     , {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
-                ) {
-                // Cursor is at a qualified name
-                return cursor(moduleName(), c, cursorName);
-            } else if (defines != {}) {
-                // The cursor is at a use with corresponding definitions.
-                return cursor(use(), c, cursorName);
-            } else if (just(at) := getFact(ws, c)
-                     , aparameter(cursorName, _) := at) {
-                // The cursor is at a type parameter
-                return cursor(typeParam(), c, cursorName);
-            }
-        }
-        case {k}: {
-            return cursor(k, c, cursorName);
-        }
-    }
-
-    throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
+    CursorKind kind = rascalGetCursorKind(ws, cursorLoc, cursorName, locsContainingCursor, fields, keywords);
+    return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
 private set[Name] rascalNameToEquivalentNames(str name) = {
