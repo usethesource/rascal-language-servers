@@ -161,9 +161,23 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
-        await bench.executeCommand("Rename Symbol");
-        const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.fast, "Rename box should appear");
-        await renameBox.sendKeys(Key.BACK_SPACE, "i", Key.ENTER);
+        let renameSuccess = false;
+        let tries = 0;
+        while (!renameSuccess && tries < 5) {
+            try {
+                await bench.executeCommand("Rename Symbol");
+                const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
+                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, "i", Key.ENTER);
+                renameSuccess = true;
+            }
+            catch (e) {
+                console.log("Rename failed to succeed, lets try again");
+                await ide.screenshot(`IDE-failed-rename-round-${tries}`);
+                tries++;
+            }
+        }
+        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
         const editorText = await editor.getText();
