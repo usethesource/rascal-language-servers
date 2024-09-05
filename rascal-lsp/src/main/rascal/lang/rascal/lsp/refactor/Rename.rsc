@@ -464,6 +464,8 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
 
     step("collecting workspace information", 1);
     WorkspaceInfo ws = workspaceInfo(
+        // Get path config
+        getPathConfig,
         // Preload
         ProjectFiles() {
             return { <
@@ -514,7 +516,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     }
 
     step("collecting uses of \'<cursorName>\'", 1);
-    <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, getPathConfig);
+    <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName);
 
     rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
     rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};

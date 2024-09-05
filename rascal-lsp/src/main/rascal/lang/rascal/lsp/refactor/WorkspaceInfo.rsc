@@ -84,6 +84,7 @@ data WorkspaceInfo (
     Paths paths = {},
     set[loc] projects = {}
 ) = workspaceInfo(
+    PathConfig(loc) getPathConfig,
     ProjectFiles() preloadFiles,
     ProjectFiles() allFiles,
     set[TModel](ProjectFiles) tmodelsForLocs
@@ -338,7 +339,7 @@ set[loc] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorNa
     return uses;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF) {
     defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     uses = getUses(ws, defs);
 
@@ -350,7 +351,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName)
     return <defs, uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF) {
     set[loc] initialUses = getUses(ws, l);
     set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
     defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
@@ -364,7 +365,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName)
     return <defs, uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {
     AType at = ws.facts[cursorLoc];
     set[loc] defs = {};
     set[loc] useDefs = {};
@@ -396,7 +397,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
     return <defs, useDefs - defs, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF) {
     set[loc] initialDefs = {};
     if (cursorLoc in ws.useDef<0>) {
         initialDefs = getDefs(ws, cursorLoc);
@@ -422,7 +423,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
 
 bool debug = false;
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF) {
     if (cursorKind is dataKeywordField || cursorKind is dataCommonKeywordField) {
         set[loc] defs = {};
         set[loc] uses = {};
@@ -449,7 +450,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
     fail;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
     lrel[loc, AType] factsBySize = sort(toRel(ws.facts), isShorterTuple);
@@ -551,7 +552,7 @@ private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, set[loc] reacha
     return <defs, uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _) {
     loc moduleFile = |unknown:///|;
     if (d <- ws.useDef[cursorLoc], amodule(_) := ws.facts[d]) {
         // Cursor is at an import
@@ -568,7 +569,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
         }
     }
 
-    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(ws, moduleFile)));
+    modName = getModuleName(moduleFile, ws.getPathConfig(getProjectFolder(ws, moduleFile)));
 
     defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
 
