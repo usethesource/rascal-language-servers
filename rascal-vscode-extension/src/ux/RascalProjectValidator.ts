@@ -165,10 +165,20 @@ async function reportMissingFile(file: vscode.Uri, project: vscode.WorkspaceFold
     return true;
 }
 
-function isChild(parent: Uri, child: Uri): unknown {
-    return parent.scheme === child.scheme
-        && parent.authority === child.authority
-        && child.path.startsWith(parent.path.endsWith('/') ? parent.path : (parent.path + '/'));
+function isChild(parent: Uri, child: Uri): boolean {
+    if (parent.scheme !== child.scheme) {
+        return false;
+    }
+    parent = parent.path.endsWith('/') ? parent : parent.with({path: parent.path + '/'});
+    if (parent.scheme === 'file') {
+        // to make sure we can deal with case-sensitivity issues, we have to normalize
+        // to the file system path
+        // note, this might also have to be done for virtual file systems, but VS Code has no public API for that (IExtUri would be nice!)
+        return child.fsPath.startsWith(parent.fsPath);
+    }
+    else {
+        return parent.authority === child.authority && child.path.startsWith(parent.path);
+    }
 }
 
 // TODO: at a later point, merge this with code in the RascalMF validator
