@@ -110,10 +110,15 @@ public class RascalLSPMonitor implements IRascalMonitor {
         }
 
         private CompletableFuture<Void> retry(Throwable first, int retry, String id) {
-            if(retry >= 100) return CompletableFuture.failedFuture(first);
+            if(retry >= 100) {
+                return CompletableFuture.failedFuture(first);
+            }
             return tryRegisterProgress(id)
                 .thenApply(CompletableFuture::completedFuture)
-                .exceptionally(t -> { first.addSuppressed(t); return retry(first, retry+1, id); })
+                .exceptionally(t -> {
+                    first.addSuppressed(t);
+                    return retry(first, retry+1, id);
+                })
                 .thenCompose(Function.identity());
         }
 

@@ -57,32 +57,32 @@ public class FoldingRanges {
                     if (ProductionAdapter.hasAttribute(TreeAdapter.getProduction(arg), vf.constructor(RascalValueFactory.Attr_Tag, vf.node("Foldable")))) {
                         addFoldingRegion(result, TreeAdapter.getLocation(arg), FoldingRangeKind.Region);
                     }
-                }    
+                }
                 for (IValue child : TreeAdapter.getArgs(arg)) {
                     child.accept(this);
                 }
                 return null;
             }
-            
+
             @Override
             public ITree visitTreeAmb(ITree arg) throws RuntimeException {
                 return null;
             }
-            
+
             @Override
             public ITree visitTreeChar(ITree arg) throws RuntimeException {
                 return null;
             }
-            
+
             @Override
             public ITree visitTreeCycle(ITree arg) throws RuntimeException {
                 return null;
             }
-            
+
         });
         return result;
     }
-    
+
     static void addFoldingRegion(List<FoldingRange> ranges, ISourceLocation src, String kind) {
         //subtract 1 due to line numbers being 0-based
         int beginLine = src.getBeginLine() - 1;

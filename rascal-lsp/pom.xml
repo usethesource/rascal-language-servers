@@ -68,12 +68,12 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.3</version>
+      <version>0.12.4</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.13.4</version>
+      <version>0.14.0</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -326,6 +326,7 @@
                 <header>../LICENSE.txt</header>
               <excludes>
                 <exclude>rascal_style.xml</exclude>
+                <exclude>checkstyle.xml</exclude>
                 <exclude>**/README</exclude>
                 <exclude>src/test/resources/**</exclude>
                 <exclude>src/main/resources/**</exclude>
@@ -369,6 +370,14 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin> <!-- needs to be explictily envoked using mvn checkstyle:check -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -197,3 +197,10 @@ test bool multiModuleVar() = testRenameOccurrences({
                '}"
                , {0})
     });
+
+test bool unrelatedVar() = testRenameOccurrences({
+    byText("Module1", "int foo = 8;", {0})
+  , byText("Module2", "import Module1;
+                      'int foo = 2;
+                      'int baz = foo;", {})
+});

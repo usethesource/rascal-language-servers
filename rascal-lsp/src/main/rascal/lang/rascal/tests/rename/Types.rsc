@@ -174,3 +174,12 @@ test bool asType() = testRenameOccurrences({0, 1}, "
 ", decls = "alias Foo = str;"
 , oldName = "Foo", newName = "Bar");
 
+test bool sameIdRoleOnly() = testRenameOccurrences({
+    byText("A", "data foo = f();", {})
+  , byText("B", "extend A;
+                'data foo = g();", {})
+  , byText("C", "extend B;
+                'int foo = 8;",{0})
+  , byText("D", "import C;
+                'int baz = C::foo + 1;", {0})
+});

@@ -79,7 +79,9 @@ public class RascalVariable {
     }
 
     public boolean hasSubFields(){
-        if(type == null) return false;
+        if(type == null) {
+            return false;
+        }
 
         return type.isList() || type.isMap() || type.isSet() || type.isAliased() || type.isNode() || type.isConstructor() || type.isRelation() || type.isTuple() || type.isDateTime();
     }
