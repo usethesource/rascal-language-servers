@@ -171,7 +171,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
                         new ProgressParams(
                                 Either.forLeft(param.getName()),
                                 Either.forLeft(new WorkDoneProgressReport()))
-                        );
+                    );
                 return null;
             }
             );
@@ -205,7 +205,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<Void> jobTodo(AmountOfWork param) {
          // TODO think of how to implement this
-         return CompletableFuture.completedFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

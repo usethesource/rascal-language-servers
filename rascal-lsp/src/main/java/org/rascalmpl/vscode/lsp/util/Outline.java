@@ -47,7 +47,7 @@ public class Outline {
     private Outline() {}
 
     private static String capitalize(String kindName) {
-       return kindName.substring(0,1).toUpperCase() + kindName.substring(1);
+        return kindName.substring(0,1).toUpperCase() + kindName.substring(1);
     }
 
     /**

@@ -25,11 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as assert from 'assert';
-import { statSync, rm } from 'fs';
-import temp = require('temp');
+import { statSync, rm, mkdirSync } from 'fs';
 import * as jd from '../../auto-jvm/downloaders';
 import { describe, after } from 'mocha';
 import { join } from 'path';
+import * as os from 'os';
 
 
 function emptyProgress() {
@@ -37,7 +37,8 @@ function emptyProgress() {
 }
 
 describe('JVM Download', function () {
-    const tempDir = temp.mkdirSync();
+    const tempDir = join(os.tmpdir(), "jvm-download-" + (Math.random() + 1).toString(36).substring(7));
+    mkdirSync(tempDir);
     function testTemurin(version: number, arch: jd.TemurinArchitectures, platform: jd.TemurinPlatforms) {
         return async function() {
             const newPath = await jd.fetchAndUnpackTemurin(arch,

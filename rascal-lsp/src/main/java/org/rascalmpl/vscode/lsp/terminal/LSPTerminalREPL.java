@@ -165,9 +165,10 @@ public class LSPTerminalREPL extends BaseREPL {
                             pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
                         }
                         else {
-                            // TODO: see if we need to do something special for RascalConfigMode flag for this default path config
                             pcfg = new PathConfig();
+                            pcfg.addSourceLoc(URIUtil.rootLocation("std"));
                         }
+                        
                         evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
                         new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
