@@ -26,7 +26,9 @@
     POSSIBILITY OF SUCH DAMAGE.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
@@ -115,37 +117,37 @@
     </dependency>
   </dependencies>
   <build>
-      <resources>
-          <resource>
-              <directory>.</directory>
-              <filtering>false</filtering>
-              <includes>
-                  <include>META-INF/RASCAL.MF</include>
-              </includes>
-          </resource>
-          <resource>
-              <directory>src/main/resources</directory>
-              <filtering>true</filtering>
-          </resource>
-          <resource>
-              <directory>src/main/rascal</directory>
-              <filtering>false</filtering>
-          </resource>
-      </resources>
-      <plugins>
-        <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <release>11</release>
-                    <showWarnings>true</showWarnings>
-                    <compilerArguments>
-                        <parameters />
-                        <Werror />
-                    </compilerArguments>
-                </configuration>
-            </plugin>
+    <resources>
+      <resource>
+        <directory>.</directory>
+        <filtering>false</filtering>
+        <includes>
+          <include>META-INF/RASCAL.MF</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+      <resource>
+        <directory>src/main/rascal</directory>
+        <filtering>false</filtering>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>11</release>
+          <showWarnings>true</showWarnings>
+          <compilerArguments>
+            <parameters />
+            <Werror />
+          </compilerArguments>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -158,68 +160,70 @@
             <version>3.5.0</version>
           </dependency>
         </dependencies>
-    </plugin>
-                <plugin>
-                    <groupId>org.rascalmpl</groupId>
-                    <artifactId>rascal-maven-plugin</artifactId>
-                    <version>0.28.1</version>
-                    <configuration>
-                        <errorsAsWarnings>false</errorsAsWarnings>
-                        <bin>${project.build.outputDirectory}</bin>
-                        <srcs>
-                            <src>${project.basedir}/src/main/rascal</src>
-                        </srcs>
-                        <srcIgnores>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
-                          <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
-                        </srcIgnores>
-                        <sourceLookup>|lib://rascal-lsp|</sourceLookup>
-                        <enableStandardLibrary>false</enableStandardLibrary>
-                    </configuration>
-                    <executions>
-                        <execution> <?m2e ignore?>
-                            <id>it-compile</id>
-                            <phase>compile</phase>
-                            <goals>
-                                <goal>compile</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>it-package</id>
-                            <phase>prepare-package</phase>
-                            <goals>
-                                <goal>package</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>default-cli</id>
-                            <phase>compile</phase>
-                            <goals>
-                                <goal>tutor</goal>
-                            </goals>
-                            <configuration>
-                                <enableStandardLibrary>false</enableStandardLibrary>
-                                <errorsAsWarnings>false</errorsAsWarnings>
-                                <bin>${project.build.outputDirectory}</bin>
-                                <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
-                                <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
-                                <srcs>
-                                    <src>${project.basedir}/src/main/rascal</src>
-                                </srcs>
-                                <ignores>
-                                    <ignore>${project.basedir}/src/main/rascal/lang</ignore>
-                                </ignores>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>
+      </plugin>
+      <plugin>
+        <groupId>org.rascalmpl</groupId>
+        <artifactId>rascal-maven-plugin</artifactId>
+        <version>0.28.1</version>
+        <configuration>
+          <errorsAsWarnings>false</errorsAsWarnings>
+          <bin>${project.build.outputDirectory}</bin>
+          <srcs>
+            <src>${project.basedir}/src/main/rascal</src>
+          </srcs>
+          <srcIgnores>
+            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
+            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
+            <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
+          </srcIgnores>
+          <sourceLookup>|lib://rascal-lsp|</sourceLookup>
+          <enableStandardLibrary>false</enableStandardLibrary>
+        </configuration>
+        <executions>
+          <execution>
+            <?m2e ignore?>
+            <id>it-compile</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>it-package</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>package</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-cli</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>tutor</goal>
+            </goals>
+            <configuration>
+              <enableStandardLibrary>false</enableStandardLibrary>
+              <errorsAsWarnings>false</errorsAsWarnings>
+              <bin>${project.build.outputDirectory}</bin>
+              <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
+              <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
+              <srcs>
+                <src>${project.basedir}/src/main/rascal</src>
+              </srcs>
+              <ignores>
+                <ignore>${project.basedir}/src/main/rascal/lang</ignore>
+              </ignores>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.8.0</version>
         <executions>
-          <execution> <?m2e ignore?>
+          <execution>
+            <?m2e ignore?>
             <id>copy</id>
             <phase>validate</phase>
             <goals>
@@ -259,56 +263,56 @@
         </executions>
       </plugin>
       <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-shade-plugin</artifactId>
-          <version>3.6.0</version>
-          <executions>
-              <execution>
-                  <phase>package</phase>
-                  <goals>
-                      <goal>shade</goal>
-                  </goals>
-                  <configuration>
-                      <transformers>
-                          <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                              <manifestEntries>
-                                  <Name>rascal-lsp</Name>
-                                  <Main-Class>org.rascalmpl.vscode.lsp.RascalLanguageServer</Main-Class>
-                                  <Specification-Version>${project.version}</Specification-Version>
-                                  <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
-                              </manifestEntries>
-                          </transformer>
-                      </transformers>
-                      <artifactSet>
-                        <excludes>
-                          <exclude>org.rascalmpl:rascal</exclude>
-                          <exclude>org.rascalmpl:rascal-core</exclude>
-                          <exclude>org.rascalmpl:typepal</exclude>
-                          <!-- exclude dependencies that rascal shades but still contains in the pom -->
-                          <exclude>io.usethesource:vallang</exclude>
-                          <exclude>io.usethesource:capsule</exclude>
-                          <exclude>org.apache.commons:commons-compress</exclude>
-                          <exclude>org.tukaani:xz</exclude>
-                          <exclude>com.github.luben:zstd-jni</exclude>
-                          <exclude>com.github.ben-manes.caffeine:caffeine</exclude>
-                        </excludes>
-                      </artifactSet>
-                      <!--
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <manifestEntries>
+                    <Name>rascal-lsp</Name>
+                    <Main-Class>org.rascalmpl.vscode.lsp.RascalLanguageServer</Main-Class>
+                    <Specification-Version>${project.version}</Specification-Version>
+                    <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
+                  </manifestEntries>
+                </transformer>
+              </transformers>
+              <artifactSet>
+                <excludes>
+                  <exclude>org.rascalmpl:rascal</exclude>
+                  <exclude>org.rascalmpl:rascal-core</exclude>
+                  <exclude>org.rascalmpl:typepal</exclude>
+                  <!-- exclude dependencies that rascal shades but still contains in the pom -->
+                  <exclude>io.usethesource:vallang</exclude>
+                  <exclude>io.usethesource:capsule</exclude>
+                  <exclude>org.apache.commons:commons-compress</exclude>
+                  <exclude>org.tukaani:xz</exclude>
+                  <exclude>com.github.luben:zstd-jni</exclude>
+                  <exclude>com.github.ben-manes.caffeine:caffeine</exclude>
+                </excludes>
+              </artifactSet>
+              <!--
                           http://zhentao-li.blogspot.nl/2012/06/maven-shade-plugin-invalid-signature.html
                       -->
-                      <filters>
-                          <filter>
-                              <artifact>*:*</artifact>
-                              <excludes>
-                                  <exclude>META-INF/*.SF</exclude>
-                                  <exclude>META-INF/*.DSA</exclude>
-                                  <exclude>META-INF/*.RSA</exclude>
-                              </excludes>
-                          </filter>
-                      </filters>
-                  </configuration>
-              </execution>
-          </executions>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
@@ -323,7 +327,7 @@
           </headerDefinitions>
           <licenseSets>
             <licenseSet>
-                <header>../LICENSE.txt</header>
+              <header>../LICENSE.txt</header>
               <excludes>
                 <exclude>rascal_style.xml</exclude>
                 <exclude>checkstyle.xml</exclude>
@@ -392,32 +396,32 @@
     <profile>
       <id>coverage</id>
       <build>
-      <plugins>
-        <plugin>
-          <groupId>org.jacoco</groupId>
-        <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.12</version>
-          <executions>
-            <execution>
-              <id>prepare-agent</id>
-              <goals>
-                <goal>prepare-agent</goal>
-              </goals>
-            </execution>
-            <execution>
-              <id>report</id>
-              <goals>
-                <goal>report</goal>
-              </goals>
-              <configuration>
-                <formats>
-                  <format>XML</format>
-                </formats>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-      </plugins>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.12</version>
+            <executions>
+              <execution>
+                <id>prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>report</id>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+                <configuration>
+                  <formats>
+                    <format>XML</format>
+                  </formats>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
       </build>
     </profile>
   </profiles>
