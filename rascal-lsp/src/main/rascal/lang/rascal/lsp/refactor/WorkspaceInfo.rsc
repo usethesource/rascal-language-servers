@@ -160,7 +160,7 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) 
     rel[loc from, loc to] imports = (ws.paths<pathRole, from, to>)[importPath()];
     rel[loc from, loc to] extends = (ws.paths<pathRole, from, to>)[extendPath()];
 
-    return (moduleI + imports)  // o or 1 imports
+    return (moduleI + imports)  // 0 or 1 imports
          o (moduleI + extends+) // 0 or more extends
          ;
 }
@@ -191,12 +191,12 @@ set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
     rel[loc from, Define define] reachableDefs =
-        (ws.defines<defined, defined, scope>)[defs]
-      o scopes // Find the module scope
-      o modulePaths
-      o ws.defines<scope, defined>
-      o definitionsRel(ws);
-    return reachableDefs.define;
+        (ws.defines<defined, defined, scope>)[defs] // <definition, scope> pairs
+      o scopes                                      // All scopes surrounding defs
+      o modulePaths                                 // Transitive-reflexive paths from scope to reachable modules
+      o ws.defines<scope, defined>                  // Definitions in these scopes
+      o definitionsRel(ws);                         // Full define tuples
+    return reachableDefs.define;                    // We are only interested in reached defines; not *from where* they were reached
 }
 
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
@@ -452,7 +452,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
-    lrel[loc, AType] factsBySize = sort(toRel(ws.facts), byLengthTuple);
+    lrel[loc, AType] factsBySize = sort(toRel(ws.facts), isShorterTuple);
     AType cursorType = avoid();
 
     if (ws.facts[cursorLoc]?) {
