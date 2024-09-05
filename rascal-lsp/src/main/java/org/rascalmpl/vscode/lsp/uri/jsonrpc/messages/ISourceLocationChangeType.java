@@ -49,8 +49,9 @@ public enum ISourceLocationChangeType {
 
     public static ISourceLocationChangeType forValue(int value) {
         var allValues = ISourceLocationChangeType.values();
-        if (value < 1 || value > allValues.length)
+        if (value < 1 || value > allValues.length) {
             throw new IllegalArgumentException("Illegal enum value: " + value);
+        }
         return allValues[value - 1];
     }
 

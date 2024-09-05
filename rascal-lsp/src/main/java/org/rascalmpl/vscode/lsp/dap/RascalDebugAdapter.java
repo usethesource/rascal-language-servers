@@ -70,17 +70,17 @@ import io.usethesource.vallang.IValue;
  */
 public class RascalDebugAdapter implements IDebugProtocolServer {
 
-    final public static int mainThreadID = 1; // hard coded arbitrary thread ID of Rascal Program for Debug Adapter Protocol
-    final private int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
+    public static final int mainThreadID = 1; // hard coded arbitrary thread ID of Rascal Program for Debug Adapter Protocol
+    private final int expensiveScopeMinSize = 100; // a scope is marked as expensive when there are more than xxx variables in it
 
     private IDebugProtocolClient client;
-    final private RascalDebugEventTrigger eventTrigger;
-    final private DebugHandler debugHandler;
-    final private Evaluator evaluator;
-    final private SuspendedState suspendedState;
-    final private Logger logger;
-    final private BreakpointsCollection breakpointsCollection;
-    final private Pattern emptyAuthorityPathPattern = Pattern.compile("^\\w+:/\\w+[^/]");
+    private final RascalDebugEventTrigger eventTrigger;
+    private final DebugHandler debugHandler;
+    private final Evaluator evaluator;
+    private final SuspendedState suspendedState;
+    private final Logger logger;
+    private final BreakpointsCollection breakpointsCollection;
+    private final Pattern emptyAuthorityPathPattern = Pattern.compile("^\\w+:/\\w+[^/]");
 
 
     public RascalDebugAdapter(DebugHandler debugHandler, Evaluator evaluator) {
@@ -188,47 +188,47 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
 
     private static final String breakable = "breakable";
     private static ITree locateBreakableTree(ITree tree, int line) {
-		ISourceLocation l = TreeAdapter.getLocation(tree);
+        ISourceLocation l = TreeAdapter.getLocation(tree);
 
-		if (l == null) {
-			throw new IllegalArgumentException("Missing location");
-		}
+        if (l == null) {
+            throw new IllegalArgumentException("Missing location");
+        }
 
-		if (TreeAdapter.isAmb(tree)) {
+        if (TreeAdapter.isAmb(tree)) {
             INode node = IRascalValueFactory.getInstance().node(breakable);
-			if (ProductionAdapter.hasAttribute(TreeAdapter.getProduction(tree), IRascalValueFactory.getInstance().constructor(RascalValueFactory.Attr_Tag, node))) {
-				return tree;
-			}
+            if (ProductionAdapter.hasAttribute(TreeAdapter.getProduction(tree), IRascalValueFactory.getInstance().constructor(RascalValueFactory.Attr_Tag, node))) {
+                return tree;
+            }
 
-			return null;
-		}
+            return null;
+        }
 
-		if (TreeAdapter.isAppl(tree) && !TreeAdapter.isLexical(tree)) {
-			IList children = TreeAdapter.getArgs(tree);
+        if (TreeAdapter.isAppl(tree) && !TreeAdapter.isLexical(tree)) {
+            IList children = TreeAdapter.getArgs(tree);
 
-			for (IValue child : children) {
-				ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
+            for (IValue child : children) {
+                ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
 
-				if (childLoc == null) {
-					continue;
-				}
+                if (childLoc == null) {
+                    continue;
+                }
 
-				if (childLoc.getBeginLine() <= line && line <= childLoc.getEndLine() ) {
-					ITree result = locateBreakableTree((ITree) child, line);
+                if (childLoc.getBeginLine() <= line && line <= childLoc.getEndLine() ) {
+                    ITree result = locateBreakableTree((ITree) child, line);
 
-					if (result != null) {
-						return result;
-					}
-				}
-			}
-		}
+                    if (result != null) {
+                        return result;
+                    }
+                }
+            }
+        }
         INode node = IRascalValueFactory.getInstance().node(breakable);
-		if (l.getBeginLine() == line && ProductionAdapter.hasAttribute(TreeAdapter.getProduction(tree), IRascalValueFactory.getInstance().constructor(RascalValueFactory.Attr_Tag, node))) {
-			return tree;
-		}
+        if (l.getBeginLine() == line && ProductionAdapter.hasAttribute(TreeAdapter.getProduction(tree), IRascalValueFactory.getInstance().constructor(RascalValueFactory.Attr_Tag, node))) {
+            return tree;
+        }
 
-		return null;
-	}
+        return null;
+    }
 
     @Override
     public CompletableFuture<Void> attach(Map<String, Object> args) {

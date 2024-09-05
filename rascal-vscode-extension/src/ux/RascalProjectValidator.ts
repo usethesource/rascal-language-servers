@@ -57,8 +57,8 @@ export class RascalProjectValidator implements vscode.Disposable {
         for (const tab of vscode.window.tabGroups.all.flatMap(t => t.tabs)) {
             if (tab.input instanceof vscode.TabInputText) {
                 try {
-                const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
-                this.validate(document);
+                    const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
+                    this.validate(document);
                 } catch (e) {
                     console.log("Swallowing: ", e);
                 }

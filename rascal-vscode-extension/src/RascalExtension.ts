@@ -189,7 +189,7 @@ export class RascalExtension implements vscode.Disposable {
 
     private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
-                calculateRascalREPLMemory()
+            calculateRascalREPLMemory()
         ];
         const replStackSize = calculateRascalREPLStackSize();
         if (replStackSize.length !== 0) {

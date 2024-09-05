@@ -222,7 +222,6 @@
     "@types/mocha": "10.x",
     "@types/node": "18.x",
     "@types/tar": "6.x",
-    "@types/temp": "0.x",
     "@types/vscode": "1.82.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
@@ -232,10 +231,9 @@
     "chai": "4.x",
     "esbuild": "0.23.x",
     "eslint": "8.x",
+    "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "10.x",
-    "temp": "0.x",
-    "ts-loader": "9.x",
     "typescript": "5.x",
     "vscode-extension-tester": "8.x"
   }

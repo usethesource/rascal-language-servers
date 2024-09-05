@@ -43,7 +43,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         private readonly languageId = 'parametric-rascalmpl',
         private readonly title = 'Language Parametric Rascal Language Server',
         private readonly dedicatedLanguage: LanguageParameter | undefined = undefined
-        ) {
+    ) {
         if (dedicatedLanguage === undefined) {
             // if we are not a dedicated instance, we have to monitor files being opened up and assign our own language ID
             context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(e => {
