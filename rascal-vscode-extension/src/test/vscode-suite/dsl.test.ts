@@ -148,12 +148,12 @@ describe('DSL', function () {
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
     });
 
-    it("quick fix works"), async() => {
+    it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
-        const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there is should be a content assist menu at this spot.");
+        const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there should be a content assist menu at this spot.");
 
         await assist!.getItems()
             .then(items => items
@@ -161,7 +161,7 @@ describe('DSL', function () {
                 .forEach(it => it.click()));
 
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a");
-    };
+    });
     
 });
 
