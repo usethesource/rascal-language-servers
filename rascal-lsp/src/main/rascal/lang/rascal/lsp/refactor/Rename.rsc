@@ -485,20 +485,21 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
         ProjectFiles() {
             return { <
                 max([f | f <- workspaceFolders, isPrefixOf(f, cursorLoc)]),
-                cursorLoc.top
+                cursorLoc.top,
+                true
             > };
         },
         // Full load
         ProjectFiles() {
-            return { <folder, file>
+            return {
+                // If we do not find any occurrences of the name under the cursor in a module,
+                // we are not interested in loading the model, but we still want to inform the
+                // renaming framework about the existence of the file.
+                <folder, file, rascalContainsName(file, cursorName)>
                 | folder <- workspaceFolders
                 , PathConfig pcfg := getPathConfig(folder)
                 , srcFolder <- pcfg.srcs
                 , file <- find(srcFolder, "rsc")
-                , file != cursorLoc.top // because we loaded that during preload
-                // If we do not find any occurrences of the name under the cursor in a module,
-                // we are not interested in it at all, and will skip loading its TPL.
-                , rascalContainsName(file, cursorName)
             };
         },
         // Load TModel for loc
@@ -510,7 +511,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
                 RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]
                                                                       [verbose = false]
                                                                       [logPathConfig = false];
-                for (file <- \files) {
+                for (<file, true> <- \files) {
                     ms = rascalTModelForLocs([file], ccfg, dummy_compile1);
                     tmodels += {convertTModel2PhysicalLocs(tm) | m <- ms.tmodels, tm := ms.tmodels[m]};
                 }

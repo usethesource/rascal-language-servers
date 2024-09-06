@@ -69,7 +69,7 @@ data Cursor
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 alias FileRenamesF = rel[loc old, loc new](str newName);
 alias DefsUsesRenames = tuple[set[loc] defs, set[loc] uses, FileRenamesF renames];
-alias ProjectFiles = rel[loc projectFolder, loc file];
+alias ProjectFiles = rel[loc projectFolder, loc file, bool loadModel];
 
 /**
  * This is a subset of the fields from analysis::typepal::TModel, specifically tailored to refactorings.
