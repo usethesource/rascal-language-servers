@@ -138,3 +138,96 @@ test bool metaVariable() = testRenameOccurrences({0, 1},
     "syntax S = s: S child;
     'data Tree;"
 );
+
+test bool nonterminalsInVModuleStructure() = testRenameOccurrences({
+    byText("Left", "syntax Foo = f: \"f\";", {0}), byText("Right", "syntax Foo = g: \"g\";", {0})
+                    , byText("Merger",
+                        "import Left;
+                        'import Right;
+                        'bool f(Foo foo) = (foo == f() || foo == g());
+                        ", {0})
+}, oldName = "Foo", newName = "Bar");
+
+@synopsis{
+    (defs)
+    /    \
+    A  B  C
+     \/ \/
+      D E
+     /   \
+     (uses)
+}
+test bool nonterminalsInWModuleStructureWithoutMerge() = testRenameOccurrences({
+    byText("A", "syntax Foo = f: \"f\";", {0}), byText("B", "", {}), byText("C", "syntax Foo = h: \"h\";", {})
+                    , byText("D",
+                        "import A;
+                        'import B;
+                        'bool func(Foo foo) = foo == f();
+                        ", {0}),    byText("E",
+                                        "import B;
+                                        'import C;
+                                        'bool func(Foo foo) = foo == h();", {})
+}, oldName = "Foo", newName = "Bar");
+
+@synopsis{
+    (defs)
+    /  | \
+    v  v  v
+    A  B  C
+     \/ \/
+      D E
+      ^ ^
+     /   \
+     (uses)
+}
+test bool nonterminalsInWModuleStructureWithMerge() = testRenameOccurrences({
+    byText("A", "syntax Foo = f: \"f\";", {0}), byText("B", "syntax Foo = g: \"g\";", {0}), byText("C", "syntax Foo = h: \"h\";", {0})
+                    , byText("D",
+                        "import A;
+                        'import B;
+                        'bool func(Foo foo) = foo == f();
+                        ", {0}),    byText("E",
+                                        "import B;
+                                        'import C;
+                                        'bool func(Foo foo) = foo == h();", {0})
+}, oldName = "Foo", newName = "Bar");
+
+test bool nonterminalsInYModuleStructure() = testRenameOccurrences({
+    byText("Left", "syntax Foo = f: \"f\";", {0}), byText("Right", "syntax Foo = g: \"g\";", {0})
+                    , byText("Merger",
+                        "extend Left;
+                        'extend Right;
+                        ", {})
+                    , byText("User",
+                        "import Merger;
+                        'bool f(Foo foo) = (foo == f() || foo == g());
+                        ", {0})
+}, oldName = "Foo", newName = "Bar");
+
+test bool nonterminalsInInvertedVModuleStructure() = testRenameOccurrences({
+            byText("Definer", "syntax Foo = f: \"f\" | g: \"g\";", {0}),
+    byText("Left", "import Definer;
+                   'bool isF(Foo foo) = foo == f();", {0}), byText("Right", "import Definer;
+                                                                            'bool isG(Foo foo) = foo == g();", {0})
+}, oldName = "Foo", newName = "Bar");
+
+test bool nonterminalsInDiamondModuleStructure() = testRenameOccurrences({
+            byText("Definer", "syntax Foo = f: \"f\" | g: \"g\";", {0}),
+    byText("Left", "extend Definer;", {}), byText("Right", "extend Definer;", {}),
+            byText("User", "import Left;
+                           'import Right;
+                           'bool isF(Foo foo) = foo == f();
+                           'bool isG(Foo foo) = foo == g();", {0, 1})
+}, oldName = "Foo", newName = "Bar");
+
+@synopsis{
+    Two disjunct module trees. Both trees define `syntax Foo`. Since the trees are disjunct,
+    we expect a renaming triggered from the left side leaves the right side untouched.
+}
+test bool nonterminalsInIIModuleStructure() = testRenameOccurrences({
+    byText("LeftDefiner", "syntax Foo = f: \"f\";", {0}),              byText("RightDefiner", "syntax Foo = g: \"g\";", {}),
+    byText("LeftExtender", "extend LeftDefiner;", {}),          byText("RightExtender", "extend RightDefiner;", {}),
+    byText("LeftUser", "import LeftExtender;
+                       'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
+                                                                        'bool func(Foo foo) = foo == g();", {})
+}, oldName = "Foo", newName = "Bar");
