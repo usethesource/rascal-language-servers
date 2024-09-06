@@ -219,8 +219,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 var TF = TypeFactory.getInstance();
                 return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
-                logger.catching(e);
-                return VF.list();
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new RuntimeException(e);
             }
         });
     }

@@ -218,7 +218,7 @@ data LanguageService
     | definer(Definer definer)
     | referrer(Referrer reference)
     | implementer(Implementer implementer)
-    | codeActionContributor(CodeActionContributor actions)
+    | actions(CodeActionContributor actions)
     ;
 
 @deprecated{Please use ((builder)) or ((analyzer))}
@@ -305,6 +305,9 @@ data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 @description{
 The fixes you provide with a message will be hinted at by a light-bulb in the editor's margin.
 Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
+
+Note that for a ((CodeAction)) to be executed, you must either provide `edits` directly and/or handle
+a ((Command)) and add its execution to the ((CommandExecutor)) contribution function.
 }
 @benefits{
 * the information required to produce an error message is usually also required for the fix. So this
@@ -313,12 +316,13 @@ coupling of message with fixes may come in handy.
 @pitfalls{
 * the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
 and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), and not already execute the quickfix.
+* don't forget to extend ((Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
-Commands can be any closed term. Add any constructor you need to express the execution parameters
+Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
 of a command.
 
 You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
@@ -334,13 +338,13 @@ See also ((CodeAction)); a wrapper for ((util::LanguageServer::Command)) for fin
 }
 @examples{
 ```rascal
-// here we invent a new command name `shouldBeInt` which is parametrized by a loc:
-data Command = shouldBeInt(loc src);
+// here we invent a new command name `showFlowDiagram` which is parametrized by a loc:
+data Command = showFlowDiagram(loc src);
 
-// and we have the evaluator:
-value evaluator(shouldBeInt(loc src)) {
-    // overwrite that part of a file with `int`:
-    writeFile("int", src);
+// and we have our own evaluator that executes the showFlowDiagram command by starting an interactive view:
+value evaluator(showFlowDiagram(loc src)) {
+    showInteractiveContent(flowDiagram(src));
+    return true;
 }
 ```
 }
@@ -355,6 +359,43 @@ data Command(str title="")
     = noop()
     ;
 
+@synopsis{Code actions encapsulate computed effects on source code like quick-fixes, refactorings or visualizations.}
+@description{
+Code actions are an intermediate representation of what is about to happen to the source code that is loaded in the IDE,
+or even in a live editor. They communicate what can (possibly) be done to improve the user's code, who might choose one of the options
+from a list, or even look at different outcomes ahead-of-time in a preview.
+
+The `edits` and `command` parameters are both optional, and can be provided at the same time as well.
+
+If ((DocumentEdit))[edits] are provided then:
+1. edits can be used for preview of a quick-fix of refactoring
+2. edits are always applied first before any `command` is executed.
+3. edits can always be undone via the undo command of the IDE
+
+If a ((Command))[command] is provided, then:
+1. The title of the command is shown to the user
+2. The user picks this code action (from a list or pressed "OK" in a dialog)
+3. Any `edits` (see above) are applied first
+4. The command is executed on the server side via the ((CommandExecutor)) contribution
+   * Many commands use ((IDEServices-registerapplyDocumentsEdits)) to provide additional changes to the input
+   * Other commands might use ((IDEServices-showInteractiveContent)) to start a linked webview inside of the IDE
+   * Also ((IDEServices-registerDiagnostics)) is a typical effect of a ((CodeAction)) ((Command)).
+5. The effects of commands can be undone if they where ((DocumentEdit))s, but other effects like diagnostics and
+interactive content have to be cleaned or closed in their own respective fashions.
+}
+@benefits{
+* CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
+tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
+* `edits` are applied on the latest editor content for the current editor; live to the user.
+* ((IDEServices-registerapplyDocumentsEdits)) also works on open editor contents for the current editor.
+* The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
+and input are computed in-sync.
+}
+@pitfalls{
+* ((IDEServices-registerapplyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
+or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
+}
 data CodeAction
     = action(
         list[DocumentEdit] edits = [],
@@ -368,6 +409,9 @@ data CodeAction
 This is an _open_ data type. The constructor names are used
 to compute the string values for the LSP by capitalizing and
 joining parent/children with periods.
+}
+@examples{
+`refactor(rewrite())` becomes `refactor.rewrite` under the hood of the LSP.
 }
 data CodeActionKind
     = empty()

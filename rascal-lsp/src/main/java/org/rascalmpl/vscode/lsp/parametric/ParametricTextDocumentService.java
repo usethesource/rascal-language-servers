@@ -422,8 +422,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     /**
      * Translates `refactor(inline())` to `"refactor.inline"` and `empty()` to `""`, etc.
+     * `kind == null` signals absence of the optional parameter. This is factorede into
+     * this private function because otherwise every call has to check it. 
      */
-    private String constructorToCodeActionKind(IConstructor kind) {
+    private String constructorToCodeActionKind(@Nullable IConstructor kind) {
         if (kind == null) {
             return "";
         }
@@ -602,8 +604,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 // this is the "magic" resurrection of command terms from the JSON data field
                 .map(contribs::parseCodeActions)
                 // this serializes the stream of futures and accumulates their results as a flat list again
-                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat)  
-                ).thenApply(IList::stream)
+                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+                .thenApply(IList::stream)
             ;
 
         // here we dynamically ask the contributions for more actions,

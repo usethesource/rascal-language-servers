@@ -255,15 +255,8 @@ public class EvaluatorUtil {
                     }
                 }
 
-                for (String i : imports) {
-                    try {
-                        eval.doImport(eval, i);
-                    } catch (Exception e) {
-                        logger.catching(e);
-                        logger.error("Failure to import, due to {}, RascalResolver: {}", e.getMessage(), eval.getRascalResolver());
-                        throw new RuntimeException("Failure to import required module " + i + " due to:" + e.getMessage(), e);
-                    } 
-                }
+                eval.doImport(services, imports);
+                
                 jobSuccess = true;
                 return eval;
             } finally {

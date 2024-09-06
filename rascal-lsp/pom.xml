@@ -170,7 +170,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
     </plugin>
-    <plugin>
+                <plugin>
                     <groupId>org.rascalmpl</groupId>
                     <artifactId>rascal-maven-plugin</artifactId>
                     <version>0.28.1</version>
@@ -223,7 +223,8 @@
                             </configuration>
                         </execution>
                     </executions>
-    </plugin>
+                </plugin>
+
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.7.1</version>

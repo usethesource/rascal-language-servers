@@ -140,7 +140,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String commands) {
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.completedFuture(VF.list());
     }
 
     @Override

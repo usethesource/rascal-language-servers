@@ -69,56 +69,56 @@ public class TreeSearch {
     }
 
     private static boolean computeFocusList(IListWriter focus, ITree tree, int line, int column) {
-		ISourceLocation l = TreeAdapter.getLocation(tree);
+        ISourceLocation l = TreeAdapter.getLocation(tree);
 
-		if (l == null) {
+        if (l == null) {
             // inside a layout, literal or character
-			return false;
-		}
+            return false;
+        }
 
-		if (TreeAdapter.isLexical(tree)) {
-			if (inside(l, line, column)) {
+        if (TreeAdapter.isLexical(tree)) {
+            if (inside(l, line, column)) {
                 focus.append(tree);
                 // stop and return success
-				return true;
-			}   
+                return true;
+            }   
             else {
                 // stop and return failure
                 return false;
             }
-		}
+        }
 
-		if (TreeAdapter.isAmb(tree) && !tree.getAlternatives().isEmpty()) {
+        if (TreeAdapter.isAmb(tree) && !tree.getAlternatives().isEmpty()) {
             // pick any tree to make the best of it.
-			return computeFocusList(focus, (ITree) tree.getAlternatives().iterator().next(), line, column);
-		}
+            return computeFocusList(focus, (ITree) tree.getAlternatives().iterator().next(), line, column);
+        }
 
-		if (TreeAdapter.isAppl(tree)) {
-			IList children = TreeAdapter.getASTArgs(tree); // this skips layout trees
+        if (TreeAdapter.isAppl(tree)) {
+            IList children = TreeAdapter.getASTArgs(tree); // this skips layout trees
 
-			for (IValue child : children) {
-				ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
+            for (IValue child : children) {
+                ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
 
-				if (childLoc == null) {
-					continue;
-				}
+                if (childLoc == null) {
+                    continue;
+                }
 
-				if (inside(childLoc, line, column)) {
-					boolean result = computeFocusList(focus, (ITree) child, line, column);
+                if (inside(childLoc, line, column)) {
+                    boolean result = computeFocusList(focus, (ITree) child, line, column);
 
-					if (result) {
+                    if (result) {
                         break;
-					}
-				}
-			}
+                    }
+                }
+            }
 
-			if (inside(l, line, column)) {
+            if (inside(l, line, column)) {
                 focus.append(tree);
-				return true;
-			}
-		}
+                return true;
+            }
+        }
 
         // cycles and characters do not have locations
-		return false;
-	}
+        return false;
+    }
 }

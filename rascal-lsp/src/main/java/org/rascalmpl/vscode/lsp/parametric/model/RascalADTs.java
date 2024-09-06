@@ -44,7 +44,7 @@ public class RascalADTs {
         public static final String DEFINER = "definer";
         public static final String REFERRER = "referrer";
         public static final String IMPLEMENTER = "implementer";
-        public static final String CODE_ACTION_CONTRIBUTOR = "codeActionContributor";
+        public static final String CODE_ACTION_CONTRIBUTOR = "actions";
         
         public static class Summarizers {
             private Summarizers() {}
