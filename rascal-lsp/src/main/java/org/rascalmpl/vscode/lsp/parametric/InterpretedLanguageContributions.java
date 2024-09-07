@@ -232,7 +232,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             try {
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
-               throw new RuntimeException(e);
+                logger.catching(e);
+                throw new RuntimeException(e);
             }
         });
     }
@@ -402,8 +403,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
-        return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, true, client)
+
+        return InterruptibleFuture.flatten(parseCommand(command).thenCombine(
+            commandExecutor,
+            (cons, func) -> {
+                
+                if (func == null) {
+                    logger.info("Command is being executed without a registered command executor; for language " + name);
+                    throw new RuntimeException("No command executor registered for " + name);
+                }
+
+                return EvaluatorUtil.<@Nullable IValue>runEvaluator(
+                    "executeCommand", 
+                    eval, 
+                    ev -> func.call(cons), 
+                    null, 
+                    exec, 
+                    true, 
+                    client
+                );
+            }
         ), exec);
     }
 
