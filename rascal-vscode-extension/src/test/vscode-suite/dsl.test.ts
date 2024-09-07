@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { ContentAssist, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
@@ -155,12 +155,18 @@ describe('DSL', function () {
         await ide.hasErrorSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
         const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there should be a content assist menu at this spot.");
 
-        await assist!.getItems()
-            .then(items => items
+        if (assist) {
+            while (!await assist.isLoaded());
+
+            await assist.getItems()
+                .then(items => items
                 .filter(ca => ca.getLabel().then(lp => lp.trim() === "Change to a"))
                 .forEach(it => it.click()));
 
-        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a");
+            await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a");
+        }
+       
+        return false;
     });
     
 });
