@@ -40,7 +40,7 @@ set[LanguageService] picoLanguageContributor() = {
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef),
-    codeActionContributor(picoActions)
+    actions(picoActions)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
