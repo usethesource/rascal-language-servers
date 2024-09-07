@@ -273,7 +273,7 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
-export function printRascalOutputOnFailure(channel: 'Parametric Rascal LSP' | 'Rascal MPL') {
+export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal Language Server' | 'Rascal MPL') {
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
