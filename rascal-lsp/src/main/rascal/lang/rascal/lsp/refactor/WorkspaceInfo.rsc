@@ -470,8 +470,8 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
         initialDefs = getDefs(ws, cursorLoc);
     } else if (cursorLoc in ws.defines<defined>) {
         initialDefs = {cursorLoc};
-    } else if (just(AType adtType) := getFact(ws, cursorLoc)) {
-        set[Define] reachableDefs = rascalReachableDefs(ws, {cursorLoc});
+    } else if (just(AType adtType) := getFact(ws, adtLoc)) {
+        set[Define] reachableDefs = rascalReachableDefs(ws, {adtLoc});
         initialDefs = {
             kwDef.defined
             | Define dataDef: <_, _, _, dataId(), _, defType(adtType)> <- rascalGetADTDefinitions(ws, cursorLoc)
