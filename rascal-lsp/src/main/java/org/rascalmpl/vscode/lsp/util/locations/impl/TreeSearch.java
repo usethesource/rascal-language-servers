@@ -25,6 +25,8 @@ public class TreeSearch {
      * @return true iff the given `loc` range spans around the line/column position, inclusively.
      */
     private static boolean inside(ISourceLocation loc, int line, int column) {
+        line += 1; // LSP line offsets are 0-based, while Rascal tree locations are 1-based.
+        
         if (!loc.hasLineColumn()) {
             return false;
         }
