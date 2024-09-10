@@ -269,7 +269,7 @@ export class IDEOperations {
 
 async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
-    await outputView.selectChannel(`${channel} Language Server`);
+    await outputView.selectChannel(channel);
     return outputView;
 }
 
