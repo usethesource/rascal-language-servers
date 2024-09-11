@@ -214,7 +214,8 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     if (defs == {}) return {};
     set[loc] overloadedDefs = defs;
 
-    set[IdRole] roles = definitionsRel(ws)[defs].idRole;
+    set[Define] originalDefs = definitionsRel(ws)[defs];
+    set[IdRole] roles = originalDefs.idRole;
 
     // Pre-conditions
     assert size(roles) == 1:
@@ -238,7 +239,15 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
       o scopeDefs                  // 3. Find definitions in the reached scope, and definitions within those definitions (transitively)
       ;
 
-    rel[loc from, loc to] defPaths = fromDefPaths + invert(fromDefPaths);
+    rel[loc from, loc to] defPaths = {};
+    if (constructorId() := role) {
+        // We are just looking for constructors for the same ADT/nonterminal type
+        rel[loc, loc] selectedConstructors = (ws.defines<defInfo, defined, defined>)[originalDefs.defInfo];
+        defPaths = (defPaths o selectedConstructors)
+                 + (invert(defPaths) o selectedConstructors);
+    } else {
+        defPaths = fromDefPaths + invert(fromDefPaths);
+    }
 
     solve(overloadedDefs) {
         rel[loc from, loc to] reachableDefs = ident(overloadedDefs) o defPaths;
@@ -261,11 +270,13 @@ bool rascalIsDataType(AType at) = at is aadt;
 
 bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (l <- defs, !definitions[l]?) return false;
-    set[str] names = {definitions[l].id | l <- defs};
-    if (size(names) > 1) return false;
+    set[Define] defines = {definitions[d] | d <- defs};
 
-    map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
-    return rascalMayOverload(defs, potentialOverloadDefinitions);
+    if (size(defines.id) > 1) return false;
+    if ({IdRole role} := defines.idRole) {
+        return rascalMayOverload(defs, definitions);
+    }
+    return false;
 }
 
 set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
@@ -357,7 +368,6 @@ set[loc] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorNa
 }
 
 private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
-
     constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := ws.definitions[l]};
     if (constructorDefs == {}) return {};
 
@@ -368,13 +378,14 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
     })];
 
     set[loc] uses = {};
-    for (Define d: <_, consName, _, _, _, defType(acons(aadt(aadtName, _, _), _, _))> <- constructorDefs) {
+    for (Define d: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
         // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
         for (
             [ _*
             , <l1, at1: !/\a-except(consName)>
             , <l2, at2:  /\a-except(consName)>
             , _*] := sortedFacts
+            , aprod(choice(_, _)) !:= at2
         ) {
             // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
             uses += trim(l2, removePrefix = l2.length - size(consName));
@@ -414,6 +425,19 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName)
     }
 
     return <defs, uses, NO_RENAMES>;
+}
+
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(exceptConstructor(), l, cursorName), MayOverloadFun mayOverloadF) {
+    if (f <- ws.facts
+       , isContainedIn(l, f)
+       , aprod(prod(_, [*_, conditional(AType nontermType, /\a-except(cursorName)) ,*_])) := ws.facts[f]
+       , Define currentCons:<_, _, _, constructorId(), _, _> <- ws.defines
+       , isContainedIn(currentCons.defined, f)
+       , Define exceptCons:<_, cursorName, _, constructorId(), _, defType(acons(nontermType, _, _))> <- rascalReachableDefs(ws, {currentCons.defined})) {
+        return rascalGetDefsUses(ws, cursor(def(), exceptCons.defined, cursorName), mayOverloadF);
+    }
+
+    return <{}, {}, NO_RENAMES>;
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {

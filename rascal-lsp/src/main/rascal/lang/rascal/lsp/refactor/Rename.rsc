@@ -402,7 +402,7 @@ private Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
                 // Nonterminal constructor names in exception productions
-              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], at is conditional}, cursorLoc), exceptConstructor()>
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is conditional || aprod(prod(_, /conditional(_, _))) := at), /\a-except(cursorName) := at}, cursorLoc), exceptConstructor()>
             }
     };
 

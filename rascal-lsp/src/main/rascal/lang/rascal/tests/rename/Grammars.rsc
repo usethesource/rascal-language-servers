@@ -73,42 +73,48 @@ test bool constructor() = testRenameOccurrences({0, 1}, "
     'S getChild(foo(child)) = child;
 ", decls = "syntax S = foo: S child;");
 
-test bool exceptedConstructor() = testRenameOccurrences({0, 1, 2}, "
-    'S getChild(foo(child)) = child;
-", decls = "
+test bool exceptedConstructor() = testRenameOccurrences({0, 1, 2, 3, 4}, "",
+decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
-    '  | notFoo: S s!foo!notFoo
+    '  | atStart: S s!foo!baz
+    '  | atEnd: S s!baz!foo
+    '  | sandwiched: S s!baz!foo!atEnd
+    '  | single: S s!foo
     '  ;
-", skipCursors = {1});
+");
 
-test bool exceptedConstructorMultiple() = testRenameOccurrences({0, 1, 2}, "", decls = "
+test bool exceptConstructorDifferentNonterminal() = testRenameOccurrences({0, 2}, "",
+decls = "
     'syntax S
-    '  = foo: \"foo\" S s
-    '  | baz: \"baz\"
-    '  | notFoo: S s!foo!notFoo
-    '  | probablyBaz: S s!foo!notFoo!probablyBaz
-    '  ;
-", skipCursors = {1, 2});
+    '   = anotherBut: T t!foo
+    '   | foo: \"do not rename me!\"
+    '   ;
 
-test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1, 2}, "", decls = "
+    'syntax T
+    '   = foo: \"foo\"
+    '   | bar: \"bar\"
+    '   ;
+");
+
+test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
     '  | notFoo: S s!notFoo!foo
     '  ;
     'syntax T = foo: \"Tfoo\";
-", skipCursors = {1});
+");
 
-test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1, 2}, "", decls = "
+test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
     '  | notFoo: S s!foo!notFoo
     '  ;
-    'syntax S = foo: \"Tfoo\";
-", skipCursors = {1});
+    'syntax T = foo: \"Tfoo\";
+");
 
 test bool syntaxConstructorField() = testRenameOccurrences({0, 1}, "
     'S getChild(S x) = x.foo;
