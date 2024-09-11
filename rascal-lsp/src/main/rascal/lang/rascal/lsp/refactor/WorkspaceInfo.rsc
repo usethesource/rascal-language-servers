@@ -169,10 +169,10 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) 
          ;
 }
 
-@memo{maximumSize=1, minutes=5}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(WorkspaceInfo ws) = toRel(ws.scopes)*;
 
-@memo{maximumSize=10, minutes=5}
+@memo{maximumSize(10), expireAfter(minutes=5)}
 set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
     rel[loc from, loc scope] fromScopes = {};
     for (from <- froms) {
@@ -188,7 +188,7 @@ set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
     return {s.top | s <- reachable.modScope};
 }
 
-@memo{maximumSize=1, minutes=5}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc, Define] definitionsRel(WorkspaceInfo ws) = toRel(ws.definitions);
 
 set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
