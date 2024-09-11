@@ -47,8 +47,6 @@ import Map;
 import Set;
 import String;
 
-import IO;
-
 data CursorKind
     = use()
     | def()
