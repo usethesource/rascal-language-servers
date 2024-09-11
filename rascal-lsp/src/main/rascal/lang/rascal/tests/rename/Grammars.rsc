@@ -126,6 +126,27 @@ test bool referencedConstructor() = testRenameOccurrences({0, 1}, "", decls = "
     'syntax T =: foo;
 ");
 
+@expected{illegalRename}
+test bool nonterminalInvalidName() = testRename("", decls ="
+    'syntax Foo
+    '   = f: \"foo\"
+    '   ;
+", oldName = "Foo", newName = "foo");
+
+@expected{illegalRename}
+test bool constructorInvalidName() = testRename("", decls ="
+    'syntax S
+    '   = foo: \"foo\"
+    '   ;
+", newName = "Foo");
+
+@expected{illegalRename}
+test bool constructorFieldInvalidName() = testRename("", decls ="
+    'syntax S
+    '   = s: S foo
+    '   ;
+", newName = "Foo");
+
 test bool lexicalProduction() = testRenameOccurrences({0, 1}, "
     'if (f := [Foo] \"foo\") g = f;
 ", decls = "lexical Foo = \"foo\"+;"

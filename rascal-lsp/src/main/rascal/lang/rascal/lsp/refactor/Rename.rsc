@@ -79,13 +79,35 @@ void throwAnyErrors(program(_, msgs)) {
     throwAnyErrors(msgs);
 }
 
-set[IllegalRenameReason] rascalCheckLegalName(str name) {
-    try {
-        parse(#Name, rascalEscapeName(name));
-        return {};
-    } catch ParseError(_): {
-        return {invalidName(name)};
+set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] defRoles) {
+    set[IllegalRenameReason] tryParseAs(type[&T<:Tree] begin, str idDescription) {
+        try {
+            parse(begin, rascalEscapeName(name));
+            return {};
+        } catch ParseError(_): {
+            return {invalidName(name, idDescription)};
+        }
     }
+
+    bool isSyntaxRole = any(role <- defRoles, role in syntaxRoles);
+    bool isField = any(role <- defRoles, role is fieldId);
+    bool isConstructor = any(role <- defRoles, role is constructorId);
+
+    set[IllegalRenameReason] reasons = {};
+    if (isSyntaxRole) {
+        reasons += tryParseAs(#Nonterminal, "non-terminal name");
+    }
+    if (isField) {
+        reasons += tryParseAs(#NonterminalLabel, "constructor field name");
+    }
+    if (isConstructor) {
+        reasons += tryParseAs(#NonterminalLabel, "constructor name");
+    }
+    if (!(isSyntaxRole || isField || isConstructor)) {
+        reasons += tryParseAs(#Name, "identifier");
+    }
+
+    return reasons;
 }
 
 private set[IllegalRenameReason] rascalCheckDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
@@ -165,7 +187,7 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, s
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
 
     return
-        rascalCheckLegalName(newName)
+        rascalCheckLegalName(newName, definitionsRel(ws)[currentDefs].idRole)
       + rascalCheckDefinitionsOutsideWorkspace(ws, currentDefs)
       + rascalCheckCausesDoubleDeclarations(ws, currentDefs, newNameDefs, newName)
       + rascalCheckCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
