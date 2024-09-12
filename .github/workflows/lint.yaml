@@ -70,6 +70,31 @@ jobs:
           eslint_args: "src"
           eslint_extensions: ts
 
+  checkstyle:
+    name: checkstyle 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: 
+          ref: ${{ github.event.pull_request.head.sha }} # run it on the PR, not on the merged commit, for better line numbers
+        
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Run checkstyle and print errors
+        run: mvn -B checkstyle:checkstyle  checkstyle:check
+        working-directory: ./rascal-lsp
+      - name: Report build results
+        uses: gmazzo/publish-report-annotations@v1 # target latest major
+        if: ${{ !cancelled() }}
+        with:
+          testsSummary: off
+          reports: "rascal-lsp/target/checkstyle-result.xml"
+
+
+
 
   githubql:
     strategy:

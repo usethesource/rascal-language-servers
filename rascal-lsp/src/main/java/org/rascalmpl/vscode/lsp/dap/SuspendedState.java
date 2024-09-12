@@ -123,7 +123,9 @@ public class SuspendedState {
             return variableList;
         }
 
-        if(!variables.containsKey(referenceID)) return variableList;
+        if(!variables.containsKey(referenceID)) {
+            return variableList;
+        }
 
         // referenceID is a variable ID
         RascalVariable var = variables.get(referenceID);

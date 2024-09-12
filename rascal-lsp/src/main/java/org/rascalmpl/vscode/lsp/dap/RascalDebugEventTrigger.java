@@ -87,7 +87,7 @@ public class RascalDebugEventTrigger extends AbstractInterpreterEventTrigger {
         stoppedEventArguments.setReason("breakpoint");
         stoppedEventArguments.setHitBreakpointIds(new Integer[]{breakpointID});
         client.stopped(stoppedEventArguments);
-	}
+    }
 
     @Override
     public void fireResumeEvent(RascalEvent.Detail detail) {

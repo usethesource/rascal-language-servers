@@ -32,7 +32,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 
 public interface IBaseLanguageClient extends LanguageClient {
-	@JsonNotification("rascal/showContent")
+    @JsonNotification("rascal/showContent")
     void showContent(BrowseParameter uri);
 
     @JsonNotification("rascal/receiveRegisterLanguage")
