@@ -156,16 +156,9 @@ describe('DSL', function () {
         const editorView = new EditorView();
 
         // find an editor action button by title
-        const button = await editorView.getAction("Change to a");
-
-        if (button) {
-            await button.click();
-            await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
-
-            return true;
-        }
-
-        return false;
+        const button = await driver.wait(() => editorView.getAction("Change to a"), Delays.normal, "We should get the change to a code action");
+        await button!.click();
+        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
     });
 
 });
