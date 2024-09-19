@@ -307,7 +307,7 @@ The fixes you provide with a message will be hinted at by a light-bulb in the ed
 Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
 
 Note that for a ((CodeAction)) to be executed, you must either provide `edits` directly and/or handle
-a ((Command)) and add its execution to the ((CommandExecutor)) contribution function.
+a ((util::LanguageServer::Command)) and add its execution to the ((CommandExecutor)) contribution function.
 }
 @benefits{
 * the information required to produce an error message is usually also required for the fix. So this
@@ -315,8 +315,9 @@ coupling of message with fixes may come in handy.
 }
 @pitfalls{
 * the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
-and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), and not already execute the quickfix.
-* don't forget to extend ((Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
+and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), or to delegate to a function that produces
+the right ((DocumentEdit))s immediately.
+* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
 
@@ -372,14 +373,14 @@ If ((DocumentEdit))[edits] are provided then:
 2. edits are always applied first before any `command` is executed.
 3. edits can always be undone via the undo command of the IDE
 
-If a ((Command))[command] is provided, then:
+If a ((util::LanguageServer::Command))[command] is provided, then:
 1. The title of the command is shown to the user
 2. The user picks this code action (from a list or pressed "OK" in a dialog)
 3. Any `edits` (see above) are applied first
 4. The command is executed on the server side via the ((CommandExecutor)) contribution
-   * Many commands use ((IDEServices-registerapplyDocumentsEdits)) to provide additional changes to the input
-   * Other commands might use ((IDEServices-showInteractiveContent)) to start a linked webview inside of the IDE
-   * Also ((IDEServices-registerDiagnostics)) is a typical effect of a ((CodeAction)) ((Command)).
+   * Many commands use ((util:IDEServices::applyDocumentsEdits)) to provide additional changes to the input
+   * Other commands might use ((util::IDEServices::showInteractiveContent)) to start a linked webview inside of the IDE
+   * Also ((util::IDEServices::registerDiagnostics)) is a typical effect of a ((CodeAction)) ((util::LanguageServer::Command)).
 5. The effects of commands can be undone if they where ((DocumentEdit))s, but other effects like diagnostics and
 interactive content have to be cleaned or closed in their own respective fashions.
 }
@@ -393,7 +394,7 @@ tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abst
 and input are computed in-sync.
 }
 @pitfalls{
-* ((IDEServices-registerapplyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
+* ((util:IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
 or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
 }
 data CodeAction
