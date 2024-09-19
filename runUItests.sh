@@ -13,8 +13,6 @@ UITESTS=/tmp/vscode-uitests
 
 # cleanup to avoid contamination with previous runs
 
-rm -rf out || true
-rm -rf node_modules || true
 rm -rf $UITESTS || true
 
 # compiling the TS code as well as the test TS code at least once is required before execution
