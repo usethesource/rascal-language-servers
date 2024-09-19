@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { EditorView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
@@ -152,20 +152,19 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
-        await ide.hasErrorSquiggly(editor, 15_000);   // just make sure there is indeed something to fix
-        const assist = await driver.wait(async() => editor.toggleContentAssist(true), 10_000, "there should be a content assist menu at this spot.");
+        await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
+        const editorView = new EditorView();
 
-        if (assist) {
-            while (!await assist.isLoaded());
+        // find an editor action button by title
+        const button = await editorView.getAction("Change to a");
 
-            await assist.getItems()
-                .then(items => items
-                .filter(ca => ca.getLabel().then(lp => lp.trim() === "Change to a"))
-                .forEach(it => it.click()));
+        if (button) {
+            await button.click();
+            await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
 
-            await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", 20_000, "a variable should be changed back to a");
+            return true;
         }
-       
+        
         return false;
     });
     
