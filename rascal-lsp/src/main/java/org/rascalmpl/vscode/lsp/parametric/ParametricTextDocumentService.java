@@ -586,8 +586,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contribs = contributions(params.getTextDocument());
         final var loc = Locations.toLoc(params.getTextDocument());
         final var start = params.getRange().getStart();
-        final var startLine = start.getLine() + 1;
-        final var startColumn = columns.get(loc).translateInverseColumn(startLine, start.getCharacter(), false);
+        // convert to Rascal 1-based line
+        final var startLine = start.getLine() + 1; 
+        // convert to Rascal UTF-32 column width
+        final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
         final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
