@@ -81,9 +81,9 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     // documentation strings for identifier uses
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
+
     // Provide errors (cheap to compute) both in analyze mode and in build mode.
-    // We also connect quick-fixes immediately to every error
-    s.messages += {<src, error("<id> is not defined", src, fixes=[action(command=changeToFix(src, existing<0>, title="Change to <existing<0>>")) | existing <- defs])> 
+    s.messages += {<src, error("<id> is not defined", src, fixes=prepareNotDefinedFixes(src, defs))> 
                   | <src, id> <- uses, id notin defs<0>};
                   
     // "references" are links for loc to loc (from def to use)
@@ -104,6 +104,10 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     return s;
 }
 
+@synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
+list[TextEdits] prepareNotDefinedFixes(loc src,  rel[str, loc] defs) 
+    = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
+
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program]) 
     = [action(command=removeDecl(program, x, title="remove <x>"))];
@@ -116,7 +120,6 @@ set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
 @synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
-  | changeToFix(loc place, str replacement)
   | removeDecl(start[Program] program, IdType toBeRemoved)
   ;
 
@@ -146,13 +149,7 @@ value picoCommands(renameAtoB(start[Program] input)) {
     return ("result": true);
 }
 
-@synopsis{Command handler for the changeToFix command}
-value picoCommands(changeToFix(loc src, str newName)) {
-    applyDocumentsEdits([changed(src.top, [replace(src, newName)])]);
-    return ("result": true);
-}
-
-@synopsis{Command hamlder for the removeDecl command}
+@synopsis{Command handler for the removeDecl command}
 value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
@@ -165,11 +162,10 @@ Register the Pico language and the contributions that supply the IDE with featur
 ((registerLanguage)) is called twice here:
 1. first for fast and cheap contributions
 2. asynchronously for the full monty that loads slower
-
-:::tip
-Run each contribution on an example in the terminal to test it first.
+}
+@benefits{
+* You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
-:::
 }
 void main() {
     registerLanguage(
