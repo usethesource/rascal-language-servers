@@ -16,7 +16,7 @@ UITESTS=/tmp/vscode-uitests
 rm -rf $UITESTS || true
 
 # compiling the TS code as well as the test TS code at least once is required before execution
-npm ci
+# this assumes you have run `npm ci` at least once since a large update
 npm run compile-tests
 
 # test what was compiled

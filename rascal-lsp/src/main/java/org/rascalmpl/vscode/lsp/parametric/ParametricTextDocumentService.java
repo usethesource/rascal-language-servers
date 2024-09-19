@@ -622,16 +622,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
                 Stream.concat(quicks, actions)
-                .map(IConstructor.class::cast)
-                .map(cons -> constructorToCodeAction(contribs.getName(), cons))
-                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
-                .collect(Collectors.toList())
+                    .map(IConstructor.class::cast)
+                    .map(cons -> constructorToCodeAction(contribs.getName(), cons))
+                    .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                    .collect(Collectors.toList())
             );
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
             final int startLine, final int startColumn, ITree tree) {
-        IList focus = (IList) TreeSearch.computeFocusList(tree, startLine, startColumn);
+        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
         return contribs.codeActions(focus).get();
     }
 

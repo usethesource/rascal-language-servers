@@ -36,11 +36,19 @@ public class TreeSearch {
         }
 
         if (line == loc.getBeginLine()) {
-            // then make sure we are not before the start
-            return loc.getBeginColumn() <= column;
+            if (line < loc.getEndLine()) {
+                // then make sure we are not before the start
+                return loc.getBeginColumn() <= column;
+            }
+            else {
+                assert line == loc.getEndLine();
+                
+                // then we need to be right in between
+                return loc.getBeginColumn() <= column
+                    && column <= loc.getEndColumn();
+            }
         }
-
-        if (line == loc.getEndLine()) {
+        else if (line == loc.getEndLine()) {
             // then make sure we are not beyond the end
             return column <= loc.getEndColumn();
         }
