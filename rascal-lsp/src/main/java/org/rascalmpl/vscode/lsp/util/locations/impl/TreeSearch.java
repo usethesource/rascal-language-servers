@@ -13,12 +13,12 @@ import io.usethesource.vallang.IValue;
  * Utilities for finding sub-trees based on UTF-32 line/column indexing.
  */
 public class TreeSearch {
-    
+
     /**
-     * Helper to test if a line/column position is within the scope of a source location's 
+     * Helper to test if a line/column position is within the scope of a source location's
      * begin line/column and end line/column scope. The first and the last lines are
      * where the column information is used.
-     * 
+     *
      * @param loc     location with line/column information that acts as a range
      * @param line    line to check if its within the range
      * @param column  column to see if we are within the range
@@ -26,7 +26,7 @@ public class TreeSearch {
      */
     private static boolean inside(ISourceLocation loc, int line, int column) {
         line += 1; // LSP line offsets are 0-based, while Rascal tree locations are 1-based.
-        
+
         if (!loc.hasLineColumn()) {
             return false;
         }
@@ -45,20 +45,20 @@ public class TreeSearch {
             return column <= loc.getEndColumn();
         }
 
-        // otherwise we are in the middle of the lines 
+        // otherwise we are in the middle of the lines
         // and the column is irrelevant
 
         return true;
     }
-    
+
     /**
      * Produces a list of trees that are "in focus" at given line and column offset (UTF-24).
-     * 
+     *
      * This log(filesize) algorithm quickly collects the trees along a spine from the
      * root to the smallest lexical or context-free node. The list is returned in
      * reverse order such that you can select the "most specific" tree by starting
      * at the start of the list.
-     * 
+     *
      * @param tree   parse tree
      * @param line   search term in lines (1-based)
      * @param column search term in columns (0-based, UTF-32 codepoints)
@@ -83,7 +83,7 @@ public class TreeSearch {
                 focus.append(tree);
                 // stop and return success
                 return true;
-            }   
+            }
             else {
                 // stop and return failure
                 return false;

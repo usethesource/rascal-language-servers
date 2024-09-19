@@ -211,7 +211,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
             .getValue();
     }
- 
+
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
         return store.thenApply(commandStore -> {
@@ -407,19 +407,19 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(
             commandExecutor,
             (cons, func) -> {
-                
+
                 if (func == null) {
-                    logger.info("Command is being executed without a registered command executor; for language " + name);
+                    logger.warn("Command is being executed without a registered command executor; for language {}", name);
                     throw new RuntimeException("No command executor registered for " + name);
                 }
 
                 return EvaluatorUtil.<@Nullable IValue>runEvaluator(
-                    "executeCommand", 
-                    eval, 
-                    ev -> func.call(cons), 
-                    null, 
-                    exec, 
-                    true, 
+                    "executeCommand",
+                    eval,
+                    ev -> func.call(cons),
+                    null,
+                    exec,
+                    true,
                     client
                 );
             }
