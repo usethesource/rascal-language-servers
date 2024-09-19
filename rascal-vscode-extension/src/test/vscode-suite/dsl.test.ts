@@ -164,9 +164,9 @@ describe('DSL', function () {
 
             return true;
         }
-        
+
         return false;
     });
-    
+
 });
 
