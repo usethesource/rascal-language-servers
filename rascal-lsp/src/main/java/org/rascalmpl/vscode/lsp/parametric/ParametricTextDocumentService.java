@@ -386,7 +386,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(languageName, command), null);
     }
-    
+
     private CodeAction constructorToCodeAction(String languageName, IConstructor codeAction) {
         IWithKeywordParameters<?> kw = codeAction.asWithKeywordParameters();
         IConstructor command = (IConstructor) kw.getParameter("command");
@@ -414,7 +414,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         if (edits != null) {
             result.setEdit(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, edits)));
         }
-        
+
         result.setKind(constructorToCodeActionKind(kind));
 
         return result;
@@ -423,7 +423,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     /**
      * Translates `refactor(inline())` to `"refactor.inline"` and `empty()` to `""`, etc.
      * `kind == null` signals absence of the optional parameter. This is factorede into
-     * this private function because otherwise every call has to check it. 
+     * this private function because otherwise every call has to check it.
      */
     private String constructorToCodeActionKind(@Nullable IConstructor kind) {
         if (kind == null) {
@@ -448,7 +448,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 name = name + (nestedName.isEmpty() ? "" : ("." + nestedName));
             }
         }
-        
+
         return name;
     }
 
@@ -587,15 +587,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var loc = Locations.toLoc(params.getTextDocument());
         final var start = params.getRange().getStart();
         // convert to Rascal 1-based line
-        final var startLine = start.getLine() + 1; 
+        final var startLine = start.getLine() + 1;
         // convert to Rascal UTF-32 column width
         final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
         final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
-        // CompletableFuture<Stream<IValue>> 
-        CompletableFuture<Stream<IValue>> quickfixes 
+        // CompletableFuture<Stream<IValue>>
+        CompletableFuture<Stream<IValue>> quickfixes
             = params.getContext().getDiagnostics()
                 .stream()
                 .map(Diagnostic::getData)
@@ -615,14 +615,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
-                .thenApply(Versioned::get) 
+                .thenApply(Versioned::get)
                 .thenCompose(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
                 .thenApply(IList::stream)
             , () -> Stream.<IValue>empty())
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return codeActions.thenCombine(quickfixes, (actions, quicks) -> 
+        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
                 Stream.concat(quicks, actions)
                     .map(IConstructor.class::cast)
                     .map(cons -> constructorToCodeAction(contribs.getName(), cons))
