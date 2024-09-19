@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.google.gson.JsonPrimitive;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
@@ -44,6 +45,7 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.values.IRascalValueFactory;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
@@ -109,9 +111,37 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         if (params.getCommand().startsWith(RASCAL_META_COMMAND)) {
-            String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
-            String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-            return documentService.executeCommand(languageName, command).thenApply(v -> v);
+            return CompletableFuture.supplyAsync(() -> {
+                String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
+                String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
+                return documentService.executeCommand(languageName, command)
+                    .thenApply(result -> {
+                    // The JSON-RPC bridge does not accept primitive value like ints or bools. If 
+                    // we do send them here, the bridge fails silently.
+                    //
+                    // However, the CommandExecutor type in Rascal returns `value`, so anything including primitives.
+                    // For type-safety and robustness sake, we should allow a command to return primitive
+                    // values as well. That way the Rascal type-checker is useful, and the bridge more robust.
+
+                    // So, we here wrap the value in a map value to protect against JSON-RPC failure,
+                    // and also be backward compatible with previous version that asked this of every 
+                    // user of util::LanguageServer.
+
+                    // TODO: it would make more sense to use the value-to-JSON conversions from the
+                    // standard library, such that the objects become meaningful TS objects 
+                    // on the client side. The default JSON-RPC encoding will probably generate
+                    // lots of structure and details which are part of the implementation of IValue
+                    // rather than their syntactic and semantic notions. However, since this TS code
+                    // is written by users, it is unknown what the damage would be of changing these
+                    // interfaces. Also we have to find out how to serialize to the kind of JSON DOM
+                    // that the JSON-RPC bridge will accept.
+                    var vf = IRascalValueFactory.getInstance();
+
+                    // simulate Rascal code that wraps a result in: `("result": result)`
+                    return vf.map().put(vf.string("result"), result);
+                })
+                .thenApply(v -> v);
+            });
         }
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
     }
