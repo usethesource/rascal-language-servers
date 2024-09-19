@@ -105,7 +105,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
-list[TextEdits] prepareNotDefinedFixes(loc src,  rel[str, loc] defs) 
+list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs) 
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
