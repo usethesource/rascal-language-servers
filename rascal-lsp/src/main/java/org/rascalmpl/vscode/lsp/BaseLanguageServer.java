@@ -111,7 +111,7 @@ public abstract class BaseLanguageServer {
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
     private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
-    throws IOException {
+        throws IOException {
         client.setTcpNoDelay(true);
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
     }

@@ -50,9 +50,9 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
     linkDetector() {
         // sadly java script regex store state, so we have to create a new one everytime
         return new RegExp(
-        "\\|[^\\t-\\n\\r\\s\\|:]+://[^\\t-\\n\\r\\s\\|]*\\|" // |location|
-        + "(\\([^\\)]*\\))?" // (optional offset)
-      , "g");
+            "\\|[^\\t-\\n\\r\\s\\|:]+://[^\\t-\\n\\r\\s\\|]*\\|" // |location|
+            + "(\\([^\\)]*\\))?" // (optional offset)
+            , "g");
     }
 
     provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): ProviderResult<ExtendedLink[]> {

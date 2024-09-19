@@ -111,7 +111,7 @@ public class SuspendedState {
             int endIndex = maxCount == -1 ? frameVariables.size() : Math.min(frameVariables.size(), startIndex + maxCount);
             for (String varname : frameVariables.subList(startIndex, endIndex)) {
                 IRascalResult result = frame.getFrameVariable(varname);
-                RascalVariable refResult = new RascalVariable(result.getStaticType(), varname, result.getValue());
+                RascalVariable refResult = new RascalVariable(result.getDynamicType(), varname, result.getValue());
                 if(refResult.hasSubFields()){
                     addVariable(refResult);
                     VariableSubElementsCounter counter = result.getValue().accept(new VariableSubElementsCounterVisitor());
@@ -123,7 +123,9 @@ public class SuspendedState {
             return variableList;
         }
 
-        if(!variables.containsKey(referenceID)) return variableList;
+        if(!variables.containsKey(referenceID)) {
+            return variableList;
+        }
 
         // referenceID is a variable ID
         RascalVariable var = variables.get(referenceID);
