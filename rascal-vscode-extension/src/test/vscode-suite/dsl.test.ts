@@ -79,7 +79,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-/*
+
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -145,7 +145,7 @@ describe('DSL', function () {
         const lens = await driver.wait(async () => editor.getCodeLens("Rename variables a to b."), 10_000, "Rename lens should be available");
         await lens!.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
-    });*/
+    });
 
     it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
