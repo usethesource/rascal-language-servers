@@ -389,7 +389,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 * CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
-* ((util:IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
+* ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
 * The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
 and input are computed in-sync.
 }
