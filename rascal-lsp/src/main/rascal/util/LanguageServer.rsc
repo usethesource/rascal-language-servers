@@ -378,7 +378,7 @@ If a ((util::LanguageServer::Command))[command] is provided, then:
 2. The user picks this code action (from a list or pressed "OK" in a dialog)
 3. Any `edits` (see above) are applied first
 4. The command is executed on the server side via the ((CommandExecutor)) contribution
-   * Many commands use ((util:IDEServices::applyDocumentsEdits)) to provide additional changes to the input
+   * Many commands use ((util::IDEServices::applyDocumentsEdits)) to provide additional changes to the input
    * Other commands might use ((util::IDEServices::showInteractiveContent)) to start a linked webview inside of the IDE
    * Also ((util::IDEServices::registerDiagnostics)) is a typical effect of a ((CodeAction)) ((util::LanguageServer::Command)).
 5. The effects of commands can be undone if they where ((DocumentEdit))s, but other effects like diagnostics and
@@ -389,12 +389,12 @@ interactive content have to be cleaned or closed in their own respective fashion
 * CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
-* ((IDEServices-registerapplyDocumentsEdits)) also works on open editor contents for the current editor.
+* ((util:IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
 * The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
 and input are computed in-sync.
 }
 @pitfalls{
-* ((util:IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
+* ((util::IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
 or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
 }
 data CodeAction
