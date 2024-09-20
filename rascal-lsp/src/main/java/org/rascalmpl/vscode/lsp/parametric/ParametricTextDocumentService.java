@@ -49,6 +49,7 @@ import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionKind;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
@@ -427,7 +428,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
      */
     private String constructorToCodeActionKind(@Nullable IConstructor kind) {
         if (kind == null) {
-            return "";
+            return CodeActionKind.QuickFix;
         }
 
         String name = kind.getName();
