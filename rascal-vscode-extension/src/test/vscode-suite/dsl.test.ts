@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { EditorView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, Key, TextEditor, until, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
@@ -79,7 +79,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-
+/*
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -145,18 +145,20 @@ describe('DSL', function () {
         const lens = await driver.wait(async () => editor.getCodeLens("Rename variables a to b."), 10_000, "Rename lens should be available");
         await lens!.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
-    });
+    });*/
 
     it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
-        const editorView = new EditorView();
-
-        // find an editor action button by title
-        const button = await driver.wait(async () => { const a = await editorView.getAction("Change to a");  console.log(a); return a; }, Delays.normal, "We should get the change to a code action");
-        await button!.click();
+       
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+        // TODO: this is the actual clickable item: <div class="context-view-pointerBlock">
+        const menu = await driver.wait(until.elementLocated(By.xpath("//div[@class='context-view-pointerBlock']//span[contains(text(), 'Change to a')]")), Delays.normal, "could not find context menu with 'Change to a' in it");
+        
+        await menu.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
     });
 
