@@ -25,10 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { By, InputBox, Key, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By,  ContextMenu,  Key, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
+
 
 
 describe('DSL', function () {
@@ -149,22 +150,19 @@ describe('DSL', function () {
 */
     it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setTextAtLine(9, "az := 2;");
+        await editor.setTextAtLine(9, "  az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
         
         const inputarea = await editor.findElement(By.className('inputarea'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
-        await new Promise((res) => setTimeout(res, 500));
-        
-        const menu = await InputBox.create();
-        console.log('menu: ' + menu);
-        const items = await driver.wait(() => menu.getQuickPicks(), Delays.slow, "");
-        console.log('items: ' + items);
-        const item = items.at(0);
-        console.log('item: ' + item);
-        await driver.wait(() => item!.click(), Delays.normal, "");
+        await new Promise((res) => setTimeout(res, Delays.normal));
+        const menuElement = await inputarea.findElement(By.xpath("//*[contains(@class, 'context-view')]//*[contains(text(), 'Change to a')]"));
 
+        const button = await new ContextMenu(menuElement).getItem("Change to a");
+
+        await button!.click();
+        
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
     });
 

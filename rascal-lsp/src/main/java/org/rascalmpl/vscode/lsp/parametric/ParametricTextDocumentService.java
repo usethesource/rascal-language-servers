@@ -171,6 +171,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
         return columns.get(file);
+        int x;
     }
 
     private String getContents(ISourceLocation file) {
