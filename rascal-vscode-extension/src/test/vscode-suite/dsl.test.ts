@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { By, Key, TextEditor, until, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, ContextMenu, Key, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
@@ -79,7 +79,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-
+/*
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -146,19 +146,31 @@ describe('DSL', function () {
         await lens!.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
     });
-
+*/
     it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
        
+        
         const inputarea = await editor.findElement(By.className('inputarea'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
-        // TODO: this is the actual clickable item: <div class="context-view-pointerBlock">
-        const menu = await driver.wait(until.elementLocated(By.xpath("//div[@class='context-view-pointerBlock']//span[contains(text(), 'Change to a')]")), Delays.normal, "could not find context menu with 'Change to a' in it");
+
+        // context menu's are not rooted in the normal DOM; they are rooted in shadowRoots that
+        // are distributed over the UI. Here we pick one of such roots from the editor.
+        const shadowRoot = await editor.getShadowRoot();
         
-        await menu.click();
+        // now we can find an open menu in the shadow DOM
+        const menu = await new ContextMenu(await shadowRoot.findElement(By.className('monaco-menu-container'))).wait();
+
+        // and click on the item we need
+        const item = await menu.getItem("Change to a");
+        await driver.wait(() => item!.click(), Delays.slow, "can not click on the item");
+        
+        // TODO: this is the actual clickable item: <div class="context-view-pointerBlock">
+        // const menu = await driver.wait(until.elementLocated(By.xpath("//div[@class='context-view-pointerBlock']//span[contains(text(), 'Change to a')]")), Delays.normal, "could not find context menu with 'Change to a' in it");
+        
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
     });
 

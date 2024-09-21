@@ -431,6 +431,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return CodeActionKind.QuickFix;
         }
 
+        var x;
         String name = kind.getName();
 
         if (name.isEmpty()) {
