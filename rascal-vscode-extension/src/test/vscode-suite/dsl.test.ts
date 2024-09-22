@@ -80,7 +80,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-/*
+    /*
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
