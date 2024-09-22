@@ -153,16 +153,16 @@ describe('DSL', function () {
         await editor.setTextAtLine(9, "  az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
-        
+
         const inputarea = await editor.findElement(By.className('inputarea'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
         await new Promise((res) => setTimeout(res, Delays.normal));
-        const menuElement = await inputarea.findElement(By.xpath("//*[contains(@class, 'context-view')]//*[contains(text(), 'Change to a')]"));
+        const menuElement = await driver.wait(() => inputarea.findElement(By.xpath("//*[contains(@class, 'context-view')]//*[contains(text(), 'Change to a')]")), Delays.normal, "The Change to a option should be available");
 
-        const button = await new ContextMenu(menuElement).getItem("Change to a");
+        const button = await driver.wait(() => new ContextMenu(menuElement).getItem("Change to a"), Delays.fast, "We should be pick up the action");
 
-        await button!.click();
-        
+        await button!.select();
+
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
     });
 
