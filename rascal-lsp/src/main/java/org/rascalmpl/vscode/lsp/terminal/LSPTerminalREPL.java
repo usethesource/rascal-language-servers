@@ -71,7 +71,6 @@ import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
 import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.jline.Terminal;
-import org.rascalmpl.jline.internal.Configuration;
 
 /**
  * This class runs a Rascal terminal REPL that
