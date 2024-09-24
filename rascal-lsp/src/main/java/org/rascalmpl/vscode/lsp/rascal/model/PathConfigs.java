@@ -170,13 +170,7 @@ public class PathConfigs {
     }
 
     private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        try {
-            return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER);
-        }
-        catch (IOException e) {
-            logger.error("Could not figure out path config for: {}, falling back to default", projectRoot, e);
-            return new PathConfig();
-        }
+        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER);
     }
 
 

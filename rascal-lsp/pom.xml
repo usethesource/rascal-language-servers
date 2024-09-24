@@ -65,7 +65,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.7</version>
+      <version>0.40.8-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -176,7 +176,7 @@
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
-          <sourceLookup>|lib://rascal-lsp|</sourceLookup>
+          <sourceLookup>|mvn://${project.groupId}~${project.name}~${project.version}}|</sourceLookup>
           <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
         <executions>

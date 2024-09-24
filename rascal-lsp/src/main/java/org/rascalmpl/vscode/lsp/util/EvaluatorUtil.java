@@ -64,7 +64,6 @@ import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -243,11 +242,17 @@ public class EvaluatorUtil {
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
+
                 if (addRascalCore) {
-                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                    var rascalCoreJar = PathConfig.resolveProjectOnClasspath("rascal-core");
+                    var typePalJar = PathConfig.resolveProjectOnClasspath("typepal");
+
+                    eval.addRascalSearchPath(typePalJar);
+                    eval.addRascalSearchPath(rascalCoreJar);
                 }
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+
+                var rascalLspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+                eval.addRascalSearchPath(rascalLspJar);
 
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
@@ -259,7 +264,11 @@ public class EvaluatorUtil {
 
                 jobSuccess = true;
                 return eval;
-            } finally {
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            } 
+            finally {
                 services.jobEnd(jobName, jobSuccess);
             }
         }, exec);

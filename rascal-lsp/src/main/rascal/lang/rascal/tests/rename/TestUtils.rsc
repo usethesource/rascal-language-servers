@@ -175,7 +175,7 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
 private PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[|lib://rascal|],
+        libs=[|std://rascal|],
         srcs=[testDir + "rascal"],
         resources=testDir + "bin",
         generatedSources=testDir + "generated-sources"

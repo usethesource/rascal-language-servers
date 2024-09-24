@@ -253,10 +253,11 @@ public abstract class BaseLanguageServer {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     if (projectFolder.getUri() == null) {
-                        return classLoaderFiles(PathConfig.getDefaultClassloadersList());
+                        return classLoaderFiles(IRascalValueFactory.getInstance().list(PathConfig.resolveCurrentRascalRuntimeJar()));
                     }
+
                     PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.COMPILER);
-                    return classLoaderFiles(pcfg.getClassloaders());
+                    return classLoaderFiles(pcfg.getLibsAndTarget());
                 }
                 catch (IOException | URISyntaxException e) {
                     logger.catching(e);
@@ -288,12 +289,12 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
+                    // TODO: why are we not communicating the JSON representation of the PathConfig constructor?
                     var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), projectFolder.getMode().mapConfigMode());
-                    Two<String, URI[]>[] result = new Two[4];
+                    @SuppressWarnings("unchecked")
+                    Two<String, URI[]>[] result = new Two[2];
                     result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
                     result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
-                    result[2] = new Two<>("Java Compiler Path", toURIArray(pcfg.getJavaCompilerPath()));
-                    result[3] = new Two<>("Classloaders", toURIArray(pcfg.getClassloaders()));
                     return result;
                 } catch (IOException | URISyntaxException e) {
                     logger.catching(e);
