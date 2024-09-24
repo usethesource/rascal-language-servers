@@ -176,7 +176,7 @@
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
-          <sourceLookup>|mvn://${project.groupId}~${project.name}~${project.version}}|</sourceLookup>
+          <sourceLookup>|mvn://${project.groupId}--${project.name}--${project.version}|</sourceLookup>
           <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
         <executions>
