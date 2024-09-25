@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,6 +61,7 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
@@ -175,7 +177,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         var rascalLspLib = PathConfig.resolveProjectOnClasspath("rascal-lsp");
 
                         // the interpreter must find the Rascal sources of util::LanguageServer etc.
-                        pcfg = pcfg.addSourceLoc(rascalLspLib);
+                        pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(rascalLspLib));
 
                         // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
                         pcfg = pcfg.addLibLoc(rascalLspLib);
