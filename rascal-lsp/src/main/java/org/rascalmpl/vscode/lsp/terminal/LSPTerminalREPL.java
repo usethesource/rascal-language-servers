@@ -151,10 +151,6 @@ public class LSPTerminalREPL extends BaseREPL {
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-                    String projectName = "unknown-project";
-                    if (projectDir != null) {
-                        projectName = new RascalManifest().getProjectName(projectDir);
-                    }
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
@@ -186,9 +182,9 @@ public class LSPTerminalREPL extends BaseREPL {
 
                         out.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         out.println("Rascal-lsp Version: " + getRascalLspVersion());
-                        out.println("Rascal Module folders:");
+                        out.println("Rascal module folders:");
                         pcfg.getSrcs().forEach((f) -> out.println(" ".repeat(4) + f));
-                        out.println("JVM Class loading path:");
+                        out.println("JVM class loading paths:");
                         pcfg.getLibs().forEach((l) -> out.println(" ".repeat(4) + l));
                         out.println("Target folder:");
                         out.println(" ".repeat(4) + pcfg.getBin());
