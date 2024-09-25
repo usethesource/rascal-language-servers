@@ -171,11 +171,29 @@ public class LSPTerminalREPL extends BaseREPL {
                             pcfg = new PathConfig();
                             pcfg.addSourceLoc(URIUtil.rootLocation("std"));
                         }
-                        
-                        evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
-                        evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
-                        new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
+                        var rascalLspLib = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+
+                        // the interpreter must find the Rascal sources of util::LanguageServer etc.
+                        pcfg = pcfg.addSourceLoc(rascalLspLib);
+
+                        // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
+                        pcfg = pcfg.addLibLoc(rascalLspLib);
+
+                        var out = evaluator.getOutPrinter();
+
+                        out.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
+                        out.println("Rascal-lsp Version: " + getRascalLspVersion());
+                        out.println("Source folders:");
+                        pcfg.getSrcs().forEach((f) -> out.println(" ".repeat(4) + f));
+                        out.println("Library locations:");
+                        pcfg.getLibs().forEach((l) -> out.println(" ".repeat(4) + l));
+                        out.println("Target folder:");
+                        out.println(" ".repeat(4) + pcfg.getBin());
+                        out.flush();
+                        
+                        services.registerDiagnostics(pcfg.getMessages());
+    
                         for (IValue srcPath : pcfg.getSrcs()) {
                             ISourceLocation path = (ISourceLocation)srcPath;
                             evaluator.addRascalSearchPath(path);
@@ -186,14 +204,8 @@ public class LSPTerminalREPL extends BaseREPL {
                             reg.watch(resolvedPath, true, d -> sourceLocationChanged(resolvedPath, d));
                         }
 
-                        var rascalJar = PathConfig.resolveCurrentRascalRuntimeJar();
-                        var projectTarget = URIUtil.correctLocation("target", projectName, "");
-
                         ClassLoader cl = new SourceLocationClassLoader(
-                            pcfg.getLibs()
-                                .append(rascalJar)
-                                .append(lspJar)
-                                .append(projectTarget),
+                            pcfg.getLibsAndTarget(),
                             ClassLoader.getSystemClassLoader()
                         );
 
