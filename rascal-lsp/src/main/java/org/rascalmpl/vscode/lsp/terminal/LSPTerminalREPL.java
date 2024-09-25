@@ -186,9 +186,9 @@ public class LSPTerminalREPL extends BaseREPL {
 
                         out.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
                         out.println("Rascal-lsp Version: " + getRascalLspVersion());
-                        out.println("Source folders:");
+                        out.println("Rascal Module folders:");
                         pcfg.getSrcs().forEach((f) -> out.println(" ".repeat(4) + f));
-                        out.println("Library locations:");
+                        out.println("JVM Class loading path:");
                         pcfg.getLibs().forEach((l) -> out.println(" ".repeat(4) + l));
                         out.println("Target folder:");
                         out.println(" ".repeat(4) + pcfg.getBin());
