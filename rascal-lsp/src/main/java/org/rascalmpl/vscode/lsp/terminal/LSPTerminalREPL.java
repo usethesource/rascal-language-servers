@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,7 +69,6 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.io.StandardTextWriter;
 import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.jline.Terminal;
 
@@ -179,16 +177,11 @@ public class LSPTerminalREPL extends BaseREPL {
                         pcfg = pcfg.addLibLoc(rascalLspLib);
 
                         var out = evaluator.getOutPrinter();
-
-                        out.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
-                        out.println("Rascal-lsp Version: " + getRascalLspVersion());
-                        out.println("Rascal module folders:");
-                        pcfg.getSrcs().forEach((f) -> out.println(" ".repeat(4) + f));
-                        out.println("JVM class loading paths:");
-                        pcfg.getLibs().forEach((l) -> out.println(" ".repeat(4) + l));
-                        out.println("Target folder:");
-                        out.println(" ".repeat(4) + pcfg.getBin());
-                        out.flush();
+                        
+                        out.println("Rascal " + RascalManifest.getRascalVersionNumber());
+                        out.println("Rascal-lsp " + getRascalLspVersion());
+        
+                        pcfg.printInterpreterConfigurationStatus(out);
                         
                         services.registerDiagnostics(pcfg.getMessages());
     
