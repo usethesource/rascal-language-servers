@@ -176,11 +176,7 @@ public class LSPTerminalREPL extends BaseREPL {
                         for (IValue srcPath : pcfg.getSrcs()) {
                             ISourceLocation path = (ISourceLocation)srcPath;
                             evaluator.addRascalSearchPath(path);
-                            // since the watch function in rascal only works on resolved paths
-                            // we have to resolve the path, until that issue is remedied.
-                            // see issue: https://github.com/usethesource/rascal/issues/1884
-                            ISourceLocation resolvedPath = safeResolve(reg, path);
-                            reg.watch(resolvedPath, true, d -> sourceLocationChanged(resolvedPath, d));
+                            reg.watch(path, true, d -> sourceLocationChanged(path, d));
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
@@ -201,16 +197,6 @@ public class LSPTerminalREPL extends BaseREPL {
                     evaluator.setMonitor(services);
 
                     return evaluator;
-                }
-
-                private ISourceLocation safeResolve(URIResolverRegistry reg, ISourceLocation path) {
-                    try {
-                        ISourceLocation result = reg.logicalToPhysical(path);
-                        return result == null ? path : result;
-                    }
-                    catch (Exception e) {
-                        return path;
-                    }
                 }
 
                 private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
