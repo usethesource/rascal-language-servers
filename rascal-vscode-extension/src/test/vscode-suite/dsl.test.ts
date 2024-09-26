@@ -80,7 +80,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-    /*
+    
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -147,7 +147,7 @@ describe('DSL', function () {
         await lens!.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
     });
-*/
+
     it("quick fix works", async() => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "  az := 2;");
@@ -157,11 +157,13 @@ describe('DSL', function () {
         const inputarea = await editor.findElement(By.className('inputarea'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
         await new Promise((res) => setTimeout(res, Delays.normal));
-        //const menuElement = await driver.wait(() => inputarea.findElement(By.xpath("//*[contains(@class, 'context-view')]:ances//*[contains(text(), 'Change to a')]")), Delays.normal, "The Change to a option should be available");
 
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
         const menuContainer = await driver.wait(() => inputarea.findElement(By.xpath("//*[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]")), Delays.normal, "The Change to a option should be available");
-        console.log("Got: ", menuContainer);
-        // menu container works a bit string, it ask the select to keep track of it, and then just sees a click or a enter to say: hey this is the current item, lets go
+        
+        // menu container works a bit strangely, it ask the select to keep track of it, 
+        // and manages clicks and menus on the highest level (not per item).
         await menuContainer.sendKeys(Key.RETURN);
 
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
