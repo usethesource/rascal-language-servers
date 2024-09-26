@@ -53,7 +53,7 @@ describe('DSL', function () {
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
         await repl.terminate();
         // now wait for the Pico loader to dissapear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting");
+        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
     }
 
 
@@ -80,7 +80,7 @@ describe('DSL', function () {
 
     after(async function() {
     });
-    
+
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -160,9 +160,9 @@ describe('DSL', function () {
 
         // finds an open menu with the right item in it (Change to a) and then select
         // the parent that handles UI events like click() and sendKeys()
-        const menuContainer = await driver.wait(() => inputarea.findElement(By.xpath("//*[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]")), Delays.normal, "The Change to a option should be available");
-        
-        // menu container works a bit strangely, it ask the select to keep track of it, 
+        const menuContainer = await driver.wait(() => editor.findElement(By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]")), Delays.normal, "The Change to a option should be available and focussed by default");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
         await menuContainer.sendKeys(Key.RETURN);
 
