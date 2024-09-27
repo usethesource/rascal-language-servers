@@ -91,7 +91,7 @@ public class Diagnostics {
         }
     }
 
-    private static void storeFixCommands(IConstructor d, Diagnostic result, Range range) {
+    private static void storeFixCommands(IConstructor d, Diagnostic result) {
         // Here we attach quick-fix commands to every Diagnostic, if present.
         // Later when codeActions are requested, the LSP client sends selected
         // messages back to us, in which we can find these commands and send
@@ -106,7 +106,7 @@ public class Diagnostics {
     public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
     }
-      
+
     public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
     }
@@ -117,7 +117,7 @@ public class Diagnostics {
         result.setMessage(((IString) d.get("msg")).getValue());
         result.setRange(range);
 
-        storeFixCommands(d, result, range);
+        storeFixCommands(d, result);
         return result;
     }
 

@@ -40,6 +40,8 @@ import io.usethesource.vallang.IValue;
  */
 public class TreeSearch {
 
+    private TreeSearch() {}
+
     /**
      * Helper to test if a line/column position is within the scope of a source location's
      * begin line/column and end line/column scope. The first and the last lines are

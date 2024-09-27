@@ -154,7 +154,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
         } catch (IOException e1) {
             logger.catching(e1);
-            throw new RuntimeException(e1);
+            throw new IllegalArgumentException(e1);
         }
     }
 
@@ -222,7 +222,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
                 // when running the interpreter on broken code.
-                throw new RuntimeException(e);
+                throw new IllegalArgumentException("The command could not be parsed", e);
             }
         });
     }
@@ -233,7 +233,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
-                throw new RuntimeException(e);
+                throw new IllegalArgumentException("The command could not be parsed", e);
             }
         });
     }
@@ -410,7 +410,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
                 if (func == null) {
                     logger.warn("Command is being executed without a registered command executor; for language {}", name);
-                    throw new RuntimeException("No command executor registered for " + name);
+                    throw new IllegalStateException("No command executor registered for " + name);
                 }
 
                 return EvaluatorUtil.<@Nullable IValue>runEvaluator(

@@ -107,6 +107,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -390,15 +391,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CodeAction constructorToCodeAction(String languageName, IConstructor codeAction) {
         IWithKeywordParameters<?> kw = codeAction.asWithKeywordParameters();
-        IConstructor command = (IConstructor) kw.getParameter("command");
-        IString title = (IString) kw.getParameter("title");
-        IList edits = (IList) kw.getParameter("edits");
-        IConstructor kind = (IConstructor) kw.getParameter("kind");
+        IConstructor command = (IConstructor) kw.getParameter(RascalADTs.CodeActionFields.COMMAND);
+        IString title = (IString) kw.getParameter(RascalADTs.CodeActionFields.TITLE);
+        IList edits = (IList) kw.getParameter(RascalADTs.CodeActionFields.EDITS);
+        IConstructor kind = (IConstructor) kw.getParameter(RascalADTs.CodeActionFields.KIND);
 
         // first deal with the defaults. Must mimick what's in util::LanguageServer with the `data CodeAction` declaration
         if (title == null) {
             if (command != null) {
-                title = (IString) command.asWithKeywordParameters().getParameter("title");
+                title = (IString) command.asWithKeywordParameters().getParameter(RascalADTs.CommandFields.TITLE);
             }
 
             if (title == null) {
@@ -455,8 +456,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private Command constructorToCommand(String languageName, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
+        IString possibleTitle = (IString) kw.getParameter(RascalADTs.CommandFields.TITLE);
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
+        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -617,7 +619,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> computeCodeActions(contribs, loc, startLine, startColumn, tree))
+                .thenCompose(tree -> computeCodeActions(contribs, startLine, startColumn, tree))
                 .thenApply(IList::stream)
             , () -> Stream.<IValue>empty())
             ;
@@ -632,8 +634,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             );
     }
 
-    private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final ISourceLocation loc,
-            final int startLine, final int startColumn, ITree tree) {
+    private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
         return contribs.codeActions(focus).get();
     }
