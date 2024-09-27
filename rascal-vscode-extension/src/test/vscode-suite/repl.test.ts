@@ -43,7 +43,7 @@ describe('REPL', function () {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();

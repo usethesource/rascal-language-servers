@@ -50,7 +50,7 @@ describe('IDE', function () {
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
         // trigger rascal type checker to be sure
         for (const f of protectFiles) {

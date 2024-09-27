@@ -41,6 +41,10 @@ describe('DSL', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
+    function log(text: string) {
+        console.log(`${Date.now()}: ${text}`);
+    }
+
     printRascalOutputOnFailure('Language Parametric Rascal');
 
     async function loadPico() {
@@ -48,7 +52,7 @@ describe('DSL', function () {
         await repl.start();
         await repl.execute("import demo::lang::pico::LanguageServer;");
         repl.execute("main();"); // we don't wait, be cause we might miss pico loading window
-        const ide = new IDEOperations(browser, bench);
+        const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
         await repl.terminate();
@@ -62,11 +66,11 @@ describe('DSL', function () {
         driver = browser.driver;
         bench = new Workbench();
         await ignoreFails(browser.waitForWorkbench());
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
     });
 
@@ -82,10 +86,14 @@ describe('DSL', function () {
     });
 
     it("have highlighting and parse errors", async function () {
+        log("Start with parse test");
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        log("Waiting for ide to have no syntax highlighting");
         await ide.hasSyntaxHighlighting(editor);
         try {
+            log("Update a line of text");
             await editor.setTextAtLine(10, "b := ;");
+            log("Detect errors");
             await ide.hasErrorSquiggly(editor, 15_000);
         } finally {
             await ide.revertOpenChanges();
