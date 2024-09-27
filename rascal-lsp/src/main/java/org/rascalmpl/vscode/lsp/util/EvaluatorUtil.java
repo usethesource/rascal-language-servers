@@ -248,7 +248,7 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
                 }
                 eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-                
+
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);
@@ -256,7 +256,7 @@ public class EvaluatorUtil {
                 }
 
                 eval.doImport(services, imports);
-                
+
                 jobSuccess = true;
                 return eval;
             } finally {

@@ -41,7 +41,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         private readonly absoluteJarPath: string,
         private readonly deployMode = true,
         private readonly languageId = 'parametric-rascalmpl',
-        private readonly title = 'Language Parametric Rascal',
+        private readonly title = 'Language Parametric Rascal Language Server',
         private readonly dedicatedLanguage: LanguageParameter | undefined = undefined
     ) {
         if (dedicatedLanguage === undefined) {
