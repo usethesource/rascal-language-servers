@@ -60,6 +60,7 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
+import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class InterpretedLanguageContributions implements ILanguageContributions {
@@ -84,6 +85,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> definer;
     private final CompletableFuture<@Nullable IFunction> referrer;
     private final CompletableFuture<@Nullable IFunction> implementer;
+    private final CompletableFuture<@Nullable IFunction> codeActionContributor;
 
     private final CompletableFuture<Boolean> hasOutliner;
     private final CompletableFuture<Boolean> hasAnalyzer;
@@ -95,6 +97,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasDefiner;
     private final CompletableFuture<Boolean> hasReferrer;
     private final CompletableFuture<Boolean> hasImplementer;
+    private final CompletableFuture<Boolean> hasCodeActionContributor;
 
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
@@ -130,6 +133,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.definer = getFunctionFor(contributions, LanguageContributions.DEFINER);
             this.referrer = getFunctionFor(contributions, LanguageContributions.REFERRER);
             this.implementer = getFunctionFor(contributions, LanguageContributions.IMPLEMENTER);
+            this.codeActionContributor = getFunctionFor(contributions, LanguageContributions.CODE_ACTION_CONTRIBUTOR);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasOutliner = nonNull(this.outliner);
@@ -142,6 +146,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasDefiner = nonNull(this.definer);
             this.hasReferrer = nonNull(this.referrer);
             this.hasImplementer = nonNull(this.implementer);
+            this.hasCodeActionContributor = nonNull(this.codeActionContributor);
 
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYZER);
             this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILDER);
@@ -149,7 +154,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
         } catch (IOException e1) {
             logger.catching(e1);
-            throw new RuntimeException(e1);
+            throw new IllegalArgumentException(e1);
         }
     }
 
@@ -207,12 +212,28 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             .getValue();
     }
 
+    @Override
+    public CompletableFuture<IList> parseCodeActions(String command) {
+        return store.thenApply(commandStore -> {
+            try {
+                var TF = TypeFactory.getInstance();
+                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+            } catch (FactTypeUseException | IOException e) {
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new IllegalArgumentException("The command could not be parsed", e);
+            }
+        });
+    }
+
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
-                throw new RuntimeException(e);
+                logger.catching(e);
+                throw new IllegalArgumentException("The command could not be parsed", e);
             }
         });
     }
@@ -287,10 +308,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         debug(LanguageContributions.IMPLEMENTER, TreeAdapter.getLocation(cursor));
         return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), loc, input, cursor);
     }
+
     @Override
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
         debug(LanguageContributions.REFERRER, TreeAdapter.getLocation(cursor));
         return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), loc, input, cursor);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> codeActions(IList focus) {
+        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, "(focus list has " + focus.length() + " elements)");
+        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
     }
 
     private void debug(String name, Object param) {
@@ -342,6 +370,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
+        return hasCodeActionContributor;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasAnalyzer() {
         return hasAnalyzer;
     }
@@ -370,8 +403,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
-        return InterruptibleFuture.flatten(parseCommand(command).thenCombine(commandExecutor,
-            (cons, func) -> EvaluatorUtil.<@Nullable IValue>runEvaluator("executeCommand", eval, ev -> func.call(cons), null, exec, true, client)
+
+        return InterruptibleFuture.flatten(parseCommand(command).thenCombine(
+            commandExecutor,
+            (cons, func) -> {
+
+                if (func == null) {
+                    logger.warn("Command is being executed without a registered command executor; for language {}", name);
+                    throw new IllegalStateException("No command executor registered for " + name);
+                }
+
+                return EvaluatorUtil.<@Nullable IValue>runEvaluator(
+                    "executeCommand",
+                    eval,
+                    ev -> func.call(cons),
+                    null,
+                    exec,
+                    true,
+                    client
+                );
+            }
         ), exec);
     }
 

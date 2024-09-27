@@ -25,9 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By,   Key, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
+
 import * as fs from 'fs/promises';
+
 
 
 describe('DSL', function () {
@@ -38,7 +40,6 @@ describe('DSL', function () {
     let picoFileBackup: Buffer;
 
     this.timeout(Delays.extremelySlow * 2);
-
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
@@ -52,7 +53,7 @@ describe('DSL', function () {
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
         await repl.terminate();
         // now wait for the Pico loader to dissapear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting");
+        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
     }
 
 
@@ -146,5 +147,27 @@ describe('DSL', function () {
         await lens!.click();
         await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
     });
+
+    it("quick fix works", async() => {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(9, "  az := 2;");
+        await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
+
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+        await new Promise((res) => setTimeout(res, Delays.normal));
+
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await driver.wait(() => editor.findElement(By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]")), Delays.normal, "The Change to a option should be available and focussed by default");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
+
+        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
+    });
+
 });
 
