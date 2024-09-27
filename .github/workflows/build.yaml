@@ -12,6 +12,7 @@ on:
 permissions:
   actions: read
   contents: write
+  #pull-requests: write
   
 jobs:
   ui-test:
@@ -37,6 +38,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2
+        with:
+          metric_frequency: 2
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
