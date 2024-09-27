@@ -69,7 +69,7 @@ public class TerminalIDEClient implements IDEServices {
     private final IRascalMonitor monitor;
 
     public TerminalIDEClient(int port, IRascalMonitor monitor) throws IOException {
-        @SuppressWarnings("java:S2095") // we don't have to close the socket, we are passing it off to the lsp4j framework
+        @SuppressWarnings({ "java:S2095", "resource" }) // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
         Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()

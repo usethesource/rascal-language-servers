@@ -49,8 +49,6 @@ import org.rascalmpl.interpreter.load.StandardLibraryContributor;
 import org.rascalmpl.interpreter.result.IRascalResult;
 import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
-import org.rascalmpl.jline.Terminal;
-import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.repl.BaseREPL;
@@ -62,6 +60,7 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
@@ -70,7 +69,8 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.io.StandardTextWriter;
+import org.rascalmpl.jline.TerminalFactory;
+import org.rascalmpl.jline.Terminal;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -89,8 +89,9 @@ public class LSPTerminalREPL extends BaseREPL {
 
     private static String getRascalLspVersion() {
         try {
+            var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
             return new Manifest(URIResolverRegistry.getInstance()
-                .getInputStream(URIUtil.correctLocation("lib", "rascal-lsp", "META-INF/MANIFEST.MF")))
+                .getInputStream(URIUtil.getChildLocation(lspJar, "META-INF/MANIFEST.MF")))
                 .getMainAttributes().getValue("Specification-Version");
         } catch (IOException e) {
             return "Unknown";
@@ -144,15 +145,10 @@ public class LSPTerminalREPL extends BaseREPL {
                     IValueFactory vf = ValueFactoryFactory.getValueFactory();
                     Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, services, root, heap);
                     evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
-                    evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
+                   
                     URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
                     ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-                    String projectName = "unknown-project";
-                    if (projectDir != null) {
-                        projectName = new RascalManifest().getProjectName(projectDir);
-                    }
 
                     reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
                     reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
@@ -160,19 +156,35 @@ public class LSPTerminalREPL extends BaseREPL {
                     debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
 
                     try {
+                        var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+                        evaluator.addRascalSearchPath(lspJar);
+
                         PathConfig pcfg;
                         if (projectDir != null) {
-                            pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+                            pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPRETER);
                         }
                         else {
                             pcfg = new PathConfig();
                             pcfg.addSourceLoc(URIUtil.rootLocation("std"));
                         }
-                        
-                        evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
-                        evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
-                        new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
 
+                        var rascalLspLib = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+
+                        // the interpreter must find the Rascal sources of util::LanguageServer etc.
+                        pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(rascalLspLib));
+
+                        // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
+                        pcfg = pcfg.addLibLoc(rascalLspLib);
+
+                        var out = evaluator.getOutPrinter();
+                        
+                        out.println("Rascal " + RascalManifest.getRascalVersionNumber());
+                        out.println("Rascal-lsp " + getRascalLspVersion());
+        
+                        pcfg.printInterpreterConfigurationStatus(out);
+                        
+                        services.registerDiagnostics(pcfg.getMessages());
+    
                         for (IValue srcPath : pcfg.getSrcs()) {
                             ISourceLocation path = (ISourceLocation)srcPath;
                             evaluator.addRascalSearchPath(path);
@@ -180,16 +192,14 @@ public class LSPTerminalREPL extends BaseREPL {
                         }
 
                         ClassLoader cl = new SourceLocationClassLoader(
-                            pcfg.getClassloaders()
-                                .append(URIUtil.correctLocation("lib", "rascal",""))
-                                .append(URIUtil.correctLocation("lib", "rascal-lsp",""))
-                                .append(URIUtil.correctLocation("target", projectName, "")),
+                            pcfg.getLibsAndTarget(),
                             ClassLoader.getSystemClassLoader()
                         );
 
                         evaluator.addClassLoader(cl);
                     }
                     catch (IOException e) {
+                        // TODO: don't we have a logger for this?
                         e.printStackTrace(new PrintStream(stderr));
                     }
 

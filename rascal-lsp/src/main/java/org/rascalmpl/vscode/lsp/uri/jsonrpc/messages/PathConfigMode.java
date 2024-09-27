@@ -43,7 +43,7 @@ public enum PathConfigMode {
 
     public RascalConfigMode mapConfigMode() {
         switch (this) {
-            case INTERPRETER: return RascalConfigMode.INTERPETER;
+            case INTERPRETER: return RascalConfigMode.INTERPRETER;
             case COMPILER: return RascalConfigMode.COMPILER;
             default: throw new IllegalArgumentException("Missing case: " + this);
         }
