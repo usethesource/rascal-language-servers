@@ -15,6 +15,40 @@ permissions:
   #pull-requests: write
   
 jobs:
+  normal-tests:
+    runs-on: buildjet-2vcpu-ubuntu-2204
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2
+        with:
+          metric_frequency: 2
+
+      - name: Run java tests
+        working-directory: ./rascal-lsp
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test
+
+      - name: VS Code tests
+        working-directory: ./rascal-vscode-extension
+        run: |
+          npm ci
+          npm run compile-tests
+          npm run normalTest
+      
   ui-test:
     strategy:
       matrix:
@@ -101,7 +135,7 @@ jobs:
         run: rm -rf ./rascal-vscode-extension/uitests/screenshots
 
   build:
-    needs: [ui-test]
+    needs: [ui-test, normal-tests]
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
