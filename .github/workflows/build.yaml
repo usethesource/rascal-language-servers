@@ -46,7 +46,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' clean package
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
