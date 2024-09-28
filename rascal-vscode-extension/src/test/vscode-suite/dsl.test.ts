@@ -95,8 +95,10 @@ describe('DSL', function () {
             await editor.setTextAtLine(10, "b := ;");
             log("Detect errors");
             await ide.hasErrorSquiggly(editor, 15_000);
+            log("Done finding fault");
         } finally {
             await ide.revertOpenChanges();
+            log("Done reverting changes");
         }
     });
 
