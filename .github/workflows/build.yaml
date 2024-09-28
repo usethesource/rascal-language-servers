@@ -75,7 +75,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
-          _JAVA_OPTIONS: '-Xmx5G'
+          _JAVA_OPTIONS: '-Xmx4G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
