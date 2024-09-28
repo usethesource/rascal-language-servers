@@ -86,36 +86,24 @@ describe('DSL', function () {
     });
 
     it("have highlighting and parse errors", async function () {
-        log("Start with parse test");
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        log("Waiting for ide to have no syntax highlighting");
         await ide.hasSyntaxHighlighting(editor);
         try {
-            log("Update a line of text");
             await editor.setTextAtLine(10, "b := ;");
-            log("Detect errors");
             await ide.hasErrorSquiggly(editor, 15_000);
-            log("Done finding fault");
         } finally {
             await ide.revertOpenChanges();
-            log("Done reverting changes");
         }
     });
 
     it("have highlighting and parse errors for second extension", async function () {
-        log("Start with parse2 test");
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
-        log("Waiting for ide to have no syntax highlighting");
         await ide.hasSyntaxHighlighting(editor);
         try {
-            log("Update a line of text");
             await editor.setTextAtLine(10, "b := ;");
-            log("Detect errors");
             await ide.hasErrorSquiggly(editor, 15_000);
-            log("Done finding fault");
         } finally {
             await ide.revertOpenChanges();
-            log("Done reverting changes");
         }
     });
 
