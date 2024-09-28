@@ -41,10 +41,6 @@ describe('DSL', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    function log(text: string) {
-        console.log(`${Date.now()}: ${text}`);
-    }
-
     printRascalOutputOnFailure('Language Parametric Rascal');
 
     async function loadPico() {
