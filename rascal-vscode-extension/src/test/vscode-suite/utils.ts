@@ -93,14 +93,17 @@ export class RascalREPL {
     async waitForReplReady() {
         let output = "";
         try {
-            for (let tries = 0; tries < 5; tries++) {
-                await sleep(100);
-                output = await this.terminal.getText();
-                if (/rascal>\s*$/.test(output)) {
-                    return true;
-                }
+            try {
+                return await this.driver.wait(async () => {
+                    output = await this.terminal.getText();
+                    if (/rascal>\s*$/.test(output)) {
+                        return true;
+                    }
+                    return false;
+                }, Delays.verySlow, "Rascal prompt", 500);
+            } catch (_ignored) {
+                return false;
             }
-            return false;
         }
         finally {
             const lines = output.split('\n').map(l => l.trimEnd());
