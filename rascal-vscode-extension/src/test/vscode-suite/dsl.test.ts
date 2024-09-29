@@ -41,6 +41,10 @@ describe('DSL', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
+    function log(text: string) {
+        console.log(`${Date.now()}: ${text}`);
+    }
+
     printRascalOutputOnFailure('Language Parametric Rascal');
 
     async function loadPico() {
@@ -149,24 +153,33 @@ describe('DSL', function () {
     });
 
     it("quick fix works", async() => {
+        log("QF: Opening module");
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        log("QF: setting text");
         await editor.setTextAtLine(9, "  az := 2;");
+        log("QF: moving cursor");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        log("QF: waiting for error");
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
+        log("QF: sending ctrl+.");
         const inputarea = await editor.findElement(By.className('inputarea'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
-        await new Promise((res) => setTimeout(res, Delays.normal));
 
+        log("QF: finding open action menu");
         // finds an open menu with the right item in it (Change to a) and then select
         // the parent that handles UI events like click() and sendKeys()
         const menuContainer = await driver.wait(() => editor.findElement(By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]")), Delays.normal, "The Change to a option should be available and focussed by default");
 
+        log("QF: sending return");
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
         await menuContainer.sendKeys(Key.RETURN);
 
-        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a");
+        log("QF: waiting for updated text");
+        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "a := 2;", Delays.extremelySlow, "a variable should be changed back to a", 100);
+
+        log("QF: done running");
     });
 
 });

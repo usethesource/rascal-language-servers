@@ -80,20 +80,20 @@ describe('IDE', function () {
             const checkRascalStatus = ide.statusContains("Loading Rascal");
 
             for (let tries = 0; tries < 10 && !statusBarSeen; tries++) {
-                await sleep(delay / 80);
                 if (await checkRascalStatus()) {
                     statusBarSeen = true;
                     break;
                 }
+                await sleep(delay / 80);
             }
 
             if (statusBarSeen) {
                 console.log("Waiting for startup of rascal core");
                 for (let tries = 0; tries < 70; tries++) {
-                    await sleep(delay / 80);
                     if (!await checkRascalStatus()) {
                         return;
                     }
+                    await sleep(delay / 80);
                 }
                 console.log("*** warning, loading rascal-core is still running, but we will continue anyway");
             }
@@ -149,8 +149,7 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await editor.moveCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await sleep(Delays.normal);
-        const outline = await explorer.getContent().getSection("Outline") as ViewSection;
+        const outline = await driver.wait(() => explorer.getContent().getSection("Outline"), Delays.normal) as ViewSection;
         await outline.expand();
         const mainItem = await driver.wait(async() => ignoreFails(outline.findItem("main()", 0)), Delays.slow, "Main function should show in the outline");
         await driver.actions().doubleClick(mainItem!).perform();

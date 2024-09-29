@@ -94,12 +94,11 @@ export class RascalREPL {
         let output = "";
         try {
             for (let tries = 0; tries < 5; tries++) {
-                await sleep(Delays.slow / 10);
+                await sleep(100);
                 output = await this.terminal.getText();
                 if (/rascal>\s*$/.test(output)) {
                     return true;
                 }
-                await sleep(Delays.slow / 10);
             }
             return false;
         }
