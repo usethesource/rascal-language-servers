@@ -19,6 +19,8 @@ jobs:
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
+      - name: Assure different pom cache hit
+        run: echo "  " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v4
         with:
           java-version: 11
@@ -59,6 +61,8 @@ jobs:
     runs-on:  ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Assure different pom cache hit
+        run: echo " " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v4
         with:
           java-version: 11
