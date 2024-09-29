@@ -42,7 +42,7 @@ describe('DSL', function () {
     this.timeout(Delays.extremelySlow * 2);
 
     function log(text: string) {
-        console.log(`${Date.now()}: ${text}`);
+        console.log(`${Date.now() / 1000}: ${text}`);
     }
 
     printRascalOutputOnFailure('Language Parametric Rascal');

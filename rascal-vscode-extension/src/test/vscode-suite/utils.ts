@@ -217,11 +217,19 @@ export class IDEOperations {
         return new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
     }
 
+    log(text: string) {
+        console.log(`${Date.now() / 1000}: ${text}`);
+    }
+
     async openModule(file: string): Promise<TextEditor> {
         return this.driver.wait(async () => {
+            this.log("OM: Opening resource");
             await ignoreFails(this.browser.openResources(file));
+            this.log("OM: opening editor");
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
+            this.log("OM: getting title");
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
+                this.log("OM: found editor");
                 return result;
             }
             return undefined;
