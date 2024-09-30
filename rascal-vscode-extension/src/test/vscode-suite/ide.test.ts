@@ -152,8 +152,10 @@ describe('IDE', function () {
         const outline = await driver.wait(() => explorer.getContent().getSection("Outline"), Delays.normal) as ViewSection;
         await outline.expand();
         const mainItem = await driver.wait(async() => ignoreFails(outline.findItem("main()", 0)), Delays.slow, "Main function should show in the outline");
-        await driver.actions().doubleClick(mainItem!).perform();
-        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 5, Delays.normal, "Cursor should have moved to line that contains the println function");
+        await driver.wait(async () => {
+            await driver.actions().doubleClick(mainItem!).perform();
+            return (await editor.getCoordinates())[0] === 5;
+        }, Delays.normal, "Cursor should have moved to line that contains the println function");
     });
 
     it ("rename works", async() => {
