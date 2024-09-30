@@ -110,8 +110,10 @@ public interface ILanguageContributions {
     public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
 
     @FunctionalInterface
-    // To conveniently pass methods `documentation`, `definitions`,
-    // `references`, and `implementations` as parameter.
+    /** 
+     * To conveniently pass methods `documentation`, `definitions`,
+     * `references`, and `implementations` as parameter.
+     */ 
     public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
 }
 
