@@ -281,25 +281,25 @@ data LanguageService
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
 LanguageService documenter(Documenter d) 
-    = documenter(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+    = documenter(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
         return d(selection, fullTree, lexical);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
 LanguageService defined(Definer d) 
-    = definer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+    = definer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
         return d(selection, fullTree, lexical);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Referrer)) alias.}
 LanguageService referrer(Referrer d) 
-    = referrer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+    = referrer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
         return d(selection, fullTree, lexical);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Implementer)) alias.}
 LanguageService implementer(Implementer d) 
-    = implementer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+    = implementer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
         return d(selection, fullTree, lexical);
     });
 
