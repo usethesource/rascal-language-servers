@@ -135,17 +135,6 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 @deprecated{The FocusDocumenter has replaced this type.}
 alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
-@synopsis{Function profile for retrieving code actions focused around the current cursor}
-@description{
-Next to the quickfix commands that may be attached to diagnostic ((Message))s, the LSP
-can produce refactoring and quickfix or visualization actions specific for what is near
-or under the current cursor.
-
-An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
-The implementor is asked to produce only actions that pertain what is under the current cursor.
-}
-alias CodeActionContributor = list[CodeAction] (Focus _focus);
-
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
 A ((FocusDocumenter)) is called on-demand, when documentation is requested by the IDE user.
@@ -160,7 +149,18 @@ provide several pieces of documentation.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusDocumenter = set[str] (loc _selection, Focus _focus);
+alias FocusDocumenter = set[str] (Focus _focus);
+
+@synopsis{Function profile for retrieving code actions focused around the current cursor}
+@description{
+Next to the quickfix commands that may be attached to diagnostic ((Message))s, the LSP
+can produce refactoring and quickfix or visualization actions specific for what is near
+or under the current cursor.
+
+An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
+The implementor is asked to produce only actions that pertain what is under the current cursor.
+}
+alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -173,7 +173,21 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
+@deprecated{Use FocusDefiner }
 alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for definer contributions to a language server}
+@description{
+A definer is called on-demand, when a definition is requested by the IDE user.
+}
+@benefits{
+* is focused on a single definition request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusDefiner = set[loc] (Focus _focus);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -199,7 +213,7 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusReferrer = set[loc] (loc _selection, list[Tree] _focus);
+alias FocusReferrer = set[loc] (list[Tree] _focus);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -226,7 +240,7 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusImplementer = set[loc] (loc _selection, Focus _focus);
+alias FocusImplementer = set[loc] (Focus _focus);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
@@ -281,26 +295,26 @@ data LanguageService
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
 LanguageService documenter(Documenter d) 
-    = documenter(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
-        return d(selection, fullTree, lexical);
+    = documenter(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
 LanguageService defined(Definer d) 
-    = definer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
-        return d(selection, fullTree, lexical);
+    = definer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Referrer)) alias.}
 LanguageService referrer(Referrer d) 
-    = referrer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
-        return d(selection, fullTree, lexical);
+    = referrer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Implementer)) alias.}
 LanguageService implementer(Implementer d) 
-    = implementer(set[str] (loc selection, [Tree lexical, *Tree _spine, Tree fullTree]) {
-        return d(selection, fullTree, lexical);
+    = implementer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
     });
 
 @deprecated{Please use ((builder)) or ((analyzer))}
