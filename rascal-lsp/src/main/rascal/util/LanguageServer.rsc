@@ -93,6 +93,20 @@ are executed after build or after typing (push).
 }
 alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
 
+@synopsis{A focus provides the currently selected language constructs around the cursor.}
+@description{
+A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if 
+the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
+in between is a spine of language constructs ((ParseTree)) nodes between the top and the bottom node.
+
+The location of each element in the focus list is around (inclusive) the current cursor selection.
+
+The ((Focus)) is typically provided to the ((LanguageService))s below, such that language
+engineers can provide language-directed tools, which are relevant to the current interest
+of the user. 
+}
+alias Focus = list[Tree];
+
 @synopsis{Function profile for outliner contributions to a language server}
 alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
 
@@ -116,7 +130,24 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
+@deprecated{The FocusDocumenter has replaced this type.}
 alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+
+@synopsis{Function profile for documentation contributions to a language server}
+@description{
+A ((FocusDocumenter)) is called on-demand, when documentation is requested by the IDE user.
+The current selection is used to create a ((Focus)) that we can use to select the right
+functionality with. It is possible several constructs are in "focus", and then we can 
+provide several pieces of documentation. 
+}
+@benefits{
+* is focused on a single documentation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusDocumenter = set[str] (loc _selection, Focus focus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -144,6 +175,19 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 }
 alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
 
+@synopsis{Function profile for referrer contributions to a language server}
+@description{
+A referrer is called on-demand, when a reference is requested by the IDE user.
+}
+@benefits{
+* is focused on a single reference request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusReferrer = set[loc] (loc _selection, list[Tree] focus);
+
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
 An implementer is called on-demand, when an implementation is requested by the IDE user.
@@ -155,7 +199,21 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
+@deprecated{Use ((FocusImplementer)) for more degrees of freedom.}
 alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+
+@synopsis{Function profile for implementer contributions to a language server}
+@description{
+An implementer is called on-demand, when an implementation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single implementation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusImplementer = set[loc] (loc _selection, Focus focus);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
@@ -180,7 +238,10 @@ documentation, definitions, references, implementations and compiler errors and 
 * ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
 * ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
 * ((inlayHinter)) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
-* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
+* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s.
+
+Many language contributions received a ((Focus)) parameter. This helps to create functionality that
+is syntax-directed: relevant to the current syntactical constructs under the cursor.
 }
 data LanguageService
     = parser(Parser parser)
@@ -198,11 +259,35 @@ data LanguageService
     | lenses(LensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
-    | documenter(Documenter documenter)
-    | definer(Definer definer)
-    | referrer(Referrer reference)
-    | implementer(Implementer implementer)
+    | documenter(FocusDocumenter documenter)
+    | definer(FocusDefiner definer)
+    | referrer(FocusReferrer reference)
+    | implementer(FocusImplementer implementer)
     ;
+
+@deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
+LanguageService documenter(Documenter d) 
+    = documenter(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+        return d(selection, fullTree, lexical);
+    });
+
+@deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
+LanguageService defined(Definer d) 
+    = definer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+        return d(selection, fullTree, lexical);
+    });
+
+@deprecated{This is a backward compatibility layer for the pre-existing ((Referrer)) alias.}
+LanguageService referrer(Referrer d) 
+    = referrer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+        return d(selection, fullTree, lexical);
+    });
+
+@deprecated{This is a backward compatibility layer for the pre-existing ((Implementer)) alias.}
+LanguageService implementer(Implementer d) 
+    = implementer(set[str] (loc selection, [Tree lexical, *_tail, Tree fullTree]) {
+        return d(selection, fullTree, lexical);
+    });
 
 @deprecated{Please use ((builder)) or ((analyzer))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
@@ -331,7 +416,6 @@ However since language contributions are just Rascal functions, it is advised to
 Use `util::Reflective::getProjectPathConfig` for a representative configuration.
 }
 java void registerLanguage(Language lang);
-
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Spins down and removes a previously registered language server}
