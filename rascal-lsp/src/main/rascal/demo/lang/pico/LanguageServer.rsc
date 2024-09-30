@@ -81,7 +81,6 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     // documentation strings for identifier uses
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
-
     // Provide errors (cheap to compute) both in analyze mode and in build mode.
     s.messages += {<src, error("<id> is not defined", src, fixes=prepareNotDefinedFixes(src, defs))> 
                   | <src, id> <- uses, id notin defs<0>};
@@ -112,7 +111,7 @@ list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
 list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program]) 
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[CodeAction] picoActions(list[value] _) = [];
+default list[CodeAction] picoActions(Focus _focus) = [];
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
@@ -126,7 +125,6 @@ data Command
 @synopsis{Adds an example lense to the entire program.}
 rel[loc,Command] picoLenses(start[Program] input) 
     = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
-
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoHinter(start[Program] input) {
