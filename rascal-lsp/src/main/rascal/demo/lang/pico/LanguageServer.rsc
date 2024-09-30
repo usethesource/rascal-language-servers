@@ -109,10 +109,10 @@ list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[CodeAction] picoActions(loc _selection, [*_, IdType x, *_, start[Program] program]) 
+list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program]) 
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[CodeAction] picoActions(loc _selection, list[value] _) = [];
+default list[CodeAction] picoActions(list[value] _) = [];
 
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
