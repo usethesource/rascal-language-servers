@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -110,10 +111,8 @@ public interface ILanguageContributions {
 
     @FunctionalInterface
     // To conveniently pass methods `documentation`, `definitions`,
-    // `references`, `actions` and `implementations` as parameter.
-    public static interface OndemandCalculator {
-        InterruptibleFuture<ISet> apply(IList focus);
-    }
+    // `references`, and `implementations` as parameter.
+    public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
 }
 
 /*package*/ class EmptySummary {

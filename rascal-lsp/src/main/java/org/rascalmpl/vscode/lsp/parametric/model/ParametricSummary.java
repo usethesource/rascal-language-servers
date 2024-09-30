@@ -46,7 +46,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandCalculator;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OnDemandFocusToSetCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -454,7 +454,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         }
 
         private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
-                OndemandCalculator calculator, Function<IValue, T> valueMapper, String logName) {
+                OnDemandFocusToSetCalculator calculator, Function<IValue, T> valueMapper, String logName) {
 
             if (!provides) {
                 return null;
