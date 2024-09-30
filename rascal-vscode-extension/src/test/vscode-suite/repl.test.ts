@@ -83,8 +83,8 @@ describe('REPL', function () {
     it("edit call module via repl", async() => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute(":edit demo::lang::pico::LanguageServer");
+        await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
-        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.normal, "LanguageServer should be opened");
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
     });
 });

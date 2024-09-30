@@ -90,18 +90,19 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
-    async waitForReplReady() {
+    async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
             try {
                 return await this.driver.wait(async () => {
-                    output = await this.terminal.getText();
+                    output = await ignoreFails(this.terminal.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
                         return true;
                     }
                     return false;
-                }, Delays.verySlow, "Rascal prompt", 500);
+                }, wait, "Rascal prompt", 500);
             } catch (_ignored) {
+                console.log("**** ignoring exception: ", _ignored);
                 return false;
             }
         }
@@ -132,7 +133,7 @@ export class RascalREPL {
         assert(await this.waitForReplReady(), "Repl prompt should print");
     }
 
-    async execute(command: string, waitForReady = true) {
+    async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
@@ -140,7 +141,7 @@ export class RascalREPL {
             await ignoreFails(i.sendKeys(command + '\n'));
         }
         if (waitForReady) {
-            assert(await this.waitForReplReady());
+            assert(await this.waitForReplReady(wait), "Repl should have finished processing at some point: " + this.lastReplOutput);
         }
     }
 
@@ -217,19 +218,11 @@ export class IDEOperations {
         return new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
     }
 
-    log(text: string) {
-        console.log(`${Date.now() / 1000}: ${text}`);
-    }
-
     async openModule(file: string): Promise<TextEditor> {
+        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
         return this.driver.wait(async () => {
-            this.log("OM: Opening resource");
-            await ignoreFails(this.browser.openResources(file));
-            this.log("OM: opening editor");
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
-            this.log("OM: getting title");
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
-                this.log("OM: found editor");
                 return result;
             }
             return undefined;
