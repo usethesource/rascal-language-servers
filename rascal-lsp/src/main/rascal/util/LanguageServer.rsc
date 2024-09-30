@@ -144,7 +144,7 @@ or under the current cursor.
 An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
 The implementor is asked to produce only actions that pertain what is under the current cursor.
 }
-alias CodeActionContributor = list[CodeAction] (Focus focus);
+alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
@@ -160,7 +160,7 @@ provide several pieces of documentation.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusDocumenter = set[str] (loc _selection, Focus focus);
+alias FocusDocumenter = set[str] (loc _selection, Focus _focus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -199,7 +199,7 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusReferrer = set[loc] (loc _selection, list[Tree] focus);
+alias FocusReferrer = set[loc] (loc _selection, list[Tree] _focus);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -226,7 +226,7 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias FocusImplementer = set[loc] (loc _selection, Focus focus);
+alias FocusImplementer = set[loc] (loc _selection, Focus _focus);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
