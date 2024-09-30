@@ -334,7 +334,7 @@ set[str] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService defined(Definer d) 
+LanguageService definer(Definer d) 
     = definer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
