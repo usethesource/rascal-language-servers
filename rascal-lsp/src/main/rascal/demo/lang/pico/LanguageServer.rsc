@@ -103,6 +103,10 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     return s;
 }
 
+@synopsis{Looks up the declaration for any variable use using the / deep match operator}
+set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
+    { d.src | /IdType d := input, cursor := d.id};
+
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs) 
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
@@ -112,9 +116,6 @@ list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program])
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoActions(Focus _focus) = [];
-
-set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
-    { d.src | /IdType d := input, cursor := d.id};
 
 @synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
