@@ -103,7 +103,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 5
+          DELAY_FACTOR: 10
           _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
@@ -112,16 +112,16 @@ jobs:
         if: matrix.os == 'macos-latest'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 5
+          DELAY_FACTOR: 15
           _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
+        if: matrix.os == 'buildjet-2vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 3
+          DELAY_FACTOR: 5
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
