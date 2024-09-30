@@ -25,9 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By,   Key, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
+
 import * as fs from 'fs/promises';
+
 
 
 describe('DSL', function () {
@@ -39,7 +41,6 @@ describe('DSL', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-
     printRascalOutputOnFailure('Language Parametric Rascal');
 
     async function loadPico() {
@@ -47,12 +48,12 @@ describe('DSL', function () {
         await repl.start();
         await repl.execute("import demo::lang::pico::LanguageServer;");
         repl.execute("main();"); // we don't wait, be cause we might miss pico loading window
-        const ide = new IDEOperations(browser, bench);
+        const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
         await repl.terminate();
         // now wait for the Pico loader to dissapear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting");
+        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
     }
 
 
@@ -61,11 +62,11 @@ describe('DSL', function () {
         driver = browser.driver;
         bench = new Workbench();
         await ignoreFails(browser.waitForWorkbench());
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
     });
 
@@ -85,7 +86,7 @@ describe('DSL', function () {
         await ide.hasSyntaxHighlighting(editor);
         try {
             await editor.setTextAtLine(10, "b := ;");
-            await ide.hasErrorSquiggly(editor, 15_000);
+            await ide.hasErrorSquiggly(editor, Delays.slow);
         } finally {
             await ide.revertOpenChanges();
         }
@@ -96,7 +97,7 @@ describe('DSL', function () {
         await ide.hasSyntaxHighlighting(editor);
         try {
             await editor.setTextAtLine(10, "b := ;");
-            await ide.hasErrorSquiggly(editor, 15_000);
+            await ide.hasErrorSquiggly(editor, Delays.slow);
         } finally {
             await ide.revertOpenChanges();
         }
@@ -112,7 +113,7 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
             await editor.setTextAtLine(10, "bzzz := 3;");
-            await ide.hasErrorSquiggly(editor, 15_000);
+            await ide.hasErrorSquiggly(editor, Delays.slow);
         } finally {
             await ide.revertOpenChanges();
         }
@@ -124,8 +125,8 @@ describe('DSL', function () {
         try {
             await editor.setTextAtLine(10, "bzzz := 3;");
             await editor.save();
-            await ide.hasWarningSquiggly(editor, 15_000);
-            await ide.hasErrorSquiggly(editor, 15_000);
+            await ide.hasWarningSquiggly(editor, Delays.slow);
+            await ide.hasErrorSquiggly(editor, Delays.slow);
         } finally {
             await editor.setTextAtLine(10, line10);
             await editor.save();
@@ -137,14 +138,41 @@ describe('DSL', function () {
         await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
         await editor.selectText("x", 2);
         await bench.executeCommand("Go to Definition");
-        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, 15_000, "Cursor should have moved to line 3");
+        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
     });
+
+    function assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
+        return driver.wait(async () => {
+            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            return currentContent === lineContents;
+        }, wait, msg, 100);
+    }
 
     it("code lens works", async () => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        const lens = await driver.wait(async () => editor.getCodeLens("Rename variables a to b."), 10_000, "Rename lens should be available");
+        const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
         await lens!.click();
-        await driver.wait(async () => (await editor.getTextAtLine(9)).trim() === "b := 2;", 20_000, "a variable should be changed to b");
+        await assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
+
+    it("quick fix works", async() => {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(9, "  az := 2;");
+        await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
+
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal,"The Change to a option should be available and focussed by default");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
+        await assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+    });
+
 });
 

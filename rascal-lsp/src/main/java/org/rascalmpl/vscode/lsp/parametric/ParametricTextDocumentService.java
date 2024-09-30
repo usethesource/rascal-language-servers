@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,11 +41,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionKind;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -83,6 +89,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -92,6 +99,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -99,9 +107,11 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
@@ -110,8 +120,13 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
+import com.google.gson.JsonPrimitive;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -167,7 +182,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
-
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
@@ -183,8 +197,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
+        result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
@@ -373,10 +389,76 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(languageName, command), null);
     }
 
+    private CodeAction constructorToCodeAction(String languageName, IConstructor codeAction) {
+        IWithKeywordParameters<?> kw = codeAction.asWithKeywordParameters();
+        IConstructor command = (IConstructor) kw.getParameter(RascalADTs.CodeActionFields.COMMAND);
+        IString title = (IString) kw.getParameter(RascalADTs.CodeActionFields.TITLE);
+        IList edits = (IList) kw.getParameter(RascalADTs.CodeActionFields.EDITS);
+        IConstructor kind = (IConstructor) kw.getParameter(RascalADTs.CodeActionFields.KIND);
+
+        // first deal with the defaults. Must mimick what's in util::LanguageServer with the `data CodeAction` declaration
+        if (title == null) {
+            if (command != null) {
+                title = (IString) command.asWithKeywordParameters().getParameter(RascalADTs.CommandFields.TITLE);
+            }
+
+            if (title == null) {
+                title = IRascalValueFactory.getInstance().string("");
+            }
+        }
+
+        CodeAction result = new CodeAction(title.getValue());
+
+        if (command != null) {
+            result.setCommand(constructorToCommand(languageName, command));
+        }
+
+        if (edits != null) {
+            result.setEdit(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, edits)));
+        }
+
+        result.setKind(constructorToCodeActionKind(kind));
+
+        return result;
+    }
+
+    /**
+     * Translates `refactor(inline())` to `"refactor.inline"` and `empty()` to `""`, etc.
+     * `kind == null` signals absence of the optional parameter. This is factorede into
+     * this private function because otherwise every call has to check it.
+     */
+    private String constructorToCodeActionKind(@Nullable IConstructor kind) {
+        if (kind == null) {
+            return CodeActionKind.QuickFix;
+        }
+
+        String name = kind.getName();
+
+        if (name.isEmpty()) {
+            return "";
+        }
+        else if (name.length() == 1) {
+            return name.toUpperCase();
+        }
+        else if ("empty".equals(name)) {
+            return "";
+        }
+        else {
+            var kw = kind.asWithKeywordParameters();
+            for (String kwn : kw.getParameterNames()) {
+                String nestedName = constructorToCodeActionKind((IConstructor) kw.getParameter(kwn));
+                name = name + (nestedName.isEmpty() ? "" : ("." + nestedName));
+            }
+        }
+
+        return name;
+    }
+
     private Command constructorToCommand(String languageName, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
+        IString possibleTitle = (IString) kw.getParameter(RascalADTs.CommandFields.TITLE);
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
+        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
     }
 
     private void handleParsingErrors(TextDocumentState file) {
@@ -498,6 +580,63 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        logger.debug("codeActions: {}", params);
+
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+        final var loc = Locations.toLoc(params.getTextDocument());
+        final var start = params.getRange().getStart();
+        // convert to Rascal 1-based line
+        final var startLine = start.getLine() + 1;
+        // convert to Rascal UTF-32 column width
+        final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
+        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+
+        // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
+        // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+        // CompletableFuture<Stream<IValue>>
+        CompletableFuture<Stream<IValue>> quickfixes
+            = params.getContext().getDiagnostics()
+                .stream()
+                .map(Diagnostic::getData)
+                .filter(Objects::nonNull)
+                .filter(JsonPrimitive.class::isInstance)
+                .map(JsonPrimitive.class::cast)
+                .map(JsonPrimitive::getAsString)
+                // this is the "magic" resurrection of command terms from the JSON data field
+                .map(contribs::parseCodeActions)
+                // this serializes the stream of futures and accumulates their results as a flat list again
+                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+                .thenApply(IList::stream)
+            ;
+
+        // here we dynamically ask the contributions for more actions,
+        // based on the cursor position in the file and the current parse tree
+        CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+            getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose(tree -> computeCodeActions(contribs, startLine, startColumn, tree))
+                .thenApply(IList::stream)
+            , () -> Stream.<IValue>empty())
+            ;
+
+        // final merging the two streams of commmands, and their conversion to LSP Command data-type
+        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
+                Stream.concat(quicks, actions)
+                    .map(IConstructor.class::cast)
+                    .map(cons -> constructorToCodeAction(contribs.getName(), cons))
+                    .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                    .collect(Collectors.toList())
+            );
+    }
+
+    private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
+        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
+        return contribs.codeActions(focus).get();
     }
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {

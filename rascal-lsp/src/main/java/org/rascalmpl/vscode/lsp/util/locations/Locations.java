@@ -122,6 +122,4 @@ public class Locations {
         line -= 1; // lines in LSP are 0 based, IValue are 1 based
         return new Position(line, map.translateColumn(line, column, atEnd));
     }
-
-
 }

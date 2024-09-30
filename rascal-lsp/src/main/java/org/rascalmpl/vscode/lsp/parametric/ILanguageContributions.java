@@ -51,11 +51,13 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<ISet> lenses(ITree input);
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
+    public CompletableFuture<IList> parseCodeActions(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
     public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
     public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<IList> codeActions(IList focus);
 
     public CompletableFuture<Boolean> hasAnalyzer();
     public CompletableFuture<Boolean> hasBuilder();
@@ -67,6 +69,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasDefiner();
     public CompletableFuture<Boolean> hasReferrer();
     public CompletableFuture<Boolean> hasImplementer();
+    public CompletableFuture<Boolean> hasCodeActionsContributor();
 
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();

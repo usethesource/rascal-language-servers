@@ -44,6 +44,8 @@ public class RascalADTs {
         public static final String DEFINER = "definer";
         public static final String REFERRER = "referrer";
         public static final String IMPLEMENTER = "implementer";
+        public static final String CODE_ACTION_CONTRIBUTOR = "actions";
+
         public static class Summarizers {
             private Summarizers() {}
 
@@ -62,6 +64,21 @@ public class RascalADTs {
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATIONS = "implementations";
 
+    }
+
+    public static class CommandFields {
+        private CommandFields() {}
+
+        public static final String TITLE = "title";
+    }
+
+    public static class CodeActionFields {
+        private CodeActionFields() { }
+
+        public static final String EDITS = "edits";
+        public static final String COMMAND = "command";
+        public static final String TITLE = "title";
+        public static final String KIND = "kind";
     }
 
 }

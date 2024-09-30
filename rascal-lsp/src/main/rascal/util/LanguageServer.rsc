@@ -39,8 +39,10 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
+import analysis::diff::edits::TextEdits;
 import IO;
 import ParseTree;
+import Message;
 
 @synopsis{Definition of a language server by its meta-data}
 @description{
@@ -70,7 +72,7 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 @pitfalls {
     * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
-alias Parser           = Tree (str /*input*/, loc /*origin*/);
+alias Parser           = Tree (str _input, loc _origin);
 
 @synopsis{Function profile for summarizer contributions to a language server}
 @description{
@@ -91,7 +93,7 @@ A summarizer provides the same information as the following contributors combine
 The difference is that these contributions are executed on-demand (pulled), while Summarizers
 are executed after build or after typing (push).
 }
-alias Summarizer       = Summary (loc /*origin*/, Tree /*input*/);
+alias Summarizer       = Summary (loc _origin, Tree _input);
 
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
@@ -108,16 +110,16 @@ of the user.
 alias Focus = list[Tree];
 
 @synopsis{Function profile for outliner contributions to a language server}
-alias Outliner         = list[DocumentSymbol] (Tree /*input*/);
+alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
-alias LensDetector     = rel[loc src, Command lens] (Tree /*input*/);
+alias LensDetector     = rel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
-alias CommandExecutor  = value (Command /*command*/);
+alias CommandExecutor  = value (Command _command);
 
 @synopsis{Function profile for inlay contributions to a language server}
-alias InlayHinter      = list[InlayHint] (Tree /*input*/);
+alias InlayHinter      = list[InlayHint] (Tree _input);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
@@ -131,7 +133,18 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
 @deprecated{The FocusDocumenter has replaced this type.}
-alias Documenter       = set[str] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for retrieving code actions focused around the current cursor}
+@description{
+Next to the quickfix commands that may be attached to diagnostic ((Message))s, the LSP
+can produce refactoring and quickfix or visualization actions specific for what is near
+or under the current cursor.
+
+An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
+The implementor is asked to produce only actions that pertain what is under the current cursor.
+}
+alias CodeActionContributor = list[CodeAction] (Focus focus);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
@@ -160,7 +173,7 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Definer          = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -173,7 +186,7 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Referrer         = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Referrer         = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -200,7 +213,7 @@ An implementer is called on-demand, when an implementation is requested by the I
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
 @deprecated{Use ((FocusImplementer)) for more degrees of freedom.}
-alias Implementer      = set[loc] (loc /*origin*/, Tree /*fullTree*/, Tree /*lexicalAtCursor*/);
+alias Implementer      = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -263,6 +276,7 @@ data LanguageService
     | definer(FocusDefiner definer)
     | referrer(FocusReferrer reference)
     | implementer(FocusImplementer implementer)
+    | actions(CodeActionContributor actions)
     ;
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
@@ -369,8 +383,151 @@ data DocumentSymbolTag
 
 data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
+@synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
+@description{
+The fixes you provide with a message will be hinted at by a light-bulb in the editor's margin.
+Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
+
+Note that for a ((CodeAction)) to be executed, you must either provide `edits` directly and/or handle
+a ((util::LanguageServer::Command)) and add its execution to the ((CommandExecutor)) contribution function.
+}
+@benefits{
+* the information required to produce an error message is usually also required for the fix. So this
+coupling of message with fixes may come in handy.
+}
+@pitfalls{
+* the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
+and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), or to delegate to a function that produces
+the right ((DocumentEdit))s immediately.
+* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
+}
+data Message(list[CodeAction] fixes = []);
+
+@synopsis{A Command is a parameter to a CommandExecutor function.}
+@description{
+Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
+of a command.
+
+You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
+A ((Command) constructor must have fields or keyword fields that hold the parameters of the
+to-be-executed command. 
+
+Commands are produced for delayed and optional execution by:
+* ((LensDetector)), where the will be executed if the lens is selected in the editor 
+* ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
+* ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
+
+See also ((CodeAction)); a wrapper for ((util::LanguageServer::Command)) for fine-tuning UI interactions.
+}
+@examples{
+```rascal
+// here we invent a new command name `showFlowDiagram` which is parametrized by a loc:
+data Command = showFlowDiagram(loc src);
+
+// and we have our own evaluator that executes the showFlowDiagram command by starting an interactive view:
+value evaluator(showFlowDiagram(loc src)) {
+    showInteractiveContent(flowDiagram(src));
+    return true;
+}
+```
+}
+@pitfalls{
+* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see ((CodeActionContributor)) and ((Message)) )
+* the `noop()` command will always be ignored.
+* _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
+be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be
+serialized, so that would lead to run-time errors.
+}
 data Command(str title="")
     = noop()
+    ;
+
+@synopsis{Code actions encapsulate computed effects on source code like quick-fixes, refactorings or visualizations.}
+@description{
+Code actions are an intermediate representation of what is about to happen to the source code that is loaded in the IDE,
+or even in a live editor. They communicate what can (possibly) be done to improve the user's code, who might choose one of the options
+from a list, or even look at different outcomes ahead-of-time in a preview.
+
+The `edits` and `command` parameters are both optional, and can be provided at the same time as well.
+
+If ((DocumentEdit))[edits] are provided then:
+1. edits can be used for preview of a quick-fix of refactoring
+2. edits are always applied first before any `command` is executed.
+3. edits can always be undone via the undo command of the IDE
+
+If a ((util::LanguageServer::Command))[command] is provided, then:
+1. The title of the command is shown to the user
+2. The user picks this code action (from a list or pressed "OK" in a dialog)
+3. Any `edits` (see above) are applied first
+4. The command is executed on the server side via the ((CommandExecutor)) contribution
+   * Many commands use ((util::IDEServices::applyDocumentsEdits)) to provide additional changes to the input
+   * Other commands might use ((util::IDEServices::showInteractiveContent)) to start a linked webview inside of the IDE
+   * Also ((util::IDEServices::registerDiagnostics)) is a typical effect of a ((CodeAction)) ((util::LanguageServer::Command)).
+5. The effects of commands can be undone if they where ((DocumentEdit))s, but other effects like diagnostics and
+interactive content have to be cleaned or closed in their own respective fashions.
+}
+@benefits{
+* CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
+tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
+* `edits` are applied on the latest editor content for the current editor; live to the user.
+* ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
+* The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
+and input are computed in-sync.
+}
+@pitfalls{
+* ((util::IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
+or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
+}
+data CodeAction
+    = action(
+        list[DocumentEdit] edits = [],
+        Command command          = noop(), 
+        str title                = command.title,
+        CodeActionKind kind      = quickfix()
+    );
+
+@synopsis{Kinds are used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an _open_ data type. The constructor names are used
+to compute the string values for the LSP by capitalizing and
+joining parent/children with periods.
+}
+@examples{
+`refactor(rewrite())` becomes `refactor.rewrite` under the hood of the LSP.
+}
+data CodeActionKind
+    = empty()
+    | refactor(RefactorKind refactor = rewrite())
+    | quickfix()
+    | source(SourceActionKind source = organizeImports())
+    ;
+
+@synopsis{Used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an open list and can be extended by the language engineer at will.
+These names should be indicative of what will happen to the source code when the action is chosen.
+}
+@pitfalls{
+* You as language engineer are responsible for implementing the right action with these names.
+}
+data SourceActionKind
+    = organizeImports()
+    | fixAll()
+    ;
+
+@synopsis{Used to prioritize menu options and choose relevant icons in the UI.}
+@description{
+This is an open list and can be extended by the language engineer at will.
+These names should be indicative of what will happen to the source code when the action is chosen.
+}
+@pitfalls{
+* You as language engineer are responsible for implementing the right action with these names.
+}
+data RefactorKind
+    = extract()
+    | inline()
+    | rewrite()
     ;
 
 @synopsis{Represents one inlayHint for display in an editor}
