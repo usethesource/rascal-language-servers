@@ -294,24 +294,92 @@ data LanguageService
     ;
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
+
+To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) follow 
+this scheme:
+
+```rascal
+set[str] oldImplementer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[str] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+```
+}
 LanguageService documenter(Documenter d) 
     = documenter(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Definer)) alias.
+
+To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow 
+this scheme:
+
+```rascal
+set[str] oldDefiner(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[str] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+```
+}
 LanguageService defined(Definer d) 
     = definer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
-@deprecated{This is a backward compatibility layer for the pre-existing ((Referrer)) alias.}
+@synopsis{Registers an old-style ((Referrer))}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
+
+To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow 
+this scheme.
+
+```rascal
+set[str] oldReferrer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[str] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+```
+}
 LanguageService referrer(Referrer d) 
     = referrer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
-@deprecated{This is a backward compatibility layer for the pre-existing ((Implementer)) alias.}
+@synopsis{Registers an old-style ((Implementer))}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
+
+To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) follow 
+this scheme:
+
+```rascal
+set[str] oldImplementer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[str] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+```
+}
 LanguageService implementer(Implementer d) 
     = implementer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
