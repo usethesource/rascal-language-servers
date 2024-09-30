@@ -258,6 +258,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+        debug(LanguageContributions.PARSER, loc, input);
         return parser.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
     }
 
@@ -323,6 +324,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
+    }
+
+    private void debug(String name, Object param1, Object param2) {
+        logger.debug("{}({},{})", name, param1, param2);
     }
 
     @Override

@@ -111,6 +111,14 @@ public class EvaluatorUtil {
                 if (!isParametric) {
                     reportInternalError(e, task, client);
                 }
+
+                // CallFailed is a normal response. It means some cases aren't dealt with by the provider
+                // functions. This can be by design, or the function is not working yet completely.
+                if (isCallFailedException(e.getException())) {
+                    logger.info("{} failed with \"CallFailed\" from the Rascal side: {}", task, e.getException());
+                    return defaultResult;
+                }
+
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, formatMessage(e), null));
             }
             catch (StaticError e) {
@@ -138,6 +146,12 @@ public class EvaluatorUtil {
                 actualEval.interrupt();
             }
         });
+    }
+
+    private static boolean isCallFailedException(IValue exc) {
+        return exc.getType().isAbstractData() 
+            && "RuntimeException".equals(exc.getType().getName())
+            && "CallFailed".equals(((IConstructor) exc).getName());
     }
 
     private static void reportInternalError(Throwable e, String task, LanguageClient client) {
