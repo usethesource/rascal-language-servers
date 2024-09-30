@@ -42,7 +42,7 @@ jobs:
 
       - name: Run java tests
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
 
       - name: VS Code tests
         working-directory: ./rascal-vscode-extension
@@ -54,7 +54,7 @@ jobs:
   ui-test:
     strategy:
       matrix:
-        os: [buildjet-2vcpu-ubuntu-2204, windows-latest, macos-latest]
+        os: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
       fail-fast: true
     env:
       CODE_VERSION: "1.82.3"
@@ -118,7 +118,7 @@ jobs:
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: matrix.os == 'buildjet-2vcpu-ubuntu-2204'
+        if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 5
@@ -159,7 +159,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B clean verify
+        run: mvn -B clean verify -DskipTests
         env:
           MAVEN_OPTS: "-Xmx6G"
 
@@ -175,9 +175,6 @@ jobs:
           npm run license-check
           npm run esbuild
           npm run lint 
-          npm run compile-tests
-          npm run normalTest
-          # disable vs-code test npm run test
 
       - name: package extension
         working-directory: rascal-vscode-extension
