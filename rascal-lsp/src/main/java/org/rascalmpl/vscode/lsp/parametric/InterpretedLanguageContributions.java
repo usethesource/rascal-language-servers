@@ -292,41 +292,37 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        debug(LanguageContributions.DOCUMENTER, TreeAdapter.getLocation(cursor));
-        return execFunction(LanguageContributions.DOCUMENTER, documenter, VF.set(), loc, input, cursor);
+    public InterruptibleFuture<ISet> documentation(IList focus) {
+        debug(LanguageContributions.DOCUMENTER, focus.length());
+        return execFunction(LanguageContributions.DOCUMENTER, documenter, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
-        debug(LanguageContributions.DEFINER, loc, cursor != null ?  TreeAdapter.getLocation(cursor) : null);
-        return execFunction(LanguageContributions.DEFINER, definer, VF.set(), loc, input, cursor);
+    public InterruptibleFuture<ISet> definitions(IList focus) {
+        debug(LanguageContributions.DEFINER, focus.length());
+        return execFunction(LanguageContributions.DEFINER, definer, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        debug(LanguageContributions.IMPLEMENTER, TreeAdapter.getLocation(cursor));
-        return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), loc, input, cursor);
+    public InterruptibleFuture<ISet> implementations(IList focus) {
+        debug(LanguageContributions.IMPLEMENTER, focus.length());
+        return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        debug(LanguageContributions.REFERRER, TreeAdapter.getLocation(cursor));
-        return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), loc, input, cursor);
+    public InterruptibleFuture<ISet> references(IList focus) {
+        debug(LanguageContributions.REFERRER, focus.length());
+        return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), focus);
     }
 
     @Override
     public InterruptibleFuture<IList> codeActions(IList focus) {
-        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, "(focus list has " + focus.length() + " elements)");
+        debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, focus.length());
         return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
     }
 
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
-    }
-
-    private void debug(String name, Object param1, Object param2) {
-        logger.debug("{}({}, {})", name, param1, param2);
     }
 
     @Override

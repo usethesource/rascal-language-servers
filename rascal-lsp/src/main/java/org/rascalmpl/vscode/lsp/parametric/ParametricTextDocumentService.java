@@ -43,6 +43,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
@@ -636,7 +637,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
-        return contribs.codeActions(focus).get();
+        
+        if (!focus.isEmpty()) {
+            return contribs.codeActions(focus).get();
+        }
+        else {
+            logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
+            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+        }
     }
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {

@@ -53,10 +53,10 @@ public interface ILanguageContributions {
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public CompletableFuture<IList> parseCodeActions(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> documentation(IList focus);
+    public InterruptibleFuture<ISet> definitions(IList focus);
+    public InterruptibleFuture<ISet> references(IList focus);
+    public InterruptibleFuture<ISet> implementations(IList focus);
     public InterruptibleFuture<IList> codeActions(IList focus);
 
     public CompletableFuture<Boolean> hasAnalyzer();
@@ -110,9 +110,9 @@ public interface ILanguageContributions {
 
     @FunctionalInterface
     // To conveniently pass methods `documentation`, `definitions`,
-    // `references`, and `implementations` as parameters.
+    // `references`, `actions` and `implementations` as parameter.
     public static interface OndemandCalculator {
-        InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
+        InterruptibleFuture<ISet> apply(IList focus);
     }
 }
 
