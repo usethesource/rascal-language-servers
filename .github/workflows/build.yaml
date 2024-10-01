@@ -36,7 +36,7 @@ jobs:
 
       - name: Run java tests
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
+        run: mvn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
 
       - name: VS Code tests
         working-directory: ./rascal-vscode-extension
@@ -73,7 +73,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
+        run: mvn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -148,7 +148,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B clean verify -DskipTests
+        run: mvn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -B clean verify -DskipTests
         env:
           MAVEN_OPTS: "-Xmx6G"
 
