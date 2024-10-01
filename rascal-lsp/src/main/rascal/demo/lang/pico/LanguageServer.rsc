@@ -36,7 +36,7 @@ import lang::pico::\syntax::Main;
 set[LanguageService] picoLanguageContributor() = {
     parser(parser(#start[Program])),
     outliner(picoOutliner),
-    // lenses(picoLenses),
+    lenses(picoLenses),
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef),
