@@ -150,7 +150,7 @@ public class EvaluatorUtil {
     }
 
     private static boolean isCallFailedException(IValue exc) {
-        return exc.getType().isAbstractData() 
+        return exc.getType().isAbstractData()
             && "RuntimeException".equals(exc.getType().getName())
             && "CallFailed".equals(((IConstructor) exc).getName());
     }
