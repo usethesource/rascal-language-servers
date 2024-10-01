@@ -36,7 +36,7 @@ import lang::pico::\syntax::Main;
 set[LanguageService] picoLanguageContributor() = {
     parser(parser(#start[Program])),
     outliner(picoOutliner),
-    lenses(picoLenses),
+    // lenses(picoLenses),
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef),
@@ -103,7 +103,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     return s;
 }
 
-@synopsis{Looks up the declaration for any variable use using the / deep match operator}
+@synopsis{Looks up the declaration for any variable use using the / deep match}
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
 

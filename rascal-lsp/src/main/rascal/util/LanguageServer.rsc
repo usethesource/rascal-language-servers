@@ -99,7 +99,7 @@ alias Summarizer       = Summary (loc _origin, Tree _input);
 @description{
 A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if 
 the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
-in between is a spine of language constructs ((ParseTree)) nodes between the top and the bottom node.
+in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
 
@@ -173,8 +173,8 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-@deprecated{Use FocusDefiner }
-alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusDefiner)) instead.}
+alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -200,7 +200,8 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Referrer         = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusReferrer)) instead}
+alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -226,8 +227,8 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-@deprecated{Use ((FocusImplementer)) for more degrees of freedom.}
-alias Implementer      = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusImplementer)) instead.}
+alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -335,7 +336,7 @@ set[str] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
 ```
 }
 LanguageService definer(Definer d) 
-    = definer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+    = definer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
@@ -358,7 +359,7 @@ set[str] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
 ```
 }
 LanguageService referrer(Referrer d) 
-    = referrer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+    = referrer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
@@ -381,7 +382,7 @@ set[str] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
 ```
 }
 LanguageService implementer(Implementer d) 
-    = implementer(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+    = implementer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
 
