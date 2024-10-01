@@ -97,7 +97,7 @@ alias Summarizer       = Summary (loc _origin, Tree _input);
 
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
-A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if 
+A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
 the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
 in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
 
@@ -105,7 +105,7 @@ The location of each element in the focus list is around (inclusive) the current
 
 The ((Focus)) is typically provided to the ((LanguageService))s below, such that language
 engineers can provide language-directed tools, which are relevant to the current interest
-of the user. 
+of the user.
 }
 alias Focus = list[Tree];
 
@@ -132,15 +132,15 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-@deprecated{The FocusDocumenter has replaced this type.}
+@deprecated{The ((FocusDocumenter)) has replaced this type.}
 alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for documentation contributions to a language server}
 @description{
 A ((FocusDocumenter)) is called on-demand, when documentation is requested by the IDE user.
 The current selection is used to create a ((Focus)) that we can use to select the right
-functionality with. It is possible several constructs are in "focus", and then we can 
-provide several pieces of documentation. 
+functionality with. It is possible several constructs are in "focus", and then we can
+provide several pieces of documentation.
 }
 @benefits{
 * is focused on a single documentation request, so does not need full program analysis.
@@ -298,7 +298,7 @@ data LanguageService
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
 
-To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) follow 
+To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) follow
 this scheme:
 
 ```rascal
@@ -312,7 +312,7 @@ set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService documenter(Documenter d) 
+LanguageService documenter(Documenter d)
     = documenter(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
@@ -321,7 +321,7 @@ LanguageService documenter(Documenter d)
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Definer)) alias.
 
-To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow 
+To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow
 this scheme:
 
 ```rascal
@@ -335,7 +335,7 @@ set[loc] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService definer(Definer d) 
+LanguageService definer(Definer d)
     = definer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
@@ -344,7 +344,7 @@ LanguageService definer(Definer d)
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
 
-To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow 
+To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow
 this scheme.
 
 ```rascal
@@ -358,7 +358,7 @@ set[loc] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService referrer(Referrer d) 
+LanguageService referrer(Referrer d)
     = referrer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
@@ -367,7 +367,7 @@ LanguageService referrer(Referrer d)
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
 
-To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) follow 
+To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) follow
 this scheme:
 
 ```rascal
@@ -381,7 +381,7 @@ set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService implementer(Implementer d) 
+LanguageService implementer(Implementer d)
     = implementer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     });
@@ -493,10 +493,10 @@ of a command.
 
 You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
 A ((Command) constructor must have fields or keyword fields that hold the parameters of the
-to-be-executed command. 
+to-be-executed command.
 
 Commands are produced for delayed and optional execution by:
-* ((LensDetector)), where the will be executed if the lens is selected in the editor 
+* ((LensDetector)), where the will be executed if the lens is selected in the editor
 * ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
 * ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
 
@@ -551,7 +551,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 }
 @benefits{
 * CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
-* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
@@ -565,7 +565,7 @@ or may not work on the current editor contents. If you want to be safe it's best
 data CodeAction
     = action(
         list[DocumentEdit] edits = [],
-        Command command          = noop(), 
+        Command command          = noop(),
         str title                = command.title,
         CodeActionKind kind      = quickfix()
     );
