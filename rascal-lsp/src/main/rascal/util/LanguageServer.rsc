@@ -302,11 +302,11 @@ To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) foll
 this scheme:
 
 ```rascal
-set[str] oldImplementer(loc document, Tree selection, Tree fullTree) {
+set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[str] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
@@ -325,11 +325,11 @@ To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow
 this scheme:
 
 ```rascal
-set[str] oldDefiner(loc document, Tree selection, Tree fullTree) {
+set[loc] oldDefiner(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[str] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
@@ -348,11 +348,11 @@ To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow
 this scheme.
 
 ```rascal
-set[str] oldReferrer(loc document, Tree selection, Tree fullTree) {
+set[loc] oldReferrer(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[str] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
@@ -371,11 +371,11 @@ To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) fo
 this scheme:
 
 ```rascal
-set[str] oldImplementer(loc document, Tree selection, Tree fullTree) {
+set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[str] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
