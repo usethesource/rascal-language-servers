@@ -14,6 +14,37 @@ permissions:
   contents: write
   
 jobs:
+  normal-tests:
+    runs-on: buildjet-2vcpu-ubuntu-2204
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assure different pom cache hit
+        run: echo "  " >> rascal-lsp/pom.xml
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Run java tests
+        working-directory: ./rascal-lsp
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
+
+      - name: VS Code tests
+        working-directory: ./rascal-vscode-extension
+        run: |
+          npm ci
+          npm run compile-tests
+          npm run normalTest
+      
   ui-test:
     strategy:
       matrix:
@@ -24,6 +55,8 @@ jobs:
     runs-on:  ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Assure different pom cache hit
+        run: echo " " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v4
         with:
           java-version: 11
@@ -40,7 +73,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' clean package
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -60,7 +93,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 10
-          _JAVA_OPTIONS: '-Xmx2G'
+          _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (mac)"
@@ -69,7 +102,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
-          _JAVA_OPTIONS: '-Xmx4G'
+          _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
@@ -95,7 +128,7 @@ jobs:
         run: rm -rf ./rascal-vscode-extension/uitests/screenshots
 
   build:
-    needs: [ui-test]
+    needs: [ui-test, normal-tests]
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +148,7 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B clean verify
+        run: mvn -B clean verify -DskipTests
         env:
           MAVEN_OPTS: "-Xmx6G"
 
@@ -131,9 +164,6 @@ jobs:
           npm run license-check
           npm run esbuild
           npm run lint 
-          npm run compile-tests
-          npm run normalTest
-          # disable vs-code test npm run test
 
       - name: package extension
         working-directory: rascal-vscode-extension
