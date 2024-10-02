@@ -480,13 +480,15 @@ private bool rascalContainsName(loc l, str name) {
     *Overloading*
     Considers recognizes overloaded definitions and renames those as well.
 
-    Functions will be considered overloaded when they have the same name, even when the arity or type signature differ.
+    Functions are considered overloaded when they have the same name, even when the arity or type signature differ.
     This means that the following functions defitions will be renamed in unison:
     ```
     list[&T] concat(list[&T] _, list[&T] _) = _;
     set[&T] concat(set[&T] _, set[&T] _) = _;
     set[&T] concat(set[&T] _, set[&T] _, set[&T] _) = _;
     ```
+
+    ADT and grammar definitions are considered overloaded when they have the same name and type, and there is a common use from which they are reachable.
 
     *Validity checking*
     Once all rename candidates have been resolved, validity of the renaming will be checked. A rename is valid iff
