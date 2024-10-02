@@ -166,6 +166,15 @@ test bool metaVariable() = testRenameOccurrences({0, 1},
     'data Tree;"
 );
 
+@synopsis{
+      (defs)
+       / \
+    Left  Right
+       \ /
+      Merger
+        |
+      (uses)
+}
 test bool nonterminalsInVModuleStructure() = testRenameOccurrences({
     byText("Left", "syntax Foo = f: \"f\";", {0}), byText("Right", "syntax Foo = g: \"g\";", {0})
                     , byText("Merger",
@@ -199,11 +208,9 @@ test bool nonterminalsInWModuleStructureWithoutMerge() = testRenameOccurrences({
 @synopsis{
     (defs)
     /  | \
-    v  v  v
     A  B  C
      \/ \/
       D E
-      ^ ^
      /   \
      (uses)
 }
@@ -219,6 +226,17 @@ test bool nonterminalsInWModuleStructureWithMerge() = testRenameOccurrences({
                                         'bool func(Foo foo) = foo == h();", {0})
 }, oldName = "Foo", newName = "Bar");
 
+@synopsis{
+      (defs)
+       / \
+    Left  Right
+       \ /
+      Merger
+        |
+       User
+        |
+      (uses)
+}
 test bool nonterminalsInYModuleStructure() = testRenameOccurrences({
     byText("Left", "syntax Foo = f: \"f\";", {0}), byText("Right", "syntax Foo = g: \"g\";", {0})
                     , byText("Merger",
@@ -231,6 +249,15 @@ test bool nonterminalsInYModuleStructure() = testRenameOccurrences({
                         ", {0})
 }, oldName = "Foo", newName = "Bar");
 
+@synopsis{
+      (defs)
+        |
+     Definer
+       / \
+    Left  Right
+       \ /
+      (uses)
+}
 test bool nonterminalsInInvertedVModuleStructure() = testRenameOccurrences({
             byText("Definer", "syntax Foo = f: \"f\" | g: \"g\";", {0}),
     byText("Left", "import Definer;
@@ -238,6 +265,17 @@ test bool nonterminalsInInvertedVModuleStructure() = testRenameOccurrences({
                                                                             'bool isG(Foo foo) = foo == g();", {0})
 }, oldName = "Foo", newName = "Bar");
 
+@synopsis{
+      (defs)
+        |
+     Definer
+       / \
+    Left  Right
+       \ /
+      User
+        |
+      (uses)
+}
 test bool nonterminalsInDiamondModuleStructure() = testRenameOccurrences({
             byText("Definer", "syntax Foo = f: \"f\" | g: \"g\";", {0}),
     byText("Left", "extend Definer;", {}), byText("Right", "extend Definer;", {}),
@@ -250,6 +288,16 @@ test bool nonterminalsInDiamondModuleStructure() = testRenameOccurrences({
 @synopsis{
     Two disjunct module trees. Both trees define `syntax Foo`. Since the trees are disjunct,
     we expect a renaming triggered from the left side leaves the right side untouched.
+
+          (defs)
+          /   \
+LeftDefiner   RightDefiner
+     |             |
+LeftExtender  RightExtender
+     |             |
+  LeftUser    RightUser
+         \    /
+         (uses)
 }
 test bool nonterminalsInIIModuleStructure() = testRenameOccurrences({
     byText("LeftDefiner", "syntax Foo = f: \"f\";", {0}),              byText("RightDefiner", "syntax Foo = g: \"g\";", {}),
