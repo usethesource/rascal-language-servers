@@ -65,7 +65,7 @@ test bool parameterizedProduction() = testRenameOccurrences({0, 1}, ""
 , decls = "syntax Foo[&T] = Foo[&T] child &T t;"
 , oldName = "Foo", newName = "Bar");
 
-test bool startPoduction() = testRenameOccurrences({0, 1}, ""
+test bool startProduction() = testRenameOccurrences({0, 1}, ""
 , decls = "start syntax Foo = start[Foo] child;"
 , oldName = "Foo", newName = "Bar");
 

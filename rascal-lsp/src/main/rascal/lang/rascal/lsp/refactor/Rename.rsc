@@ -80,7 +80,7 @@ void throwAnyErrors(program(_, msgs)) {
 }
 
 set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] defRoles) {
-    set[IllegalRenameReason] tryParseAs(type[&T<:Tree] begin, str idDescription) {
+    set[IllegalRenameReason] tryParseAs(type[&T <: Tree] begin, str idDescription) {
         try {
             parse(begin, rascalEscapeName(name));
             return {};
