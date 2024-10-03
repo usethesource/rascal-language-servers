@@ -324,12 +324,20 @@ set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
+default set[loc] newImplementer(list[Tree] _focus) = {};
 ```
 }
-LanguageService documenter(Documenter d)
-    = documenter(set[str] ([Tree lex, *Tree _spine, Tree fullTree]) {
+LanguageService documenter(Documenter d) {
+    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
-    });
+    }
+
+    default set[str] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return documenter(focusAcceptor);
+}
 
 @deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
 @deprecated{
@@ -347,12 +355,21 @@ set[loc] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
+default set[loc] newDefiner(list[Tree] _focus) = {};
 ```
 }
-LanguageService definer(Definer d)
-    = definer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
+LanguageService definer(Definer d) {
+    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
-    });
+    }
+
+    default set[str] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return definer(focusAcceptor);
+}
+
 
 @synopsis{Registers an old-style ((Referrer))}
 @deprecated{
@@ -370,12 +387,20 @@ set[loc] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
+default set[loc] newReferrer(list[Tree] _focus) = {};
 ```
 }
-LanguageService referrer(Referrer d)
-    = referrer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
+LanguageService referrer(Referrer d) {
+    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
-    });
+    }
+
+    default set[str] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return referrer(focusAcceptor);
+}
 
 @synopsis{Registers an old-style ((Implementer))}
 @deprecated{
@@ -395,10 +420,17 @@ set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
 }
 ```
 }
-LanguageService implementer(Implementer d)
-    = implementer(set[loc] ([Tree lex, *Tree _spine, Tree fullTree]) {
+LanguageService implementer(Implementer d) {
+    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
-    });
+    }
+
+    default set[str] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return implementer(focusAcceptor);
+}
 
 @deprecated{Please use ((builder)) or ((analyzer))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}

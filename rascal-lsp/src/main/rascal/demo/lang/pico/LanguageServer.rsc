@@ -56,6 +56,7 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
+
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
 Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
 
@@ -63,8 +64,8 @@ Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, ana
 Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
 
 @synopsis{A simple "enum" data type for switching between analysis modes}
-data PicoSummarizerMode 
-    = analyze() 
+data PicoSummarizerMode
+    = analyze()
     | build()
     ;
 
@@ -82,9 +83,9 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
 
     // Provide errors (cheap to compute) both in analyze mode and in build mode.
-    s.messages += {<src, error("<id> is not defined", src, fixes=prepareNotDefinedFixes(src, defs))> 
+    s.messages += {<src, error("<id> is not defined", src, fixes=prepareNotDefinedFixes(src, defs))>
                   | <src, id> <- uses, id notin defs<0>};
-                  
+
     // "references" are links for loc to loc (from def to use)
     s.references += (uses o defs)<1,0>;
 
@@ -108,11 +109,11 @@ set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
     { d.src | /IdType d := input, cursor := d.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
-list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs) 
+list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program]) 
+list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program])
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoActions(Focus _focus) = [];
@@ -124,7 +125,7 @@ data Command
   ;
 
 @synopsis{Adds an example lense to the entire program.}
-rel[loc,Command] picoLenses(start[Program] input) 
+rel[loc,Command] picoLenses(start[Program] input)
     = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
@@ -132,7 +133,7 @@ list[InlayHint] picoHinter(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
 
     return [
-        hint(name.src, " : <typeLookup["<name>"]>", \type(), atEnd = true) 
+        hint(name.src, " : <typeLookup["<name>"]>", \type(), atEnd = true)
         | /(Expression)`<Id name>` := input
         , "<name>" in typeLookup
     ];
