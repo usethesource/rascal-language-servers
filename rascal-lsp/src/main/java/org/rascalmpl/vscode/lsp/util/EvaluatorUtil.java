@@ -141,12 +141,6 @@ public class EvaluatorUtil {
         });
     }
 
-    private static boolean isCallFailedException(IValue exc) {
-        return exc.getType().isAbstractData()
-            && "RuntimeException".equals(exc.getType().getName())
-            && "CallFailed".equals(((IConstructor) exc).getName());
-    }
-
     private static void reportInternalError(Throwable e, String task, LanguageClient client) {
         String reason;
         String stackTrace;

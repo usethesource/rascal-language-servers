@@ -102,10 +102,24 @@ the cursor is inside an identifer, and ends with the start non-terminal (the who
 in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
+This means that:
+* every next element in the list is one of the children of the previous.
+* typically the list starts with a smallest tree and ends with the entire `start` tree.
+* singleton lists may occur in case the cursor is on a layout or literal element of the top production.
+* the `start[X]` tree is typically preceded by the `X` tree.
+* the first tree is a whole lexical tree if the cursor is inside an identifier or constant
+* the first tree is a (context-free) syntax tree if the cursor is on the whitespace in between literals and lexicals.
+* the focus list may be empty in case of top-level ambiguity or parse errors.
 
 The ((Focus)) is typically provided to the ((LanguageService))s below, such that language
 engineers can provide language-directed tools, which are relevant to the current interest
 of the user.
+}
+@benefits{
+* All functions that accept a ((Focus)) can use list matching to filter locations of interest.
+}
+@pitfalls{
+* Functions that use list matching on their ((Focus)) parameter must provide a default that returns the empty list or empty set.
 }
 alias Focus = list[Tree];
 
