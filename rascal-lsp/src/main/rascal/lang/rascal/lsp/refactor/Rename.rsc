@@ -488,7 +488,27 @@ private bool rascalContainsName(loc l, str name) {
     set[&T] concat(set[&T] _, set[&T] _, set[&T] _) = _;
     ```
 
-    ADT and grammar definitions are considered overloaded when they have the same name and type, and there is a common use from which they are reachable.
+    ADT and grammar definitions are considered overloaded when they have the same name and type, and
+    there is a common use from which they are reachable.
+    As an example, modules `A` and `B` have a definition for ADT `D`:
+    ```
+    module A
+    data D = a();
+    ```
+    ```
+    module B
+    data D = b();
+    ```
+    With no other modules in the workspace, renaming `D` in one of those modules, will not rename `D` in
+    the other module, as they are not considered an overloaded definition. However, if a third module `C`
+    exists, that imports both and uses the definition, the definitions will be considered overloaded, and
+    renaming `D` from either module `A`, `B` or `C` will result in renaming all occurrences.
+    ```
+    module C
+    import A;
+    import B;
+    D f() = a();
+    ```
 
     *Validity checking*
     Once all rename candidates have been resolved, validity of the renaming will be checked. A rename is valid iff
