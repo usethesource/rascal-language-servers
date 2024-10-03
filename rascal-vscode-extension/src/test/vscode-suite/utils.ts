@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -158,6 +158,21 @@ export class RascalREPL {
     }
 }
 
+function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCondition {
+    return new WebElementCondition("locating element in scope", async (_driver) => {
+        try {
+            const result = await scope.findElements(selector);
+            if (result && result.length > 0) {
+                return result[0] ?? null;
+            }
+            return null;
+        }
+        catch (_ignored) {
+            return null;
+        }
+    });
+}
+
 export class IDEOperations {
     private driver: WebDriver;
     constructor(
@@ -194,8 +209,10 @@ export class IDEOperations {
         await ignoreFails(center?.close());
     }
 
+
+
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
-        return this.driver.wait(() => editor.findElement(selector), timeout, message, 50);
+        return this.driver.wait(scopedElementLocated(editor, selector), timeout, message, 50);
     }
 
     hasWarningSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
