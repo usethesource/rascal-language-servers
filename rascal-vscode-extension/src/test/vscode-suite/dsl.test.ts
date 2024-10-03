@@ -166,7 +166,7 @@ describe('DSL', function () {
 
         // finds an open menu with the right item in it (Change to a) and then select
         // the parent that handles UI events like click() and sendKeys()
-        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.verySlow,"The Change to a option should be available and focussed by default");
+        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "The Change to a option should be available and focussed by default");
 
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
