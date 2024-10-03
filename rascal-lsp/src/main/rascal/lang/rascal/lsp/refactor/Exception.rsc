@@ -40,7 +40,7 @@ data IllegalRenameReason
     | definitionsOutsideWorkspace(set[loc] defs)
     ;
 
-data RenameException
+data RuntimeException
     = illegalRename(str message, set[IllegalRenameReason] reason)
     | unsupportedRename(str message, rel[loc location, str message] issues = {})
     | unexpectedFailure(str message)
