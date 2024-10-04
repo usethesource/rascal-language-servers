@@ -152,17 +152,20 @@ export class RascalExtension implements vscode.Disposable {
             const config = vscode.workspace.getConfiguration();
             const originFormat = config.get('rascal.terminal.name.originFormat');
             switch (originFormat) {
-                case 'Project root':
+                case 'Project root': {
                     const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
                     if (projectRoot && projectRoot.name) {
                         return projectRoot.name;
                     }
                     break;
-                case 'Module':
+                }
+                case 'Module': {
                     const sep = uri.path.lastIndexOf("/");
                     if (sep !== -1 && uri.path.endsWith(".rsc")) {
                         return uri.path.substring(sep + 1, uri.path.length - 4);
                     }
+                    break;
+                }
                 default:
                     console.log(`Unknown origin format: ${originFormat}`);
             }
