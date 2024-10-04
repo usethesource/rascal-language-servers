@@ -130,13 +130,12 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Calculating project class path"});
                 const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
                 progress.report({increment: 25, message: "Creating terminal"});
-                const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
                     isTransient: false, // right now we don't support transient terminals yet
-                    name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
+                    name: `Rascal terminal (${this.getTerminalOrigin(uri)})`,
                 });
 
                 terminal.show(false);
@@ -145,6 +144,30 @@ export class RascalExtension implements vscode.Disposable {
         } catch (err) {
             await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true});
         }
+    }
+
+    private getTerminalOrigin(uri: vscode.Uri | undefined): string {
+        if (uri) {
+            const config = vscode.workspace.getConfiguration();
+            const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
+            const originFormat = config.get('rascal.terminal.name.originFormat');
+            switch (originFormat) {
+                case 'Project root':
+                    if (projectRoot && projectRoot.name) {
+                        return projectRoot.name;
+                    }
+                    break;
+                case 'Module':
+                    const sep = uri.path.lastIndexOf("/");
+                    if (sep !== -1 && uri.path.endsWith(".rsc")) {
+                        return uri.path.substring(sep + 1, uri.path.length - 4);
+                    }
+                default:
+                    console.log(`Unknown origin format: ${originFormat}`);
+            }
+        }
+
+        return 'no project or module';
     }
 
     private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean}) {
