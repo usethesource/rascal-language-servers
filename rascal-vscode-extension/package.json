@@ -194,6 +194,12 @@
           ],
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+        },
+        "rascal.terminal.name.originFormat": {
+          "type": "string",
+          "default": "Project root",
+          "enum": ["Project root", "Module"],
+          "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
         }
       }
     }
