@@ -337,7 +337,11 @@ set[loc] rascalGetKeywordFormalList([{KeywordFormal ","}+] keywordFormals, str c
     , "<kwFormal.name>" == cursorName};
 
 set[loc] rascalGetKeywordArgs(none(), str _) = {};
-set[loc] rascalGetKeywordArgs(\default(_, keywordArgs), str cursorName) =
+set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Expression] ","}+ keywordArgs), str cursorName) =
+    { kwArg.name.src
+    | kwArg <- keywordArgs
+    , "<kwArg.name>" == cursorName};
+set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str cursorName) =
     { kwArg.name.src
     | kwArg <- keywordArgs
     , "<kwArg.name>" == cursorName};
