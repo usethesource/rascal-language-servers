@@ -136,7 +136,7 @@ export class RascalExtension implements vscode.Disposable {
                     shellPath: await getJavaExecutable(),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
                     isTransient: false, // right now we don't support transient terminals yet
-                    name: `Rascal terminal (${this.getTerminalOrigin(uri)})`,
+                    name: `Rascal terminal (${this.getTerminalOrigin(uri, extraArgs)})`,
                 });
 
                 terminal.show(false);
@@ -147,7 +147,7 @@ export class RascalExtension implements vscode.Disposable {
         }
     }
 
-    private getTerminalOrigin(uri: vscode.Uri | undefined): string {
+    private getTerminalOrigin(uri: vscode.Uri | undefined, extraArgs: string[]): string {
         if (uri) {
             const config = vscode.workspace.getConfiguration();
             const originFormat = config.get('rascal.terminal.name.originFormat');
@@ -157,14 +157,23 @@ export class RascalExtension implements vscode.Disposable {
                     if (projectRoot && projectRoot.name) {
                         return projectRoot.name;
                     }
-                    break;
+                    return "no project";
                 }
-                case 'Module': {
-                    const sep = uri.path.lastIndexOf("/");
-                    if (sep !== -1 && uri.path.endsWith(".rsc")) {
-                        return uri.path.substring(sep + 1, uri.path.length - 4);
+                case 'Module (qualified)': {
+                    if (extraArgs[0] === '--loadModule' &&
+                        extraArgs[1] && extraArgs[1].match(this.qualifiedName)) {
+                        return extraArgs[1];
                     }
-                    break;
+                    return "no module";
+                }
+                case 'Module (unqualified)': {
+                    if (extraArgs[0] === '--loadModule' && extraArgs[1]) {
+                        const name = extraArgs[1].match(this.qualifiedName);
+                        if (name && name[1]) {
+                            return name[1];
+                        }
+                    }
+                    return "no module";
                 }
                 default:
                     console.log(`Unknown origin format: ${originFormat}`);
@@ -172,6 +181,14 @@ export class RascalExtension implements vscode.Disposable {
         }
         return 'no project or module';
     }
+
+    private qualifiedName: RegExp = (() => {
+        const name1 = '(?:[A-Z_a-z][0-9A-Z_a-z]*)';
+        const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
+        const name = `(?:${name1}|${name2})`;
+        const qualifiedName = `(?:(?:${name}::)*(${name}))`;
+        return new RegExp(`^${qualifiedName}$`);
+    })(); // Build the regex only once
 
     private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
         const options = ["View Documentation"];

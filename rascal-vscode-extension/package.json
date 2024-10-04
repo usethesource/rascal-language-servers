@@ -198,7 +198,7 @@
         "rascal.terminal.name.originFormat": {
           "type": "string",
           "default": "Project root",
-          "enum": ["Project root", "Module"],
+          "enum": ["Project root", "Module (qualified)", "Module (unqualified)"],
           "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
         }
       }
