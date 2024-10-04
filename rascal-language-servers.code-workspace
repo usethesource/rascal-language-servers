@@ -7,5 +7,12 @@
 			"path": "rascal-vscode-extension"
 		}
 	],
-	"settings": {}
+	"settings": {},
+	"extensions": {
+		"recommendations": [
+			"dbaeumer.vscode-eslint",  // for lint messages
+			"connor4312.esbuild-problem-matchers", // esbuild output messages
+			"editorconfig.editorconfig" // make sure basic editor configs align between developers		
+		]
+	}
 }

@@ -121,8 +121,9 @@ export class RascalExtension implements vscode.Disposable {
                 if (uri) {
                     const [error, detail] = await this.verifyProjectSetup(uri);
                     if (error !== '') {
-                        await this.reportTerminalStartError(error, detail, {showOutput : false});
-                        return;
+                        if (!await this.reportTerminalStartError(error, detail, {showOutput : false, canContinue: true})) {
+                            return;
+                        }
                     }
                 }
                 progress.report({increment: 20, message: "Requesting IDE configuration"});
@@ -142,7 +143,7 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Finished creating terminal"});
             });
         } catch (err) {
-            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true});
+            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true, canContinue: false});
         }
     }
 
@@ -166,23 +167,27 @@ export class RascalExtension implements vscode.Disposable {
                     console.log(`Unknown origin format: ${originFormat}`);
             }
         }
-
         return 'no project or module';
     }
 
-    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean}) {
+    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
         const options = ["View Documentation"];
         if (config.showOutput) {
             options.push("Show Rascal Output Window");
         }
-        options.push("Ok");
+        if (config.canContinue === true) {
+            options.push("Still start the REPL");
+        }
         const selected = await vscode.window.showErrorMessage(msg, {detail : detail, modal: config.modal ?? true}, ...options);
         if (selected === "View Documentation") {
             await vscode.env.openExternal(vscode.Uri.parse("https://www.rascal-mpl.org/docs/GettingStarted/CreateNewProject/"));
+            return false;
         }
         if (selected === "Show Rascal Output Window") {
             await vscode.commands.executeCommand("workbench.action.output.show.extension-output-usethesource.rascalmpl-#1-Rascal MPL Language Server");
+            return false;
         }
+        return config.canContinue === true;
     }
 
     async fileExists(f: vscode.Uri) {
