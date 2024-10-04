@@ -150,10 +150,10 @@ export class RascalExtension implements vscode.Disposable {
     private getTerminalOrigin(uri: vscode.Uri | undefined): string {
         if (uri) {
             const config = vscode.workspace.getConfiguration();
-            const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
             const originFormat = config.get('rascal.terminal.name.originFormat');
             switch (originFormat) {
                 case 'Project root':
+                    const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
                     if (projectRoot && projectRoot.name) {
                         return projectRoot.name;
                     }
