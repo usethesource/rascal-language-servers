@@ -131,13 +131,12 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Calculating project class path"});
                 const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
                 progress.report({increment: 25, message: "Creating terminal"});
-                const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
                     isTransient: false, // right now we don't support transient terminals yet
-                    name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
+                    name: `Rascal terminal (${this.getTerminalOrigin(uri, extraArgs)})`,
                 });
 
                 terminal.show(false);
@@ -147,6 +146,49 @@ export class RascalExtension implements vscode.Disposable {
             await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true, canContinue: false});
         }
     }
+
+    private getTerminalOrigin(uri: vscode.Uri | undefined, extraArgs: string[]): string {
+        if (uri) {
+            const config = vscode.workspace.getConfiguration();
+            const originFormat = config.get('rascal.terminal.name.originFormat');
+            switch (originFormat) {
+                case 'Project root': {
+                    const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
+                    if (projectRoot && projectRoot.name) {
+                        return projectRoot.name;
+                    }
+                    return "no project";
+                }
+                case 'Module (qualified)': {
+                    if (extraArgs[0] === '--loadModule' &&
+                        extraArgs[1] && extraArgs[1].match(this.qualifiedName)) {
+                        return extraArgs[1];
+                    }
+                    return "no module";
+                }
+                case 'Module (unqualified)': {
+                    if (extraArgs[0] === '--loadModule' && extraArgs[1]) {
+                        const name = extraArgs[1].match(this.qualifiedName);
+                        if (name && name[1]) {
+                            return name[1];
+                        }
+                    }
+                    return "no module";
+                }
+                default:
+                    console.log(`Unknown origin format: ${originFormat}`);
+            }
+        }
+        return 'no project or module';
+    }
+
+    private qualifiedName: RegExp = (() => {
+        const name1 = '(?:[A-Z_a-z][0-9A-Z_a-z]*)';
+        const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
+        const name = `(?:${name1}|${name2})`;
+        const qualifiedName = `(?:(?:${name}::)*(${name}))`;
+        return new RegExp(`^${qualifiedName}$`);
+    })(); // Build the regex only once
 
     private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
         const options = ["View Documentation"];
