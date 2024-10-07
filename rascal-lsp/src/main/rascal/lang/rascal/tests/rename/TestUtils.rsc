@@ -259,6 +259,7 @@ private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int 
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
     loc testDir = |memory://tests/rename/<moduleName>|;
+    remove(testDir);
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
 
