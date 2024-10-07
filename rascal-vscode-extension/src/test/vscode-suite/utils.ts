@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -227,7 +227,40 @@ export class IDEOperations {
     }
 
     revertOpenChanges(): Promise<void> {
-        return new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+        return this.driver.wait(async () => {
+            try {
+                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+            } catch (_all) {
+                console.log("Ignoring error while trying to undo: " + _all);
+                try {
+                    const doNoSafeButton = await (new Workbench()).findElements(By.linkText("Don't Save"));
+                    if (doNoSafeButton && doNoSafeButton.length> 0) {
+                        console.log("But we found the do-not-safe button");
+                        await doNoSafeButton[0]!.click();
+                    }
+                }
+                catch (_ignoreAgain) {
+                    console.log("Ignoring error while trying to undo: " + _ignoreAgain);
+                }
+
+            }
+            try {
+                let anyEditor = true;
+                try {
+                    anyEditor = (await (new EditorView().getOpenEditorTitles())).length > 0;
+                } catch (_ignored) {
+                    anyEditor = false;
+                }
+                if (!anyEditor) {
+                    return true;
+                }
+                return !(await new TextEditor().isDirty());
+            }
+            catch (_ignored) {
+                return false;
+
+            }
+        }, Delays.normal, "We should be able to undo").then(_b => {});
     }
 
     async openModule(file: string): Promise<TextEditor> {
