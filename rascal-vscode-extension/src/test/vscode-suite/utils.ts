@@ -227,20 +227,24 @@ export class IDEOperations {
     }
 
     revertOpenChanges(): Promise<void> {
+        let tryCount = 0;
         return this.driver.wait(async () => {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (_all) {
+                this.screenshot("revert failed " + tryCount);
                 console.log("Ignoring error while trying to undo: " + _all);
                 try {
                     const doNoSafeButton = await (new Workbench()).findElements(By.linkText("Don't Save"));
                     if (doNoSafeButton && doNoSafeButton.length> 0) {
+                        this.screenshot("revert failed");
                         console.log("But we found the do-not-safe button");
                         await doNoSafeButton[0]!.click();
                     }
                 }
                 catch (_ignoreAgain) {
-                    console.log("Ignoring error while trying to undo: " + _ignoreAgain);
+                    this.screenshot("revert failed click " + tryCount);
+                    console.log("Ignoring error while trying to undo 2: " + _ignoreAgain);
                 }
 
             }
@@ -257,6 +261,8 @@ export class IDEOperations {
                 return !(await new TextEditor().isDirty());
             }
             catch (_ignored) {
+                this.screenshot("open editor check failed " + tryCount);
+                console.log("Open editor dirtry check failed: " + _ignored);
                 return false;
 
             }
