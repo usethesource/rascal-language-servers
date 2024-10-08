@@ -229,6 +229,7 @@ export class IDEOperations {
     revertOpenChanges(): Promise<void> {
         let tryCount = 0;
         return this.driver.wait(async () => {
+            tryCount++;
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (_all) {
