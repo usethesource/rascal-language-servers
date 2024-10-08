@@ -94,7 +94,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
         try {
             logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), vf.set());
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), VF.bool(false), vf.set());
             logger.debug("Got parser: {}", parser);
             return Either.forLeft(parser);
         }
