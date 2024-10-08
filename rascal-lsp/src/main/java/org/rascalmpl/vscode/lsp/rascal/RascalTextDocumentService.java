@@ -84,8 +84,11 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
+import org.rascalmpl.library.util.ErrorRecovery;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.RascalValueFactory;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -105,6 +108,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -215,26 +219,37 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
         futureTree.handle((tree, excp) -> {
-            Diagnostic newParseError = null;
-            if (excp != null && excp instanceof CompletionException) {
+            List<Diagnostic> parseErrors = new ArrayList<>();
+
+            if (excp instanceof CompletionException) {
                 excp = excp.getCause();
             }
+
             if (excp instanceof ParseError) {
-                newParseError = Diagnostics.translateDiagnostic((ParseError)excp, columns);
+                parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
             }
-            else if (excp != null) {
+
+            if (excp != null) {
                 logger.error("Parsing crashed", excp);
-                newParseError = new Diagnostic(
+                parseErrors.add(new Diagnostic(
                     new Range(new Position(0,0), new Position(0,1)),
                     "Parsing failed: " + excp.getMessage(),
                     DiagnosticSeverity.Error,
-                    "Rascal Parser");
+                    "Rascal Parser"));
             }
-            logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
 
+            if (tree != null) {
+                RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                IList errors = new ErrorRecovery(VALUE_FACTORY).findAllErrors(tree.get());
+                for (IValue error : errors) {
+                    ITree errorTree = (ITree) error;
+                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
+                }
+            }
+
+            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             if (facts != null) {
-                facts.reportParseErrors(file.getLocation(),
-                    newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
+                facts.reportParseErrors(file.getLocation(), parseErrors);
             }
             return null;
         });

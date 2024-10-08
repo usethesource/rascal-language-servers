@@ -42,6 +42,8 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -74,6 +76,9 @@ public class Diagnostics {
         return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
     }
 
+    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
+        return new Diagnostic(toRange(errorTree, cm), "Parse error", DiagnosticSeverity.Error, "parser");
+    }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
@@ -121,8 +126,15 @@ public class Diagnostics {
         return result;
     }
 
+    private static Range toRange(ITree t, ColumnMaps cm) {
+        return toRange(TreeAdapter.getLocation(t), cm);
+    }
+
     private static Range toRange(ParseError pe, ColumnMaps cm) {
-        ISourceLocation loc = pe.getLocation();
+        return toRange(pe.getLocation(), cm);
+    }
+
+    private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
             loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
