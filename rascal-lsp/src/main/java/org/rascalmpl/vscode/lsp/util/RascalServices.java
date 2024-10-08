@@ -27,19 +27,39 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
+import org.rascalmpl.library.util.ErrorRecovery;
 import org.rascalmpl.parser.Parser;
-import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
+import org.rascalmpl.parser.gtd.util.StackNodeIdDispenser;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
+import org.rascalmpl.parser.uptr.recovery.ToTokenRecoverer;
+import org.rascalmpl.values.RascalValueFactory;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.ISourceLocation;
 
 public class RascalServices {
+
+    private static final RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+    private static final IBool TRUE = VALUE_FACTORY.bool(true);
+
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
-        IActionExecutor<ITree> actions = new NoActionExecutor();
-        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
-            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+        // TODO: Which of these objects are stateless and can be reused?
+
+        // Parse
+        RascalParser parser = new RascalParser();
+        ITree tree = parser.parse(
+            Parser.START_MODULE, loc.getURI(), input,
+            new NoActionExecutor(),
+            new DefaultNodeFlattener<>(),
+            new UPTRNodeFactory(true),
+            new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser)));
+
+        // Recover
+        ErrorRecovery recoverer = new ErrorRecovery(VALUE_FACTORY);
+        return (ITree) recoverer.disambiguateErrors(tree, TRUE);
     }
 }
