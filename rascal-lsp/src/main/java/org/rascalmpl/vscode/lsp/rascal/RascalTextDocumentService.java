@@ -239,8 +239,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             }
 
             if (tree != null) {
-                RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-                IList errors = new ErrorRecovery(VALUE_FACTORY).findAllErrors(tree.get());
+                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree.get());
                 for (IValue error : errors) {
                     ITree errorTree = (ITree) error;
                     parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
@@ -282,7 +282,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
+            .handle((t, r) -> (t == null ? (file.getLastTreeWithoutErrors().get()) : t))
             .thenCompose(tr -> rascalServices.getOutline(tr).get())
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             ;
@@ -300,7 +300,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
+            .handle((t, r) -> (t == null ? (file.getLastTreeWithoutErrors().get()) : t))
             .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
             .thenApply(c -> new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, c)))
             ;
@@ -410,7 +410,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .handle((r, e) -> {
                 // fallback to tree if a parsing error occurred.
                 if (r == null) {
-                    r = f.getMostRecentTree();
+                    r = f.getLastTreeWithoutErrors();
                 }
                 if (r == null) {
                     throw new RuntimeException(e);

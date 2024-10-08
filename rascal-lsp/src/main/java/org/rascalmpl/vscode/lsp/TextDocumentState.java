@@ -30,9 +30,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.values.RascalValueFactory;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -51,7 +55,9 @@ public class TextDocumentState {
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile Versioned<String> currentContent;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
+    private volatile @MonotonicNonNull Versioned<ITree> lastTree;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile @MonotonicNonNull Versioned<ITree> lastTreeWithoutErrors;
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
@@ -83,9 +89,14 @@ public class TextDocumentState {
     private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
         return parser.apply(file, content)
             .thenApply(t -> new Versioned<ITree>(version, t))
-            .whenComplete((r, t) -> {
-                if (r != null) {
-                    lastFullTree = r;
+            .whenComplete((t, error) -> {
+                if (t != null) {
+                    RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                    IList errors = new ErrorRecovery(valueFactory).findAllErrors(t.get());
+                    if (errors.isEmpty()) {
+                        lastTreeWithoutErrors = t;
+                    }
+                    lastTree = t;
                 }
             });
     }
@@ -94,8 +105,12 @@ public class TextDocumentState {
         return currentTree;
     }
 
-    public @MonotonicNonNull Versioned<ITree> getMostRecentTree() {
-        return lastFullTree;
+    public @MonotonicNonNull Versioned<ITree> getLastTree() {
+        return lastTree;
+    }
+
+    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
+        return lastTreeWithoutErrors;
     }
 
     public ISourceLocation getLocation() {
