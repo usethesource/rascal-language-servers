@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -93,15 +93,25 @@ export class RascalREPL {
     async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
+            let stopRunning = false;
             try {
                 return await this.driver.wait(async () => {
+                    if (stopRunning) {
+                        // sometimes this code keeps running in a loop
+                        // and messes up all the other interactions
+                        // so we keep track if we're done, and make sure to
+                        // exit quickly in this case.
+                        return true;
+                    }
                     output = await ignoreFails(this.terminal.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
+                        stopRunning = true;
                         return true;
                     }
                     return false;
                 }, wait, "Rascal prompt", 500);
             } catch (_ignored) {
+                stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 return false;
             }
@@ -227,7 +237,34 @@ export class IDEOperations {
     }
 
     revertOpenChanges(): Promise<void> {
-        return new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+        let tryCount = 0;
+        return this.driver.wait(async () => {
+            tryCount++;
+            try {
+                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+            } catch (ex) {
+                this.screenshot("revert failed " + tryCount);
+                console.log("Revert failed, but we ignore it", ex);
+            }
+            try {
+                let anyEditor = true;
+                try {
+                    anyEditor = (await (new EditorView().getOpenEditorTitles())).length > 0;
+                } catch (_ignored) {
+                    anyEditor = false;
+                }
+                if (!anyEditor) {
+                    return true;
+                }
+                return !(await new TextEditor().isDirty());
+            }
+            catch (ignored) {
+                this.screenshot("open editor check failed " + tryCount);
+                console.log("Open editor dirtry check failed: ", ignored);
+                return false;
+
+            }
+        }, Delays.normal, "We should be able to undo").then(_b => {});
     }
 
     async openModule(file: string): Promise<TextEditor> {
