@@ -227,9 +227,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
             if (excp instanceof ParseError) {
                 parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
-            }
-
-            if (excp != null) {
+            } else if (excp != null) {
                 logger.error("Parsing crashed", excp);
                 parseErrors.add(new Diagnostic(
                     new Range(new Position(0,0), new Position(0,1)),
