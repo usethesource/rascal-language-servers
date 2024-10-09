@@ -137,10 +137,16 @@ public class Diagnostics {
     private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
-            loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
-                loc.getOffset(), loc.getLength() + 1,
-                loc.getBeginLine(), loc.getBeginColumn(),
-                loc.getEndLine(), loc.getEndColumn() + 1);
+            try {
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
+                    loc.getOffset(), loc.getLength() + 1,
+                    loc.getBeginLine(), loc.getBeginColumn(),
+                    loc.getEndLine(), loc.getEndColumn() + 1);
+            } catch (Throwable t) {
+                logger.trace("Cannot extend 0-width location for parse error: " + t.getMessage());
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(
+                    loc, 0, 1, 1, 1, 0, 1);
+            }
         }
         return Locations.toRange(loc, cm);
     }
