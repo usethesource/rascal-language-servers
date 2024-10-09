@@ -93,15 +93,25 @@ export class RascalREPL {
     async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
+            let stopRunning = false;
             try {
                 return await this.driver.wait(async () => {
+                    if (stopRunning) {
+                        // sometimes this code keeps running in a loop
+                        // and messes up all the other interactions
+                        // so we keep track if we're done, and make sure to
+                        // exit quickly in this case.
+                        return true;
+                    }
                     output = await ignoreFails(this.terminal.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
+                        stopRunning = true;
                         return true;
                     }
                     return false;
                 }, wait, "Rascal prompt", 500);
             } catch (_ignored) {
+                stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 return false;
             }
