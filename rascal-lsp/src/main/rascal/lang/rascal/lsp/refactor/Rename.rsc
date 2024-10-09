@@ -304,8 +304,7 @@ private CursorKind rascalGetCursorKind(WorkspaceInfo ws, loc cursorLoc, str curs
 
             // Let's figure out what kind of field we are exactly
             if ({loc container} := fields[c], maybeContainerType := getFact(ws, container)) {
-                if ((just(containerType) := maybeContainerType && rascalIsCollectionType(containerType))
-                 || maybeContainerType == nothing()) {
+                if (maybeContainerType == nothing() || rascalIsCollectionType(maybeContainerType.val)) {
                     // Case 1 (or 0): collection field
                     return collectionField();
                 }
