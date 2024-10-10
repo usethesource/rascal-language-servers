@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -53,10 +54,10 @@ public interface ILanguageContributions {
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public CompletableFuture<IList> parseCodeActions(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<ISet> documentation(IList focus);
+    public InterruptibleFuture<ISet> definitions(IList focus);
+    public InterruptibleFuture<ISet> references(IList focus);
+    public InterruptibleFuture<ISet> implementations(IList focus);
     public InterruptibleFuture<IList> codeActions(IList focus);
 
     public CompletableFuture<Boolean> hasAnalyzer();
@@ -109,11 +110,11 @@ public interface ILanguageContributions {
     public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
 
     @FunctionalInterface
-    // To conveniently pass methods `documentation`, `definitions`,
-    // `references`, and `implementations` as parameters.
-    public static interface OndemandCalculator {
-        InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
-    }
+    /**
+     * To conveniently pass methods `documentation`, `definitions`,
+     * `references`, and `implementations` as parameter.
+     */
+    public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
 }
 
 /*package*/ class EmptySummary {

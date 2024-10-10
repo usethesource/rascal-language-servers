@@ -149,17 +149,17 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> documentation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> definitions(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> references(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
@@ -169,7 +169,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> implementations(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
