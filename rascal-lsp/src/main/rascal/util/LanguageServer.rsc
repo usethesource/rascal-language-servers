@@ -358,11 +358,11 @@ default set[loc] newDefiner(list[Tree] _focus) = {};
 ```
 }
 LanguageService definer(Definer d) {
-    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     }
 
-    default set[str] focusAcceptor (list[Tree] _focus) {
+    default set[loc] focusAcceptor (list[Tree] _focus) {
         return {};
     }
 
@@ -390,11 +390,11 @@ default set[loc] newReferrer(list[Tree] _focus) = {};
 ```
 }
 LanguageService referrer(Referrer d) {
-    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     }
 
-    default set[str] focusAcceptor (list[Tree] _focus) {
+    default set[loc] focusAcceptor (list[Tree] _focus) {
         return {};
     }
 
@@ -420,11 +420,11 @@ set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
 ```
 }
 LanguageService implementer(Implementer d) {
-    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
         return d(lex@\loc.top, fullTree, lex);
     }
 
-    default set[str] focusAcceptor (list[Tree] _focus) {
+    default set[loc] focusAcceptor (list[Tree] _focus) {
         return {};
     }
 
