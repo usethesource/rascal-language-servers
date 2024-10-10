@@ -308,7 +308,6 @@ data LanguageService
     | actions(CodeActionContributor actions)
     ;
 
-@deprecated{This is a backward compatibility layer for the pre-existing ((Documenter)) alias.}
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
 
