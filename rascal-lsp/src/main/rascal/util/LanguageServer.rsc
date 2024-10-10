@@ -66,11 +66,11 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 
 @synopsis{Function profile for parser contributions to a language server}
 @description{
-    The parser function takes care of parsing the tree once after every change in the IDE.
-    This parse tree is then used for both syntax highlighting and other language server functions.
+The parser function takes care of parsing the tree once after every change in the IDE.
+This parse tree is then used for both syntax highlighting and other language server functions.
 }
 @pitfalls {
-    * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
+* use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
 alias Parser           = Tree (str _input, loc _origin);
 
@@ -338,7 +338,7 @@ LanguageService documenter(Documenter d) {
     return documenter(focusAcceptor);
 }
 
-@deprecated{This is a backward compatibility layer for the pre-existing ((Definer)) alias.}
+
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Definer)) alias.
 
