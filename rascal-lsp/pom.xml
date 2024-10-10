@@ -65,17 +65,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.7</version>
+      <version>0.40.11</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.4</version>
+      <version>0.12.8</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.14.0</version>
+      <version>0.14.3</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -164,7 +164,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.28.1</version>
+        <version>0.28.5</version>
         <configuration>
           <errorsAsWarnings>false</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
