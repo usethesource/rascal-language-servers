@@ -451,7 +451,7 @@ LanguageService summarizer(Summarizer summarizer
 * `src` refers to the "compilation unit" or "file" that this model is for.
 * `messages` collects all the errors, warnings and error messages.
 * `documentation` maps uses of concepts to a documentation message that can be shown as a hover.
-* `definition` maps use locations to declaration locations to implement "jump-to-definition".
+* `definitions` maps use locations to declaration locations to implement "jump-to-definition".
 * `references` maps declaration locations to use locations to implement "jump-to-references".
 * `implementations` maps the declaration of a type/class to its implementations "jump-to-implementations".
 }
