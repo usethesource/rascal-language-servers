@@ -72,6 +72,7 @@ This parse tree is then used for both syntax highlighting and other language ser
 @pitfalls {
 * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
+@deprecated{Used only in deprecated functions}
 alias Parser           = Tree (str _input, loc _origin);
 
 @synopsis{Function profile for summarizer contributions to a language server}
@@ -93,6 +94,7 @@ A summarizer provides the same information as the following contributors combine
 The difference is that these contributions are executed on-demand (pulled), while Summarizers
 are executed after build or after typing (push).
 }
+@deprecated{Used only in deprecated functions}
 alias Summarizer       = Summary (loc _origin, Tree _input);
 
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
@@ -124,15 +126,19 @@ of the user.
 alias Focus = list[Tree];
 
 @synopsis{Function profile for outliner contributions to a language server}
+@deprecated{Only in use in deprecated functions.}
 alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
+@deprecated{Only in use in deprecated functions.}
 alias LensDetector     = rel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
+@deprecated{Only in use in deprecated functions.}
 alias CommandExecutor  = value (Command _command);
 
 @synopsis{Function profile for inlay contributions to a language server}
+@deprecated{Only in use in deprecated functions.}
 alias InlayHinter      = list[InlayHint] (Tree _input);
 
 @synopsis{Function profile for documentation contributions to a language server}
@@ -146,7 +152,7 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-@deprecated{The ((FocusDocumenter)) has replaced this type.}
+@deprecated{Only in use in deprecated functions}
 alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for documentation contributions to a language server}
@@ -287,39 +293,45 @@ Many language contributions received a ((Focus)) parameter. This helps to create
 is syntax-directed: relevant to the current syntactical constructs under the cursor.
 }
 data LanguageService
-    = parsing(Parser parser)
-    | analysis(Summarizer summarizer
+    = parsing(Tree (str _input, loc _origin) parser)
+    | analysis(Summary (loc _origin, Tree _input) summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | build(Summarizer summarizer
+    | build(Summary (loc _origin, Tree _input) summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | outline(Outliner outliner)
-    | lense(LensDetector detector)
-    | inlay(InlayHinter hinter)
-    | execution(CommandExecutor executor)
-    | documentation(FocusDocumenter documenter)
-    | definition(FocusDefiner definer)
-    | reference(FocusReferrer reference)
-    | implementation(FocusImplementer implementer)
-    | action(CodeActionContributor actions)
+    | outline(list[DocumentSymbol] (Tree _input) labeler)
+    | codeLense(lrel[loc src, Command lens] (Tree _input) detector)
+    | inlay(list[InlayHint] (Tree _input) hinter)
+    | execution(value (Command _command) executor)
+    | documentation(set[str] (Focus _focus) documentor)
+    | definition(set[loc] (Focus _focus) linker)
+    | reference(set[loc] (Focus _focus) linker)
+    | implementation(set[loc] (Focus _focus) linker)
+    | action(list[CodeAction] (Focus _focus) actions)
     ;
 
 @deprecated{Backward compatible with `parsing`}
 @synopsis{Construct a `parsing` LanguageService}
 LanguageService parser(Parser parser) = parsing(parser);
 
-@deprecated{Backward compatible with `lenses`}
-@synopsis{Construct a `lense` LanguageService}
-LanguageService lenses(LensDetector detector) = lense(detector);
+@deprecated{Backward compatible with `codeLense`}
+@synopsis{Construct a `codeLense` LanguageService}
+@description{
+Not only translates to the old name of the LanguageService,
+it also maps the list to an arbitrarily ordered set as it was before.
+}
+LanguageService lenses(LensDetector detector) = codeLense(lrel[loc src, Command lens] (Tree input) {
+    return [*detector(input)];
+});
 
 @deprecated{Backward compatible with `action`}
 @synopsis{Construct a `lense` LanguageService}
-LanguageService actios(CodeActionContributor contributor) = action(contributor);
+LanguageService actions(CodeActionContributor contributor) = action(contributor);
 
 @deprecated{Backward compatible with `analysis`}
 @synopsis{Construct a `analysis` LanguageService}
