@@ -364,15 +364,15 @@ To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) foll
 this scheme:
 
 ```rascal
-set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
+set[loc] oldDocumenter(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newDocumenter([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
-default set[loc] newImplementer(list[Tree] _focus) = {};
+default set[loc] newDocumenter(list[Tree] _focus) = {};
 ```
 }
 LanguageService documenter(Documenter d) {
@@ -384,7 +384,7 @@ LanguageService documenter(Documenter d) {
         return {};
     }
 
-    return documenter(focusAcceptor);
+    return documentation(focusAcceptor);
 }
 
 
@@ -415,7 +415,7 @@ LanguageService definer(Definer d) {
         return {};
     }
 
-    return definer(focusAcceptor);
+    return definition(focusAcceptor);
 }
 
 
@@ -447,7 +447,7 @@ LanguageService referrer(Referrer d) {
         return {};
     }
 
-    return referrer(focusAcceptor);
+    return reference(focusAcceptor);
 }
 
 @synopsis{Registers an old-style ((Implementer))}
@@ -477,7 +477,7 @@ LanguageService implementer(Implementer d) {
         return {};
     }
 
-    return implementer(focusAcceptor);
+    return implementation(focusAcceptor);
 }
 
 @deprecated{Please use ((build)) or ((analysis))}
