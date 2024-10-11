@@ -293,7 +293,7 @@ data LanguageService
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | builder(Summarizer summarizer
+    | build(Summarizer summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
