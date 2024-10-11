@@ -331,7 +331,7 @@ set[loc] rascalGetKeywordFormals((KeywordFormals) ``, str _) = {};
 set[loc] rascalGetKeywordFormals((KeywordFormals) `<OptionalComma _> <{KeywordFormal ","}+ keywordFormals>`, str cursorName) =
     rascalGetKeywordFormalList(keywordFormals, cursorName);
 
-set[loc] rascalGetKeywordFormalList([{KeywordFormal ","}+] keywordFormals, str cursorName) =
+set[loc] rascalGetKeywordFormalList({KeywordFormal ","}+ keywordFormals, str cursorName) =
     { kwFormal.name.src
     | kwFormal <- keywordFormals
     , "<kwFormal.name>" == cursorName};
