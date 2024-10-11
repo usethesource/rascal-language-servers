@@ -283,7 +283,7 @@ documentation, definitions, references, implementations and compiler errors and 
    * a ((definition)) service is a fast and location specific version of the `definitions` relation in a ((Summary)).
    * a ((reference)) service is a fast and location specific version of the `references` relation in a ((Summary)).
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
-* The ((outline)) service maps a source file to a pretty hierarchy for visualization in the "outline" view
+* The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((lenses)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
 * The ((inlays)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
@@ -304,9 +304,9 @@ data LanguageService
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | outline(list[DocumentSymbol] (Tree _input) labeler)
+    | documentSymbol(list[DocumentSymbol] (Tree _input) labeler)
     | codeLense(lrel[loc src, Command lens] (Tree _input) detector)
-    | inlay(list[InlayHint] (Tree _input) hinter)
+    | inlayHint(list[InlayHint] (Tree _input) hinter)
     | execution(value (Command _command) executor)
     | documentation(set[str] (Focus _focus) documentor)
     | definition(set[loc] (Focus _focus) linker)
@@ -341,13 +341,13 @@ LanguageService analyzer(Summarizer summarizer) = analysis(summarizer);
 @synopsis{Construct a `build` LanguageService}
 LanguageService builder(Summarizer summarizer) = build(summarizer);
 
-@deprecated{Backward compatible with `outline`}
+@deprecated{Backward compatible with `documentSymbol`}
 @synopsis{Construct a `build` LanguageService}
-LanguageService outliner(Outliner outliner) = outline(outliner);
+LanguageService outliner(Outliner outliner) = documentSymbol(outliner);
 
 @deprecated{Backward compatible with `inlays`}
 @synopsis{Construct a `inlays` LanguageService}
-LanguageService inlayHinter(InlayHinter hinter) = inlay(hinter);
+LanguageService inlayHinter(InlayHinter hinter) = inlayHint(hinter);
 
 @deprecated{Backward compatible with `execution`}
 @synopsis{Construct a `execution` LanguageService}
