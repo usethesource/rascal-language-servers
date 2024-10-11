@@ -247,7 +247,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
+    public InterruptibleFuture<IList> lenses(ITree input) {
         return flatten(lensDetector, c -> c.lenses(input));
     }
 

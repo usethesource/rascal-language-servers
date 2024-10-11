@@ -26,6 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 @contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
 @contributor{Davy Landman - davy.landman@swat.engineering - Swat.engineering BV}
+@contributor{Sung-Shik Jongmans - sung-shik.jongmans@swat.engineering - Swat.engineering BV}
 @synopsis{Bridges {DSL,PL,Modeling} language features to the language server protocol.}
 @description{
 Using the ((registerLanguage)) function you can connect any parsers, checkers,
@@ -127,7 +128,11 @@ alias Focus = list[Tree];
 alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
+@deprecated{The ((OrderedLensDetector)) has replaced this type}
 alias LensDetector     = rel[loc src, Command lens] (Tree _input);
+
+@synopsis{Function profile for lenses contributions to a language server}
+alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
 alias CommandExecutor  = value (Command _command);
@@ -298,7 +303,7 @@ data LanguageService
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outliner(Outliner outliner)
-    | lenses(LensDetector detector)
+    | lenses(OrderedLensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
     | documenter(FocusDocumenter documenter)
@@ -307,6 +312,17 @@ data LanguageService
     | implementer(FocusImplementer implementer)
     | actions(CodeActionContributor actions)
     ;
+
+
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((LensDetector)) alias.
+
+The primary change is that lenses are now ordered, such that you have control over in which order they appear in the client.
+
+To adapt to the new one, use a function that generates a `lrel` instead of a `rel`.
+}
+LanguageService lenses(LensDetector oldDetector)
+    = lenses(lrel[loc src, Command lens] (Tree input) { return [*oldDetector(input)]; });
 
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
