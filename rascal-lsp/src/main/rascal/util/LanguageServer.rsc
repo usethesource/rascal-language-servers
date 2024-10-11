@@ -299,19 +299,27 @@ data LanguageService
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outline(Outliner outliner)
-    | lenses(LensDetector detector)
-    | inlays(InlayHinter hinter)
+    | lense(LensDetector detector)
+    | inlay(InlayHinter hinter)
     | execution(CommandExecutor executor)
     | documentation(FocusDocumenter documenter)
     | definition(FocusDefiner definer)
     | reference(FocusReferrer reference)
     | implementer(FocusImplementer implementer)
-    | actions(CodeActionContributor actions)
+    | action(CodeActionContributor actions)
     ;
 
 @deprecated{Backward compatible with `parsing`}
 @synopsis{Construct a `parsing` LanguageService}
 LanguageService parser(Parser parser) = parsing(parser);
+
+@deprecated{Backward compatible with `lenses`}
+@synopsis{Construct a `lense` LanguageService}
+LanguageService lenses(LensDetector detector) = lense(detector);
+
+@deprecated{Backward compatible with `action`}
+@synopsis{Construct a `lense` LanguageService}
+LanguageService actios(CodeActionContributor contributor) = action(contributor);
 
 @deprecated{Backward compatible with `analysis`}
 @synopsis{Construct a `analysis` LanguageService}
@@ -319,15 +327,15 @@ LanguageService analyzer(Summarizer summarizer) = analysis(summarizer);
 
 @deprecated{Backward compatible with `build`}
 @synopsis{Construct a `build` LanguageService}
-LanguageService builder(Summarizer summarizer) = builder(summarizer);
+LanguageService builder(Summarizer summarizer) = build(summarizer);
 
 @deprecated{Backward compatible with `outline`}
 @synopsis{Construct a `build` LanguageService}
-LanguageService outliner(Summarizer summarizer) = outline(summarizer);
+LanguageService outliner(Summarizer summarizer) = LanguageService::outline(summarizer);
 
 @deprecated{Backward compatible with `inlays`}
 @synopsis{Construct a `inlays` LanguageService}
-LanguageService inlayHinter(InlayHinter hinter) = inlays(hinter);
+LanguageService inlayHinter(InlayHinter hinter) = inlay(hinter);
 
 @deprecated{Backward compatible with `execution`}
 @synopsis{Construct a `execution` LanguageService}
