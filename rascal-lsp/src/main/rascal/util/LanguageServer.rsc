@@ -305,7 +305,7 @@ data LanguageService
     | documentation(FocusDocumenter documenter)
     | definition(FocusDefiner definer)
     | reference(FocusReferrer reference)
-    | implementer(FocusImplementer implementer)
+    | implementation(FocusImplementer implementer)
     | action(CodeActionContributor actions)
     ;
 
@@ -331,7 +331,7 @@ LanguageService builder(Summarizer summarizer) = build(summarizer);
 
 @deprecated{Backward compatible with `outline`}
 @synopsis{Construct a `build` LanguageService}
-LanguageService outliner(Summarizer summarizer) = LanguageService::outline(summarizer);
+LanguageService outliner(Outliner outliner) = outline(outliner);
 
 @deprecated{Backward compatible with `inlays`}
 @synopsis{Construct a `inlays` LanguageService}
@@ -480,7 +480,7 @@ LanguageService implementer(Implementer d) {
     return implementer(focusAcceptor);
 }
 
-@deprecated{Please use ((builder)) or ((analyzer))}
+@deprecated{Please use ((build)) or ((analysis))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
 LanguageService summarizer(Summarizer summarizer
         , bool providesDocumentation = true
@@ -488,7 +488,7 @@ LanguageService summarizer(Summarizer summarizer
         , bool providesReferences = true
         , bool providesImplementations = true) {
     println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
-    return builder(summarizer
+    return build(summarizer
         , providesDocumentation = providesDocumentation
         , providesDefinitions = providesDefinitions
         , providesReferences = providesReferences
