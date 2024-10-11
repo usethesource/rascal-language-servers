@@ -76,24 +76,6 @@ This parse tree is then used for both syntax highlighting and other language ser
 alias Parser           = Tree (str _input, loc _origin);
 
 @synopsis{Function profile for summarizer contributions to a language server}
-@description{
-Summarizers provide information about the declarations and uses in the current file
-which can be used to populate the information needed to implement interactive IDE
-features.
-
-There are two places a Summarizer can be called:
-* Summarizers can be called after _file save_, in this case we use ((builder))s. Builders typically also have side-effects on disk (leaving generated code or API descriptions in the target folder), and they may run whole-program analysis and compilation steps.
-* Or they can be called while typing, in this case we use ((analyzer))s. Analyzers typically use stored or cached information from other files, but focus their own analysis on their own file. Analyzers may use incremental techniques.
-
-A summarizer provides the same information as the following contributors combined:
-* ((documenter))
-* ((definer))
-* ((referrer))
-* ((implementer))
-
-The difference is that these contributions are executed on-demand (pulled), while Summarizers
-are executed after build or after typing (push).
-}
 @deprecated{Used only in deprecated functions}
 alias Summarizer       = Summary (loc _origin, Tree _input);
 
@@ -147,13 +129,16 @@ alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor)
 @deprecated{Only in use in deprecated functions}
 alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
-@deprecated{Only in use in deprecated functions}
+@synopsis{Function profile for definer contributions to a language server}
+@deprecated{Use ((FocusDefiner)) instead.}
 alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
-@deprecated{Only in use in deprecated functions}
+@synopsis{Function profile for referrer contributions to a language server}
+@deprecated{Use ((FocusReferrer)) instead}
 alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
-@deprecated{Only in use in deprecated functions}
+@synopsis{Function profile for implementer contributions to a language server}
+@deprecated{Use ((FocusImplementer)) instead.}
 alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
