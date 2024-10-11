@@ -260,34 +260,35 @@ alias FocusImplementer = set[loc] (Focus _focus);
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService provides one aspect of definining the language server protocol.
-* ((parser)) maps source code to a parse tree and indexes each part based on offset and length
-* ((analyzer)) indexes a file as a ((Summary)), offering precomputed relations for looking up
+* The ((parsing)) service maps source code to a parse tree and indexes each part based on offset and length
+* The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
 documentation, definitions, references, implementations and compiler errors and warnings.
-   * ((analyzer))s focus on their own file, but may reuse cached or stored indices from other files.
-   * ((analyzer))s have to be quick since they run in an interactive editor setting.
-   * ((analyzer))s may store previous results (in memory) for incremental updates.
-   * ((analyzer))s are triggered during typing, in a short typing pause.
-* ((builder)) is similar to an `analyzer`, but it may perform computation-heavier additional checks.
-   * ((builder))s typically run whole-program analyses and compilation steps.
-   * ((builder))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
-   * ((builder))s are triggered on _save-file_ events; they _push_ information to an internal cache.
-   * Warning: ((builder))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
+   * ((analysis)) focuses on their own file, but may reuse cached or stored indices from other files.
+   * ((analysis)) has to be quick since they run in an interactive editor setting.
+   * ((analysis)) may store previous results (in memory) for incremental updates.
+   * ((analysis)) is triggered during typing, in a short typing pause.
+* The ((build)) service is similar to an `analyzer`, but it may perform computation-heavier additional checks.
+   * ((build))s typically run whole-program analyses and compilation steps.
+   * ((build))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
+   * ((build))s are triggered on _save-file_ events; they _push_ information to an internal cache.
+   * Warning: ((build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
 * the following contributions are _on-demand_ (pull) versions of information also provided by the analyzer and builder summaries.
-   * a ((documenter)) is a fast and location specific version of the `documentation` relation in a ((Summary)).
-   * a ((definer)) is a fast and location specific version of the `definitions` relation in a ((Summary)).
-   * a ((referrer)) is a fast and location specific version of the `references` relation in a ((Summary)).
-   * an ((implementer)) is a fast and location specific version of the `implementations` relation in a ((Summary)).
-* ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
-* ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* ((inlayHinter)) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
-* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s.
+   * a ((documentation)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
+   * a ((definition)) service is a fast and location specific version of the `definitions` relation in a ((Summary)).
+   * a ((reference)) service is a fast and location specific version of the `references` relation in a ((Summary)).
+   * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
+* The ((outline)) service maps a source file to a pretty hierarchy for visualization in the "outline" view
+* The ((lenses)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
+* The ((inlays)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
+* The ((actions)) service discovers palces to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 
 Many language contributions received a ((Focus)) parameter. This helps to create functionality that
 is syntax-directed: relevant to the current syntactical constructs under the cursor.
 }
 data LanguageService
-    = parser(Parser parser)
-    | analyzer(Summarizer summarizer
+    = parsing(Parser parser)
+    | analysis(Summarizer summarizer
         , bool providesDocumentation = true
         , bool providesDefinitions = true
         , bool providesReferences = true
@@ -297,16 +298,56 @@ data LanguageService
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | outliner(Outliner outliner)
+    | outline(Outliner outliner)
     | lenses(LensDetector detector)
-    | inlayHinter(InlayHinter hinter)
-    | executor(CommandExecutor executor)
-    | documenter(FocusDocumenter documenter)
-    | definer(FocusDefiner definer)
-    | referrer(FocusReferrer reference)
+    | inlays(InlayHinter hinter)
+    | execution(CommandExecutor executor)
+    | documentation(FocusDocumenter documenter)
+    | definition(FocusDefiner definer)
+    | reference(FocusReferrer reference)
     | implementer(FocusImplementer implementer)
     | actions(CodeActionContributor actions)
     ;
+
+@deprecated{Backward compatible with `parsing`}
+@synopsis{Construct a `parsing` LanguageService}
+LanguageService parser(Parser parser) = parsing(parser);
+
+@deprecated{Backward compatible with `analysis`}
+@synopsis{Construct a `analysis` LanguageService}
+LanguageService analyzer(Summarizer summarizer) = analysis(summarizer);
+
+@deprecated{Backward compatible with `build`}
+@synopsis{Construct a `build` LanguageService}
+LanguageService builder(Summarizer summarizer) = builder(summarizer);
+
+@deprecated{Backward compatible with `outline`}
+@synopsis{Construct a `build` LanguageService}
+LanguageService outliner(Summarizer summarizer) = outline(summarizer);
+
+@deprecated{Backward compatible with `inlays`}
+@synopsis{Construct a `inlays` LanguageService}
+LanguageService inlayHinter(InlayHinter hinter) = inlays(hinter);
+
+@deprecated{Backward compatible with `execution`}
+@synopsis{Construct a `execution` LanguageService}
+LanguageService executor(CommandExecutor executor) = execution(executor);
+
+@deprecated{Backward compatible with `documentation`}
+@synopsis{Construct a `documentation` LanguageService}
+LanguageService documenter(FocusDocumenter documentor) = documentation(documentor);
+
+@deprecated{Backward compatible with `definition`}
+@synopsis{Construct a `definition` LanguageService}
+LanguageService definer(FocusDefiner definer) = definition(definer);
+
+@deprecated{Backward compatible with `reference`}
+@synopsis{Construct a `reference` LanguageService}
+LanguageService referer(FocusReferrer referer) = reference(referer);
+
+@deprecated{Backward compatible with `implementation`}
+@synopsis{Construct a `implementation` LanguageService}
+LanguageService implementer(FocusImplementer implementer) = implementation(implementer);
 
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
