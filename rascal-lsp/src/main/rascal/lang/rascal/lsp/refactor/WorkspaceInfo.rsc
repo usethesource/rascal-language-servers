@@ -57,6 +57,7 @@ data CursorKind
     | dataCommonKeywordField(loc dataTypeDef, AType fieldType)
     | keywordParam()
     | moduleName()
+    | exceptConstructor()
     ;
 
 data Cursor
@@ -66,7 +67,7 @@ data Cursor
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 alias FileRenamesF = rel[loc old, loc new](str newName);
 alias DefsUsesRenames = tuple[set[loc] defs, set[loc] uses, FileRenamesF renames];
-alias ProjectFiles = rel[loc projectFolder, loc file];
+alias ProjectFiles = rel[loc projectFolder, loc file, bool loadModel];
 
 /**
  * This is a subset of the fields from analysis::typepal::TModel, specifically tailored to refactorings.
@@ -166,10 +167,10 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) 
          ;
 }
 
-@memo{maximumSize=1, minutes=5}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(WorkspaceInfo ws) = toRel(ws.scopes)*;
 
-@memo{maximumSize=10, minutes=5}
+@memo{maximumSize(10), expireAfter(minutes=5)}
 set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
     rel[loc from, loc scope] fromScopes = {};
     for (from <- froms) {
@@ -185,26 +186,34 @@ set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
     return {s.top | s <- reachable.modScope};
 }
 
-@memo{maximumSize=1, minutes=5}
+@memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc, Define] definitionsRel(WorkspaceInfo ws) = toRel(ws.definitions);
 
 set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
     rel[loc from, Define define] reachableDefs =
-        (ws.defines<defined, defined, scope>)[defs] // <definition, scope> pairs
-      o scopes                                      // All scopes surrounding defs
-      o modulePaths                                 // Transitive-reflexive paths from scope to reachable modules
-      o ws.defines<scope, defined>                  // Definitions in these scopes
-      o definitionsRel(ws);                         // Full define tuples
-    return reachableDefs.define;                    // We are only interested in reached defines; not *from where* they were reached
+        (ws.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
+      o (
+         (scopes                                                // All scopes surrounding defs
+        o modulePaths                                           // Transitive-reflexive paths from scope to reachable modules
+        ) + (                                                   // In ADT and syntax definitions, search inwards to find field scopes
+          (ws.defines<idRole, scope, defined>)[dataId()]
+        + (ws.defines<idRole, scope, defined>)[nonterminalId()]
+        + (ws.defines<idRole, scope, defined>)[lexicalId()]
+        )
+      )
+      o ws.defines<scope, defined>                              // Definitions in these scopes
+      o definitionsRel(ws);                                     // Full define tuples
+    return reachableDefs.define;                                // We are only interested in reached defines; not *from where* they were reached
 }
 
 set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
     if (defs == {}) return {};
     set[loc] overloadedDefs = defs;
 
-    set[IdRole] roles = definitionsRel(ws)[defs].idRole;
+    set[Define] originalDefs = definitionsRel(ws)[defs];
+    set[IdRole] roles = originalDefs.idRole;
 
     // Pre-conditions
     assert size(roles) == 1:
@@ -228,7 +237,15 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
       o scopeDefs                  // 3. Find definitions in the reached scope, and definitions within those definitions (transitively)
       ;
 
-    rel[loc from, loc to] defPaths = fromDefPaths + invert(fromDefPaths);
+    rel[loc from, loc to] defPaths = {};
+    if (constructorId() := role) {
+        // We are just looking for constructors for the same ADT/nonterminal type
+        rel[loc, loc] selectedConstructors = (ws.defines<defInfo, defined, defined>)[originalDefs.defInfo];
+        defPaths = (defPaths o selectedConstructors)
+                 + (invert(defPaths) o selectedConstructors);
+    } else {
+        defPaths = fromDefPaths + invert(fromDefPaths);
+    }
 
     solve(overloadedDefs) {
         rel[loc from, loc to] reachableDefs = ident(overloadedDefs) o defPaths;
@@ -251,32 +268,42 @@ bool rascalIsDataType(AType at) = at is aadt;
 
 bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (l <- defs, !definitions[l]?) return false;
-    set[str] names = {definitions[l].id | l <- defs};
-    if (size(names) > 1) return false;
+    set[Define] defines = {definitions[d] | d <- defs};
 
-    map[loc, Define] potentialOverloadDefinitions = (l: d | l <- definitions, d := definitions[l], d.id in names);
-    return rascalMayOverload(defs, potentialOverloadDefinitions);
+    if (size(defines.id) > 1) return false;
+    if ({IdRole role} := defines.idRole) {
+        return rascalMayOverload(defs, definitions);
+    }
+    return false;
 }
 
 set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
+    bool isDataTypeLike(dataId()) = true;
+    bool isDataTypeLike(nonterminalId()) = true;
+    bool isDataTypeLike(lexicalId()) = true;
+    default bool isDataTypeLike(IdRole _) = false;
+
     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
         ? {lhs}
         : getDefs(ws, lhs)
         ;
 
-    AType lhsType = ws.facts[lhs];
-    if (rascalIsConstructorType(lhsType)) {
-        return {adt
-            | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
-            , AType consAdtType := cons.defInfo.atype.adt
-            , Define adt: <_, _, _, dataId(), _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
-        };
-    } else if (rascalIsDataType(lhsType)) {
-        return {adt
-            | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-            , Define adt: <_, _, _, dataId(), _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
-        };
+    if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
+        if (rascalIsConstructorType(lhsType)) {
+            return {adt
+                | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+                , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+                , AType consAdtType := cons.defInfo.atype.adt
+                , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
+                , isDataTypeLike(adt.idRole)
+            };
+        } else if (rascalIsDataType(lhsType)) {
+            return {adt
+                | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+                , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
+                , isDataTypeLike(adt.idRole)
+            };
+        }
     }
 
     return {};
@@ -339,6 +366,33 @@ set[loc] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorNa
             throw unsupportedRename("Unknown type for definition at <d>: <ws.definitions[d].defInfo>");
         }
     }
+    return uses;
+}
+
+private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
+    constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := ws.definitions[l]};
+    if (constructorDefs == {}) return {};
+
+    // We consider constructor definitions; we need to additionally find any uses at excepts (`!constructor``)
+    sortedFacts = [<l, ws.facts[l]> | l <- sort(domain(ws.facts), bool(loc l1, loc l2) {
+        // Sort facts by end location (ascending), then by length (ascending)
+        return l1.end != l2.end ? l1.end < l2.end : l1.length < l2.length;
+    })];
+
+    set[loc] uses = {};
+    for (Define d: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
+        // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
+        for (
+            [ _*
+            , <l1, at1: !/\a-except(consName)>
+            , <l2, at2:  /\a-except(consName)>
+            , _*] := sortedFacts
+            , aprod(choice(_, _)) !:= at2
+        ) {
+            // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
+            uses += trim(l2, removePrefix = l2.length - size(consName));
+        }
+    }
 
     return uses;
 }
@@ -347,9 +401,12 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName)
     defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     uses = getUses(ws, defs);
 
-    if (keywordFormalId() in {ws.definitions[d].idRole | d <- defs}) {
+    set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
+    if (keywordFormalId() in roles) {
         uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
+    } else if (constructorId() in roles) {
+        uses += rascalGetExceptUses(ws, defs);
     }
 
     return <defs, uses, NO_RENAMES>;
@@ -361,25 +418,59 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName)
     defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
     uses = getUses(ws, defs);
 
-    if (keywordFormalId() in {ws.definitions[d].idRole | d <- defs}) {
+    set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
+    if (keywordFormalId() in roles) {
         uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
+    } else if (constructorId() in roles) {
+        uses += rascalGetExceptUses(ws, defs);
     }
 
     return <defs, uses, NO_RENAMES>;
 }
 
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(exceptConstructor(), l, cursorName), MayOverloadFun mayOverloadF) {
+    if (f <- ws.facts
+       , isContainedIn(l, f)
+       , aprod(prod(_, [*_, conditional(AType nontermType, /\a-except(cursorName)) ,*_])) := ws.facts[f]
+       , Define currentCons:<_, _, _, constructorId(), _, _> <- ws.defines
+       , isContainedIn(currentCons.defined, f)
+       , Define exceptCons:<_, cursorName, _, constructorId(), _, defType(acons(nontermType, _, _))> <- rascalReachableDefs(ws, {currentCons.defined})) {
+        return rascalGetDefsUses(ws, cursor(def(), exceptCons.defined, cursorName), mayOverloadF);
+    }
+
+    return <{}, {}, NO_RENAMES>;
+}
+
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _) {
-    AType at = ws.facts[cursorLoc];
+    set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
+    set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
+        perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
+        // Per parameter name, keep the top-left-most occurrence
+        return mapper(groupRangeByDomain(perName), loc(set[loc] locs) {
+            return (getFirstFrom(locs) | l.offset < it.offset ? l : it | l <- locs);
+        });
+    }
+
+    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(dT)>, AType paramType) =
+        afunc(_, /paramType, _) := dT;
+    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(dT)>, AType paramType) =
+        aadt(_, /paramType, _) := dT;
+    default bool definesTypeParam(Define _, AType _) = false;
+
+    AType cursorType = ws.facts[cursorLoc];
+
     set[loc] defs = {};
     set[loc] useDefs = {};
-    for (Define d: <_, _, _, _, _, defType(afunc(_, /at, _))> <- ws.defines, isContainedIn(cursorLoc, d.defined)) {
+    for (Define containingDef <- ws.defines
+     , isContainedIn(cursorLoc, containingDef.defined)
+     , definesTypeParam(containingDef, cursorType)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
         facts = {<l, ws.facts[l]> | l <- ws.facts
-                                  , at := ws.facts[l]
-                                  , isContainedIn(l, d.defined)};
+                                  , cursorType := ws.facts[l]
+                                  , isContainedIn(l, containingDef.defined)};
 
-        formals = {l | <l, f> <- facts, f.alabel != ""};
+        formals = getFormals(containingDef.defInfo.atype, facts);
 
         // Given the location/offset of `&T`, find the location/offset of `T`
         offsets = sort({l.offset | l <- facts<0>});
@@ -394,8 +485,6 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
                     , !any(ud <- ws.useDef[l], ws.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
                     , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
         };
-
-
     }
 
     return <defs, useDefs - defs, NO_RENAMES>;
@@ -407,8 +496,8 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
         initialDefs = getDefs(ws, cursorLoc);
     } else if (cursorLoc in ws.defines<defined>) {
         initialDefs = {cursorLoc};
-    } else if (just(AType adtType) := getFact(ws, cursorLoc)) {
-        set[Define] reachableDefs = rascalReachableDefs(ws, {cursorLoc});
+    } else if (just(AType adtType) := getFact(ws, adtLoc)) {
+        set[Define] reachableDefs = rascalReachableDefs(ws, {adtLoc});
         initialDefs = {
             kwDef.defined
             | Define dataDef: <_, _, _, dataId(), _, defType(adtType)> <- rascalGetADTDefinitions(ws, cursorLoc)
