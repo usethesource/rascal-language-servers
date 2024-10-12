@@ -216,10 +216,6 @@ LanguageService lenses(LensDetector detector) = codeLense(lrel[loc src, Command 
 @synopsis{Construct a `lense` LanguageService}
 LanguageService actions(CodeActionContributor contributor) = codeAction(contributor);
 
-@deprecated{Backward compatible with `analysis`}
-@synopsis{Construct a `analysis` LanguageService}
-LanguageService analyzer(Summarizer summarizer) = analysis(summarizer);
-
 @deprecated{Backward compatible with `build`}
 @synopsis{Construct a `build` LanguageService}
 LanguageService builder(Summarizer summarizer) = build(summarizer);
@@ -368,6 +364,20 @@ LanguageService summarizer(Summarizer summarizer
         , bool providesImplementations = true) {
     println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
     return build(summarizer
+        , providesDocumentation = providesDocumentation
+        , providesDefinitions = providesDefinitions
+        , providesReferences = providesReferences
+        , providesImplementations = providesImplementations);
+}
+
+@deprecated{Please use ((build)) or ((analysis))}
+@synopsis{An analyzer collects information for later use in interactive IDE features.}
+LanguageService analyzer(Summarizer summarizer
+        , bool providesDocumentation = true
+        , bool providesDefinitions = true
+        , bool providesReferences = true
+        , bool providesImplementations = true) {
+    return analysis(summarizer
         , providesDocumentation = providesDocumentation
         , providesDefinitions = providesDefinitions
         , providesReferences = providesReferences

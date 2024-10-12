@@ -24,8 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-// @deprecated{This demo has been superseded by ((NewLanguageServer)) which avoids the use of deprecated API.}
-module demo::lang::pico::LanguageServer
+module demo::lang::pico::NewLanguageServer
 
 import util::LanguageServer;
 import util::IDEServices;
@@ -35,20 +34,20 @@ import lang::pico::\syntax::Main;
 
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
 set[LanguageService] picoLanguageContributor() = {
-    parser(parser(#start[Program])),
-    outliner(picoOutliner),
-    lenses(picoLenses),
-    executor(picoCommands),
-    inlayHinter(picoHinter),
-    definer(lookupDef),
-    actions(picoActions)
+    parsing(parser(#start[Program])),
+    documentSymbol(picoOutliner),
+    codeLense(picoLenses),
+    execution(picoCommands),
+    inlayHint(picoHinter),
+    definition(lookupDef),
+    codeAction(picoActions)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
 set[LanguageService] picoLanguageContributorSlowSummary() = {
-    parser(parser(#start[Program])),
-    analyzer(picoAnalyzer, providesImplementations = false),
-    builder(picoBuilder)
+    parsing(parser(#start[Program])),
+    analysis(picoAnalyzer, providesImplementations = false),
+    build(picoBuilder)
 };
 
 @synopsis{The outliner maps pico syntax trees to lists of DocumentSymbols.}
@@ -56,7 +55,6 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
-
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
 Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
@@ -105,9 +103,8 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     return s;
 }
 
-@synopsis{Looks up the declaration for any variable use using the / deep match}
-set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
-    { d.src | /IdType d := input, cursor := d.id};
+@synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
+set[loc] lookupDef([*_, Id use, *_, start[Program] input]) = { d.src | /IdType def := input, def.id := use};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
@@ -126,8 +123,8 @@ data Command
   ;
 
 @synopsis{Adds an example lense to the entire program.}
-rel[loc,Command] picoLenses(start[Program] input)
-    = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
+lrel[loc,Command] picoLenses(start[Program] input)
+    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoHinter(start[Program] input) {
