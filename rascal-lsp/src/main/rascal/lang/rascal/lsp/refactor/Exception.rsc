@@ -34,7 +34,7 @@ import Set;
 alias Capture = tuple[loc def, loc use];
 
 data IllegalRenameReason
-    = invalidName(str name)
+    = invalidName(str name, str identifierDescription)
     | doubleDeclaration(loc old, set[loc] new)
     | captureChange(set[Capture] captures)
     | definitionsOutsideWorkspace(set[loc] defs)
@@ -46,7 +46,7 @@ data RuntimeException
     | unexpectedFailure(str message)
     ;
 
-str describe(invalidName(name)) = "\'<name>\' is not a valid identifier";
+str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idDescription>";
 str describe(doubleDeclaration(_, _)) = "it causes double declarations";
 str describe(captureChange(_)) = "it changes program semantics";
 str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
