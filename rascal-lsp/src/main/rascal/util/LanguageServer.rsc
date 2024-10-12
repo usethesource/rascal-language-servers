@@ -186,11 +186,11 @@ data LanguageService
     | codeLense(lrel[loc src, Command lens] (Tree _input) detector)
     | inlayHint(list[InlayHint] (Tree _input) hinter)
     | execution(value (Command _command) executor)
-    | documentation(set[str] (Focus _focus) documentor)
+    | hover(set[str] (Focus _focus) documentor)
     | definition(set[loc] (Focus _focus) linker)
     | reference(set[loc] (Focus _focus) linker)
     | implementation(set[loc] (Focus _focus) linker)
-    | action(list[CodeAction] (Focus _focus) actions)
+    | codeAction(list[CodeAction] (Focus _focus) actions)
     ;
 
 @deprecated{Backward compatible with `parsing`}
@@ -202,6 +202,11 @@ LanguageService parser(Parser parser) = parsing(parser);
 @description{
 Not only translates to the old name of the LanguageService,
 it also maps the list to an arbitrarily ordered set as it was before.
+}
+@benefits{
+* If you need your lenses in a stable order in the editor,
+use the `codeLense` constructor instead to provide a function that
+uses an ordered list.
 }
 LanguageService lenses(LensDetector detector) = codeLense(lrel[loc src, Command lens] (Tree input) {
     return [*detector(input)];
@@ -231,22 +236,6 @@ LanguageService inlayHinter(InlayHinter hinter) = inlayHint(hinter);
 @synopsis{Construct a `execution` LanguageService}
 LanguageService executor(CommandExecutor executor) = execution(executor);
 
-@deprecated{Backward compatible with `documentation`}
-@synopsis{Construct a `documentation` LanguageService}
-LanguageService documenter(FocusDocumenter documentor) = documentation(documentor);
-
-@deprecated{Backward compatible with `definition`}
-@synopsis{Construct a `definition` LanguageService}
-LanguageService definer(FocusDefiner definer) = definition(definer);
-
-@deprecated{Backward compatible with `reference`}
-@synopsis{Construct a `reference` LanguageService}
-LanguageService referer(FocusReferrer referer) = reference(referer);
-
-@deprecated{Backward compatible with `implementation`}
-@synopsis{Construct a `implementation` LanguageService}
-LanguageService implementer(FocusImplementer implementer) = implementation(implementer);
-
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
 
@@ -274,7 +263,7 @@ LanguageService documenter(Documenter d) {
         return {};
     }
 
-    return documentation(focusAcceptor);
+    return hover(focusAcceptor);
 }
 
 
