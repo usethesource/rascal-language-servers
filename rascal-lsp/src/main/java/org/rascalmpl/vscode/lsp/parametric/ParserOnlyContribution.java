@@ -129,8 +129,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.set());
+    public InterruptibleFuture<IList> lenses(ITree input) {
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override

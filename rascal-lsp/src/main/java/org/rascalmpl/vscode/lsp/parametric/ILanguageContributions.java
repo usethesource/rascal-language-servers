@@ -50,7 +50,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IList> outline(ITree input);
     public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<ISet> lenses(ITree input);
+    public InterruptibleFuture<IList> lenses(ITree input);
     public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
     public CompletableFuture<IList> parseCodeActions(String command);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
