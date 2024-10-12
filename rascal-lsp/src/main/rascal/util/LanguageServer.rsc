@@ -214,7 +214,7 @@ LanguageService lenses(LensDetector detector) = codeLense(lrel[loc src, Command 
 
 @deprecated{Backward compatible with `action`}
 @synopsis{Construct a `lense` LanguageService}
-LanguageService actions(CodeActionContributor contributor) = action(contributor);
+LanguageService actions(CodeActionContributor contributor) = codeAction(contributor);
 
 @deprecated{Backward compatible with `analysis`}
 @synopsis{Construct a `analysis` LanguageService}
