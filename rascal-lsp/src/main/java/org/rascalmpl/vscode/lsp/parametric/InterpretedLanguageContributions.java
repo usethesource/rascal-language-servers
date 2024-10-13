@@ -281,9 +281,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
+    public InterruptibleFuture<IList> lenses(ITree input) {
         debug(LanguageContributions.LENS_DETECTOR, TreeAdapter.getLocation(input));
-        return execFunction(LanguageContributions.LENS_DETECTOR, lenses, VF.set(), input);
+        return execFunction(LanguageContributions.LENS_DETECTOR, lenses, VF.list(), input);
     }
 
     @Override

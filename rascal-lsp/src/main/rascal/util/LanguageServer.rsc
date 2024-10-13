@@ -26,6 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 @contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
 @contributor{Davy Landman - davy.landman@swat.engineering - Swat.engineering BV}
+@contributor{Sung-Shik Jongmans - sung-shik.jongmans@swat.engineering - Swat.engineering BV}
 @synopsis{Bridges {DSL,PL,Modeling} language features to the language server protocol.}
 @description{
 Using the ((registerLanguage)) function you can connect any parsers, checkers,
@@ -114,6 +115,9 @@ alias Outliner         = list[DocumentSymbol] (Tree _input);
 @synopsis{Function profile for lenses contributions to a language server}
 @deprecated{Only in use in deprecated functions.}
 alias LensDetector     = rel[loc src, Command lens] (Tree _input);
+
+@synopsis{Function profile for lenses contributions to a language server}
+alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
 @deprecated{Only in use in deprecated functions.}
