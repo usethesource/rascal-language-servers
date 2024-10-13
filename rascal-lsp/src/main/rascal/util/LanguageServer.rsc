@@ -151,19 +151,19 @@ documentation, definitions, references, implementations and compiler errors and 
    * ((analysis)) has to be quick since they run in an interactive editor setting.
    * ((analysis)) may store previous results (in memory) for incremental updates.
    * ((analysis)) is triggered during typing, in a short typing pause.
-* The ((build)) service is similar to an `analyzer`, but it may perform computation-heavier additional checks.
-   * ((build))s typically run whole-program analyses and compilation steps.
-   * ((build))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
-   * ((build))s are triggered on _save-file_ events; they _push_ information to an internal cache.
-   * Warning: ((build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
+* The ((util::LanguageServer::build)) service is similar to an `analyzer`, but it may perform computation-heavier additional checks.
+   * ((util::LanguageServer::build))s typically run whole-program analyses and compilation steps.
+   * ((util::LanguageServer::build))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
+   * ((util::LanguageServer::build))s are triggered on _save-file_ events; they _push_ information to an internal cache.
+   * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
 * the following contributions are _on-demand_ (pull) versions of information also provided by the analyzer and builder summaries.
-   * a ((documentation)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
+   * a ((hover)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
    * a ((definition)) service is a fast and location specific version of the `definitions` relation in a ((Summary)).
    * a ((reference)) service is a fast and location specific version of the `references` relation in a ((Summary)).
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((lenses)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* The ((inlays)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers palces to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 

@@ -104,7 +104,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
-set[loc] lookupDef([*_, Id use, *_, start[Program] input]) = { d.src | /IdType def := input, def.id := use};
+set[loc] lookupDef([*_, Id use, *_, start[Program] input]) = { d.src | /IdType def := input, use := def.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
