@@ -33,18 +33,18 @@ public class RascalADTs {
     private RascalADTs() {}
     public static class LanguageContributions {
         private LanguageContributions () {}
-        public static final String PARSER = "parser";
-        public static final String ANALYZER = "analyzer";
-        public static final String BUILDER = "builder";
-        public static final String OUTLINER = "outliner";
+        public static final String PARSER = "parsing";
+        public static final String ANALYZER = "analysis";
+        public static final String BUILDER = "build";
+        public static final String OUTLINER = "documentSymbol";
         public static final String LENS_DETECTOR = "lenses";
-        public static final String INLAY_HINTER = "inlayHinter";
-        public static final String COMMAND_EXECUTOR = "executor";
-        public static final String DOCUMENTER = "documenter";
-        public static final String DEFINER = "definer";
-        public static final String REFERRER = "referrer";
-        public static final String IMPLEMENTER = "implementer";
-        public static final String CODE_ACTION_CONTRIBUTOR = "actions";
+        public static final String INLAY_HINTER = "inlayHint";
+        public static final String COMMAND_EXECUTOR = "execution";
+        public static final String DOCUMENTER = "hover";
+        public static final String DEFINER = "definition";
+        public static final String REFERRER = "reference";
+        public static final String IMPLEMENTER = "implementation";
+        public static final String CODE_ACTION_CONTRIBUTOR = "codeAction";
 
         public static class Summarizers {
             private Summarizers() {}
