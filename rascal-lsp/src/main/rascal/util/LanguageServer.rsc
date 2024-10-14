@@ -49,10 +49,18 @@ import Message;
 @description{
 The ((registerLanguage)) function takes this as its parameter to generate and run
 a fresh language protocol server.
+
+* `pcfg` sets up search paths for Rascal modules and libraries required to run the language server
+* `name` is the name of the language
+* `extensions` are the file extensions that trigger this language server
+* `mainModule` is the Rascal module to load to run the language server
+* `mainFunction` is a function of type `set[LanguageService] ()` that produces the implementation of the language server
+as a independent set of ((LanguageService))s.
 }
 @benefits{
 * each registered language is run in its own Rascal run-time environment.
 * reloading a language is always done in a fresh environment.
+* instances of ((Language)) can be easily serialized and communicated in interactive language engineering environments.
 }
 @pitfalls{
 * even though ((registerLanguage)) is called in a given run-time environment,
