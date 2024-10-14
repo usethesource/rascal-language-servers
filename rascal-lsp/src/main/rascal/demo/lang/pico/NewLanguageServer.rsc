@@ -32,8 +32,8 @@ import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 
-@synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
-set[LanguageService] picoLanguageContributor() = {
+@synopsis{A language server is simply a set of ((LanguageService))s.}
+set[LanguageService] picoLanguageServer() = {
     parsing(parser(#start[Program])),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
@@ -44,7 +44,7 @@ set[LanguageService] picoLanguageContributor() = {
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
-set[LanguageService] picoLanguageContributorSlowSummary() = {
+set[LanguageService] picoLanguageServerSlowSummary() = {
     parsing(parser(#start[Program])),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
@@ -175,7 +175,7 @@ void main() {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::NewLanguageServer",
-            "picoLanguageContributor"
+            "picoLanguageServer"
         )
     );
     registerLanguage(
@@ -184,7 +184,7 @@ void main() {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::NewLanguageServer",
-            "picoLanguageContributorSlowSummary"
+            "picoLanguageServerSlowSummary"
         )
     );
 }
