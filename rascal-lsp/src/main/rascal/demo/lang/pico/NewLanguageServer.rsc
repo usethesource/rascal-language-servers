@@ -46,8 +46,8 @@ set[LanguageService] picoLanguageContributor() = {
 @synopsis{This set of contributions runs slower but provides more detail.}
 set[LanguageService] picoLanguageContributorSlowSummary() = {
     parsing(parser(#start[Program])),
-    analysis(picoAnalyzer, providesImplementations = false),
-    build(picoBuilder)
+    analysis(picoAnalysisService, providesImplementations = false),
+    build(picoBuildService)
 };
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
