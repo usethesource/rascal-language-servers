@@ -97,7 +97,7 @@ public class RascalLanguageServices {
 
         var monitor = new RascalLSPMonitor(client, logger);
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::Outline");
+        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::DocumentSymbols");
         semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
     }
@@ -188,7 +188,7 @@ public class RascalLanguageServices {
             });
         }
 
-        return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
+        return runEvaluator("Rascal Document Symbols", outlineEvaluator, eval -> (IList) eval.call("documentRascalSymbols", module),
             VF.list(), exec, false, client);
     }
 
