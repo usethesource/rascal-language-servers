@@ -104,6 +104,9 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
 }
 
 @synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
+@pitfalls{
+This demo actually finds the declaration rather than the definition of a variable in Pico.
+}
 set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
