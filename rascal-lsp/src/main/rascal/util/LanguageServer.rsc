@@ -45,17 +45,19 @@ import IO;
 import ParseTree;
 import Message;
 
-@synopsis{Definition of a language server by its meta-data}
+@synopsis{Definition of a language server by its meta-data.}
 @description{
 The ((registerLanguage)) function takes this as its parameter to generate and run
-a fresh language protocol server.
+a fresh language protocol server. Every language server is run in its own Rascal execution
+environment. The ((Language)) data-type defines the parameters of this run-time, such
+that ((registerLanguage)) can boot and initialize new instances.
 
 * `pcfg` sets up search paths for Rascal modules and libraries required to run the language server
 * `name` is the name of the language
-* `extensions` are the file extensions that trigger this language server
-* `mainModule` is the Rascal module to load to run the language server
+* `extensions` are the file extensions that bind this server to editors of files with these extensions.
+* `mainModule` is the Rascal module to load to start the language server
 * `mainFunction` is a function of type `set[LanguageService] ()` that produces the implementation of the language server
-as a independent set of ((LanguageService))s.
+as a set of collaborating ((LanguageService))s.
 }
 @benefits{
 * each registered language is run in its own Rascal run-time environment.
@@ -232,28 +234,28 @@ typical programming language concepts. Since these are all just `rel[loc, loc]` 
 * `providesDocumentation` is deprecated. Use `providesHovers` instead.
 }
 data LanguageService
-    = parsing(Tree (str _input, loc _origin))
-    | analysis(Summary (loc _origin, Tree _input)
+    = parsing(Tree (str _input, loc _origin) parsingService)
+    | analysis(Summary (loc _origin, Tree _input) analysisService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | build(Summary (loc _origin, Tree _input)
+    | build(Summary (loc _origin, Tree _input) buildService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
-    | documentSymbol(list[DocumentSymbol] (Tree _input))
-    | codeLens      (lrel[loc src, Command lens] (Tree _input))
-    | inlayHint     (list[InlayHint] (Tree _input))
-    | execution     (value (Command _command))
-    | hover         (set[str] (Focus _focus))
-    | definition    (set[loc] (Focus _focus))
-    | references    (set[loc] (Focus _focus))
-    | implementation(set[loc] (Focus _focus))
-    | codeAction    (list[CodeAction] (Focus _focus))
+    | documentSymbol(list[DocumentSymbol] (Tree _input) documentSymbolService)
+    | codeLens      (lrel[loc src, Command lens] (Tree _input) codeLensService)
+    | inlayHint     (list[InlayHint] (Tree _input) inlayHintService)
+    | execution     (value (Command _command) executionService)
+    | hover         (set[str] (Focus _focus) hoverService)
+    | definition    (set[loc] (Focus _focus) definitionService)
+    | references    (set[loc] (Focus _focus) referencesService)
+    | implementation(set[loc] (Focus _focus) implementationService)
+    | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     ;
 
 @deprecated{Backward compatible with `parsing`}
