@@ -35,12 +35,12 @@ import lang::pico::\syntax::Main;
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
 set[LanguageService] picoLanguageContributor() = {
     parsing(parser(#start[Program])),
-    documentSymbol(picoOutliner),
-    codeLense(picoLenses),
-    execution(picoCommands),
-    inlayHint(picoHinter),
-    definition(lookupDef),
-    codeAction(picoActions)
+    documentSymbol(picoDocumentSymbolService),
+    codeLens(picoCodeLenseService),
+    execution(picoExecutionService),
+    inlayHint(picoInlayHintService),
+    definition(picoDefinitionService),
+    codeAction(picoCodeActionService)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
@@ -50,17 +50,17 @@ set[LanguageService] picoLanguageContributorSlowSummary() = {
     build(picoBuilder)
 };
 
-@synopsis{The outliner maps pico syntax trees to lists of DocumentSymbols.}
-list[DocumentSymbol] picoOutliner(start[Program] input)
+@synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
+list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
-Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
+Summary picoAnalysisService(loc l, start[Program] input) = picoSummaryService(l, input, analyze());
 
 @synopsis{The builder does a more thorough analysis then the analyzer, providing more detail}
-Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
+Summary picoBuildService(loc l, start[Program] input) = picoSummaryService(l, input, build());
 
 @synopsis{A simple "enum" data type for switching between analysis modes}
 data PicoSummarizerMode
@@ -69,7 +69,7 @@ data PicoSummarizerMode
     ;
 
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
-Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
+Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
     // definitions of variables
@@ -104,17 +104,17 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 }
 
 @synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
-set[loc] lookupDef([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
+set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[CodeAction] picoActions([*_, IdType x, *_, start[Program] program])
+list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[CodeAction] picoActions(Focus _focus) = [];
+default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
 @synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
@@ -123,11 +123,11 @@ data Command
   ;
 
 @synopsis{Adds an example lense to the entire program.}
-lrel[loc,Command] picoLenses(start[Program] input)
+lrel[loc,Command] picoCodeLenseService(start[Program] input)
     = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
-list[InlayHint] picoHinter(start[Program] input) {
+list[InlayHint] picoInlayHintService(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
 
     return [
@@ -142,13 +142,13 @@ list[DocumentEdit] getAtoBEdits(start[Program] input)
    = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
 
 @synopsis{Command handler for the renameAtoB command}
-value picoCommands(renameAtoB(start[Program] input)) {
+value picoExecutionService(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
 
 @synopsis{Command handler for the removeDecl command}
-value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
+value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
@@ -180,7 +180,7 @@ void main() {
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
-            "demo::lang::pico::LanguageServer",
+            "demo::lang::pico::NewLanguageServer",
             "picoLanguageContributorSlowSummary"
         )
     );

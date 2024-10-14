@@ -221,16 +221,19 @@ typical programming language concepts. Since these are all just `rel[loc, loc]` 
    * ((references)) point from declarations sites to use sites
    * ((definition)) points the other way around, from a use to the declaration, but only if a value is associated there explicitly or implicitly.
    * ((implementation)) points from abstract declarations (interfaces, classes, function signatures) to more concrete realizations of those declarations.
+* `providesDocumentation` is deprecated. Use `providesHovers` instead.
 }
 data LanguageService
     = parsing(Tree (str _input, loc _origin))
     | analysis(Summary (loc _origin, Tree _input)
-        , bool providesHovers = true
+        , bool providesDocumentation = true
+        , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | build(Summary (loc _origin, Tree _input)
-        , bool providesHovers = true
+        , bool providesDocumentation = true
+        , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
@@ -374,7 +377,7 @@ LanguageService referrer(Referrer d) {
         return {};
     }
 
-    return reference(focusAcceptor);
+    return references(focusAcceptor);
 }
 
 @synopsis{Registers an old-style ((Implementer))}
@@ -411,12 +414,14 @@ LanguageService implementer(Implementer d) {
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
 LanguageService summarizer(Summarizer summarizer
         , bool providesDocumentation = true
+        , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true) {
     println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
     return build(summarizer
         , providesDocumentation = providesDocumentation
+        , providesHovers = providesHovers
         , providesDefinitions = providesDefinitions
         , providesReferences = providesReferences
         , providesImplementations = providesImplementations);
