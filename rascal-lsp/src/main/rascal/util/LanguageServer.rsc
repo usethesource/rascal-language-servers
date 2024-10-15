@@ -184,7 +184,7 @@ hover documentation, definition with uses, references to declarations, implement
    * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
    * If `providesDocumentation` is false, then the ((hover)) service may be activated. Same for `providesDefinitions` and `providesDocumentation`
 ))
-* the following contributions are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((build)) summaries.
+* the following contributions are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
    * you can provide these more lightweight on-demand services _instead of_ the ((Summary)) versions.
    * these functions are run synchronously after a user interaction. The run-time of each service corresponds directly to the UX response time.
    * a ((hover)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
@@ -192,7 +192,7 @@ hover documentation, definition with uses, references to declarations, implement
    * a ((references)) service is a fast and location specific version of the `references` relation in a ((Summary)).
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
-* The ((codeLense)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
+* The ((codeLens)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
 * The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
@@ -211,7 +211,7 @@ lookup services. Each of those four services require the same information that i
 your own ((CodeAction))s and ((Commands))
    * create an ((execution)) service to give semantics to each command. This includes creating ((DocumentEdit))s but also ((IDEServices))
    can be used to have interesting effects in the IDE.
-   * ((CodeAction))s can also be attached to error, warning and into ((Message))s as a result of ((parsing)), ((analysis)) or ((build)).
+   * ((CodeAction))s can also be attached to error, warning and into ((Message))s as a result of ((parsing)), ((analysis)) or ((util::LanguageServer::build)).
    Such actions will lead to "quick-fix" UX options in the editor.
 }
 @benefits{
@@ -226,7 +226,7 @@ and (de)serialization and scheduling is taken care of.
 @pitfalls{
 * If one of the services does not type-check in Rascal, or throws an exception at ((registerLanguage)) time, the extension fails completely. Typically the editor produces a parse error on the first line of the code. The
 failure is printed in the log window of the IDE.
-* Users have expectations with the concepts of ((references)), ((definitions)), ((implementation)) which are based on
+* Users have expectations with the concepts of ((references)), ((definition)), ((implementation)) which are based on
 typical programming language concepts. Since these are all just `rel[loc, loc]` it can be easy to confound them.
    * ((references)) point from declarations sites to use sites
    * ((definition)) points the other way around, from a use to the declaration, but only if a value is associated there explicitly or implicitly.
