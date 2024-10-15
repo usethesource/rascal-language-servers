@@ -27,15 +27,19 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicStampedReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.rascalmpl.library.util.ErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
@@ -55,11 +59,16 @@ import io.usethesource.vallang.ISourceLocation;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
+
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation file;
-    private final AtomicReference<@NonNull Update> inProgress;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
+    private final Debouncer<Update> debouncer;
+
+    @SuppressWarnings("java:S3077") // It's safe...
+    private volatile CompletableFuture<Update> inProgress;
 
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
@@ -67,28 +76,19 @@ public class TextDocumentState {
 
         this.parser = parser;
         this.file = file;
-        this.inProgress = new AtomicReference<>(new Update(initialVersion, initialContent));
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
+        this.debouncer = new Debouncer<>(Duration.ofMillis(500));
+
+        var initialUpdate = new Update(initialVersion, initialContent);
+        this.inProgress = CompletableFuture.completedFuture(initialUpdate);
     }
 
-    /**
-     * WARNING: OUTDATED DOCUMENTATION
-     *
-     * The current call of this method guarantees that, until the next call,
-     * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
-     * *correct* versioned tree. This means that:
-     *   - the version of the tree is parameter `version`;
-     *   - the tree is produced by parsing parameter `content`.
-     *
-     * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
-     * consistent <version, tree> pair.
-     */
-    public void update(int version, String content) {
-        DEBOUNCER.debounce(() -> {
-            var u = new Update(version, content);
-            replaceIfNewer(inProgress, u);
-        });
+    public void update(int version, String content, boolean debounce) {
+        inProgress = debouncer.schedule(() -> {
+            logger.trace("Processing document update after debounce");
+            return new Update(version, content);
+        }, debounce);
     }
 
     public ISourceLocation getLocation() {
@@ -96,11 +96,11 @@ public class TextDocumentState {
     }
 
     public Versioned<String> getCurrentContent() {
-        return inProgress.get().content;
+        return inProgress.thenApply(Update::getContent).join();
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return inProgress.get().tree;
+        return inProgress.thenApply(Update::getTree).thenCompose(Function.identity());
     }
 
     public @MonotonicNonNull Versioned<ITree> getLastTree() {
@@ -115,8 +115,8 @@ public class TextDocumentState {
     private static final ErrorRecovery RECOVERY = new ErrorRecovery(VALUES);
 
     private class Update {
-        public final Versioned<String> content;
-        public final CompletableFuture<Versioned<ITree>> tree;
+        private final Versioned<String> content;
+        private final CompletableFuture<Versioned<ITree>> tree;
 
         public Update(int version, String content) {
             this.content = new Versioned<>(version, content);
@@ -125,57 +125,52 @@ public class TextDocumentState {
                 .thenApply(t -> new Versioned<>(version, t))
                 .whenComplete((t, error) -> {
                     if (t != null) {
-
                         var errors = RECOVERY.findAllErrors(t.get());
                         if (errors.isEmpty()) {
                             Versioned.replaceIfNewer(lastWithoutErrors, t);
                         }
                         Versioned.replaceIfNewer(last, t);
                     }
-                    // Add diagnostics
-                })
-                ;
+                    // TODO: Add diagnostics
+                });
         }
 
-        public int getVersion() {
-            return content.version();
+        public Versioned<String> getContent() {
+            return content;
         }
-    }
 
-    private static boolean replaceIfNewer(AtomicReference<Update> ref, Update newValue) {
-        Update oldValue = ref.get();
-        if (oldValue == null || oldValue.getVersion() < newValue.getVersion()) {
-            return ref.compareAndSet(oldValue, newValue) || replaceIfNewer(ref, newValue);
-        } else {
-            return false;
+        public CompletableFuture<Versioned<ITree>> getTree() {
+            return tree;
         }
     }
 
-    private static class Debouncer {
-        private final Executor executor;
-        private final AtomicInteger numberOfDebounces;
+    private static class Debouncer<T> {
+        private final Executor delayedExecutor;
+        private final AtomicStampedReference<@MonotonicNonNull CompletableFuture<T>> latest;
 
         private Debouncer(Duration delay) {
-            this.executor = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS);
-            this.numberOfDebounces = new AtomicInteger(0);
+            this.delayedExecutor = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS);
+            this.latest = new AtomicStampedReference<>(null, 0);
         }
 
-        private void debounce(Runnable doContinue) {
-            debounce(doContinue, () -> {});
-        }
+        private CompletableFuture<T> schedule(Supplier<T> supplier, boolean debounce) {
+            var executor = debounce ? delayedExecutor : ForkJoinPool.commonPool();
 
-        private void debounce(Runnable doContinue, Runnable doBreak) {
-            var n = numberOfDebounces.incrementAndGet();
-            CompletableFuture.runAsync(() -> {
-                if (numberOfDebounces.get() == n) {
-                    doContinue.run();
-                } else {
-                    doBreak.run();
-                }
-            }, executor);
+            var oldStamp = latest.getStamp();
+            var oldRef   = latest.getReference();
+            var newStamp = oldStamp + 1;
+            var newRef   = CompletableFuture
+                .supplyAsync(() -> {
+                    if (newStamp == latest.getStamp()) {
+                        return CompletableFuture.completedFuture(supplier.get());
+                    } else {
+                        return latest.getReference();
+                    }
+                }, executor)
+                .thenCompose(Function.identity());
+
+            latest.weakCompareAndSet(oldRef, newRef, oldStamp, newStamp);
+            return newRef;
         }
     }
-
-    private static final Duration  DELAY     = Duration.ofMillis(500);
-    private static final Debouncer DEBOUNCER = new Debouncer(DELAY);
 }
