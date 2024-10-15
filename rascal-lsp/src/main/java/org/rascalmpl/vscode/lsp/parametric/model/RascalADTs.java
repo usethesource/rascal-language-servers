@@ -37,7 +37,7 @@ public class RascalADTs {
         public static final String ANALYZER = "analysis";
         public static final String BUILDER = "build";
         public static final String OUTLINER = "documentSymbol";
-        public static final String LENS_DETECTOR = "codeLense";
+        public static final String LENS_DETECTOR = "codeLens";
         public static final String INLAY_HINTER = "inlayHint";
         public static final String COMMAND_EXECUTOR = "execution";
         public static final String DOCUMENTER = "hover";
