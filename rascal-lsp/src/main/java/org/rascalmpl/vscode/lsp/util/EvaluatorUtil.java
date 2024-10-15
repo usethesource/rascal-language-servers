@@ -111,6 +111,7 @@ public class EvaluatorUtil {
                 if (!isParametric) {
                     reportInternalError(e, task, client);
                 }
+
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, formatMessage(e), null));
             }
             catch (StaticError e) {

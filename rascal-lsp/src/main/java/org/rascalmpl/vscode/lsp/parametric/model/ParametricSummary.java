@@ -45,9 +45,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandCalculator;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OnDemandFocusToSetCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -60,6 +59,8 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
@@ -453,7 +454,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         }
 
         private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
-                OndemandCalculator calculator, Function<IValue, T> valueMapper, String logName) {
+                OnDemandFocusToSetCalculator calculator, Function<IValue, T> valueMapper, String logName) {
 
             if (!provides) {
                 return null;
@@ -470,16 +471,16 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
             var line = cursor.getLine() + 1;
             var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-            var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
+            var focus = TreeSearch.computeFocusList(tree.get(), line, translatedOffset);
 
             InterruptibleFuture<ISet> set = null;
-            if (cursorTree == null) {
+
+            if (focus.isEmpty()) {
                 logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
                 set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
             } else {
-                var yielded = TreeAdapter.yield(cursorTree);
-                logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                set = calculator.apply(file, tree.get(), cursorTree);
+                logger.trace("{}: looked up focus with length: {}, now calling dedicated function", logName, focus.length());
+                set = calculator.apply(focus);
             }
 
             logger.trace("{}: dedicated returned: {}", logName, set);

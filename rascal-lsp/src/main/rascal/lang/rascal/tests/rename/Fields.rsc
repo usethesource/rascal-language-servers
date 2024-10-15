@@ -168,6 +168,10 @@ test bool dataCommonKeywordFieldReusedName() = testRenameOccurrences({
         ", {})
 });
 
+test bool dataAsFormalField() = testRenameOccurrences({0, 1}, "
+    'int getChild(D d) = d.foo;
+", decls = "data D = x(int foo);");
+
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
     'f = r.foo;
