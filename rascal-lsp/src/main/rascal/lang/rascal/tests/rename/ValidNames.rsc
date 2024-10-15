@@ -33,7 +33,7 @@ import analysis::diff::edits::TextEdits;
 
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");
-    newNames = {name | e <- edits, changed(_, replaces) := e
+    newNames = {name | e <- edits<0>, changed(_, replaces) := e
                      , r <- replaces, replace(_, name) := r};
 
     return newNames == {"\\int"};
