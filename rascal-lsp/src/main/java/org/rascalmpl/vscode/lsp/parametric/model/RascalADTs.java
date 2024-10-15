@@ -59,6 +59,7 @@ public class RascalADTs {
     public static class SummaryFields {
         private SummaryFields() {}
 
+        public static final String DEPRECATED_DOCUMENTATION = "documentation";
         public static final String DOCUMENTATION = "hovers";
         public static final String DEFINITIONS = "definitions";
         public static final String REFERENCES = "references";
