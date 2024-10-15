@@ -637,7 +637,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
-        
+
         if (!focus.isEmpty()) {
             return contribs.codeActions(focus).get();
         }
