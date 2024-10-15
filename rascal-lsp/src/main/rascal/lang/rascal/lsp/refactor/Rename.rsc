@@ -53,12 +53,14 @@ extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
-import analysis::diff::edits::TextEdits;
+import lang::rascal::lsp::refactor::TextEdits;
 
 import util::FileSystem;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
+
+alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 // Rascal compiler-specific extension
 void throwAnyErrors(list[ModuleMessages] mmsgs) {
@@ -508,8 +510,8 @@ private bool rascalContainsName(loc l, str name) {
     2. It does not change the semantics of the application.
     3. It does not change definitions outside of the current workspace.
 }
-list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
-    = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
+    = job("renaming <cursorT> to <newName>", Edits(void(str, int) step) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
@@ -576,6 +578,22 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
     step("checking rename validity", 1);
+
+    map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
+    ChangeAnnotationId registerChangeAnnotation(str label, str description, bool needsConfirmation) {
+        ChangeAnnotationId makeKey(str label, int suffix) = "<label>_<suffix>";
+
+        int suffix = 1;
+        while (makeKey(label, suffix) in changeAnnotations) {
+            suffix += 1;
+        }
+
+        ChangeAnnotationId id = makeKey(label, suffix);
+        changeAnnotations[id] = changeAnnotation(label, description, needsConfirmation);
+
+        return id;
+    }
+
     map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
         (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
@@ -587,7 +605,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
-    return changes + renames;
+    return <changes + renames, changeAnnotations>;
 }, totalWork = 6);
 
 //// WORKAROUNDS
