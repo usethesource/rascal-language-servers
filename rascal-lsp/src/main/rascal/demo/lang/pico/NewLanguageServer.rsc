@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@synopsis{Demonstrates the latest API for defining and registering IDE features for Programming Languages and Domain Specific Languages.}
 module demo::lang::pico::NewLanguageServer
 
 import util::LanguageServer;
@@ -33,6 +34,11 @@ import util::Reflective;
 import lang::pico::\syntax::Main;
 
 @synopsis{A language server is simply a set of ((LanguageService))s.}
+@description{
+Each ((LanguageService)) for pico is implemented as a function.
+Here we group all services such that the LSP server can link them
+with the ((Language)) definition later.
+}
 set[LanguageService] picoLanguageServer() = {
     parsing(parser(#start[Program])),
     documentSymbol(picoDocumentSymbolService),
@@ -44,6 +50,11 @@ set[LanguageService] picoLanguageServer() = {
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
+@description{
+((LanguageService))s can be registered asynchronously and incrementally,
+such that quicky loaded features can be made available while slower to load
+tools come in later.
+}
 set[LanguageService] picoLanguageServerSlowSummary() = {
     parsing(parser(#start[Program])),
     analysis(picoAnalysisService, providesImplementations = false),
@@ -51,6 +62,10 @@ set[LanguageService] picoLanguageServerSlowSummary() = {
 };
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
+@description{
+Here we list the symbols we want in the outline view, and which can be searched using
+symbol search in the editor.
+}
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]

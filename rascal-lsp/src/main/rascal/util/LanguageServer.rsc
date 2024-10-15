@@ -724,3 +724,22 @@ void unregisterLanguage(str name, set[str] extensions, str mainModule = "", str 
 void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
     unregisterLanguage(name, {extension}, mainModule = mainModule, mainFunction = mainFunction);
 }
+
+@javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
+@synopsis{Produce a ((Focus)) for a given tree and cursor position}
+@description{
+This function exists to be able to unit test ((LanguageService))s that
+accept a ((Focus)) parameter, indepently of using ((registerLanguage)).
+
+* `line` is a 1-based indication of what the current line is
+* `column` is a 0-based indication of what the current column is.
+}
+@benefits{
+* test services without spinning up an LSP server or having to run UI tests.
+Each UI interaction is tested generically for you already.
+}
+@pitfalls{
+* LSP indexing is different, but those differences are resolved in the implementation of the protocol. On the Rascal side, we see the above.
+Differences are width of the character encoding for non-ASCII characters, and lines are 0-based, etc.
+}
+java Focus computeFocusList(Tree input, int line, int column);
