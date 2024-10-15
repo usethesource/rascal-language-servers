@@ -26,23 +26,17 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.time.Duration;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.rascalmpl.library.util.ErrorRecovery;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -56,25 +50,25 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
+
     private final ISourceLocation file;
-    private final AtomicReference<@NonNull Update> inProgress;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile Versioned<String> currentContent;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile @MonotonicNonNull Versioned<ITree> lastTree;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile @MonotonicNonNull Versioned<ITree> lastTreeWithoutErrors;
+    @SuppressWarnings("java:S3077") // we are use volatile correctly
+    private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
-    public TextDocumentState(
-            BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
-            ISourceLocation file, int initialVersion, String initialContent) {
-
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent) {
         this.parser = parser;
         this.file = file;
-        this.inProgress = new AtomicReference<>(new Update(initialVersion, initialContent));
-        this.lastWithoutErrors = new AtomicReference<>();
-        this.last = new AtomicReference<>();
+        this.currentContent = new Versioned<>(initialVersion, initialContent);
+        this.currentTree = newTreeAsync(initialVersion, initialContent);
     }
 
     /**
-     * WARNING: OUTDATED DOCUMENTATION
-     *
      * The current call of this method guarantees that, until the next call,
      * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
      * *correct* versioned tree. This means that:
@@ -84,11 +78,39 @@ public class TextDocumentState {
      * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
      * consistent <version, tree> pair.
      */
-    public void update(int version, String content) {
-        DEBOUNCER.debounce(() -> {
-            var u = new Update(version, content);
-            replaceIfNewer(inProgress, u);
-        });
+    public CompletableFuture<Versioned<ITree>> update(int version, String content) {
+        currentContent = new Versioned<>(version, content);
+        var newTree = newTreeAsync(version, content);
+        currentTree = newTree;
+        return newTree;
+    }
+
+    @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
+    private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
+        return parser.apply(file, content)
+            .thenApply(t -> new Versioned<ITree>(version, t))
+            .whenComplete((t, error) -> {
+                if (t != null) {
+                    RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                    IList errors = new ErrorRecovery(valueFactory).findAllErrors(t.get());
+                    if (errors.isEmpty()) {
+                        lastTreeWithoutErrors = t;
+                    }
+                    lastTree = t;
+                }
+            });
+    }
+
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
+        return currentTree;
+    }
+
+    public @MonotonicNonNull Versioned<ITree> getLastTree() {
+        return lastTree;
+    }
+
+    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
+        return lastTreeWithoutErrors;
     }
 
     public ISourceLocation getLocation() {
@@ -96,86 +118,6 @@ public class TextDocumentState {
     }
 
     public Versioned<String> getCurrentContent() {
-        return inProgress.get().content;
+        return currentContent;
     }
-
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return inProgress.get().tree;
-    }
-
-    public @MonotonicNonNull Versioned<ITree> getLastTree() {
-        return last.get();
-    }
-
-    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
-        return lastWithoutErrors.get();
-    }
-
-    private static final IRascalValueFactory VALUES = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-    private static final ErrorRecovery RECOVERY = new ErrorRecovery(VALUES);
-
-    private class Update {
-        public final Versioned<String> content;
-        public final CompletableFuture<Versioned<ITree>> tree;
-
-        public Update(int version, String content) {
-            this.content = new Versioned<>(version, content);
-            this.tree = parser
-                .apply(file, content)
-                .thenApply(t -> new Versioned<>(version, t))
-                .whenComplete((t, error) -> {
-                    if (t != null) {
-
-                        var errors = RECOVERY.findAllErrors(t.get());
-                        if (errors.isEmpty()) {
-                            Versioned.replaceIfNewer(lastWithoutErrors, t);
-                        }
-                        Versioned.replaceIfNewer(last, t);
-                    }
-                    // Add diagnostics
-                })
-                ;
-        }
-
-        public int getVersion() {
-            return content.version();
-        }
-    }
-
-    private static boolean replaceIfNewer(AtomicReference<Update> ref, Update newValue) {
-        Update oldValue = ref.get();
-        if (oldValue == null || oldValue.getVersion() < newValue.getVersion()) {
-            return ref.compareAndSet(oldValue, newValue) || replaceIfNewer(ref, newValue);
-        } else {
-            return false;
-        }
-    }
-
-    private static class Debouncer {
-        private final Executor executor;
-        private final AtomicInteger numberOfDebounces;
-
-        private Debouncer(Duration delay) {
-            this.executor = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS);
-            this.numberOfDebounces = new AtomicInteger(0);
-        }
-
-        private void debounce(Runnable doContinue) {
-            debounce(doContinue, () -> {});
-        }
-
-        private void debounce(Runnable doContinue, Runnable doBreak) {
-            var n = numberOfDebounces.incrementAndGet();
-            CompletableFuture.runAsync(() -> {
-                if (numberOfDebounces.get() == n) {
-                    doContinue.run();
-                } else {
-                    doBreak.run();
-                }
-            }, executor);
-        }
-    }
-
-    private static final Duration  DELAY     = Duration.ofMillis(500);
-    private static final Debouncer DEBOUNCER = new Debouncer(DELAY);
 }
