@@ -31,6 +31,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -57,7 +58,7 @@ public class RascalInterface {
         return services.resolveProjectLocation(project);
     }
 
-    public IList computeFocusList(ITree input, int line, int column) {
-        return TreeSearch.computeFocusList(input, line, column);
+    public IList computeFocusList(IConstructor input, IInteger line, IInteger column) {
+        return TreeSearch.computeFocusList((ITree) input, line.intValue(), column.intValue());
     }
 }
