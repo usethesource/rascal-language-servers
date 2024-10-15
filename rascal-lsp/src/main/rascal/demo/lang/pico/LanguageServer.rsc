@@ -57,7 +57,6 @@ list[DocumentSymbol] picoOutliner(start[Program] input)
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
-
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
 Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
 
@@ -107,7 +106,7 @@ Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
 
 @synopsis{Looks up the declaration for any variable use using the / deep match}
 set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
-    { d.src | /IdType d := input, cursor := d.id};
+    {d.src | /IdType d := input, cursor := d.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
