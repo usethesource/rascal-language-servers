@@ -258,43 +258,43 @@ data LanguageService
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     ;
 
-@deprecated{Backward compatible with `parsing`}
-@synopsis{Construct a `parsing` LanguageService}
+@deprecated{Backward compatible with ((parsing)).}
+@synopsis{Construct a `parsing` ((LanguageService))}
 LanguageService parser(Parser parser) = parsing(parser);
 
-@deprecated{Backward compatible with `codeLense`}
-@synopsis{Construct a `codeLense` LanguageService}
+@deprecated{Backward compatible with ((codeLens))}
+@synopsis{Construct a ((codeLens)) ((LanguageService))}
 @description{
 Not only translates to the old name of the LanguageService,
 it also maps the list to an arbitrarily ordered set as it was before.
 }
 @benefits{
 * If you need your lenses in a stable order in the editor,
-use the `codeLense` constructor instead to provide a function that
+use the ((codeLens)) constructor instead to provide a function that
 uses an ordered list.
 }
 LanguageService lenses(LensDetector detector) = codeLens(lrel[loc src, Command lens] (Tree input) {
     return [*detector(input)];
 });
 
-@deprecated{Backward compatible with `action`}
-@synopsis{Construct a `lense` LanguageService}
+@deprecated{Backward compatible with ((codeAction))}
+@synopsis{Construct a ((codeAction)) ((LanguageService))}
 LanguageService actions(CodeActionContributor contributor) = codeAction(contributor);
 
-@deprecated{Backward compatible with `build`}
-@synopsis{Construct a `build` LanguageService}
+@deprecated{Backward compatible with ((util::LanguageServer::build))}
+@synopsis{Construct a ((util::LanguageServer::build)) ((LanguageService))}
 LanguageService builder(Summarizer summarizer) = build(summarizer);
 
-@deprecated{Backward compatible with `documentSymbol`}
-@synopsis{Construct a `build` LanguageService}
+@deprecated{Backward compatible with ((documentSymbol))}
+@synopsis{Construct a ((documentSymbol)) ((LanguageService))}
 LanguageService outliner(Outliner outliner) = documentSymbol(outliner);
 
-@deprecated{Backward compatible with `inlays`}
-@synopsis{Construct a `inlays` LanguageService}
+@deprecated{Backward compatible with ((inlayHint))}
+@synopsis{Construct a ((inlayHint)) ((LanguageService))}
 LanguageService inlayHinter(InlayHinter hinter) = inlayHint(hinter);
 
-@deprecated{Backward compatible with `execution`}
-@synopsis{Construct a `execution` LanguageService}
+@deprecated{Backward compatible with ((execution))}
+@synopsis{Construct a ((execution)) ((LanguageService))}
 LanguageService executor(CommandExecutor executor) = execution(executor);
 
 @deprecated{
