@@ -300,7 +300,7 @@ LanguageService executor(CommandExecutor executor) = execution(executor);
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
 
-To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) follow
+To replace an old-style ((Documenter)) with a new style ((hover)) service follow
 this scheme:
 
 ```rascal
@@ -308,11 +308,11 @@ set[loc] oldDocumenter(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[loc] newDocumenter([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newHoverService([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
-default set[loc] newDocumenter(list[Tree] _focus) = {};
+default set[loc] newHoverService(list[Tree] _focus) = {};
 ```
 }
 LanguageService documenter(Documenter d) {
@@ -327,11 +327,10 @@ LanguageService documenter(Documenter d) {
     return hover(focusAcceptor);
 }
 
-
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Definer)) alias.
 
-To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow
+To replace an old-style ((Definer)) with a new style ((definition)) service follow
 this scheme:
 
 ```rascal
@@ -339,11 +338,11 @@ set[loc] oldDefiner(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[loc] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newDefinitionService([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
-default set[loc] newDefiner(list[Tree] _focus) = {};
+default set[loc] newDefinitionService(list[Tree] _focus) = {};
 ```
 }
 LanguageService definer(Definer d) {
@@ -363,7 +362,7 @@ LanguageService definer(Definer d) {
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
 
-To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow
+To replace an old-style ((Referrer)) with a new style ((references)) service follow
 this scheme.
 
 ```rascal
@@ -371,11 +370,11 @@ set[loc] oldReferrer(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[loc] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newReferencesService([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
-default set[loc] newReferrer(list[Tree] _focus) = {};
+default set[loc] newReferencesService(list[Tree] _focus) = {};
 ```
 }
 LanguageService referrer(Referrer d) {
@@ -394,7 +393,7 @@ LanguageService referrer(Referrer d) {
 @deprecated{
 This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
 
-To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) follow
+To replace an old-style ((Implementer)) with a new style ((implementation)) service follow
 this scheme:
 
 ```rascal
@@ -402,10 +401,12 @@ set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
     ...
 }
 // by this scheme:
-set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+set[loc] newImplementationService([Tree selection, *Tree _spine, Tree fullTree]) {
   loc document = selection@\loc.top;
   ...
 }
+default set[loc] newImplementationService(list[Tree] _focus) = {};
+
 ```
 }
 LanguageService implementer(Implementer d) {
