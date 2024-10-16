@@ -32,16 +32,22 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -86,6 +92,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -95,6 +102,7 @@ import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -104,7 +112,12 @@ import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
+import com.google.gson.JsonPrimitive;
+
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -157,6 +170,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(true);
+        result.setCodeActionProvider(true);
     }
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
@@ -415,6 +429,69 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        logger.debug("codeActions: {}", params);
+
+        final var loc = Locations.toLoc(params.getTextDocument());
+        final var start = params.getRange().getStart();
+        // convert to Rascal 1-based line
+        final var startLine = start.getLine() + 1;
+        // convert to Rascal UTF-32 column width
+        final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
+        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+
+        // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
+        // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+        // CompletableFuture<Stream<IValue>>
+        CompletableFuture<Stream<IValue>> quickfixes
+            = params.getContext().getDiagnostics()
+                .stream()
+                .map(Diagnostic::getData)
+                .filter(Objects::nonNull)
+                .filter(JsonPrimitive.class::isInstance)
+                .map(JsonPrimitive.class::cast)
+                .map(JsonPrimitive::getAsString)
+                // this is the "magic" resurrection of command terms from the JSON data field
+                .map(rascalServices::parseCodeActions)
+                // this serializes the stream of futures and accumulates their results as a flat list again
+                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+                .thenApply(IList::stream)
+            ;
+
+        // here we dynamically ask the contributions for more actions,
+        // based on the cursor position in the file and the current parse tree
+        CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+            getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose((ITree tree) -> computeCodeActions(startLine, startColumn, tree))
+                .thenApply(IList::stream)
+            , () -> Stream.<IValue>empty())
+            ;
+
+        // final merging the two streams of commmands, and their conversion to LSP Command data-type
+        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
+                Stream.concat(quicks, actions)
+                    .map(IConstructor.class::cast)
+                    .map((IConstructor cons) -> (CodeAction) CodeActions.constructorToCodeAction(this, "", "Rascal", cons))
+                    .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                    .collect(Collectors.toList())
+            );
+    }
+
+    private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree) {
+        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
+
+        if (!focus.isEmpty()) {
+            return rascalServices.codeActions(focus).get();
+        }
+        else {
+            logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
+            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+        }
+    }
+
     private CodeLens makeRunCodeLens(CodeLensSuggestion detected) {
         return new CodeLens(
             Locations.toRange(detected.getLine(), columns),
@@ -425,10 +502,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
-        // there is currently no way the Rascal LSP can receive this, but the Rascal DSL LSP does.
-        logger.warn("ignoring execute command in Rascal LSP: {}, {}", extension, command);
-        return CompletableFuture.completedFuture(null);
+        // TODO @DavyLandman is this the right way to convert from interruptible to completable?
+        return rascalServices.executeCommand(command).get();
     }
 
-
+    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+        return future
+            .exceptionally(e -> {
+                logger.error("Operation failed with", e);
+                return defaultValue.get();
+            });
+    }
 }
