@@ -343,9 +343,11 @@ public class RascalLanguageServices {
         }
     }
 
-    public InterruptibleFuture<IList> codeActions(IList focus) {
+    public InterruptibleFuture<IList> codeActions(IList focus, PathConfig pcfg) {
         return runEvaluator("Rascal codeActions", actionEvaluator, eval -> {
-            return (IList) eval.call("rascalCodeActions", focus);
-        }, null, exec, false, client);
+            Map<String,IValue> kws = Map.of("pcfg", pcfg.asConstructor());
+            return (IList) eval.call("rascalCodeActions", "lang::rascal::lsp::Actions", kws, focus);
+        },
+        null, exec, false, client);
     }
 }

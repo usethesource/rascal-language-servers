@@ -31,13 +31,29 @@ module lang::rascal::lsp::Actions
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 import analysis::diff::edits::TextEdits;
+import ParseTree;
+import String;
+import lang::rascal::vis::ImportGraph;
+import util::Reflective;
+
+@synopsis{Here we list Rascal-specific code commands}
+@description{
+The commands must be evaluated by ((evaluateRascalCommand))
+}
+data Command
+    = visualImportGraphCommand(PathConfig pcfg)
+    ;
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
-list[CodeAction] rascalCodeActions(Focus focus) {
+list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     result = [];
 
     if ([*_, Toplevel t, *_] := focus) {
         result += toplevelCodeActions(t);
+    }
+
+    if ([*_, Header h, *_] := focus) {
+        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")];
     }
 
     return result;
@@ -45,21 +61,26 @@ list[CodeAction] rascalCodeActions(Focus focus) {
 
 @synopsis{Rewrite immediate return to expression.}
 list[CodeAction] toplevelCodeActions(Toplevel t:
-    (Toplevel) `<Tags tags> <Visibility visibility> <Signature signature> {
+    (Toplevel) `<Tags tags>
+               '<Visibility visibility> <Signature signature> {
                '  return <Expression e>;
                '}`) {
 
-    result = (Toplevel) `<Tags tags> <Visibility visibility> <Signature signature> = <Expression e>`;
+    result = (Toplevel) `<Tags tags>
+                        '<Visibility visibility> <Signature signature> = <Expression e>;`;
 
-    edits=[changed(t@\loc.top, [replace(t@\loc, "<result>")])];
+    edits=[changed(t@\loc.top, [replace(t@\loc, trim("<result>"))])];
 
-    return actions(edits=edits, title="Rewrite block return to simpler rewrite rule.");
+    return [action(edits=edits, title="Rewrite block return to simpler rewrite rule.", kind=refactor())];
 }
 
 default list[CodeAction] toplevelCodeActions(Toplevel _) = [];
 
-@synopsis{Evaluates all commands and quickfixes produces by ((rascalCodeActions)) and the type-checker}
-value evaluateRascalCommand(Command _) {
-    return true; // TODO
+@synopsis{Evaluates all commands and quickfixes produced by ((rascalCodeActions)) and the type-checker}
+default value evaluateRascalCommand(Command _) =  ("result" : false);
+
+value evaluateRascalCommand(visualImportGraphCommand(PathConfig pcfg)) {
+    importGraph(pcfg);
+    return ("result" : true);
 }
 

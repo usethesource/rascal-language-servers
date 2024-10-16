@@ -61,6 +61,7 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -90,6 +91,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -171,7 +173,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(true);
         result.setCodeActionProvider(true);
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_META_COMMAND)));
     }
+
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
         this.workspaceService = workspaceService;
@@ -465,7 +469,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose((ITree tree) -> computeCodeActions(startLine, startColumn, tree))
+                .thenCompose((ITree tree) -> computeCodeActions(startLine, startColumn, tree, facts.getPathConfig(loc)))
                 .thenApply(IList::stream)
             , () -> Stream.<IValue>empty())
             ;
@@ -480,11 +484,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             );
     }
 
-    private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree) {
+    private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
 
         if (!focus.isEmpty()) {
-            return rascalServices.codeActions(focus).get();
+            return rascalServices.codeActions(focus, pcfg).get();
         }
         else {
             logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
