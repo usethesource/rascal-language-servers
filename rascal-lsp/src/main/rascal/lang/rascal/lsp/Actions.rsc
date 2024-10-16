@@ -30,10 +30,30 @@ module lang::rascal::lsp::Actions
 
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
+import analysis::diff::edits::TextEdits;
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
 list[CodeAction] rascalCodeActions(Focus focus) {
-    return []; // TODO
+    result = [];
+
+    if ([*_, Toplevel t, *_] := focus) {
+        result += toplevelCodeActions(t);
+    }
+
+    return result;
+}
+
+@synopsis{Rewrite immediate return to expression.}
+list[CodeAction] toplevelCodeActions(Toplevel t:
+    (Toplevel) `<Tags tags> <Visibility visibility> <Signature signature> {
+               '  return <Expression e>;
+               '}`) {
+
+    result = (Toplevel) `<Tags tags> <Visibility visibility> <Signature signature> = <Expression e>`;
+
+    edits=[changed(t@\loc.top, [replace(t@\loc, "<result>")])];
+
+    return actions(edits=edits, title="Rewrite block return to simpler rewrite rule.");
 }
 
 @synopsis{Evaluates all commands and quickfixes produces by ((rascalCodeActions)) and the type-checker}

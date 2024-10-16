@@ -344,8 +344,8 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<IList> codeActions(IList focus) {
-        return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
-            return (IList) eval.call("rascalCodeActions", "lang::rascal::lsp::Actions", focus);
+        return runEvaluator("Rascal codeActions", actionEvaluator, eval -> {
+            return (IList) eval.call("rascalCodeActions", focus);
         }, null, exec, false, client);
     }
 }
