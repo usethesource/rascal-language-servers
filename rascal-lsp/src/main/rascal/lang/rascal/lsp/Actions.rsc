@@ -56,6 +56,8 @@ list[CodeAction] toplevelCodeActions(Toplevel t:
     return actions(edits=edits, title="Rewrite block return to simpler rewrite rule.");
 }
 
+default list[CodeAction] toplevelCodeActions(Toplevel _) = [];
+
 @synopsis{Evaluates all commands and quickfixes produces by ((rascalCodeActions)) and the type-checker}
 value evaluateRascalCommand(Command _) {
     return true; // TODO
