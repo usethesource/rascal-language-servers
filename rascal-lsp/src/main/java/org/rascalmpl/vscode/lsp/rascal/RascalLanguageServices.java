@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -280,12 +279,8 @@ public class RascalLanguageServices {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
 
-        // TODO: properly chain this
-        IConstructor cons;
-        try {
-            cons = parseCommand(command).get();
-
-            return EvaluatorUtil.<IValue>runEvaluator(
+        return InterruptibleFuture.flatten(parseCommand(command).thenApply(cons ->
+            EvaluatorUtil.<IValue>runEvaluator(
                 "executeCommand",
                 actionEvaluator,
                 ev -> ev.call("evaluateRascalCommand", cons),
@@ -293,12 +288,8 @@ public class RascalLanguageServices {
                 exec,
                 true,
                 client
-            );
-        }
-        catch (InterruptedException | ExecutionException e) {
-            logger.catching(e);
-            return InterruptibleFuture.completedFuture(VF.bool(false));
-        }
+            )
+        ), exec);
     }
 
     private CompletableFuture<IConstructor> parseCommand(String command) {
