@@ -56,8 +56,8 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     }
 
     if ([*_, Header h, *_] := focus) {
-        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
-               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
+        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph", kind=source())]
+               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends", kind=source())]
                ;
     }
 

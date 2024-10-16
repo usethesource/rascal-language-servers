@@ -294,9 +294,10 @@ public class RascalLanguageServices {
                 true,
                 client
             );
-        } catch (InterruptedException | ExecutionException e) {
-           logger.catching(e);
-           return InterruptibleFuture.completedFuture(VF.bool(false));
+        }
+        catch (InterruptedException | ExecutionException e) {
+            logger.catching(e);
+            return InterruptibleFuture.completedFuture(VF.bool(false));
         }
     }
 
@@ -304,7 +305,8 @@ public class RascalLanguageServices {
         return actionStore.thenApply(commandStore -> {
             try {
                 return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
-            } catch (FactTypeUseException | IOException e) {
+            }
+            catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
                 throw new IllegalArgumentException("The command could not be parsed", e);
             }
