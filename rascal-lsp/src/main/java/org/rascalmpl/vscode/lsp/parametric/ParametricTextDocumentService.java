@@ -571,7 +571,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
