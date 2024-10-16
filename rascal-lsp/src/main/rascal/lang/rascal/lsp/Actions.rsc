@@ -35,6 +35,8 @@ import ParseTree;
 import String;
 import lang::rascal::vis::ImportGraph;
 import util::Reflective;
+import util::IDEServices;
+import List;
 
 @synopsis{Here we list Rascal-specific code commands}
 @description{
@@ -42,6 +44,7 @@ The commands must be evaluated by ((evaluateRascalCommand))
 }
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
+    | sortImportsAndExtends(Header h)
     ;
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
@@ -53,7 +56,9 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     }
 
     if ([*_, Header h, *_] := focus) {
-        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")];
+        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
+               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
+               ;
     }
 
     return result;
@@ -84,3 +89,18 @@ value evaluateRascalCommand(visualImportGraphCommand(PathConfig pcfg)) {
     return ("result" : true);
 }
 
+value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
+    extends = [trim("<i>") | i <- h.imports, i is \extend];
+    imports = [trim("<i>") | i <- h.imports, i is \default];
+    grammar = [trim("<i>") | i <- h.imports, i is \syntax];
+
+    newHeader = "<for (i <- sort(extends)) {><i>
+                '<}>
+                '<for (i <- sort(imports)) {><i>
+                '<}>
+                '<for (i <- grammar) {><i>
+                '<}>";
+
+    applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
+    return ("result":true);
+}
