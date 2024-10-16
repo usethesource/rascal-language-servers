@@ -77,7 +77,9 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
-        return new Diagnostic(toRange(errorTree, cm), "Parse error", DiagnosticSeverity.Error, "parser");
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+        return new Diagnostic(toRange(skipped, cm), "Parse error", DiagnosticSeverity.Error, "parser");
     }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
