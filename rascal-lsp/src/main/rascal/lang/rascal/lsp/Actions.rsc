@@ -56,8 +56,8 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     }
 
     if ([*_, Header h, *_] := focus) {
-        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph", kind=source())]
-               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends", kind=source())]
+        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
+               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
                ;
     }
 
@@ -95,11 +95,11 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
     grammar = [trim("<i>") | i <- h.imports, i is \syntax];
 
     newHeader = "<for (i <- sort(extends)) {><i>
-                '<}>
-                '<for (i <- sort(imports)) {><i>
-                '<}>
-                '<for (i <- grammar) {><i>
-                '<}>";
+                '<}>"[..-1] +
+                "<for (i <- sort(imports)) {><i>
+                '<}>"[..-1] +
+                "<for (i <- grammar) {><i>
+                '<}>"[..-1];
 
     applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
     return ("result":true);
