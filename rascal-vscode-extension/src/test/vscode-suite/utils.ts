@@ -250,7 +250,7 @@ export class IDEOperations {
                 // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
 
                 // Get prompt
-                let prompt: QuickOpenBox | InputBox;
+                let prompt: QuickOpenBox | InputBox = null;
                 for (let i = 0; i < maxAttempts; i++) {
                     try {
                         prompt = await new Workbench().openCommandPrompt();
