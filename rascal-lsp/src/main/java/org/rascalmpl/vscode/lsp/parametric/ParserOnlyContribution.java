@@ -75,7 +75,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<ITree> runParsingService(ISourceLocation loc, String input) {
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         if (loadingParserError != null || parser == null) {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
@@ -114,27 +114,27 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> runDocumentSymbolService(ITree input) {
+    public InterruptibleFuture<IList> outline(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runAnalysisService(ISourceLocation loc, ITree input) {
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
         return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runBuildService(ISourceLocation loc, ITree input) {
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
         return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeLensService(ITree input) {
+    public InterruptibleFuture<IList> lenses(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> runExecutionService(String command) {
+    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
@@ -144,87 +144,87 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> runInlayHintService(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<ISet> runHoverService(IList focus) {
+    public InterruptibleFuture<ISet> documentation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> runDefinitionService(IList focus) {
+    public InterruptibleFuture<ISet> definitions(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> runReferencesService(IList focus) {
+    public InterruptibleFuture<ISet> references(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeActionService(IList focus) {
+    public InterruptibleFuture<IList> codeActions(IList focus) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<ISet> runImplementationService(IList focus) {
+    public InterruptibleFuture<ISet> implementations(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHoverService() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinitionService() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferencesService() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementationService() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbolService() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysisService() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuildService() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeActionService() {
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasLensDetector() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecutionService() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHintService() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return CompletableFuture.completedFuture(false);
     }
 

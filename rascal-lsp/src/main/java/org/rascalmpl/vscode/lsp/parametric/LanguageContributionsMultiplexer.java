@@ -135,29 +135,29 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // we calculate the "route" once, and then just chain onto the completed
         // future
         parser = firstOrFail();
-        outliner = findFirstOrDefault(ILanguageContributions::hasDocumentSymbolService);
-        analyzer = findFirstOrDefault(ILanguageContributions::hasAnalysisService);
-        builder = findFirstOrDefault(ILanguageContributions::hasBuildService);
-        lensDetector = findFirstOrDefault(ILanguageContributions::hasCodeLensDetector);
-        commandExecutor = findFirstOrDefault(ILanguageContributions::hasExecutionService);
-        inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHintService);
-        definer = findFirstOrDefault(ILanguageContributions::hasDefinitionService);
-        documenter = findFirstOrDefault(ILanguageContributions::hasHoverService);
-        referrer = findFirstOrDefault(ILanguageContributions::hasReferencesService);
-        implementer = findFirstOrDefault(ILanguageContributions::hasImplementationService);
-        codeActionContributor = findFirstOrDefault(ILanguageContributions::hasCodeActionService);
+        outliner = findFirstOrDefault(ILanguageContributions::hasOutliner);
+        analyzer = findFirstOrDefault(ILanguageContributions::hasAnalyzer);
+        builder = findFirstOrDefault(ILanguageContributions::hasBuilder);
+        lensDetector = findFirstOrDefault(ILanguageContributions::hasLensDetector);
+        commandExecutor = findFirstOrDefault(ILanguageContributions::hasCommandExecutor);
+        inlayHinter = findFirstOrDefault(ILanguageContributions::hasInlayHinter);
+        definer = findFirstOrDefault(ILanguageContributions::hasDefiner);
+        documenter = findFirstOrDefault(ILanguageContributions::hasDocumenter);
+        referrer = findFirstOrDefault(ILanguageContributions::hasReferrer);
+        implementer = findFirstOrDefault(ILanguageContributions::hasImplementer);
+        codeActionContributor = findFirstOrDefault(ILanguageContributions::hasCodeActionsContributor);
 
-        hasDocumenter = anyTrue(ILanguageContributions::hasHoverService);
-        hasDefiner = anyTrue(ILanguageContributions::hasDefinitionService);
-        hasReferrer = anyTrue(ILanguageContributions::hasReferencesService);
-        hasImplementer = anyTrue(ILanguageContributions::hasImplementationService);
+        hasDocumenter = anyTrue(ILanguageContributions::hasDocumenter);
+        hasDefiner = anyTrue(ILanguageContributions::hasDefiner);
+        hasReferrer = anyTrue(ILanguageContributions::hasReferrer);
+        hasImplementer = anyTrue(ILanguageContributions::hasImplementer);
 
-        hasOutliner = anyTrue(ILanguageContributions::hasDocumentSymbolService);
-        hasAnalyzer = anyTrue(ILanguageContributions::hasAnalysisService);
-        hasBuilder = anyTrue(ILanguageContributions::hasBuildService);
-        hasLensDetector = anyTrue(ILanguageContributions::hasCodeLensDetector);
-        hasCommandExecutor = anyTrue(ILanguageContributions::hasExecutionService);
-        hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHintService);
+        hasOutliner = anyTrue(ILanguageContributions::hasOutliner);
+        hasAnalyzer = anyTrue(ILanguageContributions::hasAnalyzer);
+        hasBuilder = anyTrue(ILanguageContributions::hasBuilder);
+        hasLensDetector = anyTrue(ILanguageContributions::hasLensDetector);
+        hasCommandExecutor = anyTrue(ILanguageContributions::hasCommandExecutor);
+        hasInlayHinter = anyTrue(ILanguageContributions::hasInlayHinter);
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
@@ -218,12 +218,12 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<ITree> runParsingService(ISourceLocation loc, String input) {
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         var p = parser;
         if (p == null) {
             return failedInitialization();
         }
-        return p.runParsingService(loc, input);
+        return p.parseSourceFile(loc, input);
     }
 
 
@@ -232,28 +232,28 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> runDocumentSymbolService(ITree input) {
-        return flatten(outliner, c -> c.runDocumentSymbolService(input));
+    public InterruptibleFuture<IList> outline(ITree input) {
+        return flatten(outliner, c -> c.outline(input));
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runAnalysisService(ISourceLocation loc, ITree input) {
-        return flatten(analyzer, c -> c.runAnalysisService(loc, input));
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+        return flatten(analyzer, c -> c.analyze(loc, input));
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runBuildService(ISourceLocation loc, ITree input) {
-        return flatten(builder, c -> c.runBuildService(loc, input));
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
+        return flatten(builder, c -> c.build(loc, input));
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeLensService(ITree input) {
-        return flatten(lensDetector, c -> c.runCodeLensService(input));
+    public InterruptibleFuture<IList> lenses(ITree input) {
+        return flatten(lensDetector, c -> c.lenses(input));
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> runExecutionService(String command) {
-        return flatten(commandExecutor, c -> c.runExecutionService(command));
+    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
+        return flatten(commandExecutor, c -> c.executeCommand(command));
     }
 
     @Override
@@ -262,87 +262,87 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> runInlayHintService(@Nullable ITree input) {
-        return flatten(inlayHinter, c -> c.runInlayHintService(input));
+    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+        return flatten(inlayHinter, c -> c.inlayHint(input));
     }
 
     @Override
-    public InterruptibleFuture<ISet> runHoverService(IList focus) {
-        return flatten(documenter, c -> c.runHoverService(focus));
+    public InterruptibleFuture<ISet> documentation(IList focus) {
+        return flatten(documenter, c -> c.documentation(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> runDefinitionService(IList focus) {
-        return flatten(definer, c -> c.runDefinitionService(focus));
+    public InterruptibleFuture<ISet> definitions(IList focus) {
+        return flatten(definer, c -> c.definitions(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> runReferencesService(IList focus) {
-        return flatten(referrer, c -> c.runReferencesService(focus));
+    public InterruptibleFuture<ISet> references(IList focus) {
+        return flatten(referrer, c -> c.references(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> runImplementationService(IList focus) {
-        return flatten(implementer, c -> c.runImplementationService(focus));
+    public InterruptibleFuture<ISet> implementations(IList focus) {
+        return flatten(implementer, c -> c.implementations(focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeActionService(IList focus) {
-        return flatten(codeActionContributor, c -> c.runCodeActionService(focus));
+    public InterruptibleFuture<IList> codeActions(IList focus) {
+        return flatten(codeActionContributor, c -> c.codeActions(focus));
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeActionService() {
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
         return hasCodeActionContributor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHoverService() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return hasDocumenter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinitionService() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferencesService() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementationService() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return hasImplementer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbolService() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return hasOutliner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysisService() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return hasAnalyzer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuildService() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return hasBuilder;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasLensDetector() {
         return hasLensDetector;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecutionService() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return hasCommandExecutor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHintService() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return hasInlayHinter;
     }
 

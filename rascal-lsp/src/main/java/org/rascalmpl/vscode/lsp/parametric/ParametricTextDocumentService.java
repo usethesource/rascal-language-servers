@@ -328,7 +328,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::runCodeLensService)
+            .thenApply(contrib::lenses)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -344,7 +344,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(
                 recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
                 .thenApply(Versioned::get)
-                .thenApply(contrib::runInlayHintService)
+                .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
@@ -520,7 +520,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::runParsingService, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
         );
     }
 
@@ -577,7 +577,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::runDocumentSymbolService)
+            .thenApply(contrib::outline)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
             , Collections::emptyList);
@@ -639,7 +639,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
 
         if (!focus.isEmpty()) {
-            return contribs.runCodeActionService(focus).get();
+            return contribs.codeActions(focus).get();
         }
         else {
             logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
@@ -778,7 +778,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
-            return contribs.runExecutionService(command).get();
+            return contribs.executeCommand(command).get();
         }
         else {
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);

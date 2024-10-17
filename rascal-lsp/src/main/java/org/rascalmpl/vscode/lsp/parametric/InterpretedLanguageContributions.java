@@ -257,67 +257,67 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<ITree> runParsingService(ISourceLocation loc, String input) {
+    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         debug(LanguageContributions.PARSER, loc, input);
         return parser.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
     }
 
     @Override
-    public InterruptibleFuture<IList> runDocumentSymbolService(ITree input) {
+    public InterruptibleFuture<IList> outline(ITree input) {
         debug(LanguageContributions.OUTLINER, TreeAdapter.getLocation(input));
         return execFunction(LanguageContributions.OUTLINER, outliner, VF.list(), input);
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runAnalysisService(ISourceLocation src, ITree input) {
+    public InterruptibleFuture<IConstructor> analyze(ISourceLocation src, ITree input) {
         debug(LanguageContributions.ANALYZER, src);
         return execFunction(LanguageContributions.ANALYZER, analyzer, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> runBuildService(ISourceLocation src, ITree input) {
+    public InterruptibleFuture<IConstructor> build(ISourceLocation src, ITree input) {
         debug(LanguageContributions.BUILDER, src);
         return execFunction(LanguageContributions.BUILDER, builder, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeLensService(ITree input) {
+    public InterruptibleFuture<IList> lenses(ITree input) {
         debug(LanguageContributions.LENS_DETECTOR, TreeAdapter.getLocation(input));
         return execFunction(LanguageContributions.LENS_DETECTOR, lenses, VF.list(), input);
     }
 
     @Override
-    public InterruptibleFuture<IList> runInlayHintService(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
         debug(LanguageContributions.INLAY_HINTER, input != null ? TreeAdapter.getLocation(input) : null);
         return execFunction(LanguageContributions.INLAY_HINTER, inlayHinter, VF.list(), input);
     }
 
     @Override
-    public InterruptibleFuture<ISet> runHoverService(IList focus) {
+    public InterruptibleFuture<ISet> documentation(IList focus) {
         debug(LanguageContributions.DOCUMENTER, focus.length());
         return execFunction(LanguageContributions.DOCUMENTER, documenter, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> runDefinitionService(IList focus) {
+    public InterruptibleFuture<ISet> definitions(IList focus) {
         debug(LanguageContributions.DEFINER, focus.length());
         return execFunction(LanguageContributions.DEFINER, definer, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> runImplementationService(IList focus) {
+    public InterruptibleFuture<ISet> implementations(IList focus) {
         debug(LanguageContributions.IMPLEMENTER, focus.length());
         return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<ISet> runReferencesService(IList focus) {
+    public InterruptibleFuture<ISet> references(IList focus) {
         debug(LanguageContributions.REFERRER, focus.length());
         return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), focus);
     }
 
     @Override
-    public InterruptibleFuture<IList> runCodeActionService(IList focus) {
+    public InterruptibleFuture<IList> codeActions(IList focus) {
         debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, focus.length());
         return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
     }
@@ -331,57 +331,57 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinitionService() {
+    public CompletableFuture<Boolean> hasDefiner() {
         return hasDefiner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferencesService() {
+    public CompletableFuture<Boolean> hasReferrer() {
         return hasReferrer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementationService() {
+    public CompletableFuture<Boolean> hasImplementer() {
         return hasImplementer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHoverService() {
+    public CompletableFuture<Boolean> hasDocumenter() {
         return hasDocumenter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecutionService() {
+    public CompletableFuture<Boolean> hasCommandExecutor() {
         return hasCommandExecutor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHintService() {
+    public CompletableFuture<Boolean> hasInlayHinter() {
         return hasInlayHinter;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasLensDetector() {
         return hasLensDetector;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbolService() {
+    public CompletableFuture<Boolean> hasOutliner() {
         return hasOutliner;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeActionService() {
+    public CompletableFuture<Boolean> hasCodeActionsContributor() {
         return hasCodeActionContributor;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysisService() {
+    public CompletableFuture<Boolean> hasAnalyzer() {
         return hasAnalyzer;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuildService() {
+    public CompletableFuture<Boolean> hasBuilder() {
         return hasBuilder;
     }
 
@@ -401,7 +401,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> runExecutionService(String command) {
+    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
 
