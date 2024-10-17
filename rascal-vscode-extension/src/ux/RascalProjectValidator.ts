@@ -215,7 +215,7 @@ class RascalManifest {
                         .map(s => Uri.joinPath(parent, s));
                 }
                 else if (key && value && key.trim() === "Require-Libraries") {
-                    libraries = value.split(' ').map(s => s.trim());
+                    libraries = value.split(',').map(s => s.trim());
                 }
             }
             console.log(uris, libraries);
