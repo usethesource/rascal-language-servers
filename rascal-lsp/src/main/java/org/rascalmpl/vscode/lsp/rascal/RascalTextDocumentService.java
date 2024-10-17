@@ -263,7 +263,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
         documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)

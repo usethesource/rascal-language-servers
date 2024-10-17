@@ -571,7 +571,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
@@ -637,7 +637,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
-        
+
         if (!focus.isEmpty()) {
             return contribs.codeActions(focus).get();
         }

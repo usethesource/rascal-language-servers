@@ -267,6 +267,16 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
+
+            // for temporary backward compatibility between SummaryFields.DOCUMENTATION and SummaryFields.DEPRECATED_DOCUMENTATION
+            calculation = calculation.thenApply(summary -> {
+                var kws = summary.asWithKeywordParameters();
+                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.DOCUMENTATION)) {
+                    return kws.setParameter(SummaryFields.DOCUMENTATION, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
+                }
+                return summary;
+            });
+
             this.documentation = config.providesDocumentation ?
                 mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?

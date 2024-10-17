@@ -25,14 +25,14 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::lsp::Outline
+module lang::rascal::lsp::DocumentSymbols
 
 import String;
 import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 
-list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
+list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
     m= \mod.top;
     children = [];
 
