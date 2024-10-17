@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -241,9 +241,10 @@ export class IDEOperations {
         return this.driver.wait(async () => {
             tryCount++;
             try {
-                await new Workbench().executeCommand("workbench.action.files.revert");
-                await new Workbench().executeCommand("workbench.action.closeActiveEditor");
-                // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                // await new Workbench().executeCommand("workbench.action.files.revert");
+                // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
+                await this.driver.actions().sendKeys(Key.ESCAPE).perform();
+                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
                 console.log("Revert failed, but we ignore it", ex);
