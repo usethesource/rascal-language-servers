@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, InputBox, Key, Locator, QuickOpenBox, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -240,14 +240,24 @@ export class IDEOperations {
         let tryCount = 0;
         return this.driver.wait(async () => {
             tryCount++;
+
+            let prompt: QuickOpenBox | InputBox;
+            try {
+                prompt = await new Workbench().openCommandPrompt();
+            } catch (e) {
+                console.log("Getting prompt failed", e);
+                return false;
+            }
             try {
                 // await new Workbench().executeCommand("workbench.action.files.revert");
                 // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
-                await this.driver.actions().sendKeys(Key.ESCAPE).perform();
-                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
+                // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                await prompt.setText(`>workbench.action.revertAndCloseActiveEditor`);
+                await prompt.confirm();
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                console.log("Executing `revertAndCloseActiveEditor` failed, but we ignore it", ex);
             }
             try {
                 let anyEditor = true;
