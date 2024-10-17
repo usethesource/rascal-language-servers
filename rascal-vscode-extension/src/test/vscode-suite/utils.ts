@@ -248,16 +248,26 @@ export class IDEOperations {
                 console.log("Getting prompt failed", e);
                 return false;
             }
+
+            let i = 1;
             try {
                 // await new Workbench().executeCommand("workbench.action.files.revert");
                 // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
                 // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
                 // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+
+                console.log("Placeholder: " + prompt.getPlaceHolder());
+                await prompt.cancel();
+                i++;
+                console.log("Placeholder': " + prompt.getPlaceHolder());
                 await prompt.setText(`>workbench.action.revertAndCloseActiveEditor`);
+                i++;
+                console.log("Placeholder'': " + prompt.getPlaceHolder());
+                console.log("Test: " + prompt.getText());
                 await prompt.confirm();
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
-                console.log("Executing `revertAndCloseActiveEditor` failed, but we ignore it", ex);
+                console.log("Executing `revertAndCloseActiveEditor` failed (stage: " + i + "), but we ignore it", ex);
             }
             try {
                 let anyEditor = true;
