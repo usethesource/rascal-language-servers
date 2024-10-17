@@ -100,7 +100,7 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 '
                 '<}><for (i <- sort(imports)) {><i>
                 '<}>"[..-1] +
-                "<if (imports != []) {>
+                "<if (imports != [] && grammar != []) {>
                 '
                 '<}><for (i <- grammar) {><i>
                 '<}>"[..-1];
