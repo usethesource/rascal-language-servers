@@ -277,7 +277,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                 return summary;
             });
 
-            this.documentation = config.providesDocumentation ?
+            this.documentation = config.providesHovers ?
                 mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
@@ -435,22 +435,22 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
+            return get(config.providesHovers, cursor, contrib::runHoverService, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::definitions, locationMapper(columns), SummaryFields.DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::runDefinitionService, locationMapper(columns), SummaryFields.DEFINITIONS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return get(config.providesReferences, cursor, contrib::references, locationMapper(columns), SummaryFields.REFERENCES);
+            return get(config.providesReferences, cursor, contrib::runReferencesService, locationMapper(columns), SummaryFields.REFERENCES);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::implementations, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::runImplementationService, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override
