@@ -250,7 +250,7 @@ export class IDEOperations {
                 // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
 
                 // Get prompt
-                let prompt: QuickOpenBox | InputBox = null;
+                let prompt: QuickOpenBox | InputBox | undefined = undefined;
                 for (let i = 0; i < maxAttempts; i++) {
                     try {
                         prompt = await new Workbench().openCommandPrompt();
@@ -265,42 +265,48 @@ export class IDEOperations {
                     }
 
                     // Validate
-                    const expected = `Type the name of a command to run.`;
-                    const actual = await prompt.getPlaceHolder();
-                    if (actual === expected) {
-                        console.log(`[INFO] Expected and actual: ${actual}`);
-                        break;
-                    } else if (i < maxAttempts - 1) {
-                        console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
-                        prompt.cancel();
-                        continue;
-                    } else {
-                        console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
-                        return false;
+                    if (prompt) {
+                        const expected = `Type the name of a command to run.`;
+                        const actual = await prompt.getPlaceHolder();
+                        if (actual === expected) {
+                            console.log(`[INFO] Expected and actual: ${actual}`);
+                            break;
+                        } else if (i < maxAttempts - 1) {
+                            console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                            prompt.cancel();
+                            continue;
+                        } else {
+                            console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                            return false;
+                        }
                     }
                 }
 
                 // Set command
                 const command = '>workbench.action.revertAndCloseActiveEditor';
                 for (let i = 0; i < maxAttempts; i++) {
-                    await prompt.setText(command);
+                    if (prompt) {
+                        await prompt.setText(command);
 
-                    // Validate
-                    const expected = command;
-                    const actual = await prompt.getText();
-                    if (actual === expected) {
-                        console.log(`[INFO] Expected and actual: ${actual}`);
-                        break;
-                    } else if (i < maxAttempts - 1) {
-                        console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
-                        continue;
-                    } else {
-                        console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
-                        return false;
+                        // Validate
+                        const expected = command;
+                        const actual = await prompt.getText();
+                        if (actual === expected) {
+                            console.log(`[INFO] Expected and actual: ${actual}`);
+                            break;
+                        } else if (i < maxAttempts - 1) {
+                            console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                            continue;
+                        } else {
+                            console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                            return false;
+                        }
                     }
                 }
 
-                await prompt.confirm();
+                if (prompt) {
+                    await prompt.confirm();
+                }
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
                 console.log("Executing `revertAndCloseActiveEditor` failed, but we ignore it", ex);
