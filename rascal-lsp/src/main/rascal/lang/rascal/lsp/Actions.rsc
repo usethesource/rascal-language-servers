@@ -96,9 +96,13 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
 
     newHeader = "<for (i <- sort(extends)) {><i>
                 '<}>"[..-1] +
-                "<for (i <- sort(imports)) {><i>
+                "<if (extends != []) {>
+                '
+                '<}><for (i <- sort(imports)) {><i>
                 '<}>"[..-1] +
-                "<for (i <- grammar) {><i>
+                "<if (imports != []) {>
+                '
+                '<}><for (i <- grammar) {><i>
                 '<}>"[..-1];
 
     applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
