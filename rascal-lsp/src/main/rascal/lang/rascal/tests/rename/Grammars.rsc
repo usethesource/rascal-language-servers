@@ -116,9 +116,10 @@ test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1}, 
     'syntax T = foo: \"Tfoo\";
 ");
 
-test bool syntaxConstructorField() = testRenameOccurrences({0, 1}, "
+test bool syntaxConstructorField() = testRenameOccurrences({0, 1, 2}, "
     'S getChild(S x) = x.foo;
-", decls = "syntax S = S foo;");
+    'bool h(S x) = x has foo;
+", decls = "syntax S = s: S foo;");
 
 test bool referencedConstructor() = testRenameOccurrences({0, 1}, "", decls = "
     'lexical L = \"l\"+;
