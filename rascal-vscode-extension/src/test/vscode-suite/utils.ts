@@ -241,7 +241,9 @@ export class IDEOperations {
         return this.driver.wait(async () => {
             tryCount++;
             try {
-                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                await new Workbench().executeCommand("workbench.action.files.revert");
+                await new Workbench().executeCommand("workbench.action.closeActiveEditor");
+                // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
                 console.log("Revert failed, but we ignore it", ex);
