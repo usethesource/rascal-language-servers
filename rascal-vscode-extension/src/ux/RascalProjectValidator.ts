@@ -83,11 +83,14 @@ export class RascalProjectValidator implements vscode.Disposable {
         const folder = vscode.workspace.getWorkspaceFolder(e.uri);
         const messages: Diagnostic[] = [];
         if (!folder) {
-            messages.push(new Diagnostic(
-                FIRST_WORD,
-                "This Rascal file is not part of a project opened in this VS Code window, " + EXPLAIN_PROBLEM,
-                vscode.DiagnosticSeverity.Warning
-            ));
+            if (e.uri.scheme === 'file') {
+                // we do not want this report on non-file locations, as they are most likely virtual (coming from jars etc)
+                messages.push(new Diagnostic(
+                    FIRST_WORD,
+                    "This Rascal file is not part of a project opened in this VS Code window, " + EXPLAIN_PROBLEM,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+            }
         }
         else {
             await reportMissingFile(buildPOMChildPath(folder.uri), folder, messages);
