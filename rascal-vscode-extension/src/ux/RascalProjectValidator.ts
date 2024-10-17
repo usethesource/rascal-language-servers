@@ -45,8 +45,9 @@ export class RascalProjectValidator implements vscode.Disposable {
         vscode.workspace.onDidCloseTextDocument(this.closeFile, this, this.toDispose);
 
         // clear the cached source paths on changes to the rascal.mf file
-        const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
+        const watcher = vscode.workspace.createFileSystemWatcher(`**/{${MF_FILE},pom.xml}`, false, false, false);
         this.toDispose.push(watcher);
+        watcher.onDidCreate(this.rascalMFChanged, this, this.toDispose);
         watcher.onDidChange(this.rascalMFChanged, this, this.toDispose);
         watcher.onDidDelete(this.rascalMFChanged, this, this.toDispose);
 
@@ -68,6 +69,11 @@ export class RascalProjectValidator implements vscode.Disposable {
     }
 
     async rascalMFChanged(mfFile : Uri) {
+        if (mfFile.path.endsWith("pom.xml")) {
+            // it was a pom.xml change
+            // so calculate the rascal.mf file
+            mfFile = buildMFChildPath(mfFile.with({ path: posix.dirname(mfFile.path) }));
+        }
         if (this.cachedSourcePaths.delete(mfFile.toString())) {
             // we had calculated the source paths before
             // lets see re-validate all messages we've reported
