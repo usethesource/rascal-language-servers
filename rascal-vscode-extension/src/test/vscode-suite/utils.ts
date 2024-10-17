@@ -256,19 +256,19 @@ export class IDEOperations {
                 // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
                 // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
 
-                console.log("Placeholder: " + await prompt.getPlaceHolder());
+                console.log(`${i}: name=${await prompt.getId()}, title=${await prompt.getTitle()}, placeholder=${await prompt.getPlaceHolder()}`);
                 await prompt.cancel();
 
                 i++;
                 prompt = await new Workbench().openCommandPrompt();
 
                 i++;
-                console.log("Placeholder': " + await prompt.getPlaceHolder());
+                console.log(`${i}: name=${await prompt.getId()}, title=${await prompt.getTitle()}, placeholder=${await prompt.getPlaceHolder()}`);
                 await prompt.setText(`>workbench.action.revertAndCloseActiveEditor`);
 
                 i++;
-                console.log("Placeholder'': " + await prompt.getPlaceHolder());
-                console.log("Test: " + await prompt.getText());
+                console.log(`${i}: name=${await prompt.getId()}, title=${await prompt.getTitle()}, placeholder=${await prompt.getPlaceHolder()}`);
+                console.log("text=" + await prompt.getText());
                 await prompt.confirm();
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
