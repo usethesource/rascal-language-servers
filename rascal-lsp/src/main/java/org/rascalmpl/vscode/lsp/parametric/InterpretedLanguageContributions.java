@@ -74,30 +74,31 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private final CompletableFuture<Evaluator> eval;
     private final CompletableFuture<TypeStore> store;
-    private final CompletableFuture<IFunction> parser;
-    private final CompletableFuture<@Nullable IFunction> outliner;
-    private final CompletableFuture<@Nullable IFunction> analyzer;
-    private final CompletableFuture<@Nullable IFunction> builder;
-    private final CompletableFuture<@Nullable IFunction> lenses;
-    private final CompletableFuture<@Nullable IFunction> commandExecutor;
-    private final CompletableFuture<@Nullable IFunction> inlayHinter;
-    private final CompletableFuture<@Nullable IFunction> documenter;
-    private final CompletableFuture<@Nullable IFunction> definer;
-    private final CompletableFuture<@Nullable IFunction> referrer;
-    private final CompletableFuture<@Nullable IFunction> implementer;
-    private final CompletableFuture<@Nullable IFunction> codeActionContributor;
 
-    private final CompletableFuture<Boolean> hasOutliner;
-    private final CompletableFuture<Boolean> hasAnalyzer;
-    private final CompletableFuture<Boolean> hasBuilder;
-    private final CompletableFuture<Boolean> hasLensDetector;
-    private final CompletableFuture<Boolean> hasCommandExecutor;
-    private final CompletableFuture<Boolean> hasInlayHinter;
-    private final CompletableFuture<Boolean> hasDocumenter;
-    private final CompletableFuture<Boolean> hasDefiner;
-    private final CompletableFuture<Boolean> hasReferrer;
-    private final CompletableFuture<Boolean> hasImplementer;
-    private final CompletableFuture<Boolean> hasCodeActionContributor;
+    private final CompletableFuture<IFunction> parsingService;
+    private final CompletableFuture<@Nullable IFunction> analysisService;
+    private final CompletableFuture<@Nullable IFunction> buildService;
+    private final CompletableFuture<@Nullable IFunction> documentSymbolService;
+    private final CompletableFuture<@Nullable IFunction> codeLensService;
+    private final CompletableFuture<@Nullable IFunction> inlayHintService;
+    private final CompletableFuture<@Nullable IFunction> executionService;
+    private final CompletableFuture<@Nullable IFunction> hoverService;
+    private final CompletableFuture<@Nullable IFunction> definitionService;
+    private final CompletableFuture<@Nullable IFunction> referencesService;
+    private final CompletableFuture<@Nullable IFunction> implementationService;
+    private final CompletableFuture<@Nullable IFunction> codeActionService;
+
+    private final CompletableFuture<Boolean> hasAnalysisService;
+    private final CompletableFuture<Boolean> hasBuildService;
+    private final CompletableFuture<Boolean> hasDocumentSymbolService;
+    private final CompletableFuture<Boolean> hasCodeLensService;
+    private final CompletableFuture<Boolean> hasInlayHintService;
+    private final CompletableFuture<Boolean> hasExecutionService;
+    private final CompletableFuture<Boolean> hasHoverService;
+    private final CompletableFuture<Boolean> hasDefinitionService;
+    private final CompletableFuture<Boolean> hasReferencesService;
+    private final CompletableFuture<Boolean> hasImplementationService;
+    private final CompletableFuture<Boolean> hasCodeActionService;
 
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
@@ -122,31 +123,31 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 ValueFactoryFactory.getValueFactory().set(),
                 exec, true, client).get();
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
-            this.parser = getFunctionFor(contributions, LanguageContributions.PARSER);
-            this.outliner = getFunctionFor(contributions, LanguageContributions.OUTLINER);
-            this.analyzer = getFunctionFor(contributions, LanguageContributions.ANALYZER);
-            this.builder = getFunctionFor(contributions, LanguageContributions.BUILDER);
-            this.lenses = getFunctionFor(contributions, LanguageContributions.LENS_DETECTOR);
-            this.commandExecutor = getFunctionFor(contributions, LanguageContributions.COMMAND_EXECUTOR);
-            this.inlayHinter = getFunctionFor(contributions, LanguageContributions.INLAY_HINTER);
-            this.documenter = getFunctionFor(contributions, LanguageContributions.DOCUMENTER);
-            this.definer = getFunctionFor(contributions, LanguageContributions.DEFINER);
-            this.referrer = getFunctionFor(contributions, LanguageContributions.REFERRER);
-            this.implementer = getFunctionFor(contributions, LanguageContributions.IMPLEMENTER);
-            this.codeActionContributor = getFunctionFor(contributions, LanguageContributions.CODE_ACTION_CONTRIBUTOR);
+            this.parsingService = getFunctionFor(contributions, LanguageContributions.PARSER);
+            this.analysisService = getFunctionFor(contributions, LanguageContributions.ANALYZER);
+            this.buildService = getFunctionFor(contributions, LanguageContributions.BUILDER);
+            this.documentSymbolService = getFunctionFor(contributions, LanguageContributions.OUTLINER);
+            this.codeLensService = getFunctionFor(contributions, LanguageContributions.LENS_DETECTOR);
+            this.inlayHintService = getFunctionFor(contributions, LanguageContributions.INLAY_HINTER);
+            this.executionService = getFunctionFor(contributions, LanguageContributions.COMMAND_EXECUTOR);
+            this.hoverService = getFunctionFor(contributions, LanguageContributions.DOCUMENTER);
+            this.definitionService = getFunctionFor(contributions, LanguageContributions.DEFINER);
+            this.referencesService = getFunctionFor(contributions, LanguageContributions.REFERRER);
+            this.implementationService = getFunctionFor(contributions, LanguageContributions.IMPLEMENTER);
+            this.codeActionService = getFunctionFor(contributions, LanguageContributions.CODE_ACTION_CONTRIBUTOR);
 
             // assign boolean properties once instead of wasting futures all the time
-            this.hasOutliner = nonNull(this.outliner);
-            this.hasAnalyzer = nonNull(this.analyzer);
-            this.hasBuilder = nonNull(this.builder);
-            this.hasLensDetector = nonNull(this.lenses);
-            this.hasCommandExecutor = nonNull(this.commandExecutor);
-            this.hasInlayHinter = nonNull(this.inlayHinter);
-            this.hasDocumenter = nonNull(this.documenter);
-            this.hasDefiner = nonNull(this.definer);
-            this.hasReferrer = nonNull(this.referrer);
-            this.hasImplementer = nonNull(this.implementer);
-            this.hasCodeActionContributor = nonNull(this.codeActionContributor);
+            this.hasAnalysisService = nonNull(this.analysisService);
+            this.hasBuildService = nonNull(this.buildService);
+            this.hasDocumentSymbolService = nonNull(this.documentSymbolService);
+            this.hasCodeLensService = nonNull(this.codeLensService);
+            this.hasInlayHintService = nonNull(this.inlayHintService);
+            this.hasExecutionService = nonNull(this.executionService);
+            this.hasHoverService = nonNull(this.hoverService);
+            this.hasDefinitionService = nonNull(this.definitionService);
+            this.hasReferencesService = nonNull(this.referencesService);
+            this.hasImplementationService = nonNull(this.implementationService);
+            this.hasCodeActionService = nonNull(this.codeActionService);
 
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYZER);
             this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILDER);
@@ -259,67 +260,67 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<ITree> runParsingService(ISourceLocation loc, String input) {
         debug(LanguageContributions.PARSER, loc, input);
-        return parser.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
+        return parsingService.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> runDocumentSymbolService(ITree input) {
         debug(LanguageContributions.OUTLINER, TreeAdapter.getLocation(input));
-        return execFunction(LanguageContributions.OUTLINER, outliner, VF.list(), input);
+        return execFunction(LanguageContributions.OUTLINER, documentSymbolService, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> runAnalysisService(ISourceLocation src, ITree input) {
         debug(LanguageContributions.ANALYZER, src);
-        return execFunction(LanguageContributions.ANALYZER, analyzer, EmptySummary.newInstance(src), src, input);
+        return execFunction(LanguageContributions.ANALYZER, analysisService, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> runBuildService(ISourceLocation src, ITree input) {
         debug(LanguageContributions.BUILDER, src);
-        return execFunction(LanguageContributions.BUILDER, builder, EmptySummary.newInstance(src), src, input);
+        return execFunction(LanguageContributions.BUILDER, buildService, EmptySummary.newInstance(src), src, input);
     }
 
     @Override
     public InterruptibleFuture<IList> runCodeLensService(ITree input) {
         debug(LanguageContributions.LENS_DETECTOR, TreeAdapter.getLocation(input));
-        return execFunction(LanguageContributions.LENS_DETECTOR, lenses, VF.list(), input);
+        return execFunction(LanguageContributions.LENS_DETECTOR, codeLensService, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<IList> runInlayHintService(@Nullable ITree input) {
         debug(LanguageContributions.INLAY_HINTER, input != null ? TreeAdapter.getLocation(input) : null);
-        return execFunction(LanguageContributions.INLAY_HINTER, inlayHinter, VF.list(), input);
+        return execFunction(LanguageContributions.INLAY_HINTER, inlayHintService, VF.list(), input);
     }
 
     @Override
     public InterruptibleFuture<ISet> runHoverService(IList focus) {
         debug(LanguageContributions.DOCUMENTER, focus.length());
-        return execFunction(LanguageContributions.DOCUMENTER, documenter, VF.set(), focus);
+        return execFunction(LanguageContributions.DOCUMENTER, hoverService, VF.set(), focus);
     }
 
     @Override
     public InterruptibleFuture<ISet> runDefinitionService(IList focus) {
         debug(LanguageContributions.DEFINER, focus.length());
-        return execFunction(LanguageContributions.DEFINER, definer, VF.set(), focus);
+        return execFunction(LanguageContributions.DEFINER, definitionService, VF.set(), focus);
     }
 
     @Override
     public InterruptibleFuture<ISet> runImplementationService(IList focus) {
         debug(LanguageContributions.IMPLEMENTER, focus.length());
-        return execFunction(LanguageContributions.IMPLEMENTER, implementer, VF.set(), focus);
+        return execFunction(LanguageContributions.IMPLEMENTER, implementationService, VF.set(), focus);
     }
 
     @Override
     public InterruptibleFuture<ISet> runReferencesService(IList focus) {
         debug(LanguageContributions.REFERRER, focus.length());
-        return execFunction(LanguageContributions.REFERRER, referrer, VF.set(), focus);
+        return execFunction(LanguageContributions.REFERRER, referencesService, VF.set(), focus);
     }
 
     @Override
     public InterruptibleFuture<IList> runCodeActionService(IList focus) {
         debug(LanguageContributions.CODE_ACTION_CONTRIBUTOR, focus.length());
-        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionContributor, VF.list(), focus);
+        return execFunction(LanguageContributions.CODE_ACTION_CONTRIBUTOR, codeActionService, VF.list(), focus);
     }
 
     private void debug(String name, Object param) {
@@ -332,57 +333,57 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public CompletableFuture<Boolean> hasDefinitionService() {
-        return hasDefiner;
+        return hasDefinitionService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasReferencesService() {
-        return hasReferrer;
+        return hasReferencesService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasImplementationService() {
-        return hasImplementer;
+        return hasImplementationService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasHoverService() {
-        return hasDocumenter;
+        return hasHoverService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecutionService() {
-        return hasCommandExecutor;
+        return hasExecutionService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHintService() {
-        return hasInlayHinter;
+        return hasInlayHintService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeLensDetector() {
-        return hasLensDetector;
+        return hasCodeLensService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDocumentSymbolService() {
-        return hasOutliner;
+        return hasDocumentSymbolService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeActionService() {
-        return hasCodeActionContributor;
+        return hasCodeActionService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasAnalysisService() {
-        return hasAnalyzer;
+        return hasAnalysisService;
     }
 
     @Override
     public CompletableFuture<Boolean> hasBuildService() {
-        return hasBuilder;
+        return hasBuildService;
     }
 
     @Override
@@ -406,7 +407,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         logger.trace("Full command: {}", command);
 
         return InterruptibleFuture.flatten(parseCommand(command).thenCombine(
-            commandExecutor,
+            executionService,
             (cons, func) -> {
 
                 if (func == null) {
