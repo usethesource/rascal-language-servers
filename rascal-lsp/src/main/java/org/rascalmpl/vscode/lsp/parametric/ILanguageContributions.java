@@ -46,49 +46,50 @@ import io.usethesource.vallang.type.TypeStore;
 public interface ILanguageContributions {
     public String getName();
 
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
-    public InterruptibleFuture<IList> outline(ITree input);
-    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IList> lenses(ITree input);
-    public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
-    public CompletableFuture<IList> parseCodeActions(String command);
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<ISet> documentation(IList focus);
-    public InterruptibleFuture<ISet> definitions(IList focus);
-    public InterruptibleFuture<ISet> references(IList focus);
-    public InterruptibleFuture<ISet> implementations(IList focus);
-    public InterruptibleFuture<IList> codeActions(IList focus);
+    public CompletableFuture<ITree>              runParsingService(ISourceLocation loc, String input);
+    public InterruptibleFuture<IConstructor>     runAnalysisService(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor>     runBuildService(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IList>            runDocumentSymbolService(ITree input);
+    public InterruptibleFuture<IList>            runCodeLensService(ITree input);
+    public InterruptibleFuture<IList>            runInlayHintService(@Nullable ITree input);
+    public InterruptibleFuture<@Nullable IValue> runExecutionService(String command);
+    public InterruptibleFuture<ISet>             runHoverService(IList focus);
+    public InterruptibleFuture<ISet>             runDefinitionService(IList focus);
+    public InterruptibleFuture<ISet>             runReferencesService(IList focus);
+    public InterruptibleFuture<ISet>             runImplementationService(IList focus);
+    public InterruptibleFuture<IList>            runCodeActionService(IList focus);
 
-    public CompletableFuture<Boolean> hasAnalyzer();
-    public CompletableFuture<Boolean> hasBuilder();
-    public CompletableFuture<Boolean> hasOutliner();
-    public CompletableFuture<Boolean> hasLensDetector();
-    public CompletableFuture<Boolean> hasInlayHinter();
-    public CompletableFuture<Boolean> hasCommandExecutor();
-    public CompletableFuture<Boolean> hasDocumenter();
-    public CompletableFuture<Boolean> hasDefiner();
-    public CompletableFuture<Boolean> hasReferrer();
-    public CompletableFuture<Boolean> hasImplementer();
-    public CompletableFuture<Boolean> hasCodeActionsContributor();
+    public CompletableFuture<IList> parseCodeActions(String command);
+
+    public CompletableFuture<Boolean> hasAnalysisService();
+    public CompletableFuture<Boolean> hasBuildService();
+    public CompletableFuture<Boolean> hasDocumentSymbolService();
+    public CompletableFuture<Boolean> hasCodeLensDetector();
+    public CompletableFuture<Boolean> hasInlayHintService();
+    public CompletableFuture<Boolean> hasExecutionService();
+    public CompletableFuture<Boolean> hasHoverService();
+    public CompletableFuture<Boolean> hasDefinitionService();
+    public CompletableFuture<Boolean> hasReferencesService();
+    public CompletableFuture<Boolean> hasImplementationService();
+    public CompletableFuture<Boolean> hasCodeActionService();
 
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig();
 
     public static class SummaryConfig {
-        public final boolean providesDocumentation;
+        public final boolean providesHovers;
         public final boolean providesDefinitions;
         public final boolean providesReferences;
         public final boolean providesImplementations;
 
         public SummaryConfig(
-                boolean providesDocumentation,
+                boolean providesHovers,
                 boolean providesDefinitions,
                 boolean providesReferences,
                 boolean providesImplementations) {
 
-            this.providesDocumentation = providesDocumentation;
+            this.providesHovers = providesHovers;
             this.providesDefinitions = providesDefinitions;
             this.providesReferences = providesReferences;
             this.providesImplementations = providesImplementations;
@@ -98,13 +99,12 @@ public interface ILanguageContributions {
 
         public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
             return new SummaryConfig(
-                a.providesDocumentation || b.providesDocumentation,
+                a.providesHovers || b.providesHovers,
                 a.providesDefinitions || b.providesDefinitions,
                 a.providesReferences || b.providesReferences,
                 a.providesImplementations || b.providesImplementations);
         }
     }
-
 
     @FunctionalInterface // Type alias to conveniently pass methods `analyze`and `build` as parameters
     public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
