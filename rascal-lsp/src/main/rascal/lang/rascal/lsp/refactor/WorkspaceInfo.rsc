@@ -576,7 +576,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
         }
         for (Define _:<_, _, _, IdRole idRole, _, defType(acons(AType dataType, _, _))> <- reachableDefs
            , idRole != dataId()) {
-            <ds, us, _> += rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
+            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
