@@ -452,9 +452,9 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
         });
     }
 
-    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(dT)>, AType paramType) =
+    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(AType dT)>, AType paramType) =
         afunc(_, /paramType, _) := dT;
-    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(dT)>, AType paramType) =
+    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(AType dT)>, AType paramType) =
         aadt(_, /paramType, _) := dT;
     default bool definesTypeParam(Define _, AType _) = false;
 
@@ -532,7 +532,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
         }
         for (Define _:<_, _, _, IdRole idRole, _, defType(acons(AType dataType, _, _))> <- reachableDefs
            , idRole != dataId()) {
-            <ds, us, _> += rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
+            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
