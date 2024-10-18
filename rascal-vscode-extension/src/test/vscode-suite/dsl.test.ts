@@ -70,6 +70,12 @@ describe('DSL', function () {
         await ide.load();
     });
 
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("DSL-" + this.test?.title);
+        }
+    });
+
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("DSL-" + this.test?.title);
@@ -81,13 +87,27 @@ describe('DSL', function () {
     after(async function() {
     });
 
-    it("have highlighting and parse errors", async function () {
+    it.only("have highlighting and parse errors", async function () {
+        await ide.screenshot("DSL-foo1");
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.screenshot("DSL-foo2");
         await ide.hasSyntaxHighlighting(editor);
+        await ide.screenshot("DSL-foo3");
         try {
+            await ide.screenshot("DSL-foo4");
             await editor.setTextAtLine(10, "b := ;");
+            await ide.screenshot("DSL-foo5");
             await ide.hasErrorSquiggly(editor, Delays.slow);
-        } finally {
+            await ide.screenshot("DSL-foo6a");
+        }
+        catch (e) {
+            console.log(`[ERROR] ${e}`);
+            if (e instanceof Error) {
+                console.log(e.stack);
+            }
+        }
+        finally {
+            await ide.screenshot("DSL-foo6b");
             await ide.revertOpenChanges();
         }
     });

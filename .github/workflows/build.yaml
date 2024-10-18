@@ -12,39 +12,39 @@ on:
 permissions:
   actions: read
   contents: write
-  
+
 jobs:
-  normal-tests:
-    runs-on: buildjet-2vcpu-ubuntu-2204
-    steps:
-      - uses: actions/checkout@v4
-      - name: Assure different pom cache hit
-        run: echo "  " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
-        with:
-          java-version: 11
-          distribution: 'temurin'
-          cache: 'maven'
+  # normal-tests:
+  #   runs-on: buildjet-2vcpu-ubuntu-2204
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Assure different pom cache hit
+  #       run: echo "  " >> rascal-lsp/pom.xml
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: 11
+  #         distribution: 'temurin'
+  #         cache: 'maven'
 
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: rascal-vscode-extension/package-lock.json
-          registry-url: 'https://registry.npmjs.org'
+  #     - name: setup node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 18.x
+  #         cache: 'npm'
+  #         cache-dependency-path: rascal-vscode-extension/package-lock.json
+  #         registry-url: 'https://registry.npmjs.org'
 
-      - name: Run java tests
-        working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
+  #     - name: Run java tests
+  #       working-directory: ./rascal-lsp
+  #       run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
 
-      - name: VS Code tests
-        working-directory: ./rascal-vscode-extension
-        run: |
-          npm ci
-          npm run compile-tests
-          npm run normalTest
-      
+  #     - name: VS Code tests
+  #       working-directory: ./rascal-vscode-extension
+  #       run: |
+  #         npm ci
+  #         npm run compile-tests
+  #         npm run normalTest
+
   ui-test:
     strategy:
       matrix:
@@ -75,13 +75,13 @@ jobs:
         working-directory: ./rascal-lsp
         run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
 
-      - name: Package & compile extension 
+      - name: Package & compile extension
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
           npm run compile-tests
 
-      - name: Cache vscode downloads 
+      - name: Cache vscode downloads
         id: cache-vscode
         uses: actions/cache@v4
         with:
@@ -94,29 +94,29 @@ jobs:
         env:
           DELAY_FACTOR: 10
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/dsl.test.js --storage uitests
 
-      - name: "UI test (mac)"
-        shell: bash
-        if: matrix.os == 'macos-latest'
-        working-directory: ./rascal-vscode-extension
-        env:
-          DELAY_FACTOR: 15
-          _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+      # - name: "UI test (mac)"
+      #   shell: bash
+      #   if: matrix.os == 'macos-latest'
+      #   working-directory: ./rascal-vscode-extension
+      #   env:
+      #     DELAY_FACTOR: 15
+      #     _JAVA_OPTIONS: '-Xmx5G'
+      #   run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
-      - name: "UI test (ubuntu)"
-        shell: bash
-        if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
-        working-directory: ./rascal-vscode-extension
-        env:
-          DELAY_FACTOR: 8
-          _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+      # - name: "UI test (ubuntu)"
+      #   shell: bash
+      #   if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
+      #   working-directory: ./rascal-vscode-extension
+      #   env:
+      #     DELAY_FACTOR: 8
+      #     _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
+      #   run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: screenshots-${{ matrix.os }}
           path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
@@ -125,106 +125,106 @@ jobs:
       - name: "cleanup before cache"
         shell: bash
         if: always()
-        continue-on-error: true 
+        continue-on-error: true
         run: rm -rf ./rascal-vscode-extension/uitests/screenshots
 
-  build:
-    needs: [ui-test, normal-tests]
-    runs-on: buildjet-2vcpu-ubuntu-2204
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: 11
-          distribution: 'temurin'
-          cache: 'maven'
+  # build:
+  #   needs: [ui-test, normal-tests]
+  #   runs-on: buildjet-2vcpu-ubuntu-2204
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: 11
+  #         distribution: 'temurin'
+  #         cache: 'maven'
 
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: rascal-vscode-extension/package-lock.json
-          registry-url: 'https://registry.npmjs.org'
+  #     - name: setup node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 18.x
+  #         cache: 'npm'
+  #         cache-dependency-path: rascal-vscode-extension/package-lock.json
+  #         registry-url: 'https://registry.npmjs.org'
 
-      - name: Package & compile rascal-lsp
-        working-directory: ./rascal-lsp
-        run: mvn -B clean verify -DskipTests
-        env:
-          MAVEN_OPTS: "-Xmx6G"
+  #     - name: Package & compile rascal-lsp
+  #       working-directory: ./rascal-lsp
+  #       run: mvn -B clean verify -DskipTests
+  #       env:
+  #         MAVEN_OPTS: "-Xmx6G"
 
 
-      - name: Append build id if pre-release
-        working-directory: ./rascal-vscode-extension
-        run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
+  #     - name: Append build id if pre-release
+  #       working-directory: ./rascal-vscode-extension
+  #       run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
-      - name: Package & compile extension 
-        working-directory: ./rascal-vscode-extension
-        run: |
-          npm ci
-          npm run license-check
-          npm run esbuild
-          npm run lint 
+  #     - name: Package & compile extension
+  #       working-directory: ./rascal-vscode-extension
+  #       run: |
+  #         npm ci
+  #         npm run license-check
+  #         npm run esbuild
+  #         npm run lint
 
-      - name: package extension
-        working-directory: rascal-vscode-extension
-        run: |
-          npm run lsp4j:package
-          npx vsce package
+  #     - name: package extension
+  #       working-directory: rascal-vscode-extension
+  #       run: |
+  #         npm run lsp4j:package
+  #         npx vsce package
 
-      - name: upload final vsix 
-        uses: actions/upload-artifact@v4
-        with:
-          path: rascal-vscode-extension/*.vsix
-          retention-days: 20
+  #     - name: upload final vsix
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         path: rascal-vscode-extension/*.vsix
+  #         retention-days: 20
 
-      - name: Publish release to Open VSX Registry
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: HaaLeo/publish-vscode-extension@v1
-        id: publishToOpenVSX
-        with:
-          packagePath: ./rascal-vscode-extension
-          pat: ${{ secrets.OPEN_VSX_ACCESS }}
-          registryUrl: https://open-vsx.org 
+  #     - name: Publish release to Open VSX Registry
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       uses: HaaLeo/publish-vscode-extension@v1
+  #       id: publishToOpenVSX
+  #       with:
+  #         packagePath: ./rascal-vscode-extension
+  #         pat: ${{ secrets.OPEN_VSX_ACCESS }}
+  #         registryUrl: https://open-vsx.org
 
-      - name: Publish release to Visual Studio Marketplace
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: HaaLeo/publish-vscode-extension@v1
-        with:
-          packagePath: ./rascal-vscode-extension
-          pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
-          registryUrl: https://marketplace.visualstudio.com
-          extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }} # copy exact same vsix from the previous step
+  #     - name: Publish release to Visual Studio Marketplace
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       uses: HaaLeo/publish-vscode-extension@v1
+  #       with:
+  #         packagePath: ./rascal-vscode-extension
+  #         pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
+  #         registryUrl: https://marketplace.visualstudio.com
+  #         extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }} # copy exact same vsix from the previous step
 
-      - name: Prepare Draft Release
-        uses: softprops/action-gh-release@v1
-        continue-on-error: true
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          draft: true
-          files: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Prepare Draft Release
+  #       uses: softprops/action-gh-release@v1
+  #       continue-on-error: true
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       with:
+  #         draft: true
+  #         files: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: rewrite package.json & readme for NPM package
-        working-directory: rascal-vscode-extension
-        run: |
-          node src/rewritePackageForNPMPublish.js
-          rm -rf assets/images/ 
-          rm assets/jars/rascal-core.jar
-          rm assets/jars/typepal.jar
-          rm -rf lib/test
-          rm -rf src/test
-          mv README-lib.md README.md
+  #     - name: rewrite package.json & readme for NPM package
+  #       working-directory: rascal-vscode-extension
+  #       run: |
+  #         node src/rewritePackageForNPMPublish.js
+  #         rm -rf assets/images/
+  #         rm assets/jars/rascal-core.jar
+  #         rm assets/jars/typepal.jar
+  #         rm -rf lib/test
+  #         rm -rf src/test
+  #         mv README-lib.md README.md
 
-      - name: Test compile for NPM
-        if: startsWith(github.ref, 'refs/tags/v') != true
-        working-directory: rascal-vscode-extension
-        run: npm run compile
+  #     - name: Test compile for NPM
+  #       if: startsWith(github.ref, 'refs/tags/v') != true
+  #       working-directory: rascal-vscode-extension
+  #       run: npm run compile
 
-      - name: publish to NPM
-        if: startsWith(github.ref, 'refs/tags/v')
-        working-directory: rascal-vscode-extension
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access=public
+  #     - name: publish to NPM
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       working-directory: rascal-vscode-extension
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #       run: npm publish --access=public

@@ -59,7 +59,10 @@ describe('IDE', function () {
         await makeSureRascalModulesAreLoaded();
     });
 
-    beforeEach(async () => {
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("IDE-" + this.test?.title);
+        }
     });
 
     afterEach(async function () {

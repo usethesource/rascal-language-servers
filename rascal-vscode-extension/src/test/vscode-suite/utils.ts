@@ -240,11 +240,79 @@ export class IDEOperations {
         let tryCount = 0;
         return this.driver.wait(async () => {
             tryCount++;
+
+
             try {
+                // const maxAttempts = 10;
+
+                // await new Workbench().executeCommand("workbench.action.files.revert");
+                // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
+                // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
+                await this.screenshot(`DSL-bar${tryCount}-1`);
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                await this.screenshot(`DSL-bar${tryCount}-2`);
+
+                // Get prompt
+                // let prompt: QuickOpenBox | InputBox | undefined = undefined;
+                // for (let i = 0; i < maxAttempts; i++) {
+                //     try {
+                //         prompt = await new Workbench().openCommandPrompt();
+                //     } catch (e) {
+                //         if (i < maxAttempts - 1) {
+                //             console.log("[WARNING] Failed to open command prompt. Retrying... Cause:", e);
+                //             continue;
+                //         } else {
+                //             console.log(`[ERROR] Failed to open command prompt. Not retrying anymore (attempts: ${maxAttempts + 1}). Cause:`, e);
+                //             return false;
+                //         }
+                //     }
+
+                //     // Validate
+                //     if (prompt) {
+                //         const expected = `Type the name of a command to run.`;
+                //         const actual = await prompt.getPlaceHolder();
+                //         if (actual === expected) {
+                //             console.log(`[INFO] Expected and actual: ${actual}`);
+                //             break;
+                //         } else if (i < maxAttempts - 1) {
+                //             console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                //             prompt.cancel();
+                //             continue;
+                //         } else {
+                //             console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                //             return false;
+                //         }
+                //     }
+                // }
+
+                // if (!prompt) {
+                //     return false;
+                // }
+
+                // // Set command
+                // const command = '>workbench.action.revertAndCloseActiveEditor';
+                // for (let i = 0; i < maxAttempts; i++) {
+                //     await prompt.setText(command);
+
+                //     // Validate
+                //     const expected = command;
+                //     const actual = await prompt.getText();
+                //     if (actual === expected) {
+                //         console.log(`[INFO] Expected and actual: ${actual}`);
+                //         break;
+                //     } else if (i < maxAttempts - 1) {
+                //         console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                //         continue;
+                //     } else {
+                //         console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                //         return false;
+                //     }
+                // }
+
+                // await prompt.confirm();
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                console.log("Executing `revertAndCloseActiveEditor` failed, but we ignore it", ex);
             }
             try {
                 let anyEditor = true;
@@ -268,7 +336,7 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
+        await this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
@@ -315,8 +383,12 @@ export class IDEOperations {
         };
     }
 
+    private seq: number = 0;
+
     screenshot(name: string): Promise<void> {
-        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
+        return this.browser.takeScreenshot(
+            String(this.seq++).padStart(4, '0') +
+            name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 
