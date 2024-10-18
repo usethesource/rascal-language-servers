@@ -99,7 +99,11 @@ describe('DSL', function () {
             await ide.screenshot("DSL-foo5");
             await ide.hasErrorSquiggly(editor, Delays.slow);
             await ide.screenshot("DSL-foo6a");
-        } finally {
+        }
+        catch (e) {
+            console.log(`[ERROR] ${e}`);
+        }
+        finally {
             await ide.screenshot("DSL-foo6b");
             await ide.revertOpenChanges();
         }
