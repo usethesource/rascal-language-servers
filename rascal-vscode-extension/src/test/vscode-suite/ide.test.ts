@@ -61,7 +61,7 @@ describe('IDE', function () {
 
     beforeEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot("DSL-" + this.test?.title);
+            await ide.screenshot("IDE-" + this.test?.title);
         }
     });
 
