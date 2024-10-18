@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, InputBox, Locator, QuickOpenBox, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -242,71 +242,71 @@ export class IDEOperations {
             tryCount++;
 
             try {
-                const maxAttempts = 10;
+                // const maxAttempts = 10;
 
                 // await new Workbench().executeCommand("workbench.action.files.revert");
                 // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
                 // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
-                // await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
 
                 // Get prompt
-                let prompt: QuickOpenBox | InputBox | undefined = undefined;
-                for (let i = 0; i < maxAttempts; i++) {
-                    try {
-                        prompt = await new Workbench().openCommandPrompt();
-                    } catch (e) {
-                        if (i < maxAttempts - 1) {
-                            console.log("[WARNING] Failed to open command prompt. Retrying... Cause:", e);
-                            continue;
-                        } else {
-                            console.log(`[ERROR] Failed to open command prompt. Not retrying anymore (attempts: ${maxAttempts + 1}). Cause:`, e);
-                            return false;
-                        }
-                    }
+                // let prompt: QuickOpenBox | InputBox | undefined = undefined;
+                // for (let i = 0; i < maxAttempts; i++) {
+                //     try {
+                //         prompt = await new Workbench().openCommandPrompt();
+                //     } catch (e) {
+                //         if (i < maxAttempts - 1) {
+                //             console.log("[WARNING] Failed to open command prompt. Retrying... Cause:", e);
+                //             continue;
+                //         } else {
+                //             console.log(`[ERROR] Failed to open command prompt. Not retrying anymore (attempts: ${maxAttempts + 1}). Cause:`, e);
+                //             return false;
+                //         }
+                //     }
 
-                    // Validate
-                    if (prompt) {
-                        const expected = `Type the name of a command to run.`;
-                        const actual = await prompt.getPlaceHolder();
-                        if (actual === expected) {
-                            console.log(`[INFO] Expected and actual: ${actual}`);
-                            break;
-                        } else if (i < maxAttempts - 1) {
-                            console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
-                            prompt.cancel();
-                            continue;
-                        } else {
-                            console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
-                            return false;
-                        }
-                    }
-                }
+                //     // Validate
+                //     if (prompt) {
+                //         const expected = `Type the name of a command to run.`;
+                //         const actual = await prompt.getPlaceHolder();
+                //         if (actual === expected) {
+                //             console.log(`[INFO] Expected and actual: ${actual}`);
+                //             break;
+                //         } else if (i < maxAttempts - 1) {
+                //             console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                //             prompt.cancel();
+                //             continue;
+                //         } else {
+                //             console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                //             return false;
+                //         }
+                //     }
+                // }
 
-                // Set command
-                const command = '>workbench.action.revertAndCloseActiveEditor';
-                for (let i = 0; i < maxAttempts; i++) {
-                    if (prompt) {
-                        await prompt.setText(command);
+                // if (!prompt) {
+                //     return false;
+                // }
 
-                        // Validate
-                        const expected = command;
-                        const actual = await prompt.getText();
-                        if (actual === expected) {
-                            console.log(`[INFO] Expected and actual: ${actual}`);
-                            break;
-                        } else if (i < maxAttempts - 1) {
-                            console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
-                            continue;
-                        } else {
-                            console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
-                            return false;
-                        }
-                    }
-                }
+                // // Set command
+                // const command = '>workbench.action.revertAndCloseActiveEditor';
+                // for (let i = 0; i < maxAttempts; i++) {
+                //     await prompt.setText(command);
 
-                if (prompt) {
-                    await prompt.confirm();
-                }
+                //     // Validate
+                //     const expected = command;
+                //     const actual = await prompt.getText();
+                //     if (actual === expected) {
+                //         console.log(`[INFO] Expected and actual: ${actual}`);
+                //         break;
+                //     } else if (i < maxAttempts - 1) {
+                //         console.log(`[WARNING] Expected: ${expected}. Actual: ${actual}. Retrying...`);
+                //         continue;
+                //     } else {
+                //         console.log(`[ERROR] Expected: ${expected}. Actual: ${actual}. Not retrying anymore (attempts: ${maxAttempts + 1}).`);
+                //         return false;
+                //     }
+                // }
+
+                // await prompt.confirm();
             } catch (ex) {
                 this.screenshot("revert failed " + tryCount);
                 console.log("Executing `revertAndCloseActiveEditor` failed, but we ignore it", ex);

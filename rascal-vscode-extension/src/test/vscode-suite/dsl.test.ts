@@ -70,6 +70,12 @@ describe('DSL', function () {
         await ide.load();
     });
 
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("DSL-" + this.test?.title);
+        }
+    });
+
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("DSL-" + this.test?.title);
