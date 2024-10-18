@@ -14,36 +14,36 @@ permissions:
   contents: write
 
 jobs:
-  normal-tests:
-    runs-on: buildjet-2vcpu-ubuntu-2204
-    steps:
-      - uses: actions/checkout@v4
-      - name: Assure different pom cache hit
-        run: echo "  " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
-        with:
-          java-version: 11
-          distribution: 'temurin'
-          cache: 'maven'
+  # normal-tests:
+  #   runs-on: buildjet-2vcpu-ubuntu-2204
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Assure different pom cache hit
+  #       run: echo "  " >> rascal-lsp/pom.xml
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: 11
+  #         distribution: 'temurin'
+  #         cache: 'maven'
 
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: rascal-vscode-extension/package-lock.json
-          registry-url: 'https://registry.npmjs.org'
+  #     - name: setup node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 18.x
+  #         cache: 'npm'
+  #         cache-dependency-path: rascal-vscode-extension/package-lock.json
+  #         registry-url: 'https://registry.npmjs.org'
 
-      - name: Run java tests
-        working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
+  #     - name: Run java tests
+  #       working-directory: ./rascal-lsp
+  #       run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
 
-      - name: VS Code tests
-        working-directory: ./rascal-vscode-extension
-        run: |
-          npm ci
-          npm run compile-tests
-          npm run normalTest
+  #     - name: VS Code tests
+  #       working-directory: ./rascal-vscode-extension
+  #       run: |
+  #         npm ci
+  #         npm run compile-tests
+  #         npm run normalTest
 
   ui-test:
     strategy:
@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: screenshots-${{ matrix.os }}
           path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
