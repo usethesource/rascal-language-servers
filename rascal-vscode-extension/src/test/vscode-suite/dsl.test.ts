@@ -102,6 +102,9 @@ describe('DSL', function () {
         }
         catch (e) {
             console.log(`[ERROR] ${e}`);
+            if (e instanceof Error) {
+                console.log(e.stack);
+            }
         }
         finally {
             await ide.screenshot("DSL-foo6b");
