@@ -383,8 +383,12 @@ export class IDEOperations {
         };
     }
 
+    private seq: number = 0;
+
     screenshot(name: string): Promise<void> {
-        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
+        return this.browser.takeScreenshot(
+            String(this.seq++).padStart(4, '0') +
+            name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 
