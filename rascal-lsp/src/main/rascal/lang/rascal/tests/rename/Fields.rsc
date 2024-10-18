@@ -81,6 +81,19 @@ test bool commonKeywordFieldsSameType() = testRenameOccurrences({0, 1},
     decls = "data D (set[loc] foo = {}, set[loc] baz = {})= d();"
 );
 
+test bool sameNameFields() = testRenameOccurrences({0, 2}, "
+    'D x = d(8);
+    'int i = x.foo;
+", decls = "
+    'data D = d(int foo);
+    'data E = e(int foo);
+");
+
+test bool sameNameFieldsDisconnectedModules() = testRename({
+    byText("A", "data D = d(int foo);", {0})
+  , byText("B", "data E = e(int foo);")
+});
+
 test bool complexDataType() = testRenameOccurrences({0, 1},
     "WorkspaceInfo ws = workspaceInfo(
     '   ProjectFiles() { return {}; },

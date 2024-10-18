@@ -237,12 +237,20 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
       o scopeDefs                  // 3. Find definitions in the reached scope, and definitions within those definitions (transitively)
       ;
 
-    rel[loc from, loc to] defPaths = {};
+    rel[loc from, loc to] defPaths = fromDefPaths;
     if (constructorId() := role) {
         // We are just looking for constructors for the same ADT/nonterminal type
         rel[loc, loc] selectedConstructors = (ws.defines<defInfo, defined, defined>)[originalDefs.defInfo];
         defPaths = (defPaths o selectedConstructors)
                  + (invert(defPaths) o selectedConstructors);
+    } else if (fieldId() := role) {
+        // We are looking for fields for the same ADT type (but not necessarily same constructor type)
+        set[DefInfo] selectedADTTypes = (ws.defines<defined, defInfo>)[originalDefs.scope];
+        rel[loc, loc] selectedADTs = (ws.defines<defInfo, defined, defined>)[selectedADTTypes];
+        rel[loc, loc] selectedFields = selectedADTs o ws.defines<scope, defined>;
+
+        defPaths = (defPaths o selectedFields)
+                 + invert(defPaths) o selectedFields;
     } else {
         defPaths = fromDefPaths + invert(fromDefPaths);
     }
