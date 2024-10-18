@@ -241,13 +241,16 @@ export class IDEOperations {
         return this.driver.wait(async () => {
             tryCount++;
 
+
             try {
                 // const maxAttempts = 10;
 
                 // await new Workbench().executeCommand("workbench.action.files.revert");
                 // await new Workbench().executeCommand("workbench.action.closeActiveEditor");
                 // await this.driver.actions().sendKeys(Key.ESCAPE).perform();
+                await this.screenshot(`DSL-bar${tryCount}-1`);
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+                await this.screenshot(`DSL-bar${tryCount}-2`);
 
                 // Get prompt
                 // let prompt: QuickOpenBox | InputBox | undefined = undefined;

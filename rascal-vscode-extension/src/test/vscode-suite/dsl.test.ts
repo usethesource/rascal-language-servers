@@ -98,7 +98,9 @@ describe('DSL', function () {
             await editor.setTextAtLine(10, "b := ;");
             await ide.screenshot("DSL-foo5");
             await ide.hasErrorSquiggly(editor, Delays.slow);
+            await ide.screenshot("DSL-foo6a");
         } finally {
+            await ide.screenshot("DSL-foo6b");
             await ide.revertOpenChanges();
         }
     });
