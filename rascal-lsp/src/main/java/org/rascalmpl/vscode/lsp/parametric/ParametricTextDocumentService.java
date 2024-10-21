@@ -578,7 +578,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenApply(contrib::runDocumentSymbolService)
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> Outline.toLSP(documentSymbols, columns.get(file.getLocation())))
             , Collections::emptyList);
     }
 
