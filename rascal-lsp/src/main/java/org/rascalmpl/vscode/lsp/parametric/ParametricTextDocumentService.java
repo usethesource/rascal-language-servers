@@ -689,7 +689,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(ParametricSummary::documentation, params.getTextDocument(), params.getPosition())
+            lookup(ParametricSummary::hovers, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }
