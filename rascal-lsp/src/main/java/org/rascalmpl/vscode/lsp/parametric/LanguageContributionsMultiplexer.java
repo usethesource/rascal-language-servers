@@ -139,7 +139,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         getAnalysisService = findFirstOrDefault(ILanguageContributions::hasAnalysisService);
         getBuildService = findFirstOrDefault(ILanguageContributions::hasBuildService);
         getDocumentSymbolService = findFirstOrDefault(ILanguageContributions::hasDocumentSymbolService);
-        getCodeLensService = findFirstOrDefault(ILanguageContributions::hasCodeLensDetector);
+        getCodeLensService = findFirstOrDefault(ILanguageContributions::hasCodeLensService);
         getInlayHintService = findFirstOrDefault(ILanguageContributions::hasInlayHintService);
         getExecutionService = findFirstOrDefault(ILanguageContributions::hasExecutionService);
         getHoverService = findFirstOrDefault(ILanguageContributions::hasHoverService);
@@ -152,7 +152,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasAnalysisService = anyTrue(ILanguageContributions::hasAnalysisService);
         hasBuildService = anyTrue(ILanguageContributions::hasBuildService);
         hasDocumentSymbolService = anyTrue(ILanguageContributions::hasDocumentSymbolService);
-        hasCodeLensService = anyTrue(ILanguageContributions::hasCodeLensDetector);
+        hasCodeLensService = anyTrue(ILanguageContributions::hasCodeLensService);
         hasInlayHintService = anyTrue(ILanguageContributions::hasInlayHintService);
         hasExecutionService = anyTrue(ILanguageContributions::hasExecutionService);
         hasHoverService = anyTrue(ILanguageContributions::hasHoverService);
@@ -331,7 +331,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasCodeLensService() {
         return hasCodeLensService;
     }
 

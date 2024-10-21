@@ -364,7 +364,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasCodeLensService() {
         return hasCodeLensService;
     }
 

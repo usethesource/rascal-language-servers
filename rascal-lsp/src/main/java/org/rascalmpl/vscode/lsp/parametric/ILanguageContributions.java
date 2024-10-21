@@ -64,7 +64,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasAnalysisService();
     public CompletableFuture<Boolean> hasBuildService();
     public CompletableFuture<Boolean> hasDocumentSymbolService();
-    public CompletableFuture<Boolean> hasCodeLensDetector();
+    public CompletableFuture<Boolean> hasCodeLensService();
     public CompletableFuture<Boolean> hasInlayHintService();
     public CompletableFuture<Boolean> hasExecutionService();
     public CompletableFuture<Boolean> hasHoverService();

@@ -214,7 +214,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLensDetector() {
+    public CompletableFuture<Boolean> hasCodeLensService() {
         return CompletableFuture.completedFuture(false);
     }
 
