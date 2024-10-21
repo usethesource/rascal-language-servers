@@ -65,7 +65,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> getImplementationService = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> getCodeActionService = failedInitialization();
 
-
     private volatile CompletableFuture<Boolean> hasAnalysisService = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuildService = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDocumentSymbolService = failedInitialization();
@@ -136,32 +135,32 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // we calculate the "route" once, and then just chain onto the completed
         // future
         parsingService = firstOrFail();
-        getAnalysisService = findFirstOrDefault(ILanguageContributions::hasAnalysisService);
-        getBuildService = findFirstOrDefault(ILanguageContributions::hasBuildService);
+
+        getAnalysisService       = findFirstOrDefault(ILanguageContributions::hasAnalysisService);
+        getBuildService          = findFirstOrDefault(ILanguageContributions::hasBuildService);
         getDocumentSymbolService = findFirstOrDefault(ILanguageContributions::hasDocumentSymbolService);
-        getCodeLensService = findFirstOrDefault(ILanguageContributions::hasCodeLensService);
-        getInlayHintService = findFirstOrDefault(ILanguageContributions::hasInlayHintService);
-        getExecutionService = findFirstOrDefault(ILanguageContributions::hasExecutionService);
-        getHoverService = findFirstOrDefault(ILanguageContributions::hasHoverService);
-        getDefinitionService = findFirstOrDefault(ILanguageContributions::hasDefinitionService);
-        getReferencesService = findFirstOrDefault(ILanguageContributions::hasReferencesService);
+        getCodeLensService       = findFirstOrDefault(ILanguageContributions::hasCodeLensService);
+        getInlayHintService      = findFirstOrDefault(ILanguageContributions::hasInlayHintService);
+        getExecutionService      = findFirstOrDefault(ILanguageContributions::hasExecutionService);
+        getHoverService          = findFirstOrDefault(ILanguageContributions::hasHoverService);
+        getDefinitionService     = findFirstOrDefault(ILanguageContributions::hasDefinitionService);
+        getReferencesService     = findFirstOrDefault(ILanguageContributions::hasReferencesService);
         getImplementationService = findFirstOrDefault(ILanguageContributions::hasImplementationService);
-        getCodeActionService = findFirstOrDefault(ILanguageContributions::hasCodeActionService);
+        getCodeActionService     = findFirstOrDefault(ILanguageContributions::hasCodeActionService);
 
-
-        hasAnalysisService = anyTrue(ILanguageContributions::hasAnalysisService);
-        hasBuildService = anyTrue(ILanguageContributions::hasBuildService);
+        hasAnalysisService       = anyTrue(ILanguageContributions::hasAnalysisService);
+        hasBuildService          = anyTrue(ILanguageContributions::hasBuildService);
         hasDocumentSymbolService = anyTrue(ILanguageContributions::hasDocumentSymbolService);
-        hasCodeLensService = anyTrue(ILanguageContributions::hasCodeLensService);
-        hasInlayHintService = anyTrue(ILanguageContributions::hasInlayHintService);
-        hasExecutionService = anyTrue(ILanguageContributions::hasExecutionService);
-        hasHoverService = anyTrue(ILanguageContributions::hasHoverService);
-        hasDefinitionService = anyTrue(ILanguageContributions::hasDefinitionService);
-        hasReferencesService = anyTrue(ILanguageContributions::hasReferencesService);
+        hasCodeLensService       = anyTrue(ILanguageContributions::hasCodeLensService);
+        hasInlayHintService      = anyTrue(ILanguageContributions::hasInlayHintService);
+        hasExecutionService      = anyTrue(ILanguageContributions::hasExecutionService);
+        hasHoverService          = anyTrue(ILanguageContributions::hasHoverService);
+        hasDefinitionService     = anyTrue(ILanguageContributions::hasDefinitionService);
+        hasReferencesService     = anyTrue(ILanguageContributions::hasReferencesService);
         hasImplementationService = anyTrue(ILanguageContributions::hasImplementationService);
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        builderSummaryConfig  = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         ondemandSummaryConfig = anyTrue(ILanguageContributions::getOndemandSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 
