@@ -268,17 +268,17 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
 
-            // for temporary backward compatibility between SummaryFields.DOCUMENTATION and SummaryFields.DEPRECATED_DOCUMENTATION
+            // for temporary backward compatibility between SummaryFields.HOVERS and SummaryFields.DEPRECATED_DOCUMENTATION
             calculation = calculation.thenApply(summary -> {
                 var kws = summary.asWithKeywordParameters();
-                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.DOCUMENTATION)) {
-                    return kws.setParameter(SummaryFields.DOCUMENTATION, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
+                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.HOVERS)) {
+                    return kws.setParameter(SummaryFields.HOVERS, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
                 }
                 return summary;
             });
 
             this.documentation = config.providesHovers ?
-                mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
+                mapCalculation(SummaryFields.HOVERS, calculation, SummaryFields.HOVERS, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
@@ -435,7 +435,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(config.providesHovers, cursor, contrib::runHoverService, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
+            return get(config.providesHovers, cursor, contrib::runHoverService, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
         }
 
         @Override

@@ -33,26 +33,27 @@ public class RascalADTs {
     private RascalADTs() {}
     public static class LanguageContributions {
         private LanguageContributions () {}
-        public static final String PARSER = "parsing";
-        public static final String ANALYZER = "analysis";
-        public static final String BUILDER = "build";
-        public static final String OUTLINER = "documentSymbol";
-        public static final String LENS_DETECTOR = "codeLens";
-        public static final String INLAY_HINTER = "inlayHint";
-        public static final String COMMAND_EXECUTOR = "execution";
-        public static final String DOCUMENTER = "hover";
-        public static final String DEFINER = "definition";
-        public static final String REFERRER = "references";
-        public static final String IMPLEMENTER = "implementation";
-        public static final String CODE_ACTION_CONTRIBUTOR = "codeAction";
+
+        public static final String PARSING         = "parsing";
+        public static final String ANALYSIS        = "analysis";
+        public static final String BUILD           = "build";
+        public static final String DOCUMENT_SYMBOL = "documentSymbol";
+        public static final String CODE_LENS       = "codeLens";
+        public static final String INLAY_HINT      = "inlayHint";
+        public static final String EXECUTION       = "execution";
+        public static final String HOVER           = "hover";
+        public static final String DEFINITION      = "definition";
+        public static final String REFERENCES      = "references";
+        public static final String IMPLEMENTATION  = "implementation";
+        public static final String CODE_ACTION     = "codeAction";
 
         public static class Summarizers {
             private Summarizers() {}
 
+            public static final String PROVIDES_HOVERS          = "providesHovers";
+            public static final String PROVIDES_DEFINITIONS     = "providesDefinitions";
+            public static final String PROVIDES_REFERENCES      = "providesReferences";
             public static final String PROVIDES_IMPLEMENTATIONS = "providesImplementations";
-            public static final String PROVIDES_REFERENCES = "providesReferences";
-            public static final String PROVIDES_DEFINITIONS = "providesDefinitions";
-            public static final String PROVIDES_DOCUMENTATION = "providesDocumentation";
         }
     }
 
@@ -60,11 +61,11 @@ public class RascalADTs {
         private SummaryFields() {}
 
         public static final String DEPRECATED_DOCUMENTATION = "documentation";
-        public static final String DOCUMENTATION = "hovers";
-        public static final String DEFINITIONS = "definitions";
-        public static final String REFERENCES = "references";
-        public static final String IMPLEMENTATIONS = "implementations";
 
+        public static final String HOVERS          = "hovers";
+        public static final String DEFINITIONS     = "definitions";
+        public static final String REFERENCES      = "references";
+        public static final String IMPLEMENTATIONS = "implementations";
     }
 
     public static class CommandFields {
@@ -81,5 +82,4 @@ public class RascalADTs {
         public static final String TITLE = "title";
         public static final String KIND = "kind";
     }
-
 }
