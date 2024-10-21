@@ -370,7 +370,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
         var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
 
-
         // translate to lsp
         var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
         result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
@@ -678,7 +677,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-        logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("References: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::references, params.getTextDocument(), params.getPosition())
             .thenApply(l -> l) // hack to help compiler see type
@@ -696,7 +695,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
-        logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
+        logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
@@ -785,5 +784,4 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return CompletableFuture.completedFuture(null);
         }
     }
-
 }
