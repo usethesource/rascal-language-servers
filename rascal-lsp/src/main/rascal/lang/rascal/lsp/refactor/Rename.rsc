@@ -48,19 +48,12 @@ import String;
 import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::Import;
-import lang::rascalcore::check::RascalConfig;
-
-import analysis::typepal::TypePal;
-import analysis::typepal::Collector;
 
 extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import analysis::diff::edits::TextEdits;
-
-import vis::Text;
 
 import util::FileSystem;
 import util::Maybe;
