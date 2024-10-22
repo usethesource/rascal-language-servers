@@ -279,7 +279,7 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
 
 private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container, loc cursorLoc, str cursorName) {
     for (Define dt <- rascalGetADTDefinitions(ws, container)
-        , adtType := dt.defInfo.atype) {
+        , AType adtType := dt.defInfo.atype) {
         if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
             // Case 4 or 5 (or 0): common keyword field
             return dataCommonKeywordField(dt.defined, fieldType);
