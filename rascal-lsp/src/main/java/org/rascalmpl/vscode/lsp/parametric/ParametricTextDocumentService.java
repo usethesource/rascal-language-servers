@@ -114,7 +114,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -578,7 +578,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenApply(contrib::runDocumentSymbolService)
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(documentSymbols -> Outline.toLSP(documentSymbols, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             , Collections::emptyList);
     }
 

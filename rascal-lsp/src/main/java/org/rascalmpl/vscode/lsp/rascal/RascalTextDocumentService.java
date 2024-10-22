@@ -98,7 +98,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -269,7 +269,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
-            .thenApply(documentSymbols -> Outline.toLSP(documentSymbols, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             ;
     }
 

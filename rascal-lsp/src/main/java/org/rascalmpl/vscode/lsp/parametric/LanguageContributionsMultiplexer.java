@@ -224,7 +224,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return p.runParsingService(loc, input);
     }
 
-
     private <T> InterruptibleFuture<T> flatten(CompletableFuture<ILanguageContributions> target, Function<ILanguageContributions, InterruptibleFuture<T>> call) {
         return InterruptibleFuture.flatten(target.thenApply(call), ownExecuter);
     }

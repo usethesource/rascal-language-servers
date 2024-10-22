@@ -42,9 +42,9 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IWithKeywordParameters;
 
-public class Outline {
+public class DocumentSymbols {
     // hide constructor for static class
-    private Outline() {}
+    private DocumentSymbols() {}
 
     private static String capitalize(String kindName) {
         return kindName.substring(0,1).toUpperCase() + kindName.substring(1);
