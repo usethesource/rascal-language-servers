@@ -87,9 +87,9 @@ test bool sameNameFields() = testRenameOccurrences({0, 2}, "
     'data E = e(int foo);
 ");
 
-test bool sameNameFieldsDisconnectedModules() = testRename({
+test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
     byText("A", "data D = d(int foo);", {0})
-  , byText("B", "data E = e(int foo);")
+  , byText("B", "data E = e(int foo);", {})
 });
 
 test bool complexDataType() = testRenameOccurrences({0, 1},
