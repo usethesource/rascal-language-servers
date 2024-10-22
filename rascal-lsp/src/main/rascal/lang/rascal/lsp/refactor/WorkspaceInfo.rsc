@@ -226,33 +226,26 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc def, loc scope] defScopes = ws.defines<defined, scope>+;
-    rel[loc scope, loc defined] scopeDefs =
-        (ws.defines<scope, defined>)+                  // Follow definition scopes ...
-      o ((ws.defines<idRole, defined, defined>)[role]) // Until we arrive at a definition with the same role ...
-      ;
 
-    rel[loc from, loc to] fromDefPaths =
-        (defScopes + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
-      o modulePaths                // 2. Follow import/extend relations to reachable scopes
-      o scopeDefs                  // 3. Find definitions in the reached scope, and definitions within those definitions (transitively)
-      ;
+    rel[loc from, loc to] defPaths =
+        (defScopes + defUseScopes)            // 1. Look up scopes of defs and scopes of their uses
+        o (modulePaths + invert(modulePaths)) // 2. Follow import/extend relations to reachable scopes
+        ;
 
-    rel[loc from, loc to] defPaths = fromDefPaths;
     if (constructorId() := role) {
         // We are just looking for constructors for the same ADT/nonterminal type
         rel[loc, loc] selectedConstructors = (ws.defines<defInfo, defined, defined>)[originalDefs.defInfo];
-        defPaths = (defPaths o selectedConstructors)
-                 + (invert(defPaths) o selectedConstructors);
+        defPaths = defPaths o selectedConstructors;
     } else if (fieldId() := role) {
         // We are looking for fields for the same ADT type (but not necessarily same constructor type)
         set[DefInfo] selectedADTTypes = (ws.defines<defined, defInfo>)[originalDefs.scope];
-        rel[loc, loc] selectedADTs = (ws.defines<defInfo, defined, defined>)[selectedADTTypes];
+        rel[loc, loc] selectedADTs = (ws.defines<defInfo, scope, defined>)[selectedADTTypes];
         rel[loc, loc] selectedFields = selectedADTs o ws.defines<scope, defined>;
-
-        defPaths = (defPaths o selectedFields)
-                 + invert(defPaths) o selectedFields;
+        defPaths = defPaths o selectedFields;
     } else {
-        defPaths = fromDefPaths + invert(fromDefPaths);
+        // Find definitions in the reached scope, and definitions within those definitions (transitively)
+        rel[loc scope, loc def] allDefs = (ws.defines<scope, defined>)+;
+        defPaths = defPaths o allDefs;
     }
 
     solve(overloadedDefs) {
