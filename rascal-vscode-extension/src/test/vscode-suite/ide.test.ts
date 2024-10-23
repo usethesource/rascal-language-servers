@@ -202,6 +202,8 @@ describe('IDE', function () {
 
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.DOWN); // skip the other two actions
+        await menuContainer.sendKeys(Key.DOWN);
         await menuContainer.sendKeys(Key.RETURN);
         await ide.assertLineBecomes(editor, 3, "import Lib;", "import Lib should have switched with import IO", Delays.extremelySlow);
     })
