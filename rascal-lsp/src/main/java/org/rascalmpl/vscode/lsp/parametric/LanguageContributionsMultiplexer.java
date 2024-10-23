@@ -136,31 +136,31 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // future
         parsing = firstOrFail();
 
-        analysis       = findFirstOrDefault(ILanguageContributions::hasAnalysis);
-        build          = findFirstOrDefault(ILanguageContributions::hasBuild);
+        analysis = findFirstOrDefault(ILanguageContributions::hasAnalysis);
+        build = findFirstOrDefault(ILanguageContributions::hasBuild);
         documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol);
-        codeLens       = findFirstOrDefault(ILanguageContributions::hasCodeLens);
-        inlayHint      = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        execution      = findFirstOrDefault(ILanguageContributions::hasExecution);
-        hover          = findFirstOrDefault(ILanguageContributions::hasHover);
-        definition     = findFirstOrDefault(ILanguageContributions::hasDefinition);
-        references     = findFirstOrDefault(ILanguageContributions::hasReferences);
+        codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens);
+        inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint);
+        execution = findFirstOrDefault(ILanguageContributions::hasExecution);
+        hover = findFirstOrDefault(ILanguageContributions::hasHover);
+        definition = findFirstOrDefault(ILanguageContributions::hasDefinition);
+        references = findFirstOrDefault(ILanguageContributions::hasReferences);
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
-        codeAction     = findFirstOrDefault(ILanguageContributions::hasCodeAction);
+        codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
 
-        hasAnalysis       = anyTrue(ILanguageContributions::hasAnalysis);
-        hasBuild          = anyTrue(ILanguageContributions::hasBuild);
+        hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
+        hasBuild = anyTrue(ILanguageContributions::hasBuild);
         hasDocumentSymbol = anyTrue(ILanguageContributions::hasDocumentSymbol);
-        hasCodeLens       = anyTrue(ILanguageContributions::hasCodeLens);
-        hasInlayHint      = anyTrue(ILanguageContributions::hasInlayHint);
-        hasExecution      = anyTrue(ILanguageContributions::hasExecution);
-        hasHover          = anyTrue(ILanguageContributions::hasHover);
-        hasDefinition     = anyTrue(ILanguageContributions::hasDefinition);
-        hasReferences     = anyTrue(ILanguageContributions::hasReferences);
+        hasCodeLens = anyTrue(ILanguageContributions::hasCodeLens);
+        hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
+        hasExecution = anyTrue(ILanguageContributions::hasExecution);
+        hasHover = anyTrue(ILanguageContributions::hasHover);
+        hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
+        hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
-        builderSummaryConfig  = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
+        builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         ondemandSummaryConfig = anyTrue(ILanguageContributions::getOndemandSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
     }
 

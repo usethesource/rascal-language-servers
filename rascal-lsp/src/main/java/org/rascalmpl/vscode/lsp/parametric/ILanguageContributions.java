@@ -46,18 +46,18 @@ import io.usethesource.vallang.type.TypeStore;
 public interface ILanguageContributions {
     public String getName();
 
-    public CompletableFuture<ITree>              parsing(ISourceLocation loc, String input);
-    public InterruptibleFuture<IConstructor>     analysis(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IConstructor>     build(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IList>            documentSymbol(ITree input);
-    public InterruptibleFuture<IList>            codeLens(ITree input);
-    public InterruptibleFuture<IList>            inlayHint(@Nullable ITree input);
+    public CompletableFuture<ITree> parsing(ISourceLocation loc, String input);
+    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IList> documentSymbol(ITree input);
+    public InterruptibleFuture<IList> codeLens(ITree input);
+    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
     public InterruptibleFuture<@Nullable IValue> execution(String command);
-    public InterruptibleFuture<ISet>             hover(IList focus);
-    public InterruptibleFuture<ISet>             definition(IList focus);
-    public InterruptibleFuture<ISet>             references(IList focus);
-    public InterruptibleFuture<ISet>             implementation(IList focus);
-    public InterruptibleFuture<IList>            codeAction(IList focus);
+    public InterruptibleFuture<ISet> hover(IList focus);
+    public InterruptibleFuture<ISet> definition(IList focus);
+    public InterruptibleFuture<ISet> references(IList focus);
+    public InterruptibleFuture<ISet> implementation(IList focus);
+    public InterruptibleFuture<IList> codeAction(IList focus);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 

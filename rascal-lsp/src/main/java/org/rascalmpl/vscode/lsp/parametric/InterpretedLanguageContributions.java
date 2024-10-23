@@ -125,34 +125,34 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
 
-            this.parsing        = getFunctionFor(contributions, LanguageContributions.PARSING);
-            this.analysis       = getFunctionFor(contributions, LanguageContributions.ANALYSIS);
-            this.build          = getFunctionFor(contributions, LanguageContributions.BUILD);
+            this.parsing = getFunctionFor(contributions, LanguageContributions.PARSING);
+            this.analysis = getFunctionFor(contributions, LanguageContributions.ANALYSIS);
+            this.build = getFunctionFor(contributions, LanguageContributions.BUILD);
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
-            this.codeLens       = getFunctionFor(contributions, LanguageContributions.CODE_LENS);
-            this.inlayHint      = getFunctionFor(contributions, LanguageContributions.INLAY_HINT);
-            this.execution      = getFunctionFor(contributions, LanguageContributions.EXECUTION);
-            this.hover          = getFunctionFor(contributions, LanguageContributions.HOVER);
-            this.definition     = getFunctionFor(contributions, LanguageContributions.DEFINITION);
-            this.references     = getFunctionFor(contributions, LanguageContributions.REFERENCES);
+            this.codeLens = getFunctionFor(contributions, LanguageContributions.CODE_LENS);
+            this.inlayHint = getFunctionFor(contributions, LanguageContributions.INLAY_HINT);
+            this.execution = getFunctionFor(contributions, LanguageContributions.EXECUTION);
+            this.hover = getFunctionFor(contributions, LanguageContributions.HOVER);
+            this.definition = getFunctionFor(contributions, LanguageContributions.DEFINITION);
+            this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
-            this.codeAction     = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
+            this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
 
             // assign boolean properties once instead of wasting futures all the time
-            this.hasAnalysis       = nonNull(this.analysis);
-            this.hasBuild          = nonNull(this.build);
+            this.hasAnalysis = nonNull(this.analysis);
+            this.hasBuild = nonNull(this.build);
             this.hasDocumentSymbol = nonNull(this.documentSymbol);
-            this.hasCodeLens       = nonNull(this.codeLens);
-            this.hasInlayHint      = nonNull(this.inlayHint);
-            this.hasExecution      = nonNull(this.execution);
-            this.hasHover          = nonNull(this.hover);
-            this.hasDefinition     = nonNull(this.definition);
-            this.hasReferences     = nonNull(this.references);
+            this.hasCodeLens = nonNull(this.codeLens);
+            this.hasInlayHint = nonNull(this.inlayHint);
+            this.hasExecution = nonNull(this.execution);
+            this.hasHover = nonNull(this.hover);
+            this.hasDefinition = nonNull(this.definition);
+            this.hasReferences = nonNull(this.references);
             this.hasImplementation = nonNull(this.implementation);
-            this.hasCodeAction     = nonNull(this.codeAction);
+            this.hasCodeAction = nonNull(this.codeAction);
 
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYSIS);
-            this.builderSummaryConfig  = scheduledSummaryConfig(contributions, LanguageContributions.BUILD);
+            this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILD);
             this.ondemandSummaryConfig = ondemandSummaryConfig(contributions);
 
         } catch (IOException e1) {

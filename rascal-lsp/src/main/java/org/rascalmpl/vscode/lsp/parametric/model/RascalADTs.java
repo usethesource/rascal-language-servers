@@ -34,25 +34,25 @@ public class RascalADTs {
     public static class LanguageContributions {
         private LanguageContributions () {}
 
-        public static final String PARSING         = "parsing";
-        public static final String ANALYSIS        = "analysis";
-        public static final String BUILD           = "build";
+        public static final String PARSING = "parsing";
+        public static final String ANALYSIS = "analysis";
+        public static final String BUILD = "build";
         public static final String DOCUMENT_SYMBOL = "documentSymbol";
-        public static final String CODE_LENS       = "codeLens";
-        public static final String INLAY_HINT      = "inlayHint";
-        public static final String EXECUTION       = "execution";
-        public static final String HOVER           = "hover";
-        public static final String DEFINITION      = "definition";
-        public static final String REFERENCES      = "references";
-        public static final String IMPLEMENTATION  = "implementation";
-        public static final String CODE_ACTION     = "codeAction";
+        public static final String CODE_LENS = "codeLens";
+        public static final String INLAY_HINT = "inlayHint";
+        public static final String EXECUTION = "execution";
+        public static final String HOVER = "hover";
+        public static final String DEFINITION = "definition";
+        public static final String REFERENCES = "references";
+        public static final String IMPLEMENTATION = "implementation";
+        public static final String CODE_ACTION = "codeAction";
 
         public static class Summarizers {
             private Summarizers() {}
 
-            public static final String PROVIDES_HOVERS          = "providesHovers";
-            public static final String PROVIDES_DEFINITIONS     = "providesDefinitions";
-            public static final String PROVIDES_REFERENCES      = "providesReferences";
+            public static final String PROVIDES_HOVERS = "providesHovers";
+            public static final String PROVIDES_DEFINITIONS = "providesDefinitions";
+            public static final String PROVIDES_REFERENCES = "providesReferences";
             public static final String PROVIDES_IMPLEMENTATIONS = "providesImplementations";
         }
     }
@@ -62,9 +62,9 @@ public class RascalADTs {
 
         public static final String DEPRECATED_DOCUMENTATION = "documentation";
 
-        public static final String HOVERS          = "hovers";
-        public static final String DEFINITIONS     = "definitions";
-        public static final String REFERENCES      = "references";
+        public static final String HOVERS = "hovers";
+        public static final String DEFINITIONS = "definitions";
+        public static final String REFERENCES = "references";
         public static final String IMPLEMENTATIONS = "implementations";
     }
 
