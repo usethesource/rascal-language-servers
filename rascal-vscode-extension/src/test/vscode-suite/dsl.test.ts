@@ -46,7 +46,7 @@ describe('DSL', function () {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
+        await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
         const replExecuteMain = repl.execute("main();"); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
