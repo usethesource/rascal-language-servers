@@ -145,7 +145,8 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 "<if (imports != [] && grammar != []) {>
                 '
                 '<}><for (i <- grammar) {><i>
-                '<}>"[..-1];
+                '
+                '<}>"[..-2];
 
     applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
     return ("result":true);
