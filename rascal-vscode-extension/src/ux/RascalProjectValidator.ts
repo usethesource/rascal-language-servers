@@ -36,7 +36,7 @@ const EXPLAIN_PROBLEM = "this reduces Rascal's capabilities for typechecking or 
 export class RascalProjectValidator implements vscode.Disposable {
     private readonly toDispose: vscode.Disposable[] = [];
     private readonly diagnostics: vscode.DiagnosticCollection;
-    private readonly cachedSourcePaths: Map<string, Promise<Uri[]>> = new Map();
+    private readonly cachedSourcePaths: Map<string, Promise<RascalManifest>> = new Map();
 
     constructor() {
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
@@ -45,8 +45,9 @@ export class RascalProjectValidator implements vscode.Disposable {
         vscode.workspace.onDidCloseTextDocument(this.closeFile, this, this.toDispose);
 
         // clear the cached source paths on changes to the rascal.mf file
-        const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
+        const watcher = vscode.workspace.createFileSystemWatcher(`**/{${MF_FILE},pom.xml}`, false, false, false);
         this.toDispose.push(watcher);
+        watcher.onDidCreate(this.rascalMFChanged, this, this.toDispose);
         watcher.onDidChange(this.rascalMFChanged, this, this.toDispose);
         watcher.onDidDelete(this.rascalMFChanged, this, this.toDispose);
 
@@ -68,6 +69,11 @@ export class RascalProjectValidator implements vscode.Disposable {
     }
 
     async rascalMFChanged(mfFile : Uri) {
+        if (mfFile.path.endsWith("pom.xml")) {
+            // it was a pom.xml change
+            // so calculate the rascal.mf file
+            mfFile = buildMFChildPath(mfFile.with({ path: posix.dirname(mfFile.path) }));
+        }
         if (this.cachedSourcePaths.delete(mfFile.toString())) {
             // we had calculated the source paths before
             // lets see re-validate all messages we've reported
@@ -83,20 +89,26 @@ export class RascalProjectValidator implements vscode.Disposable {
         const folder = vscode.workspace.getWorkspaceFolder(e.uri);
         const messages: Diagnostic[] = [];
         if (!folder) {
-            messages.push(new Diagnostic(
-                FIRST_WORD,
-                "This Rascal file is not part of a project opened in this VS Code window, " + EXPLAIN_PROBLEM,
-                vscode.DiagnosticSeverity.Warning
-            ));
+            if (e.uri.scheme === 'file') {
+                // we do not want this report on non-file locations, as they are most likely virtual (coming from jars etc)
+                messages.push(new Diagnostic(
+                    FIRST_WORD,
+                    "This Rascal file is not part of a project opened in this VS Code window, " + EXPLAIN_PROBLEM,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+            }
         }
         else {
-            await reportMissingFile(buildPOMChildPath(folder.uri), folder, messages);
 
             const mf = buildMFChildPath(folder.uri);
-            if (!(await reportMissingFile(mf, folder, messages))) {
+            if (!(await reportIfMissingFile(mf, folder, messages))) {
                 try {
-                    const sources = await this.getSourcePaths(mf);
-                    if (sources.find(s => isChild(s, e.uri)) === undefined) {
+                    const rascalMf = await this.getManifest(mf);
+                    if (rascalMf.libraries.length > 0) {
+                        // only if there are dependencies in a Rascal.mf file, is a pom.xml required
+                        await reportIfMissingFile(buildPOMChildPath(folder.uri), folder, messages);
+                    }
+                    if (rascalMf.sources.find(s => isChild(s, e.uri)) === undefined) {
                         messages.push(new Diagnostic(
                             FIRST_WORD,
                             `This file is not in the source path of the "${folder.name}" project, please review the RASCAL.MF file. Since ${EXPLAIN_PROBLEM}`,
@@ -112,13 +124,13 @@ export class RascalProjectValidator implements vscode.Disposable {
         this.diagnostics.set(e.uri, messages);
     }
 
-    getSourcePaths(mf: vscode.Uri) : Promise<Uri[]> {
+    getManifest(mf: vscode.Uri) : Promise<RascalManifest> {
         const key = mf.toString();
         let result = this.cachedSourcePaths.get(key);
         if (result !== undefined) {
             return result;
         }
-        result = parseSourcePaths(mf);
+        result = RascalManifest.parse(mf);
         this.cachedSourcePaths.set(key, result);
         return result;
     }
@@ -153,7 +165,7 @@ function buildPOMChildPath(u: Uri): Uri {
     return Uri.joinPath(u, "pom.xml");
 }
 
-async function reportMissingFile(file: vscode.Uri, project: vscode.WorkspaceFolder, messages: vscode.Diagnostic[]) {
+async function reportIfMissingFile(file: vscode.Uri, project: vscode.WorkspaceFolder, messages: vscode.Diagnostic[]) {
     if (await fileExists(file)) {
         return false;
     }
@@ -181,31 +193,44 @@ function isChild(parent: Uri, child: Uri): boolean {
     }
 }
 
-// TODO: at a later point, merge this with code in the RascalMF validator
-async function parseSourcePaths(mf: Uri): Promise<vscode.Uri[]> {
-    try {
-        const body = new TextDecoder("UTF8").decode(await vscode.workspace.fs.readFile(mf));
-        const lines = body.split('\n');
-        for (let line of lines) {
-            line = removeComments(line);
-            const [key, value] = line.split(":");
-            if (key && value && key.trim() === "Source") {
-                const parent = mf.with({path : posix.dirname(posix.dirname(mf.path))});
-                return value.split(',')
-                    .map(s => s.trim())
-                    .map(s => Uri.joinPath(parent, s));
-
-            }
-        }
-        return [];
-    }
-    catch (e) {
-        console.log("Could not parse rascal.mf", e);
-        return [];
-    }
-}
-
 function removeComments(entry: string): string {
     return entry.replace(/#.*$/, "");
 }
 
+class RascalManifest {
+    private constructor(
+        public readonly sources: Uri[],
+        public readonly libraries: string[]) {
+
+    }
+
+    // TODO: at a later point, merge this with code in the RascalMF validator
+    public static async parse(mf: Uri): Promise<RascalManifest> {
+        try {
+            const body = new TextDecoder("UTF8").decode(await vscode.workspace.fs.readFile(mf));
+            const lines = body.split('\n');
+            let uris: Uri[] = [];
+            let libraries: string[] = [];
+            for (let line of lines) {
+                line = removeComments(line);
+                const [key, value] = line.split(":");
+                if (key && value && key.trim() === "Source") {
+                    const parent = mf.with({path : posix.dirname(posix.dirname(mf.path))});
+                    uris = value.split(',')
+                        .map(s => s.trim())
+                        .map(s => Uri.joinPath(parent, s));
+                }
+                else if (key && value && key.trim() === "Require-Libraries") {
+                    libraries = value.split(',').map(s => s.trim());
+                }
+            }
+            console.log(uris, libraries);
+            return new RascalManifest(uris, libraries);
+        }
+        catch (e) {
+            console.log("Could not parse rascal.mf", e);
+            return new RascalManifest([], []);
+        }
+    }
+
+}
