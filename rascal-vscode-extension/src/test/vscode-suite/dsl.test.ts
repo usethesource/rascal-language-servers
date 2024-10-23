@@ -141,18 +141,11 @@ describe('DSL', function () {
         await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
     });
 
-    function assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
-        return driver.wait(async () => {
-            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
-            return currentContent === lineContents;
-        }, wait, msg, 100);
-    }
-
     it("code lens works", async () => {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
         await lens!.click();
-        await assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
+        await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
     it("quick fix works", async() => {
@@ -171,7 +164,7 @@ describe('DSL', function () {
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
         await menuContainer.sendKeys(Key.RETURN);
-        await assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+        await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
     });
 
 });

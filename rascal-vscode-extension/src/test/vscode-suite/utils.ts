@@ -214,7 +214,12 @@ export class IDEOperations {
         await ignoreFails(center?.close());
     }
 
-
+    assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
+        return this.driver.wait(async () => {
+            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            return currentContent === lineContents;
+        }, wait, msg, 100);
+    }
 
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
         return this.driver.wait(scopedElementLocated(editor, selector), timeout, message, 50);

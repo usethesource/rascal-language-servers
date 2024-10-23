@@ -187,5 +187,23 @@ describe('IDE', function () {
         expect(editorText).to.contain("i - 1");
         expect(editorText).to.contain("i -2");
     });
+
+    it("code actions work", async() {
+        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        await editor.moveCursor(3,1); // in the list of imports
+
+        // trigger the code actions
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Sort imports and extends')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "Sort imports and extends should be available and focused");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
+        await ide.assertLineBecomes(editor, 3, "import Lib;", "import Lib should have switched with import IO", Delays.extremelySlow);
+    })
 });
 

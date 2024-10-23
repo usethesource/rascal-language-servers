@@ -86,7 +86,7 @@ list[CodeAction] addLicenseAction(start[Module] \module, PathConfig pcfg) {
     return [];
 }
 
-str findLicense(PathConfig pcfg) {
+private str findLicense(PathConfig pcfg) {
     for (loc src <- pcfg.srcs) {
         while (!exists(src + "pom.xml") && src.path != "" && src.path != "/") {
             src = src.parent;
@@ -103,7 +103,7 @@ str findLicense(PathConfig pcfg) {
     return "";
 }
 
-DocumentEdit makeLicenseEdit(loc \module, str license)
+private DocumentEdit makeLicenseEdit(loc \module, str license)
     = changed(\module.top, [replace(\module.top(0, 0), license)]);
 
 @synopsis{Rewrite immediate return to expression.}
