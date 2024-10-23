@@ -83,7 +83,7 @@ public class RascalLanguageServices {
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
-    private final CompletableFuture<Evaluator> outlineEvaluator;
+    private final CompletableFuture<Evaluator> documentSymbolEvaluator;
     private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
     private final CompletableFuture<Evaluator> actionEvaluator;
@@ -104,7 +104,7 @@ public class RascalLanguageServices {
 
         var monitor = new RascalLSPMonitor(client, logger);
 
-        outlineEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal outline", monitor, null, false, "lang::rascal::lsp::Outline");
+        documentSymbolEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal document symbols", monitor, null, false, "lang::rascal::lsp::DocumentSymbols");
         semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
         actionEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal actions", monitor, null, true, "lang::rascal::lsp::Actions");
@@ -192,14 +192,14 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<IList> getOutline(IConstructor module) {
+    public InterruptibleFuture<IList> getDocumentSymbols(IConstructor module) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
             return new InterruptibleFuture<>(CompletableFuture.completedFuture(VF.list()), () -> {
             });
         }
 
-        return runEvaluator("Rascal outline", outlineEvaluator, eval -> (IList) eval.call("outlineRascalModule", module),
+        return runEvaluator("Rascal Document Symbols", documentSymbolEvaluator, eval -> (IList) eval.call("documentRascalSymbols", module),
             VF.list(), exec, false, client);
     }
 

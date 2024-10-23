@@ -320,8 +320,12 @@ export class IDEOperations {
         };
     }
 
+    private screenshotSeqNumber = 0;
+
     screenshot(name: string): Promise<void> {
-        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
+        return this.browser.takeScreenshot(
+            `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
+            name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 

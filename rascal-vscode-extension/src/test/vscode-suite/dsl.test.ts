@@ -46,14 +46,15 @@ describe('DSL', function () {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
-        repl.execute("main();"); // we don't wait, be cause we might miss pico loading window
+        await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
+        const replExecuteMain = repl.execute("main();"); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
-        await repl.terminate();
-        // now wait for the Pico loader to dissapear
+        // now wait for the Pico loader to disappear
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
+        await replExecuteMain;
+        await repl.terminate();
     }
 
 
@@ -68,6 +69,12 @@ describe('DSL', function () {
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
+    });
+
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("DSL-" + this.test?.title);
+        }
     });
 
     afterEach(async function () {
@@ -87,6 +94,11 @@ describe('DSL', function () {
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);
+        } catch (e) {
+            console.log(`Failed to trigger parse error: ${e}`);
+            if (e instanceof Error) {
+                console.log(e.stack);
+            }
         } finally {
             await ide.revertOpenChanges();
         }

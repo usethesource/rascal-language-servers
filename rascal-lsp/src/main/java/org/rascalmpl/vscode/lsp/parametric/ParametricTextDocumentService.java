@@ -110,7 +110,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -323,7 +323,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::lenses)
+            .thenApply(contrib::codeLens)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -364,7 +364,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var kind = (IConstructor) t.get("kind");
         var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
         var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
-
 
         // translate to lsp
         var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
@@ -445,7 +444,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText())
         );
     }
 
@@ -496,15 +495,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::outline)
+            .thenApply(contrib::documentSymbol)
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             , Collections::emptyList);
     }
 
@@ -565,7 +564,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
 
         if (!focus.isEmpty()) {
-            return contribs.codeActions(focus).get();
+            return contribs.codeAction(focus).get();
         }
         else {
             logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
@@ -604,7 +603,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-        logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("References: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::references, params.getTextDocument(), params.getPosition())
             .thenApply(l -> l) // hack to help compiler see type
@@ -615,14 +614,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(ParametricSummary::documentation, params.getTextDocument(), params.getPosition())
+            lookup(ParametricSummary::hovers, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
-        logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
+        logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
@@ -704,12 +703,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
-            return contribs.executeCommand(command).get();
+            return contribs.execution(command).get();
         }
         else {
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFuture.completedFuture(null);
         }
     }
-
 }

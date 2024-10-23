@@ -114,7 +114,7 @@ public class ParametricFileFacts {
 
     public void reloadContributions() {
         analyzerSummaryFactory = contrib.getAnalyzerSummaryConfig().thenApply(config ->
-            new ScheduledSummaryFactory(config, exec, columns, contrib::analyze));
+            new ScheduledSummaryFactory(config, exec, columns, contrib::analysis));
         builderSummaryFactory = contrib.getBuilderSummaryConfig().thenApply(config ->
             new ScheduledSummaryFactory(config, exec, columns, contrib::build));
         ondemandSummaryFactory = contrib.getOndemandSummaryConfig().thenApply(config ->
