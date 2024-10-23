@@ -46,32 +46,32 @@ import io.usethesource.vallang.type.TypeStore;
 public interface ILanguageContributions {
     public String getName();
 
-    public CompletableFuture<ITree>              runParsingService(ISourceLocation loc, String input);
-    public InterruptibleFuture<IConstructor>     runAnalysisService(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IConstructor>     runBuildService(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<IList>            runDocumentSymbolService(ITree input);
-    public InterruptibleFuture<IList>            runCodeLensService(ITree input);
-    public InterruptibleFuture<IList>            runInlayHintService(@Nullable ITree input);
-    public InterruptibleFuture<@Nullable IValue> runExecutionService(String command);
-    public InterruptibleFuture<ISet>             runHoverService(IList focus);
-    public InterruptibleFuture<ISet>             runDefinitionService(IList focus);
-    public InterruptibleFuture<ISet>             runReferencesService(IList focus);
-    public InterruptibleFuture<ISet>             runImplementationService(IList focus);
-    public InterruptibleFuture<IList>            runCodeActionService(IList focus);
+    public CompletableFuture<ITree>              parsing(ISourceLocation loc, String input);
+    public InterruptibleFuture<IConstructor>     analysis(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IConstructor>     build(ISourceLocation loc, ITree input);
+    public InterruptibleFuture<IList>            documentSymbol(ITree input);
+    public InterruptibleFuture<IList>            codeLens(ITree input);
+    public InterruptibleFuture<IList>            inlayHint(@Nullable ITree input);
+    public InterruptibleFuture<@Nullable IValue> execution(String command);
+    public InterruptibleFuture<ISet>             hover(IList focus);
+    public InterruptibleFuture<ISet>             definition(IList focus);
+    public InterruptibleFuture<ISet>             references(IList focus);
+    public InterruptibleFuture<ISet>             implementation(IList focus);
+    public InterruptibleFuture<IList>            codeAction(IList focus);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 
-    public CompletableFuture<Boolean> hasAnalysisService();
-    public CompletableFuture<Boolean> hasBuildService();
-    public CompletableFuture<Boolean> hasDocumentSymbolService();
-    public CompletableFuture<Boolean> hasCodeLensService();
-    public CompletableFuture<Boolean> hasInlayHintService();
-    public CompletableFuture<Boolean> hasExecutionService();
-    public CompletableFuture<Boolean> hasHoverService();
-    public CompletableFuture<Boolean> hasDefinitionService();
-    public CompletableFuture<Boolean> hasReferencesService();
-    public CompletableFuture<Boolean> hasImplementationService();
-    public CompletableFuture<Boolean> hasCodeActionService();
+    public CompletableFuture<Boolean> hasAnalysis();
+    public CompletableFuture<Boolean> hasBuild();
+    public CompletableFuture<Boolean> hasDocumentSymbol();
+    public CompletableFuture<Boolean> hasCodeLens();
+    public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<Boolean> hasExecution();
+    public CompletableFuture<Boolean> hasHover();
+    public CompletableFuture<Boolean> hasDefinition();
+    public CompletableFuture<Boolean> hasReferences();
+    public CompletableFuture<Boolean> hasImplementation();
+    public CompletableFuture<Boolean> hasCodeAction();
 
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();

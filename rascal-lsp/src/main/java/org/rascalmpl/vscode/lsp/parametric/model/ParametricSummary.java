@@ -435,22 +435,22 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
-            return get(config.providesHovers, cursor, contrib::runHoverService, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
+            return get(config.providesHovers, cursor, contrib::hover, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::runDefinitionService, locationMapper(columns), SummaryFields.DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::definition, locationMapper(columns), SummaryFields.DEFINITIONS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor) {
-            return get(config.providesReferences, cursor, contrib::runReferencesService, locationMapper(columns), SummaryFields.REFERENCES);
+            return get(config.providesReferences, cursor, contrib::references, locationMapper(columns), SummaryFields.REFERENCES);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::runImplementationService, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::implementation, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override
