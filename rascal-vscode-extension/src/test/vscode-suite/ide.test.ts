@@ -188,7 +188,7 @@ describe('IDE', function () {
         expect(editorText).to.contain("i -2");
     });
 
-    it("code actions work", async() {
+    it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await editor.moveCursor(3,1); // in the list of imports
 
