@@ -98,7 +98,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -158,6 +158,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(true);
     }
+
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
         this.workspaceService = workspaceService;
@@ -176,14 +177,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        logger.debug("Open file: {}", params.getTextDocument());
+        logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument());
         handleParsingErrors(file);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        logger.trace("Change contents: {}", params.getTextDocument());
+        logger.trace("Change: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
     }
 
@@ -244,10 +245,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         handleParsingErrors(file,file.getCurrentTreeAsync());
     }
 
-
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
-        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         if (facts != null) {
             return facts.getSummary(Locations.toLoc(params.getTextDocument()))
@@ -263,13 +263,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
         documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
+        logger.debug("textDocument/documentSymbol: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getOutline(tr).get())
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
+            .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             ;
     }
 
@@ -429,6 +429,4 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.warn("ignoring execute command in Rascal LSP: {}, {}", extension, command);
         return CompletableFuture.completedFuture(null);
     }
-
-
 }

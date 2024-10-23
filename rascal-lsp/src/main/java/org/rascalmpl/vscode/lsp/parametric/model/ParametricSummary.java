@@ -72,7 +72,7 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * The purpose of this interface is to provide a general abstraction for
- * `Position`-based look-ups of documentation, definitions, references, and
+ * `Position`-based look-ups of hovers, definitions, references, and
  * implementations, regardless of which component calculates the requested
  * information. There are two implementations:
  *
@@ -96,7 +96,7 @@ public interface ParametricSummary {
     // this happens when no on-demand summarizer exists for the requested
     // information.
     @SuppressWarnings("deprecation") // For `MarkedString`
-    @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor);
+    @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
@@ -113,8 +113,8 @@ public interface ParametricSummary {
     // (i.e., it later comes from the analyzer, builder, or an on-demand
     // summarizer).
     @SuppressWarnings("deprecation") // For `MarkedString`
-    public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> documentation(ParametricSummary summary, Position position) {
-        return summary.getDocumentation(position);
+    public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> hovers(ParametricSummary summary, Position position) {
+        return summary.getHovers(position);
     }
     public static @Nullable InterruptibleFuture<List<Location>> definitions(ParametricSummary summary, Position position) {
         return summary.getDefinitions(position);
@@ -139,7 +139,7 @@ public interface ParametricSummary {
 class NullSummary implements ParametricSummary {
     @Override
     @SuppressWarnings("deprecation") // For `MarkedString`
-    public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
+    public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
         return null;
     }
 
@@ -260,7 +260,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
     public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
         @SuppressWarnings("deprecation") // For `MarkedString`
-        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> hovers;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
@@ -268,17 +268,17 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
 
-            // for temporary backward compatibility between SummaryFields.DOCUMENTATION and SummaryFields.DEPRECATED_DOCUMENTATION
+            // for temporary backward compatibility between SummaryFields.HOVERS and SummaryFields.DEPRECATED_DOCUMENTATION
             calculation = calculation.thenApply(summary -> {
                 var kws = summary.asWithKeywordParameters();
-                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.DOCUMENTATION)) {
-                    return kws.setParameter(SummaryFields.DOCUMENTATION, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
+                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.HOVERS)) {
+                    return kws.setParameter(SummaryFields.HOVERS, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
                 }
                 return summary;
             });
 
-            this.documentation = config.providesDocumentation ?
-                mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
+            this.hovers = config.providesHovers ?
+                mapCalculation(SummaryFields.HOVERS, calculation, SummaryFields.HOVERS, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
@@ -289,8 +289,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(documentation, cursor);
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
+            return get(hovers, cursor);
         }
 
         @Override
@@ -311,7 +311,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         @Override
         public void invalidate() {
             super.invalidate();
-            documentation.interrupt();
+            hovers.interrupt();
             definitions.interrupt();
             references.interrupt();
             implementations.interrupt();
@@ -434,13 +434,13 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
+            return get(config.providesHovers, cursor, contrib::hover, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::definitions, locationMapper(columns), SummaryFields.DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::definition, locationMapper(columns), SummaryFields.DEFINITIONS);
         }
 
         @Override
@@ -450,7 +450,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::implementations, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::implementation, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override
