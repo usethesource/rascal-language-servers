@@ -27,8 +27,8 @@ POSSIBILITY OF SUCH DAMAGE.
 @synopsis{Demonstrating all of the LSP services for the demo language Pico.}
 @deprecated{This demo has been superseded by ((LanguageServer)) which avoids the use of deprecated API.}
 @description{
-This module is here to test the backward compatibility layer over the new ((LanguageServer)) API.
-For learning how to build a new set of lanuage services, please go [here]((LanguageServer)).
+This module is here to test the backward compatibility layer over the new ((util::LanguageServer)) API.
+For learning how to build a new set of lanuage services, please go [here]((util::LanguageServer)).
 }
 module demo::lang::pico::OldStyleLanguageServer
 
