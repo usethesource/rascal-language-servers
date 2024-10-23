@@ -507,4 +507,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
         return rascalServices.executeCommand(command).get();
     }
+
+    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+        return future
+                .exceptionally(e -> {
+                    logger.error("Operation failed with", e);
+                    return defaultValue.get();
+                });
+    }
 }
