@@ -37,6 +37,7 @@ import lang::rascal::vis::ImportGraph;
 import util::Reflective;
 import util::IDEServices;
 import List;
+import IO;
 
 @synopsis{Here we list Rascal-specific code commands}
 @description{
@@ -51,6 +52,10 @@ data Command
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     result = [];
 
+    if ([*_, start[Module] top] := focus) {
+        result += addLicenseAction(top, pcfg);
+    }
+
     if ([*_, Toplevel t, *_] := focus) {
         result += toplevelCodeActions(t);
     }
@@ -63,6 +68,43 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
 
     return result;
 }
+
+@synopsis{Add a license header if there isn't one.}
+list[CodeAction] addLicenseAction(start[Module] \module, PathConfig pcfg) {
+    Tags tags = \module.top.header.tags;
+
+    if ((Tags) `<Tag*_ > @license<TagString _> <Tag* _>` !:= tags) {
+        license = findLicense(pcfg);
+        if (license != "") {
+            license = "@license{
+                      '<license>
+                      '}\n";
+            return [action(edits=[makeLicenseEdit(\module@\loc, license)], title="Add missing license header")];
+        }
+    }
+
+    return [];
+}
+
+str findLicense(PathConfig pcfg) {
+    for (loc src <- pcfg.srcs) {
+        while (!exists(src + "pom.xml") && src.path != "" && src.path != "/") {
+            src = src.parent;
+        }
+
+        if (exists(src + "LICENSE")) {
+            return trim(readFile(src + "LICENSE"));
+        }
+        else if (exists(src + "LICENSE.md")) {
+            return trim(readFile(src + "LICENSE.md"));
+        }
+    }
+
+    return "";
+}
+
+DocumentEdit makeLicenseEdit(loc \module, str license)
+    = changed(\module.top, [replace(\module.top(0, 0), license)]);
 
 @synopsis{Rewrite immediate return to expression.}
 list[CodeAction] toplevelCodeActions(Toplevel t:
