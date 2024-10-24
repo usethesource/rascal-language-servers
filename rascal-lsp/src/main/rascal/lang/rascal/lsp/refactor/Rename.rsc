@@ -48,19 +48,12 @@ import String;
 import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::Import;
-import lang::rascalcore::check::RascalConfig;
-
-import analysis::typepal::TypePal;
-import analysis::typepal::Collector;
 
 extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import analysis::diff::edits::TextEdits;
-
-import vis::Text;
 
 import util::FileSystem;
 import util::Maybe;
@@ -286,7 +279,7 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
 
 private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container, loc cursorLoc, str cursorName) {
     for (Define dt <- rascalGetADTDefinitions(ws, container)
-        , adtType := dt.defInfo.atype) {
+        , AType adtType := dt.defInfo.atype) {
         if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
             // Case 4 or 5 (or 0): common keyword field
             return dataCommonKeywordField(dt.defined, fieldType);
