@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -116,9 +115,6 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
-import com.google.gson.JsonPrimitive;
-
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -442,25 +438,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         final var startLine = start.getLine() + 1;
         // convert to Rascal UTF-32 column width
         final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
-        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
         CompletableFuture<Stream<IValue>> quickfixes
-            = params.getContext().getDiagnostics()
-                .stream()
-                .map(Diagnostic::getData)
-                .filter(Objects::nonNull)
-                .filter(JsonPrimitive.class::isInstance)
-                .map(JsonPrimitive.class::cast)
-                .map(JsonPrimitive::getAsString)
-                // this is the "magic" resurrection of command terms from the JSON data field
-                .map(rascalServices::parseCodeActions)
-                // this serializes the stream of futures and accumulates their results as a flat list again
-                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
-                .thenApply(IList::stream)
-            ;
+            = CodeActions.extractActionsFromDiagnostics(params, rascalServices::parseCodeActions);
 
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
@@ -474,13 +457,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
-                Stream.concat(quicks, actions)
-                    .map(IConstructor.class::cast)
-                    .map((IConstructor cons) -> (CodeAction) CodeActions.constructorToCodeAction(this, "", "Rascal", cons))
-                    .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
-                    .collect(Collectors.toList())
-            );
+        return CodeActions.mergeAndConvertCodeActions(this, "", "Rascal", quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
