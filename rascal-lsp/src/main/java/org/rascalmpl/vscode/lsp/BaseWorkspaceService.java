@@ -46,6 +46,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+    public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 

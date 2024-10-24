@@ -174,7 +174,7 @@ public class CodeActions {
         if (!dedicatedLanguageName.isEmpty()) {
             return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
         }
-        else if ("Rascal".equals(language)) {
+        else if (BaseWorkspaceService.RASCAL_LANGUAGE.equals(language)) {
             return BaseWorkspaceService.RASCAL_COMMAND;
         }
         else {
