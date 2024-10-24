@@ -165,15 +165,20 @@ public class CodeActions {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
         IString possibleTitle = (IString) kw.getParameter(RascalADTs.CommandFields.TITLE);
 
-        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), getRascalMetaCommandName(dedicatedLanguageName), Arrays.asList(languageName, command.toString()));
+        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), getRascalMetaCommandName(languageName, dedicatedLanguageName), Arrays.asList(languageName, command.toString()));
     }
 
-    public static String getRascalMetaCommandName(String dedicatedLanguageName) {
+    public static String getRascalMetaCommandName(String language, String dedicatedLanguageName) {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
         if (!dedicatedLanguageName.isEmpty()) {
             return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
         }
-        return BaseWorkspaceService.RASCAL_META_COMMAND;
+        else if ("Rascal".equals(language)) {
+            return BaseWorkspaceService.RASCAL_COMMAND;
+        }
+        else {
+            return BaseWorkspaceService.RASCAL_META_COMMAND;
+        }
     }
 }

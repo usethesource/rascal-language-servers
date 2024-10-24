@@ -47,6 +47,7 @@ import org.eclipse.lsp4j.services.WorkspaceService;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
+    public static final String RASCAL_COMMAND = "rascal-command";
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
