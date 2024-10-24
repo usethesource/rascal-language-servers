@@ -166,17 +166,22 @@ describe('DSL', function () {
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
-        const inputarea = await editor.findElement(By.className('inputarea'));
-        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+        try {
+            const inputarea = await editor.findElement(By.className('inputarea'));
+            await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
 
-        // finds an open menu with the right item in it (Change to a) and then select
-        // the parent that handles UI events like click() and sendKeys()
-        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "The Change to a option should be available and focussed by default");
+            // finds an open menu with the right item in it (Change to a) and then select
+            // the parent that handles UI events like click() and sendKeys()
+            const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Change to a')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "The Change to a option should be available and focussed by default");
 
-        // menu container works a bit strangely, it ask the focus to keep track of it,
-        // and manages clicks and menus on the highest level (not per item).
-        await menuContainer.sendKeys(Key.RETURN);
-        await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+            // menu container works a bit strangely, it ask the focus to keep track of it,
+            // and manages clicks and menus on the highest level (not per item).
+            await menuContainer.sendKeys(Key.RETURN);
+            await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
 });
