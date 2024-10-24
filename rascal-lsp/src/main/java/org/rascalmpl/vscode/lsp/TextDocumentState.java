@@ -200,7 +200,7 @@ class Debouncer<T> {
     // A debouncer is implemented using a *delayed executor* as `scheduler`. The
     // idea is to *periodically* check the state of the underlying resource
     // provider. More precisely, each time when the resource is requested,
-    // immediately check if case 1 or case 3 (above) are applicable. If so,
+    // immediately check if case 2 or case 3 (above) are applicable. If so,
     // return. If not, schedule a *delayed future* to retry the request, to be
     // completed after a small `period` (e.g., 50 milliseconds).
     //
@@ -222,7 +222,7 @@ class Debouncer<T> {
     // The underlying resource provider is represented abstractly in terms of
     // two suppliers, each of which corresponds with a state of the underlying
     // resource provider. `getIfInitialized` should return `null` iff the
-    // underlying resource provided is not-initialized.
+    // underlying resource provider is not-initialized.
 
     private final Supplier<@Nullable CompletableFuture<T>> getIfInitialized;
     private final Supplier<CompletableFuture<T>> initializeAndGet;
@@ -260,7 +260,7 @@ class Debouncer<T> {
         var oldStamp = scheduled.getStamp();
         while (!scheduled.compareAndSet(oldRef, oldRef, oldStamp, oldStamp));
 
-        // Compute a new reference (delayed future to retry this method)
+        // Compute a new reference (= delayed future to retry this method)
         var delayArg = new CompletableFuture<Integer>();
         var newRef = delayArg
             .thenApplyAsync(this::reschedule, scheduler)
@@ -294,7 +294,7 @@ class Debouncer<T> {
 
         // Otherwise (i.e, the delay is not yet over, but a delayed future has
         // been scheduled already), then update the remaining delay; it will be
-        // used to complete the already-scheduled delayed future.
+        // used by the already-scheduled delayed future.
         if (scheduled.attemptStamp(oldRef, newStamp)) {
             return oldRef;
         }
