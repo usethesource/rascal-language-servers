@@ -86,7 +86,6 @@ public class RascalLanguageServices {
     private final CompletableFuture<Evaluator> documentSymbolEvaluator;
     private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
-    private final CompletableFuture<Evaluator> actionEvaluator;
 
     private final CompletableFuture<TypeStore> actionStore;
 
@@ -105,10 +104,9 @@ public class RascalLanguageServices {
         var monitor = new RascalLSPMonitor(client, logger);
 
         documentSymbolEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal document symbols", monitor, null, false, "lang::rascal::lsp::DocumentSymbols");
-        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename");
+        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
-        actionEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal actions", monitor, null, true, "lang::rascal::lsp::Actions");
-        actionStore = actionEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
+        actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
@@ -278,13 +276,15 @@ public class RascalLanguageServices {
     public InterruptibleFuture<IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
+        var defaultMap = VF.mapWriter();
+        defaultMap.put(VF.string("result"), VF.bool(false));
 
         return InterruptibleFuture.flatten(parseCommand(command).thenApply(cons ->
             EvaluatorUtil.<IValue>runEvaluator(
                 "executeCommand",
-                actionEvaluator,
+                semanticEvaluator,
                 ev -> ev.call("evaluateRascalCommand", cons),
-                null,
+                defaultMap.done(),
                 exec,
                 true,
                 client
@@ -337,10 +337,10 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<IList> codeActions(IList focus, PathConfig pcfg) {
-        return runEvaluator("Rascal codeActions", actionEvaluator, eval -> {
+        return runEvaluator("Rascal codeActions", semanticEvaluator, eval -> {
             Map<String,IValue> kws = Map.of("pcfg", pcfg.asConstructor());
             return (IList) eval.call("rascalCodeActions", "lang::rascal::lsp::Actions", kws, focus);
         },
-        null, exec, false, client);
+        VF.list(), exec, false, client);
     }
 }

@@ -430,7 +430,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        logger.debug("codeActions: {}", params);
+        logger.debug("codeAction: {}", params);
 
         final var loc = Locations.toLoc(params.getTextDocument());
         final var start = params.getRange().getStart();
