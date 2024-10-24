@@ -258,7 +258,7 @@ class Debouncer<T> {
         // Get a consistent old stamp and old reference
         var oldRef = scheduled.getReference();
         var oldStamp = scheduled.getStamp();
-        while (!scheduled.weakCompareAndSet(oldRef, oldRef, oldStamp, oldStamp));
+        while (!scheduled.compareAndSet(oldRef, oldRef, oldStamp, oldStamp));
 
         // Compute a new reference (delayed future to retry this method)
         var delayArg = new CompletableFuture<Integer>();
@@ -273,21 +273,21 @@ class Debouncer<T> {
         // If the underlying resource provider is initialized, then return the
         // future to get the resource
         var future = getIfInitialized.get();
-        if (future != null && scheduled.weakCompareAndSet(oldRef, null, oldStamp, 0)) {
+        if (future != null && scheduled.compareAndSet(oldRef, null, oldStamp, 0)) {
             return future;
         }
 
         // Otherwise, if the delay is over already, then initialize the
         // underlying resource provider and return the future to get the
         // resource
-        if (delayRemaining <= 0 && scheduled.weakCompareAndSet(oldRef, null, oldStamp, 0)) {
+        if (delayRemaining <= 0 && scheduled.compareAndSet(oldRef, null, oldStamp, 0)) {
             return initializeAndGet.get();
         }
 
         // Otherwise (i.e., the delay isn't over yet), if a delayed future to
         // retry this method hasn't been scheduled yet, or if it must be
         // rescheduled regardless, then schedule it
-        if ((oldRef == null || reschedule) && scheduled.weakCompareAndSet(oldRef, newRef, oldStamp, newStamp)) {
+        if ((oldRef == null || reschedule) && scheduled.compareAndSet(oldRef, newRef, oldStamp, newStamp)) {
             delayArg.complete(newStamp);
             return newRef;
         }
