@@ -52,7 +52,7 @@ data Command
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
     result = [];
 
-    if ([*_, start[Module] top] := focus) {
+    if ([*_, QualifiedName _, *_, Header _, *_, start[Module] top] := focus) {
         result += addLicenseAction(top, pcfg);
     }
 

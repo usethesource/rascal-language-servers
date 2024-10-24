@@ -190,7 +190,7 @@ describe('IDE', function () {
 
     it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
-        await editor.moveCursor(3,1); // in the list of imports
+        await editor.moveCursor(1,8); // in the module name
 
         try {
             // trigger the code actions
