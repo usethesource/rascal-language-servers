@@ -98,6 +98,9 @@ private str findLicense(PathConfig pcfg) {
         else if (exists(src + "LICENSE.md")) {
             return trim(readFile(src + "LICENSE.md"));
         }
+        else if (exists(src + "LICENSE.txt")) {
+            return trim(readFile(src + "LICENSE.txt"));
+        }
     }
 
     return "";
