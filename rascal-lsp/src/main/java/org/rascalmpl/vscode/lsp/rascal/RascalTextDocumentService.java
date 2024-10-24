@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -213,7 +214,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
+        file.update(doc.getVersion(), newContents);
+        handleParsingErrors(file, file.getCurrentTreeAsync(Duration.ofMillis(800)));
         return file;
     }
 
