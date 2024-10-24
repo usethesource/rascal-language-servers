@@ -1,7 +1,7 @@
 module LibCall
 
-import IO;
 import Lib;
+import IO;
 
 int main() {
   println(fib(4));

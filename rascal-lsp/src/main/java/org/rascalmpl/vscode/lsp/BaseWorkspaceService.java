@@ -46,7 +46,9 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+    public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
+    public static final String RASCAL_COMMAND = "rascal-command";
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
@@ -108,11 +110,12 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        if (params.getCommand().startsWith(RASCAL_META_COMMAND)) {
+        if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
             String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
             String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
             return documentService.executeCommand(languageName, command).thenApply(v -> v);
         }
+
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
     }
 
