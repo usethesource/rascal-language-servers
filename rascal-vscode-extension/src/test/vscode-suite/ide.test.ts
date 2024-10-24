@@ -198,14 +198,12 @@ describe('IDE', function () {
 
         // finds an open menu with the right item in it (Change to a) and then select
         // the parent that handles UI events like click() and sendKeys()
-        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'action')]/span[contains(text(), 'Sort imports and extends')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "Sort imports and extends should be available");
+        const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Add missing license header')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "Add-license action should be available and focused");
 
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
-        await menuContainer.sendKeys(Key.DOWN); // skip the other two actions
-        await menuContainer.sendKeys(Key.DOWN);
         await menuContainer.sendKeys(Key.RETURN);
-        await ide.assertLineBecomes(editor, 3, "import Lib;", "import Lib should have switched with import IO", Delays.extremelySlow);
+        await ide.assertLineBecomes(editor, 1, "@license{", "license header should have been added", Delays.extremelySlow);
     })
 });
 
