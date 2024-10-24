@@ -247,7 +247,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
+    public InterruptibleFuture<IList> lenses(ITree input) {
         return flatten(lensDetector, c -> c.lenses(input));
     }
 
@@ -267,23 +267,23 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(documenter, c -> c.documentation(loc, input, cursor));
+    public InterruptibleFuture<ISet> documentation(IList focus) {
+        return flatten(documenter, c -> c.documentation(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(definer, c -> c.definitions(loc, input, cursor));
+    public InterruptibleFuture<ISet> definitions(IList focus) {
+        return flatten(definer, c -> c.definitions(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(referrer, c -> c.references(loc, input, cursor));
+    public InterruptibleFuture<ISet> references(IList focus) {
+        return flatten(referrer, c -> c.references(focus));
     }
 
     @Override
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
-        return flatten(implementer, c -> c.implementations(loc, input, cursor));
+    public InterruptibleFuture<ISet> implementations(IList focus) {
+        return flatten(implementer, c -> c.implementations(focus));
     }
 
     @Override

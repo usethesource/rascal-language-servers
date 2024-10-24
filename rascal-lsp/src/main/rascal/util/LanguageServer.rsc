@@ -26,6 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 @contributor{Jurgen J. Vinju - Jurgen.Vinju@cwi.nl - CWI}
 @contributor{Davy Landman - davy.landman@swat.engineering - Swat.engineering BV}
+@contributor{Sung-Shik Jongmans - sung-shik.jongmans@swat.engineering - Swat.engineering BV}
 @synopsis{Bridges {DSL,PL,Modeling} language features to the language server protocol.}
 @description{
 Using the ((registerLanguage)) function you can connect any parsers, checkers,
@@ -66,11 +67,11 @@ Language language(PathConfig pcfg, str name, str extension, str mainModule, str 
 
 @synopsis{Function profile for parser contributions to a language server}
 @description{
-    The parser function takes care of parsing the tree once after every change in the IDE.
-    This parse tree is then used for both syntax highlighting and other language server functions.
+The parser function takes care of parsing the tree once after every change in the IDE.
+This parse tree is then used for both syntax highlighting and other language server functions.
 }
 @pitfalls {
-    * use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
+* use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
 }
 alias Parser           = Tree (str _input, loc _origin);
 
@@ -95,11 +96,43 @@ are executed after build or after typing (push).
 }
 alias Summarizer       = Summary (loc _origin, Tree _input);
 
+@synopsis{A focus provides the currently selected language constructs around the cursor.}
+@description{
+A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
+the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
+in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
+
+The location of each element in the focus list is around (inclusive) the current cursor selection.
+This means that:
+* every next element in the list is one of the children of the previous.
+* typically the list starts with a smallest tree and ends with the entire `start` tree.
+* singleton lists may occur in case the cursor is on a layout or literal element of the top production.
+* the `start[X]` tree is typically preceded by the `X` tree.
+* the first tree is a whole lexical tree if the cursor is inside an identifier or constant
+* the first tree is a (context-free) syntax tree if the cursor is on the whitespace in between literals and lexicals.
+* the focus list may be empty in case of top-level ambiguity or parse errors.
+
+The ((Focus)) is typically provided to the ((LanguageService))s below, such that language
+engineers can provide language-directed tools, which are relevant to the current interest
+of the user.
+}
+@benefits{
+* All functions that accept a ((Focus)) can use list matching to filter locations of interest.
+}
+@pitfalls{
+* Functions that use list matching on their ((Focus)) parameter must provide a default that returns the empty list or empty set.
+}
+alias Focus = list[Tree];
+
 @synopsis{Function profile for outliner contributions to a language server}
 alias Outliner         = list[DocumentSymbol] (Tree _input);
 
 @synopsis{Function profile for lenses contributions to a language server}
+@deprecated{The ((OrderedLensDetector)) has replaced this type}
 alias LensDetector     = rel[loc src, Command lens] (Tree _input);
+
+@synopsis{Function profile for lenses contributions to a language server}
+alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
 
 @synopsis{Function profile for executor contributions to a language server}
 alias CommandExecutor  = value (Command _command);
@@ -118,7 +151,24 @@ A documenter is called on-demand, when documentation is requested by the IDE use
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
+@deprecated{The ((FocusDocumenter)) has replaced this type.}
 alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for documentation contributions to a language server}
+@description{
+A ((FocusDocumenter)) is called on-demand, when documentation is requested by the IDE user.
+The current selection is used to create a ((Focus)) that we can use to select the right
+functionality with. It is possible several constructs are in "focus", and then we can
+provide several pieces of documentation.
+}
+@benefits{
+* is focused on a single documentation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusDocumenter = set[str] (Focus _focus);
 
 @synopsis{Function profile for retrieving code actions focused around the current cursor}
 @description{
@@ -128,11 +178,8 @@ or under the current cursor.
 
 An action contributor is called on demand when a user presses a light-bulb or asks for quick-fixes.
 The implementor is asked to produce only actions that pertain what is under the current cursor.
-
-The parameter `inFocus` lists all the subtrees ordered from inside to outside that the current
-selection in the editor overlaps.
 }
-alias CodeActionContributor = list[CodeAction] (list[Tree] inFocus);
+alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
 @synopsis{Function profile for definer contributions to a language server}
 @description{
@@ -145,7 +192,21 @@ A definer is called on-demand, when a definition is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Definer          = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusDefiner)) instead.}
+alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for definer contributions to a language server}
+@description{
+A definer is called on-demand, when a definition is requested by the IDE user.
+}
+@benefits{
+* is focused on a single definition request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusDefiner = set[loc] (Focus _focus);
 
 @synopsis{Function profile for referrer contributions to a language server}
 @description{
@@ -158,7 +219,21 @@ A referrer is called on-demand, when a reference is requested by the IDE user.
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Referrer         = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusReferrer)) instead}
+alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for referrer contributions to a language server}
+@description{
+A referrer is called on-demand, when a reference is requested by the IDE user.
+}
+@benefits{
+* is focused on a single reference request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusReferrer = set[loc] (list[Tree] _focus);
 
 @synopsis{Function profile for implementer contributions to a language server}
 @description{
@@ -171,7 +246,21 @@ An implementer is called on-demand, when an implementation is requested by the I
 * should be extremely fast in order to provide interactive access.
 * careful use of `@memo` may help to cache dependencies, but this is tricky!
 }
-alias Implementer      = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+@deprecated{Use ((FocusImplementer)) instead.}
+alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
+
+@synopsis{Function profile for implementer contributions to a language server}
+@description{
+An implementer is called on-demand, when an implementation is requested by the IDE user.
+}
+@benefits{
+* is focused on a single implementation request, so does not need full program analysis.
+}
+@pitfalls{
+* should be extremely fast in order to provide interactive access.
+* careful use of `@memo` may help to cache dependencies, but this is tricky!
+}
+alias FocusImplementer = set[loc] (Focus _focus);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
@@ -196,7 +285,10 @@ documentation, definitions, references, implementations and compiler errors and 
 * ((outliner)) maps a source file to a pretty hierarchy for visualization in the "outline" view
 * ((lenses)) discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
 * ((inlayHinter)) discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
-* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s
+* ((executor)) executes the commands registered by ((lenses)) and ((inlayHinter))s.
+
+Many language contributions received a ((Focus)) parameter. This helps to create functionality that
+is syntax-directed: relevant to the current syntactical constructs under the cursor.
 }
 data LanguageService
     = parser(Parser parser)
@@ -211,15 +303,149 @@ data LanguageService
         , bool providesReferences = true
         , bool providesImplementations = true)
     | outliner(Outliner outliner)
-    | lenses(LensDetector detector)
+    | lenses(OrderedLensDetector detector)
     | inlayHinter(InlayHinter hinter)
     | executor(CommandExecutor executor)
-    | documenter(Documenter documenter)
-    | definer(Definer definer)
-    | referrer(Referrer reference)
-    | implementer(Implementer implementer)
+    | documenter(FocusDocumenter documenter)
+    | definer(FocusDefiner definer)
+    | referrer(FocusReferrer reference)
+    | implementer(FocusImplementer implementer)
     | actions(CodeActionContributor actions)
     ;
+
+
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((LensDetector)) alias.
+
+The primary change is that lenses are now ordered, such that you have control over in which order they appear in the client.
+
+To adapt to the new one, use a function that generates a `lrel` instead of a `rel`.
+}
+LanguageService lenses(LensDetector oldDetector)
+    = lenses(lrel[loc src, Command lens] (Tree input) { return [*oldDetector(input)]; });
+
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
+
+To replace an old-style ((Documenter)) with a new style ((FocusDocumenter)) follow
+this scheme:
+
+```rascal
+set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+default set[loc] newImplementer(list[Tree] _focus) = {};
+```
+}
+LanguageService documenter(Documenter d) {
+    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
+    }
+
+    default set[str] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return documenter(focusAcceptor);
+}
+
+
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Definer)) alias.
+
+To replace an old-style ((Definer)) with a new style ((FocusDefiner)) follow
+this scheme:
+
+```rascal
+set[loc] oldDefiner(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[loc] newDefiner([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+default set[loc] newDefiner(list[Tree] _focus) = {};
+```
+}
+LanguageService definer(Definer d) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
+    }
+
+    default set[loc] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return definer(focusAcceptor);
+}
+
+
+@synopsis{Registers an old-style ((Referrer))}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
+
+To replace an old-style ((Referrer)) with a new style ((FocusReferrer)) follow
+this scheme.
+
+```rascal
+set[loc] oldReferrer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[loc] newReferrer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+default set[loc] newReferrer(list[Tree] _focus) = {};
+```
+}
+LanguageService referrer(Referrer d) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
+    }
+
+    default set[loc] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return referrer(focusAcceptor);
+}
+
+@synopsis{Registers an old-style ((Implementer))}
+@deprecated{
+This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
+
+To replace an old-style ((Implementer)) with a new style ((FocusImplementer)) follow
+this scheme:
+
+```rascal
+set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
+    ...
+}
+// by this scheme:
+set[loc] newImplementer([Tree selection, *Tree _spine, Tree fullTree]) {
+  loc document = selection@\loc.top;
+  ...
+}
+```
+}
+LanguageService implementer(Implementer d) {
+    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
+        return d(lex@\loc.top, fullTree, lex);
+    }
+
+    default set[loc] focusAcceptor (list[Tree] _focus) {
+        return {};
+    }
+
+    return implementer(focusAcceptor);
+}
 
 @deprecated{Please use ((builder)) or ((analyzer))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
@@ -241,7 +467,7 @@ LanguageService summarizer(Summarizer summarizer
 * `src` refers to the "compilation unit" or "file" that this model is for.
 * `messages` collects all the errors, warnings and error messages.
 * `documentation` maps uses of concepts to a documentation message that can be shown as a hover.
-* `definition` maps use locations to declaration locations to implement "jump-to-definition".
+* `definitions` maps use locations to declaration locations to implement "jump-to-definition".
 * `references` maps declaration locations to use locations to implement "jump-to-references".
 * `implementations` maps the declaration of a type/class to its implementations "jump-to-implementations".
 }
@@ -328,10 +554,10 @@ of a command.
 
 You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
 A ((Command) constructor must have fields or keyword fields that hold the parameters of the
-to-be-executed command. 
+to-be-executed command.
 
 Commands are produced for delayed and optional execution by:
-* ((LensDetector)), where the will be executed if the lens is selected in the editor 
+* ((LensDetector)), where the will be executed if the lens is selected in the editor
 * ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
 * ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
 
@@ -386,7 +612,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 }
 @benefits{
 * CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
-* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for 
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
@@ -400,7 +626,7 @@ or may not work on the current editor contents. If you want to be safe it's best
 data CodeAction
     = action(
         list[DocumentEdit] edits = [],
-        Command command          = noop(), 
+        Command command          = noop(),
         str title                = command.title,
         CodeActionKind kind      = quickfix()
     );

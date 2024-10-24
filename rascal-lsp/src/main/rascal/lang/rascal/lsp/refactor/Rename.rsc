@@ -79,13 +79,35 @@ void throwAnyErrors(program(_, msgs)) {
     throwAnyErrors(msgs);
 }
 
-set[IllegalRenameReason] rascalCheckLegalName(str name) {
-    try {
-        parse(#Name, rascalEscapeName(name));
-        return {};
-    } catch ParseError(_): {
-        return {invalidName(name)};
+set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] defRoles) {
+    set[IllegalRenameReason] tryParseAs(type[&T <: Tree] begin, str idDescription) {
+        try {
+            parse(begin, rascalEscapeName(name));
+            return {};
+        } catch ParseError(_): {
+            return {invalidName(name, idDescription)};
+        }
     }
+
+    bool isSyntaxRole = any(role <- defRoles, role in syntaxRoles);
+    bool isField = any(role <- defRoles, role is fieldId);
+    bool isConstructor = any(role <- defRoles, role is constructorId);
+
+    set[IllegalRenameReason] reasons = {};
+    if (isSyntaxRole) {
+        reasons += tryParseAs(#Nonterminal, "non-terminal name");
+    }
+    if (isField) {
+        reasons += tryParseAs(#NonterminalLabel, "constructor field name");
+    }
+    if (isConstructor) {
+        reasons += tryParseAs(#NonterminalLabel, "constructor name");
+    }
+    if (!(isSyntaxRole || isField || isConstructor)) {
+        reasons += tryParseAs(#Name, "identifier");
+    }
+
+    return reasons;
 }
 
 private set[IllegalRenameReason] rascalCheckDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
@@ -165,7 +187,7 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, s
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
 
     return
-        rascalCheckLegalName(newName)
+        rascalCheckLegalName(newName, definitionsRel(ws)[currentDefs].idRole)
       + rascalCheckDefinitionsOutsideWorkspace(ws, currentDefs)
       + rascalCheckCausesDoubleDeclarations(ws, currentDefs, newNameDefs, newName)
       + rascalCheckCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
@@ -206,6 +228,10 @@ Maybe[loc] rascalLocationOfName(Declaration d) = rascalLocationOfName(d.user.nam
                                                                          || d is \data;
 Maybe[loc] rascalLocationOfName(TypeVar tv) = just(tv.name.src);
 Maybe[loc] rascalLocationOfName(Header h) = rascalLocationOfName(h.name);
+Maybe[loc] rascalLocationOfName(SyntaxDefinition sd) = rascalLocationOfName(sd.defined);
+Maybe[loc] rascalLocationOfName(Sym sym) = just(sym.nonterminal.src);
+Maybe[loc] rascalLocationOfName(Nonterminal nt) = just(nt.src);
+Maybe[loc] rascalLocationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
@@ -238,7 +264,7 @@ private bool rascalIsFunctionLocal(WorkspaceInfo ws, cursor(use(), cursorLoc, _)
 private bool rascalIsFunctionLocal(WorkspaceInfo _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
 
-Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, dataId(), _, DefInfo defInfo>) {
+Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
       , kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
       , "<kwName>" == fieldName) {
@@ -266,7 +292,7 @@ private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container,
             return dataCommonKeywordField(dt.defined, fieldType);
         }
 
-        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- ws.defines) {
+        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- rascalReachableDefs(ws, {dt.defined})) {
             if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
                 // Case 3 (or 0): keyword field
                 return dataKeywordField(dt.defined, fieldType);
@@ -274,6 +300,10 @@ private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container,
                 // Case 2 (or 0): positional field
                 return dataField(dt.defined, fieldType);
             }
+        }
+
+        if (Define d: <_, cursorName, _, fieldId(), _, defType(adtType)> <- rascalReachableDefs(ws, {dt.defined})) {
+            return dataField(dt.defined, d.defInfo.atype);
         }
     }
 
@@ -392,6 +422,8 @@ private Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
               , <smallestKeywordContainingCursor, keywordParam()>
                 // Module name declaration, where the cursor location is in the module header
               , <flatMap(rascalLocationOfName(parseModuleWithSpacesCached(cursorLoc.top).top.header), Maybe[loc](loc nameLoc) { return isContainedIn(cursorLoc, nameLoc) ? just(nameLoc) : nothing(); }), moduleName()>
+                // Nonterminal constructor names in exception productions
+              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is conditional || aprod(prod(_, /conditional(_, _))) := at), /\a-except(cursorName) := at}, cursorLoc), exceptConstructor()>
             }
     };
 
@@ -447,12 +479,34 @@ private bool rascalContainsName(loc l, str name) {
     *Overloading*
     Considers recognizes overloaded definitions and renames those as well.
 
-    Functions will be considered overloaded when they have the same name, even when the arity or type signature differ.
+    Functions are considered overloaded when they have the same name, even when the arity or type signature differ.
     This means that the following functions defitions will be renamed in unison:
     ```
     list[&T] concat(list[&T] _, list[&T] _) = _;
     set[&T] concat(set[&T] _, set[&T] _) = _;
     set[&T] concat(set[&T] _, set[&T] _, set[&T] _) = _;
+    ```
+
+    ADT and grammar definitions are considered overloaded when they have the same name and type, and
+    there is a common use from which they are reachable.
+    As an example, modules `A` and `B` have a definition for ADT `D`:
+    ```
+    module A
+    data D = a();
+    ```
+    ```
+    module B
+    data D = b();
+    ```
+    With no other modules in the workspace, renaming `D` in one of those modules, will not rename `D` in
+    the other module, as they are not considered an overloaded definition. However, if a third module `C`
+    exists, that imports both and uses the definition, the definitions will be considered overloaded, and
+    renaming `D` from either module `A`, `B` or `C` will result in renaming all occurrences.
+    ```
+    module C
+    import A;
+    import B;
+    D f() = a();
     ```
 
     *Validity checking*
@@ -474,20 +528,21 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
         ProjectFiles() {
             return { <
                 max([f | f <- workspaceFolders, isPrefixOf(f, cursorLoc)]),
-                cursorLoc.top
+                cursorLoc.top,
+                true
             > };
         },
         // Full load
         ProjectFiles() {
-            return { <folder, file>
+            return {
+                // If we do not find any occurrences of the name under the cursor in a module,
+                // we are not interested in loading the model, but we still want to inform the
+                // renaming framework about the existence of the file.
+                <folder, file, rascalContainsName(file, cursorName)>
                 | folder <- workspaceFolders
                 , PathConfig pcfg := getPathConfig(folder)
                 , srcFolder <- pcfg.srcs
                 , file <- find(srcFolder, "rsc")
-                , file != cursorLoc.top // because we loaded that during preload
-                // If we do not find any occurrences of the name under the cursor in a module,
-                // we are not interested in it at all, and will skip loading its TPL.
-                , rascalContainsName(file, cursorName)
             };
         },
         // Load TModel for loc
@@ -499,7 +554,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
                 RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]
                                                                       [verbose = false]
                                                                       [logPathConfig = false];
-                for (file <- \files) {
+                for (<file, true> <- \files) {
                     ms = rascalTModelForLocs([file], ccfg, dummy_compile1);
                     tmodels += {convertTModel2PhysicalLocs(tm) | m <- ms.tmodels, tm := ms.tmodels[m]};
                 }
