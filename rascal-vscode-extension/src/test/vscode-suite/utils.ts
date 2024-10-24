@@ -56,6 +56,7 @@ export class TestWorkspace {
     public static readonly mainFile = path.join(src(this.testProject), 'Main.rsc');
     public static readonly mainFileTpl = path.join(target(this.testProject),'$Main.tpl');
     public static readonly libCallFile = path.join(src(this.testProject), 'LibCall.rsc');
+    public static readonly licenseFile = path.join(this.testProject, 'LICENSE');
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
