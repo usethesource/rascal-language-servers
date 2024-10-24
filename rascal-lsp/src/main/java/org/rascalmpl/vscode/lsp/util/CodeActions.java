@@ -71,29 +71,28 @@ public class CodeActions {
         final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
 
         return params.getContext().getDiagnostics()
-                .stream()
-                .map(Diagnostic::getData)
-                .filter(Objects::nonNull)
-                .filter(JsonPrimitive.class::isInstance)
-                .map(JsonPrimitive.class::cast)
-                .map(JsonPrimitive::getAsString)
-                // this is the "magic" resurrection of command terms from the JSON data field
-                .map(actionParser)
-                // this serializes the stream of futures and accumulates their results as a flat list again
-                .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
-                .thenApply(IList::stream)
-            ;
+            .stream()
+            .map(Diagnostic::getData)
+            .filter(Objects::nonNull)
+            .filter(JsonPrimitive.class::isInstance)
+            .map(JsonPrimitive.class::cast)
+            .map(JsonPrimitive::getAsString)
+            // this is the "magic" resurrection of command terms from the JSON data field
+            .map(actionParser)
+            // this serializes the stream of futures and accumulates their results as a flat list again
+            .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+            .thenApply(IList::stream);
     }
 
     /* merges two streams of CodeAction terms and then converts them to LSP objects */
     public static CompletableFuture<List<Either<Command, CodeAction>>> mergeAndConvertCodeActions(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, CompletableFuture<Stream<IValue>> quickfixes, CompletableFuture<Stream<IValue>> codeActions) {
-         return codeActions.thenCombine(quickfixes, (actions, quicks) ->
-                Stream.concat(quicks, actions)
-                    .map(IConstructor.class::cast)
-                    .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
-                    .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
-                    .collect(Collectors.toList())
-            );
+        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
+            Stream.concat(quicks, actions)
+                .map(IConstructor.class::cast)
+                .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
+                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                .collect(Collectors.toList())
+        );
     }
 
     private static CodeAction constructorToCodeAction(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, IConstructor codeAction) {
