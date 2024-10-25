@@ -145,7 +145,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             success = false;
         }
 
-        for (src <- pcfg.srcs) {
+        for (success, src <- pcfg.srcs) {
             verifyTypeCorrectRenaming(src, edits, pcfg);
         }
 
