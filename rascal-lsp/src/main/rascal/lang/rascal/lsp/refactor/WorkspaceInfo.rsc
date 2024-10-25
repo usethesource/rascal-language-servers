@@ -193,7 +193,8 @@ set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
     rel[loc from, Define define] reachableDefs =
-        (ws.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
+        ((ws.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
+        + (ws.defines<scope, defined, scope>)[defs])
       o (
          (scopes                                                // All scopes surrounding defs
         o modulePaths                                           // Transitive-reflexive paths from scope to reachable modules
