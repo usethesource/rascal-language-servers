@@ -101,6 +101,15 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         pcfg = getTestPathConfig(testDir);
         modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+
+        for (byLoc(loc ml, _) <- modulesByLocation) {
+            try {
+                parseModuleWithSpaces(ml);
+            } catch _: {
+                throw "Parse error in test module <ml>";
+            }
+        }
+
         cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <cursorT.src>");
