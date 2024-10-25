@@ -51,6 +51,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.library.util.ErrorRecovery;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
@@ -76,6 +77,7 @@ import io.usethesource.vallang.type.TypeStore;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
+    private static final ErrorRecovery RECOVERY = new ErrorRecovery(IRascalValueFactory.getInstance());
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
@@ -236,8 +238,13 @@ public class RascalLanguageServices {
         List<CodeLensSuggestion> result = new ArrayList<>(2);
         result.add(new CodeLensSuggestion(module, "Import in new Rascal terminal", "rascalmpl.importModule", moduleName));
 
-        for (IValue topLevel : TreeAdapter
-            .getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
+        ITree body = TreeAdapter.getArg(tree, "body");
+        ITree toplevels = TreeAdapter.getArg(body, "toplevels");
+        for (IValue topLevel : TreeAdapter.getListASTArgs(toplevels)) {
+            if (RECOVERY.hasErrors((ITree) topLevel)) {
+                continue;
+            }
+
             ITree decl = TreeAdapter.getArg((ITree) topLevel, "declaration");
             if ("function".equals(TreeAdapter.getConstructorName(decl))) {
                 ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");

@@ -31,38 +31,58 @@ import String;
 import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
+import util::ErrorRecovery;
 
 list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
     m= \mod.top;
+
+    if (!(m has header) || hasErrors(m.header)) {
+        return [];
+    }
+
     children = [];
 
     top-down-break visit (m) {
-        case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
-            children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars];
+        case decl: (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
+            if (!hasErrors(decl)) {
+                children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars, !hasErrors(v)];
+            }
 
-        case (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
-            children +=  [symbol(clean("<name>"), field(), t@\loc, detail="anno <t> <ot>")];
+        case decl: (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
+            if (!hasErrors(decl)) {
+                children +=  [symbol(clean("<name>"), field(), t@\loc, detail="anno <t> <ot>")];
+            }
 
-        case (Declaration) `<Tags _> <Visibility _> alias <UserType u> = <Type al>;`:
-            children += [symbol(clean("<u.name>"), struct(), u@\loc, detail="<u> = <al>")];
+        case decl: (Declaration) `<Tags _> <Visibility _> alias <UserType u> = <Type al>;`:
+            if (!hasErrors(decl)) {
+                children += [symbol(clean("<u.name>"), struct(), u@\loc, detail="<u> = <al>")];
+            }
 
-        case (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
-            children += [symbol(clean("<name>"), \key(), name@\loc, detail="tag <k> <name> on <ts>")];
+        case decl: (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
+            if (!hasErrors(decl)) {
+                children += [symbol(clean("<name>"), \key(), name@\loc, detail="tag <k> <name> on <ts>")];
+            }
 
-        case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
-            kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
-            children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist)];
+        case decl: (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
+            if (!hasErrors(decl)) {
+                kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
+                children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist)];
+            }
         }
 
-        case (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws> = <{Variant "|"}+ variants>;` : {
-            kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
-            variantlist = [symbol(clean("<v>"), \constructor(), v@\loc) | v <- variants];
+        case decl: (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws> = <{Variant "|"}+ variants>;` : {
+            if (!hasErrors(decl)) {
+                kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
+                variantlist = [symbol(clean("<v>"), \constructor(), v@\loc) | v <- variants];
 
-            children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist + variantlist)];
+                children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist + variantlist)];
+            }
         }
 
         case FunctionDeclaration func :
-            children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature)@\loc, detail="<func.signature.\type>")];
+            if (!hasErrors(func)) {
+                children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature)@\loc, detail="<func.signature.\type>")];
+            }
 
 /*
         case (Import) `extend <ImportedModule mm>;` :
@@ -76,11 +96,13 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
 */
 
         case SyntaxDefinition def : {
-            rs = [symbol(clean("<prefix> <p.syms>"), \function(), p@\loc)
-                | /Prod p := def.production, p is labeled || p is unlabeled,
-                str prefix := (p is labeled ? "<p.name>: " : "")
-            ];
-            children += [symbol(clean("<def.defined>"), \struct(), def@\loc, children=rs)];
+            if (!hasErrors(def)) {
+                rs = [symbol(clean("<prefix> <p.syms>"), \function(), p@\loc)
+                    | /Prod p := def.production, !hasErrors(p) && (p is labeled || p is unlabeled),
+                    str prefix := (p is labeled ? "<p.name>: " : "")
+                ];
+                children += [symbol(clean("<def.defined>"), \struct(), def@\loc, children=rs)];
+            }
         }
     }
 
