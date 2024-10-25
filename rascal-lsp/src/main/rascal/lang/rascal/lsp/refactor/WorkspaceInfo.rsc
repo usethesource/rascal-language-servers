@@ -248,13 +248,13 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
         defPaths = defPaths o allDefs;
     }
 
-    solve(overloadedDefs) {
-        rel[loc from, loc to] reachableDefs = ident(overloadedDefs) o defPaths;
-
+    set[loc] reachableDefs = defPaths[overloadedDefs];
+    solve(overloadedDefs, reachableDefs) {
         overloadedDefs += {d
-            | loc d <- reachableDefs<1>
+            | loc d <- reachableDefs
             , mayOverloadF(overloadedDefs + d, ws.definitions)
         };
+        reachableDefs = defPaths[overloadedDefs];
     }
 
     return overloadedDefs;
