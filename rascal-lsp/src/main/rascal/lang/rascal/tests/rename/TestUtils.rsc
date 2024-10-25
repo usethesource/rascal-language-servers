@@ -89,7 +89,7 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
     for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
-        str testName = "Test<abs(arbInt(10))>";
+        str testName = "Test_<mm.name>_<cursorOcc>";
         loc testDir = |memory://tests/rename/<testName>|;
 
         if(any(m <- modules, m is byLoc)) {
@@ -248,7 +248,7 @@ list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str old
     return edits;
 }
 
-private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt(10))>") {
+private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule") {
     str moduleStr =
     "module <moduleName>
     '<trim(imports)>
