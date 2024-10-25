@@ -45,7 +45,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
     top-down-break visit (m) {
         case decl: (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
             if (!hasErrors(decl)) {
-                children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars, !hasErrors(v)];
+                children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars];
             }
 
         case decl: (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
