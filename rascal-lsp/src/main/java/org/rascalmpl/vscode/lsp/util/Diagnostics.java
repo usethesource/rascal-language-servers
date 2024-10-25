@@ -73,13 +73,14 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+        var message = e.getMessage() + " (irrecoverable)";
+        return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
     }
 
     public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
         IList args = TreeAdapter.getArgs(errorTree);
         ITree skipped = (ITree) args.get(args.size()-1);
-        return new Diagnostic(toRange(skipped, cm), "Parse error", DiagnosticSeverity.Error, "parser");
+        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
     }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
