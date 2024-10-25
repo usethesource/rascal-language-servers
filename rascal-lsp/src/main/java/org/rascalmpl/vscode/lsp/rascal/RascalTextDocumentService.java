@@ -183,7 +183,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument());
-        handleParsingErrors(file);
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync()); // No debounce
     }
 
     @Override
@@ -215,50 +215,19 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents);
-        handleParsingErrors(file, file.getCurrentTreeAsync(Duration.ofMillis(800)));
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(Duration.ofMillis(800)));
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
-        futureTree.handle((tree, excp) -> {
-            List<Diagnostic> parseErrors = new ArrayList<>();
-
-            if (excp instanceof CompletionException) {
-                excp = excp.getCause();
-            }
-
-            if (excp instanceof ParseError) {
-                parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
-            } else if (excp != null) {
-                logger.error("Parsing crashed", excp);
-                parseErrors.add(new Diagnostic(
-                    new Range(new Position(0,0), new Position(0,1)),
-                    "Parsing failed: " + excp.getMessage(),
-                    DiagnosticSeverity.Error,
-                    "Rascal Parser"));
-            }
-
-            if (tree != null) {
-                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-                IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree.get());
-                for (IValue error : errors) {
-                    ITree errorTree = (ITree) error;
-                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
-                }
-            }
-
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync) {
+        diagnosticsAsync.thenAccept(diagnostics -> {
+            List<Diagnostic> parseErrors = diagnostics.get();
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             if (facts != null) {
                 facts.reportParseErrors(file.getLocation(), parseErrors);
             }
-            return null;
         });
     }
-
-    private void handleParsingErrors(TextDocumentState file) {
-        handleParsingErrors(file,file.getCurrentTreeAsync());
-    }
-
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
@@ -342,7 +311,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText()));
+            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, columns, doc.getVersion(), doc.getText()));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {

@@ -27,27 +27,39 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicStampedReference;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
 import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 /**
  * TextDocumentState encapsulates the current contents of every open file editor,
@@ -59,30 +71,32 @@ import io.usethesource.vallang.ISourceLocation;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
-
-    private static final ErrorRecovery RECOVERY =
-        new ErrorRecovery((RascalValueFactory) ValueFactoryFactory.getValueFactory());
+    private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
+    private final ColumnMaps columns;
 
     @SuppressWarnings("java:S3077") // Visibility of writes is enough
     private volatile Update current;
-    private final Debouncer<Versioned<ITree>> currentTreeAsyncDebouncer;
+    private final Debouncer<Update> currentAsyncParseDebouncer;
 
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
 
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
-            ISourceLocation location, int initialVersion, String initialContent) {
+            ISourceLocation location, ColumnMaps columns,
+            int initialVersion, String initialContent) {
 
         this.parser = parser;
         this.location = location;
+        this.columns = columns;
 
         this.current = new Update(initialVersion, initialContent);
-        this.currentTreeAsyncDebouncer = new Debouncer<>(50,
-            this::getCurrentTreeAsyncIfParsing, this::getCurrentTreeAsync);
+        this.currentAsyncParseDebouncer = new Debouncer<>(50,
+            this::getCurrentAsyncIfParsing,
+            this::parseAndGetCurrentAsync);
 
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
@@ -95,7 +109,7 @@ public class TextDocumentState {
     public void update(int version, String content) {
         current = new Update(version, content);
         // The creation of the `Update` object doesn't trigger the parser yet.
-        // This happens only when the tree is requested.
+        // This happens only when the tree or diagnostics are requested.
     }
 
     public Versioned<String> getCurrentContent() {
@@ -107,17 +121,21 @@ public class TextDocumentState {
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(Duration delay) {
-        return currentTreeAsyncDebouncer.get(delay);
+        return currentAsyncParseDebouncer
+            .get(delay)
+            .thenApply(Update::getTreeAsync)
+            .thenCompose(Function.identity());
     }
 
-    public @Nullable CompletableFuture<Versioned<ITree>> getCurrentTreeAsyncIfParsing() {
-        var update = current;
-        return update.isParsing() ? update.getTreeAsync() : null;
+    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync() {
+        return current.getDiagnosticsAsync(); // Triggers the parser
     }
 
-    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnostics() {
-        throw new UnsupportedOperationException();
-        // TODO: In a separate PR
+    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(Duration delay) {
+        return currentAsyncParseDebouncer
+            .get(delay)
+            .thenApply(Update::getDiagnosticsAsync)
+            .thenCompose(Function.identity());
     }
 
     public @MonotonicNonNull Versioned<ITree> getLastTree() {
@@ -128,16 +146,29 @@ public class TextDocumentState {
         return lastWithoutErrors.get();
     }
 
+    private @Nullable CompletableFuture<Update> getCurrentAsyncIfParsing() {
+        var update = current;
+        return update.isParsing() ? CompletableFuture.completedFuture(update) : null;
+    }
+
+    private CompletableFuture<Update> parseAndGetCurrentAsync() {
+        var update = current;
+        update.parseIfNotParsing();
+        return CompletableFuture.completedFuture(update);
+    }
+
     private class Update {
         private final int version;
         private final String content;
         private final CompletableFuture<Versioned<ITree>> treeAsync;
+        private final CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync;
         private final AtomicBoolean parsing;
 
         public Update(int version, String content) {
             this.version = version;
             this.content = content;
             this.treeAsync = new CompletableFuture<>();
+            this.diagnosticsAsync = new CompletableFuture<>();
             this.parsing = new AtomicBoolean(false);
         }
 
@@ -150,6 +181,11 @@ public class TextDocumentState {
             return treeAsync;
         }
 
+        public CompletableFuture<Versioned<List<Diagnostic>>> getDiagnosticsAsync() {
+            parseIfNotParsing();
+            return diagnosticsAsync;
+        }
+
         public boolean isParsing() {
             return parsing.get();
         }
@@ -158,21 +194,57 @@ public class TextDocumentState {
             if (parsing.compareAndSet(false, true)) {
                 parser
                     .apply(location, content)
-                    .thenApply(t -> new Versioned<>(version, t))
-                    .whenComplete((t, error) -> {
-                        if (t != null) {
-                            var errors = RECOVERY.findAllErrors(t.get());
-                            if (errors.isEmpty()) {
-                                Versioned.replaceIfNewer(lastWithoutErrors, t);
+                    .whenComplete((t, e) -> {
+
+                        // Prepare result values for futures
+                        var tree = new Versioned<>(version, t);
+                        var diagnostics = new Versioned<>(version, toDiagnostics(t, e));
+
+                        // Complete future to get the tree
+                        if (t == null) {
+                            treeAsync.completeExceptionally(e);
+                        } else {
+                            treeAsync.complete(tree);
+                            Versioned.replaceIfNewer(last, tree);
+                            if (diagnostics.get().isEmpty()) {
+                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
                             }
-                            Versioned.replaceIfNewer(last, t);
-                            treeAsync.complete(t);
                         }
-                        if (error != null) {
-                            treeAsync.completeExceptionally(error);
-                        }
+
+                        // Complete future to get diagnostics
+                        diagnosticsAsync.complete(diagnostics);
                     });
             }
+        }
+
+        private List<Diagnostic> toDiagnostics(ITree tree, Throwable excp) {
+            List<Diagnostic> parseErrors = new ArrayList<>();
+
+            if (excp instanceof CompletionException) {
+                excp = excp.getCause();
+            }
+
+            if (excp instanceof ParseError) {
+                parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
+            } else if (excp != null) {
+                logger.error("Parsing crashed", excp);
+                parseErrors.add(new Diagnostic(
+                    new Range(new Position(0,0), new Position(0,1)),
+                    "Parsing failed: " + excp.getMessage(),
+                    DiagnosticSeverity.Error,
+                    "Rascal Parser"));
+            }
+
+            if (tree != null) {
+                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree);
+                for (IValue error : errors) {
+                    ITree errorTree = (ITree) error;
+                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
+                }
+            }
+
+            return parseErrors;
         }
     }
 }

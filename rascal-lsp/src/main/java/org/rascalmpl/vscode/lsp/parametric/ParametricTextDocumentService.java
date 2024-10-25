@@ -521,7 +521,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, columns, doc.getVersion(), doc.getText())
         );
     }
 
@@ -638,7 +638,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
-        
+
         if (!focus.isEmpty()) {
             return contribs.codeActions(focus).get();
         }
