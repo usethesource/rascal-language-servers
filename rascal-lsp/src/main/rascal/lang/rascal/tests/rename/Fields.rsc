@@ -87,6 +87,11 @@ test bool sameNameFields() = testRenameOccurrences({0, 2}, "
     'data E = e(int foo);
 ");
 
+test bool sameNameADTFields() = testRenameOccurrences({
+    byText("Definer", "data D = d(int foo);", {0})
+  , byText("Unrelated", "data D = d(int foo);", {})
+});
+
 test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
     byText("A", "data D = d(int foo);", {0})
   , byText("B", "data E = e(int foo);", {})
