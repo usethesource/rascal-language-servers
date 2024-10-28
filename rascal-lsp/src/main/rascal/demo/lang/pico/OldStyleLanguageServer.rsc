@@ -24,14 +24,13 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-@synopsis{Demonstrates the API for defining and registering IDE language services for Programming Languages and Domain Specific Languages.}
+@synopsis{Demonstrating all of the LSP services for the demo language Pico.}
+@deprecated{This demo has been superseded by ((LanguageServer)) which avoids the use of deprecated API.}
 @description{
-The core functionality of this module is built upon these concepts:
-* ((registerLanguage)) for enabling your language services for a given file extension _in the current IDE_.
-* ((Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
-* A ((LanguageService)) is a specific feature for an IDE. Each service comes with one Rascal function that implements it.
+This module is here to test the backward compatibility layer over the new ((util::LanguageServer)) API.
+For learning how to build a new set of lanuage services, please go [here]((util::LanguageServer)).
 }
-module demo::lang::pico::LanguageServer
+module demo::lang::pico::OldStyleLanguageServer
 
 import util::LanguageServer;
 import util::IDEServices;
@@ -39,49 +38,35 @@ import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 
-@synopsis{A language server is simply a set of ((LanguageService))s.}
-@description{
-Each ((LanguageService)) for pico is implemented as a function.
-Here we group all services such that the LSP server can link them
-with the ((Language)) definition later.
-}
-set[LanguageService] picoLanguageServer() = {
-    parsing(parser(#start[Program])),
-    documentSymbol(picoDocumentSymbolService),
-    codeLens(picoCodeLenseService),
-    execution(picoExecutionService),
-    inlayHint(picoInlayHintService),
-    definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+@synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
+set[LanguageService] picoLanguageContributor() = {
+    parser(parser(#start[Program])),
+    outliner(picoOutliner),
+    lenses(picoLenses),
+    executor(picoCommands),
+    inlayHinter(picoHinter),
+    definer(lookupDef),
+    actions(picoActions)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
-@description{
-((LanguageService))s can be registered asynchronously and incrementally,
-such that quicky loaded features can be made available while slower to load
-tools come in later.
-}
-set[LanguageService] picoLanguageServerSlowSummary() = {
-    parsing(parser(#start[Program])),
-    analysis(picoAnalysisService, providesImplementations = false),
-    build(picoBuildService)
+set[LanguageService] picoLanguageContributorSlowSummary() = {
+    parser(parser(#start[Program])),
+    analyzer(picoAnalyzer, providesImplementations = false),
+    builder(picoBuilder)
 };
 
-@synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
-@description{
-Here we list the symbols we want in the outline view, and which can be searched using
-symbol search in the editor.
-}
-list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
+@synopsis{The outliner maps pico syntax trees to lists of DocumentSymbols.}
+list[DocumentSymbol] picoOutliner(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
       *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
-Summary picoAnalysisService(loc l, start[Program] input) = picoSummaryService(l, input, analyze());
+Summary picoAnalyzer(loc l, start[Program] input) = picoSummarizer(l, input, analyze());
 
 @synopsis{The builder does a more thorough analysis then the analyzer, providing more detail}
-Summary picoBuildService(loc l, start[Program] input) = picoSummaryService(l, input, build());
+Summary picoBuilder(loc l, start[Program] input) = picoSummarizer(l, input, build());
 
 @synopsis{A simple "enum" data type for switching between analysis modes}
 data PicoSummarizerMode
@@ -90,7 +75,7 @@ data PicoSummarizerMode
     ;
 
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
-Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
+Summary picoSummarizer(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
     // definitions of variables
@@ -124,21 +109,19 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     return s;
 }
 
-@synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
-@pitfalls{
-This demo actually finds the declaration rather than the definition of a variable in Pico.
-}
-set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
+@synopsis{Looks up the declaration for any variable use using the / deep match}
+set[loc] lookupDef(loc _, start[Program] input, Tree cursor) =
+    {d.src | /IdType d := input, cursor := d.id};
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
     = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
-list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
+list[CodeAction] picoActions([*Tree _, IdType x, *Tree _, start[Program] program])
     = [action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[CodeAction] picoCodeActionService(Focus _focus) = [];
+default list[CodeAction] picoActions(Focus _focus) = [];
 
 @synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
@@ -147,11 +130,11 @@ data Command
   ;
 
 @synopsis{Adds an example lense to the entire program.}
-lrel[loc,Command] picoCodeLenseService(start[Program] input)
-    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
+rel[loc,Command] picoLenses(start[Program] input)
+    = {<input@\loc, renameAtoB(input, title="Rename variables a to b.")>};
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
-list[InlayHint] picoInlayHintService(start[Program] input) {
+list[InlayHint] picoHinter(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
 
     return [
@@ -166,13 +149,13 @@ list[DocumentEdit] getAtoBEdits(start[Program] input)
    = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
 
 @synopsis{Command handler for the renameAtoB command}
-value picoExecutionService(renameAtoB(start[Program] input)) {
+value picoCommands(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
 
 @synopsis{Command handler for the removeDecl command}
-value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
+value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
@@ -195,8 +178,8 @@ void main() {
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
-            "demo::lang::pico::NewLanguageServer",
-            "picoLanguageServer"
+            "demo::lang::pico::OldStyleLanguageServer",
+            "picoLanguageContributor"
         )
     );
     registerLanguage(
@@ -204,8 +187,8 @@ void main() {
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
-            "demo::lang::pico::NewLanguageServer",
-            "picoLanguageServerSlowSummary"
+            "demo::lang::pico::OldStyleLanguageServer",
+            "picoLanguageContributorSlowSummary"
         )
     );
 }
