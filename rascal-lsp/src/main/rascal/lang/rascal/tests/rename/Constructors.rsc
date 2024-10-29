@@ -59,6 +59,27 @@ test bool constructorNameUsedAsVar() = testRenameOccurrences({
            'int foo = 8;", {})
 });
 
+test bool constructorInPattern() = testRenameOccurrences({0, 1, 2, 3}, "
+    'Foo f = foo(8);
+    'if (foo(_) := f) {
+    '   int x = match(f);
+    '}
+", decls = "
+    'data Foo = foo(int i);
+    'int match(foo(int i)) = i;
+");
+
+test bool constructorIsCheck() = testRenameOccurrences({0, 1, 2, 3}, "
+    'Foo f = foo(8);
+    'isFoo(f);
+", decls = "
+    'data Foo
+    '   = foo(int i)
+    '   | foo(int i, int j)
+    '   | baz();
+    bool isFoo(Foo f) = f is foo;
+");
+
 test bool constructorsAndTypesInVModuleStructure() = testRenameOccurrences({
     byText("Left", "data Foo = foo();", {0}), byText("Right", "data Foo = foo(int i);", {0})
                     , byText("Merger",
