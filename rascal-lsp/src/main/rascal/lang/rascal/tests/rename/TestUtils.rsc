@@ -89,7 +89,7 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
     for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
-        str testName = "Test<abs(arbInt(10))>";
+        str testName = "Test_<mm.name>_<cursorOcc>";
         loc testDir = |memory://tests/rename/<testName>|;
 
         if(any(m <- modules, m is byLoc)) {
@@ -101,6 +101,15 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         pcfg = getTestPathConfig(testDir);
         modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+
+        for (byLoc(loc ml, _) <- modulesByLocation) {
+            try {
+                parseModuleWithSpaces(ml);
+            } catch _: {
+                throw "Parse error in test module <ml>";
+            }
+        }
+
         cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <cursorT.src>");
@@ -136,7 +145,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             success = false;
         }
 
-        for (src <- pcfg.srcs) {
+        for (success, src <- pcfg.srcs) {
             verifyTypeCorrectRenaming(src, edits, pcfg);
         }
 
@@ -248,7 +257,7 @@ list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str old
     return edits;
 }
 
-private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt(10))>") {
+private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule") {
     str moduleStr =
     "module <moduleName>
     '<trim(imports)>
