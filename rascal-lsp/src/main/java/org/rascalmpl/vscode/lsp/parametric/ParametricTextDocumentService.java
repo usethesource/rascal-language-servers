@@ -510,12 +510,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         final ILanguageContributions contribs = contributions(params.getTextDocument());
 
-        final var loc = Locations.toLoc(params.getTextDocument());
-        final var start = params.getRange().getStart();
-        // convert to Rascal 1-based line
-        final var startLine = start.getLine() + 1;
-        // convert to Rascal UTF-32 column width
-        final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
+        var range = Locations.toRascalRange(params.getTextDocument(), params.getRange(), columns);
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
@@ -528,7 +523,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> computeCodeActions(contribs, startLine, startColumn, tree))
+                .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
                 .thenApply(IList::stream)
             , () -> Stream.<IValue>empty())
             ;

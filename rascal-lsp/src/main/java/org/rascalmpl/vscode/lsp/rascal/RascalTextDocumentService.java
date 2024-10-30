@@ -432,12 +432,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("codeAction: {}", params);
 
-        final var loc = Locations.toLoc(params.getTextDocument());
-        final var start = params.getRange().getStart();
-        // convert to Rascal 1-based line
-        final var startLine = start.getLine() + 1;
-        // convert to Rascal UTF-32 column width
-        final var startColumn = columns.get(loc).translateInverseColumn(start.getLine(), start.getCharacter(), false);
+        var range = Locations.toRascalRange(params.getTextDocument(), params.getRange(), columns);
+        var loc = Locations.toLoc(params.getTextDocument());
+
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
@@ -451,7 +448,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose((ITree tree) -> computeCodeActions(startLine, startColumn, tree, facts.getPathConfig(loc)))
+                .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, facts.getPathConfig(loc)))
                 .thenApply(IList::stream)
             , () -> Stream.<IValue>empty())
             ;
