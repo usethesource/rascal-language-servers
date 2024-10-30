@@ -193,17 +193,7 @@ describe('IDE', function () {
         await editor.moveCursor(1,8); // in the module name
 
         try {
-            // trigger the code actions
-            const inputarea = await editor.findElement(By.className('inputarea'));
-            await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
-
-            // finds an open menu with the right item in it (Change to a) and then select
-            // the parent that handles UI events like click() and sendKeys()
-            const menuContainer = await ide.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), 'Add missing license header')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, "Add-license action should be available and focused");
-
-            // menu container works a bit strangely, it ask the focus to keep track of it,
-            // and manages clicks and menus on the highest level (not per item).
-            await menuContainer.sendKeys(Key.RETURN);
+            await ide.triggerFirstCodeAction(editor, 'Add missing license header');
             await ide.assertLineBecomes(editor, 1, "@license{", "license header should have been added", Delays.extremelySlow);
         }
         finally {

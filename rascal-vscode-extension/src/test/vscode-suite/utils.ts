@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -304,6 +304,27 @@ export class IDEOperations {
         else {
             await sleep(50);
         }
+    }
+
+    /**
+     * This makes the code action menu popup _if there are code actions on the current line_
+     * and then selects the first entry from the menu. This works only if the given actionLabel
+     * indeed becomes the first menu item.
+     *
+     * @param editor
+     * @param actionLabel
+     */
+    async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
+        const inputarea = await editor.findElement(By.className('inputarea'));
+            await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+
+            // finds an open menu with the right item in it (Change to a) and then select
+            // the parent that handles UI events like click() and sendKeys()
+            const menuContainer = await this.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), '" + actionLabel + "')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, actionLabel + " action should be available and focused");
+
+            // menu container works a bit strangely, it ask the focus to keep track of it,
+            // and manages clicks and menus on the highest level (not per item).
+            await menuContainer.sendKeys(Key.RETURN);
     }
 
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
