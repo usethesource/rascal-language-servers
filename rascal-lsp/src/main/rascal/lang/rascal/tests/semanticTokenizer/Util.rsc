@@ -65,14 +65,15 @@ private list[loc] toAbsoluteLocations(str input, list[SemanticToken] tokens) {
     int column = 0;
 
     return for (token <- tokens) {
+        column = token.deltaLine > 0 ? 0 : column; // Reset column?
 
         // Advance the "cursor"
-        line   = line + token.deltaLine;
-        column = (line == 0 || token.deltaLine == 0) ? column + token.deltaStart : 0;
+        line   += token.deltaLine;
+        column += toLength32(token.deltaStart, substring(lines[line], column));
 
         // Compute the absolute location of `token`
         int offset = (0 | it + size(lines[i]) + 1 | i <- [0..line]) + column;
-        int length = token.length;
+        int length = toLength32(token.length, substring(lines[line], column));
         append |unknown:///|(offset, length);
     }
 }
@@ -90,6 +91,31 @@ alias SemanticToken = tuple[
 
 @javaClass{org.rascalmpl.vscode.lsp.util.SemanticTokenizerTester}
 java list[SemanticToken] toTokens(Tree _, bool _);
+
+//
+// Length conversion: Characters are counted as 16-bit units in LSP, whereas
+// they are counted as 32-bit units in Rascal, so lengths need to be converted.
+// The difference manifests only in the presence of surrogate pairs.
+//
+
+alias Length32 = int;
+alias Length16 = int;
+
+private Length32 toLength32(Length16 n16, str input) {
+    int n32 = 0;
+    for (c <- chars(input)) {
+        if (n16 <= 0) break;
+        n16 -= isSupplementaryCodePoint(c) ? 2 : 1;
+        n32 += 1;
+    }
+    return n32;
+}
+
+private bool isSupplementaryCodePoint(int c)
+    = MIN_SUPPLEMENTARY_CODEPOINT <= c && c <= MAX_CODE_POINT;
+
+private int MIN_SUPPLEMENTARY_CODEPOINT = 0x010000;
+private int MAX_CODE_POINT = 0x10FFFF;
 
 //
 // Actuals

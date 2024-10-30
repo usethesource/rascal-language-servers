@@ -36,7 +36,7 @@ import lang::rascal::\syntax::Rascal;
 // -----
 // Tests
 
-test bool testTypesAndValues() = testTokenizer(#FunctionDeclaration,
+test bool testTypesAndValues() = testTokenizer(#Declaration,
 
    "void f() {
         bool b = true;
@@ -70,7 +70,7 @@ test bool testTypesAndValues() = testTokenizer(#FunctionDeclaration,
     applyRascalCategoryPatch = true
 );
 
-test bool testComments() = testTokenizer(#FunctionDeclaration,
+test bool testComments() = testTokenizer(#Declaration,
 
    "void f() {
         /* Block comment */
@@ -81,7 +81,7 @@ test bool testComments() = testTokenizer(#FunctionDeclaration,
 
     expectFirst("Block comment", "comment"),
     expectFirst("Multi-line 1", "comment"),
-    expectFirst("Multi-line 2", "comment"),
+    expectFirst("Multi-line 2", "comment"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/20
     expectFirst("Line comment", "comment"),
 
     applyRascalCategoryPatch = true
@@ -102,8 +102,14 @@ test bool testTags() = testTokenizer(#Declaration,
     applyRascalCategoryPatch = true
 );
 
-test bool testTokenLastLine() = testTokenizer(#Literal,
-    "3.14",
-    expectFirst("3.14", "number"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/90
+test bool testUnicode() = testTokenizer(#Declaration,
+   "void f() {
+        str s = \"𝄞𝄞𝄞\";
+    }",
+
+    expectFirst("str", "keyword"),
+    expectFirst(" s = ", "uncategorized"),
+    expectFirst("\"𝄞𝄞𝄞\"", "string"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/19
+    expectFirst(";", "uncategorized"),
     applyRascalCategoryPatch = true
 );
