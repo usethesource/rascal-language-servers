@@ -26,10 +26,16 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::tests::semanticTokenizer::Pico
 
-import lang::pico::\syntax::Main;
 import lang::rascal::tests::semanticTokenizer::Util;
 
-// https://github.com/usethesource/rascal-language-servers/issues/90
+// -------
+// Grammar
+
+import lang::pico::\syntax::Main;
+
+// -----
+// Tests
+
 test bool testKeywordLastLine() = testTokenizer(#Program,
 
    "begin
@@ -41,5 +47,5 @@ test bool testKeywordLastLine() = testTokenizer(#Program,
         y := x + 1
     end",
 
-    firstOccurrenceOf("end", "keyword")
+    expectFirst("end", "keyword") // Fixed: https://github.com/usethesource/rascal-language-servers/issues/90
 );

@@ -26,8 +26,15 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::tests::semanticTokenizer::Rascal
 
-import lang::rascal::\syntax::Rascal;
 import lang::rascal::tests::semanticTokenizer::Util;
+
+// -------
+// Grammar
+
+import lang::rascal::\syntax::Rascal;
+
+// -----
+// Tests
 
 test bool testTypesAndValues() = testTokenizer(#FunctionDeclaration,
 
@@ -40,30 +47,26 @@ test bool testTypesAndValues() = testTokenizer(#FunctionDeclaration,
         tuple[int, int] \\tuple = \<3, 14\>;
     }",
 
-    // Expectation: Types
-    firstOccurrenceOf("void", "keyword"),
-    firstOccurrenceOf("bool", "keyword"),
-    firstOccurrenceOf("int", "keyword"),
-    firstOccurrenceOf("real", "keyword"),
-    firstOccurrenceOf("loc", "keyword"),
-    firstOccurrenceOf("str", "keyword"),
-    firstOccurrenceOf("tuple", "keyword"),
+    expectFirst("void", "keyword"),
+    expectFirst("bool", "keyword"),
+    expectFirst("int", "keyword"),
+    expectFirst("real", "keyword"),
+    expectFirst("loc", "keyword"),
+    expectFirst("str", "keyword"),
+    expectFirst("tuple", "keyword"),
 
-    // Expectations: Values
-    firstOccurrenceOf("f", "uncategorized"),
-    firstOccurrenceOf("true", "keyword"),
-    //firstOccurrenceOf("3", "number"), -- https://github.com/usethesource/rascal-language-servers/issues/456
-    firstOccurrenceOf("3.14", "number"),
-    firstOccurrenceOf("foo", "string"),
-    firstOccurrenceOf("\<", "string"),
-    firstOccurrenceOf("bar", "uncategorized"),
-    firstOccurrenceOf("\>", "string"),
-    //firstOccurrenceOf("|unknown:///|", "string") -- https://github.com/usethesource/rascal-language-servers/issues/456
-    lastOccurrenceOf("\<", "uncategorized"),
-    lastOccurrenceOf("\>", "uncategorized"),
+    expectFirst("f", "uncategorized"),
+    expectFirst("true", "keyword"),
+    //expectFirst("3", "number"), // https://github.com/usethesource/rascal-language-servers/issues/456
+    expectFirst("3.14", "number"),
+    expectFirst("foo", "string"),
+    expectFirst("\<", "string"),
+    expectFirst("bar", "uncategorized"),
+    expectFirst("\>", "string"),
+    //expectFirst("|unknown:///|", "string") // https://github.com/usethesource/rascal-language-servers/issues/456
+    expectLast("\<", "uncategorized"),
+    expectLast("\>", "uncategorized"),
 
-    // Configuration
-    printActuals = false,
     applyRascalCategoryPatch = true
 );
 
@@ -76,14 +79,11 @@ test bool testComments() = testTokenizer(#FunctionDeclaration,
         // Line comment
     }",
 
-    // Expectation
-    firstOccurrenceOf("Block comment", "comment"),
-    firstOccurrenceOf("Multi-line 1", "comment"),
-    firstOccurrenceOf("Multi-line 2", "comment"),
-    firstOccurrenceOf("Line comment", "comment"),
+    expectFirst("Block comment", "comment"),
+    expectFirst("Multi-line 1", "comment"),
+    expectFirst("Multi-line 2", "comment"),
+    expectFirst("Line comment", "comment"),
 
-    // Configuration
-    printActuals = false,
     applyRascalCategoryPatch = true
 );
 
@@ -94,19 +94,16 @@ test bool testTags() = testTokenizer(#Declaration,
     @memo
     int i = 0;",
 
-    // Expectation
-    firstOccurrenceOf("@synopsis{Foo}", "comment"),
-    firstOccurrenceOf("@category=", "comment"),
-    firstOccurrenceOf("\"bar\"", "string"),
-    firstOccurrenceOf("@memo", "comment"),
+    expectFirst("@synopsis{Foo}", "comment"),
+    expectFirst("@category=", "comment"),
+    expectFirst("\"bar\"", "string"),
+    expectFirst("@memo", "comment"),
 
-    // Configuration
-    printActuals = false,
     applyRascalCategoryPatch = true
 );
 
-// https://github.com/usethesource/rascal-language-servers/issues/90
 test bool testTokenLastLine() = testTokenizer(#Literal,
     "3.14",
-    firstOccurrenceOf("3.14", "number"),
-    applyRascalCategoryPatch = true);
+    expectFirst("3.14", "number"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/90
+    applyRascalCategoryPatch = true
+);

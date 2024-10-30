@@ -109,28 +109,35 @@ alias Actual = tuple[
 ];
 
 data Expect
-    = firstOccurrenceOf(str string, str tokenType)
-    | lastOccurrenceOf(str string, str tokenType)
-    | eachOccurrenceOf(str string, str tokenType);
+    = expectNth(int n, str string, str tokenType)
+    | expectFirst(str string, str tokenType)
+    | expectLast(str string, str tokenType)
+    | expectEachNot(str string, str tokenType);
 
-void compare(list[Actual] actuals, firstOccurrenceOf(string, tokenType)) {
-    if (<SemanticToken token, _, s> <- actuals, contains(s, string)) {
-        assert token.tokenType == tokenType : "Expected token type (of \"<string>\"): <tokenType>. Actual: <token.tokenType>.";
-    } else {
-        assert false : "Unexpected string: <string>";
-    }
+void compare(list[Actual] actuals, expectNth(n, string, tokenType)) {
+    actuals = filterByString(actuals, string);
+    assert [] != actuals[n..(n + 1)] : "Unexpected string: \"<string>\"";
+    assert 0 <= n : "Expected `n` to be non-negative. Actual: `n`.";
+    assert <<_, _, _, tokenType, _>, _, _> := actuals[n] : "Expected token type of \"<string>\": <tokenType>. Actual: <actuals[n].token.tokenType>.";
 }
 
-void compare(list[Actual] actuals, lastOccurrenceOf(string, tokenType)) {
-    if (<SemanticToken token, _, s> <- reverse(actuals), contains(s, string)) {
-        assert token.tokenType == tokenType : "Expected token type (of \"<string>\"): `<tokenType>`. Actual: `<token.tokenType>`.";
-    } else {
-        assert false : "Unexpected string: <string>";
-    }
+void compare(list[Actual] actuals, expectFirst(string, tokenType)) {
+    compare(actuals, expectNth(0, string, tokenType));
 }
 
-void compare(list[Actual] actuals, eachOccurrenceOf(string, tokenType)) {
-    for (<SemanticToken token, _, s> <- actuals, contains(s, string)) {
-        assert token.tokenType == tokenType : "Expected token type (of \"<string>\"): `<tokenType>`. Actual: `<token.tokenType>`.";
-    }
+void compare(list[Actual] actuals, expectLast(string, tokenType)) {
+    actuals = filterByString(actuals, string);
+    compare(actuals, expectNth(size(actuals) - 1, string, tokenType));
 }
+
+void compare(list[Actual] actuals, expectEachNot(string, tokenType)) {
+    actuals = filterByString(actuals, string);
+    actuals = filterByTokenType(actuals, tokenType);
+    assert [] == actuals : "Not-expected token type of \"<string>\": `<tokenType>`. Actual: `<tokenType>`.";;
+}
+
+private list[Actual] filterByTokenType(list[Actual] actuals, str tokenType)
+    = [a | /Actual a: <<_, _, _, tokenType, _>, _, _> := actuals];
+
+private list[Actual] filterByString(list[Actual] actuals, str string)
+    = [a | /Actual a: <_, _, s> := actuals, contains(s, string)];
