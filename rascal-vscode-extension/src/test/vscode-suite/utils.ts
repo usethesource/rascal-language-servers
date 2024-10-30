@@ -316,15 +316,15 @@ export class IDEOperations {
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
         const inputarea = await editor.findElement(By.className('inputarea'));
-            await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
 
-            // finds an open menu with the right item in it (Change to a) and then select
-            // the parent that handles UI events like click() and sendKeys()
-            const menuContainer = await this.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), '" + actionLabel + "')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, actionLabel + " action should be available and focused");
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await this.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), '" + actionLabel + "')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, actionLabel + " action should be available and focused");
 
-            // menu container works a bit strangely, it ask the focus to keep track of it,
-            // and manages clicks and menus on the highest level (not per item).
-            await menuContainer.sendKeys(Key.RETURN);
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
     }
 
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
