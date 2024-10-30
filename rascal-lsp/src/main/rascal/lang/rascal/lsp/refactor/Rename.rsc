@@ -235,11 +235,16 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
     }
 
     replaceName = rascalEscapeName(name);
-    map[loc, loc] namesAt = rascalFindNamesInUseDefs(m, {ud.l | ud <- defs + uses});
-    return <{}, [r.annotation is nothing
-                 ? replace(namesAt[r.l], replaceName)
-                 : replace(namesAt[r.l], replaceName, r.annotation.val)
-                 | r <- defs + uses]>;
+
+    set[RenameLocation] renames = defs + uses;
+    set[loc] renameLocs = toLocs(renames);
+    map[loc, loc] namesAt = rascalFindNamesInUseDefs(m, renameLocs);
+    rel[loc, Maybe[ChangeAnnotationId]] annosAt = {<r.l, r.annotation> | r <- renames};
+
+    return <{}, [{just(annotation), *_} := annosAt[l]
+                 ? replace(namesAt[l], replaceName, annotation)
+                 : replace(namesAt[l], replaceName)
+                 | l <- renameLocs]>;
 }
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[RenameLocation] defs, set[RenameLocation] uses, str name, ChangeAnnotationRegister registerChangeAnnotation) =
