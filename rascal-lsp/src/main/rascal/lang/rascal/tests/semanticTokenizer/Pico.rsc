@@ -26,10 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::tests::semanticTokenizer::Pico
 
-import IO;
-import ParseTree;
 import lang::pico::\syntax::Main;
-
 import lang::rascal::tests::semanticTokenizer::Util;
 
 // https://github.com/usethesource/rascal-language-servers/issues/90

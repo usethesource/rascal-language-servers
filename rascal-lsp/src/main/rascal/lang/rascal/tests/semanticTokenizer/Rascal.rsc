@@ -26,10 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::rascal::tests::semanticTokenizer::Rascal
 
-import IO;
-import ParseTree;
 import lang::rascal::\syntax::Rascal;
-
 import lang::rascal::tests::semanticTokenizer::Util;
 
 test bool testTypesAndValues() = testTokenizer(#FunctionDeclaration,
@@ -74,11 +71,15 @@ test bool testComments() = testTokenizer(#FunctionDeclaration,
 
    "void f() {
         /* Block comment */
+        /* Multi-line 1
+           Multi-line 2 */
         // Line comment
     }",
 
     // Expectation
     firstOccurrenceOf("Block comment", "comment"),
+    firstOccurrenceOf("Multi-line 1", "comment"),
+    firstOccurrenceOf("Multi-line 2", "comment"),
     firstOccurrenceOf("Line comment", "comment"),
 
     // Configuration
