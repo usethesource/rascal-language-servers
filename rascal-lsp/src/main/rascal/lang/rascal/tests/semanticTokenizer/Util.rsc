@@ -31,57 +31,52 @@ import List;
 import ParseTree;
 import String;
 
+// This is the main utility function to test the semantic tokenizer. All other
+// functions in this module are auxiliary (and private).
 bool testTokenizer(type[&T<:Tree] begin, str input, Expect expects...,
         bool printActuals = false, bool applyRascalCategoryPatch = false) {
 
+    // First, compute the tokens by calling the semantic tokenizer (in Java)
     Tree tree = parse(begin, input);
     list[SemanticToken] tokens = toTokens(tree, applyRascalCategoryPatch);
-    list[loc] locations = toLocations(input, tokens);
-    list[str] strings = toStrings(input, locations);
 
-    bool less(Actual a1, Actual a2) = a1.l.offset < a2.l.offset;
-    list[Actual] actuals = sort(zip3(tokens, locations, strings), less);
+    // Next, compute the absolute location of each token (i.e., the position of
+    // each token in `tokens` is represented *relative to* its predecessor)
+    list[loc] locations = toAbsoluteLocations(input, tokens);
+
+    // Next, compute the string of each token
+    list[str] strings = [substring(input, l.offset, l.offset + l.length) | l <- locations];
+
+    // Last, test the expectations
+    list[Actual] actuals = [];
+    actuals = zip3(tokens, locations, strings);
+    actuals = sort(actuals, less);
 
     if (printActuals) {
         iprintln(actuals);
     }
 
-    for (expect <- expects) {
-        compare(actuals, expect);
-    }
-
-    return true;
+    return (true | it && check(actuals, expect) | expect <- expects);
 }
 
-private list[loc] toLocations(str input, list[SemanticToken] tokens) {
+private list[loc] toAbsoluteLocations(str input, list[SemanticToken] tokens) {
     list[str] lines = split("\n", input);
 
-    int line = 0;
+    // Initialize the "cursor"
+    int line   = 0;
     int column = 0;
 
-    list[loc] locations = [];
-    locations = for (token <- tokens) {
-        line = line + token.deltaLine;
+    return for (token <- tokens) {
+
+        // Advance the "cursor"
+        line   = line + token.deltaLine;
         column = (line == 0 || token.deltaLine == 0) ? column + token.deltaStart : 0;
 
+        // Compute the absolute location of `token`
         int offset = (0 | it + size(lines[i]) + 1 | i <- [0..line]) + column;
         int length = token.length;
         append |unknown:///|(offset, length);
-    };
-
-    return locations;
-}
-
-private list[str] toStrings(str input, list[loc] locations) {
-    list[str] strings = [];
-
-    strings = for (l <- locations) {
-        int begin = l.offset;
-        int end = begin + l.length;
-        append substring(input, begin, end);
     }
-
-    return strings;
 }
 
 //
@@ -96,48 +91,59 @@ alias SemanticToken = tuple[
     str tokenModifier];
 
 @javaClass{org.rascalmpl.vscode.lsp.util.SemanticTokenizerTester}
-java list[SemanticToken] toTokens(Tree _, bool applyRascalCategoryPatch);
+java list[SemanticToken] toTokens(Tree _, bool _);
 
 //
-// Actuals and expects
+// Actuals
 //
 
-alias Actual = tuple[
-    SemanticToken token,
-    loc l,
-    str s
-];
+alias Actual = tuple[SemanticToken token, loc l, str s];
+
+private bool less(Actual a1, Actual a2)
+    = a1.l.offset < a2.l.offset;
+
+private list[Actual] filterByTokenType(list[Actual] actuals, str tokenType)
+    = [a | Actual a: <<_, _, _, tokenType, _>, _, _> <- actuals];
+
+private list[Actual] filterByString(list[Actual] actuals, str string)
+    = [a | a <- actuals, contains(a.s, string)];
+
+//
+// Expects
+//
 
 data Expect
+
+    // The expectation that the `n`-th/first/last occurrence of `string` is in a
+    // token of type `tokenType`
     = expectNth(int n, str string, str tokenType)
     | expectFirst(str string, str tokenType)
     | expectLast(str string, str tokenType)
+
+    // The expectation that each occurrence of `string` is not in a token of
+    // type `tokenType`
     | expectEachNot(str string, str tokenType);
 
-void compare(list[Actual] actuals, expectNth(n, string, tokenType)) {
+private bool check(list[Actual] actuals, expectNth(n, string, tokenType)) {
     actuals = filterByString(actuals, string);
     assert [] != actuals[n..(n + 1)] : "Unexpected string: \"<string>\"";
-    assert 0 <= n : "Expected `n` to be non-negative. Actual: `n`.";
+    assert n >= 0 : "Expected `n` to be non-negative. Actual: `<n>`.";
     assert <<_, _, _, tokenType, _>, _, _> := actuals[n] : "Expected token type of \"<string>\": <tokenType>. Actual: <actuals[n].token.tokenType>.";
+    return true;
 }
 
-void compare(list[Actual] actuals, expectFirst(string, tokenType)) {
-    compare(actuals, expectNth(0, string, tokenType));
+private bool check(list[Actual] actuals, expectFirst(string, tokenType)) {
+    return check(actuals, expectNth(0, string, tokenType));
 }
 
-void compare(list[Actual] actuals, expectLast(string, tokenType)) {
+private bool check(list[Actual] actuals, expectLast(string, tokenType)) {
     actuals = filterByString(actuals, string);
-    compare(actuals, expectNth(size(actuals) - 1, string, tokenType));
+    return check(actuals, expectNth(size(actuals) - 1, string, tokenType));
 }
 
-void compare(list[Actual] actuals, expectEachNot(string, tokenType)) {
+private bool check(list[Actual] actuals, expectEachNot(string, tokenType)) {
     actuals = filterByString(actuals, string);
     actuals = filterByTokenType(actuals, tokenType);
     assert [] == actuals : "Not-expected token type of \"<string>\": `<tokenType>`. Actual: `<tokenType>`.";;
+    return true;
 }
-
-private list[Actual] filterByTokenType(list[Actual] actuals, str tokenType)
-    = [a | /Actual a: <<_, _, _, tokenType, _>, _, _> := actuals];
-
-private list[Actual] filterByString(list[Actual] actuals, str string)
-    = [a | /Actual a: <_, _, s> := actuals, contains(s, string)];
