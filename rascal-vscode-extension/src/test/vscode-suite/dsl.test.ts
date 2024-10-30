@@ -167,7 +167,7 @@ describe('DSL', function () {
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
         try {
-            ide.triggerFirstCodeAction(editor, 'Change to a');
+            await ide.triggerFirstCodeAction(editor, 'Change to a');
             await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
         }
         finally {
