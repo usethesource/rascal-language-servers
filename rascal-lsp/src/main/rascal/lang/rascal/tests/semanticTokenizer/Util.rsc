@@ -40,7 +40,7 @@ bool testTokenizer(type[&T<:Tree] begin, str input, Expect expects...,
     list[str] strings = toStrings(input, locations);
 
     bool less(Actual a1, Actual a2) = a1.l.offset < a2.l.offset;
-    list[Actual] actuals = (zip3(tokens, locations, strings));
+    list[Actual] actuals = sort(zip3(tokens, locations, strings), less);
 
     if (printActuals) {
         iprintln(actuals);
