@@ -48,9 +48,7 @@ bool testTokenizer(type[&T<:Tree] begin, str input, Expect expects...,
     list[str] strings = [substring(input, l.offset, l.offset + l.length) | l <- locations];
 
     // Last, test the expectations
-    list[Actual] actuals = [];
-    actuals = zip3(tokens, locations, strings);
-    actuals = sort(actuals, less);
+    list[Actual] actuals = sort(zip3(tokens, locations, strings), less);
 
     if (printActuals) {
         iprintln(actuals);
@@ -112,15 +110,15 @@ private list[Actual] filterByString(list[Actual] actuals, str string)
 // Expects
 //
 
-data Expect
+data Expect // Represents...
 
-    // The expectation that the `n`-th/first/last occurrence of `string` is in a
-    // token of type `tokenType`
+    // ...the expectation that the `n`-th/first/last occurrence of `string` is
+    // in a token of type `tokenType`
     = expectNth(int n, str string, str tokenType)
     | expectFirst(str string, str tokenType)
     | expectLast(str string, str tokenType)
 
-    // The expectation that each occurrence of `string` is not in a token of
+    // ...the expectation that each occurrence of `string` is not in a token of
     // type `tokenType`
     | expectEachNot(str string, str tokenType);
 
