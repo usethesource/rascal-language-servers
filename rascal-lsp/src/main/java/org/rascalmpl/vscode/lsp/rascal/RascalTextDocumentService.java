@@ -83,6 +83,7 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.jsonrpc.CompletableFutures;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -458,15 +459,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
-        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
-
-        if (!focus.isEmpty()) {
-            return rascalServices.codeActions(focus, pcfg).get();
-        }
-        else {
-            logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
-            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
-        }
+        return CompletableFuture.<IList>supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn))
+            .thenCompose(focus -> focus.isEmpty()
+                ? CompletableFuture.completedFuture(focus /* an empty list */)
+                : rascalServices.codeActions(focus, pcfg).get());
     }
 
     private CodeLens makeRunCodeLens(CodeLensSuggestion detected) {
