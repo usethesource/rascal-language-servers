@@ -79,9 +79,17 @@ public class Locations {
      */
     public static Position toRascalPosition(TextDocumentIdentifier doc, Position pos, ColumnMaps columns) {
         var uri = toLoc(doc.getUri());
+        return toRascalPosition(uri, pos, columns);
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Position toRascalPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
         return new Position(
             pos.getLine() + 1,
-            columns.get(uri).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
+            columns.get(doc).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
         );
     }
 

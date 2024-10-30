@@ -65,6 +65,8 @@ import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -203,10 +205,9 @@ public class RascalLanguageServices {
 
 
     public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName, ColumnMaps columns) {
-        var line = cursor.getLine() + 1;
         var moduleLocation = TreeAdapter.getLocation(module);
-        var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
-        var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
+        Position pos = Locations.toRascalPosition(moduleLocation, cursor, columns);
+        var cursorTree = TreeAdapter.locateLexical(module, pos.getLine(), pos.getCharacter());
 
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
