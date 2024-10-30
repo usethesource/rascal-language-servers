@@ -108,7 +108,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -290,8 +289,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
-            .thenApply(c -> {
-                ITuple t = (ITuple) c;
+            .thenApply(t -> {
                 WorkspaceEdit wsEdit = new WorkspaceEdit();
                 wsEdit.setDocumentChanges(DocumentChanges.translateDocumentChanges(this, (IList) t.get(0)));
                 wsEdit.setChangeAnnotations(DocumentChanges.translateChangeAnnotations((IMap) t.get(1)));

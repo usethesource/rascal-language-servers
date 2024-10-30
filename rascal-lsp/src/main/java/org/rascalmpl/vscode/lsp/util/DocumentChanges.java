@@ -52,6 +52,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
 /**
@@ -112,14 +113,15 @@ public class DocumentChanges {
 
     public static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
         return annos.stream()
-            .map(id -> (IString) id)
-            .map(id -> {
-                IConstructor c = (IConstructor) annos.get(id);
+            .map(entry -> (ITuple) entry)
+            .map(entry -> {
+                String annoId = ((IString) entry.get(0)).getValue();
                 ChangeAnnotation anno = new ChangeAnnotation();
+                IConstructor c = (IConstructor) entry.get(1);
                 anno.setLabel(((IString) c.get("label")).getValue());
                 anno.setDescription(((IString) c.get("description")).getValue());
                 anno.setNeedsConfirmation(((IBool) c.get("needsConfirmation")).getValue());
-                return Map.entry(id.getValue(), anno);
+                return Map.entry(annoId, anno);
             })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
