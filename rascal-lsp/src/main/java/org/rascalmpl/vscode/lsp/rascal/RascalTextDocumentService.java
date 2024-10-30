@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -49,7 +48,6 @@ import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -63,8 +61,6 @@ import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -85,12 +81,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
-import org.rascalmpl.library.util.ErrorRecovery;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.RascalValueFactory;
-import org.rascalmpl.values.ValueFactoryFactory;
-import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -99,7 +90,6 @@ import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.Outline;
@@ -109,7 +99,6 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -183,7 +172,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument());
-        handleParsingErrors(file);
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync()); // No debounce
     }
 
     @Override
@@ -215,50 +204,19 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents);
-        handleParsingErrors(file, file.getCurrentTreeAsync(Duration.ofMillis(800)));
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(Duration.ofMillis(800)));
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
-        futureTree.handle((tree, excp) -> {
-            List<Diagnostic> parseErrors = new ArrayList<>();
-
-            if (excp instanceof CompletionException) {
-                excp = excp.getCause();
-            }
-
-            if (excp instanceof ParseError) {
-                parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
-            } else if (excp != null) {
-                logger.error("Parsing crashed", excp);
-                parseErrors.add(new Diagnostic(
-                    new Range(new Position(0,0), new Position(0,1)),
-                    "Parsing failed: " + excp.getMessage(),
-                    DiagnosticSeverity.Error,
-                    "Rascal Parser"));
-            }
-
-            if (tree != null) {
-                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-                IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree.get());
-                for (IValue error : errors) {
-                    ITree errorTree = (ITree) error;
-                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
-                }
-            }
-
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync) {
+        diagnosticsAsync.thenAccept(diagnostics -> {
+            List<Diagnostic> parseErrors = diagnostics.get();
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             if (facts != null) {
                 facts.reportParseErrors(file.getLocation(), parseErrors);
             }
-            return null;
         });
     }
-
-    private void handleParsingErrors(TextDocumentState file) {
-        handleParsingErrors(file,file.getCurrentTreeAsync());
-    }
-
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
@@ -342,7 +300,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText()));
+            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, columns, doc.getVersion(), doc.getText()));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
