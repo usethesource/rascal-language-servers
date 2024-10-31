@@ -144,15 +144,15 @@ alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor)
 alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
 @synopsis{Function profile for definer contributions to a language server}
-@deprecated{Use ((FocusDefiner)) instead.}
+@deprecated{Use ((definition)) instead.}
 alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
-@deprecated{Use ((FocusReferrer)) instead}
+@deprecated{Use ((references)) instead}
 alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
-@deprecated{Use ((FocusImplementer)) instead.}
+@deprecated{Use ((implementation)) instead.}
 alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
@@ -421,7 +421,7 @@ LanguageService implementer(Implementer d) {
     return implementation(focusAcceptor);
 }
 
-@deprecated{Please use ((build)) or ((analysis))}
+@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
 LanguageService summarizer(Summarizer summarizer
         , bool providesDocumentation = true
@@ -438,7 +438,7 @@ LanguageService summarizer(Summarizer summarizer
         , providesImplementations = providesImplementations);
 }
 
-@deprecated{Please use ((build)) or ((analysis))}
+@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
 @synopsis{An analyzer collects information for later use in interactive IDE features.}
 LanguageService analyzer(Summarizer summarizer
         , bool providesDocumentation = true
