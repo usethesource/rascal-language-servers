@@ -187,5 +187,18 @@ describe('IDE', function () {
         expect(editorText).to.contain("i - 1");
         expect(editorText).to.contain("i -2");
     });
+
+    it("code actions work", async() => {
+        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        await editor.moveCursor(1,8); // in the module name
+
+        try {
+            await ide.triggerFirstCodeAction(editor, 'Add missing license header');
+            await ide.assertLineBecomes(editor, 1, "@license{", "license header should have been added", Delays.extremelySlow);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    })
 });
 

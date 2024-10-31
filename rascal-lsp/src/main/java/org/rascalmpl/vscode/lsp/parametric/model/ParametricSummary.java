@@ -479,14 +479,13 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
                 return null;
             }
 
-            var line = cursor.getLine() + 1;
-            var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-            var focus = TreeSearch.computeFocusList(tree.get(), line, translatedOffset);
+            var pos = Locations.toRascalPosition(file, cursor, columns);
+            var focus = TreeSearch.computeFocusList(tree.get(), pos.getLine(), pos.getCharacter());
 
             InterruptibleFuture<ISet> set = null;
 
             if (focus.isEmpty()) {
-                logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
+                logger.trace("{}: could not find substree at line {} and offset {}", logName, pos.getLine(), pos.getCharacter());
                 set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
             } else {
                 logger.trace("{}: looked up focus with length: {}, now calling dedicated function", logName, focus.length());
