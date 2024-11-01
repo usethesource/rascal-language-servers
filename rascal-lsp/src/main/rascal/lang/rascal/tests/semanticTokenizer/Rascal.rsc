@@ -57,13 +57,13 @@ test bool testTypesAndValues() = testTokenizer(#Declaration,
 
     expectFirst("f", "uncategorized"),
     expectFirst("true", "keyword"),
-    //expectFirst("3", "number"), // https://github.com/usethesource/rascal-language-servers/issues/456
+    expectFirst("3", "uncategorized"), // Should be `number` (https://github.com/usethesource/rascal-language-servers/issues/456)
     expectFirst("3.14", "number"),
     expectFirst("foo", "string"),
     expectFirst("\<", "string"),
     expectFirst("bar", "uncategorized"),
     expectFirst("\>", "string"),
-    //expectFirst("|unknown:///|", "string") // https://github.com/usethesource/rascal-language-servers/issues/456
+    expectFirst("|unknown:///|", "uncategorized"), // Should be `string` (https://github.com/usethesource/rascal-language-servers/issues/456)
     expectLast("\<", "uncategorized"),
     expectLast("\>", "uncategorized"),
 

@@ -394,9 +394,6 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenCollector {
         private int line;
         private int column;
-        private int startLineCurrentToken;
-        private int startColumnCurrentToken;
-        private String currentTokenCategory;
 
         private final boolean showAmb = false;
         private TokenList tokens;
@@ -411,50 +408,41 @@ public class SemanticTokenizer implements ISemanticTokens {
 
         public void collect(ITree tree) {
             collect(tree, null);
-            //check for final token
-            if (column > startColumnCurrentToken) {
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-            }
         }
 
-        private void collect(ITree tree, @Nullable String currentCategory) {
+        private void collect(ITree tree, @Nullable String parentCategory) {
             if (tree.isAppl()) {
-                collectAppl(tree, currentCategory);
+                collectAppl(tree, parentCategory);
             }
             else if (tree.isAmb()) {
-                collectAmb(tree, currentCategory);
+                collectAmb(tree, parentCategory);
             }
             else if (tree.isChar()) {
-                collectChar(tree, currentCategory);
+                collectChar(tree, parentCategory);
             }
         }
 
-        @SuppressWarnings("java:S3776") // parsing tends to be complex
-        private void collectAppl(ITree arg, @Nullable String currentCategory) {
+        private void collectAppl(ITree tree, @Nullable String parentCategory) {
+
+            // Compute the category
             String category = null;
+            var cat = tree.asWithKeywordParameters().getParameter("category");
+            var prod = tree.getProduction();
 
-            IValue catParameter = arg.asWithKeywordParameters().getParameter("category");
-
-            if (catParameter != null) {
-                category = ((IString) catParameter).getValue();
+            if (cat != null) {
+                category = ((IString) cat).getValue();
             }
-
-            IConstructor prod = TreeAdapter.getProduction(arg);
-
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }
-
-            if (category == null && currentCategory == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
+            if (category == null && parentCategory == null && isKeyword(tree)) {
                 category = SemanticTokenTypes.Keyword;
-
-                // unless this is an operator
-                for (IValue child : TreeAdapter.getArgs(arg)) {
-                    int c = TreeAdapter.getCharacter((ITree) child);
-                    if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                        category = null;
-                    }
-                }
+            }
+            if (category == null) {
+                // If the tree doesn't have a category of its own, then it must
+                // inherit its parent's category (which might be `null` if none
+                // of the tree's ancestors have a category)
+                category = parentCategory;
             }
 
             // Apply a patch to the parse tree to dynamically add categories. In
@@ -463,79 +451,59 @@ public class SemanticTokenizer implements ISemanticTokens {
             // is empty and does nothing.
             category = patch.apply(prod, category);
 
-            // now we go down in the tree to find more tokens and to advance the counters
-            for (IValue child : TreeAdapter.getArgs(arg)) {
+            // Collect tokens from children
+            for (IValue child : TreeAdapter.getArgs(tree)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (TreeAdapter.isAmb((ITree)child)) {
-                    collectAmb((ITree) child, category != null ? category : currentCategory);
-                }
-                else if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
                         ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
                     collect((ITree) child, null);
                 } else {
-                    collect((ITree) child, category != null ? category : currentCategory);
+                    collect((ITree) child, category);
                 }
             }
         }
 
-        private void collectAmb(ITree arg, @Nullable String currentCategory) {
+        private void collectAmb(ITree tree, @Nullable String parentCategory) {
+            var child = (ITree) TreeAdapter.getAlternatives(tree).iterator().next();
             if (showAmb) {
-                startLineCurrentToken = line;
-                startColumnCurrentToken = column;
-
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), TokenTypes.AMBIGUITY);
-
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, TokenTypes.AMBIGUITY);
+                collect(child, TokenTypes.AMBIGUITY);
+                tokens.addToken(line, column, 0, TokenTypes.AMBIGUITY); // TODO: length 0 doesn't look right
             } else {
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), currentCategory);
+                collect(child, parentCategory);
             }
         }
 
-        private void collectChar(ITree ch, @Nullable String currentCategory) {
-            int currentChar = TreeAdapter.getCharacter(ch);
-            //First check whether the token category has changed
-            if (currentCategory == null) {
-                //character has no semantic category
-                if (column > startColumnCurrentToken) {
-                    //add token and set column offset
-                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    startColumnCurrentToken = column;
-                    //startLineCurrentToken remains unchanged
-                }
-                currentTokenCategory = currentCategory;
-            }
-            if (currentCategory != null && !currentCategory.equals(currentTokenCategory)) {
-                //character has a semantic category that doesn't match the running token
-                if (column > startColumnCurrentToken) {
-                    //add token and set column offset
-                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    startColumnCurrentToken = column;
-                }
-                currentTokenCategory = currentCategory;
-                //startLineCurrentToken remains unchanged
-            }
+        private void collectChar(ITree tree, @Nullable String parentCategory) {
+            var ch = TreeAdapter.getCharacter(tree);
+            var length = Character.isSupplementaryCodePoint(ch) ? 2 : 1; // LSP counts 16-bit code units instead of Unicode code points
+            tokens.addToken(line, column, length, parentCategory);
 
-            //Token administration done, advance column/line counters
-            if (currentChar == '\n') {
+            if (ch == '\n') {
                 line++;
-
-                // this splits multi-line tokens automatically across the lines
-                if (currentTokenCategory != null) {
-                    if (column > startColumnCurrentToken) {
-                        tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    }
-                }
-                startColumnCurrentToken = 0;
-                startLineCurrentToken = line;
                 column = 0;
+            } else {
+                column += length;
             }
-            else if (Character.isSupplementaryCodePoint(currentChar)) {
-                column += 2; // lsp counts 16-bit chars instead of 32bit codepoints
+        }
+
+        private static boolean isKeyword(ITree tree) {
+            var p = tree.getProduction();
+
+            // A keyword must be a (ci)literal
+            if (!ProductionAdapter.isLiteral(p) && !ProductionAdapter.isCILiteral(p)) {
+                return false;
             }
-            else {
-                column++;
+
+            // A keyword must consist solely of Java identifier chars or '-'
+            for (IValue child : TreeAdapter.getArgs(tree)) {
+                int ch = TreeAdapter.getCharacter((ITree) child);
+                if (ch != '-' && !Character.isJavaIdentifierPart(ch)) {
+                    return false;
+                }
             }
+
+            return true;
         }
     }
 
