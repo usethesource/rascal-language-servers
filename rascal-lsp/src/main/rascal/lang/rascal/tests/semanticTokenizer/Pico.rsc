@@ -47,5 +47,9 @@ test bool testKeywordLastLine() = testTokenizer(#Program,
         y := x + 1
     end",
 
-    expectFirst("end", "keyword") // Fixed: https://github.com/usethesource/rascal-language-servers/issues/90
+    expectFirst("begin", "keyword"),
+    expectFirst("declare", "keyword"),
+    expectNth(0, "natural", "keyword"),
+    expectNth(1, "natural", "keyword"),
+    expectFirst("end", "keyword") // https://github.com/usethesource/rascal-language-servers/issues/90
 );

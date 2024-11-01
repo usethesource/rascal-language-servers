@@ -81,7 +81,7 @@ test bool testComments() = testTokenizer(#Declaration,
 
     expectFirst("Block comment", "comment"),
     expectFirst("Multi-line 1", "comment"),
-    expectFirst("Multi-line 2", "comment"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/20
+    expectFirst("Multi-line 2", "comment"), // https://github.com/usethesource/rascal-language-servers/issues/20
     expectFirst("Line comment", "comment"),
 
     applyRascalCategoryPatch = true
@@ -109,7 +109,7 @@ test bool testUnicode() = testTokenizer(#Declaration,
 
     expectFirst("str", "keyword"),
     expectFirst(" s = ", "uncategorized"),
-    expectFirst("\"𝄞𝄞𝄞\"", "string"), // Fixed: https://github.com/usethesource/rascal-language-servers/issues/19
+    expectFirst("\"𝄞𝄞𝄞\"", "string"), // https://github.com/usethesource/rascal-language-servers/issues/19
     expectFirst(";", "uncategorized"),
     applyRascalCategoryPatch = true
 );
