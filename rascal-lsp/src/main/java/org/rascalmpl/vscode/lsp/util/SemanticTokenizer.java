@@ -423,14 +423,13 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         private void collectAppl(ITree tree, @Nullable String parentCategory) {
-
-            // Compute the category
-            String category = null;
-            var cat = tree.asWithKeywordParameters().getParameter("category");
+            var param = tree.asWithKeywordParameters().getParameter("category");
             var prod = tree.getProduction();
 
-            if (cat != null) {
-                category = ((IString) cat).getValue();
+            // Compute the category
+            var category = TokenTypes.AMBIGUITY.equals(parentCategory) ? TokenTypes.AMBIGUITY : null;
+            if (category == null && param != null) {
+                category = ((IString) param).getValue();
             }
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
@@ -439,9 +438,6 @@ public class SemanticTokenizer implements ISemanticTokens {
                 category = SemanticTokenTypes.Keyword;
             }
             if (category == null) {
-                // If the tree doesn't have a category of its own, then it must
-                // inherit its parent's category (which might be `null` if none
-                // of the tree's ancestors have a category)
                 category = parentCategory;
             }
 
@@ -465,13 +461,9 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         private void collectAmb(ITree tree, @Nullable String parentCategory) {
+            var category = showAmb ? TokenTypes.AMBIGUITY : parentCategory;
             var child = (ITree) TreeAdapter.getAlternatives(tree).iterator().next();
-            if (showAmb) {
-                collect(child, TokenTypes.AMBIGUITY);
-                tokens.addToken(line, column, 0, TokenTypes.AMBIGUITY); // TODO: length 0 doesn't look right
-            } else {
-                collect(child, parentCategory);
-            }
+            collect(child, category);
         }
 
         private void collectChar(ITree tree, @Nullable String parentCategory) {
@@ -512,7 +504,7 @@ public class SemanticTokenizer implements ISemanticTokens {
     // (i.e., semantic token types). These categories should eventually be
     // incorporated directly in the grammar. Additional background:
     // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
-    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {};
+    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {}
 
     private static class DefaultCategoryPatch implements CategoryPatch {
         @Override
