@@ -414,15 +414,15 @@ public class SemanticTokenizer implements ISemanticTokens {
             INNER_OVER_OUTER_LEGACY; // Syntax-in-syntax special case
 
             public static Mode toMode(String s) {
-            switch (s) {
-                case "outerOverInner":
-                    return Mode.OUTER_OVER_INNER;
-                case "innerOverOuterStrict":
-                    return Mode.INNER_OVER_OUTER_STRICT;
-                case "innerOverOuterLegacy":
-                    return Mode.INNER_OVER_OUTER_LEGACY;
-                default:
-                    throw new IllegalArgumentException("Unexpected token collector mode: " + s);
+                switch (s) {
+                    case "outerOverInner":
+                        return Mode.OUTER_OVER_INNER;
+                    case "innerOverOuterStrict":
+                        return Mode.INNER_OVER_OUTER_STRICT;
+                    case "innerOverOuterLegacy":
+                        return Mode.INNER_OVER_OUTER_LEGACY;
+                    default:
+                        throw new IllegalArgumentException("Unexpected token collector mode: " + s);
                 }
             }
         }
