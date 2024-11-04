@@ -423,8 +423,6 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         private void collectAppl(ITree tree, @Nullable String parentCategory) {
-
-            // Compute the category
             String category = null;
             if (TokenTypes.AMBIGUITY.equals(parentCategory)) {
                 category = TokenTypes.AMBIGUITY;
@@ -435,7 +433,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 category = ((IString) catParameter).getValue();
             }
 
-            IConstructor prod = tree.getProduction();
+            IConstructor prod = TreeAdapter.getProduction(tree);
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }
