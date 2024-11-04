@@ -414,7 +414,7 @@ public class SemanticTokenizer implements ISemanticTokens {
             INNER_OVER_OUTER_LEGACY; // Syntax-in-syntax special case
 
             public static Mode toMode(String s) {
-                switch (s) {
+            switch (s) {
                 case "outerOverInner":
                     return Mode.OUTER_OVER_INNER;
                 case "innerOverOuterStrict":
@@ -557,7 +557,7 @@ public class SemanticTokenizer implements ISemanticTokens {
                 }
             }
             return ifAbsent;
-	    }
+        }
     }
 
     // The idea behind the patch is to dynamically map productions in Rascal's
