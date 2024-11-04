@@ -36,7 +36,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.0</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
     <log4j2.version>2.24.1</log4j2.version>
     <lsp4j.version>0.23.1</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
@@ -157,7 +157,7 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.0</version>
+            <version>3.5.1</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -220,7 +220,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.8.0</version>
+        <version>3.8.1</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -378,7 +378,7 @@
       <plugin> <!-- needs to be explictily envoked using mvn checkstyle:check -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.5.0</version>
+        <version>3.6.0</version>
         <configuration>
           <configLocation>checkstyle.xml</configLocation>
         </configuration>
