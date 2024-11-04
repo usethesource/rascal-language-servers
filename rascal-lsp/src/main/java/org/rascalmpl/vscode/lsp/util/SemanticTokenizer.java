@@ -423,20 +423,27 @@ public class SemanticTokenizer implements ISemanticTokens {
         }
 
         private void collectAppl(ITree tree, @Nullable String parentCategory) {
-            var param = tree.asWithKeywordParameters().getParameter("category");
-            var prod = tree.getProduction();
 
             // Compute the category
-            var category = TokenTypes.AMBIGUITY.equals(parentCategory) ? TokenTypes.AMBIGUITY : null;
-            if (category == null && param != null) {
-                category = ((IString) param).getValue();
+            String category = null;
+            if (TokenTypes.AMBIGUITY.equals(parentCategory)) {
+                category = TokenTypes.AMBIGUITY;
             }
+
+            IValue catParameter = tree.asWithKeywordParameters().getParameter("category");
+            if (category == null && catParameter != null) {
+                category = ((IString) catParameter).getValue();
+            }
+
+            IConstructor prod = tree.getProduction();
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }
+
             if (category == null && parentCategory == null && isKeyword(tree)) {
                 category = SemanticTokenTypes.Keyword;
             }
+
             if (category == null) {
                 category = parentCategory;
             }
