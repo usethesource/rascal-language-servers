@@ -124,5 +124,6 @@ test bool testInnerOverOuterLegacy() = testTokenizer(#Declaration,
     expectFirst("3", "uncategorized"), // Instead of `number`
     expectFirst("|unknown:///|", "uncategorized"), // Instead of `string`
 
-    applyRascalCategoryPatch = false // Use legacy mode instead of strict mode
+    useLegacyHighlighting = true,
+    applyRascalCategoryPatch = true
 );

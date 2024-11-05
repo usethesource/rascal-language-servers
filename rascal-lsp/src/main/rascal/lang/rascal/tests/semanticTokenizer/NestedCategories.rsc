@@ -90,16 +90,7 @@ test bool testInterface() = testTokenizer(#Interface,
     // This test demonstrates that, sometimes, arguably the "natural" way to
     // write a grammar (e.g., "An interface name is just any class name, but
     // prefixed with an I") requires outer-over-inner semantic tokenization.
-    // The following test shows the effect of overriding the default from
-    // inner-over-outer to outer-over-inner. Further reading:
+    // This is currently not supported (i.e., the only "solution" right now is
+    // to rewrite the grammar). Further reading:
     // https://github.com/usethesource/rascal-language-servers/issues/456
-);
-
-test bool testInterfaceOuterOverInner() = testTokenizer(#InterfaceOuterOverInner,
-
-    "IFoo",
-
-    expectFirst("I", "interface"),
-    expectFirst("Foo", "interface"),
-    expectFirst("IFoo", "interface") // Outer over inner
 );
