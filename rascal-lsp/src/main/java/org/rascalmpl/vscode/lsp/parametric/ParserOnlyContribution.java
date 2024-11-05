@@ -229,6 +229,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public CompletableFuture<Boolean> useLegacyHighlighting() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }

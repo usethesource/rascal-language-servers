@@ -77,6 +77,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
 
+    private volatile CompletableFuture<Boolean> useLegacyHighlighting = failedInitialization();
+
     private volatile CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private volatile CompletableFuture<SummaryConfig> builderSummaryConfig;
     private volatile CompletableFuture<SummaryConfig> ondemandSummaryConfig;
@@ -158,6 +160,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+
+        useLegacyHighlighting = anyTrue(ILanguageContributions::useLegacyHighlighting);
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
@@ -341,6 +345,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
         return hasInlayHint;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> useLegacyHighlighting() {
+        return useLegacyHighlighting;
     }
 
     @Override
