@@ -75,7 +75,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+    public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
         if (loadingParserError != null || parser == null) {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
@@ -114,12 +114,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> outline(ITree input) {
+    public InterruptibleFuture<IList> documentSymbol(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
         return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
@@ -129,12 +129,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> lenses(ITree input) {
+    public InterruptibleFuture<IList> codeLens(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
+    public InterruptibleFuture<@Nullable IValue> execution(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
@@ -149,12 +149,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> documentation(IList focus) {
+    public InterruptibleFuture<ISet> hover(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> definitions(IList focus) {
+    public InterruptibleFuture<ISet> definition(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
@@ -164,67 +164,67 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> codeActions(IList focus) {
+    public InterruptibleFuture<IList> codeAction(IList focus) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<ISet> implementations(IList focus) {
+    public InterruptibleFuture<ISet> implementation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumenter() {
+    public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefiner() {
+    public CompletableFuture<Boolean> hasDefinition() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferrer() {
+    public CompletableFuture<Boolean> hasReferences() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementer() {
+    public CompletableFuture<Boolean> hasImplementation() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutliner() {
+    public CompletableFuture<Boolean> hasDocumentSymbol() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalyzer() {
+    public CompletableFuture<Boolean> hasAnalysis() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuilder() {
+    public CompletableFuture<Boolean> hasBuild() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeActionsContributor() {
+    public CompletableFuture<Boolean> hasCodeAction() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLensDetector() {
+    public CompletableFuture<Boolean> hasCodeLens() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCommandExecutor() {
+    public CompletableFuture<Boolean> hasExecution() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHinter() {
+    public CompletableFuture<Boolean> hasInlayHint() {
         return CompletableFuture.completedFuture(false);
     }
 

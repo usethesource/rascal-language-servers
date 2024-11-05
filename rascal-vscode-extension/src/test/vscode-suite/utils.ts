@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -56,6 +56,7 @@ export class TestWorkspace {
     public static readonly mainFile = path.join(src(this.testProject), 'Main.rsc');
     public static readonly mainFileTpl = path.join(target(this.testProject),'$Main.tpl');
     public static readonly libCallFile = path.join(src(this.testProject), 'LibCall.rsc');
+    public static readonly licenseFile = path.join(this.testProject, 'LICENSE');
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
@@ -214,7 +215,12 @@ export class IDEOperations {
         await ignoreFails(center?.close());
     }
 
-
+    assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
+        return this.driver.wait(async () => {
+            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            return currentContent === lineContents;
+        }, wait, msg, 100);
+    }
 
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
         return this.driver.wait(scopedElementLocated(editor, selector), timeout, message, 50);
@@ -300,6 +306,27 @@ export class IDEOperations {
         }
     }
 
+    /**
+     * This makes the code action menu popup _if there are code actions on the current line_
+     * and then selects the first entry from the menu. This works only if the given actionLabel
+     * indeed becomes the first menu item.
+     *
+     * @param editor
+     * @param actionLabel
+     */
+    async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await this.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), '" + actionLabel + "')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, actionLabel + " action should be available and focused");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
+    }
+
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
         return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
     }
@@ -315,8 +342,12 @@ export class IDEOperations {
         };
     }
 
+    private screenshotSeqNumber = 0;
+
     screenshot(name: string): Promise<void> {
-        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
+        return this.browser.takeScreenshot(
+            `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
+            name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 

@@ -47,8 +47,6 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2}, "
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
 );
 
-// Flaky. Fix for non-determinism in typepal, upcoming in future release of Rascal (Core)
-// https://github.com/usethesource/typepal/commit/55456edcc52653e42d7f534a5412147b01b68c29
 test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2}, "
     'x = d(1, 2);
     'y = x.foo;
@@ -80,6 +78,24 @@ test bool commonKeywordFieldsSameType() = testRenameOccurrences({0, 1},
     ",
     decls = "data D (set[loc] foo = {}, set[loc] baz = {})= d();"
 );
+
+test bool sameNameFields() = testRenameOccurrences({0, 2}, "
+    'D x = d(8);
+    'int i = x.foo;
+", decls = "
+    'data D = d(int foo);
+    'data E = e(int foo);
+");
+
+test bool sameNameADTFields() = testRenameOccurrences({
+    byText("Definer", "data D = d(int foo);", {0})
+  , byText("Unrelated", "data D = d(int foo);", {})
+});
+
+test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
+    byText("A", "data D = d(int foo);", {0})
+  , byText("B", "data E = e(int foo);", {})
+});
 
 test bool complexDataType() = testRenameOccurrences({0, 1},
     "WorkspaceInfo ws = workspaceInfo(

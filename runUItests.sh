@@ -21,4 +21,7 @@ npm run compile-tests
 
 # test what was compiled
 
-exec npx extest setup-and-run out/test/vscode-suite/*.test.js --storage $UITESTS
+exec npx extest setup-and-run out/test/vscode-suite/*.test.js \
+    --code_version 1.82.3 \
+    --storage $UITESTS \
+    --extensions_dir $UITESTS/extensions_dir
