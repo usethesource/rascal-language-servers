@@ -430,13 +430,13 @@ public class SemanticTokenizer implements ISemanticTokens {
         public void collect(ITree tree) {
 
             // For Rascal, the default is the *strict* inner-over-outer mode
-            // (without syntax-in-syntax special case) that fixes #456.
+            // (without syntax-in-syntax special case) that fixes #456
             if (patch instanceof RascalCategoryPatch) {
                 collect(tree, Mode.INNER_OVER_OUTER_STRICT, null);
             }
 
             // For DSLs, the default is the *legacy* inner-over-outer mode (with
-            // syntax-in-syntax special case) to be backward-compatible.
+            // syntax-in-syntax special case) to be backward-compatible
             else {
                 collect(tree, Mode.INNER_OVER_OUTER_LEGACY, null);
             }

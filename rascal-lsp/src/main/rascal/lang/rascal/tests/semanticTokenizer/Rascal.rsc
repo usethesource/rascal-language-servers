@@ -117,8 +117,8 @@ test bool testUnicode() = testTokenizer(#Declaration,
 test bool testInnerOverOuterLegacy() = testTokenizer(#Declaration,
 
    "void f() {
-        int  i = 3;
-        loc  l = |unknown:///|;
+        int i = 3;
+        loc l = |unknown:///|;
     }",
 
     expectFirst("3", "uncategorized"), // Instead of `number`
