@@ -39,16 +39,12 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
 import org.eclipse.lsp4j.SemanticTokensClientCapabilitiesRequests;
-import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensLegend;
 import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
@@ -58,42 +54,25 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.INode;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
-public class SemanticTokenizer implements ISemanticTokens {
+public class SemanticTokenizer {
 
     private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
     private final CategoryPatch patch;
 
-    public SemanticTokenizer() {
-        this(false);
+    public SemanticTokenizer(boolean applyRascalCategoryPatch) {
+        this.patch = applyRascalCategoryPatch ? new RascalCategoryPatch() : new DefaultCategoryPatch();
     }
 
-    public SemanticTokenizer(boolean rascal) {
-        this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
-    }
-
-    @Override
-    public SemanticTokens semanticTokensFull(ITree tree) {
+    public SemanticTokens semanticTokensFull(ITree tree, boolean useLegacyHighlighting) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens, patch).collect(tree);
+        new TokenCollector(tokens, useLegacyHighlighting, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
-    @Override
-    public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousId, ITree tree) {
-        return Either.forLeft(semanticTokensFull(tree));
-    }
-
-    @Override
-    public SemanticTokens semanticTokensRange(Range range, ITree tree) {
-        return semanticTokensFull(tree);
-    }
-
-    @Override
     public SemanticTokensWithRegistrationOptions options() {
         SemanticTokensWithRegistrationOptions result = new SemanticTokensWithRegistrationOptions();
         SemanticTokensLegend legend = new SemanticTokensLegend(TokenTypes.getTokenTypes(), TokenTypes.getTokenModifiers());
@@ -104,7 +83,6 @@ public class SemanticTokenizer implements ISemanticTokens {
         return result;
     }
 
-    @Override
     public SemanticTokensCapabilities capabilities() {
         SemanticTokensClientCapabilitiesRequests requests = new SemanticTokensClientCapabilitiesRequests(true);
         SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
@@ -398,81 +376,56 @@ public class SemanticTokenizer implements ISemanticTokens {
         private int column;
 
         private final boolean showAmb = false;
-        private TokenList tokens;
+
+        private final TokenList tokens;
+        private final boolean useLegacyHighlighting;
         private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens, CategoryPatch patch) {
+        public TokenCollector(TokenList tokens, boolean useLegacyHighlighting, CategoryPatch patch) {
             this.tokens = tokens;
+            this.useLegacyHighlighting = useLegacyHighlighting;
             this.patch = patch;
+
             line = 0;
             column = 0;
         }
 
-        private enum Mode {
-            OUTER_OVER_INNER,
-            INNER_OVER_OUTER_STRICT, // No special cases
-            INNER_OVER_OUTER_LEGACY; // Syntax-in-syntax special case
-
-            public static Mode toMode(String s) {
-                switch (s) {
-                    case "outerOverInner":
-                        return Mode.OUTER_OVER_INNER;
-                    case "innerOverOuterStrict":
-                        return Mode.INNER_OVER_OUTER_STRICT;
-                    case "innerOverOuterLegacy":
-                        return Mode.INNER_OVER_OUTER_LEGACY;
-                    default:
-                        throw new IllegalArgumentException("Unexpected token collector mode: " + s);
-                }
-            }
-        }
-
         public void collect(ITree tree) {
-
-            // For Rascal, the default is the *strict* inner-over-outer mode
-            // (without syntax-in-syntax special case) that fixes #456
-            if (patch instanceof RascalCategoryPatch) {
-                collect(tree, Mode.INNER_OVER_OUTER_STRICT, null);
-            }
-
-            // For DSLs, the default is the *legacy* inner-over-outer mode (with
-            // syntax-in-syntax special case) to be backward-compatible
-            else {
-                collect(tree, Mode.INNER_OVER_OUTER_LEGACY, null);
-            }
+            collect(tree, null);
         }
 
-        private void collect(ITree tree, Mode parentMode, @Nullable String parentCategory) {
+        private void collect(ITree tree, @Nullable String parentCategory) {
             if (tree.isAppl()) {
-                collectAppl(tree, parentMode, parentCategory);
+                collectAppl(tree, parentCategory);
             }
             else if (tree.isAmb()) {
-                collectAmb(tree, parentMode, parentCategory);
+                collectAmb(tree, parentCategory);
             }
             else if (tree.isChar()) {
                 collectChar(tree, parentCategory);
             }
         }
 
-        private void collectAppl(ITree tree, Mode parentMode, @Nullable String parentCategory) {
-
-            // Compute mode
-            var prod = TreeAdapter.getProduction(tree);
-            var mode = getModeIfPresent(prod, parentMode);
-
-            // Compute category
-            String category = mode == Mode.OUTER_OVER_INNER ? parentCategory : null;
+        private void collectAppl(ITree tree, @Nullable String parentCategory) {
+            String category = null;
+            if (TokenTypes.AMBIGUITY.equals(parentCategory)) {
+                category = TokenTypes.AMBIGUITY;
+            }
 
             IValue catParameter = tree.asWithKeywordParameters().getParameter("category");
             if (category == null && catParameter != null) {
                 category = ((IString) catParameter).getValue();
             }
+
+            IConstructor prod = TreeAdapter.getProduction(tree);
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }
+
             if (category == null && parentCategory == null && isKeyword(tree)) {
                 category = SemanticTokenTypes.Keyword;
             }
+
             if (category == null) {
                 category = parentCategory;
             }
@@ -485,28 +438,21 @@ public class SemanticTokenizer implements ISemanticTokens {
 
             // Collect tokens from children
             for (IValue child : TreeAdapter.getArgs(tree)) {
-
-                // Special case (syntax-in-syntax): In legacy mode, do *not*
-                // propagate `category` when both `tree` and `child` are syntax
-                // non-terminals.
-                var specialCase =
-                    mode == Mode.INNER_OVER_OUTER_LEGACY &&
-                    !TreeAdapter.isChar((ITree) child) &&
-                    ProductionAdapter.isSort(prod) &&
-                    ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child));
-
-                collect((ITree) child, mode, specialCase ? null : category);
+                //Propagate current category to child unless currently in a syntax nonterminal
+                //*AND* the current child is a syntax nonterminal too
+                if (useLegacyHighlighting && !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                        ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
+                    collect((ITree) child, null);
+                } else {
+                    collect((ITree) child, category);
+                }
             }
         }
 
-        private void collectAmb(ITree tree, Mode parentMode, @Nullable String parentCategory) {
-            if (showAmb) {
-                parentMode = Mode.OUTER_OVER_INNER;
-                parentCategory = TokenTypes.AMBIGUITY;
-            }
-
+        private void collectAmb(ITree tree, @Nullable String parentCategory) {
+            var category = showAmb ? TokenTypes.AMBIGUITY : parentCategory;
             var child = (ITree) TreeAdapter.getAlternatives(tree).iterator().next();
-            collect(child, parentMode, parentCategory);
+            collect(child, category);
         }
 
         private void collectChar(ITree tree, @Nullable String parentCategory) {
@@ -539,22 +485,6 @@ public class SemanticTokenizer implements ISemanticTokens {
             }
 
             return true;
-        }
-
-        // Derived from `org.rascalmpl.values.parsetrees.ProductionAdapter.getCategory`
-        private static Mode getModeIfPresent(IConstructor prod, Mode ifAbsent) {
-            if (!ProductionAdapter.isRegular(prod)) {
-                for (IValue attr : ProductionAdapter.getAttributes(prod)) {
-                    if (attr.getType().isAbstractData() && ((IConstructor) attr).getConstructorType() == RascalValueFactory.Attr_Tag) {
-                        IValue tag = ((IConstructor) attr).get("tag");
-                        if (tag.getType().isNode() && ((INode) tag).getName().equals("categoryNesting")) {
-                            var value = ((IString) ((INode) tag).get(0)).getValue();
-                            return Mode.toMode(value);
-                        }
-                    }
-                }
-            }
-            return ifAbsent;
         }
     }
 

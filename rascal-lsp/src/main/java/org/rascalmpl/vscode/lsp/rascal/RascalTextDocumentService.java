@@ -347,9 +347,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
+        var useLegacyHighlighting = CompletableFuture.completedFuture(false);
         return getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenCombineAsync(useLegacyHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .exceptionally(e -> {
                     logger.error("Tokenization failed", e);
                     return new SemanticTokens(Collections.emptyList());
