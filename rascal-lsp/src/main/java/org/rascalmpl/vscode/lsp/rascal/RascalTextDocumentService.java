@@ -237,10 +237,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         });
     }
 
-    private void handleParsingErrors(TextDocumentState file) {
-        handleParsingErrors(file,file.getCurrentTreeAsync());
-    }
-
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
