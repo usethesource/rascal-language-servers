@@ -229,7 +229,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> useLegacyHighlighting() {
+    public CompletableFuture<Boolean> legacyHighlighting() {
         return CompletableFuture.completedFuture(false);
     }
 

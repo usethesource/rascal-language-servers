@@ -140,7 +140,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final ExecutorService ownExecuter;
 
     private final String dedicatedLanguageName;
-    private final SemanticTokenizer tokenizer = new SemanticTokenizer(false);
+    private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
@@ -540,10 +540,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
-        var useLegacyHighlighting = contributions(doc).useLegacyHighlighting();
+        var legacyHighlighting = contributions(doc).legacyHighlighting();
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCombineAsync(useLegacyHighlighting, tokenizer::semanticTokensFull, ownExecuter)
+                .thenCombineAsync(legacyHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )

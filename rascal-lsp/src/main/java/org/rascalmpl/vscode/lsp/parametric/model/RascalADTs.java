@@ -50,7 +50,7 @@ public class RascalADTs {
         public static class Parameters {
             private Parameters() {}
 
-            public static final String USE_LEGACY_HIGHLIGHTING = "useLegacyHighlighting";
+            public static final String USES_LEGACY_HIGHLIGHTING = "usesLegacyHighlighting";
 
             public static final String PROVIDES_HOVERS = "providesHovers";
             public static final String PROVIDES_DEFINITIONS = "providesDefinitions";

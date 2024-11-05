@@ -63,13 +63,17 @@ public class SemanticTokenizer {
 
     private final CategoryPatch patch;
 
-    public SemanticTokenizer(boolean applyRascalCategoryPatch) {
-        this.patch = applyRascalCategoryPatch ? new RascalCategoryPatch() : new DefaultCategoryPatch();
+    public SemanticTokenizer() {
+        this(false);
     }
 
-    public SemanticTokens semanticTokensFull(ITree tree, boolean useLegacyHighlighting) {
+    public SemanticTokenizer(boolean rascal) {
+        this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
+    }
+
+    public SemanticTokens semanticTokensFull(ITree tree, boolean legacyHighlighting) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens, useLegacyHighlighting, patch).collect(tree);
+        new TokenCollector(tokens, legacyHighlighting, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
@@ -378,12 +382,12 @@ public class SemanticTokenizer {
         private final boolean showAmb = false;
 
         private final TokenList tokens;
-        private final boolean useLegacyHighlighting;
+        private final boolean legacyHighlighting;
         private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens, boolean useLegacyHighlighting, CategoryPatch patch) {
+        public TokenCollector(TokenList tokens, boolean legacyHighlighting, CategoryPatch patch) {
             this.tokens = tokens;
-            this.useLegacyHighlighting = useLegacyHighlighting;
+            this.legacyHighlighting = legacyHighlighting;
             this.patch = patch;
 
             line = 0;
@@ -440,7 +444,7 @@ public class SemanticTokenizer {
             for (IValue child : TreeAdapter.getArgs(tree)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (useLegacyHighlighting && !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                if (legacyHighlighting && !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
                         ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
                     collect((ITree) child, null);
                 } else {
