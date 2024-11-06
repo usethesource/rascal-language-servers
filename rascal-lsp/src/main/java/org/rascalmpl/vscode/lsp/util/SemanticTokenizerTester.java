@@ -35,9 +35,9 @@ import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizerTester {
 
-    public IValue toTokens(IConstructor tree, IBool applyRascalCategoryPatch) {
+    public IValue toTokens(IConstructor tree, IBool useSpecialCaseHighlighting, IBool applyRascalCategoryPatch) {
         var tokenizer = new SemanticTokenizer(applyRascalCategoryPatch.getValue());
-        var encoded = tokenizer.semanticTokensFull((ITree) tree).getData();
+        var encoded = tokenizer.semanticTokensFull((ITree) tree, useSpecialCaseHighlighting.getValue()).getData();
 
         var values = IRascalValueFactory.getInstance();
         var tokens = new IValue[encoded.size() / 5];

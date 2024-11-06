@@ -183,7 +183,8 @@ export interface ParserSpecification {
     nonTerminalIsStart?: boolean;
     /** allow ambiguities during parsing, default: false */
     allowAmbiguity?: boolean;
-
+    /** apply the special case for highlighting syntax-in-syntax, default: true */
+    specialCaseHighlighting?: boolean;
 }
 
 function languageKey(lang: LanguageParameter) {

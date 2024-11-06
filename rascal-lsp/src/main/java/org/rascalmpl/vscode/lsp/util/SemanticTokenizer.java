@@ -39,15 +39,12 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
 import org.eclipse.lsp4j.SemanticTokensClientCapabilitiesRequests;
-import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensLegend;
 import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
@@ -60,7 +57,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
-public class SemanticTokenizer implements ISemanticTokens {
+public class SemanticTokenizer {
 
     private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
@@ -74,24 +71,12 @@ public class SemanticTokenizer implements ISemanticTokens {
         this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
     }
 
-    @Override
-    public SemanticTokens semanticTokensFull(ITree tree) {
+    public SemanticTokens semanticTokensFull(ITree tree, boolean specialCaseHighlighting) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens, patch).collect(tree);
+        new TokenCollector(tokens, specialCaseHighlighting, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
-    @Override
-    public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousId, ITree tree) {
-        return Either.forLeft(semanticTokensFull(tree));
-    }
-
-    @Override
-    public SemanticTokens semanticTokensRange(Range range, ITree tree) {
-        return semanticTokensFull(tree);
-    }
-
-    @Override
     public SemanticTokensWithRegistrationOptions options() {
         SemanticTokensWithRegistrationOptions result = new SemanticTokensWithRegistrationOptions();
         SemanticTokensLegend legend = new SemanticTokensLegend(TokenTypes.getTokenTypes(), TokenTypes.getTokenModifiers());
@@ -102,7 +87,6 @@ public class SemanticTokenizer implements ISemanticTokens {
         return result;
     }
 
-    @Override
     public SemanticTokensCapabilities capabilities() {
         SemanticTokensClientCapabilitiesRequests requests = new SemanticTokensClientCapabilitiesRequests(true);
         SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
@@ -396,12 +380,16 @@ public class SemanticTokenizer implements ISemanticTokens {
         private int column;
 
         private final boolean showAmb = false;
-        private TokenList tokens;
+
+        private final TokenList tokens;
+        private final boolean specialCaseHighlighting;
         private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens, CategoryPatch patch) {
+        public TokenCollector(TokenList tokens, boolean specialCaseHighlighting, CategoryPatch patch) {
             this.tokens = tokens;
+            this.specialCaseHighlighting = specialCaseHighlighting;
             this.patch = patch;
+
             line = 0;
             column = 0;
         }
@@ -456,12 +444,11 @@ public class SemanticTokenizer implements ISemanticTokens {
             for (IValue child : TreeAdapter.getArgs(tree)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
-                        ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
-                    collect((ITree) child, null);
-                } else {
-                    collect((ITree) child, category);
-                }
+                var specialCase = specialCaseHighlighting &&
+                    !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                    ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child));
+
+                collect((ITree) child, specialCase ? null : category);
             }
         }
 

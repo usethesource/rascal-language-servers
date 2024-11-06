@@ -49,6 +49,9 @@ lexical Variable
 lexical Interface
     = @category="interface" "I" Class;
 
+lexical InterfaceOuterOverInner
+    = @categoryNesting="outerOverInner" Interface;
+
 lexical Class
     = @category="class" Upper Alnum*;
 
