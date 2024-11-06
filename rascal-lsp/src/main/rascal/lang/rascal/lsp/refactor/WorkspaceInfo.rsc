@@ -31,6 +31,7 @@ import Relation;
 
 import analysis::typepal::TModel;
 
+import lang::rascalcore::check::ATypeUtils;
 import lang::rascalcore::check::Checker;
 
 import lang::rascal::\syntax::Rascal;
@@ -541,12 +542,15 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
     return <fromLocs(defs), fromLocs(useDefs - defs), NO_RENAMES>;
 }
 
+private str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
+private str describeFact(nothing()) = "unknown type";
+
 set[RenameLocation] rascalGetHasUses(WorkspaceInfo ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
     return {
-        rl(name.src, annotation = just(registerChangeAnnotation("dynamic field name", "", true)))
+        rl(name.src, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, e.src))>", "Due to the dynamic nature of these names, it cannot be ensured that they need to be renamed. Please review these suggested changes.", true)))
         | loc l <- rascalReachableModules(ws, defs)
         , start[Module] m := parseModuleWithSpacesCached(l)
-        , /(Expression) `<Expression _> has <Name name>` := m
+        , /(Expression) `<Expression e> has <Name name>` := m
         , "<name>" == cursorName
     };
 }

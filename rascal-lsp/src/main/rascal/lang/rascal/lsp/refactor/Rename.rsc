@@ -595,10 +595,22 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
         return id;
     };
 
+    set[RenameLocation] registerChangeAnnotations(set[RenameLocation] locs, str label, str description = "These changes are required for a correct renaming. They can be previewed here, but it is not advised to disable them.", bool needsConfirmation = false) {
+        set[RenameLocation] modifiedLocs = {};
+        for (rl <- locs) {
+            if (nothing() := rl.annotation) {
+                modifiedLocs += rl[annotation = just(registerChangeAnnotation(label, description, needsConfirmation))];
+            } else {
+                modifiedLocs += rl;
+            }
+        }
+        return modifiedLocs;
+    }
+
     <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, registerChangeAnnotation);
 
-    rel[loc file, RenameLocation defines] defsPerFile = {<d.l.top, d> | d <- defs};
-    rel[loc file, RenameLocation uses] usesPerFile = {<u.l.top, u> | u <- uses};
+    rel[loc file, RenameLocation defines] defsPerFile = {<d.l.top, d> | d <- registerChangeAnnotations(defs, "Definitions")};
+    rel[loc file, RenameLocation uses] usesPerFile = {<u.l.top, u> | u <- registerChangeAnnotations(uses, "References")};
 
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
