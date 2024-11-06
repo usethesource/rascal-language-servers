@@ -40,7 +40,7 @@ public class SemanticTokenizerTester {
         var encoded = tokenizer.semanticTokensFull((ITree) tree, useSpecialCaseHighlighting.getValue()).getData();
 
         var values = IRascalValueFactory.getInstance();
-        var tokens = new IValue[encoded.size() / 5];
+        var tokens = values.listWriter();
         var tokenTypes = tokenizer.capabilities().getTokenTypes();
 
         for (int i = 0; i < encoded.size(); i += 5) {
@@ -49,9 +49,9 @@ public class SemanticTokenizerTester {
             var length        = values.integer(encoded.get(i + 2));
             var tokenType     = values.string(tokenTypes.get(encoded.get(i + 3)));
             var tokenModifier = values.string(""); // Token modifiers aren't supported yet
-            tokens[i / 5] = values.tuple(deltaLine, deltaStart, length, tokenType, tokenModifier);
+            tokens.appendTuple(deltaLine, deltaStart, length, tokenType, tokenModifier);
         }
 
-        return values.list(tokens);
+        return tokens.done();
     }
 }
