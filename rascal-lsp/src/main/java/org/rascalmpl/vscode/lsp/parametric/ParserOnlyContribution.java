@@ -229,7 +229,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> legacyHighlighting() {
+    public CompletableFuture<Boolean> specialCaseHighlighting() {
         return CompletableFuture.completedFuture(false);
     }
 

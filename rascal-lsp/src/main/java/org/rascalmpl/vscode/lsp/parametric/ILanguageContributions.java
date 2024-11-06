@@ -73,7 +73,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
 
-    public CompletableFuture<Boolean> legacyHighlighting();
+    public CompletableFuture<Boolean> specialCaseHighlighting();
 
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();

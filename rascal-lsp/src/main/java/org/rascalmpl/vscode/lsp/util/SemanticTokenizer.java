@@ -71,9 +71,9 @@ public class SemanticTokenizer {
         this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
     }
 
-    public SemanticTokens semanticTokensFull(ITree tree, boolean legacyHighlighting) {
+    public SemanticTokens semanticTokensFull(ITree tree, boolean specialCaseHighlighting) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens, legacyHighlighting, patch).collect(tree);
+        new TokenCollector(tokens, specialCaseHighlighting, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
@@ -382,12 +382,12 @@ public class SemanticTokenizer {
         private final boolean showAmb = false;
 
         private final TokenList tokens;
-        private final boolean legacyHighlighting;
+        private final boolean specialCaseHighlighting;
         private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens, boolean legacyHighlighting, CategoryPatch patch) {
+        public TokenCollector(TokenList tokens, boolean specialCaseHighlighting, CategoryPatch patch) {
             this.tokens = tokens;
-            this.legacyHighlighting = legacyHighlighting;
+            this.specialCaseHighlighting = specialCaseHighlighting;
             this.patch = patch;
 
             line = 0;
@@ -444,12 +444,11 @@ public class SemanticTokenizer {
             for (IValue child : TreeAdapter.getArgs(tree)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (legacyHighlighting && !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
-                        ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
-                    collect((ITree) child, null);
-                } else {
-                    collect((ITree) child, category);
-                }
+                var specialCase = specialCaseHighlighting &&
+                    !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                    ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child));
+
+                collect((ITree) child, specialCase ? null : category);
             }
         }
 

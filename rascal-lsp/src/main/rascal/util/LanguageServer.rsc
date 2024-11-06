@@ -176,11 +176,11 @@ interpreter lock will make the editor services less responsive.
         * and if `n` has a `syntax` non-terminal node `m` as a child,
         * then the category of `n` is ignored in the subtree rooted at `m`
           (regardless of whether a category is declared as part of `m`).
-     This special case is deprecated: it continues to exist only for historical
-     reasons, but it will be removed in a future release. In anticipation of the
-     removal, users that rely on this special case for syntax highlighting can
-     update their grammars and explicitly opt-out of the special case by passing
-     `usesLegacyHighlighting = false` when registering the ((parsing)) service.
+     This special case is deprecated and will be removed in a future release. In
+     anticipation of the removal, users that rely on this special case for
+     syntax highlighting can update their grammars and explicitly opt-out of the
+     special case by passing `usesSpecialCaseHighlighting = false` when
+     registering the ((parsing)) service.
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
 hover documentation, definition with uses, references to declarations, implementations of types and compiler errors and warnings.
    * ((analysis)) focuses on their own file, but may reuse cached or stored indices from other files.
@@ -246,7 +246,7 @@ typical programming language concepts. Since these are all just `rel[loc, loc]` 
 }
 data LanguageService
     = parsing(Tree (str _input, loc _origin) parsingService
-        , bool usesLegacyHighlighting = true)
+        , bool usesSpecialCaseHighlighting = true)
     | analysis(Summary (loc _origin, Tree _input) analysisService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation

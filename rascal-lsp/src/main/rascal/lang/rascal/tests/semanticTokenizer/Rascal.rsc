@@ -114,7 +114,7 @@ test bool testUnicode() = testTokenizer(#Declaration,
     applyRascalCategoryPatch = true
 );
 
-test bool testInnerOverOuterLegacy() = testTokenizer(#Declaration,
+test bool testSpecialCaseHighlighting() = testTokenizer(#Declaration,
 
    "void f() {
         int i = 3;
@@ -124,6 +124,6 @@ test bool testInnerOverOuterLegacy() = testTokenizer(#Declaration,
     expectFirst("3", "uncategorized"), // Instead of `number`
     expectFirst("|unknown:///|", "uncategorized"), // Instead of `string`
 
-    useLegacyHighlighting = true,
+    useSpecialCaseHighlighting = true,
     applyRascalCategoryPatch = true
 );

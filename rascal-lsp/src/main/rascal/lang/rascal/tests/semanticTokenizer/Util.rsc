@@ -35,12 +35,12 @@ import String;
 // functions in this module are auxiliary (and private).
 bool testTokenizer(type[&T<:Tree] begin, str input, Expect expects...,
         bool printActuals = false,
-        bool useLegacyHighlighting = false,
+        bool useSpecialCaseHighlighting = false,
         bool applyRascalCategoryPatch = false) {
 
     // First, compute the tokens by calling the semantic tokenizer (in Java)
     Tree tree = parse(begin, input);
-    list[SemanticToken] tokens = toTokens(tree, useLegacyHighlighting, applyRascalCategoryPatch);
+    list[SemanticToken] tokens = toTokens(tree, useSpecialCaseHighlighting, applyRascalCategoryPatch);
 
     // Next, compute the absolute location of each token (i.e., the position of
     // each token in `tokens` is represented *relative to* its predecessor)

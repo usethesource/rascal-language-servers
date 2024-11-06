@@ -100,7 +100,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
 
-    private final CompletableFuture<Boolean> legacyHighlighting;
+    private final CompletableFuture<Boolean> specialCaseHighlighting;
 
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
@@ -153,9 +153,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
 
-            this.legacyHighlighting = getContributionParameter(contributions,
+            this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
-                LanguageContributions.Parameters.USES_LEGACY_HIGHLIGHTING);
+                LanguageContributions.Parameters.USES_SPECIAL_CASE_HIGHLIGHTING);
 
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYSIS);
             this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILD);
@@ -401,8 +401,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> legacyHighlighting() {
-        return legacyHighlighting;
+    public CompletableFuture<Boolean> specialCaseHighlighting() {
+        return specialCaseHighlighting;
     }
 
     @Override
