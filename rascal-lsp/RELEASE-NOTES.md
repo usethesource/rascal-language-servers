@@ -2,6 +2,25 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release ???
+
+* ???
+* We are starting the deprecation process for an odd special case in the
+  semantic highlighter (i.e., the categories of `syntax` non-terminals are
+  sometimes ignored):
+  * The present release adds a configuration parameter to enable/disable the
+    special case in language servers. The default is "enabled" (i.e., fully
+    backward-compatible). Grammars that rely on the special case *could* be
+    updated, and the parameter can be explicitly set to "disabled" (encouraged).
+  * A future release sets the default to "disabled". Grammars that rely on the
+    special case *should* be updated, or the parameter can be explicitly set to
+    "enabled" (discouraged).
+  * Another future release removes the configuration parameter (i.e., the
+    special case ceases to exist). Grammars that rely on the special case *must*
+    be updated.
+  See the documentation of ADT `LanguageService` in module
+  `util::LanguageServer` for details.
+
 ## Release 2.20.2 (VS Code: 0.11.2)
 
 * bumping to rascal 0.34.2:
