@@ -35,6 +35,8 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -58,6 +60,37 @@ public class Locations {
 
     public static ISourceLocation toLoc(TextDocumentIdentifier doc) {
         return toLoc(doc.getUri());
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Range toRascalRange(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
+        return new Range(
+            toRascalPosition(doc, range.getStart(), columns),
+            toRascalPosition(doc, range.getEnd(), columns)
+        );
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Position toRascalPosition(TextDocumentIdentifier doc, Position pos, ColumnMaps columns) {
+        var uri = toLoc(doc.getUri());
+        return toRascalPosition(uri, pos, columns);
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Position toRascalPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
+        return new Position(
+            pos.getLine() + 1,
+            columns.get(doc).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
+        );
     }
 
     public static ISourceLocation toLoc(String uri) {

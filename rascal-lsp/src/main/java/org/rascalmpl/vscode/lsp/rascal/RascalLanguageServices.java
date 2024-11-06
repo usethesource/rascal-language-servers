@@ -30,6 +30,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,6 +52,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
@@ -59,9 +61,11 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -70,6 +74,8 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.io.StandardTextReader;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
@@ -82,6 +88,8 @@ public class RascalLanguageServices {
     private final CompletableFuture<Evaluator> documentSymbolEvaluator;
     private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
+
+    private final CompletableFuture<TypeStore> actionStore;
 
     private final TypeFactory tf = TypeFactory.getInstance();
     private final TypeStore store = new TypeStore();
@@ -98,8 +106,9 @@ public class RascalLanguageServices {
         var monitor = new RascalLSPMonitor(client, logger);
 
         documentSymbolEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal document symbols", monitor, null, false, "lang::rascal::lsp::DocumentSymbols");
-        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename");
+        semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
         compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
+        actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
@@ -115,6 +124,8 @@ public class RascalLanguageServices {
             });
         }
     }
+
+
 
     private static IConstructor addResources(PathConfig pcfg) {
         var result = pcfg.asConstructor();
@@ -194,10 +205,9 @@ public class RascalLanguageServices {
 
 
     public InterruptibleFuture<IList> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName, ColumnMaps columns) {
-        var line = cursor.getLine() + 1;
         var moduleLocation = TreeAdapter.getLocation(module);
-        var translatedOffset = columns.get(moduleLocation).translateInverseColumn(line, cursor.getCharacter(), false);
-        var cursorTree = TreeAdapter.locateLexical(module, line, translatedOffset);
+        Position pos = Locations.toRascalPosition(moduleLocation, cursor, columns);
+        var cursorTree = TreeAdapter.locateLexical(module, pos.getLine(), pos.getCharacter());
 
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
@@ -250,6 +260,51 @@ public class RascalLanguageServices {
         return result;
     }
 
+    public CompletableFuture<IList> parseCodeActions(String command) {
+        return actionStore.thenApply(commandStore -> {
+            try {
+                var TF = TypeFactory.getInstance();
+                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+            } catch (FactTypeUseException | IOException e) {
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new IllegalArgumentException("The command could not be parsed", e);
+            }
+        });
+    }
+
+    public InterruptibleFuture<IValue> executeCommand(String command) {
+        logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
+        logger.trace("Full command: {}", command);
+        var defaultMap = VF.mapWriter();
+        defaultMap.put(VF.string("result"), VF.bool(false));
+
+        return InterruptibleFuture.flatten(parseCommand(command).thenApply(cons ->
+            EvaluatorUtil.<IValue>runEvaluator(
+                "executeCommand",
+                semanticEvaluator,
+                ev -> ev.call("evaluateRascalCommand", cons),
+                defaultMap.done(),
+                exec,
+                true,
+                client
+            )
+        ), exec);
+    }
+
+    private CompletableFuture<IConstructor> parseCommand(String command) {
+        return actionStore.thenApply(commandStore -> {
+            try {
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+            }
+            catch (FactTypeUseException | IOException e) {
+                logger.catching(e);
+                throw new IllegalArgumentException("The command could not be parsed", e);
+            }
+        });
+    }
+
     public static final class CodeLensSuggestion {
         private final ISourceLocation line;
         private final String commandName;
@@ -268,7 +323,6 @@ public class RascalLanguageServices {
             return arguments;
         }
 
-
         public ISourceLocation getLine() {
             return line;
         }
@@ -281,6 +335,13 @@ public class RascalLanguageServices {
         public String getShortName() {
             return shortName;
         }
+    }
 
+    public InterruptibleFuture<IList> codeActions(IList focus, PathConfig pcfg) {
+        return runEvaluator("Rascal codeActions", semanticEvaluator, eval -> {
+            Map<String,IValue> kws = Map.of("pcfg", pcfg.asConstructor());
+            return (IList) eval.call("rascalCodeActions", "lang::rascal::lsp::Actions", kws, focus);
+        },
+        VF.list(), exec, false, client);
     }
 }
