@@ -232,7 +232,7 @@ public class RascalLanguageServices {
                 }
                 throw e;
             }
-        }, VF.tuple(), exec, false, client);
+        }, VF.tuple(VF.list(), VF.map()), exec, false, client);
     }
 
 
