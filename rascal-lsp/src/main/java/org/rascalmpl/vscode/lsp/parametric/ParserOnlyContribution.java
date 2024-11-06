@@ -59,6 +59,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final String name;
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
+    private final CompletableFuture<Boolean> specialCaseHighlighting;
 
     public ParserOnlyContribution(String name, ParserSpecification spec) {
         this.name = name;
@@ -67,6 +68,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
         Either<IFunction,Exception> result = loadParser(spec);
         this.parser = result.getLeft();
         this.loadingParserError = result.getRight();
+        this.specialCaseHighlighting = CompletableFuture.completedFuture(spec.getSpecialCaseHighlighting());
     }
 
     @Override
@@ -230,7 +232,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
-        return CompletableFuture.completedFuture(false);
+        return specialCaseHighlighting;
     }
 
     @Override
