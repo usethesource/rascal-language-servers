@@ -547,7 +547,7 @@ private str describeFact(nothing()) = "unknown type";
 
 set[RenameLocation] rascalGetHasUses(WorkspaceInfo ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
     return {
-        rl(name.src, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, e.src))>", "Due to the dynamic nature of these names, it cannot be ensured that they need to be renamed. Please review these suggested changes.", true)))
+        rl(name.src, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, e.src))>", "Due to the dynamic nature of these names, please review these suggested changes.", true)))
         | loc l <- rascalReachableModules(ws, defs)
         , start[Module] m := parseModuleWithSpacesCached(l)
         , /(Expression) `<Expression e> has <Name name>` := m
