@@ -434,10 +434,10 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
     for (Define d: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
         // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
         for (
-            [ _*
-            , <l1, at1: !/\a-except(consName)>
+            [ *_
+            , <_, _: !/\a-except(consName)>
             , <l2, at2:  /\a-except(consName)>
-            , _*] := sortedFacts
+            , *_] := sortedFacts
             , aprod(choice(_, _)) !:= at2
         ) {
             // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
