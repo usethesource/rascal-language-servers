@@ -46,7 +46,7 @@ Here we group all services such that the LSP server can link them
 with the ((Language)) definition later.
 }
 set[LanguageService] picoLanguageServer() = {
-    parsing(parser(#start[Program])),
+    parsing(parser(#start[Program]), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -62,7 +62,7 @@ such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
 set[LanguageService] picoLanguageServerSlowSummary() = {
-    parsing(parser(#start[Program])),
+    parsing(parser(#start[Program]), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
