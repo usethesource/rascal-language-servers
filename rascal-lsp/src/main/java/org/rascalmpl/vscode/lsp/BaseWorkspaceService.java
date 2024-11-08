@@ -133,6 +133,19 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
      */
     private static IMap commandResultMap(IValue result) {
         var vf = IRascalValueFactory.getInstance();
+
+        /* Check if the result is already wrapped in a singleton map `("result":x)`
+         * We do this for backward compatibility with the previous semantics where
+         * the wrapping had to be done manually in Rascal code to avoid failures in
+         * the JSON bridge w.r.t. to values of primitive types.
+         */
+        if (result.getType().isMap()) {
+            IMap m = (IMap) result;
+            if (m.size() == 1 && m.iterator().next().equals(vf.string("result"))) {
+                return m;
+            }
+        }
+
         return vf.map().put(vf.string("result"), result);
     }
 }
