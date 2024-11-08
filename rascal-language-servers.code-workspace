@@ -5,9 +5,6 @@
 		},
 		{
 			"path": "rascal-vscode-extension"
-		},
-		{
-			"path": "../rascal-core"
 		}
 	],
 	"settings": {},
