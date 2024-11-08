@@ -28,8 +28,11 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.eclipse.lsp4j.AnnotatedTextEdit;
+import org.eclipse.lsp4j.ChangeAnnotation;
 import org.eclipse.lsp4j.CreateFile;
 import org.eclipse.lsp4j.DeleteFile;
 import org.eclipse.lsp4j.Range;
@@ -43,10 +46,13 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
 /**
@@ -89,8 +95,13 @@ public class DocumentChanges {
 
     private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits) {
         return edits.stream()
-            .map(e -> (IConstructor) e)
-            .map(c -> new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue()))
+            .map(IConstructor.class::cast)
+            .map(c -> {
+                var kw = c.asWithKeywordParameters();
+                return kw.hasParameter("annotation")
+                    ? new AnnotatedTextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue(), ((IString) kw.getParameter("annotation")).getValue())
+                    : new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue());
+            })
             .collect(Collectors.toList());
     }
 
@@ -101,5 +112,20 @@ public class DocumentChanges {
 
     private static String getFileURI(IConstructor edit, String label) {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
+    }
+
+    public static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
+        return annos.stream()
+            .map(ITuple.class::cast)
+            .map(entry -> {
+                String annoId = ((IString) entry.get(0)).getValue();
+                ChangeAnnotation anno = new ChangeAnnotation();
+                IConstructor c = (IConstructor) entry.get(1);
+                anno.setLabel(((IString) c.get("label")).getValue());
+                anno.setDescription(((IString) c.get("description")).getValue());
+                anno.setNeedsConfirmation(((IBool) c.get("needsConfirmation")).getValue());
+                return Map.entry(annoId, anno);
+            })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

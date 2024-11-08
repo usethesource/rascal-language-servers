@@ -53,12 +53,14 @@ extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
 
-import analysis::diff::edits::TextEdits;
+import lang::rascal::lsp::refactor::TextEdits;
 
 import util::FileSystem;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
+
+alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 // Rascal compiler-specific extension
 void throwAnyErrors(list[ModuleMessages] mmsgs) {
@@ -190,7 +192,7 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, s
 private str rascalEscapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
-private set[loc] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs) {
+private map[loc, loc] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs) {
     map[loc, loc] useDefNameAt = ();
     useDefsToDo = useDefs;
     visit(m.top) {
@@ -206,7 +208,7 @@ private set[loc] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs) {
         throw unsupportedRename("Rename unsupported", issues={<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefsToDo});
     }
 
-    return range(useDefNameAt);
+    return useDefNameAt;
 }
 
 Maybe[loc] rascalLocationOfName(Name n) = just(n.src);
@@ -227,16 +229,24 @@ Maybe[loc] rascalLocationOfName(Nonterminal nt) = just(nt.src);
 Maybe[loc] rascalLocationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t) = nothing();
 
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[loc] defs, set[loc] uses, str name) {
-    if (reasons := rascalCollectIllegalRenames(ws, m, defs, uses, name), reasons != {}) {
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[RenameLocation] defs, set[RenameLocation] uses, str name) {
+    if (reasons := rascalCollectIllegalRenames(ws, m, defs.l, uses.l, name), reasons != {}) {
         return <reasons, []>;
     }
 
     replaceName = rascalEscapeName(name);
-    return <{}, [replace(l, replaceName) | l <- rascalFindNamesInUseDefs(m, defs + uses)]>;
+
+    set[RenameLocation] renames = defs + uses;
+    set[loc] renameLocs = renames.l;
+    map[loc, loc] namesAt = rascalFindNamesInUseDefs(m, renameLocs);
+
+    return <{}, [{just(annotation), *_} := renames[l]
+                 ? replace(namesAt[l], replaceName, annotation = annotation)
+                 : replace(namesAt[l], replaceName)
+                 | l <- renameLocs]>;
 }
 
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[loc] defs, set[loc] uses, str name) =
+private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[RenameLocation] defs, set[RenameLocation] uses, str name) =
     computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, name);
 
 private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
@@ -382,7 +392,7 @@ private Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
     rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t)
+        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t) || just(<containerLoc, fieldLocs>) := rascalGetHasLocs(cursorName, t)
         , loc fieldLoc <- fieldLocs
     };
 
@@ -508,8 +518,8 @@ private bool rascalContainsName(loc l, str name) {
     2. It does not change the semantics of the application.
     3. It does not change definitions outside of the current workspace.
 }
-list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
-    = job("renaming <cursorT> to <newName>", list[DocumentEdit](void(str, int) step) {
+Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
+    = job("renaming <cursorT> to <newName>", Edits(void(str, int) step) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
@@ -572,14 +582,34 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     }
 
     step("collecting uses of \'<cursorName>\'", 1);
-    <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName);
 
-    rel[loc file, loc defines] defsPerFile = {<d.top, d> | d <- defs};
-    rel[loc file, loc uses] usesPerFile = {<u.top, u> | u <- uses};
+    map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
+    ChangeAnnotationRegister registerChangeAnnotation = ChangeAnnotationId(str label, str description, bool needsConfirmation) {
+        ChangeAnnotationId makeKey(str label, int suffix) = "<label>_<suffix>";
+
+        int suffix = 1;
+        while (makeKey(label, suffix) in changeAnnotations) {
+            suffix += 1;
+        }
+
+        ChangeAnnotationId id = makeKey(label, suffix);
+        changeAnnotations[id] = changeAnnotation(label, description, needsConfirmation);
+
+        return id;
+    };
+
+    set[RenameLocation] registerChangeAnnotations(set[RenameLocation] locs, str label, str description = "These changes are required for a correct renaming. They can be previewed here, but it is not advised to disable them.", bool needsConfirmation = false) =
+        {<r, nothing() := maybeAnn ? just(registerChangeAnnotation(label, description, needsConfirmation)) : maybeAnn> | <r, maybeAnn> <- locs};
+
+    <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, registerChangeAnnotation);
+
+    rel[loc file, RenameLocation defines] defsPerFile = {<d.l.top, d> | d <- registerChangeAnnotations(defs, "Definitions")};
+    rel[loc file, RenameLocation uses] usesPerFile = {<u.l.top, u> | u <- registerChangeAnnotations(uses, "References")};
 
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
     step("checking rename validity", 1);
+
     map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
         (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName));
 
@@ -591,7 +621,7 @@ list[DocumentEdit] rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, s
     list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
-    return changes + renames;
+    return <changes + renames, changeAnnotations>;
 }, totalWork = 6);
 
 //// WORKAROUNDS
