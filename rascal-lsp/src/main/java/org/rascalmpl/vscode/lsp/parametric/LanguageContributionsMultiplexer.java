@@ -161,7 +161,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
 
-        specialCaseHighlighting = anyTrue(ILanguageContributions::specialCaseHighlighting);
+        // Always use the special-case highlighting status of *the first*
+        // contribution (possibly using the default value in the Rascal ADT if
+        // it's not explicitly set), just as for `parsing` itself
+        specialCaseHighlighting = firstOrFail().specialCaseHighlighting();
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
