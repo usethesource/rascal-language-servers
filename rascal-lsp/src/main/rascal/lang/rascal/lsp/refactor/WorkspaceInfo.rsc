@@ -434,7 +434,7 @@ private set[RenameLocation] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs)
         // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
         for (
             [ *_
-            , <_, _: !/\a-except(consName)>
+            , <_, !/\a-except(consName)>
             , <l2, at2:  /\a-except(consName)>
             , *_] := sortedFacts
             , aprod(choice(_, _)) !:= at2
