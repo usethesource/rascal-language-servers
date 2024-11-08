@@ -277,15 +277,13 @@ public class RascalLanguageServices {
     public InterruptibleFuture<IValue> executeCommand(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
-        var defaultMap = VF.mapWriter();
-        defaultMap.put(VF.string("result"), VF.bool(false));
 
         return InterruptibleFuture.flatten(parseCommand(command).thenApply(cons ->
             EvaluatorUtil.<IValue>runEvaluator(
                 "executeCommand",
                 semanticEvaluator,
                 ev -> ev.call("evaluateRascalCommand", cons),
-                defaultMap.done(),
+                VF.bool(false),
                 exec,
                 true,
                 client
