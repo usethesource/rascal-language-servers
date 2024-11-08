@@ -64,11 +64,8 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private list[DocumentEdit] stripAnnotations(list[DocumentEdit] edits) =
-    visit (edits) { case replace(range, replacement, _) => replace(range, replacement) };
-
 private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
-    executeDocumentEdits(sortEdits(stripAnnotations(edits<0>)));
+    executeDocumentEdits(sortEdits(edits<0>));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
     throwAnyErrors(checkAll(root, ccfg));

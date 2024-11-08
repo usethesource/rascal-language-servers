@@ -230,19 +230,18 @@ Maybe[loc] rascalLocationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t) = nothing();
 
 private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[RenameLocation] defs, set[RenameLocation] uses, str name) {
-    if (reasons := rascalCollectIllegalRenames(ws, m, toLocs(defs), toLocs(uses), name), reasons != {}) {
+    if (reasons := rascalCollectIllegalRenames(ws, m, defs.l, uses.l, name), reasons != {}) {
         return <reasons, []>;
     }
 
     replaceName = rascalEscapeName(name);
 
     set[RenameLocation] renames = defs + uses;
-    set[loc] renameLocs = toLocs(renames);
+    set[loc] renameLocs = renames.l;
     map[loc, loc] namesAt = rascalFindNamesInUseDefs(m, renameLocs);
-    rel[loc, Maybe[ChangeAnnotationId]] annosAt = {<r.l, r.annotation> | r <- renames};
 
-    return <{}, [{just(annotation), *_} := annosAt[l]
-                 ? replace(namesAt[l], replaceName, annotation)
+    return <{}, [{just(annotation), *_} := renames[l]
+                 ? replace(namesAt[l], replaceName, annotation = annotation)
                  : replace(namesAt[l], replaceName)
                  | l <- renameLocs]>;
 }
@@ -595,17 +594,8 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
         return id;
     };
 
-    set[RenameLocation] registerChangeAnnotations(set[RenameLocation] locs, str label, str description = "These changes are required for a correct renaming. They can be previewed here, but it is not advised to disable them.", bool needsConfirmation = false) {
-        set[RenameLocation] modifiedLocs = {};
-        for (rl <- locs) {
-            if (nothing() := rl.annotation) {
-                modifiedLocs += rl[annotation = just(registerChangeAnnotation(label, description, needsConfirmation))];
-            } else {
-                modifiedLocs += rl;
-            }
-        }
-        return modifiedLocs;
-    }
+    set[RenameLocation] registerChangeAnnotations(set[RenameLocation] locs, str label, str description = "These changes are required for a correct renaming. They can be previewed here, but it is not advised to disable them.", bool needsConfirmation = false) =
+        {<r, nothing() := maybeAnn ? just(registerChangeAnnotation(label, description, needsConfirmation)) : maybeAnn> | <r, maybeAnn> <- locs};
 
     <defs, uses, getRenames> = rascalGetDefsUses(ws, cur, rascalMayOverloadSameName, registerChangeAnnotation);
 

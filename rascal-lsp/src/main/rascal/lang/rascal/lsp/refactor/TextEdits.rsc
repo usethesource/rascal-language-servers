@@ -34,9 +34,7 @@ data ChangeAnnotation
     = changeAnnotation(str label, str description, bool needsConfirmation)
     ;
 
-data TextEdit
-    = replace(loc range, str replacement, ChangeAnnotationId annotation)
-    ;
+data TextEdit(ChangeAnnotationId annotation = "");
 
 alias ChangeAnnotationRegister =
     ChangeAnnotationId(str label, str description, bool needsConfirmation);

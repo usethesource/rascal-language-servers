@@ -95,10 +95,13 @@ public class DocumentChanges {
 
     private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits) {
         return edits.stream()
-            .map(e -> (IConstructor) e)
-            .map(c -> (c.has("annotation")
-                ? new AnnotatedTextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue(), ((IString) c.get("annotation")).getValue())
-                : new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue())))
+            .map(IConstructor.class::cast)
+            .map(c -> {
+                var kw = c.asWithKeywordParameters();
+                return kw.hasParameter("annotation")
+                    ? new AnnotatedTextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue(), ((IString) kw.getParameter("annotation")).getValue())
+                    : new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue());
+            })
             .collect(Collectors.toList());
     }
 
@@ -113,7 +116,7 @@ public class DocumentChanges {
 
     public static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
         return annos.stream()
-            .map(entry -> (ITuple) entry)
+            .map(ITuple.class::cast)
             .map(entry -> {
                 String annoId = ((IString) entry.get(0)).getValue();
                 ChangeAnnotation anno = new ChangeAnnotation();

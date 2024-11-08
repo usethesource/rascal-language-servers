@@ -69,7 +69,7 @@ data Cursor
 
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 alias FileRenamesF = rel[loc old, loc new](str newName);
-data RenameLocation = rl(loc l, Maybe[ChangeAnnotationId] annotation = nothing());
+alias RenameLocation = tuple[loc l, Maybe[ChangeAnnotationId] annotation];
 alias DefsUsesRenames = tuple[set[RenameLocation] defs, set[RenameLocation] uses, FileRenamesF renames];
 alias ProjectFiles = rel[loc projectFolder, loc file, bool loadModel];
 
@@ -95,8 +95,7 @@ data WorkspaceInfo (
     set[TModel](ProjectFiles) tmodelsForLocs
 );
 
-set[loc] toLocs(set[RenameLocation] rls) = {r.l | RenameLocation r <- rls};
-set[RenameLocation] fromLocs(set[loc] locs) = {rl(l) | l <- locs};
+set[RenameLocation] annotateLocs(set[loc] locs, Maybe[ChangeAnnotationId] annotationId = nothing()) = {<l, annotationId> | l <- locs};
 
 WorkspaceInfo loadLocs(WorkspaceInfo ws, ProjectFiles projectFiles) {
     for (tm <- ws.tmodelsForLocs(projectFiles)) {
@@ -359,8 +358,8 @@ set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
     return {};
 }
 
-set[loc] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
-    set[loc] uses = {};
+set[RenameLocation] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
+    set[RenameLocation] uses = {};
 
     for (d <- defs
        , f <- ws.facts
@@ -369,7 +368,7 @@ set[loc] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorN
        , funcName <- getUses(ws, f)
        ) {
         loc funcCall = min({l | l <- factsInvert(ws)[retType], l.offset == funcName.offset});
-        uses += {name.src | /Name name := parseModuleWithSpacesCached(funcCall.top)
+        uses += {<name.src, nothing()> | /Name name := parseModuleWithSpacesCached(funcCall.top)
                           , isStrictlyContainedIn(name.src, funcCall)
                           , "<name>" == kwAType.alabel};
     }
@@ -397,7 +396,7 @@ set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywor
     , "<kwArg.name>" == cursorName};
 
 set[RenameLocation] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
-    set[RenameLocation] uses = fromLocs(getUses(ws, defs));
+    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
 
     set[Define] reachableDefs = rascalReachableDefs(ws, defs);
 
@@ -420,7 +419,7 @@ set[RenameLocation] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, s
     return uses;
 }
 
-private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
+private set[RenameLocation] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
     constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := ws.definitions[l]};
     if (constructorDefs == {}) return {};
 
@@ -430,7 +429,7 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
         return l1.end != l2.end ? l1.end < l2.end : l1.length < l2.length;
     })];
 
-    set[loc] uses = {};
+    set[RenameLocation] uses = {};
     for (Define d: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
         // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
         for (
@@ -441,7 +440,7 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
             , aprod(choice(_, _)) !:= at2
         ) {
             // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
-            uses += trim(l2, removePrefix = l2.length - size(consName));
+            uses += <trim(l2, removePrefix = l2.length - size(consName)), nothing()>;
         }
     }
 
@@ -450,36 +449,36 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
     set[loc] defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
-    set[RenameLocation] uses = fromLocs(getUses(ws, defs));
+    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
 
     set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
     if (keywordFormalId() in roles) {
-        uses += fromLocs(rascalGetKeywordFormalUses(ws, defs, cursorName));
+        uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
         uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
     } else if (constructorId() in roles) {
         uses += rascalGetExceptUses(ws, defs);
     }
 
-    return <fromLocs(defs), uses, NO_RENAMES>;
+    return <annotateLocs(defs), uses, NO_RENAMES>;
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
     set[loc] initialUses = getUses(ws, l);
     set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
-    set[RenameLocation] uses = fromLocs(getUses(ws, defs));
+    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
 
     set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
     if (roles & {keywordFormalId(), fieldId()} != {}) {
-        uses += fromLocs(rascalGetKeywordFormalUses(ws, defs, cursorName));
+        uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
         uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
     } else if (constructorId() in roles) {
-        uses += fromLocs(rascalGetExceptUses(ws, defs));
+        uses += rascalGetExceptUses(ws, defs);
     }
 
-    return <fromLocs(defs), uses, NO_RENAMES>;
+    return <annotateLocs(defs), uses, NO_RENAMES>;
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(exceptConstructor(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
@@ -540,7 +539,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
         };
     }
 
-    return <fromLocs(defs), fromLocs(useDefs - defs), NO_RENAMES>;
+    return <annotateLocs(defs), annotateLocs(useDefs - defs), NO_RENAMES>;
 }
 
 private str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
@@ -553,7 +552,7 @@ default Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str _, Tree _) = nothing();
 
 set[RenameLocation] rascalGetHasUses(WorkspaceInfo ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
     return {
-        rl(field, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true)))
+        <field, just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true))>
         | loc l <- rascalReachableModules(ws, defs)
         , /Tree t := parseModuleWithSpacesCached(l)
         , just(<lhs, {field}>) := rascalGetHasLocs(cursorName, t)
@@ -580,10 +579,10 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
     }
 
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
-    set[RenameLocation] uses = fromLocs(getUses(ws, defs)) + rascalGetKeywordFieldUses(ws, defs, cursorName);
+    set[RenameLocation] uses = annotateLocs(getUses(ws, defs)) + rascalGetKeywordFieldUses(ws, defs, cursorName);
     set[RenameLocation] hasUses = rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
 
-    return <fromLocs(defs), uses + hasUses, NO_RENAMES>;
+    return <annotateLocs(defs), uses + hasUses, NO_RENAMES>;
 }
 
 bool debug = false;
@@ -716,7 +715,7 @@ private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, set[loc] reacha
         }
     }
 
-    return <fromLocs(defs), fromLocs(uses), NO_RENAMES>;
+    return <annotateLocs(defs), annotateLocs(uses), NO_RENAMES>;
 }
 
 DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister registerChangeAnnotation) {
@@ -758,5 +757,5 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
 
     rel[loc, loc] getRenames(str newName) = {<file, file[file = "<newName>.rsc"]> | d <- defs, file := d.top};
 
-    return <fromLocs(defs), fromLocs(uses), getRenames>;
+    return <annotateLocs(defs), annotateLocs(uses), getRenames>;
 }
