@@ -76,7 +76,7 @@ public class TextDocumentState {
 
     @SuppressWarnings("java:S3077") // Visibility of writes is enough
     private volatile Update current;
-    private final DebouncedSupplier<Update> parseCurrentDebouncer;
+    private final DebouncedSupplier<Update> parseAndGetCurrentDebouncer;
 
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
@@ -91,7 +91,7 @@ public class TextDocumentState {
         this.columns = columns;
 
         this.current = new Update(initialVersion, initialContent);
-        this.parseCurrentDebouncer = new DebouncedSupplier<>(this::parseCurrent);
+        this.parseAndGetCurrentDebouncer = new DebouncedSupplier<>(this::parseAndGetCurrent);
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
     }
@@ -115,7 +115,7 @@ public class TextDocumentState {
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(Duration delay) {
-        return parseCurrent(delay)
+        return parseAndGetCurrent(delay)
             .thenApply(Update::getTreeAsync)
             .thenCompose(Function.identity());
     }
@@ -125,7 +125,7 @@ public class TextDocumentState {
     }
 
     public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(Duration delay) {
-        return parseCurrent(delay)
+        return parseAndGetCurrent(delay)
             .thenApply(Update::getDiagnosticsAsync)
             .thenCompose(Function.identity());
     }
@@ -138,18 +138,18 @@ public class TextDocumentState {
         return lastWithoutErrors.get();
     }
 
-    private CompletableFuture<Update> parseCurrent() {
+    private CompletableFuture<Update> parseAndGetCurrent() {
         var update = current;
         update.parseIfNotParsing();
         return CompletableFuture.completedFuture(update);
     }
 
-    private CompletableFuture<Update> parseCurrent(Duration delay) {
+    private CompletableFuture<Update> parseAndGetCurrent(Duration delay) {
         var update = current;
         if (update.isParsing()) {
             return CompletableFuture.completedFuture(update);
         } else {
-            return parseCurrentDebouncer.get(delay);
+            return parseAndGetCurrentDebouncer.get(delay);
         }
     }
 
