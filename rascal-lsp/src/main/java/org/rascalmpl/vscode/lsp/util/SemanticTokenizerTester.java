@@ -35,21 +35,26 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class SemanticTokenizerTester {
-    private static final IValueFactory VF = IRascalValueFactory.getInstance();
+
+    private final IValueFactory values;
+
+    public SemanticTokenizerTester(IValueFactory values) {
+        this.values = values;
+    }
 
     public IValue toTokens(IConstructor tree, IBool useSpecialCaseHighlighting, IBool applyRascalCategoryPatch) {
         var tokenizer = new SemanticTokenizer(applyRascalCategoryPatch.getValue());
         var encoded = tokenizer.semanticTokensFull((ITree) tree, useSpecialCaseHighlighting.getValue()).getData();
 
-        var tokens = VF.listWriter();
+        var tokens = values.listWriter();
         var tokenTypes = tokenizer.capabilities().getTokenTypes();
 
         for (int i = 0; i < encoded.size(); i += 5) {
-            var deltaLine     = VF.integer(encoded.get(i));
-            var deltaStart    = VF.integer(encoded.get(i + 1));
-            var length        = VF.integer(encoded.get(i + 2));
-            var tokenType     = VF.string(tokenTypes.get(encoded.get(i + 3)));
-            var tokenModifier = VF.string(""); // Token modifiers aren't supported yet
+            var deltaLine     = values.integer(encoded.get(i));
+            var deltaStart    = values.integer(encoded.get(i + 1));
+            var length        = values.integer(encoded.get(i + 2));
+            var tokenType     = values.string(tokenTypes.get(encoded.get(i + 3)));
+            var tokenModifier = values.string(""); // Token modifiers aren't supported yet
             tokens.appendTuple(deltaLine, deltaStart, length, tokenType, tokenModifier);
         }
 
