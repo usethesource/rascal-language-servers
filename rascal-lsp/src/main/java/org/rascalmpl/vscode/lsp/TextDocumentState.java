@@ -147,7 +147,7 @@ public class TextDocumentState {
         if (update.isParsing()) {
             return update.parseIfNotParsing();
         } else {
-            return parseCurrentDebouncer.get(delay.toMillis(), TimeUnit.MILLISECONDS);
+            return parseCurrentDebouncer.get(delay);
         }
     }
 

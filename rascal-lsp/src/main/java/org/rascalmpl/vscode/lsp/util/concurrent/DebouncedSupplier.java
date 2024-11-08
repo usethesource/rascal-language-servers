@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util.concurrent;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -44,7 +45,22 @@ public class DebouncedSupplier<T> {
     }
 
     /**
-     * Gets the result of `supplier` with a debouncing delay. Specifically:
+     * Gets the result of `supplier` immediately. Previous uncompleted gets are
+     * completed.
+     */
+    public CompletableFuture<T> get() {
+        return get(Duration.ZERO);
+    }
+
+    /**
+     * Gets the result of `supplier` with the given debouncing delay.
+     */
+    public CompletableFuture<T> get(Duration delay) {
+        return get(delay.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Gets the result of `supplier` with the given timeout:
      *   - if the next get *doesn't* happen before the given timeout, then the
      *     current get completes with the result of `supplier` upon timeout;
      *   - if the next get *does* happen before the given timeout, then the
