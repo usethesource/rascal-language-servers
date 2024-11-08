@@ -139,7 +139,6 @@ private list[Actual] filterByString(list[Actual] actuals, str string)
 //
 
 data Expect // Represents...
-
     // ...the expectation that the `n`-th/first/last occurrence of `string` is
     // in a token of type `tokenType`
     = expectNth(int n, str string, str tokenType)
@@ -148,7 +147,8 @@ data Expect // Represents...
 
     // ...the expectation that each occurrence of `string` is not in a token of
     // type `tokenType`
-    | expectEachNot(str string, str tokenType);
+    | expectEachNot(str string, str tokenType)
+    ;
 
 private bool check(list[Actual] actuals, expectNth(n, string, tokenType)) {
     actuals = filterByString(actuals, string);
