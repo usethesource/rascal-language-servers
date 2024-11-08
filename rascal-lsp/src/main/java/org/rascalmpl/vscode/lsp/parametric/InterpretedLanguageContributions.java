@@ -100,6 +100,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
 
+    private final CompletableFuture<Boolean> specialCaseHighlighting;
+
     private final CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
@@ -151,6 +153,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
 
+            this.specialCaseHighlighting = getContributionParameter(contributions,
+                LanguageContributions.PARSING,
+                LanguageContributions.Parameters.USES_SPECIAL_CASE_HIGHLIGHTING);
+
             this.analyzerSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.ANALYSIS);
             this.builderSummaryConfig = scheduledSummaryConfig(contributions, LanguageContributions.BUILD);
             this.ondemandSummaryConfig = ondemandSummaryConfig(contributions);
@@ -170,10 +176,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             var constructor = getContribution(c, summarizer);
             if (constructor != null) {
                 return new SummaryConfig(
-                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_HOVERS),
-                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_DEFINITIONS),
-                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_REFERENCES),
-                    isTrue(constructor, LanguageContributions.Summarizers.PROVIDES_IMPLEMENTATIONS));
+                    isTrue(constructor, LanguageContributions.Parameters.PROVIDES_HOVERS),
+                    isTrue(constructor, LanguageContributions.Parameters.PROVIDES_DEFINITIONS),
+                    isTrue(constructor, LanguageContributions.Parameters.PROVIDES_REFERENCES),
+                    isTrue(constructor, LanguageContributions.Parameters.PROVIDES_IMPLEMENTATIONS));
             } else {
                 return SummaryConfig.FALSY;
             }
@@ -200,6 +206,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private static boolean hasContribution(ISet contributions, String name) {
         return getContribution(contributions, name) != null;
+    }
+
+    private static CompletableFuture<Boolean> getContributionParameter(
+            CompletableFuture<ISet> contributions, String name, String parameter) {
+
+        return contributions.thenApply(c -> isTrue(getContribution(c, name), parameter));
     }
 
     private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {
@@ -386,6 +398,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasBuild() {
         return hasBuild;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> specialCaseHighlighting() {
+        return specialCaseHighlighting;
     }
 
     @Override

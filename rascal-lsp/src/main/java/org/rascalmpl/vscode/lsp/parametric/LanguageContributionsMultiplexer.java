@@ -77,6 +77,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
 
+    private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
+
     private volatile CompletableFuture<SummaryConfig> analyzerSummaryConfig;
     private volatile CompletableFuture<SummaryConfig> builderSummaryConfig;
     private volatile CompletableFuture<SummaryConfig> ondemandSummaryConfig;
@@ -158,6 +160,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+
+        // Always use the special-case highlighting status of *the first*
+        // contribution (possibly using the default value in the Rascal ADT if
+        // it's not explicitly set), just as for `parsing` itself
+        specialCaseHighlighting = firstOrFail().specialCaseHighlighting();
 
         analyzerSummaryConfig = anyTrue(ILanguageContributions::getAnalyzerSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
         builderSummaryConfig = anyTrue(ILanguageContributions::getBuilderSummaryConfig, SummaryConfig.FALSY, SummaryConfig::or);
@@ -341,6 +348,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
         return hasInlayHint;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> specialCaseHighlighting() {
+        return specialCaseHighlighting;
     }
 
     @Override
