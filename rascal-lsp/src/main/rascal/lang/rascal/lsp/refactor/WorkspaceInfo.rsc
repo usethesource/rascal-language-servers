@@ -448,7 +448,7 @@ private set[loc] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
     return uses;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
     set[loc] defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     set[RenameLocation] uses = fromLocs(getUses(ws, defs));
 
@@ -456,6 +456,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName)
     if (keywordFormalId() in roles) {
         uses += fromLocs(rascalGetKeywordFormalUses(ws, defs, cursorName));
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
+        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
     } else if (constructorId() in roles) {
         uses += rascalGetExceptUses(ws, defs);
     }
@@ -545,13 +546,17 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
 private str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
 private str describeFact(nothing()) = "unknown type";
 
+Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str fieldName, (Expression) `<Expression e> has <Name field>`) =
+    just(<e.src, {field.src}>) when fieldName == "<field>";
+
+default Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str _, Tree _) = nothing();
+
 set[RenameLocation] rascalGetHasUses(WorkspaceInfo ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
     return {
-        rl(name.src, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, e.src))>", "Due to the dynamic nature of these names, please review these suggested changes.", true)))
+        rl(field, annotation = just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true)))
         | loc l <- rascalReachableModules(ws, defs)
-        , start[Module] m := parseModuleWithSpacesCached(l)
-        , /(Expression) `<Expression e> has <Name name>` := m
-        , "<name>" == cursorName
+        , /Tree t := parseModuleWithSpacesCached(l)
+        , just(<lhs, {field}>) := rascalGetHasLocs(cursorName, t)
     };
 }
 
@@ -583,7 +588,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
 
 bool debug = false;
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister _) {
+DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
     if (cursorKind is dataKeywordField || cursorKind is dataCommonKeywordField) {
         set[RenameLocation] defs = {};
         set[RenameLocation] uses = {};
@@ -603,6 +608,8 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
             defs += ds;
             uses += us;
         }
+
+        uses += rascalGetHasUses(ws, adtDefs, cursorName, registerChangeAnnotation);
 
         return <defs, uses, NO_RENAMES>;
     }
@@ -658,9 +665,6 @@ Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression)
 }
 
 Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e>[<Name field> = <Expression _>]`) =
-    just(<e.src, {field.src}, false>) when fieldName == "<field>";
-
-Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (Expression) `<Expression e> has <Name field>`) =
     just(<e.src, {field.src}, false>) when fieldName == "<field>";
 
 Maybe[tuple[loc, set[loc], bool]] rascalGetFieldLocs(str fieldName, (StructuredType) `<BasicType tp>[<{TypeArg ","}+ args>]`) {

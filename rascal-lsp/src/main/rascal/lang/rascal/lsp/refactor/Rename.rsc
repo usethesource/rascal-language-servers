@@ -393,7 +393,7 @@ private Cursor rascalGetCursor(WorkspaceInfo ws, Tree cursorT) {
 
     rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t)
+        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t) || just(<containerLoc, fieldLocs>) := rascalGetHasLocs(cursorName, t)
         , loc fieldLoc <- fieldLocs
     };
 
