@@ -139,13 +139,15 @@ public class TextDocumentState {
     }
 
     private CompletableFuture<Update> parseCurrent() {
-        return current.parseIfNotParsing();
+        var update = current;
+        update.parseIfNotParsing();
+        return CompletableFuture.completedFuture(update);
     }
 
     private CompletableFuture<Update> parseCurrent(Duration delay) {
         var update = current;
         if (update.isParsing()) {
-            return update.parseIfNotParsing();
+            return CompletableFuture.completedFuture(update);
         } else {
             return parseCurrentDebouncer.get(delay);
         }
@@ -184,7 +186,7 @@ public class TextDocumentState {
             return parsing.get();
         }
 
-        private CompletableFuture<Update> parseIfNotParsing() {
+        private void parseIfNotParsing() {
             if (parsing.compareAndSet(false, true)) {
                 parser
                     .apply(location, content)
@@ -209,8 +211,6 @@ public class TextDocumentState {
                         diagnosticsAsync.complete(diagnostics);
                     });
             }
-
-            return CompletableFuture.completedFuture(this);
         }
 
         private List<Diagnostic> toDiagnostics(ITree tree, Throwable excp) {
