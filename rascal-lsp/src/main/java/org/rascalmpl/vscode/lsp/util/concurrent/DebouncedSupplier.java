@@ -60,11 +60,12 @@ public class DebouncedSupplier<T> {
     }
 
     /**
-     * Gets the result of `supplier` with the given timeout:
+     * Gets the result of `supplier` with the given timeout, as follows:
      *   - if the next get *doesn't* happen before the given timeout, then the
      *     current get completes with the result of `supplier` upon timeout;
      *   - if the next get *does* happen before the given timeout, then the
-     *     current get completes with its result upon availability.
+     *     current get completes with the result of the next get upon
+     *     availability.
      */
     public CompletableFuture<T> get(long timeout, TimeUnit unit) {
         var newLatest = new CompletableFuture<CompletableFuture<T>>();
