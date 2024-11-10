@@ -29,27 +29,31 @@ module lang::rascal::tests::rename::Fields
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascal::lsp::refactor::Exception;
 
-test bool constructorField() = testRenameOccurrences({0, 1}, "
+test bool constructorField() = testRenameOccurrences({0, 1, 2}, "
     'D oneTwo = d(1, 2);
     'x = oneTwo.foo;
+    'b = oneTwo has foo;
     ", decls = "data D = d(int foo, int baz);"
 );
 
-test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2}, "
+test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'D dd = d(foo=1, baz=2);
     'x = dd.foo;
+    'b = dd has foo;
     ", decls="data D = d(int foo = 0, int baz = 0);"
 );
 
-test bool commonKeywordField() = testRenameOccurrences({0, 1, 2}, "
+test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'D oneTwo = d(foo=1, baz=2);
     'x = oneTwo.foo;
+    'b = oneTwo has foo;
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
 );
 
-test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2}, "
+test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = d(1, 2);
     'y = x.foo;
+    'b = x has foo;
     ", decls = "data D = d(int foo) | d(int foo, int baz);"
 );
 
@@ -79,21 +83,28 @@ test bool commonKeywordFieldsSameType() = testRenameOccurrences({0, 1},
     decls = "data D (set[loc] foo = {}, set[loc] baz = {})= d();"
 );
 
-test bool sameNameFields() = testRenameOccurrences({0, 2}, "
+test bool sameNameFields() = testRenameOccurrences({0, 2, 3}, "
     'D x = d(8);
     'int i = x.foo;
+    'bool b = x has foo;
 ", decls = "
     'data D = d(int foo);
     'data E = e(int foo);
 ");
 
 test bool sameNameADTFields() = testRenameOccurrences({
-    byText("Definer", "data D = d(int foo);", {0})
+    byText("Definer", "
+        'data D = d(int foo);
+        'bool hasFoo(D dd) = dd has foo;
+        ", {0, 1})
   , byText("Unrelated", "data D = d(int foo);", {})
 });
 
 test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
-    byText("A", "data D = d(int foo);", {0})
+    byText("A", "
+        'data D = d(int foo);
+        'bool hasFoo(D dd) = dd has foo;
+        ", {0, 1})
   , byText("B", "data E = e(int foo);", {})
 });
 
@@ -145,7 +156,8 @@ test bool extendedConstructorField() = testRenameOccurrences({
     byText("Scratch2", "
         'extend Scratch1;
         'data Foo = g(int foo);
-        ", {0})
+        'bool hasFoo(Foo ff) = ff has foo;
+        ", {0, 1})
 });
 
 test bool dataTypeReusedName() = testRenameOccurrences({

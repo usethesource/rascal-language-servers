@@ -24,20 +24,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package engineering.swat.rascal.lsp.util;
 
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.SemanticTokens;
-import org.eclipse.lsp4j.SemanticTokensCapabilities;
-import org.eclipse.lsp4j.SemanticTokensDelta;
-import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.values.parsetrees.ITree;
+import org.junit.runner.RunWith;
+import org.rascalmpl.test.infrastructure.RascalJUnitTestPrefix;
+import org.rascalmpl.test.infrastructure.RascalJUnitTestRunner;
 
-public interface ISemanticTokens {
-    SemanticTokensCapabilities capabilities();
-    SemanticTokensWithRegistrationOptions options();
-    SemanticTokens semanticTokensFull(ITree tree);
-    Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousDelta, ITree tree);
-    SemanticTokens semanticTokensRange(Range range, ITree tree);
-}
+@RunWith(RascalJUnitTestRunner.class)
+@RascalJUnitTestPrefix("lang::rascal::tests::semanticTokenizer")
+public class SemanticTokenizerTests {}
