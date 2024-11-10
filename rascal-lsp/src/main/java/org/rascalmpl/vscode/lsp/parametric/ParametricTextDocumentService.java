@@ -463,9 +463,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
+        var specialCaseHighlighting = contributions(doc).specialCaseHighlighting();
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )

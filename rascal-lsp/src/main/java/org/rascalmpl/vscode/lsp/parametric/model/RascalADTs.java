@@ -47,8 +47,10 @@ public class RascalADTs {
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
 
-        public static class Summarizers {
-            private Summarizers() {}
+        public static class Parameters {
+            private Parameters() {}
+
+            public static final String USES_SPECIAL_CASE_HIGHLIGHTING = "usesSpecialCaseHighlighting";
 
             public static final String PROVIDES_HOVERS = "providesHovers";
             public static final String PROVIDES_DEFINITIONS = "providesDefinitions";
