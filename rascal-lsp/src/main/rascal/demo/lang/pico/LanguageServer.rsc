@@ -196,7 +196,7 @@ void main() {
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
-            "demo::lang::pico::LanguageServer",
+            "demo::lang::pico::NewLanguageServer",
             "picoLanguageServer"
         )
     );
@@ -205,7 +205,7 @@ void main() {
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
-            "demo::lang::pico::LanguageServer",
+            "demo::lang::pico::NewLanguageServer",
             "picoLanguageServerSlowSummary"
         )
     );
