@@ -36,6 +36,7 @@ module demo::lang::pico::LanguageServer
 import util::LanguageServer;
 import util::IDEServices;
 import ParseTree;
+import util::ErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 
@@ -74,7 +75,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, var has id]
+      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, !hasErrors(var)]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
