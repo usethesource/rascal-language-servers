@@ -33,13 +33,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
@@ -51,7 +51,7 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.concurrent.Debouncer;
+import org.rascalmpl.vscode.lsp.util.concurrent.DebouncedSupplier;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IList;
@@ -76,7 +76,7 @@ public class TextDocumentState {
 
     @SuppressWarnings("java:S3077") // Visibility of writes is enough
     private volatile Update current;
-    private final Debouncer<Update> currentAsyncParseDebouncer;
+    private final DebouncedSupplier<Update> parseAndGetCurrentDebouncer;
 
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
@@ -91,10 +91,7 @@ public class TextDocumentState {
         this.columns = columns;
 
         this.current = new Update(initialVersion, initialContent);
-        this.currentAsyncParseDebouncer = new Debouncer<>(50,
-            this::getCurrentAsyncIfParsing,
-            this::parseAndGetCurrentAsync);
-
+        this.parseAndGetCurrentDebouncer = new DebouncedSupplier<>(this::parseAndGetCurrent);
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
     }
@@ -114,23 +111,21 @@ public class TextDocumentState {
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return current.getTreeAsync(); // Triggers the parser
+        return getCurrentTreeAsync(Duration.ZERO);
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(Duration delay) {
-        return currentAsyncParseDebouncer
-            .get(delay)
+        return parseAndGetCurrent(delay)
             .thenApply(Update::getTreeAsync)
             .thenCompose(Function.identity());
     }
 
     public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync() {
-        return current.getDiagnosticsAsync(); // Triggers the parser
+        return getCurrentDiagnosticsAsync(Duration.ZERO);
     }
 
     public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(Duration delay) {
-        return currentAsyncParseDebouncer
-            .get(delay)
+        return parseAndGetCurrent(delay)
             .thenApply(Update::getDiagnosticsAsync)
             .thenCompose(Function.identity());
     }
@@ -143,15 +138,19 @@ public class TextDocumentState {
         return lastWithoutErrors.get();
     }
 
-    private @Nullable CompletableFuture<Update> getCurrentAsyncIfParsing() {
-        var update = current;
-        return update.isParsing() ? CompletableFuture.completedFuture(update) : null;
-    }
-
-    private CompletableFuture<Update> parseAndGetCurrentAsync() {
+    private CompletableFuture<Update> parseAndGetCurrent() {
         var update = current;
         update.parseIfNotParsing();
         return CompletableFuture.completedFuture(update);
+    }
+
+    private CompletableFuture<Update> parseAndGetCurrent(Duration delay) {
+        var update = current;
+        if (update.isParsing()) {
+            return CompletableFuture.completedFuture(update);
+        } else {
+            return parseAndGetCurrentDebouncer.get(delay);
+        }
     }
 
     private class Update {
