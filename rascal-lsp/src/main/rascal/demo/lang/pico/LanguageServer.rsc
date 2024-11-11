@@ -95,7 +95,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, !hasErrors(var)};
 
     // uses of identifiers
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
