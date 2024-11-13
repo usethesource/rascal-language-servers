@@ -24,36 +24,32 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::tests::rename::ValidNames
+module lang::rascal::tests::semanticTokenizer::Pico
 
-import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
+import lang::rascal::tests::semanticTokenizer::Util;
 
-import analysis::diff::edits::TextEdits;
+// -------
+// Grammar
 
-test bool renameToReservedName() {
-    edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");
-    newNames = {name | e <- edits<0>
-                     , r <- e.edits
-                     , name := r.replacement};
+import lang::pico::\syntax::Main;
 
-    return newNames == {"\\int"};
-}
+// -----
+// Tests
 
-@expected{illegalRename}
-test bool renameToUsedReservedName() = testRename("
-    'int \\int = 0;
-    'int foo = 8;
-", newName = "int");
+test bool testKeywordLastLine() = testTokenizer(#Program,
 
-@expected{illegalRename}
-test bool newNameIsNonAlphaNumeric() = testRename("int foo = 8;", newName = "b@r");
+   "begin
+        declare
+            x: natural,
+            y: natural;
 
-@expected{illegalRename}
-test bool newNameIsNumber() = testRename("int foo = 8;", newName = "8");
+        x := 5;
+        y := x + 1
+    end",
 
-@expected{illegalRename}
-test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc");
-
-@expected{illegalRename}
-test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
+    expectFirst("begin", "keyword"),
+    expectFirst("declare", "keyword"),
+    expectNth(0, "natural", "keyword"),
+    expectNth(1, "natural", "keyword"),
+    expectFirst("end", "keyword") // https://github.com/usethesource/rascal-language-servers/issues/90
+);

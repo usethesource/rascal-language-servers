@@ -183,7 +183,11 @@ export interface ParserSpecification {
     nonTerminalIsStart?: boolean;
     /** allow ambiguities during parsing, default: false */
     allowAmbiguity?: boolean;
-
+    /** apply the special case for highlighting syntax-in-syntax, default: true
+        Note: This is a temporary property. In a short-term future release, the
+        default will become `false`. In a mid-term future release, the property
+        will be removed (and the special case no longer exists). */
+    specialCaseHighlighting?: boolean;
 }
 
 function languageKey(lang: LanguageParameter) {
