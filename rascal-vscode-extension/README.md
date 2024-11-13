@@ -52,6 +52,37 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+### 0.12.0
+
+* New feature: The "Rename Symbol" command (default: `F2`) is now supported for all identifiers in Rascal modules. Renaming is safe, so the semantics of Rascal code before/after renaming is the same.
+
+* New feature: Code Actions (default: `CTRL+.`) are now supported in Rascal modules to analyze and transform code (e.g.: visualization of import graphs; simplification of functions). Code actions can also be defined for DSLs; see the changes to module `util::LanguageServer` below.
+
+* New feature: Keywords, numbers, strings (single-line), regular expressions, comments, and tags are now highlighted in Rascal modules even in the presence of parse errors. This feature uses a TextMate grammar for Rascal, generated using [`rascal-textmate`](https://github.com/SWAT-engineering/rascal-textmate).
+
+* Upgrade to Rascal ???:
+  * ???
+
+* Changes to module `util::LanguageServer`:
+  * Code Actions can be defined using constructor `action` of type `CodeAction`, and registered using constructor `codeAction` of type `LanguageService`.
+  * Constructors in type `LanguageService` are renamed to align them with the corresponding requests in LSP. Usage of the old names is now deprecated.
+  * Keyword parameter `useSpecialCaseHighlighting` is introduced on constructor `parsing` of type `LanguageService` (default: `true`). It is used to control whether or not the semantic highlighter should apply an odd special case (i.e., categories of `syntax` non-terminals are sometimes ignored); the semantic highlighter has been applying this special case for several releases. Usage of the special case is now deprecated.
+  * Constructor `codeLens` of type `LanguageService` has a function parameter with return type `lrel` instead of `rel` as before. Usage of return type `rel` for this function parameter is now deprecated.
+  * Type `Focus` is introduced. It is used to declare the parameters of on-demand services (`hover`, `definition`, `referenes`, `implementation`) instead of `loc`-`Tree`-`Tree` triples as before. Usage of such triples is now deprecated.
+
+  For each deprecated item:
+  * In the present release, support has not yet been removed for backward-compatibility, but existing code *should* be updated.
+  * In a future release, support will be removed, and existing code *must* be updated. (In the case of keyword parameter `useSpecialCaseHighlighting`, the default will first become `false` before it is removed.)
+
+  See module `util::LanguageServer` for details, and module `demo::lang::pico::LanguageServer` for examples.
+
+* Small improvements:
+  * New feature: When the Rascal LSP server crashes, VS Code will now report the crash in a notification, including a button to open a GitHub issue.
+  * New feature: The default names of Rascal terminals can now be configured via setting `Rascal > Terminal > Name: Origin Format`.
+  * New feature: Project setups are now checked for common errors.
+  * Fixed "Start Rascal Terminal and Import this module" command
+  * Fixed problem with order of multiple code lenses on the same line
+
 ### 0.11.2
 
 * bumping to rascal 0.34.2:
