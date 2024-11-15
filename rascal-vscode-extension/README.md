@@ -60,8 +60,11 @@ For other things we are working on have a look here:
 
 * New feature: Keywords, numbers, strings (single-line), regular expressions, comments, and tags are now highlighted in Rascal modules even in the presence of parse errors. This feature uses a TextMate grammar for Rascal, generated using [`rascal-textmate`](https://github.com/SWAT-engineering/rascal-textmate).
 
-* Upgrade to Rascal ???:
-  * ???
+* Upgrade to a greatly improved version of the Rascal type checker:
+  * Backward-compatibility between different versions of libraries. After this upgrade, you won't have to keep all your dependencies aligned with the latest released Rascal version. We think we have developed a scheme that should work for all future upgrades, but there might be a few bumps in the road the coming releases.
+  * Better type checking errors (roughly 3 years of bugfixes)
+  * Increased performance for partial type checks
+  * Deprecation warnings for deprecated functions
 
 * Changes to module `util::LanguageServer`:
   * Code Actions can be defined using constructor `action` of type `CodeAction`, and registered using constructor `codeAction` of type `LanguageService`.
@@ -76,7 +79,7 @@ For other things we are working on have a look here:
 
   See module `util::LanguageServer` for details, and module `demo::lang::pico::LanguageServer` for examples.
 
-* Small improvements:
+* Other improvements:
   * New feature: When the Rascal LSP server crashes, VS Code will now report the crash in a notification, including a button to open a GitHub issue.
   * New feature: The default names of Rascal terminals can now be configured via setting `Rascal > Terminal > Name: Origin Format`.
   * New feature: Project setups are now checked for common errors.
