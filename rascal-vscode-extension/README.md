@@ -87,7 +87,7 @@ For other things we are working on have a look here:
     * Type `Focus` is introduced. It is used to declare the parameters of on-demand services (`hover`, `definition`, `referenes`, `implementation`) instead of `loc`-`Tree`-`Tree` triples as before. Unlike such triples, a value of type `Focus` provides the *full* context (list of subtrees) of the cursor position. Usage of the triples is now deprecated.
 
     For each deprecated item:
-    * In the present release, support has not yet been removed for backward-compatibility, but existing code *should* be updated.
+    * In the present release, support is retained for backward-compatibility, but existing code *should* be updated.
     * In a future release, support will be removed, and existing code *must* be updated. (In the case of keyword parameter `useSpecialCaseHighlighting`, the default will first become `false` before it is removed.)
 
     See module `util::LanguageServer` for details, and module `demo::lang::pico::LanguageServer` for examples.
