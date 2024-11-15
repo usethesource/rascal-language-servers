@@ -66,7 +66,7 @@ For other things we are working on have a look here:
   * Increased performance for partial type checks
   * Deprecation warnings for deprecated functions
 
-* Upgrade to Rascal 40.14, including:
+* Upgrade to Rascal 0.40.17, including:
   * A new `mvn` scheme for referencing jars in the maven repository
   * Improvements to json/xml/html deserialization, including better origin tracking
   * A new REPL progress bar that you can also use via `util::Monitor`
@@ -75,7 +75,7 @@ For other things we are working on have a look here:
   * Upgraded the Java support in m3
   * Various bugfixes
 
-  See the [release notes](https://www.rascal-mpl.org/release-notes/rascal-0-40-x-release-notes/) of Rascal 40.14 for details.
+  See the [release notes](https://www.rascal-mpl.org/release-notes/rascal-0-40-x-release-notes/) of Rascal 0.40.17 for details.
 
 * For DSL extension developers:
   * The present release is updated to work with Node.js 18. The next release will be updated to work with Node.js 20, to align with the VS Code engine and our dependencies.
