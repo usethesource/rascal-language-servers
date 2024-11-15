@@ -74,6 +74,7 @@ For other things we are working on have a look here:
   * Clipboard control from Rascal code
   * Upgraded the Java support in m3
   * Various bugfixes
+
   See the [release notes](https://www.rascal-mpl.org/release-notes/rascal-0-40-x-release-notes/) of Rascal 40.14 for details.
 
 * For DSL extension developers:
