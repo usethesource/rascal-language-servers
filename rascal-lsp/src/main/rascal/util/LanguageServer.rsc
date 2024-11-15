@@ -160,12 +160,12 @@ alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor
 Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
 Their names coincide exactly with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
-* The ((parsing)) service that maps source code strings to a ((Tree)) is essential and non-optional.
+* The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
 All other other services are optional.
-   * By providing a parser which produces annotated parse ((Tree))s, editor features such as parse error locations, syntax highlighting and
+   * By providing a parser which produces annotated parse ((ParseTree::Tree))s, editor features such as parse error locations, syntax highlighting and
 selection assistance are immediately enabled.
    * The ((parsing)) service is activated after every change in an editor document (when a suitable pause has occurred)
-   * All downstream services are based on the ((Tree)) that is produced here. In
+   * All downstream services are based on the ((ParseTree::Tree)) that is produced here. In
 particular downstream services make use of the `src` origin fields that the parser must produce.
    * Parsers can be obtained automatically using the ((ParseTree::parser)) or ((ParseTree::parsers)) functions, like so `parser(#start[Program])`.
 Like this a fast parser is obtained that does not require a global interpreter lock. If you pass in a normal Rascal function, which is fine, the global
@@ -213,13 +213,13 @@ leaf all the way up to the root of the tree. This list helps to create functiona
 programmer.
 
 To start developing an LSP extension step-by-step:
-1. first write a ((SyntaxDefinition)) in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL)) to
+1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL)) to
 test it immediately. Create some example files for your language to play around with.
 2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((references)) and ((implementation))
 lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((builder)).
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
-your own ((CodeAction))s and ((Commands))
+your own ((CodeAction))s and Commands
    * create an ((execution)) service to give semantics to each command. This includes creating ((DocumentEdit))s but also ((IDEServices))
    can be used to have interesting effects in the IDE.
    * ((CodeAction))s can also be attached to error, warning and into ((Message))s as a result of ((parsing)), ((analysis)) or ((util::LanguageServer::build)).
