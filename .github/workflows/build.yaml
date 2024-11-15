@@ -181,6 +181,7 @@ jobs:
       - name: Publish release to Open VSX Registry
         if: startsWith(github.ref, 'refs/tags/v')
         uses: HaaLeo/publish-vscode-extension@v1
+        continue-on-error: true
         id: publishToOpenVSX
         with:
           packagePath: ./rascal-vscode-extension
