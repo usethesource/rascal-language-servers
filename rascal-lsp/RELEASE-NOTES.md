@@ -23,7 +23,7 @@ Note that rascal-lsp releases are bundled with VS Code releases, however due to 
 * For DSL extension developers:
   * The present release is updated to work with Node.js 18. The next release will be updated to work with Node.js 20, to align with the VS Code engine and our dependencies.
   * Changes to module `util::LanguageServer`:
-    * Code Actions can be defined using constructor `action` of type `CodeAction`, and registered using constructor `codeAction` of type `LanguageService`. 
+    * Code Actions can be defined using constructor `action` of type `CodeAction`, and registered using constructor `codeAction` of type `LanguageService`.
     * Code Actions can also be attached to info, warning, and error messages as Quick Fixes.
     * Constructors in type `LanguageService` are renamed to align them with the corresponding requests in LSP. Usage of the old names is now deprecated.
     * Keyword parameter `useSpecialCaseHighlighting` is introduced on constructor `parsing` of type `LanguageService` (default: `true`). It is used to control whether or not the semantic highlighter should apply an odd special case (i.e., categories of `syntax` non-terminals are sometimes ignored); the semantic highlighter has been applying this special case for several releases. Usage of the special case is now deprecated.
