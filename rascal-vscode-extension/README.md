@@ -40,11 +40,11 @@ This extension is stabilizing, some stuff is still a bit slow, but people are us
 
 **This extension works best with Java 11; but running it on Java 17 reportedly works as well**
 
-The Rascal type-checker has a known issue that makes **new binary library code backward incompatible** after every release, always. This means that you
-should update your dependency on the `rascal` project to at least 0.33.7 and maximally 0.33.8 in your own projects to avoid spurious error messages. For the
-same reason you have to set your use of the `rascal-maven-plugin` to 0.22.1. Until
-we release a fix for the type-checker, all rascal projects and library packages on http://www.rascal-mpl.org are released synchronously. Consequently, after you
-installed an update, it is immediately necessary to bump your dependencies on `rascal` and `rascal-maven-plugin`.
+The Rascal type-checker now has a new binary backward compatibility feature, such that `.tpl` files remain usable
+in many more situations. Also the type-checker detects and reports possible `.tpl` file incompatibility from now on.
+Typically, the previous versions of .tpl files are not compatible with the new ones, so to avoid spurious errors
+you _must remove all pre-existing `.tpl` files_ after upgrading. Use `mvn clean`, for example. Or remove your
+`target` or `bin` folder in every Rascal project.
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
