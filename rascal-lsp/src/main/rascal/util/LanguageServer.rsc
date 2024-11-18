@@ -144,15 +144,15 @@ alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor)
 alias CodeActionContributor = list[CodeAction] (Focus _focus);
 
 @synopsis{Function profile for definer contributions to a language server}
-@deprecated{Use ((FocusDefiner)) instead.}
+@deprecated{Use ((definition)) instead.}
 alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for referrer contributions to a language server}
-@deprecated{Use ((FocusReferrer)) instead}
+@deprecated{Use ((references)) instead}
 alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Function profile for implementer contributions to a language server}
-@deprecated{Use ((FocusImplementer)) instead.}
+@deprecated{Use ((implementation)) instead.}
 alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
@@ -160,16 +160,27 @@ alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor
 Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
 Their names coincide exactly with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
-* The ((parsing)) service that maps source code strings to a ((Tree)) is essential and non-optional.
+* The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
 All other other services are optional.
-   * By providing a parser which produces annotated parse ((Tree))s, editor features such as parse error locations, syntax highlighting and
+   * By providing a parser which produces annotated parse ((ParseTree::Tree))s, editor features such as parse error locations, syntax highlighting and
 selection assistance are immediately enabled.
    * The ((parsing)) service is activated after every change in an editor document (when a suitable pause has occurred)
-   * All downstream services are based on the ((Tree)) that is produced here. In
+   * All downstream services are based on the ((ParseTree::Tree)) that is produced here. In
 particular downstream services make use of the `src` origin fields that the parser must produce.
    * Parsers can be obtained automatically using the ((ParseTree::parser)) or ((ParseTree::parsers)) functions, like so `parser(#start[Program])`.
 Like this a fast parser is obtained that does not require a global interpreter lock. If you pass in a normal Rascal function, which is fine, the global
 interpreter lock will make the editor services less responsive.
+   * Currently, `@category` tags are ignored in the following special case:
+        * if a parse tree has a `syntax` non-terminal node `n` with a category
+          (either declared as part of `n`, or inherited from an ancestors),
+        * and if `n` has a `syntax` non-terminal node `m` as a child,
+        * then the category of `n` is ignored in the subtree rooted at `m`
+          (regardless of whether a category is declared as part of `m`).
+     This special case is deprecated and will be removed in a future release. In
+     anticipation of the removal, users that rely on this special case for
+     syntax highlighting can update their grammars and explicitly opt-out of the
+     special case by passing `usesSpecialCaseHighlighting = false` when
+     registering the ((parsing)) service.
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
 hover documentation, definition with uses, references to declarations, implementations of types and compiler errors and warnings.
    * ((analysis)) focuses on their own file, but may reuse cached or stored indices from other files.
@@ -202,13 +213,13 @@ leaf all the way up to the root of the tree. This list helps to create functiona
 programmer.
 
 To start developing an LSP extension step-by-step:
-1. first write a ((SyntaxDefinition)) in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL)) to
+1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL)) to
 test it immediately. Create some example files for your language to play around with.
 2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((references)) and ((implementation))
 lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((builder)).
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
-your own ((CodeAction))s and ((Commands))
+your own ((CodeAction))s and Commands
    * create an ((execution)) service to give semantics to each command. This includes creating ((DocumentEdit))s but also ((IDEServices))
    can be used to have interesting effects in the IDE.
    * ((CodeAction))s can also be attached to error, warning and into ((Message))s as a result of ((parsing)), ((analysis)) or ((util::LanguageServer::build)).
@@ -234,7 +245,8 @@ typical programming language concepts. Since these are all just `rel[loc, loc]` 
 * `providesDocumentation` is deprecated. Use `providesHovers` instead.
 }
 data LanguageService
-    = parsing(Tree (str _input, loc _origin) parsingService)
+    = parsing(Tree (str _input, loc _origin) parsingService
+        , bool usesSpecialCaseHighlighting = true)
     | analysis(Summary (loc _origin, Tree _input) analysisService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
@@ -421,7 +433,7 @@ LanguageService implementer(Implementer d) {
     return implementation(focusAcceptor);
 }
 
-@deprecated{Please use ((build)) or ((analysis))}
+@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
 @synopsis{A summarizer collects information for later use in interactive IDE features.}
 LanguageService summarizer(Summarizer summarizer
         , bool providesDocumentation = true
@@ -438,7 +450,7 @@ LanguageService summarizer(Summarizer summarizer
         , providesImplementations = providesImplementations);
 }
 
-@deprecated{Please use ((build)) or ((analysis))}
+@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
 @synopsis{An analyzer collects information for later use in interactive IDE features.}
 LanguageService analyzer(Summarizer summarizer
         , bool providesDocumentation = true

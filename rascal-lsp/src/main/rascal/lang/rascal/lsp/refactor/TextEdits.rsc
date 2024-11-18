@@ -24,36 +24,17 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::tests::rename::ValidNames
+module lang::rascal::lsp::refactor::TextEdits
 
-import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
+extend analysis::diff::edits::TextEdits;
 
-import analysis::diff::edits::TextEdits;
+alias ChangeAnnotationId = str;
 
-test bool renameToReservedName() {
-    edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");
-    newNames = {name | e <- edits<0>
-                     , r <- e.edits
-                     , name := r.replacement};
+data ChangeAnnotation
+    = changeAnnotation(str label, str description, bool needsConfirmation)
+    ;
 
-    return newNames == {"\\int"};
-}
+data TextEdit(ChangeAnnotationId annotation = "");
 
-@expected{illegalRename}
-test bool renameToUsedReservedName() = testRename("
-    'int \\int = 0;
-    'int foo = 8;
-", newName = "int");
-
-@expected{illegalRename}
-test bool newNameIsNonAlphaNumeric() = testRename("int foo = 8;", newName = "b@r");
-
-@expected{illegalRename}
-test bool newNameIsNumber() = testRename("int foo = 8;", newName = "8");
-
-@expected{illegalRename}
-test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc");
-
-@expected{illegalRename}
-test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
+alias ChangeAnnotationRegister =
+    ChangeAnnotationId(str label, str description, bool needsConfirmation);
