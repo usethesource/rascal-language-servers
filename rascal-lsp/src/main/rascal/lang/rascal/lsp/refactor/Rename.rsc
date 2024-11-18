@@ -560,7 +560,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
                     ms = rascalTModelForLocs([file], ccfg, dummy_compile1);
                     for (modName <- ms.moduleLocs) {
                         <found, tm, ms> = getTModelForModule(modName, ms);
-                        if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'");
+                        if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
                         tmodels += convertTModel2PhysicalLocs(tm);
                     }
                 }
