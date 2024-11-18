@@ -252,7 +252,7 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
 private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
     for (d <- defs) {
         if (Define fun: <_, _, _, _, _, defType(afunc(_, _, _))> <- ws.defines
-          , isContainedIn(ws.definitions[d].scope, fun.defined)) {
+         && isContainedIn(ws.definitions[d].scope, fun.defined)) {
             continue;
         }
         return false;
@@ -269,8 +269,8 @@ private default bool rascalIsFunctionLocal(_, _) = false;
 
 Maybe[AType] rascalAdtCommonKeywordFieldType(WorkspaceInfo ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
-      , kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
-      , "<kwName>" == fieldName) {
+     && kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
+     && "<kwName>" == fieldName) {
         if (ft:just(_) := getFact(ws, kwf.src)) return ft;
         throw "Unknown field type for <kwf.src>";
     }
@@ -289,7 +289,7 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
 
 private CursorKind rascalGetDataFieldCursorKind(WorkspaceInfo ws, loc container, loc cursorLoc, str cursorName) {
     for (Define dt <- rascalGetADTDefinitions(ws, container)
-        , AType adtType := dt.defInfo.atype) {
+      && AType adtType := dt.defInfo.atype) {
         if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
             // Case 4 or 5 (or 0): common keyword field
             return dataCommonKeywordField(dt.defined, fieldType);
@@ -348,8 +348,8 @@ private CursorKind rascalGetCursorKind(WorkspaceInfo ws, loc cursorLoc, str curs
             // Cursor is at a definition
             Define d = ws.definitions[c];
             if (d.idRole is fieldId
-              , Define adt: <_, _, _, dataId(), _, _> <- ws.defines
-              , isStrictlyContainedIn(c, adt.defined)) {
+             && Define adt: <_, _, _, dataId(), _, _> <- ws.defines
+             && isStrictlyContainedIn(c, adt.defined)) {
                 return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName);
             }
             return def();
@@ -358,14 +358,13 @@ private CursorKind rascalGetCursorKind(WorkspaceInfo ws, loc cursorLoc, str curs
             set[loc] defs = getDefs(ws, c);
             set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
 
-            if (d <- defs, just(amodule(_)) := getFact(ws, d)) {
+            if (d <- defs && just(amodule(_)) := getFact(ws, d)) {
                 // Cursor is at an import
                 return moduleName();
-            } else if (u <- ws.useDef<0>
-                     , isContainedIn(cursorLoc, u)
-                     , u.end > cursorLoc.end
+            } else if (loc u <- {use | loc use <- ws.useDef<0>, isContainedIn(cursorLoc, use)}
+                    && u.end > cursorLoc.end
                      // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
-                     , {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
+                    && {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
                 ) {
                 // Cursor is at a qualified name
                 return moduleName();
@@ -373,7 +372,7 @@ private CursorKind rascalGetCursorKind(WorkspaceInfo ws, loc cursorLoc, str curs
                 // The cursor is at a use with corresponding definitions.
                 return use();
             } else if (just(at) := getFact(ws, c)
-                     , aparameter(cursorName, _) := at) {
+                    && aparameter(cursorName, _) := at) {
                 // The cursor is at a type parameter
                 return typeParam();
             }
