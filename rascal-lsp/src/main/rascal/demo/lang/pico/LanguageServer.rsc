@@ -36,6 +36,7 @@ module demo::lang::pico::LanguageServer
 import util::LanguageServer;
 import util::IDEServices;
 import ParseTree;
+import util::ErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 
@@ -46,7 +47,7 @@ Here we group all services such that the LSP server can link them
 with the ((Language)) definition later.
 }
 set[LanguageService] picoLanguageServer() = {
-    parsing(parser(#start[Program]), usesSpecialCaseHighlighting = false),
+    parsing(parser(#start[Program], allowRecovery=true, allowAmbiguity=false), usesSpecialCasingHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -62,7 +63,7 @@ such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
 set[LanguageService] picoLanguageServerSlowSummary() = {
-    parsing(parser(#start[Program]), usesSpecialCaseHighlighting = false),
+    parsing(parser(#start[Program], allowRecovery=true, allowAmbiguity=false), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
@@ -74,7 +75,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input]
+      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, !hasErrors(var)]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
@@ -94,7 +95,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input};
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, !hasErrors(var)};
 
     // uses of identifiers
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
