@@ -199,6 +199,6 @@ describe('IDE', function () {
         finally {
             await ide.revertOpenChanges();
         }
-    })
+    });
 });
 
