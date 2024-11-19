@@ -68,7 +68,11 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -84,6 +88,7 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -93,6 +98,8 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -166,7 +173,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
-        result.setRenameProvider(true);
+        result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
     }
@@ -283,6 +290,48 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
             .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             ;
+    }
+
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(PrepareRenameParams params) {
+        logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
+        TextDocumentState file = getFile(params.getTextDocument());
+
+        return file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
+            .thenApply(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+
+                // Find all trees containing the cursor, in ascending order of size
+                IList focusList = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                List<String> sortNames = focusList.stream().map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree))).collect(Collectors.toList());
+
+                int qNameIdx = sortNames.indexOf("QualifiedName");
+                if (qNameIdx != -1) {
+                    // Cursor is at a qualified name
+                    ITree qualifiedName = (ITree) focusList.get(qNameIdx);
+
+                    // If the qualified name in in a header, it is a module path
+                    if (sortNames.contains("Header")) return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation(qualifiedName)));
+
+                    // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
+                    IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));
+
+                    // Even if the cursor is on the module prefix, we steer towards renaming the declaration
+                    return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) names.get(names.size() - 1))));
+                }
+
+                switch (sortNames.get(0)) {
+                    case "Name": // intentional fall-through
+                    case "Nonterminal": // intentional fall-through
+                    case "NonterminalLabel": {
+                        // Return name location
+                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) focusList.get(0))));
+                    }
+                    default: return null;
+                }
+            });
     }
 
     @Override
