@@ -115,6 +115,13 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     });
 
+    it("error recovery works", async function() {
+        const editor = await ide.openModule(TestWorkspace.mainFile);
+        await ide.hasSyntaxHighlighting(editor);
+        await editor.setTextAtLine(2, "1 2 3");
+        await ide.hasRecoveredErrorSquiggly(editor);
+    });
+
     function triggerTypeChecker(editor: TextEditor, tplFile : string, waitForFinish = false) {
         return ide.triggerTypeChecker(editor, {tplFile : tplFile, waitForFinish: waitForFinish });
     }
