@@ -230,11 +230,10 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
     map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(ws);
     rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
     rel[loc fromScope, loc toScope] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
-    rel[loc def, loc scope] defScopes = ws.defines<defined, scope>+;
 
     rel[loc def, loc moduleScope] defPathStep =
-        (defScopes + defUseScopes)            // 1. Look up scopes of defs and scopes of their uses
-        o (modulePaths + invert(modulePaths)) // 2. Follow import/extend relations to reachable scopes
+        (ws.defines<defined, scope>+ + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
+        o (modulePaths + invert(modulePaths))        // 2. Follow import/extend relations to reachable scopes
         ;
 
     rel[loc fromDef, loc toDef] defPaths = {};
@@ -294,7 +293,7 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
             defPaths = defPathStep o selectedFields;
         } else {
             // Find definitions in the reached scope, and definitions within those definitions (transitively)
-            defPaths = defPathStep o invert(defScopes);
+            defPaths = defPathStep o (ws.defines<idRole, scope, defined>)[role]+;
         }
 
         set[loc] overloadCandidates = defPaths[overloadedDefs.defined];

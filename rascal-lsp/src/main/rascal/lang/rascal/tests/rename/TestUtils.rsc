@@ -193,17 +193,13 @@ private PathConfig getTestPathConfig(loc testDir) {
     );
 }
 
-PathConfig getRascalCorePathConfig(loc rascalCoreProject, loc typepalProject) {
+PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
    return pathConfig(
-        srcs = [
-                |std:///|,
-                rascalCoreProject + "src/org/rascalmpl/core/library",
-                typepalProject + "src"
-               ],
+        srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
         generatedSources = rascalCoreProject + "target/generated-test-sources",
         resources = rascalCoreProject + "target/generated-test-resources",
-        libs = []
+        libs = [|lib://typepal|, |lib://rascal|]
     );
 }
 
@@ -217,27 +213,15 @@ PathConfig getPathConfig(loc project) {
     println("Getting path config for <project.file> (<project>)");
 
     if (project.file == "rascal-core") {
-        pcfg = getRascalCorePathConfig();
-        return resolveLocations(pcfg);
+        pcfg = getRascalCorePathConfig(|home:///swat/projects/Rascal/rascal-core|);
+        return pcfg;
     }
 
     pcfg = getProjectPathConfig(project);
-    return resolveLocations(pcfg);
-}
-
-Edits testRascalCore(loc rascalCoreDir, loc typepalDir) {
-    registerLocations("project", "", (
-        |project://rascal-core/target/test-classes|: rascalCoreDir + "target/test-classes",
-        |project://rascal-core/target/generated-test-sources|: rascalCoreDir + "target/generated-test-sources",
-        |project://rascal-core/target/generated-test-resources|: rascalCoreDir + "target/generated-test-resources",
-        |project://rascal-core/src/org/rascalmpl/core/library|: rascalCoreDir + "src/org/rascalmpl/core/library",
-        |project://typepal/src|: typepalDir + "src"));
-
-    return getEdits(rascalCoreDir + "src/org/rascalmpl/core/library/lang/rascalcore/check/ATypeBase.rsc", {resolveLocation(rascalCoreDir), resolveLocation(typepalDir)}, 0, "arat", "arational", getPathConfig);
+    return pcfg;
 }
 
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
-    loc f = resolveLocation(singleModule);
     Tree cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
     return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
 }
