@@ -105,7 +105,7 @@ public class DocumentChanges {
             .collect(Collectors.toList());
     }
 
-    private static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
+    public static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
         LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
         return Locations.toRange(loc, columnMap);
     }
