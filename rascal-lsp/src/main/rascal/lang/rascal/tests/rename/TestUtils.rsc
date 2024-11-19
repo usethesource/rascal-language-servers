@@ -65,6 +65,8 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
 private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
+    list[loc] editLocs = [l | /replace(l, _) := edits<0>];
+    assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
     executeDocumentEdits(sortEdits(edits<0>));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
