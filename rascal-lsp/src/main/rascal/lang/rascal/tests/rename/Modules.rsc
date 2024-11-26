@@ -98,3 +98,12 @@ test bool moveModule() = testRenameOccurrences({
         'import Foo;
         'int f = Foo::foo();", {0, 1}, skipCursors = {1})
 }, oldName = "Foo", newName = "path::to::Foo");
+
+test bool qualifiedSelf() = testRenameOccurrences({
+    byText("Foo", "
+        'void f() {}
+        'void g() {
+        '   Foo::f();
+        '}
+    ", {0, 1}, skipCursors = {1}, newName = "Bar")
+}, oldName = "Foo", newName = "Bar");
