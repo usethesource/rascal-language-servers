@@ -312,8 +312,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     // Cursor is at a qualified name
                     ITree qualifiedName = (ITree) focusList.get(qNameIdx);
 
-                    // If the qualified name in in a header, it is a module path
-                    if (sortNames.contains("Header")) return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation(qualifiedName)));
+                    // If the qualified name is in a header, but not in module parameters or a syntax defintion, it is a full module path
+                    if (sortNames.contains("Header") && !(sortNames.contains("ModuleParameters") || sortNames.contains("SyntaxDefinition")))
+                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation(qualifiedName)));
 
                     // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
                     IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));

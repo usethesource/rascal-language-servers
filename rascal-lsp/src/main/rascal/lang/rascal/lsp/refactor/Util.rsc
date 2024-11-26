@@ -92,9 +92,6 @@ bool tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
     }
 }
 
-Maybe[&B] flatMap(nothing(), Maybe[&B](&A) _) = nothing();
-Maybe[&B] flatMap(just(&A a), Maybe[&B](&A) f) = f(a);
-
 str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
 str toString(error(msg)) = "[error] \'<msg>\'";
 str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
