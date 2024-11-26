@@ -128,13 +128,14 @@ private set[IllegalRenameReason] rascalCheckCausesDoubleDeclarations(WorkspaceIn
     return {doubleDeclaration(old, doubleDeclarations[old]) | old <- (doubleDeclarations + doubleFieldDeclarations + doubleTypeParamDeclarations).old};
 }
 
-private set[IllegalRenameReason] rascalCheckCausesCaptures(WorkspaceInfo ws, start[Module] m, set[loc] currentDefs, set[loc] currentUses, set[Define] newDefs) {
+private set[IllegalRenameReason] rascalCheckCausesCaptures(WorkspaceInfo ws, loc moduleLoc, set[loc] currentDefs, set[loc] currentUses, set[Define] newDefs) {
     set[Define] rascalFindImplicitDefinitions(WorkspaceInfo ws, start[Module] m, set[Define] newDefs) {
         set[loc] maybeImplicitDefs = {l | /QualifiedName n := m, just(l) := rascalLocationOfName(n)};
         return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in ws.useDef<0>)
                                         || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
     }
 
+    start[Module] m = parseModuleWithSpacesCached(moduleLoc);
     set[Define] newNameImplicitDefs = rascalFindImplicitDefinitions(ws, m, newDefs);
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
@@ -170,15 +171,18 @@ private set[IllegalRenameReason] rascalCheckCausesCaptures(WorkspaceInfo ws, sta
     return allCaptures == {} ? {} : {captureChange(allCaptures)};
 }
 
-private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, start[Module] m, set[loc] currentDefs, set[loc] currentUses, str newName) {
+private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, rel[loc file, RenameLocation rename] defsPerFile, rel[loc file, RenameLocation rename] usesPerFile, str newName) {
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- ws.defines};
+    set[loc] editFiles = defsPerFile.file + usesPerFile.file;
 
-    return
-        rascalCheckLegalName(newName, definitionsRel(ws)[currentDefs].idRole)
-      + rascalCheckDefinitionsOutsideWorkspace(ws, currentDefs)
-      + rascalCheckCausesDoubleDeclarations(ws, currentDefs, newNameDefs, newName)
-      + rascalCheckCausesCaptures(ws, m, currentDefs, currentUses, newNameDefs)
-    ;
+    set[IllegalRenameReason] reasons = {};
+    reasons += rascalCheckLegalName(newName, definitionsRel(ws)[defsPerFile.rename.l].idRole);
+    reasons += rascalCheckDefinitionsOutsideWorkspace(ws, defsPerFile.rename.l);
+    reasons += rascalCheckCausesDoubleDeclarations(ws, defsPerFile.rename.l, newNameDefs, newName);
+    for (file <- editFiles) {
+        reasons += rascalCheckCausesCaptures(ws, file, defsPerFile[file].l, usesPerFile[file].l, newNameDefs);
+    }
+    return reasons;
 }
 
 private str rascalEscapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
@@ -221,13 +225,7 @@ Maybe[loc] rascalLocationOfName(Nonterminal nt) = just(nt.src);
 Maybe[loc] rascalLocationOfName(NonterminalLabel l) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t) = nothing();
 
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[RenameLocation] defs, set[RenameLocation] uses, str name, ChangeAnnotationRegister registerChangeAnnotation) {
-    if (reasons := rascalCollectIllegalRenames(ws, m, defs.l, uses.l, name), reasons != {}) {
-        return <reasons, []>;
-    }
-
-    replaceName = rascalEscapeName(name);
-
+private list[TextEdit] computeTextEdits(WorkspaceInfo ws, start[Module] m, set[RenameLocation] defs, set[RenameLocation] uses, cursor(cursorKind, _, _), str newName, ChangeAnnotationRegister registerChangeAnnotation) {
     rel[loc l, Maybe[ChangeAnnotationId] ann, bool isDef] renames =
         {<l, a, true>  | <l, a> <- defs}
       + {<l, a, false> | <l, a> <- uses};
@@ -238,15 +236,17 @@ private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTex
 
     // Note: if the implementer of the rename logic has attached annotations to multiple rename suggestions that have the same
     // name location, one will be arbitrarily chosen here. This could mean that a `needsConfirmation` annotation is thrown away.
-    return <{}, [{just(annotation), *_} := renameOpts.ann
-                 ? replace(l, replaceName, annotation = annotation)
-                 : replace(l, replaceName, annotation = any(b <- renameOpts.isDef) ? defAnno : useAnno)
-                 | l <- nameOfUseDef.name
-                 , rel[Maybe[ChangeAnnotationId] ann, bool isDef] renameOpts := renames[nameOfUseDef[l]]]>;
+    return [
+        {just(annotation), *_} := renameOpts.ann
+        ? replace(l, rascalEscapeName(newName), annotation = annotation)
+        : replace(l, rascalEscapeName(newName), annotation = any(b <- renameOpts.isDef) ? defAnno : useAnno)
+        | l <- nameOfUseDef.name
+        , rel[Maybe[ChangeAnnotationId] ann, bool isDef] renameOpts := renames[nameOfUseDef[l]]
+    ];
 }
 
-private tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[RenameLocation] defs, set[RenameLocation] uses, str name, ChangeAnnotationRegister registerChangeAnnotation) =
-    computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, name, registerChangeAnnotation);
+private list[TextEdit] computeTextEdits(WorkspaceInfo ws, loc moduleLoc, set[RenameLocation] defs, set[RenameLocation] uses, Cursor cur, str newName, ChangeAnnotationRegister registerChangeAnnotation) =
+    computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, cur, newName, registerChangeAnnotation);
 
 private bool rascalIsFunctionLocalDefs(WorkspaceInfo ws, set[loc] defs) {
     for (d <- defs) {
@@ -605,20 +605,20 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
     step("checking rename validity", 1);
-
-    map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] moduleResults =
-        (file: <reasons, edits> | file <- \files, <reasons, edits> := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], newName, registerChangeAnnotation));
-
-    if (reasons := union({moduleResults[file].reasons | file <- moduleResults}), reasons != {}) {
-        list[str] reasonDescs = toList({describe(r) | r <- reasons});
-        throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", reasonDescs)>", reasons);
+    if (reasons := rascalCollectIllegalRenames(ws, defsPerFile, usesPerFile, newName)
+      , reasons != {}) {
+        throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", toList({describe(r) | r <- reasons}))>", reasons);
     }
 
-    list[DocumentEdit] changes = [changed(file, moduleResults[file].edits) | file <- moduleResults];
+    step("building list of edits", 1);
+    map[loc, list[TextEdit]] moduleResults =
+        (file: edits | file <- \files, edits := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], cur, newName, registerChangeAnnotation));
+
+    list[DocumentEdit] changes = [changed(file, moduleResults[file]) | file <- moduleResults];
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
     return <changes + renames, changeAnnotations>;
-}, totalWork = 6);
+}, totalWork = 7);
 
 //// WORKAROUNDS
 
