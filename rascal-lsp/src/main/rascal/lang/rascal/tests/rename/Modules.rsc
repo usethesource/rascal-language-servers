@@ -81,29 +81,7 @@ test bool singleModule() = testRenameOccurrences({
     ", {0, 1}, skipCursors = {1})
 }, oldName = "util::Foo", newName = "util::Bar");
 
-test bool m1() = testRenameOccurrences({
-    byText("foo::Foo", "import BarOld;", {0}),
-    byText("BarOld", "import Baz;", {0}, newName = "BarNew"),
-    byText("Baz", "
-        'void f() {}
-        'void g() {
-        '   Baz::f();
-        '}
-    ", {})
-}, oldName = "BarOld", newName = "BarNew");
-
-test bool m2() = testRenameOccurrences({
-    byText("Foo", "import BarOld;", {0}),
-    byText("BarOld", "import Baz;", {0}, newName = "BarNew"),
-    byText("Baz", "
-        'void f() {}
-        'void g() {
-        '   Baz::f();
-        '}
-    ", {})
-}, oldName = "BarOld", newName = "BarNew");
-
-test bool m3() = testRenameOccurrences({
+test bool moduleBarIsNotBaz() = testRenameOccurrences({
     byText("foo::Foo", "import Foo;", {1}),
     byText("Foo", "import Baz;", {0}, newName = "Bar"),
     byText("Baz", "

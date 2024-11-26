@@ -309,7 +309,6 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
 }
 
 private rel[loc, loc] NO_RENAMES(str _) = {};
-private int qualSepSize = size("::");
 
 bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atuple;
 bool rascalIsConstructorType(AType at) = at is acons;
@@ -735,21 +734,26 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
         }
     }
 
-    defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
+    set[loc] defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
 
     imports = {u | u <- ws.useDef<0>, amodule(cursorName) := ws.facts[u]};
-    qualifiedUses = {
-        // We compute the location of the module name in the qualified name at `u`
-        // some::qualified::path::to::Foo::SomeVar
-        // \____________________________/\/\_____/
-        // size(cursorName) ^ qualSepSize ^   ^ idSize
-        u
+
+    rel[loc file, loc use] qualifiedUseCandidates = {
+        <u.top, u>
         | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
-        , idSize := size(d.id)
-        , u.length > idSize // There might be a qualified prefix
-        , u.length == size(cursorName) + qualSepSize + idSize
+        , u.length > size(d.id) // use name > declaration name, i.e. there is a qualified prefix
     };
-    uses = imports + qualifiedUses;
+    set[loc] qualifiedUses = {
+        qn.src
+        | loc file <- qualifiedUseCandidates.file
+        , start[Module] m := parseModuleWithSpacesCached(file)
+        , set[loc] localUses := qualifiedUseCandidates[file]
+        , /QualifiedName qn := m
+        , qn.src in localUses
+        , cursorName == intercalate("::", prefix(["<n>" | n <- qn.names]))
+    };
+
+    set[loc] uses = importUses + qualifiedUses;
 
     pcfg = ws.getPathConfig(getProjectFolder(ws, moduleFile));
     loc srcFolder = [srcFolder | relModulePath := relativize(pcfg.srcs, moduleFile), srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
