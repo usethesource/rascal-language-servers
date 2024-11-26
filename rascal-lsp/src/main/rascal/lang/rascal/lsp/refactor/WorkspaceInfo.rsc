@@ -43,6 +43,7 @@ import lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::TextEdits;
 import lang::rascal::lsp::refactor::Util;
 
+import IO;
 import List;
 import Location;
 import Map;
@@ -710,27 +711,25 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(moduleName(), cursorLoc, cur
         }
     }
 
-    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(ws, moduleFile)));
+    defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
 
-    defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
-
-    imports = {u | u <- ws.useDef<0>, amodule(modName) := ws.facts[u]};
+    imports = {u | u <- ws.useDef<0>, amodule(cursorName) := ws.facts[u]};
     qualifiedUses = {
         // We compute the location of the module name in the qualified name at `u`
         // some::qualified::path::to::Foo::SomeVar
         // \____________________________/\/\_____/
-        // moduleNameSize ^  qualSepSize ^   ^ idSize
-        trim(u, removePrefix = moduleNameSize - size(cursorName)
-              , removeSuffix = idSize + qualSepSize)
+        // size(cursorName) ^ qualSepSize ^   ^ idSize
+        u
         | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
         , idSize := size(d.id)
         , u.length > idSize // There might be a qualified prefix
-        , moduleNameSize := size(modName)
-        , u.length == moduleNameSize + qualSepSize + idSize
+        , u.length == size(cursorName) + qualSepSize + idSize
     };
     uses = imports + qualifiedUses;
 
-    rel[loc, loc] getRenames(str newName) = {<file, file[file = "<newName>.rsc"]> | d <- defs, file := d.top};
+    pcfg = getPathConfig(getProjectFolder(ws, moduleFile));
+    loc srcFolder = [srcFolder | relModulePath := relativize(pcfg.srcs, moduleFile), srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
+    rel[loc, loc] getRenames(str newName) = {<file, srcFolder + makeFileName(newName)> | d <- defs, file := d.top};
 
     return <annotateLocs(defs), annotateLocs(uses), getRenames>;
 }
