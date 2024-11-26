@@ -736,7 +736,11 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
 
     set[loc] defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
 
-    imports = {u | u <- ws.useDef<0>, amodule(cursorName) := ws.facts[u]};
+    rel[loc fromFile, loc toFile] modulePaths = toRel(getModuleScopePerFile(ws)) o rascalGetTransitiveReflexiveModulePaths(ws);
+    set[loc] importUses = {u
+        | <loc u, Define _: <_, _, _, moduleId(), d, _>> <- ws.useDef o definitionsRel(ws)
+        , <u.top, d> in modulePaths
+    };
 
     rel[loc file, loc use] qualifiedUseCandidates = {
         <u.top, u>
