@@ -90,9 +90,10 @@ private set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] role
 }
 
 private void rascalCheckLegalName(str name, Symbol sym) {
+    escName = rascalEscapeName(name);
     g = grammar(#start[Module]);
-    if (!tryParseAs(type(sym, g.rules), name)) {
-        throw illegalRename("\'<name>\' is not a valid name at this position", {invalidName(name, "<sym>")});
+    if (!tryParseAs(type(sym, g.rules), escName)) {
+        throw illegalRename("\'<escName>\' is not a valid name at this position", {invalidName(escName, "<sym>")});
     }
 }
 
