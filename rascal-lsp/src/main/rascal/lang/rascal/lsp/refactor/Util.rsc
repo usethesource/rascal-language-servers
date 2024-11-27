@@ -30,6 +30,7 @@ import IO;
 import List;
 import Location;
 import Message;
+import ParseTree;
 import String;
 
 import util::Maybe;
@@ -77,6 +78,18 @@ bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
 start[Module] parseModuleWithSpacesCached(loc l) {
     @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
     return parseModuleWithSpacesCached(l, lastModified(l));
+}
+
+@synopsis{
+    Try to parse string `name` as reified type `begin` and return whether this succeeded.
+}
+bool tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
+    try {
+        parse(begin, name, allowAmbiguity = allowAmbiguity);
+        return true;
+    } catch ParseError(_): {
+        return false;
+    }
 }
 
 Maybe[&B] flatMap(nothing(), Maybe[&B](&A) _) = nothing();
