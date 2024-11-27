@@ -107,3 +107,10 @@ test bool qualifiedSelf() = testRenameOccurrences({
         '}
     ", {0, 1}, skipCursors = {1}, newName = "Bar")
 }, oldName = "Foo", newName = "Bar");
+
+@expected{unsupportedRename}
+test bool externalImport() = testRenameOccurrences({
+    byText("Main", "
+        'import Foo = |memory:///Foo.rsc|;
+    ", {0})
+}, oldName = "Foo", newName = "Bar");
