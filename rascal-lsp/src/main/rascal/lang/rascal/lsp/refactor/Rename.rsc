@@ -562,8 +562,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
 
             for (projectFolder <- projectFiles.projectFolder, \files := projectFiles[projectFolder]) {
                 PathConfig pcfg = getPathConfig(projectFolder);
-                RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true]
-                                                                      [verbose = false]
+                RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
                                                                       [logPathConfig = false];
                 for (<file, true> <- \files) {
                     ms = rascalTModelForLocs([file], ccfg, dummy_compile1);

@@ -69,7 +69,7 @@ private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
     executeDocumentEdits(sortEdits(edits<0>));
     remove(pcfg.resources);
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
     throwAnyErrors(checkAll(root, ccfg));
 }
 
