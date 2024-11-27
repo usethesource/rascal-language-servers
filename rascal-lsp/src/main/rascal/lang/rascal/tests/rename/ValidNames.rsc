@@ -57,3 +57,6 @@ test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc
 
 @expected{illegalRename}
 test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
+
+@expected{illegalRename}
+test bool qualifiedNameWhereNameExpected() = testRename("int foo = 8;", newName = "Foo::foo");
