@@ -37,6 +37,7 @@ module lang::rascal::lsp::refactor::Rename
 
 import Exception;
 import IO;
+import Grammar;
 import List;
 import Location;
 import Map;
@@ -76,35 +77,23 @@ void throwAnyErrors(program(_, msgs)) {
     throwAnyErrors(msgs);
 }
 
-set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] defRoles) {
-    set[IllegalRenameReason] tryParseAs(type[&T <: Tree] begin, str idDescription) {
-        try {
-            parse(begin, rascalEscapeName(name));
-            return {};
-        } catch ParseError(_): {
-            return {invalidName(name, idDescription)};
-        }
-    }
+private set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] roles) {
+    escName = rascalEscapeName(name);
+    tuple[type[&T <: Tree] as, str desc] asType = <#Name, "identifier">;
+    if ({moduleId(), *_} := roles) asType = <#QualifiedName, "module name">;
+    if ({constructorId(), *_} := roles) asType = <#NonterminalLabel, "constructor name">;
+    if ({fieldId(), *_} := roles) asType = <#NonterminalLabel, "constructor field name">;
+    if (size(syntaxRoles & roles) > 0) asType = <#Nonterminal, "non-terminal name">;
 
-    bool isSyntaxRole = any(role <- defRoles, role in syntaxRoles);
-    bool isField = any(role <- defRoles, role is fieldId);
-    bool isConstructor = any(role <- defRoles, role is constructorId);
+    if (!tryParseAs(asType.as, escName)) return {invalidName(escName, asType.desc)};
+    return {};
+}
 
-    set[IllegalRenameReason] reasons = {};
-    if (isSyntaxRole) {
-        reasons += tryParseAs(#Nonterminal, "non-terminal name");
+private void rascalCheckLegalName(str name, Symbol sym) {
+    g = grammar(#start[Module]);
+    if (!tryParseAs(type(sym, g.rules), name)) {
+        throw illegalRename("\'<name>\' is not a valid name at this position", {invalidName(name, "<sym>")});
     }
-    if (isField) {
-        reasons += tryParseAs(#NonterminalLabel, "constructor field name");
-    }
-    if (isConstructor) {
-        reasons += tryParseAs(#NonterminalLabel, "constructor name");
-    }
-    if (!(isSyntaxRole || isField || isConstructor)) {
-        reasons += tryParseAs(#Name, "identifier");
-    }
-
-    return reasons;
 }
 
 private set[IllegalRenameReason] rascalCheckDefinitionsOutsideWorkspace(WorkspaceInfo ws, set[loc] defs) =
@@ -530,6 +519,8 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     = job("renaming <cursorT> to <newName>", Edits(void(str, int) step) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
+
+    rascalCheckLegalName(newName, typeOf(cursorT));
 
     step("collecting workspace information", 1);
     WorkspaceInfo ws = workspaceInfo(
