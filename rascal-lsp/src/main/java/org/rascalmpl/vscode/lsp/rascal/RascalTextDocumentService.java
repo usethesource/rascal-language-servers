@@ -60,6 +60,8 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FileOperationFilter;
+import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -97,6 +99,7 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -135,7 +138,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private final Map<ISourceLocation, TextDocumentState> documents;
     private final ColumnMaps columns;
-    private @MonotonicNonNull FileFacts facts;
+    @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
@@ -165,6 +168,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
+    Set<ISourceLocation> getFolderContents(ISourceLocation folder) {
+        return documents.keySet()
+            .stream()
+            .filter(file -> URIUtil.isParentOf(folder, file))
+            .collect(Collectors.toSet());
+    }
+
     public void initializeServerCapabilities(ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
@@ -175,12 +185,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RascalWorkspaceService.RASCAL_COMMAND)));
     }
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        this.workspaceService = workspaceService;
+        this.workspaceService = (RascalWorkspaceService) workspaceService;
 
     }
 
@@ -400,7 +410,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return getFile(Locations.toLoc(doc));
     }
 
-    private TextDocumentState getFile(ISourceLocation loc) {
+    protected TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = documents.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
@@ -508,7 +518,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return CodeActions.mergeAndConvertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
+        return CodeActions.mergeAndConvertCodeActions(this, "", RascalWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {

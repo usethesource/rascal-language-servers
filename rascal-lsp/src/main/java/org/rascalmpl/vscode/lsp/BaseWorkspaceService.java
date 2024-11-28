@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceFoldersOptions;
@@ -54,7 +55,7 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    BaseWorkspaceService(IBaseTextDocumentService documentService) {
+    protected BaseWorkspaceService(IBaseTextDocumentService documentService) {
         this.documentService = documentService;
         documentService.pair(this);
     }
@@ -69,10 +70,12 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         var clientWorkspaceCap = clientCap.getWorkspace();
 
         if (clientWorkspaceCap != null && Boolean.TRUE.equals(clientWorkspaceCap.getWorkspaceFolders())) {
-            var workspaceCap = new WorkspaceFoldersOptions();
-            workspaceCap.setSupported(true);
-            workspaceCap.setChangeNotifications(true);
-            capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
+            var workspaceOpts = new WorkspaceFoldersOptions();
+            workspaceOpts.setSupported(true);
+            workspaceOpts.setChangeNotifications(true);
+            var workspaceCap = new WorkspaceServerCapabilities(workspaceOpts);
+            workspaceCap.setFileOperations(new FileOperationsServerCapabilities());
+            capabilities.setWorkspace(workspaceCap);
         }
 
     }

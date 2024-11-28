@@ -29,8 +29,10 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+
 import com.google.gson.GsonBuilder;
 
 public class ParametricLanguageServer extends BaseLanguageServer {
@@ -45,7 +47,8 @@ public class ParametricLanguageServer extends BaseLanguageServer {
 
         startLanguageServer(() -> {
             ExecutorService threadPool = Executors.newCachedThreadPool();
-            return new ParametricTextDocumentService(threadPool, dedicatedLanguage);
+            var docService = new ParametricTextDocumentService(threadPool, dedicatedLanguage);
+            return Pair.of(docService, new ParametricWorkspaceService(docService));
         }, 9999);
     }
 }
