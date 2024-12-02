@@ -41,9 +41,9 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -151,19 +151,21 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(Supplier<Pair<IBaseTextDocumentService, BaseWorkspaceService>> service, int portNumber) {
+    public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
+        var docService = docServiceProvider.apply(threadPool);
+        var wsService = workspaceServiceProvider.apply(docService);
+        docService.pair(wsService);
+
         if (DEPLOY_MODE) {
-            var services = service.get();
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), services.getLeft(), services.getRight())));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), docService, wsService)));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    var services = service.get();
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, services.getLeft(), services.getRight())));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, docService, wsService)));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server", e);
