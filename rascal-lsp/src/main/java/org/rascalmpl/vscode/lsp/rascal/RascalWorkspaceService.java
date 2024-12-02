@@ -33,13 +33,16 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
@@ -60,6 +63,7 @@ import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -67,9 +71,13 @@ import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.values.parsetrees.visitors.IdentityTreeVisitor;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -78,11 +86,18 @@ import io.usethesource.vallang.IValue;
 public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final Logger logger = LogManager.getLogger(RascalWorkspaceService.class);
 
-    private final RascalTextDocumentService rascalDocService;
+    private final IBaseTextDocumentService docService;
+    private final ExecutorService ownExecuter;
+    private final ColumnMaps columns;
 
-    RascalWorkspaceService(IBaseTextDocumentService documentService) {
+    private @MonotonicNonNull RascalLanguageServices rascalServices;
+    private @MonotonicNonNull FileFacts facts;
+
+    RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(documentService);
-        rascalDocService = (RascalTextDocumentService) documentService;
+        this.ownExecuter = exec;
+        this.docService = documentService;
+        this.columns = new ColumnMaps(docService::getContents);
     }
 
     @Override
@@ -93,139 +108,24 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         capabilities.getWorkspace().getFileOperations().setWillRename(new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))));
     }
 
-    private Pair<String, Range> processQNamePrefix(ITree qn) {
-        ISourceLocation fileLoc = TreeAdapter.getLocation(qn).top();
-        List<ITree> nameSegments = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qn, "names")).stream().map(ITree.class::cast).collect(Collectors.toList());
-        String fullName = TreeAdapter.yield(qn);
-
-        // Check if prefix is present
-        if (nameSegments.size() <= 1) return Pair.of("", null);
-
-        ITree firstPrefName = nameSegments.get(0);
-        ITree lastPrefname = nameSegments.get(nameSegments.size() - 2);
-        Position start = Locations.toPosition(TreeAdapter.getLocation(firstPrefName), rascalDocService.getColumnMap(fileLoc)    , false);
-        Position end = Locations.toPosition(TreeAdapter.getLocation(lastPrefname), rascalDocService.getColumnMap(fileLoc), true);
-
-        int prefixEndIdx = fullName.lastIndexOf("::");
-        String prefix = fullName.substring(0, prefixEndIdx);
-
-        return Pair.of(prefix, new Range(start, end));
-    }
-
-    private Pair<String, Range> processQName(ITree qn) {
-        ISourceLocation fileLoc = TreeAdapter.getLocation(qn).top();
-        return Pair.of(TreeAdapter.yield(qn), Locations.toRange(TreeAdapter.getLocation(qn), rascalDocService.getColumnMap(fileLoc)));
-    }
-
-    private ISourceLocation sourceLocationFromUri(String uri) {
-        try {
-            return URIUtil.createFromURI(uri);
-        } catch (URISyntaxException e) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
-        }
-    }
-
-    private Map<String, String> qualfiedNameChangesFromRenames(List<FileRename> renames, List<ISourceLocation> wsFolders) {
-        return renames.stream()
-            .map(rename -> {
-                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
-                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
-
-                ISourceLocation currentWsFolder = wsFolders.stream()
-                    .filter(folderLoc -> URIUtil.isParentOf(folderLoc, currentLoc))
-                    .findFirst()
-                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                        String.format("Cannot move %s, since that location is outside the current workspace", currentLoc), null)));;
-
-                ISourceLocation newWsFolder = wsFolders.stream()
-                    .filter(folderLoc -> URIUtil.isParentOf(folderLoc, newLoc))
-                    .findFirst()
-                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                        String.format("Cannot move file to %s, since that location is outside the current workspace", newLoc), null)));
-
-                if (!currentWsFolder.equals(newWsFolder)) {
-                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
-                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
-                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
-
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed,
-                        String.format("Moving files between projects (from %s to %s) is not supported", currentProject, newProject), null));
-                }
-
-                PathConfig pcfg = rascalDocService.facts.getPathConfig(currentWsFolder);
-                try {
-                    String currentName = pcfg.getModuleName(currentLoc);
-                    String newName = pcfg.getModuleName(newLoc);
-
-                    return Pair.of(currentName, newName);
-                } catch (IOException e) {
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
-                }
-            })
-            .collect(Collectors.toConcurrentMap(Pair::getLeft, Pair::getRight));
-    }
-
-    private boolean checkAndAddCandidate(final Map<String, String> nameChanges, Pair<String, Range> info, Map<Range, String> changeLocations) {
-        if (nameChanges.containsKey(info.getKey())) {
-            changeLocations.put(info.getValue(), nameChanges.get(info.getKey()));
-            return true;
-        }
-        return false;
-    }
-
-    private TextDocumentEdit collectChanges(final Map<String, String> nameChanges, ITree tree) {
-        Map<Range, String> changeLocations = new HashMap<>();
-        tree.accept(new IdentityTreeVisitor<RuntimeException>() {
-            @Override
-            public ITree visitTreeAppl(ITree arg) throws RuntimeException  {
-                if ("QualifiedName".equals(ProductionAdapter.getSortName(TreeAdapter.getProduction(arg)))
-                    && !checkAndAddCandidate(nameChanges, processQName(arg), changeLocations)) {
-                    checkAndAddCandidate(nameChanges, processQNamePrefix(arg), changeLocations);
-                }
-
-                for (IValue child : TreeAdapter.getArgs(arg)) {
-                    child.accept(this);
-                }
-                return null;
-            }
-        });
-
-        List<TextEdit> edits = changeLocations.entrySet().stream()
-            .map(entry -> new TextEdit(entry.getKey(), entry.getValue()))
-            .collect(Collectors.toList());
-
-        return new TextDocumentEdit(new VersionedTextDocumentIdentifier(TreeAdapter.getLocation(tree).top().getURI().toString(), null), edits);
+    @Override
+    public void connect(LanguageClient client) {
+        super.connect(client);
+        this.rascalServices = new RascalLanguageServices((RascalTextDocumentService) docService, this, (IBaseLanguageClient) client, ownExecuter);
+        this.facts = ((RascalTextDocumentService) docService).getFileFacts();
     }
 
     @Override
     public CompletableFuture<WorkspaceEdit> willRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/willRenameFiles: {}", params.getFiles());
 
-        return CompletableFuture.supplyAsync(() -> {
-            List<ISourceLocation> wsFolders = workspaceFolders().stream()
-                .sorted(Comparator.comparing(WorkspaceFolder::getUri))
-                .map(wsFolder -> sourceLocationFromUri(wsFolder.getUri()))
-                .collect(Collectors.toList());
+        Set<ISourceLocation> workspaceFolders = workspaceFolders()
+            .stream()
+            .map(f -> Locations.toLoc(f.getUri()))
+            .collect(Collectors.toSet());
 
-            final Map<String, String> qualifiedNameChanges = qualfiedNameChangesFromRenames(params.getFiles(), wsFolders);
-
-            List<TextDocumentEdit> docChanges = wsFolders.stream()
-                .flatMap(folder -> rascalDocService.getFolderContents(folder).stream())
-                .parallel()
-                .map(fileLoc -> {
-                    TextDocumentState file = rascalDocService.getFile(fileLoc);
-                    return file.getCurrentTreeAsync()
-                        .thenApply(Versioned::get)
-                        .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-                        .thenApply(tree -> collectChanges(qualifiedNameChanges, tree));
-                })
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-
-            List<Either<TextDocumentEdit, ResourceOperation>> eithers = new ArrayList<>();
-            docChanges.forEach(change -> eithers.add(Either.forLeft(change)));
-
-            return new WorkspaceEdit(eithers);
-        });
+        return rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig)
+            .thenApply(t -> DocumentChanges.translateDocumentChanges(docService, t))
+            .get();
     }
 }

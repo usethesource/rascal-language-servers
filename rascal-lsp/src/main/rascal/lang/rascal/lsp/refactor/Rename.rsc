@@ -50,6 +50,8 @@ import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
 
+import lang::rascal::lsp::refactor::rename::Modules;
+
 extend lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::Util;
 import lang::rascal::lsp::refactor::WorkspaceInfo;
@@ -61,8 +63,6 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
-
-alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 private str MANDATORY_CHANGE_DESCRIPTION = "These changes are required for a correct renaming. They can be previewed here, but it is not advised to disable them.";
 
@@ -650,6 +650,9 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
 
     return <changes + renames, changeAnnotations>;
 }, totalWork = 7);
+
+Edits rascalRenameModule(map[str, str] qualifiedNameChanges, set[loc] workspaceFolders) =
+    propagateModuleRenames(qualifiedNameChanges, workspaceFolders);
 
 //// WORKAROUNDS
 

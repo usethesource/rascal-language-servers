@@ -44,5 +44,5 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void unregisterLanguage(LanguageParameter lang);
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
-
+    String getContents(ISourceLocation file);
 }
