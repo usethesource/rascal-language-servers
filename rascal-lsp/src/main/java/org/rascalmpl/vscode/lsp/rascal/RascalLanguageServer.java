@@ -39,11 +39,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         try {
-            startLanguageServer(() -> {
-                ExecutorService threadPool = Executors.newCachedThreadPool();
-                IBaseTextDocumentService docService = new RascalTextDocumentService(threadPool);
-                return Pair.of(docService, new RascalWorkspaceService(docService));
-            }, 8888);
+            startLanguageServer(Executors.newCachedThreadPool(), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);

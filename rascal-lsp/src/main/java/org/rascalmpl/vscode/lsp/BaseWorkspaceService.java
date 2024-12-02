@@ -57,7 +57,6 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     protected BaseWorkspaceService(IBaseTextDocumentService documentService) {
         this.documentService = documentService;
-        documentService.pair(this);
     }
 
 
