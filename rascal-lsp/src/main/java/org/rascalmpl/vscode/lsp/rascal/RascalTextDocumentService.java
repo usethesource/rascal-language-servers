@@ -60,8 +60,6 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
-import org.eclipse.lsp4j.FileOperationFilter;
-import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -124,7 +122,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -138,7 +135,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private final Map<ISourceLocation, TextDocumentState> documents;
     private final ColumnMaps columns;
-    @MonotonicNonNull FileFacts facts;
+    private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
@@ -152,7 +149,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return columns.get(file);
     }
 
-    private String getContents(ISourceLocation file) {
+    @Override
+    public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = documents.get(file);
         if (ideState != null) {
@@ -190,7 +188,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        this.workspaceService = (RascalWorkspaceService) workspaceService;
+        this.workspaceService = workspaceService;
 
     }
 
@@ -359,12 +357,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
-            .thenApply(t -> {
-                WorkspaceEdit wsEdit = new WorkspaceEdit();
-                wsEdit.setDocumentChanges(DocumentChanges.translateDocumentChanges(this, (IList) t.get(0)));
-                wsEdit.setChangeAnnotations(DocumentChanges.translateChangeAnnotations((IMap) t.get(1)));
-                return wsEdit;
-            });
+            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
 
     @Override
@@ -547,5 +540,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     logger.error("Operation failed with", e);
                     return defaultValue.get();
                 });
+    }
+
+    public @MonotonicNonNull FileFacts getFileFacts() {
+        return facts;
     }
 }

@@ -31,11 +31,13 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -43,9 +45,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -54,6 +59,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -69,6 +75,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -233,6 +240,92 @@ public class RascalLanguageServices {
                 throw e;
             }
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+    }
+
+    private ISourceLocation sourceLocationFromUri(String uri) {
+        try {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
+        }
+    }
+
+    private Optional<ISourceLocation> findContainingWorkspaceFolder(ISourceLocation loc, List<ISourceLocation> workspaceFolders) {
+        return workspaceFolders.stream()
+            .filter(folderLoc -> URIUtil.isParentOf(folderLoc, loc))
+            .findFirst();
+    }
+
+    private IMap qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+        // Sort workspace folders so we get the most specific folders first
+        List<ISourceLocation> sortedWorkspaceFolders = workspaceFolders.stream()
+            .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
+            .collect(Collectors.toList());
+
+        Map<IValue, IValue> nameMapping = renames.stream()
+            .map(rename -> {
+                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
+                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
+
+                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
+                        String.format("Cannot move %s, since that location is outside the current workspace", currentLoc), null)));
+
+                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
+                        String.format("Cannot move file to %s, since that location is outside the current workspace", newLoc), null)));
+
+                if (!currentWsFolder.equals(newWsFolder)) {
+                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
+                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
+                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
+
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed,
+                        String.format("Moving files between projects (from %s to %s) is not supported", currentProject, newProject), null));
+                }
+
+                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
+                try {
+                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
+                    IString newName = VF.string(pcfg.getModuleName(newLoc));
+
+                    return Pair.of(currentName, newName);
+                } catch (IOException e) {
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
+                }
+            })
+            .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+
+        var writer = VF.mapWriter();
+        writer.putAll(nameMapping);
+        return writer.done();
+    }
+
+    public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+        final IMap qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
+
+        try {
+            return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)));
+            }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+        } catch (Throw e) {
+            if (e.getException() instanceof IConstructor) {
+                var exception = (IConstructor)e.getException();
+                if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
+                    // instead of the generic exception handler, we deal with these ourselfs
+                    // and report an LSP error, such that the IDE shows them in a user friendly way
+                    String message;
+                    if (exception.has("message")) {
+                        message = ((IString)exception.get("message")).getValue();
+                    }
+                    else {
+                        message = "Rename failed: " + exception.getName();
+                    }
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
+                }
+            }
+            throw e;
+        }
     }
 
 
