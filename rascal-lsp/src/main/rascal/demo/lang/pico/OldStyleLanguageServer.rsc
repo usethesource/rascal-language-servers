@@ -151,13 +151,13 @@ list[DocumentEdit] getAtoBEdits(start[Program] input)
 @synopsis{Command handler for the renameAtoB command}
 value picoCommands(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
-    return ("result": true);
+    return true;
 }
 
 @synopsis{Command handler for the removeDecl command}
 value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
-    return ("result": true);
+    return true;
 }
 
 @synopsis{The main function registers the Pico language with the IDE}
