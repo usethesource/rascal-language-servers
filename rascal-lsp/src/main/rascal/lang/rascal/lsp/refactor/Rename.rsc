@@ -187,7 +187,9 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(WorkspaceInfo ws, r
 }
 
 @memo{maximumSize(1000), expireAfter(minutes=5)}
-private str rascalEscapeName(str name) = name in getRascalReservedIdentifiers() ? "\\<name>" : name;
+private str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
+
+private str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 private rel[loc name, loc useDef] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs, CursorKind cursorKind) {
@@ -650,7 +652,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
         (file: edits | file <- \files, edits := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], cur, newName, registerChangeAnnotation));
 
     list[DocumentEdit] changes = [changed(file, moduleResults[file]) | file <- moduleResults];
-    list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
+    list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(rascalUnescapeName(newName))];
 
     return <changes + renames, changeAnnotations>;
 }, totalWork = 7);
