@@ -46,7 +46,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -75,7 +74,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -256,13 +254,13 @@ public class RascalLanguageServices {
             .findFirst();
     }
 
-    private IMap qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+    private ISet qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
         // Sort workspace folders so we get the most specific folders first
         List<ISourceLocation> sortedWorkspaceFolders = workspaceFolders.stream()
             .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
             .collect(Collectors.toList());
 
-        Map<IValue, IValue> nameMapping = renames.stream()
+        Set<ITuple> nameMapping = renames.stream()
             .map(rename -> {
                 ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
                 ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
@@ -289,24 +287,27 @@ public class RascalLanguageServices {
                     IString currentName = VF.string(pcfg.getModuleName(currentLoc));
                     IString newName = VF.string(pcfg.getModuleName(newLoc));
 
-                    return Pair.of(currentName, newName);
+                    return VF.tuple(currentName, newName, addResources(pcfg));
                 } catch (IOException e) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
                 }
             })
-            .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+            .collect(Collectors.toSet());
 
-        var writer = VF.mapWriter();
-        writer.putAll(nameMapping);
+        var writer = VF.setWriter();
+        writer.insertAll(nameMapping);
         return writer.done();
     }
 
     public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
-        final IMap qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
+        if (fileRenames.isEmpty()) return InterruptibleFuture.completedFuture(null);
+
+        final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
 
         try {
             return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
-                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)));
+                IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
             }, VF.tuple(VF.list(), VF.map()), exec, false, client);
         } catch (Throw e) {
             if (e.getException() instanceof IConstructor) {
