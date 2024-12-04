@@ -657,8 +657,8 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     return <changes + renames, changeAnnotations>;
 }, totalWork = 7);
 
-Edits rascalRenameModule(map[str, str] qualifiedNameChanges, set[loc] workspaceFolders) =
-    propagateModuleRenames(qualifiedNameChanges, workspaceFolders);
+Edits rascalRenameModule(rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
+    propagateModuleRenames(qualifiedNameChanges, workspaceFolders, getPathConfig);
 
 //// WORKAROUNDS
 

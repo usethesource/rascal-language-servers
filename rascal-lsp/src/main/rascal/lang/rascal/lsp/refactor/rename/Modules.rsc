@@ -13,8 +13,7 @@ import Set;
 import String;
 
 import util::FileSystem;
-
-data PathConfig;
+import util::Reflective;
 
 private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
 private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {
@@ -28,31 +27,40 @@ private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {
     return <namePrefix, prefixLoc>;
 }
 
-list[TextEdit] getChanges(loc f, map[str, str] qualifiedNameChanges) {
+private bool isReachable(PathConfig toProject, PathConfig fromProject) =
+    toProject == fromProject           // Both configs belong to the same project
+ || toProject.bin in fromProject.libs; // The using project can import the declaring project
+
+list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
     list[TextEdit] changes = [];
 
     start[Module] m = parseModuleWithSpacesCached(f);
     for (/QualifiedName qn := m) {
-        if (<fullName, fullLoc> := fullQualifiedName(qn), fullName in qualifiedNameChanges) {
-            changes += replace(fullLoc, qualifiedNameChanges[fullName]);
-        } else if (<namePrefix, prefixLoc> := qualifiedPrefix(qn), namePrefix in qualifiedNameChanges) {
-            changes += replace(prefixLoc, qualifiedNameChanges[namePrefix]);
+        for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
+           , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
+           , isReachable(projWithRenamedMod, wsProject)
+           ) {
+            changes += replace(l, newName);
         }
     }
 
     return changes;
 }
 
-Edits propagateModuleRenames(map[str, str] qualifiedNameChanges, set[loc] workspaceFolders) {
-    set[loc] wsFiles = flatMap(workspaceFolders, set[loc](loc wsFolder) {
-        return find(wsFolder, "rsc");
-    });
+Edits propagateModuleRenames(rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+    set[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
+    set[DocumentEdit] edits = flatMap(workspaceFolders, set[DocumentEdit](loc wsFolder) {
+        PathConfig wsFolderPcfg = getPathConfig(wsFolder);
 
-    set[DocumentEdit] edits = {changed(file, changes)
-        | loc file <- wsFiles
-        , changes := getChanges(file, qualifiedNameChanges)
-        , changes != []
-    };
+        // If this workspace cannot reach any of the renamed modules, no need to continue looking for references to renamed modules here at all
+        if (!any(PathConfig changedProj <- projectWithRenamedModule, isReachable(changedProj, wsFolderPcfg))) return {};
+
+        return {changed(file, changes)
+            | loc file <- find(wsFolder, "rsc")
+            , changes := getChanges(file, wsFolderPcfg, qualifiedNameChanges)
+            , changes != []
+        };
+    });
 
     return <toList(edits), ()>;
 }
