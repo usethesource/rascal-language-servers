@@ -40,6 +40,28 @@ test bool renameToReservedName() {
     return newNames == {"\\int"};
 }
 
+test bool renameToUnescapedQualifiedName() = testRenameOccurrences({
+    byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
+    byText("Main", "
+        'import FooSyntax;
+        'import ParseTree;
+        'void main() {
+        '   s = parse(#FooSyntax::S, \"s\");
+        '}
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "FooSyntax", newName = "syntax::Foo");
+
+test bool renameToEscapedQualifiedName() = testRenameOccurrences({
+    byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
+    byText("Main", "
+        'import FooSyntax;
+        'import ParseTree;
+        'void main() {
+        '   s = parse(#FooSyntax::S, \"s\");
+        '}
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "FooSyntax", newName = "\\syntax::Foo");
+
 @expected{illegalRename}
 test bool renameToUsedReservedName() = testRename("
     'int \\int = 0;
