@@ -300,7 +300,9 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
-        if (fileRenames.isEmpty()) return InterruptibleFuture.completedFuture(null);
+        if (fileRenames.isEmpty()) {
+            return InterruptibleFuture.completedFuture(null);
+        }
 
         final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
         return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
