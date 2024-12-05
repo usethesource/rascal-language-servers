@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
@@ -36,13 +35,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -60,16 +61,15 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     private final IBaseTextDocumentService docService;
     private final ExecutorService ownExecuter;
-    private final ColumnMaps columns;
-
     private @MonotonicNonNull RascalLanguageServices rascalServices;
     private @MonotonicNonNull FileFacts facts;
+    private @MonotonicNonNull LanguageClient client;
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(documentService);
         this.ownExecuter = exec;
         this.docService = documentService;
-        this.columns = new ColumnMaps(docService::getContents);
+        new ColumnMaps(docService::getContents);
     }
 
     @Override
@@ -77,18 +77,19 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
 
-        capabilities.getWorkspace().getFileOperations().setWillRename(new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))));
+        capabilities.getWorkspace().getFileOperations().setDidRename(new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))));
     }
 
     @Override
     public void connect(LanguageClient client) {
         super.connect(client);
+        this.client = client;
         this.rascalServices = new RascalLanguageServices((RascalTextDocumentService) docService, this, (IBaseLanguageClient) client, ownExecuter);
         this.facts = ((RascalTextDocumentService) docService).getFileFacts();
     }
 
     @Override
-    public CompletableFuture<WorkspaceEdit> willRenameFiles(RenameFilesParams params) {
+    public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/willRenameFiles: {}", params.getFiles());
 
         Set<ISourceLocation> workspaceFolders = workspaceFolders()
@@ -96,8 +97,17 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        return rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig)
-            .thenApply(t -> DocumentChanges.translateDocumentChanges(docService, t))
-            .get();
+        try {
+            rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
+                .thenApply(edits -> DocumentChanges.translateDocumentChanges(docService, edits))
+                .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
+                .thenAccept(editResponse -> {
+                    if (!editResponse.isApplied()) {
+                        throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
+                    }
+                }).join();
+        } catch (RuntimeException e) {
+            client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
+        }
     }
 }

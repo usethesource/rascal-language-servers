@@ -303,30 +303,14 @@ public class RascalLanguageServices {
         if (fileRenames.isEmpty()) return InterruptibleFuture.completedFuture(null);
 
         final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
-
-        try {
-            return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
-                IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+        return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+            IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+            try {
                 return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
-            }, VF.tuple(VF.list(), VF.map()), exec, false, client);
-        } catch (Throw e) {
-            if (e.getException() instanceof IConstructor) {
-                var exception = (IConstructor)e.getException();
-                if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
-                    // instead of the generic exception handler, we deal with these ourselfs
-                    // and report an LSP error, such that the IDE shows them in a user friendly way
-                    String message;
-                    if (exception.has("message")) {
-                        message = ((IString)exception.get("message")).getValue();
-                    }
-                    else {
-                        message = "Rename failed: " + exception.getName();
-                    }
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, message, null));
-                }
+            } catch (Throw e) {
+                throw new RuntimeException(e.getMessage());
             }
-            throw e;
-        }
+        }, VF.tuple(VF.list(), VF.map()), exec, false, client);
     }
 
 
