@@ -68,7 +68,11 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -84,6 +88,7 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -92,7 +97,10 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -114,7 +122,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -142,7 +149,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return columns.get(file);
     }
 
-    private String getContents(ISourceLocation file) {
+    @Override
+    public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = documents.get(file);
         if (ideState != null) {
@@ -158,6 +166,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
+    Set<ISourceLocation> getFolderContents(ISourceLocation folder) {
+        return documents.keySet()
+            .stream()
+            .filter(file -> URIUtil.isParentOf(folder, file))
+            .collect(Collectors.toSet());
+    }
+
     public void initializeServerCapabilities(ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
@@ -166,9 +181,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
-        result.setRenameProvider(true);
+        result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RascalWorkspaceService.RASCAL_COMMAND)));
     }
 
     @Override
@@ -286,6 +301,50 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(PrepareRenameParams params) {
+        logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
+        TextDocumentState file = getFile(params.getTextDocument());
+
+        return file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
+            .thenApply(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+
+                // Find all trees containing the cursor, in ascending order of size
+                IList focusList = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                List<String> sortNames = focusList.stream().map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree))).collect(Collectors.toList());
+
+                int qNameIdx = sortNames.indexOf("QualifiedName");
+                if (qNameIdx != -1) {
+                    // Cursor is at a qualified name
+                    ITree qualifiedName = (ITree) focusList.get(qNameIdx);
+
+                    // If the qualified name is in a header, but not in module parameters or a syntax defintion, it is a full module path
+                    if (sortNames.contains("Header") && !(sortNames.contains("ModuleParameters") || sortNames.contains("SyntaxDefinition"))) {
+                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation(qualifiedName)));
+                    }
+
+                    // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
+                    IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));
+
+                    // Even if the cursor is on the module prefix, we steer towards renaming the declaration
+                    return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) names.get(names.size() - 1))));
+                }
+
+                switch (sortNames.get(0)) {
+                    case "Name": // intentional fall-through
+                    case "Nonterminal": // intentional fall-through
+                    case "NonterminalLabel": {
+                        // Return name location
+                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) focusList.get(0))));
+                    }
+                    default: return null;
+                }
+            });
+    }
+
+    @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.debug("textDocument/rename: {} at {} to {}", params.getTextDocument(), params.getPosition(), params.getNewName());
 
@@ -299,12 +358,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
             .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
-            .thenApply(t -> {
-                WorkspaceEdit wsEdit = new WorkspaceEdit();
-                wsEdit.setDocumentChanges(DocumentChanges.translateDocumentChanges(this, (IList) t.get(0)));
-                wsEdit.setChangeAnnotations(DocumentChanges.translateChangeAnnotations((IMap) t.get(1)));
-                return wsEdit;
-            });
+            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
 
     @Override
@@ -350,7 +404,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return getFile(Locations.toLoc(doc));
     }
 
-    private TextDocumentState getFile(ISourceLocation loc) {
+    protected TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = documents.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
@@ -458,7 +512,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return CodeActions.mergeAndConvertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
+        return CodeActions.mergeAndConvertCodeActions(this, "", RascalWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
@@ -487,5 +541,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     logger.error("Operation failed with", e);
                     return defaultValue.get();
                 });
+    }
+
+    public @MonotonicNonNull FileFacts getFileFacts() {
+        return facts;
     }
 }

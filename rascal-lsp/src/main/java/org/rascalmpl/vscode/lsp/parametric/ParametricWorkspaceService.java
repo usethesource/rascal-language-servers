@@ -24,23 +24,13 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.rascal;
+package org.rascalmpl.vscode.lsp.parametric;
 
-import java.util.concurrent.Executors;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-
-public class RascalLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        try {
-            var threadPool = Executors.newCachedThreadPool();
-            startLanguageServer(threadPool, RascalTextDocumentService::new, (docService) -> new RascalWorkspaceService(threadPool, docService), 8888);
-        }
-        catch (Throwable e) {
-            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal(e.getMessage(), e);
-        }
+public class ParametricWorkspaceService extends BaseWorkspaceService {
+    ParametricWorkspaceService(IBaseTextDocumentService docService) {
+        super(docService);
     }
 }
