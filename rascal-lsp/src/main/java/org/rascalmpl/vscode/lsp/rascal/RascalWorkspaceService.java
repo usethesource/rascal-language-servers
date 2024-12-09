@@ -52,7 +52,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -68,7 +67,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(exec, documentService);
         this.docService = documentService;
-        new ColumnMaps(docService::getContents);
     }
 
     @Override
