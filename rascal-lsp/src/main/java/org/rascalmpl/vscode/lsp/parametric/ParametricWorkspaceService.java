@@ -26,11 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.util.concurrent.ExecutorService;
+
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
 public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(IBaseTextDocumentService docService) {
-        super(docService);
+    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
+        super(exec, docService);
     }
 }
