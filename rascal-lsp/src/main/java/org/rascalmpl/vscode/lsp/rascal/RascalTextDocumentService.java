@@ -316,7 +316,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
                 // Find all trees containing the cursor, in ascending order of size
                 IList focusList = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
-                List<String> sortNames = focusList.stream().map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree))).collect(Collectors.toList());
+                List<String> sortNames = focusList.stream()
+                    .map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree)))
+                    .collect(Collectors.toList());
 
                 int qNameIdx = sortNames.indexOf("QualifiedName");
                 if (qNameIdx != -1) {
