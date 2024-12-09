@@ -169,13 +169,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
-    Set<ISourceLocation> getFolderContents(ISourceLocation folder) {
-        return documents.keySet()
-            .stream()
-            .filter(file -> URIUtil.isParentOf(folder, file))
-            .collect(Collectors.toSet());
-    }
-
     public void initializeServerCapabilities(ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
