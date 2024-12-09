@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
@@ -67,11 +68,14 @@ import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -387,6 +391,24 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             );
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+        logger.debug("workspace/willRenameFiles: {}", params.getFiles());
+
+        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
+            .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
+            .thenAccept(editResponse -> {
+                if (!editResponse.isApplied()) {
+                    throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
+                }
+            })
+            .exceptionally(e -> {
+                client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
+                return null;
+            });
     }
 
     // Private utility methods

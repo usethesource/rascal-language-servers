@@ -26,7 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
@@ -45,4 +48,6 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     String getContents(ISourceLocation file);
+
+    default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
 }

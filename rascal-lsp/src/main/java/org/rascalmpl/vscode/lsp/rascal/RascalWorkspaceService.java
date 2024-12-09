@@ -35,23 +35,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
-import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -60,8 +54,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final Logger logger = LogManager.getLogger(RascalWorkspaceService.class);
 
     private final IBaseTextDocumentService docService;
-    private @MonotonicNonNull RascalLanguageServices rascalServices;
-    private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull LanguageClient client;
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
@@ -86,8 +78,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     public void connect(LanguageClient client) {
         super.connect(client);
         this.client = client;
-        this.rascalServices = new RascalLanguageServices((RascalTextDocumentService) docService, this, (IBaseLanguageClient) client, getExecuter());
-        this.facts = ((RascalTextDocumentService) docService).getFileFacts();
     }
 
     @Override
@@ -99,17 +89,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
-            .thenApply(edits -> DocumentChanges.translateDocumentChanges(docService, edits))
-            .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
-            .thenAccept(editResponse -> {
-                if (!editResponse.isApplied()) {
-                    throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
-                }
-            })
-            .exceptionally(e -> {
-                client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
-                return null;
-            });
+        ((RascalTextDocumentService) docService).didRenameFiles(params, workspaceFolders);
     }
 }
