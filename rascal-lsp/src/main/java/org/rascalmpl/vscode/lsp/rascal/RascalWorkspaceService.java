@@ -40,6 +40,7 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.RenameFilesParams;
@@ -75,7 +76,12 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
 
-        capabilities.getWorkspace().getFileOperations().setDidRename(new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))));
+        var fileCap = new FileOperationsServerCapabilities();
+        fileCap.setDidRename(new FileOperationOptions(
+            List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))
+        ));
+
+        capabilities.getWorkspace().setFileOperations(fileCap);
     }
 
     @Override
