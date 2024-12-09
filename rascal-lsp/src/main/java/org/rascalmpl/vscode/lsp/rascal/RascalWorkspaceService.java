@@ -60,14 +60,12 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final Logger logger = LogManager.getLogger(RascalWorkspaceService.class);
 
     private final IBaseTextDocumentService docService;
-    private final ExecutorService ownExecuter;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
     private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull LanguageClient client;
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(documentService);
-        this.ownExecuter = exec;
+        super(exec, documentService);
         this.docService = documentService;
         new ColumnMaps(docService::getContents);
     }
@@ -84,7 +82,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     public void connect(LanguageClient client) {
         super.connect(client);
         this.client = client;
-        this.rascalServices = new RascalLanguageServices((RascalTextDocumentService) docService, this, (IBaseLanguageClient) client, ownExecuter);
+        this.rascalServices = new RascalLanguageServices((RascalTextDocumentService) docService, this, (IBaseLanguageClient) client, getExecuter());
         this.facts = ((RascalTextDocumentService) docService).getFileFacts();
     }
 

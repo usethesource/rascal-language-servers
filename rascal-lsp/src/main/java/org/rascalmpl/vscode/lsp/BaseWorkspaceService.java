@@ -30,6 +30,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+
 import com.google.gson.JsonPrimitive;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -51,12 +53,15 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 
+    private final ExecutorService ownExecuter;
+
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    protected BaseWorkspaceService(IBaseTextDocumentService documentService) {
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         this.documentService = documentService;
+        this.ownExecuter = exec;
     }
 
 
@@ -122,6 +127,9 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     }
 
 
+    protected final ExecutorService getExecuter() {
+        return ownExecuter;
+    }
 
 
 }

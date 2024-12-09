@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
@@ -151,11 +152,11 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
         var docService = docServiceProvider.apply(threadPool);
-        var wsService = workspaceServiceProvider.apply(docService);
+        var wsService = workspaceServiceProvider.apply(threadPool, docService);
         docService.pair(wsService);
 
         if (DEPLOY_MODE) {
