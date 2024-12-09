@@ -244,7 +244,7 @@ public class RascalLanguageServices {
         try {
             return URIUtil.createFromURI(uri);
         } catch (URISyntaxException e) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
+            throw new RuntimeException(e);
         }
     }
 

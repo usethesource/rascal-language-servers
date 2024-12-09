@@ -101,17 +101,17 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        try {
-            rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
-                .thenApply(edits -> DocumentChanges.translateDocumentChanges(docService, edits))
-                .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
-                .thenAccept(editResponse -> {
-                    if (!editResponse.isApplied()) {
-                        throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
-                    }
-                }).join();
-        } catch (RuntimeException e) {
-            client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
-        }
+        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(docService, edits))
+            .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
+            .thenAccept(editResponse -> {
+                if (!editResponse.isApplied()) {
+                    throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
+                }
+            })
+            .exceptionally(e -> {
+                client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
+                return null;
+            });
     }
 }
