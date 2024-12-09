@@ -260,42 +260,39 @@ public class RascalLanguageServices {
             .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
             .collect(Collectors.toList());
 
-        Set<ITuple> nameMapping = renames.stream()
-            .map(rename -> {
-                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
-                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
-
-                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
-                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                        String.format("Cannot move %s, since that location is outside the current workspace", currentLoc), null)));
-
-                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
-                    .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                        String.format("Cannot move file to %s, since that location is outside the current workspace", newLoc), null)));
-
-                if (!currentWsFolder.equals(newWsFolder)) {
-                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
-                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
-                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
-
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed,
-                        String.format("Moving files between projects (from %s to %s) is not supported", currentProject, newProject), null));
-                }
-
-                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
-                try {
-                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
-                    IString newName = VF.string(pcfg.getModuleName(newLoc));
-
-                    return VF.tuple(currentName, newName, addResources(pcfg));
-                } catch (IOException e) {
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
-                }
-            })
-            .collect(Collectors.toSet());
-
         var writer = VF.setWriter();
-        writer.insertAll(nameMapping);
+        for (var rename : renames) {
+            ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
+            ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
+
+            ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
+                .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
+                    String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc), null)));
+
+            ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
+                .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
+                    String.format("Cannot automatically change uses of %s, since that it is outside the current workspace.", newLoc), null)));
+
+            if (!currentWsFolder.equals(newWsFolder)) {
+                String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
+                String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
+                String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
+
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed,
+                    String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject), null));
+            }
+
+            PathConfig pcfg = getPathConfig.apply(currentWsFolder);
+            try {
+                IString currentName = VF.string(pcfg.getModuleName(currentLoc));
+                IString newName = VF.string(pcfg.getModuleName(newLoc));
+
+                writer.insert(VF.tuple(currentName, newName, addResources(pcfg)));
+            } catch (IOException e) {
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
+            }
+        }
+
         return writer.done();
     }
 
