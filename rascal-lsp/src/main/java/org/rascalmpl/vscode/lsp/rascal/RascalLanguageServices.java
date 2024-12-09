@@ -300,8 +300,9 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+        var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
-            return InterruptibleFuture.completedFuture(null);
+            return InterruptibleFuture.completedFuture(emptyResult);
         }
 
         final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
@@ -312,7 +313,7 @@ public class RascalLanguageServices {
             } catch (Throw e) {
                 throw new RuntimeException(e.getMessage());
             }
-        }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+        }, emptyResult, exec, false, client);
     }
 
 

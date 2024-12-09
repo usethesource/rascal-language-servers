@@ -35,6 +35,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -47,7 +48,6 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void unregisterLanguage(LanguageParameter lang);
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
-    String getContents(ISourceLocation file);
 
     default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
 }

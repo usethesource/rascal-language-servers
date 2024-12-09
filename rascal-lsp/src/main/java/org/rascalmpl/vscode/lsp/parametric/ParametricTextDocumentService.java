@@ -167,7 +167,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return columns.get(file);
     }
 
-    @Override
     public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = files.get(file);
