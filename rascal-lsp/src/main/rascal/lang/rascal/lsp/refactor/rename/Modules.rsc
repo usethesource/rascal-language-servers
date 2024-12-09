@@ -47,7 +47,7 @@ private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {
     if (size(names) <= 1) return <"", |unknown:///|>;
 
     str fullName = "<qn>";
-    str namePrefix = substring(fullName, 0, findLast(fullName, "::"));
+    str namePrefix = fullName[..findLast(fullName, "::")];
     loc prefixLoc = cover([n.src | Name n <- prefix(names)]);
 
     return <namePrefix, prefixLoc>;

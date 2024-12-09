@@ -131,8 +131,5 @@ bool(&T, &T) desc(bool(&T, &T) f) {
     };
 }
 
-set[&T] flatMap(set[&S] ss, set[&T](&S) f) =
-    {*ts | &S s <- ss, set[&T] ts := f(s)};
-
-list[&T] flatMap(list[&S] ss, list[&T](&S) f) =
-    [*ts | &S s <- ss, list[&T] ts := f(s)];
+set[&T] flatMap(set[&S] ss, set[&T](&S) f) = ({} | it + f(s) | s <- ss);
+list[&T] flatMap(list[&S] ss, list[&T](&S) f) = ([] | it + f(s) | s <- ss);
