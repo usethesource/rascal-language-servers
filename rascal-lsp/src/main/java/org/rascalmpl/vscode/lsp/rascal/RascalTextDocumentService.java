@@ -153,7 +153,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return columns.get(file);
     }
 
-    @Override
     public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = documents.get(file);
