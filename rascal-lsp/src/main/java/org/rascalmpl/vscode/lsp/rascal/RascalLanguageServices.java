@@ -271,20 +271,17 @@ public class RascalLanguageServices {
             ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
 
             ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
-                .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                    String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc), null)));
+                .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc)));
 
             ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
-                .orElseThrow(() -> new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams,
-                    String.format("Cannot automatically change uses of %s, since that it is outside the current workspace.", newLoc), null)));
+                .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since that it is outside the current workspace.", newLoc)));
 
             if (!currentWsFolder.equals(newWsFolder)) {
                 String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
                 String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
                 String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
 
-                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed,
-                    String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject), null));
+                throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
             }
 
             PathConfig pcfg = getPathConfig.apply(currentWsFolder);
@@ -294,7 +291,7 @@ public class RascalLanguageServices {
 
                 writer.insert(VF.tuple(currentName, newName, addResources(pcfg)));
             } catch (IOException e) {
-                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, e.getMessage(), null));
+                throw new RuntimeException(e);
             }
         }
 
