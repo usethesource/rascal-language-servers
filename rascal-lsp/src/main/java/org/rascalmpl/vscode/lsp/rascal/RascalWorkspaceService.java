@@ -82,7 +82,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
-        logger.debug("workspace/willRenameFiles: {}", params.getFiles());
+        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
         Set<ISourceLocation> workspaceFolders = workspaceFolders()
             .stream()
