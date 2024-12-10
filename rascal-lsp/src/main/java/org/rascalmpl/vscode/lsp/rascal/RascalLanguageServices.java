@@ -30,6 +30,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -58,6 +60,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
@@ -66,8 +69,10 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -296,17 +301,53 @@ public class RascalLanguageServices {
         return writer.done();
     }
 
-    public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+    private static String readFile(ISourceLocation loc, String charset) throws IOException {
+        URIResolverRegistry reg = URIResolverRegistry.getInstance();
+        try (Reader reader = reg.getCharacterReader(loc, charset)) {
+            StringBuilder res = new StringBuilder();
+            char[] chunk = new char[8192]; // from Prelude.java
+            int read;
+            while ((read = reader.read(chunk, 0, chunk.length)) != -1) {
+                res.append(chunk, 0, read);
+            }
+            return res.toString();
+        }
+    }
+
+    private CompletableFuture<ITree> getEditorTreeOrParse(ISourceLocation loc, Map<ISourceLocation, TextDocumentState> documents) throws IOException {
+        if(documents.containsKey(loc)) {
+            var file = documents.get(loc);
+            return file.getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
+                ;
+        }
+
+        var input = readFile(loc, "UTF-8");
+        return parseSourceFile(loc, input);
+    }
+
+    public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
             return InterruptibleFuture.completedFuture(emptyResult);
         }
 
         final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
+
         return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
             IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+            final var treeType = tf.abstractDataType(store, "Tree");
+            IFunction rascalGetModuleTree = eval.getFunctionValueFactory().function(tf.functionType(treeType, tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty()), (args, kwArgs) -> {
+                var loc = (ISourceLocation) args[0];
+                try {
+                    return getEditorTreeOrParse(loc, documents).get();
+                } catch (ExecutionException | InterruptedException | IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             try {
-                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
+                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig, rascalGetModuleTree);
             } catch (Throw e) {
                 throw new RuntimeException(e.getMessage());
             }

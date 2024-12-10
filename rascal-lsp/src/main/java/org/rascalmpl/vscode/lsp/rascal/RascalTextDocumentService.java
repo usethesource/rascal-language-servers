@@ -391,7 +391,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
         logger.debug("workspace/willRenameFiles: {}", params.getFiles());
 
-        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig).get()
+        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents).get()
             .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
             .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
             .thenAccept(editResponse -> {

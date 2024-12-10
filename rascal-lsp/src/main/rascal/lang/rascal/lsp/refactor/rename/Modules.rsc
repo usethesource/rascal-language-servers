@@ -57,10 +57,10 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
     toProject == fromProject           // Both configs belong to the same project
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
-list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
+list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, Tree(loc) getModuleTree) {
     list[TextEdit] changes = [];
 
-    start[Module] m = parseModuleWithSpacesCached(f);
+    Tree m = getModuleTree(f);
     for (/QualifiedName qn := m) {
         for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
            , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
@@ -73,7 +73,7 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newN
     return changes;
 }
 
-Edits propagateModuleRenames(rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+Edits propagateModuleRenames(rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, set[loc] workspaceFolders, PathConfig(loc) getPathConfig, Tree(loc) getModuleTree) {
     set[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
     set[DocumentEdit] edits = flatMap(workspaceFolders, set[DocumentEdit](loc wsFolder) {
         PathConfig wsFolderPcfg = getPathConfig(wsFolder);
@@ -83,7 +83,7 @@ Edits propagateModuleRenames(rel[str oldName, str newName, PathConfig pcfg] qual
 
         return {changed(file, changes)
             | loc file <- find(wsFolder, "rsc")
-            , changes := getChanges(file, wsFolderPcfg, qualifiedNameChanges)
+            , changes := getChanges(file, wsFolderPcfg, qualifiedNameChanges, getModuleTree)
             , changes != []
         };
     });
