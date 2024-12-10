@@ -339,8 +339,11 @@ public class RascalLanguageServices {
                 var loc = (ISourceLocation) args[0];
                 try {
                     return getEditorTreeOrParse(loc, documents).get();
-                } catch (ExecutionException | InterruptedException | IOException e) {
+                } catch (ExecutionException | IOException e) {
                     throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(String.format("Thread %d was interrupted", Thread.currentThread().getId()));
                 }
             });
             try {
