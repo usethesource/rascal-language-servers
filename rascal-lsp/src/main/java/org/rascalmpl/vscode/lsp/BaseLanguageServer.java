@@ -155,17 +155,19 @@ public abstract class BaseLanguageServer {
     public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
 
-        var docService = docServiceProvider.apply(threadPool);
-        var wsService = workspaceServiceProvider.apply(threadPool, docService);
-        docService.pair(wsService);
-
         if (DEPLOY_MODE) {
+            var docService = docServiceProvider.apply(threadPool);
+            var wsService = workspaceServiceProvider.apply(threadPool, docService);
+            docService.pair(wsService);
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), docService, wsService)));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
+                    var docService = docServiceProvider.apply(threadPool);
+                    var wsService = workspaceServiceProvider.apply(threadPool, docService);
+                    docService.pair(wsService);
                     startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, docService, wsService)));
                 }
             } catch (IOException e) {
