@@ -317,8 +317,8 @@ public class RascalLanguageServices {
                 ;
         }
 
-        var input = readFile(loc);
-        return parseSourceFile(loc, input);
+        return CompletableFuture.supplyAsync(() -> readFile(loc), exec)
+            .thenCompose(input -> parseSourceFile(loc, input));
     }
 
     public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
@@ -326,8 +326,6 @@ public class RascalLanguageServices {
         if (fileRenames.isEmpty()) {
             return InterruptibleFuture.completedFuture(emptyResult);
         }
-
-        final ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
 
         return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
             IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
@@ -343,6 +341,8 @@ public class RascalLanguageServices {
                     throw new RuntimeException(String.format("Thread %d was interrupted", Thread.currentThread().getId()));
                 }
             });
+
+            ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
             try {
                 return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig, rascalGetModuleTree);
             } catch (Throw e) {

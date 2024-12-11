@@ -101,7 +101,6 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -400,7 +399,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
             })
             .exceptionally(e -> {
-                client.showMessage(new MessageParams(MessageType.Error, e.getMessage()));
+                client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
                 return null;
             });
     }
