@@ -73,69 +73,45 @@ alias RenameLocation = tuple[loc l, Maybe[ChangeAnnotationId] annotation];
 alias DefsUsesRenames = tuple[set[RenameLocation] defs, set[RenameLocation] uses, FileRenamesF renames];
 alias ProjectFiles = rel[loc projectFolder, loc file, bool loadModel];
 
-/**
- * This is a subset of the fields from analysis::typepal::TModel, specifically tailored to refactorings.
- * WorkspaceInfo comes with a set of functions that allow (incrementally) loading information from multiple TModels, and doing (cached) queries on this data.
- */
-data WorkspaceInfo (
-    // Instance fields
-    // Read-only
-    rel[loc use, loc def] useDef = {},
-    set[Define] defines = {},
-    set[loc] sourceFiles = {},
-    map[loc, Define] definitions = (),
-    map[loc, AType] facts = (),
-    Scopes scopes = (),
-    Paths paths = {},
-    set[loc] projects = {}
-) = workspaceInfo(
-    PathConfig(loc) getPathConfig,
-    ProjectFiles() preloadFiles,
-    ProjectFiles() allFiles,
-    set[TModel](ProjectFiles) tmodelsForLocs
+// Extend the TModel to include some workspace information.
+data TModel (
+    set[loc] projects = {},
+    set[loc] sourceFiles = {}
 );
 
 set[RenameLocation] annotateLocs(set[loc] locs, Maybe[ChangeAnnotationId] annotationId = nothing()) = {<l, annotationId> | l <- locs};
 
-WorkspaceInfo loadLocs(WorkspaceInfo ws, ProjectFiles projectFiles) {
-    for (tm <- ws.tmodelsForLocs(projectFiles)) {
-        ws = loadTModel(ws, tm);
+TModel loadLocs(TModel tm, ProjectFiles projectFiles, set[TModel](ProjectFiles projectFiles) tmodelsForFiles) {
+    for (modTM <- tmodelsForFiles(projectFiles)) {
+        wsTM = loadTModel(wsTM, modTM);
     }
 
     // In addition to data from the TModel, we keep track of which projects/modules we loaded.
-    ws.sourceFiles += projectFiles.file;
-    ws.projects += projectFiles.projectFolder;
+    wsTM.sourceFiles += projectFiles.file;
+    wsTM.projects += projectFiles.projectFolder;
 
-    return ws;
+    return wsTM;
 }
 
-WorkspaceInfo preLoad(WorkspaceInfo ws) {
-    return loadLocs(ws, ws.preloadFiles());
-}
-
-WorkspaceInfo loadWorkspace(WorkspaceInfo ws) {
-    return loadLocs(ws, ws.allFiles());
-}
-
-WorkspaceInfo loadTModel(WorkspaceInfo ws, TModel tm) {
+TModel loadTModel(TModel wsTM, TModel modTM) {
     try {
-        throwAnyErrors(tm);
+        throwAnyErrors(modTM);
     } catch set[Message] errors: {
         throw unsupportedRename("Cannot rename: some files in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
     }
 
-    ws.useDef      += tm.useDef;
-    ws.defines     += tm.defines;
-    ws.definitions += tm.definitions;
-    ws.facts       += tm.facts;
-    ws.scopes      += tm.scopes;
-    ws.paths       += tm.paths;
+    wsTM.useDef      += modTM.useDef;
+    wsTM.defines     += modTM.defines;
+    wsTM.definitions += modTM.definitions;
+    wsTM.facts       += modTM.facts;
+    wsTM.scopes      += modTM.scopes;
+    wsTM.paths       += modTM.paths;
 
-    return ws;
+    return wsTM;
 }
 
-loc getProjectFolder(WorkspaceInfo ws, loc l) {
-    if (project <- ws.projects, isPrefixOf(project, l)) {
+loc getProjectFolder(TModel tm, loc l) {
+    if (project <- tm.projects, isPrefixOf(project, l)) {
         return project;
     }
 
@@ -143,30 +119,30 @@ loc getProjectFolder(WorkspaceInfo ws, loc l) {
 }
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc, loc] defUse(WorkspaceInfo ws) = invert(ws.useDef);
+rel[loc, loc] defUse(TModel tm) = invert(tm.useDef);
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-map[AType, set[loc]] factsInvert(WorkspaceInfo ws) = invert(ws.facts);
+map[AType, set[loc]] factsInvert(TModel tm) = invert(tm.facts);
 
-set[loc] getUses(WorkspaceInfo ws, loc def) = defUse(ws)[def];
+set[loc] getUses(TModel tm, loc def) = defUse(tm)[def];
 
-set[loc] getUses(WorkspaceInfo ws, set[loc] defs) = defUse(ws)[defs];
+set[loc] getUses(TModel tm, set[loc] defs) = defUse(tm)[defs];
 
-set[loc] getDefs(WorkspaceInfo ws, loc use) = ws.useDef[use];
+set[loc] getDefs(TModel tm, loc use) = tm.useDef[use];
 
-Maybe[AType] getFact(WorkspaceInfo ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-set[loc] getModuleScopes(WorkspaceInfo ws) = invert(ws.scopes)[|global-scope:///|];
+Maybe[AType] getFact(TModel tm, loc l) = l in tm.facts ? just(tm.facts[l]) : nothing();
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-map[loc, loc] getModuleScopePerFile(WorkspaceInfo ws) = (scope.top: scope | loc scope <- getModuleScopes(ws));
+set[loc] getModuleScopes(TModel tm) = invert(tm.scopes)[|global-scope:///|];
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) {
-    rel[loc from, loc to] moduleI = ident(getModuleScopes(ws));
-    rel[loc from, loc to] imports = (ws.paths<pathRole, from, to>)[importPath()];
-    rel[loc from, loc to] extends = (ws.paths<pathRole, from, to>)[extendPath()];
+map[loc, loc] getModuleScopePerFile(TModel tm) = (scope.top: scope | loc scope <- getModuleScopes(tm));
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(TModel tm) {
+    rel[loc from, loc to] moduleI = ident(getModuleScopes(tm));
+    rel[loc from, loc to] imports = (tm.paths<pathRole, from, to>)[importPath()];
+    rel[loc from, loc to] extends = (tm.paths<pathRole, from, to>)[extendPath()];
 
     return (moduleI + imports)  // 0 or 1 imports
          o (moduleI + extends+) // 0 or more extends
@@ -174,90 +150,90 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(WorkspaceInfo ws) 
 }
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(WorkspaceInfo ws) = toRel(ws.scopes)*;
+rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(TModel tm) = toRel(tm.scopes)*;
 
 @memo{maximumSize(10), expireAfter(minutes=5)}
-set[loc] rascalReachableModules(WorkspaceInfo ws, set[loc] froms) {
+set[loc] rascalReachableModules(TModel tm, set[loc] froms) {
     rel[loc from, loc scope] fromScopes = {};
     for (from <- froms) {
-        if (scope <- ws.scopes<1>, isContainedIn(from, scope)) {
+        if (scope <- tm.scopes<1>, isContainedIn(from, scope)) {
             fromScopes += <from, scope>;
         }
     }
     rel[loc from, loc modScope] reachable =
         fromScopes
-      o rascalGetTransitiveReflexiveScopes(ws)
-      o rascalGetTransitiveReflexiveModulePaths(ws);
+      o rascalGetTransitiveReflexiveScopes(tm)
+      o rascalGetTransitiveReflexiveModulePaths(tm);
 
     return {s.top | s <- reachable.modScope};
 }
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc, Define] definitionsRel(WorkspaceInfo ws) = toRel(ws.definitions);
+rel[loc, Define] definitionsRel(TModel tm) = toRel(tm.definitions);
 
-set[Define] rascalReachableDefs(WorkspaceInfo ws, set[loc] defs) {
-    rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
-    rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
+set[Define] rascalReachableDefs(TModel tm, set[loc] defs) {
+    rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(tm);
+    rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(tm);
     rel[loc from, Define define] reachableDefs =
-        ((ws.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
-        + (ws.defines<scope, defined, scope>)[defs])
+        ((tm.defines<defined, defined, scope>)[defs]             // <definition, scope> pairs
+        + (tm.defines<scope, defined, scope>)[defs])
       o (
          (scopes                                                // All scopes surrounding defs
         o modulePaths                                           // Transitive-reflexive paths from scope to reachable modules
         ) + (                                                   // In ADT and syntax definitions, search inwards to find field scopes
-            (ws.defines<idRole, scope, defined>)[{dataId(), nonterminalId(), lexicalId()}]
-          + ws.defines<scope, scope>
+            (tm.defines<idRole, scope, defined>)[{dataId(), nonterminalId(), lexicalId()}]
+          + tm.defines<scope, scope>
         )
       )
-      o ws.defines<scope, defined>                              // Definitions in these scopes
-      o definitionsRel(ws);                                     // Full define tuples
+      o tm.defines<scope, defined>                              // Definitions in these scopes
+      o definitionsRel(tm);                                     // Full define tuples
     return reachableDefs.define;                                // We are only interested in reached defines; not *from where* they were reached
 }
 
-set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun mayOverloadF) {
+set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs, MayOverloadFun mayOverloadF) {
     if (defs == {}) return {};
 
-    set[Define] overloadedDefs = definitionsRel(ws)[defs];
+    set[Define] overloadedDefs = definitionsRel(tm)[defs];
     set[IdRole] roles = overloadedDefs.idRole;
 
     // Pre-conditions
     assert size(roles) == 1:
         "Initial defs are of different roles!";
-    assert mayOverloadF(defs, ws.definitions):
+    assert mayOverloadF(defs, tm.definitions):
         "Initial defs are invalid overloads!";
 
     IdRole role = getFirstFrom(roles);
-    map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(ws);
-    rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- ws.useDef};
-    rel[loc fromScope, loc toScope] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
+    map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(tm);
+    rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- tm.useDef};
+    rel[loc fromScope, loc toScope] modulePaths = rascalGetTransitiveReflexiveModulePaths(tm);
 
     rel[loc def, loc moduleScope] defPathStep =
-        (ws.defines<defined, scope>+ + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
+        (tm.defines<defined, scope>+ + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
         o (modulePaths + invert(modulePaths))        // 2. Follow import/extend relations to reachable scopes
         ;
 
     rel[loc fromDef, loc toDef] defPaths = {};
-    set[loc] reachableDefs = rascalReachableDefs(ws, overloadedDefs.defined).defined;
+    set[loc] reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
 
     solve(overloadedDefs) {
         if (constructorId() := role) {
             set[AType] adtTypes = {adtType | defType(acons(AType adtType, _, _)) <- overloadedDefs.defInfo};
             set[loc] initialADTs = {
                 adtDef
-                | Define _: <_, _, _, dataId(), loc adtDef, defType(AType adtType)> <- rascalReachableDefs(ws, overloadedDefs.defined)
+                | Define _: <_, _, _, dataId(), loc adtDef, defType(AType adtType)> <- rascalReachableDefs(tm, overloadedDefs.defined)
                 , adtType in adtTypes
             };
-            set[loc] selectedADTs = rascalGetOverloadedDefs(ws, initialADTs, mayOverloadF);
+            set[loc] selectedADTs = rascalGetOverloadedDefs(tm, initialADTs, mayOverloadF);
 
             // Any constructor definition of the right type where any `selectedADTs` element is in the reachable defs
             rel[loc scope, loc def] selectedConstructors = {<s, d>
-                | <s, d, defType(acons(AType adtType, _, _))> <- (ws.defines<idRole, scope, defined, defInfo>)[role]
+                | <s, d, defType(acons(AType adtType, _, _))> <- (tm.defines<idRole, scope, defined, defInfo>)[role]
                 , adtType in adtTypes
-                , any(<_, _, _, dataId(), loc r, _> <- rascalReachableDefs(ws, {d}), r in selectedADTs)
+                , any(<_, _, _, dataId(), loc r, _> <- rascalReachableDefs(tm, {d}), r in selectedADTs)
             };
 
             // We transitively resolve module scopes via modules that have a relevant constructor/ADTs use or definition
-            rel[loc scope, loc def] selectedDefs = selectedConstructors + (ws.defines<defined, scope, defined>)[selectedADTs];
+            rel[loc scope, loc def] selectedDefs = selectedConstructors + (tm.defines<defined, scope, defined>)[selectedADTs];
             rel[loc fromScope, loc toScope] constructorStep = (selectedDefs + invert(defUseScopes)) o defPathStep;
 
             defPathStep = defPathStep /* <def, scope> */
@@ -267,13 +243,13 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
         } else if (dataId() := role) {
             set[AType] adtTypes = {adtType | defType(AType adtType) <- overloadedDefs.defInfo};
             set[loc] constructorDefs = {d
-                | <defType(acons(AType adtType, _, _)), d> <- (rascalReachableDefs(ws, overloadedDefs.defined)<idRole, defInfo, defined>)[constructorId()]
+                | <defType(acons(AType adtType, _, _)), d> <- (rascalReachableDefs(tm, overloadedDefs.defined)<idRole, defInfo, defined>)[constructorId()]
                 , adtType in adtTypes
                 , any(dd <- overloadedDefs.defined, isStrictlyContainedIn(d, dd))
             };
 
-            set[Define] defsReachableFromOverloads = rascalReachableDefs(ws, overloadedDefs.defined + defUseScopes[overloadedDefs.defined]);
-            set[Define] defsReachableFromOverloadConstructors = rascalReachableDefs(ws, constructorDefs + defUseScopes[constructorDefs]);
+            set[Define] defsReachableFromOverloads = rascalReachableDefs(tm, overloadedDefs.defined + defUseScopes[overloadedDefs.defined]);
+            set[Define] defsReachableFromOverloadConstructors = rascalReachableDefs(tm, constructorDefs + defUseScopes[constructorDefs]);
 
             rel[loc scope, loc def] selectedADTs = {
                 <s, d>
@@ -287,21 +263,21 @@ set[loc] rascalGetOverloadedDefs(WorkspaceInfo ws, set[loc] defs, MayOverloadFun
             defPaths = defPathStep o selectedADTs;
         } else if (fieldId() := role) {
             // We are looking for fields for the same ADT type (but not necessarily same constructor type)
-            set[DefInfo] selectedADTTypes = (ws.defines<defined, defInfo>)[overloadedDefs.scope];
-            rel[loc, loc] selectedADTs = (ws.defines<defInfo, scope, defined>)[selectedADTTypes];
-            rel[loc, loc] selectedFields = selectedADTs o ws.defines<scope, defined>;
+            set[DefInfo] selectedADTTypes = (tm.defines<defined, defInfo>)[overloadedDefs.scope];
+            rel[loc, loc] selectedADTs = (tm.defines<defInfo, scope, defined>)[selectedADTTypes];
+            rel[loc, loc] selectedFields = selectedADTs o tm.defines<scope, defined>;
             defPaths = defPathStep o selectedFields;
         } else {
             // Find definitions in the reached scope, and definitions within those definitions (transitively)
-            defPaths = defPathStep o (ws.defines<idRole, scope, defined>)[role]+;
+            defPaths = defPathStep o (tm.defines<idRole, scope, defined>)[role]+;
         }
 
         set[loc] overloadCandidates = defPaths[overloadedDefs.defined];
-        overloadedDefs += {ws.definitions[d]
+        overloadedDefs += {tm.definitions[d]
             | loc d <- overloadCandidates
-            , mayOverloadF(overloadedDefs.defined + d, ws.definitions)
+            , mayOverloadF(overloadedDefs.defined + d, tm.definitions)
         };
-        reachableDefs = rascalReachableDefs(ws, overloadedDefs.defined).defined;
+        reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
     }
 
     return overloadedDefs.defined;
@@ -330,25 +306,25 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     return false;
 }
 
-set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
-    set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
+set[Define] rascalGetADTDefinitions(TModel tm, loc lhs) {
+    set[loc] fromDefs = (tm.definitions[lhs]? || lhs in tm.useDef<1>)
         ? {lhs}
-        : getDefs(ws, lhs)
+        : getDefs(tm, lhs)
         ;
 
-    if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
+    if ({AType lhsType} := toRel(tm.facts)[fromDefs]) {
         if (rascalIsConstructorType(lhsType)) {
             return {adt
-                | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-                , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+                | loc cD <- rascalGetOverloadedDefs(tm, fromDefs, rascalMayOverloadSameName)
+                , Define cons: <_, _, _, constructorId(), _, _> := tm.definitions[cD]
                 , AType consAdtType := cons.defInfo.atype.adt
-                , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
+                , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(tm, {cons.defined})
                 , rascalIsDataTypeLike(adt.idRole)
             };
         } else if (rascalIsDataType(lhsType)) {
             return {adt
-                | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-                , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
+                | set[loc] overloads := rascalGetOverloadedDefs(tm, fromDefs, rascalMayOverloadSameName)
+                , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(tm, overloads)
                 , rascalIsDataTypeLike(adt.idRole)
             };
         }
@@ -357,16 +333,16 @@ set[Define] rascalGetADTDefinitions(WorkspaceInfo ws, loc lhs) {
     return {};
 }
 
-set[RenameLocation] rascalGetKeywordFormalUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
+set[RenameLocation] rascalGetKeywordFormalUses(TModel tm, set[loc] defs, str cursorName) {
     set[RenameLocation] uses = {};
 
     for (d <- defs
-       , f <- ws.facts
+       , f <- tm.facts
        , isStrictlyContainedIn(d, f)
-       , afunc(retType, _, [*_, kwField(kwAType, cursorName, _), *_]) := ws.facts[f]
-       , funcName <- getUses(ws, f)
+       , afunc(retType, _, [*_, kwField(kwAType, cursorName, _), *_]) := tm.facts[f]
+       , funcName <- getUses(tm, f)
        ) {
-        loc funcCall = min({l | l <- factsInvert(ws)[retType], l.offset == funcName.offset});
+        loc funcCall = min({l | l <- factsInvert(tm)[retType], l.offset == funcName.offset});
         uses += {<name.src, nothing()> | /Name name := parseModuleWithSpacesCached(funcCall.top)
                           , isStrictlyContainedIn(name.src, funcCall)
                           , "<name>" == kwAType.alabel};
@@ -394,10 +370,10 @@ set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywor
     | kwArg <- keywordArgs
     , "<kwArg.name>" == cursorName};
 
-set[RenameLocation] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, str cursorName) {
-    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
+set[RenameLocation] rascalGetKeywordFieldUses(TModel tm, set[loc] defs, str cursorName) {
+    set[RenameLocation] uses = annotateLocs(getUses(tm, defs));
 
-    set[Define] reachableDefs = rascalReachableDefs(ws, defs);
+    set[Define] reachableDefs = rascalReachableDefs(tm, defs);
 
     for (d <- defs
        , Define dataDef <- reachableDefs
@@ -406,24 +382,24 @@ set[RenameLocation] rascalGetKeywordFieldUses(WorkspaceInfo ws, set[loc] defs, s
        , Define consDef: <_, _, _, constructorId(), _, _> <- reachableDefs
        , isStrictlyContainedIn(consDef.defined, dataDef.defined)
     ) {
-        if (AType fieldType := ws.definitions[d].defInfo.atype) {
-            set[loc] reachableModules = rascalReachableModules(ws, {d});
-            if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, reachableModules, dataDef.defInfo.atype, fieldType, cursorName)) {
+        if (AType fieldType := tm.definitions[d].defInfo.atype) {
+            set[loc] reachableModules = rascalReachableModules(tm, {d});
+            if (<{}, consUses, _> := rascalGetFieldDefsUses(tm, reachableModules, dataDef.defInfo.atype, fieldType, cursorName)) {
                 uses += consUses;
             }
         } else {
-            throw unsupportedRename("Unknown type for definition at <d>: <ws.definitions[d].defInfo>");
+            throw unsupportedRename("Unknown type for definition at <d>: <tm.definitions[d].defInfo>");
         }
     }
     return uses;
 }
 
-private set[RenameLocation] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs) {
-    constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := ws.definitions[l]};
+private set[RenameLocation] rascalGetExceptUses(TModel tm, set[loc] defs) {
+    constructorDefs = {d | l <- defs, Define d: <_, _, _, constructorId(), _, _> := tm.definitions[l]};
     if (constructorDefs == {}) return {};
 
     // We consider constructor definitions; we need to additionally find any uses at excepts (`!constructor``)
-    sortedFacts = [<l, ws.facts[l]> | l <- sort(domain(ws.facts), bool(loc l1, loc l2) {
+    sortedFacts = [<l, tm.facts[l]> | l <- sort(domain(tm.facts), bool(loc l1, loc l2) {
         // Sort facts by end location (ascending), then by length (ascending)
         return l1.end != l2.end ? l1.end < l2.end : l1.length < l2.length;
     })];
@@ -446,54 +422,54 @@ private set[RenameLocation] rascalGetExceptUses(WorkspaceInfo ws, set[loc] defs)
     return uses;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
-    set[loc] defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
-    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+    set[loc] defs = rascalGetOverloadedDefs(tm, getDefs(tm, l), mayOverloadF);
+    set[RenameLocation] uses = annotateLocs(getUses(tm, defs));
 
-    set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
+    set[IdRole] roles = {tm.definitions[d].idRole | d <- defs};
     if (keywordFormalId() in roles) {
-        uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
-        uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
-        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
+        uses += rascalGetKeywordFormalUses(tm, defs, cursorName);
+        uses += rascalGetKeywordFieldUses(tm, defs, cursorName);
+        uses += rascalGetHasUses(tm, defs, cursorName, registerChangeAnnotation, getPathConfig);
     } else if (constructorId() in roles) {
-        uses += rascalGetExceptUses(ws, defs);
+        uses += rascalGetExceptUses(tm, defs);
     }
 
     return <annotateLocs(defs), uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
-    set[loc] initialUses = getUses(ws, l);
-    set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
-    set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
-    set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+    set[loc] initialUses = getUses(tm, l);
+    set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(tm, u)};
+    set[loc] defs = rascalGetOverloadedDefs(tm, initialDefs, mayOverloadF);
+    set[RenameLocation] uses = annotateLocs(getUses(tm, defs));
 
-    set[IdRole] roles = {ws.definitions[d].idRole | d <- defs};
+    set[IdRole] roles = {tm.definitions[d].idRole | d <- defs};
     if (roles & {keywordFormalId(), fieldId()} != {}) {
-        uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
-        uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
-        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
+        uses += rascalGetKeywordFormalUses(tm, defs, cursorName);
+        uses += rascalGetKeywordFieldUses(tm, defs, cursorName);
+        uses += rascalGetHasUses(tm, defs, cursorName, registerChangeAnnotation, getPathConfig);
     } else if (constructorId() in roles) {
-        uses += rascalGetExceptUses(ws, defs);
+        uses += rascalGetExceptUses(tm, defs);
     }
 
     return <annotateLocs(defs), uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(exceptConstructor(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
-    if (f <- ws.facts
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(exceptConstructor(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+    if (f <- tm.facts
        , isContainedIn(l, f)
-       , aprod(prod(_, [*_, conditional(AType nontermType, /\a-except(cursorName)) ,*_])) := ws.facts[f]
-       , Define currentCons:<_, _, _, constructorId(), _, _> <- ws.defines
+       , aprod(prod(_, [*_, conditional(AType nontermType, /\a-except(cursorName)) ,*_])) := tm.facts[f]
+       , Define currentCons:<_, _, _, constructorId(), _, _> <- tm.defines
        , isContainedIn(currentCons.defined, f)
-       , Define exceptCons:<_, cursorName, _, constructorId(), _, defType(acons(nontermType, _, _))> <- rascalReachableDefs(ws, {currentCons.defined})) {
-        return rascalGetDefsUses(ws, cursor(def(), exceptCons.defined, cursorName), mayOverloadF, registerChangeAnnotation);
+       , Define exceptCons:<_, cursorName, _, constructorId(), _, defType(acons(nontermType, _, _))> <- rascalReachableDefs(tm, {currentCons.defined})) {
+        return rascalGetDefsUses(tm, cursor(def(), exceptCons.defined, cursorName), mayOverloadF, registerChangeAnnotation, getPathConfig);
     }
 
     return <{}, {}, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _) {
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) getPathConfig) {
     set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
     set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
         perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
@@ -509,16 +485,16 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
         aadt(_, /paramType, _) := dT;
     default bool definesTypeParam(Define _, AType _) = false;
 
-    AType cursorType = ws.facts[cursorLoc];
+    AType cursorType = tm.facts[cursorLoc];
 
     set[loc] defs = {};
     set[loc] useDefs = {};
-    for (Define containingDef <- ws.defines
+    for (Define containingDef <- tm.defines
      , isContainedIn(cursorLoc, containingDef.defined)
      , definesTypeParam(containingDef, cursorType)) {
         // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
-        facts = {<l, ws.facts[l]> | l <- ws.facts
-                                  , cursorType := ws.facts[l]
+        facts = {<l, tm.facts[l]> | l <- tm.facts
+                                  , cursorType := tm.facts[l]
                                   , isContainedIn(l, containingDef.defined)};
 
         formals = getFormals(containingDef.defInfo.atype, facts);
@@ -532,8 +508,8 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(typeParam(), cursorLo
 
         useDefs += {trim(l, removePrefix = l.length - size(cursorName))
                     | l <- facts<0>
-                    , !ws.definitions[l]? // If there is a definition at this location, this is a formal argument name
-                    , !any(ud <- ws.useDef[l], ws.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
+                    , !tm.definitions[l]? // If there is a definition at this location, this is a formal argument name
+                    , !any(ud <- tm.useDef[l], tm.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
                     , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
         };
     }
@@ -549,26 +525,26 @@ Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str fieldName, (Expression) `<Expre
 
 default Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str _, Tree _) = nothing();
 
-set[RenameLocation] rascalGetHasUses(WorkspaceInfo ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
+set[RenameLocation] rascalGetHasUses(TModel tm, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
     return {
-        <field, just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true))>
-        | loc l <- rascalReachableModules(ws, defs)
+        <field, just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(tm, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true))>
+        | loc l <- rascalReachableModules(tm, defs)
         , /Tree t := parseModuleWithSpacesCached(l)
         , just(<lhs, {field}>) := rascalGetHasLocs(cursorName, t)
     };
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
     set[loc] initialDefs = {};
-    if (cursorLoc in ws.useDef<0>) {
-        initialDefs = getDefs(ws, cursorLoc);
-    } else if (cursorLoc in ws.defines<defined>) {
+    if (cursorLoc in tm.useDef<0>) {
+        initialDefs = getDefs(tm, cursorLoc);
+    } else if (cursorLoc in tm.defines<defined>) {
         initialDefs = {cursorLoc};
-    } else if (just(AType adtType) := getFact(ws, adtLoc)) {
-        set[Define] reachableDefs = rascalReachableDefs(ws, {adtLoc});
+    } else if (just(AType adtType) := getFact(tm, adtLoc)) {
+        set[Define] reachableDefs = rascalReachableDefs(tm, {adtLoc});
         initialDefs = {
             fieldDef.defined
-            | Define dataDef: <_, _, _, _, _, defType(adtType)> <- rascalGetADTDefinitions(ws, adtLoc)
+            | Define dataDef: <_, _, _, _, _, defType(adtType)> <- rascalGetADTDefinitions(tm, adtLoc)
             , Define fieldDef: <_, _, cursorName, _, _, _> <- reachableDefs
             , fieldDef.idRole in {keywordFormalId(), fieldId()}
             , isStrictlyContainedIn(fieldDef.defined, dataDef.defined)
@@ -577,37 +553,37 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(dataField(loc adtLoc,
         throw unsupportedRename("Cannot rename data field \'<cursorName>\' from <cursorLoc>");
     }
 
-    set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
-    set[RenameLocation] uses = annotateLocs(getUses(ws, defs)) + rascalGetKeywordFieldUses(ws, defs, cursorName);
-    set[RenameLocation] hasUses = rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
+    set[loc] defs = rascalGetOverloadedDefs(tm, initialDefs, mayOverloadF);
+    set[RenameLocation] uses = annotateLocs(getUses(tm, defs)) + rascalGetKeywordFieldUses(tm, defs, cursorName);
+    set[RenameLocation] hasUses = rascalGetHasUses(tm, defs, cursorName, registerChangeAnnotation, getPathConfig);
 
     return <annotateLocs(defs), uses + hasUses, NO_RENAMES>;
 }
 
 bool debug = false;
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation) {
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
     if (cursorKind is dataKeywordField || cursorKind is dataCommonKeywordField) {
         set[RenameLocation] defs = {};
         set[RenameLocation] uses = {};
 
-        set[loc] adtDefs = rascalGetOverloadedDefs(ws, {cursorKind.dataTypeDef}, mayOverloadF);
-        set[Define] reachableDefs = rascalReachableDefs(ws, adtDefs);
-        set[loc] reachableModules = rascalReachableModules(ws, reachableDefs.defined);
+        set[loc] adtDefs = rascalGetOverloadedDefs(tm, {cursorKind.dataTypeDef}, mayOverloadF);
+        set[Define] reachableDefs = rascalReachableDefs(tm, adtDefs);
+        set[loc] reachableModules = rascalReachableModules(tm, reachableDefs.defined);
 
         for (Define _:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, consType, cursorKind.fieldType, cursorName);
+            <ds, us, _> = rascalGetFieldDefsUses(tm, reachableModules, consType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
         for (Define _:<_, _, _, IdRole idRole, _, defType(acons(AType dataType, _, _))> <- reachableDefs
            , idRole != dataId()) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
+            <ds, us, _> = rascalGetFieldDefsUses(tm, reachableModules, dataType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
 
-        uses += rascalGetHasUses(ws, adtDefs, cursorName, registerChangeAnnotation);
+        uses += rascalGetHasUses(tm, adtDefs, cursorName, registerChangeAnnotation, getPathConfig);
 
         return <defs, uses, NO_RENAMES>;
     }
@@ -615,16 +591,16 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(cursorKind, cursorLoc
     fail;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _) {
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) getPathConfig) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
-    lrel[loc, AType] factsBySize = sort(toRel(ws.facts), isShorterTuple);
+    lrel[loc, AType] factsBySize = sort(toRel(tm.facts), isShorterTuple);
     AType cursorType = avoid();
 
-    if (ws.facts[cursorLoc]?) {
-        cursorType = ws.facts[cursorLoc];
-    } else if (just(loc fieldAccess) := findSmallestContaining(ws.facts<0>, cursorLoc)
-             , just(AType collectionType) := getFact(ws, fieldAccess)) {
+    if (tm.facts[cursorLoc]?) {
+        cursorType = tm.facts[cursorLoc];
+    } else if (just(loc fieldAccess) := findSmallestContaining(tm.facts<0>, cursorLoc)
+             , just(AType collectionType) := getFact(tm, fieldAccess)) {
         cursorType = collectionType;
     }
 
@@ -633,14 +609,14 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(collectionField(), cu
       , rascalIsCollectionType(collUseType)
       , collUseType.elemType is atypeList) {
         // We are at a collection definition site
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {cursorLoc}), collUseType, cursorType, cursorName);
+        return rascalGetFieldDefsUses(tm, rascalReachableModules(tm, {cursorLoc}), collUseType, cursorType, cursorName);
     }
 
     // We can find the collection type by looking for the first use to the left of the cursor that has a collection type
-    lrel[loc use, loc def] usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
-    if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType collDefType) := define.defInfo, rascalIsCollectionType(collDefType)) {
+    lrel[loc use, loc def] usesToLeft = reverse(sort({<u, d> | <u, d> <- tm.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
+    if (<_, d> <- usesToLeft, define := tm.definitions[d], defType(AType collDefType) := define.defInfo, rascalIsCollectionType(collDefType)) {
         // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {define.defined}), collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
+        return rascalGetFieldDefsUses(tm, rascalReachableModules(tm, {define.defined}), collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
     } else {
         throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
     }
@@ -690,8 +666,8 @@ Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, d:(Declara
 
 default Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str _, Tree _) = nothing();
 
-private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, set[loc] reachableModules, AType containerType, AType fieldType, str cursorName) {
-    set[loc] containerFacts = {f | f <- factsInvert(ws)[containerType], f.top in reachableModules};
+private DefsUsesRenames rascalGetFieldDefsUses(TModel tm, set[loc] reachableModules, AType containerType, AType fieldType, str cursorName) {
+    set[loc] containerFacts = {f | f <- factsInvert(tm)[containerType], f.top in reachableModules};
     rel[loc file, loc u] factsByModule = groupBy(containerFacts, loc(loc l) { return l.top; });
 
     set[loc] defs = {};
@@ -701,10 +677,10 @@ private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, set[loc] reacha
         for (/Tree t := parseModuleWithSpacesCached(file)
            , just(<lhs, fields, isDef>) := rascalGetFieldLocs(cursorName, t) || just(<lhs, fields, isDef>) := rascalGetKeywordLocs(cursorName, t)) {
             if((StructuredType) `<BasicType _>[<{TypeArg ","}+ _>]` := t) {
-                if(at := ws.facts[t.src]
+                if(at := tm.facts[t.src]
                  , containerType.elemType?
                  , containerType.elemType == at.elemType) {
-                    defs += {f | f <- fields, just(fieldType) := getFact(ws, f)};
+                    defs += {f | f <- fields, just(fieldType) := getFact(tm, f)};
                 }
             } else if (isDef) {
                 defs += fields;
@@ -717,28 +693,28 @@ private DefsUsesRenames rascalGetFieldDefsUses(WorkspaceInfo ws, set[loc] reacha
     return <annotateLocs(defs), annotateLocs(uses), NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister registerChangeAnnotation) {
+DefsUsesRenames rascalGetDefsUses(TModel tm, cursor(moduleName(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
     loc moduleFile = |unknown:///|;
-    if (d <- ws.useDef[cursorLoc], amodule(_) := ws.facts[d]) {
+    if (d <- tm.useDef[cursorLoc], amodule(_) := tm.facts[d]) {
         // Cursor is at an import
         moduleFile = d.top;
-    } else if (just(l) := findSmallestContaining(ws.facts<0>, cursorLoc), amodule(_) := ws.facts[l]) {
+    } else if (just(l) := findSmallestContaining(tm.facts<0>, cursorLoc), amodule(_) := tm.facts[l]) {
         // Cursor is at a module header
         moduleFile = l.top;
     } else {
         // Cursor is at the module part of a qualified use
-        if (<u, d> <- ws.useDef, u.begin <= cursorLoc.begin, u.end == cursorLoc.end) {
+        if (<u, d> <- tm.useDef, u.begin <= cursorLoc.begin, u.end == cursorLoc.end) {
             moduleFile = d.top;
         } else {
             throw unsupportedRename("Could not find cursor location in TPL.");
         }
     }
 
-    modName = getModuleName(moduleFile, ws.getPathConfig(getProjectFolder(ws, moduleFile)));
+    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(tm, moduleFile)));
 
     defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
 
-    imports = {u | u <- ws.useDef<0>, amodule(modName) := ws.facts[u]};
+    imports = {u | u <- tm.useDef<0>, amodule(modName) := tm.facts[u]};
     qualifiedUses = {
         // We compute the location of the module name in the qualified name at `u`
         // some::qualified::path::to::Foo::SomeVar
@@ -746,7 +722,7 @@ DefsUsesRenames rascalGetDefsUses(WorkspaceInfo ws, cursor(moduleName(), cursorL
         // moduleNameSize ^  qualSepSize ^   ^ idSize
         trim(u, removePrefix = moduleNameSize - size(cursorName)
               , removeSuffix = idSize + qualSepSize)
-        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
+        | <loc u, Define d> <- tm.useDef o definitionsRel(tm)
         , idSize := size(d.id)
         , u.length > idSize // There might be a qualified prefix
         , moduleNameSize := size(modName)
