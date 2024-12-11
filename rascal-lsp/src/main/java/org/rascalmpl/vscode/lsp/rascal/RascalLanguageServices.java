@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -298,16 +299,12 @@ public class RascalLanguageServices {
         return writer.done();
     }
 
-    private static String readFile(ISourceLocation loc, String charset) throws IOException {
+    private static String readFile(ISourceLocation loc) {
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
-        try (Reader reader = reg.getCharacterReader(loc, charset)) {
-            StringBuilder res = new StringBuilder();
-            char[] chunk = new char[8192]; // from Prelude.java
-            int read;
-            while ((read = reader.read(chunk, 0, chunk.length)) != -1) {
-                res.append(chunk, 0, read);
-            }
-            return res.toString();
+        try (Reader reader = reg.getCharacterReader(loc)) {
+            return IOUtils.toString(reader);
+        } catch (IOException e) {
+            throw new RuntimeException(String.format("Error reading file %s", loc));
         }
     }
 
@@ -320,7 +317,7 @@ public class RascalLanguageServices {
                 ;
         }
 
-        var input = readFile(loc, "UTF-8");
+        var input = readFile(loc);
         return parseSourceFile(loc, input);
     }
 
