@@ -27,7 +27,7 @@
 package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
@@ -47,8 +47,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
-import io.usethesource.vallang.ISourceLocation;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final Logger logger = LogManager.getLogger(RascalWorkspaceService.class);
@@ -84,11 +82,10 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        Set<ISourceLocation> workspaceFolders = workspaceFolders()
+        CompletableFuture.supplyAsync(() -> workspaceFolders()
             .stream()
             .map(f -> Locations.toLoc(f.getUri()))
-            .collect(Collectors.toSet());
-
-        ((RascalTextDocumentService) docService).didRenameFiles(params, workspaceFolders);
+            .collect(Collectors.toSet()), getExecuter())
+        .thenAccept(folders -> ((RascalTextDocumentService) docService).didRenameFiles(params, folders));
     }
 }
