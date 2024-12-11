@@ -266,37 +266,36 @@ public class RascalLanguageServices {
             .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
             .collect(Collectors.toList());
 
-        var writer = VF.setWriter();
-        for (var rename : renames) {
-            ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
-            ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
+        return renames.parallelStream()
+            .map(rename -> {
+                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
+                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
 
-            ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
-                .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc)));
+                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc)));
 
-            ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
-                .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since that it is outside the current workspace.", newLoc)));
+                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", newLoc)));
 
-            if (!currentWsFolder.equals(newWsFolder)) {
-                String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
-                String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
-                String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
+                if (!currentWsFolder.equals(newWsFolder)) {
+                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
+                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
+                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
 
-                throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
-            }
+                    throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
+                }
 
-            PathConfig pcfg = getPathConfig.apply(currentWsFolder);
-            try {
-                IString currentName = VF.string(pcfg.getModuleName(currentLoc));
-                IString newName = VF.string(pcfg.getModuleName(newLoc));
+                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
+                try {
+                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
+                    IString newName = VF.string(pcfg.getModuleName(newLoc));
 
-                writer.insert(VF.tuple(currentName, newName, addResources(pcfg)));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return writer.done();
+                    return VF.tuple(currentName, newName, addResources(pcfg));
+                } catch (IOException e) {
+                    throw new RuntimeException(e.getMessage());
+                }
+            })
+            .collect(VF.setWriter());
     }
 
     private static String readFile(ISourceLocation loc) {
