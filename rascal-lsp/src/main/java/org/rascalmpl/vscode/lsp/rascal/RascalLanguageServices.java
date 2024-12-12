@@ -307,19 +307,6 @@ public class RascalLanguageServices {
         }
     }
 
-    private CompletableFuture<ITree> getEditorTreeOrParse(ISourceLocation loc, Map<ISourceLocation, TextDocumentState> documents) throws IOException {
-        if(documents.containsKey(loc)) {
-            var file = documents.get(loc);
-            return file.getCurrentTreeAsync()
-                .thenApply(Versioned::get)
-                .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-                ;
-        }
-
-        return CompletableFuture.supplyAsync(() -> readFile(loc), exec)
-            .thenCompose(input -> parseSourceFile(loc, input));
-    }
-
     public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
@@ -328,22 +315,9 @@ public class RascalLanguageServices {
 
         return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
             IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
-            final var treeType = tf.abstractDataType(store, "Tree");
-            IFunction rascalGetModuleTree = eval.getFunctionValueFactory().function(tf.functionType(treeType, tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty()), (args, kwArgs) -> {
-                var loc = (ISourceLocation) args[0];
-                try {
-                    return getEditorTreeOrParse(loc, documents).get();
-                } catch (ExecutionException | IOException e) {
-                    throw new RuntimeException(e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(String.format("Thread %d was interrupted", Thread.currentThread().getId()));
-                }
-            });
-
             ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
             try {
-                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig, rascalGetModuleTree);
+                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
             } catch (Throw e) {
                 throw new RuntimeException(e.getMessage());
             }
