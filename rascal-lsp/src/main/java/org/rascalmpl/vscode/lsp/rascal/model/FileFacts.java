@@ -101,6 +101,10 @@ public class FileFacts {
         return confs.lookupConfig(file);
     }
 
+    public boolean containsFile(ISourceLocation file) {
+        return files.containsKey(file.top());
+    }
+
     private class FileFact {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;

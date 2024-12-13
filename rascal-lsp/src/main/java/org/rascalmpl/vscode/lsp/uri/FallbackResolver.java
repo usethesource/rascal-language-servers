@@ -31,11 +31,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -43,9 +46,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
@@ -53,11 +60,26 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+
 import io.usethesource.vallang.ISourceLocation;
 
-public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher {
+public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver {
+
+    private static FallbackResolver instance = null;
+
+    public static FallbackResolver getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("FallbackResolver accessed before initialization");
+        }
+        return instance;
+    }
+
+    public FallbackResolver() {
+        instance = this;
+    }
 
     private static VSCodeUriResolverServer getServer() throws IOException {
         var result = VSCodeVFS.INSTANCE.getServer();
@@ -250,5 +272,45 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         getClient().removeWatcher(root, watcher, getServer());
 
     }
+    
+    public boolean isFileManaged(ISourceLocation file) {
+        for (final var service : textDocumentServices) {
+            if (service.isManagingFile(file)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
+    @Override
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        if (isFileManaged(input)) {
+            try {
+                return URIUtil.changeScheme(input, "lsp+" + input.getScheme());
+            } catch (URISyntaxException e) {
+                // fall through
+            }
+        }
+        return input;
+    }
+
+    @Override
+    public String authority() {
+        throw new UnsupportedOperationException("'authority' not supported by fallback resolver");
+    }
+
+    private Set<IBaseTextDocumentService> textDocumentServices = new HashSet<>();
+
+    public void registerTextDocumentService(IBaseTextDocumentService service) {
+        textDocumentServices.add(service);
+    }
+
+    public TextDocumentState getDocumentState(ISourceLocation file) {
+        for (final var service : textDocumentServices) {
+            if (service.isManagingFile(file)) {
+                return service.getDocumentState(file);
+            }
+        }
+        return null;
+    }
 }

@@ -106,6 +106,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -160,6 +161,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             this.dedicatedLanguageName = dedicatedLanguage.getName();
             this.dedicatedLanguage = dedicatedLanguage;
         }
+        FallbackResolver.getInstance().registerTextDocumentService(this);
     }
 
     @Override
@@ -682,5 +684,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFuture.completedFuture(null);
         }
+    }
+
+    @Override
+    public boolean isManagingFile(ISourceLocation file) {
+        return files.containsKey(file.top());
+    }
+
+    @Override
+    public TextDocumentState getDocumentState(ISourceLocation file) {
+       return files.get(file.top());
     }
 }
