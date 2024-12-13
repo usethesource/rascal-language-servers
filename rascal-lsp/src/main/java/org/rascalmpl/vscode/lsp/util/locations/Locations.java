@@ -41,6 +41,29 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public class Locations {
+    public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
+        var result = URIResolverRegistry.getInstance().logicalToPhysical(loc);
+        if (result.getScheme().startsWith("lsp+")) {
+            try {
+                result = URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
+            } catch (URISyntaxException e) {
+                // fall through
+            }
+        }
+        return result;
+    }
+
+    public static ISourceLocation toClientLocationIfPossible(ISourceLocation loc) {
+        var result = toPhysicalIfPossible(loc);
+        if (result.getScheme().startsWith("lsp+")) {
+            try {
+                return URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
+            } catch (URISyntaxException e) {
+                // fall through
+            }
+        }
+        return loc;
+    }
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
         ISourceLocation physical;
         try {
