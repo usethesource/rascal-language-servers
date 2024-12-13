@@ -62,8 +62,12 @@ export async function activateLanguageClient(
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
 
     schemesReply.then( schemes => {
-        vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client).registerSchemes(schemes);
+        // avoid registering the same schemes multiple times
+        const knownRascalNativeSchemes = vfsServer.getIgnoredSchemes();
+        const remainingSchemes = schemes.filter(s => !knownRascalNativeSchemes.includes(s));
+        if (remainingSchemes.length) {
+            new RascalFileSystemProvider(client).registerSchemes(schemes);
+        }
     });
 
 

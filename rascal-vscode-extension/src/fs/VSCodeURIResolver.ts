@@ -220,6 +220,10 @@ export class VSCodeUriResolverServer implements Disposable {
         toIgnore.forEach(v => this.rascalNativeSchemes.add(v));
     }
 
+    getIgnoredSchemes(): string[] {
+        return Array.from(this.rascalNativeSchemes.values());
+    }
+
     dispose() {
         this.server.close();
         this.activeClients.forEach(c => c.dispose());
