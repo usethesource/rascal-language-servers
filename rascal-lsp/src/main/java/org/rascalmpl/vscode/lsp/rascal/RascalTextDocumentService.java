@@ -296,6 +296,43 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
+    private ITree getCursorFromPosition(ISourceLocation file, ITree moduleTree, Position p) {
+        Position rascalCursorPos = Locations.toRascalPosition(file, p, columns);
+
+        // Find all trees containing the cursor, in ascending order of size
+        IList focusList = TreeSearch.computeFocusList(moduleTree, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+        List<String> sortNames = focusList.stream()
+            .map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree)))
+            .collect(Collectors.toList());
+
+        int qNameIdx = sortNames.indexOf("QualifiedName");
+        if (qNameIdx != -1) {
+            // Cursor is at a qualified name
+            ITree qualifiedName = (ITree) focusList.get(qNameIdx);
+
+            // If the qualified name is in a header, but not in module parameters or a syntax defintion, it is a full module path
+            if (sortNames.contains("Header") && !(sortNames.contains("ModuleParameters") || sortNames.contains("SyntaxDefinition"))) {
+                return qualifiedName;
+            }
+
+            // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
+            IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));
+
+            // Even if the cursor is on the module prefix, we steer towards renaming the declaration
+            return (ITree) names.get(names.size() - 1);
+        }
+
+        switch (sortNames.get(0)) {
+            case "Name": // intentional fall-through
+            case "Nonterminal": // intentional fall-through
+            case "NonterminalLabel": {
+                // Return name location
+                return (ITree) focusList.get(0);
+            }
+            default: return null;
+        }
+    }
+
     @Override
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(PrepareRenameParams params) {
         logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
@@ -304,42 +341,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-            .thenApply(tr -> {
-                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
-
-                // Find all trees containing the cursor, in ascending order of size
-                IList focusList = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
-                List<String> sortNames = focusList.stream()
-                    .map(tree -> ProductionAdapter.getSortName(TreeAdapter.getProduction((ITree) tree)))
-                    .collect(Collectors.toList());
-
-                int qNameIdx = sortNames.indexOf("QualifiedName");
-                if (qNameIdx != -1) {
-                    // Cursor is at a qualified name
-                    ITree qualifiedName = (ITree) focusList.get(qNameIdx);
-
-                    // If the qualified name is in a header, but not in module parameters or a syntax defintion, it is a full module path
-                    if (sortNames.contains("Header") && !(sortNames.contains("ModuleParameters") || sortNames.contains("SyntaxDefinition"))) {
-                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation(qualifiedName)));
-                    }
-
-                    // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
-                    IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));
-
-                    // Even if the cursor is on the module prefix, we steer towards renaming the declaration
-                    return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) names.get(names.size() - 1))));
-                }
-
-                switch (sortNames.get(0)) {
-                    case "Name": // intentional fall-through
-                    case "Nonterminal": // intentional fall-through
-                    case "NonterminalLabel": {
-                        // Return name location
-                        return Either3.forLeft3(DocumentChanges.locationToRange(this, TreeAdapter.getLocation((ITree) focusList.get(0))));
-                    }
-                    default: return null;
-                }
-            });
+            .thenApply(tr -> getCursorFromPosition(file.getLocation(), tr, params.getPosition()))
+            .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
+            .thenApply(Either3::forFirst);
     }
 
     @Override
@@ -355,7 +359,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
+            .thenApply(tr -> getCursorFromPosition(file.getLocation(), tr, params.getPosition()))
+            .thenCompose(cursor -> rascalServices.getRename(cursor, workspaceFolders, facts::getPathConfig, params.getNewName()).get())
             .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
 
