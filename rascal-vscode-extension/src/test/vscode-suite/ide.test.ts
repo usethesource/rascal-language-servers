@@ -25,11 +25,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, DefaultTreeSection, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
-import { expect } from 'chai';
+import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -193,7 +193,7 @@ describe('IDE', function () {
         await fs.mkdir(newDir, {recursive: true});
 
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        const workspace = await explorer.getContent().getSection("test (Workspace)") as DefaultTreeSection;
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
         await ide.openModule(TestWorkspace.libFile);
         const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");

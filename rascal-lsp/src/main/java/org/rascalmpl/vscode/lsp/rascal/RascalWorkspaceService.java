@@ -82,10 +82,12 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        CompletableFuture.supplyAsync(() -> workspaceFolders()
-            .stream()
-            .map(f -> Locations.toLoc(f.getUri()))
-            .collect(Collectors.toSet()), getExecuter())
-                .thenAccept(folders -> ((RascalTextDocumentService) docService).didRenameFiles(params, folders));
+        CompletableFuture.supplyAsync(() ->
+            workspaceFolders()
+                .stream()
+                .map(f -> Locations.toLoc(f.getUri()))
+                .collect(Collectors.toSet())
+            , getExecuter()
+        ).thenAccept(folders -> ((RascalTextDocumentService) docService).didRenameFiles(params, folders));
     }
 }

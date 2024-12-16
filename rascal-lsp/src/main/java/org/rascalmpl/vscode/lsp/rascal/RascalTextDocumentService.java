@@ -390,7 +390,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents).get()
+        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
             .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
             .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
             .thenAccept(editResponse -> {
@@ -399,8 +399,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
             })
             .exceptionally(e -> {
+                logger.catching(Level.ERROR, e.getCause());
                 client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
-                return null;
+                return null; // Return of type `Void` is unused, but required
             });
     }
 
