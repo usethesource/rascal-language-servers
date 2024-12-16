@@ -310,7 +310,7 @@ public class RascalLanguageServices {
                         throw new RuntimeException(e.getMessage());
                     }
                 }, emptyResult, exec, false, client).get();
-        });
+            });
     }
 
 
