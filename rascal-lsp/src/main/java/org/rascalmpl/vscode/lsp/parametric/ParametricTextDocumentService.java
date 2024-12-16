@@ -693,6 +693,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public TextDocumentState getDocumentState(ISourceLocation file) {
-       return files.get(file.top());
+        return files.get(file.top());
     }
 }
