@@ -62,7 +62,7 @@ public class Locations {
                 // fall through
             }
         }
-        return loc;
+        return result;
     }
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
         ISourceLocation physical;

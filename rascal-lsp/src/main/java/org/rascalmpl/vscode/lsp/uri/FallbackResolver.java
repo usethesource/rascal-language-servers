@@ -286,7 +286,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
         if (isFileManaged(input)) {
             try {
-                return URIUtil.changeScheme(input, "lsp+" + input.getScheme());
+                return URIUtil.changeScheme(input, "lsp+" + input.getScheme()).top();
             } catch (URISyntaxException e) {
                 // fall through
             }
