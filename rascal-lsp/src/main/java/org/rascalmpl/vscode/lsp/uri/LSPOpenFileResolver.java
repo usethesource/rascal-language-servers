@@ -38,7 +38,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public long lastModified(ISourceLocation uri) throws IOException {
-        return System.currentTimeMillis();
+        return FallbackResolver.getInstance().getDocumentState(stripLspPrefix(uri)).getLastModified();
     }
 
     @Override
