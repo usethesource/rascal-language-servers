@@ -31,6 +31,8 @@ import Set;
 import util::Maybe;
 import util::Reflective;
 
+import IO;
+
 import util::refactor::Exception;
 import util::refactor::TextEdits;
 extend util::refactor::WorkspaceInfo;
@@ -82,21 +84,27 @@ RenameSymbolF renameSymbolFramework(
 ) {
     return Edits(Tree cursorT, str newName, set[loc] workspaceFolders, PathConfigF getPathConfig) {
         // step("pre-checking rename validity", 1);
+        println("pre-checking rename validity");
+        str cursorName = "<cursorT>";
         checkResult(preCheck(cursorT, newName, workspaceFolders, getPathConfig));
 
         // step("preloading minimal workspace information", 1);
+        println("preloading minimal workspace information");
         TModel tm = tmodel();
         ProjectFiles preloadFiles = preFiles(cursorT, workspaceFolders, getPathConfig);
         tm = loadLocs(tm, preloadFiles, getTModels, getPathConfig);
 
         // step("analyzing name at cursor", 1);
+        println("analyzing name at cursor");
         Cursor cur = getCursor(tm, cursorT);
 
         // step("loading required type information", 1);
+        println("loading required type information");
         ProjectFiles allLoadFiles = allFiles(cur, workspaceFolders, getPathConfig);
         tm = loadLocs(tm, allLoadFiles, getTModels, getPathConfig);
 
         // step("collecting definitions and uses of \'<cursorName>\'", 1);
+        println("collecting definitions and uses of \'<cursorName>\'");
         map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
         ChangeAnnotationRegister registerChangeAnnotation = ChangeAnnotationId(str label, str description, bool needsConfirmation) {
             ChangeAnnotationId makeKey(str label, int suffix) = "<label>_<suffix>";
@@ -119,6 +127,7 @@ RenameSymbolF renameSymbolFramework(
         set[loc] \files = defsPerFile.file + usesPerFile.file;
 
         // step("checking rename validity", 1);
+        println("checking rename validity");
         map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] fileResults =
             (file: <reasons, edits> | file <- \files, <reasons, edits> :=
                 computeTextEdits(
