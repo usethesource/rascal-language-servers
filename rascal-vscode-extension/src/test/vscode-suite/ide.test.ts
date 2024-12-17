@@ -200,8 +200,8 @@ describe('IDE', function () {
         // Open the lib file before moving it, so we have the editor ready to inspect afterwards
         const libFile = await ide.openModule(TestWorkspace.libFile);
         await ide.screenshot("IDE-find-files-in-explorer");
-        const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.extremelySlow, "Cannot find Lib.rsc");
-        const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.extremelySlow, "Cannot find lib folder");
+        const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
+        const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
 
         await ide.screenshot("IDE-rename-modules-before-move");
         await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
