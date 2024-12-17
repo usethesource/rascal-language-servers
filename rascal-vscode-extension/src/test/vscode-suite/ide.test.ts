@@ -204,6 +204,8 @@ describe('IDE', function () {
         const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
 
         await ide.screenshot("IDE-rename-modules-before-move");
+        console.log("Lib file: " + libFileInTree);
+        console.log("Lib folder: " + libFolderInTree);
         await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
         await ide.screenshot("IDE-rename-modules-after-move");
 
