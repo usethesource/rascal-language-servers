@@ -83,12 +83,11 @@ start[Module] parseModuleWithSpacesCached(loc l) {
 @synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
 }
-bool tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
+Maybe[&T <: Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
     try {
-        parse(begin, name, allowAmbiguity = allowAmbiguity);
-        return true;
+        return just(parse(begin, name, allowAmbiguity = allowAmbiguity));
     } catch ParseError(_): {
-        return false;
+        return nothing();
     }
 }
 
