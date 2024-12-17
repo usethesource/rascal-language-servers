@@ -193,15 +193,16 @@ describe('IDE', function () {
         await fs.mkdir(newDir, {recursive: true});
 
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer")
         const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
         await ide.openModule(TestWorkspace.libFile);
+        // Open the lib file before moving it, so we have the editor ready to inspect afterwards
+        const libFile = await ide.openModule(TestWorkspace.libFile);
         await ide.screenshot("IDE-find-files-in-explorer");
         const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.extremelySlow, "Cannot find Lib.rsc");
         const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.extremelySlow, "Cannot find lib folder");
 
-        // Open the lib file before moving it, so we have the editor ready to inspect afterwards
-        const libFile = await ide.openModule(TestWorkspace.libFile);
         await ide.screenshot("IDE-rename-modules-before-move");
         await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
         await ide.screenshot("IDE-rename-modules-after-move");
