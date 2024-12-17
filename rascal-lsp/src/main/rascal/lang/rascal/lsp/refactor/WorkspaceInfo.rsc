@@ -83,7 +83,7 @@ set[RenameLocation] annotateLocs(set[loc] locs, Maybe[ChangeAnnotationId] annota
 
 TModel loadLocs(TModel wsTM, ProjectFiles projectFiles, set[TModel](ProjectFiles projectFiles) tmodelsForFiles) {
     for (modTM <- tmodelsForFiles(projectFiles)) {
-        wsTM = loadTModel(wsTM, modTM);
+        wsTM = appendTModel(wsTM, modTM);
     }
 
     // In addition to data from the TModel, we keep track of which projects/modules we loaded.
@@ -93,21 +93,21 @@ TModel loadLocs(TModel wsTM, ProjectFiles projectFiles, set[TModel](ProjectFiles
     return wsTM;
 }
 
-TModel loadTModel(TModel wsTM, TModel modTM) {
+TModel appendTModel(TModel to, TModel from) {
     try {
-        throwAnyErrors(modTM);
+        throwAnyErrors(from);
     } catch set[Message] errors: {
         throw unsupportedRename("Cannot rename: some files in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
     }
 
-    wsTM.useDef      += modTM.useDef;
-    wsTM.defines     += modTM.defines;
-    wsTM.definitions += modTM.definitions;
-    wsTM.facts       += modTM.facts;
-    wsTM.scopes      += modTM.scopes;
-    wsTM.paths       += modTM.paths;
+    to.useDef      += from.useDef;
+    to.defines     += from.defines;
+    to.definitions += from.definitions;
+    to.facts       += from.facts;
+    to.scopes      += from.scopes;
+    to.paths       += from.paths;
 
-    return wsTM;
+    return to;
 }
 
 loc getProjectFolder(TModel ws, loc l) {
