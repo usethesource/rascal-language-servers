@@ -29,7 +29,8 @@ module lang::rascal::tests::rename::TestUtils
 
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
-import lang::rascal::lsp::refactor::Util;
+import util::Util;
+import util::refactor::TextEdits;
 
 import IO;
 import List;
@@ -46,7 +47,6 @@ import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::compile::util::Names;
 
 import analysis::diff::edits::ExecuteTextEdits;
-import lang::rascal::lsp::refactor::TextEdits;
 
 import util::FileSystem;
 import util::Math;

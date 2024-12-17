@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::FormalParameters
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
+import util::refactor::Exception;
 
 test bool outerNestedFunctionParameter() = testRenameOccurrences({0, 3}, "
     'int f(int foo) {
