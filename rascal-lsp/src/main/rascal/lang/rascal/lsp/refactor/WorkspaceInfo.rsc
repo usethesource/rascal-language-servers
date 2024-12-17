@@ -358,7 +358,7 @@ private set[RenameLocation] rascalGetExceptUses(TModel ws, set[loc] defs) {
     return uses;
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(use(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
     set[loc] defs = rascalGetOverloadedDefs(ws, getDefs(ws, l), mayOverloadF);
     set[RenameLocation] uses = annotateLocs(getUses(ws, defs));
 
@@ -366,7 +366,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(use(), l, cursorName), MayOv
     if (keywordFormalId() in roles) {
         uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
-        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation, getPathConfig);
+        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
     } else if (constructorId() in roles) {
         uses += rascalGetExceptUses(ws, defs);
     }
@@ -374,7 +374,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(use(), l, cursorName), MayOv
     return <annotateLocs(defs), uses, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(def(), l, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
     set[loc] initialUses = getUses(ws, l);
     set[loc] initialDefs = {l} + {*ds | u <- initialUses, ds := getDefs(ws, u)};
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
@@ -384,7 +384,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(def(), l, cursorName), MayOv
     if (roles & {keywordFormalId(), fieldId()} != {}) {
         uses += rascalGetKeywordFormalUses(ws, defs, cursorName);
         uses += rascalGetKeywordFieldUses(ws, defs, cursorName);
-        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation, getPathConfig);
+        uses += rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
     } else if (constructorId() in roles) {
         uses += rascalGetExceptUses(ws, defs);
     }
@@ -405,7 +405,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(exceptConstructor(), l, curs
     return <{}, {}, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) _) {
     set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
     set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
         perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
@@ -461,7 +461,7 @@ Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str fieldName, (Expression) `<Expre
 
 default Maybe[tuple[loc, set[loc]]] rascalGetHasLocs(str _, Tree _) = nothing();
 
-set[RenameLocation] rascalGetHasUses(TModel ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
+set[RenameLocation] rascalGetHasUses(TModel ws, set[loc] defs, str cursorName, ChangeAnnotationRegister registerChangeAnnotation) {
     return {
         <field, just(registerChangeAnnotation("Use of `has <cursorName>` on value of <describeFact(getFact(ws, lhs))>", "Due to the dynamic nature of these names, please review these suggested changes.", true))>
         | loc l <- rascalReachableModules(ws, defs)
@@ -470,7 +470,7 @@ set[RenameLocation] rascalGetHasUses(TModel ws, set[loc] defs, str cursorName, C
     };
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(dataField(loc adtLoc, AType fieldType), cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
     set[loc] initialDefs = {};
     if (cursorLoc in ws.useDef<0>) {
         initialDefs = getDefs(ws, cursorLoc);
@@ -491,14 +491,14 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(dataField(loc adtLoc, AType 
 
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
     set[RenameLocation] uses = annotateLocs(getUses(ws, defs)) + rascalGetKeywordFieldUses(ws, defs, cursorName);
-    set[RenameLocation] hasUses = rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation, getPathConfig);
+    set[RenameLocation] hasUses = rascalGetHasUses(ws, defs, cursorName, registerChangeAnnotation);
 
     return <annotateLocs(defs), uses + hasUses, NO_RENAMES>;
 }
 
 bool debug = false;
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, cursorName), MayOverloadFun mayOverloadF, ChangeAnnotationRegister registerChangeAnnotation, PathConfig(loc) _) {
     if (cursorKind is dataKeywordField || cursorKind is dataCommonKeywordField) {
         set[RenameLocation] defs = {};
         set[RenameLocation] uses = {};
@@ -519,7 +519,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, curso
             uses += us;
         }
 
-        uses += rascalGetHasUses(ws, adtDefs, cursorName, registerChangeAnnotation, getPathConfig);
+        uses += rascalGetHasUses(ws, adtDefs, cursorName, registerChangeAnnotation);
 
         return <defs, uses, NO_RENAMES>;
     }
@@ -527,7 +527,7 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, curso
     fail;
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) getPathConfig) {
+DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(collectionField(), cursorLoc, cursorName), MayOverloadFun _, ChangeAnnotationRegister _, PathConfig(loc) _) {
     bool isTupleField(AType fieldType) = fieldType.alabel == "";
 
     lrel[loc, AType] factsBySize = sort(toRel(ws.facts), isShorterTuple);
