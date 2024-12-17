@@ -31,17 +31,19 @@ import Relation;
 
 import analysis::typepal::TModel;
 
-import lang::rascalcore::check::ATypeUtils;
-import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::ATypeBase;
+import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::RascalConfig;
 
 import lang::rascal::\syntax::Rascal;
 
 import util::Maybe;
 import util::Reflective;
 
-import lang::rascal::lsp::refactor::Exception;
-import lang::rascal::lsp::refactor::TextEdits;
-import lang::rascal::lsp::refactor::Util;
+import util::refactor::Exception;
+import util::refactor::TextEdits;
+import util::refactor::WorkspaceInfo;
+import util::Util;
 
 import List;
 import Location;
@@ -68,69 +70,6 @@ data Cursor
     ;
 
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
-alias FileRenamesF = rel[loc old, loc new](str newName);
-alias RenameLocation = tuple[loc l, Maybe[ChangeAnnotationId] annotation];
-alias DefsUsesRenames = tuple[set[RenameLocation] defs, set[RenameLocation] uses, FileRenamesF renames];
-alias ProjectFiles = rel[loc projectFolder, bool loadModel, loc file];
-
-// Extend the TModel to include some workspace information.
-data TModel (
-    set[loc] projects = {},
-    set[loc] sourceFiles = {}
-);
-
-set[RenameLocation] annotateLocs(set[loc] locs, Maybe[ChangeAnnotationId] annotationId = nothing()) = {<l, annotationId> | l <- locs};
-
-TModel loadLocs(TModel wsTM, ProjectFiles projectFiles, set[TModel](ProjectFiles projectFiles) tmodelsForFiles) {
-    for (modTM <- tmodelsForFiles(projectFiles)) {
-        wsTM = appendTModel(wsTM, modTM);
-    }
-
-    // In addition to data from the TModel, we keep track of which projects/modules we loaded.
-    wsTM.sourceFiles += projectFiles.file;
-    wsTM.projects += projectFiles.projectFolder;
-
-    return wsTM;
-}
-
-TModel appendTModel(TModel to, TModel from) {
-    try {
-        throwAnyErrors(from);
-    } catch set[Message] errors: {
-        throw unsupportedRename("Cannot rename: some files in workspace have errors.\n<toString(errors)>", issues={<(error.at ? |unknown:///|), error.msg> | error <- errors});
-    }
-
-    to.useDef      += from.useDef;
-    to.defines     += from.defines;
-    to.definitions += from.definitions;
-    to.facts       += from.facts;
-    to.scopes      += from.scopes;
-    to.paths       += from.paths;
-
-    return to;
-}
-
-loc getProjectFolder(TModel ws, loc l) {
-    if (project <- ws.projects, isPrefixOf(project, l)) {
-        return project;
-    }
-
-    throw "Could not find project containing <l>";
-}
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc, loc] defUse(TModel ws) = invert(ws.useDef);
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-map[AType, set[loc]] factsInvert(TModel ws) = invert(ws.facts);
-
-set[loc] getUses(TModel ws, loc def) = defUse(ws)[def];
-
-set[loc] getUses(TModel ws, set[loc] defs) = defUse(ws)[defs];
-
-set[loc] getDefs(TModel ws, loc use) = ws.useDef[use];
-
-Maybe[AType] getFact(TModel ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
 set[loc] getModuleScopes(TModel ws) = invert(ws.scopes)[|global-scope:///|];
@@ -167,9 +106,6 @@ set[loc] rascalReachableModules(TModel ws, set[loc] froms) {
 
     return {s.top | s <- reachable.modScope};
 }
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc, Define] definitionsRel(TModel ws) = toRel(ws.definitions);
 
 set[Define] rascalReachableDefs(TModel ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);

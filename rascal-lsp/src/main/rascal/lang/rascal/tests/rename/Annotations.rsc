@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Annotations
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
+import util::refactor::Exception;
 
 test bool userDefinedAnno() = testRenameOccurrences({0, 1, 2}, "
     'x = d();
