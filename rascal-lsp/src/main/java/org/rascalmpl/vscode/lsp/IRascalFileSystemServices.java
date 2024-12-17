@@ -51,6 +51,7 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
@@ -65,7 +66,7 @@ public interface IRascalFileSystemServices {
             try {
                 ISourceLocation tmp = loc.toRascalLocation();
 
-                ISourceLocation resolved = reg.logicalToPhysical(tmp);
+                ISourceLocation resolved = Locations.toClientLocation(tmp);
 
                 if (resolved == null) {
                     return loc;
@@ -75,10 +76,6 @@ public interface IRascalFileSystemServices {
             }
             catch (URISyntaxException e) {
                 IRascalFileSystemServices__logger.warn("Could not resolve location {} due to {}.", loc, e.getMessage());
-                return loc;
-            }
-            catch (IOException e) {
-                // This is normal behavior (when its not a logical scheme)
                 return loc;
             }
             catch (Throwable e) {
@@ -130,7 +127,7 @@ public interface IRascalFileSystemServices {
             return false;
         }
         if (reg.getRegisteredLogicalSchemes().contains(loc.getScheme())) {
-            var resolved = reg.logicalToPhysical(loc);
+            var resolved = Locations.toClientLocation(loc);
             if (resolved != null && resolved != loc) {
                 return readonly(resolved);
             }

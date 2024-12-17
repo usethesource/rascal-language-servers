@@ -50,6 +50,8 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -87,7 +89,7 @@ public class FileFacts {
     private FileFact getFile(ISourceLocation l) {
         ISourceLocation resolved = null;
         try {
-            resolved = URIResolverRegistry.getInstance().logicalToPhysical(l);
+            resolved = Locations.toClientLocation(l);
             if (resolved == null) {
                 resolved = l;
             }
@@ -99,6 +101,10 @@ public class FileFacts {
 
     public PathConfig getPathConfig(ISourceLocation file) {
         return confs.lookupConfig(file);
+    }
+
+    public boolean containsFile(ISourceLocation file) {
+        return files.containsKey(file.top());
     }
 
     private class FileFact {

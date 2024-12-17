@@ -101,6 +101,7 @@ import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -135,6 +136,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         this.ownExecuter = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+        FallbackResolver.getInstance().registerTextDocumentService(this);
     }
 
     @Override
@@ -487,5 +489,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     logger.error("Operation failed with", e);
                     return defaultValue.get();
                 });
+    }
+
+    @Override
+    public boolean isManagingFile(ISourceLocation file) {
+        return facts.containsFile(file);
+    }
+
+    @Override
+    public TextDocumentState getDocumentState(ISourceLocation file) {
+        return documents.get(file.top());
     }
 }

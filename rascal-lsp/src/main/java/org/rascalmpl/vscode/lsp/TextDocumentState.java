@@ -105,4 +105,8 @@ public class TextDocumentState {
     public Versioned<String> getCurrentContent() {
         return currentContent;
     }
+
+    public long getLastModified() {
+        return currentContent.getTimestamp();
+    }
 }
