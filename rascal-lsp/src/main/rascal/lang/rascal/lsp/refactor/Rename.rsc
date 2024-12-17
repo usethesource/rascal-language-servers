@@ -408,22 +408,13 @@ Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
-private set[Tree] rascalNameToEquivalentNames(str name) {
-    set[Tree] equivs = {t
-        | T <- {#Name, #Nonterminal, #NonterminalLabel}
-        , just(Tree t) := tryParseAs(T, name)
-    };
-
-    if (!startsWith(name, "\\") && just(en) := tryParseAs(#Name, "\\<name>")) equivs += en;
-
-    return equivs;
-}
+private set[str] rascalNameToEquivalentNames(str name) =
+    {name, startsWith(name, "\\") ? name : "\\<name>"};
 
 private bool rascalContainsName(loc l, str name) {
-    m = parseModuleWithSpacesCached(l);
-    for (n <- rascalNameToEquivalentNames(name)) {
-        if (/n := m) return true;
-    }
+    start[Module] m = parseModuleWithSpacesCached(l);
+    set[str] names = rascalNameToEquivalentNames(name);
+    if (/Tree t := m, "<t>" in names) return true;
     return false;
 }
 
