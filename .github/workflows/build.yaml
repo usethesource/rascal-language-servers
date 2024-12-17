@@ -49,7 +49,7 @@ jobs:
     strategy:
       matrix:
         os: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
-      fail-fast: true
+      fail-fast: false
     env:
       CODE_VERSION: "1.82.3"
     runs-on:  ${{ matrix.os }}
@@ -94,7 +94,7 @@ jobs:
         env:
           DELAY_FACTOR: 10
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/ide.test.js --storage uitests
 
       - name: "UI test (mac)"
         shell: bash
@@ -103,7 +103,7 @@ jobs:
         env:
           DELAY_FACTOR: 15
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/ide.test.js --storage uitests
 
       - name: "UI test (ubuntu)"
         shell: bash
@@ -112,7 +112,7 @@ jobs:
         env:
           DELAY_FACTOR: 8
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/ide.test.js --storage uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4

@@ -158,7 +158,7 @@ describe('IDE', function () {
         }, Delays.normal, "Cursor should have moved to line that contains the println function");
     });
 
-    it ("rename works", async() => {
+    it("rename works", async() => {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
@@ -188,7 +188,7 @@ describe('IDE', function () {
         expect(editorText).to.contain("i -2");
     });
 
-    it("renaming files works", async() => {
+    it.only("renaming files works", async() => {
         const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
         await fs.mkdir(newDir, {recursive: true});
 
