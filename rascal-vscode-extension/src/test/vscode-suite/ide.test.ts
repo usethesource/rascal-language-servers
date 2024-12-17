@@ -196,21 +196,28 @@ describe('IDE', function () {
         const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
         await ide.openModule(TestWorkspace.libFile);
+        await ide.screenshot("IDE-find-files-in-explorer");
         const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.extremelySlow, "Cannot find Lib.rsc");
         const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.extremelySlow, "Cannot find lib folder");
 
         // Open the lib file before moving it, so we have the editor ready to inspect afterwards
         const libFile = await ide.openModule(TestWorkspace.libFile);
+        await ide.screenshot("IDE-rename-modules-before-move");
         await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
+        await ide.screenshot("IDE-rename-modules-after-move");
 
+        let tries = 1;
         await driver.wait(async() => {
             const text = await libFile.getText();
+            await ide.screenshot(`${tries++}-IDE-lib-text`);
             return text.indexOf("module lib::Lib") !== -1;
         }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`");
 
         const callFile = await ide.openModule(TestWorkspace.libCallFile);
+        tries = 1;
         await driver.wait(async() => {
             const text = await callFile.getText();
+            await ide.screenshot(`${tries++}-IDE-lib-call-text`);
             return text.indexOf("import lib::Lib") !== -1;
         }, Delays.extremelySlow, "Import should have changed to `lib::Lib`");
     });
