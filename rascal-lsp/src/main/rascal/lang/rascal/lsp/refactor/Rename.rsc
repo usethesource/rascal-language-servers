@@ -428,8 +428,7 @@ private bool rascalContainsName(loc l, str name) {
 }
 
 set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
-                                                          [logPathConfig = false];
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg);
     ms = rascalTModelForLocs(toList(fs), ccfg, dummy_compile1);
 
     set[TModel] tmodels = {};
