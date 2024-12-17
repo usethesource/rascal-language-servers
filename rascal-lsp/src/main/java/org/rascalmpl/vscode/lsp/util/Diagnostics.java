@@ -42,6 +42,8 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -71,9 +73,15 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+        var message = e.getMessage() + " (irrecoverable)";
+        return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
     }
 
+    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
+    }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
@@ -121,14 +129,27 @@ public class Diagnostics {
         return result;
     }
 
+    private static Range toRange(ITree t, ColumnMaps cm) {
+        return toRange(TreeAdapter.getLocation(t), cm);
+    }
+
     private static Range toRange(ParseError pe, ColumnMaps cm) {
-        ISourceLocation loc = pe.getLocation();
+        return toRange(pe.getLocation(), cm);
+    }
+
+    private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
-            loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
-                loc.getOffset(), loc.getLength() + 1,
-                loc.getBeginLine(), loc.getBeginColumn(),
-                loc.getEndLine(), loc.getEndColumn() + 1);
+            try {
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
+                    loc.getOffset(), loc.getLength() + 1,
+                    loc.getBeginLine(), loc.getBeginColumn(),
+                    loc.getEndLine(), loc.getEndColumn() + 1);
+            } catch (Throwable t) {
+                logger.trace("Cannot extend 0-width location for parse error: " + t.getMessage());
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(
+                    loc, 0, 1, 1, 1, 0, 1);
+            }
         }
         return Locations.toRange(loc, cm);
     }
