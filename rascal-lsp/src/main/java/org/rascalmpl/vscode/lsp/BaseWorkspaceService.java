@@ -31,6 +31,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.google.gson.JsonPrimitive;
+
+import io.usethesource.vallang.IMap;
+import io.usethesource.vallang.IValue;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
@@ -44,6 +48,7 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.values.IRascalValueFactory;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     public static final String RASCAL_LANGUAGE = "Rascal";
@@ -111,15 +116,36 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
-            String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
-            String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-            return documentService.executeCommand(languageName, command).thenApply(v -> v);
-        }
+            var languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
+            var command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
 
-        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
+            return documentService.executeCommand(languageName, command).thenApply(v -> commandResultMap(v));
+        }
+        else {
+            return CompletableFuture.supplyAsync(() -> commandResultMap(IRascalValueFactory.getInstance().bool(false)));
+        }
     }
 
+    /**
+     * Command results are wrapped in an IMap such that on the client side of the LSP they end up
+     * as a JSON object `{'result' : <value> }`, and `<value>` can remain to be any
+     * value including primitive values like integers and strings.
+     */
+    private static IMap commandResultMap(IValue result) {
+        var vf = IRascalValueFactory.getInstance();
 
+        /* Check if the result is already wrapped in a singleton map `("result":x)`
+         * We do this for backward compatibility with the previous semantics where
+         * the wrapping had to be done manually in Rascal code to avoid failures in
+         * the JSON bridge w.r.t. to values of primitive types.
+         */
+        if (result.getType().isMap()) {
+            IMap m = (IMap) result;
+            if (m.size() == 1 && m.iterator().next().equals(vf.string("result"))) {
+                return m;
+            }
+        }
 
-
+        return vf.map().put(vf.string("result"), result);
+    }
 }
