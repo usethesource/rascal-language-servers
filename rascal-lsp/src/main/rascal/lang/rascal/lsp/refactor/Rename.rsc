@@ -196,7 +196,7 @@ rel[loc, loc] rascalFindNamesInUseDefs(loc l, set[loc] useDefs) {
     }
 
     if (useDefsToDo != {}) {
-        throw unsupportedRename("Rename unsupported", issues={<l, "Cannot find the name for this definition in <m.src.top>."> | l <- useDefsToDo});
+        throw unsupportedRename("Rename unsupported", issues={<ud, "Cannot find the name for this definition in <m.src.top>."> | ud <- useDefsToDo});
     }
 
     return nameOfUseDef;

@@ -339,7 +339,7 @@ private set[RenameLocation] rascalGetExceptUses(TModel ws, set[loc] defs) {
     })];
 
     set[RenameLocation] uses = {};
-    for (Define d: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
+    for (Define _: <_, consName, _, constructorId(), _, defType(acons(aadt(_, _, _), _, _))> <- constructorDefs) {
         // Find all neighbouring pairs of facts where an except for `cursorName` exists only in the latter
         for (
             [ *_

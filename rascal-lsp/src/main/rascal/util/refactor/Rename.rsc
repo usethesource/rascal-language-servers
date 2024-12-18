@@ -54,7 +54,7 @@ alias PreCheckF = CheckResult(Tree cursorT, str newName, set[loc] workspaceFolde
 alias PostCheckF = CheckResult(TModel tm, loc moduleLoc, str newName, set[RenameLocation] defs, set[RenameLocation] uses);
 @synopsis{ A function that selects project files to load. }
 alias PreFilesF = ProjectFiles(Tree cursorT, set[loc] workspaceFolders, PathConfigF getPathConfig);
-alias AllFilesF = ProjectFiles(Cursor cur, set[loc] workspaceFolders, PathConfigF getPathConfig);
+alias AllFilesF = ProjectFiles(TModel tm, Cursor cur, set[loc] workspaceFolders, PathConfigF getPathConfig);
 @synopsis{ A function that, given a set of file locs and a path config, returns a set of TModels. }
 alias TModelsF = set[TModel](set[loc] fs, PathConfig pcfg);
 @synopsis{ A function that, given a TModel and the Tree under the cursor, returns a Cursor. }
@@ -90,9 +90,8 @@ RenameSymbolF renameSymbolFramework(
 
         // step("preloading minimal workspace information", 1);
         println("preloading minimal workspace information");
-        TModel tm = tmodel();
         ProjectFiles preloadFiles = preFiles(cursorT, workspaceFolders, getPathConfig);
-        tm = loadLocs(tm, preloadFiles, getTModels, getPathConfig);
+        TModel tm = loadLocs(tmodel(), preloadFiles, getTModels, getPathConfig);
 
         // step("analyzing name at cursor", 1);
         println("analyzing name at cursor");
@@ -100,7 +99,7 @@ RenameSymbolF renameSymbolFramework(
 
         // step("loading required type information", 1);
         println("loading required type information");
-        ProjectFiles allLoadFiles = allFiles(cur, workspaceFolders, getPathConfig);
+        ProjectFiles allLoadFiles = allFiles(tm, cur, workspaceFolders, getPathConfig);
         tm = loadLocs(tm, allLoadFiles, getTModels, getPathConfig);
 
         // step("collecting definitions and uses of \'<cursorName>\'", 1);
