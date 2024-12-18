@@ -212,8 +212,11 @@ describe('IDE', function () {
         await driver.wait(checkRascalStatus(), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         // Move the file
+        await ide.screenshot("1IDE-rename-before-move");
         await (await libFileInTree!.openContextMenu()).select("Cut");
+        await ide.screenshot("2IDE-rename-before-paste");
         await (await libFolderInTree!.openContextMenu()).select("Paste");
+        await ide.screenshot("3IDE-rename-after-paste");
 
         await driver.wait(async() => {
             const text = await libFile.getText();
