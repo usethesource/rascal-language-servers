@@ -440,18 +440,19 @@ ProjectFiles rascalPreloadFiles(Tree cursorT, set[loc] workspaceFolders, PathCon
     > };
 }
 
-ProjectFiles rascalAllWorkspaceFiles(cursor(_, _, cursorName), set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    return {
+ProjectFiles rascalAllWorkspaceFiles(TModel tm, Cursor cur, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
+    rascalIsFunctionLocal(tm, cur) ? {}
+    : {
         // If we do not find any occurrences of the name under the cursor in a module,
         // we are not interested in loading the model, but we still want to inform the
         // renaming framework about the existence of the file.
-        <folder, rascalContainsName(file, cursorName), file>
+        <folder, rascalContainsName(file, cur.name), file>
         | folder <- workspaceFolders
         , PathConfig pcfg := getPathConfig(folder)
         , srcFolder <- pcfg.srcs
         , file <- find(srcFolder, "rsc")
     };
-}
+
 @synopsis{
     Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.
     Renaming is not supported for some symbols.
