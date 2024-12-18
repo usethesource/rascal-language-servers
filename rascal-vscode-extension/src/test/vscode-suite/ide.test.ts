@@ -203,11 +203,13 @@ describe('IDE', function () {
         const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
         const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
 
-        await ide.screenshot("IDE-rename-modules-before-move");
-        console.log("Lib file: " + libFileInTree);
-        console.log("Lib folder: " + libFolderInTree);
-        await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
-        await ide.screenshot("IDE-rename-modules-after-move");
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(checkRascalStatus(), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+
+        // Move the file
+        await (await libFileInTree!.openContextMenu()).select("Cut");
+        await (await libFolderInTree!.openContextMenu()).select("Paste");
 
         let tries = 1;
         await driver.wait(async() => {
