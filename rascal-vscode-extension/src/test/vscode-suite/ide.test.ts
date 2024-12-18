@@ -30,6 +30,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
+import { fail } from 'assert';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -211,12 +212,17 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(checkRascalStatus(), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
+        if (!libFileInTree) {fail("Could not find Lib.rsc");}
+        if (!libFolderInTree) {fail("Could not find lib folder");}
+
         // Move the file
         await ide.screenshot("1IDE-rename-before-move");
-        await (await libFileInTree!.openContextMenu()).select("Cut");
-        await ide.screenshot("2IDE-rename-before-paste");
-        await (await libFolderInTree!.openContextMenu()).select("Paste");
-        await ide.screenshot("3IDE-rename-after-paste");
+        const fileContextMenu = await libFileInTree.openContextMenu();
+        await ide.screenshot("2IDE-rename-after-contextclick");
+        await fileContextMenu.select("Cut");
+        await ide.screenshot("3IDE-rename-before-paste");
+        await (await libFolderInTree.openContextMenu()).select("Paste");
+        await ide.screenshot("5IDE-rename-after-paste");
 
         await driver.wait(async() => {
             const text = await libFile.getText();
