@@ -236,10 +236,8 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     set[Define] defines = {definitions[d] | d <- defs};
 
     if (size(defines.id) > 1) return false;
-    if ({IdRole role} := defines.idRole) {
-        return rascalMayOverload(defs, definitions);
-    }
-    return false;
+    if (size(defines) == 0) return false;
+    return rascalMayOverload(defs, definitions);
 }
 
 set[Define] rascalGetADTDefinitions(TModel ws, loc lhs) {

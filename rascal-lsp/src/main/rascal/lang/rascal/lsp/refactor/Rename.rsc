@@ -76,7 +76,7 @@ void throwAnyErrors(program(_, msgs)) {
 
 private set[IllegalRenameReason] rascalCheckLegalNameByRoles(str name, set[IdRole] roles) {
     escName = rascalEscapeName(name);
-    tuple[type[&T <: Tree] as, str desc] asType = <#Name, "identifier">;
+    tuple[type[Tree] as, str desc] asType = <#Name, "identifier">;
     if ({moduleId(), *_} := roles) asType = <#QualifiedName, "module name">;
     if ({constructorId(), *_} := roles) asType = <#NonterminalLabel, "constructor name">;
     if ({fieldId(), *_} := roles) asType = <#NonterminalLabel, "constructor field name">;
@@ -89,7 +89,7 @@ private set[IllegalRenameReason] rascalCheckLegalNameByRoles(str name, set[IdRol
 set[IllegalRenameReason] rascalCheckLegalNameByType(str name, Symbol sym) {
     escName = rascalEscapeName(name);
     g = grammar(#start[Module]);
-    if (tryParseAs(type(sym, g.rules), escName) is nothing) {
+    if (type[Tree] t := type(sym, g.rules), tryParseAs(t, escName) is nothing) {
         return {invalidName(escName, "<sym>")};
     }
     return {};
