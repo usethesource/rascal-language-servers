@@ -162,6 +162,10 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(checkRascalStatus(), Delays.normal, "Rascal evaluators have not finished loading");
+
         let renameSuccess = false;
         let tries = 0;
         while (!renameSuccess && tries < 5) {
