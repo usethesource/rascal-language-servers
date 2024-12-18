@@ -211,20 +211,18 @@ describe('IDE', function () {
         await (await libFileInTree!.openContextMenu()).select("Cut");
         await (await libFolderInTree!.openContextMenu()).select("Paste");
 
-        let tries = 1;
         await driver.wait(async() => {
             const text = await libFile.getText();
-            await ide.screenshot(`${tries++}-IDE-lib-text`);
             return text.indexOf("module lib::Lib") !== -1;
-        }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`");
+        }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`", Delays.normal);
 
         const callFile = await ide.openModule(TestWorkspace.libCallFile);
-        tries = 1;
         await driver.wait(async() => {
             const text = await callFile.getText();
-            await ide.screenshot(`${tries++}-IDE-lib-call-text`);
             return text.indexOf("import lib::Lib") !== -1;
-        }, Delays.extremelySlow, "Import should have changed to `lib::Lib`");
+        }, Delays.extremelySlow, "Import should have changed to `lib::Lib`", Delays.normal);
+
+        await fs.rm(newDir, {recursive: true, force: true});
     });
 
     it("code actions work", async() => {
