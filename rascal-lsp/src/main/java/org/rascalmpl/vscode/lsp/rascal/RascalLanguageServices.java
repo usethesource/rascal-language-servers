@@ -30,22 +30,29 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -54,6 +61,8 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -61,8 +70,10 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -233,6 +244,110 @@ public class RascalLanguageServices {
                 throw e;
             }
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+    }
+
+    private ISourceLocation sourceLocationFromUri(String uri) {
+        try {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Optional<ISourceLocation> findContainingWorkspaceFolder(ISourceLocation loc, List<ISourceLocation> workspaceFolders) {
+        return workspaceFolders.stream()
+            .filter(folderLoc -> URIUtil.isParentOf(folderLoc, loc))
+            .findFirst();
+    }
+
+    private ISet qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+        // Sort workspace folders so we get the most specific folders first
+        List<ISourceLocation> sortedWorkspaceFolders = workspaceFolders.stream()
+            .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
+            .collect(Collectors.toList());
+
+        return renames.parallelStream()
+            .map(rename -> {
+                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
+                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
+
+                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", currentLoc)));
+
+                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders)
+                    .orElseThrow(() -> new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", newLoc)));
+
+                if (!currentWsFolder.equals(newWsFolder)) {
+                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
+                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
+                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
+
+                    throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
+                }
+
+                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
+                try {
+                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
+                    IString newName = VF.string(pcfg.getModuleName(newLoc));
+
+                    return VF.tuple(currentName, newName, addResources(pcfg));
+                } catch (IOException e) {
+                    throw new RuntimeException(e.getMessage());
+                }
+            })
+            .collect(VF.setWriter());
+    }
+
+    private static String readFile(ISourceLocation loc) {
+        URIResolverRegistry reg = URIResolverRegistry.getInstance();
+        try (Reader reader = reg.getCharacterReader(loc)) {
+            return IOUtils.toString(reader);
+        } catch (IOException e) {
+            throw new RuntimeException(String.format("Error reading file %s", loc));
+        }
+    }
+
+    private CompletableFuture<ITree> getEditorTreeOrParse(ISourceLocation loc, Map<ISourceLocation, TextDocumentState> documents) throws IOException {
+        if(documents.containsKey(loc)) {
+            var file = documents.get(loc);
+            return file.getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
+                ;
+        }
+
+        return CompletableFuture.supplyAsync(() -> readFile(loc), exec)
+            .thenCompose(input -> parseSourceFile(loc, input));
+    }
+
+    public InterruptibleFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
+        var emptyResult = VF.tuple(VF.list(), VF.map());
+        if (fileRenames.isEmpty()) {
+            return InterruptibleFuture.completedFuture(emptyResult);
+        }
+
+        return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+            IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+            final var treeType = tf.abstractDataType(store, "Tree");
+            IFunction rascalGetModuleTree = eval.getFunctionValueFactory().function(tf.functionType(treeType, tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty()), (args, kwArgs) -> {
+                var loc = (ISourceLocation) args[0];
+                try {
+                    return getEditorTreeOrParse(loc, documents).get();
+                } catch (ExecutionException | IOException e) {
+                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(String.format("Thread %d was interrupted", Thread.currentThread().getId()));
+                }
+            });
+
+            ISet qualifiedNameChanges = qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig);
+            try {
+                return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig, rascalGetModuleTree);
+            } catch (Throw e) {
+                throw new RuntimeException(e.getMessage());
+            }
+        }, emptyResult, exec, false, client);
     }
 
 

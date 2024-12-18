@@ -27,7 +27,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, Key, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, DefaultTreeSection, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 import { expect } from 'chai';
 
@@ -186,6 +186,31 @@ describe('IDE', function () {
         expect(editorText).to.contain("i < 2");
         expect(editorText).to.contain("i - 1");
         expect(editorText).to.contain("i -2");
+    });
+
+    it("renaming files works", async() => {
+        const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
+        await fs.mkdir(newDir, {recursive: true});
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)") as DefaultTreeSection;
+        await workspace.expand();
+        await ide.openModule(TestWorkspace.libFile);
+        const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
+        const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
+        await driver.actions().dragAndDrop(libFileInTree!, libFolderInTree).perform();
+
+        const libFile = await ide.openModule(path.join(newDir, "Lib.rsc"));
+        await driver.wait(async() => {
+            const text = await libFile.getText();
+            return text.indexOf("module lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`");
+
+        const callFile = await ide.openModule(TestWorkspace.libCallFile);
+        await driver.wait(async() => {
+            const text = await callFile.getText();
+            return text.indexOf("import lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Import should have changed to `lib::Lib`");
     });
 
     it("code actions work", async() => {

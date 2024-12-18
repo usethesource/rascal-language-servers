@@ -50,6 +50,7 @@ import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
 import util::Math;
+import util::Maybe;
 import util::Reflective;
 
 
@@ -263,25 +264,39 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     return <edits, occs>;
 }
 
-private list[Tree] collectNameTrees(start[Module] m, str name) {
-    list[Tree] names = [];
-        visit (m) {
+private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) {
+    lrel[loc, Maybe[Tree]] names = [];
+        top-down-break visit (m) {
+        case QualifiedName qn: {
+            if ("<qn>" == name) {
+                names += <qn.src, just(qn)>;
+            }
+            else {
+                modPrefix = prefix([n | n <- qn.names]);
+                if (intercalate("::", ["<n>" | n <- modPrefix]) == name) {
+                    names += <cover([n.src | n <- modPrefix]), nothing()>;
+                } else {
+                    fail;
+                }
+            }
+        }
         // 'Normal' names
         case Name n:
-            if ("<n>" == name) names += n;
+            if ("<n>" == name) names += <n.src, just(n)>;
         // Nonterminals (grammars)
         case Nonterminal s:
-            if ("<s>" == name) names += s;
+            if ("<s>" == name) names += <s.src, just(s)>;
         // Labels for nonterminals (grammars)
         case NonterminalLabel label:
-            if ("<label>" == name) names += label;
+            if ("<label>" == name) names += <label.src, just(label)>;
     }
-    return names;
+
+    return [<i, l, mt> | <i, <l, mt>> <- zip2(index(names), names)];
 }
 
 private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str name) {
     start[Module] m = parseModuleWithSpaces(moduleFileName);
-    list[loc] oldNameOccurrences = [n.src | n <- collectNameTrees(m, name)];
+    list[loc] oldNameOccurrences = [l | <_, l, _> <- collectNameTrees(m, name)];
 
     if ([changed(_, replaces)] := edits<0>) {
         set[int] occs = {};
@@ -313,7 +328,13 @@ private Tree findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
     names = collectNameTrees(m, id);
     if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
-    return names[occ];
+    maybeCursor = names[occ];
+
+    if (<i, l, nothing()> := maybeCursor) {
+        throw "Cannot use <i>th occurrence of \'<id>\' at <l> as cursor";
+    } else {
+        return (maybeCursor<2>).val;
+    }
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
@@ -328,6 +349,5 @@ private loc storeTestModule(loc dir, str name, str body) {
     return moduleFile;
 }
 
-private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i <- occs, n := collectNameTrees(m, name)[i]};
-private set[loc] occsToLocs(start[Module] m, str name, set[int] occs) = {t.src | t <- occsToTrees(m, name, occs)};
-private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | n <- collectNameTrees(m, name)], occ <- occs};
+private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) =
+    toSet((collectNameTrees(m, name)<1, 0>)[occs]);
