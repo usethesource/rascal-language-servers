@@ -54,7 +54,7 @@ set[TModel] tmodelsForProjectFiles(ProjectFiles projectFiles, set[TModel](set[lo
     ({} | it + tmodelsForFiles(projectFiles[pf, true], pcfg) | pf <- projectFiles.projectFolder, pcfg := getPathConfig(pf));
 
 TModel loadLocs(TModel wsTM, ProjectFiles projectFiles, set[TModel](set[loc], PathConfig) tmodelsForFiles, PathConfig(loc) getPathConfig) {
-    wsTM = (wsTM | appendTModel(wsTM, modTM) | modTM <- tmodelsForProjectFiles(projectFiles, tmodelsForFiles, getPathConfig));
+    wsTM = (wsTM | appendTModel(it, modTM) | modTM <- tmodelsForProjectFiles(projectFiles, tmodelsForFiles, getPathConfig));
 
     // In addition to data from the loaded TModel, we keep track of which projects/modules we loaded.
     wsTM.sourceFiles += projectFiles.file;

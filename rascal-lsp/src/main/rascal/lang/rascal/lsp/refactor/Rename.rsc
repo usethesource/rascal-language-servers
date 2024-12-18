@@ -423,10 +423,10 @@ set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     ms = rascalTModelForLocs(toList(fs), ccfg, dummy_compile1);
 
     set[TModel] tmodels = {};
-    for (modName <- ms.moduleLocs) {
+    for (m <- fs, modName := getModuleName(m, pcfg)) {
         <found, tm, ms> = getTModelForModule(modName, ms);
         if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
-        tmodels += convertTModel2PhysicalLocs(tm);
+        tmodels += tm;
     }
     return tmodels;
 }
