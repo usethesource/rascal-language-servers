@@ -423,7 +423,7 @@ set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     ms = rascalTModelForLocs(toList(fs), ccfg, dummy_compile1);
 
     set[TModel] tmodels = {};
-    for (m <- fs, modName := getModuleName(m, pcfg)) {
+    for (modName <- ms.moduleLocs) {
         <found, tm, ms> = getTModelForModule(modName, ms);
         if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
         tmodels += tm;
