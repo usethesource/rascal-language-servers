@@ -31,6 +31,7 @@ import * as path from 'path';
 import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 import { fail } from 'assert';
+import * as os from 'os';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -165,7 +166,7 @@ describe('IDE', function () {
 
         // Before moving, check that Rascal is really loaded
         const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(checkRascalStatus(), Delays.normal, "Rascal evaluators have not finished loading");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         let renameSuccess = false;
         let tries = 0;
@@ -210,15 +211,31 @@ describe('IDE', function () {
 
         // Before moving, check that Rascal is really loaded
         const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(checkRascalStatus(), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         if (!libFileInTree) {fail("Could not find Lib.rsc");}
         if (!libFolderInTree) {fail("Could not find lib folder");}
 
         // Move the file
         await ide.screenshot("1IDE-rename-before-move");
-        await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
-        await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
+        if (os.type() === "Darwin") {
+            // Context menus are not supported for macOS:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
+            const OPTION = "\u2325";
+            await driver.actions()
+                .click(libFileInTree)
+                .pause(2000)
+                .sendKeys(Key.COMMAND, 'c', Key.COMMAND)
+                .pause(2000)
+                .click(libFolderInTree)
+                .pause(2000)
+                .sendKeys(Key.COMMAND, OPTION, 'v', OPTION, Key.COMMAND)
+                .perform();
+
+        } else {
+            await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
+            await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
+        }
         await ide.screenshot("5IDE-rename-after-paste");
 
         await driver.wait(async() => {
