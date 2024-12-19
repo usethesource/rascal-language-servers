@@ -528,25 +528,23 @@ ProjectFiles rascalAllWorkspaceFiles(TModel tm, Cursor cur, set[loc] workspaceFo
     2. It does not change the semantics of the application.
     3. It does not change definitions outside of the current workspace.
 }
-Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) {
-    RenameSymbolF rascalRename = renameSymbolFramework(
-        CheckResult(Tree c, str nn, set[loc] _, PathConfig(loc) _) { return rascalCheckLegalNameByType(nn, typeOf(c)); }
-      , CheckResult(TModel tm, loc moduleLoc, str nn, set[RenameLocation] defs, set[RenameLocation] uses) {
-            start[Module] m = parseModuleWithSpacesCached(moduleLoc);
-            return rascalCollectIllegalRenames(tm, m, defs.l, uses.l, nn);
-        }
-      , rascalPreloadFiles
-      , rascalAllWorkspaceFiles
-      , rascalTModels
-      , rascalEscapeName
-      , rascalGetCursor
-      , DefsUsesRenames(TModel tm, Cursor cur, ChangeAnnotationRegister regChangeAnno, PathConfigF gpcfg) {
-            return rascalGetDefsUses(tm, cur, rascalMayOverloadSameName, regChangeAnno, gpcfg);
-       }
-      , rascalFindNamesInUseDefs
-    );
-    return rascalRename(cursorT, newName, workspaceFolders, getPathConfig);
-}
+public RenameSymbolF rascalRenameSymbol = renameSymbolFramework(
+    CheckResult(Tree c, str nn, set[loc] _, PathConfig(loc) _) { return rascalCheckLegalNameByType(nn, typeOf(c)); }
+    , CheckResult(TModel tm, loc moduleLoc, str nn, set[RenameLocation] defs, set[RenameLocation] uses) {
+        start[Module] m = parseModuleWithSpacesCached(moduleLoc);
+        return rascalCollectIllegalRenames(tm, m, defs.l, uses.l, nn);
+    }
+    , rascalPreloadFiles
+    , rascalAllWorkspaceFiles
+    , rascalTModels
+    , rascalEscapeName
+    , rascalGetCursor
+    , DefsUsesRenames(TModel tm, Cursor cur, ChangeAnnotationRegister regChangeAnno, PathConfigF gpcfg) {
+        return rascalGetDefsUses(tm, cur, rascalMayOverloadSameName, regChangeAnno, gpcfg);
+    }
+    , rascalFindNamesInUseDefs
+);
+
 
 //// WORKAROUNDS
 
