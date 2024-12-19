@@ -31,6 +31,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,10 +44,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -54,6 +56,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -61,11 +64,10 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -205,11 +207,7 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<ITuple> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName, ColumnMaps columns) {
-        var moduleLocation = TreeAdapter.getLocation(module);
-        Position pos = Locations.toRascalPosition(moduleLocation, cursor, columns);
-        var cursorTree = TreeAdapter.locateLexical(module, pos.getLine(), pos.getCharacter());
-
+    public InterruptibleFuture<ITuple> getRename(ITree cursorTree, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
                 IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
@@ -233,6 +231,79 @@ public class RascalLanguageServices {
                 throw e;
             }
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+    }
+
+    private ISourceLocation sourceLocationFromUri(String uri) {
+        try {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private ISourceLocation findContainingWorkspaceFolder(ISourceLocation loc, List<ISourceLocation> workspaceFolders) {
+        var containingFolder = workspaceFolders.stream()
+            .filter(folderLoc -> URIUtil.isParentOf(folderLoc, loc))
+            .findFirst();
+
+        if (containingFolder.isEmpty()) {
+            throw new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", loc));
+        }
+        return containingFolder.get();
+    }
+
+    private ISet qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+        // Sort workspace folders so we get the most specific folders first
+        List<ISourceLocation> sortedWorkspaceFolders = workspaceFolders.stream()
+            .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
+            .collect(Collectors.toList());
+
+        return renames.parallelStream()
+            .map(rename -> {
+                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
+                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
+
+                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders);
+                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders);
+
+                if (!currentWsFolder.equals(newWsFolder)) {
+                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
+                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
+                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
+
+                    throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
+                }
+
+                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
+                try {
+                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
+                    IString newName = VF.string(pcfg.getModuleName(newLoc));
+
+                    return VF.tuple(currentName, newName, addResources(pcfg));
+                } catch (IOException e) {
+                    throw new RuntimeException(e.getMessage());
+                }
+            })
+            .collect(VF.setWriter());
+    }
+
+    public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
+        var emptyResult = VF.tuple(VF.list(), VF.map());
+        if (fileRenames.isEmpty()) {
+            return CompletableFuture.completedFuture(emptyResult);
+        }
+
+        return CompletableFuture.supplyAsync(() -> qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig))
+            .thenCompose(qualifiedNameChanges -> {
+                return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+                    IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+                    try {
+                        return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
+                    } catch (Throw e) {
+                        throw new RuntimeException(e.getMessage());
+                    }
+                }, emptyResult, exec, false, client).get();
+            });
     }
 
 
