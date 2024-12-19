@@ -24,30 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.parametric;
 
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
-import org.eclipse.lsp4j.RenameFilesParams;
-import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.services.LanguageClient;
-import org.eclipse.lsp4j.services.TextDocumentService;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
-import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
-
-public interface IBaseTextDocumentService extends TextDocumentService {
-    void initializeServerCapabilities(ServerCapabilities result);
-    void shutdown();
-    void connect(LanguageClient client);
-    void pair(BaseWorkspaceService workspaceService);
-    void registerLanguage(LanguageParameter lang);
-    void unregisterLanguage(LanguageParameter lang);
-    CompletableFuture<IValue> executeCommand(String languageName, String command);
-    LineColumnOffsetMap getColumnMap(ISourceLocation file);
-
-    default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
+public class ParametricWorkspaceService extends BaseWorkspaceService {
+    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
+        super(exec, docService);
+    }
 }

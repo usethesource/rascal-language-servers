@@ -25,11 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, Key, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
-import { expect } from 'chai';
+import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
+import { fail } from 'assert';
+import * as os from 'os';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -162,6 +164,10 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+
         let renameSuccess = false;
         let tries = 0;
         while (!renameSuccess && tries < 5) {
@@ -186,6 +192,64 @@ describe('IDE', function () {
         expect(editorText).to.contain("i < 2");
         expect(editorText).to.contain("i - 1");
         expect(editorText).to.contain("i -2");
+    });
+
+    it("renaming files works", async() => {
+        const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
+        await fs.mkdir(newDir, {recursive: true});
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer")
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        await ide.openModule(TestWorkspace.libFile);
+        // Open the lib file before moving it, so we have the editor ready to inspect afterwards
+        const libFile = await ide.openModule(TestWorkspace.libFile);
+        await ide.screenshot("IDE-find-files-in-explorer");
+        const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
+        const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
+
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+
+        if (!libFileInTree) {fail("Could not find Lib.rsc");}
+        if (!libFolderInTree) {fail("Could not find lib folder");}
+
+        // Move the file
+        await ide.screenshot("1IDE-rename-before-move");
+        if (os.type() === "Darwin") {
+            // Context menus are not supported for macOS:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
+            const OPTION = "\u2325";
+            await driver.actions()
+                .click(libFileInTree)
+                .pause(2000)
+                .sendKeys(Key.COMMAND, 'c', Key.COMMAND)
+                .pause(2000)
+                .click(libFolderInTree)
+                .pause(2000)
+                .sendKeys(Key.COMMAND, OPTION, 'v', OPTION, Key.COMMAND)
+                .perform();
+
+        } else {
+            await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
+            await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
+        }
+        await ide.screenshot("5IDE-rename-after-paste");
+
+        await driver.wait(async() => {
+            const text = await libFile.getText();
+            return text.indexOf("module lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`", Delays.normal);
+
+        const callFile = await ide.openModule(TestWorkspace.libCallFile);
+        await driver.wait(async() => {
+            const text = await callFile.getText();
+            return text.indexOf("import lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Import should have changed to `lib::Lib`", Delays.normal);
+
+        await fs.rm(newDir, {recursive: true, force: true});
     });
 
     it("code actions work", async() => {
