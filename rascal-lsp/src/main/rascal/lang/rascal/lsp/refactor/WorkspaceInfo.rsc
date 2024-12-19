@@ -45,6 +45,7 @@ import util::refactor::TextEdits;
 import util::refactor::WorkspaceInfo;
 import util::Util;
 
+import IO;
 import List;
 import Location;
 import Map;
@@ -70,6 +71,14 @@ data Cursor
     ;
 
 alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
+
+@synopsis{
+    A cached wrapper for the Rascal whole-module parse function.
+}
+start[Module] parseModuleWithSpacesCached(loc l) {
+    @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
+    return parseModuleWithSpacesCached(l, lastModified(l));
+}
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
 set[loc] getModuleScopes(TModel ws) = invert(ws.scopes)[|global-scope:///|];

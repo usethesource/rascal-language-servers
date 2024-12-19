@@ -26,7 +26,6 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module util::Util
 
-import IO;
 import List;
 import Location;
 import Message;
@@ -34,9 +33,6 @@ import ParseTree;
 import String;
 
 import util::Maybe;
-import util::Reflective;
-
-import lang::rascal::\syntax::Rascal;
 
 @synopsis{
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
@@ -71,14 +67,6 @@ loc trim(loc l, int removePrefix = 0, int removeSuffix = 0) {
 bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && l.authority == prefix.authority
                                   && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
-
-@synopsis{
-    A cached wrapper for the Rascal whole-module parse function.
-}
-start[Module] parseModuleWithSpacesCached(loc l) {
-    @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
-    return parseModuleWithSpacesCached(l, lastModified(l));
-}
 
 @synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
