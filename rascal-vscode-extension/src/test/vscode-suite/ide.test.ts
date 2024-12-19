@@ -217,11 +217,8 @@ describe('IDE', function () {
 
         // Move the file
         await ide.screenshot("1IDE-rename-before-move");
-        const fileContextMenu = await libFileInTree.openContextMenu();
-        await ide.screenshot("2IDE-rename-after-contextclick");
-        await fileContextMenu.select("Cut");
-        await ide.screenshot("3IDE-rename-before-paste");
-        await (await libFolderInTree.openContextMenu()).select("Paste");
+        await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
+        await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
         await ide.screenshot("5IDE-rename-after-paste");
 
         await driver.wait(async() => {
