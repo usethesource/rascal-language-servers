@@ -102,17 +102,3 @@ rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
 bool isShorter(loc l1, loc l2) = l1.length < l2.length;
 
 bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
-
-@synopsis{
-    Predicate to sort locations by offset.
-}
-bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
-
-@synopsis{
-    Predicate to reverse a sort order.
-}
-bool(&T, &T) desc(bool(&T, &T) f) {
-    return bool(&T t1, &T t2) {
-        return f(t2, t1);
-    };
-}
