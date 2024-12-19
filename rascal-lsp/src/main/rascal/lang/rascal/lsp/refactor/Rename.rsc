@@ -407,18 +407,27 @@ Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
-private set[str] rascalNameToEquivalentNames(str name) =
-    {name, startsWith(name, "\\") ? name : "\\<name>"};
+private set[Tree] rascalNameToEquivalentNames(str name) {
+    set[Tree] equivs = {t
+        | T <- {#Name, #Nonterminal, #NonterminalLabel}
+        , just(Tree t) := tryParseAs(T, name)
+    };
+
+    if (!startsWith(name, "\\") && just(en) := tryParseAs(#Name, "\\<name>")) equivs += en;
+
+    return equivs;
+}
 
 private bool rascalContainsName(loc l, str name) {
-    start[Module] m = parseModuleWithSpacesCached(l);
-    set[str] names = rascalNameToEquivalentNames(name);
-    if (/Tree t := m, "<t>" in names) return true;
+    m = parseModuleWithSpacesCached(l);
+    for (n <- rascalNameToEquivalentNames(name)) {
+        if (/n := m) return true;
+    }
     return false;
 }
 
 set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg);
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose=false][logPathConfig=false];
     ms = rascalTModelForLocs(toList(fs), ccfg, dummy_compile1);
 
     set[TModel] tmodels = {};
