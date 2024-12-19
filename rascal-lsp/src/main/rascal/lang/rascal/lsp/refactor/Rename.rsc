@@ -409,7 +409,7 @@ Cursor rascalGetCursor(TModel ws, Tree cursorT) {
 
 private set[Tree] rascalNameToEquivalentNames(str name) {
     set[Tree] equivs = {t
-        | T <- {#Name, #Nonterminal, #NonterminalLabel}
+        | type[Tree] T <- {#Name, #Nonterminal, #NonterminalLabel}
         , just(Tree t) := tryParseAs(T, name)
     };
 
