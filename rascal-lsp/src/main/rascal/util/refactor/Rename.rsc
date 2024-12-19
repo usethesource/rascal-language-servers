@@ -29,6 +29,7 @@ module util::refactor::Rename
 import ParseTree;
 import Set;
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 
 import IO;
@@ -83,76 +84,73 @@ RenameSymbolF renameSymbolFramework(
   , FindNamesF findNames
 ) {
     return Edits(Tree cursorT, str newName, set[loc] workspaceFolders, PathConfigF getPathConfig) {
-        // step("pre-checking rename validity", 1);
-        println("pre-checking rename validity");
-        str cursorName = "<cursorT>";
-        checkResult(preCheck(cursorT, newName, workspaceFolders, getPathConfig));
+        return job("renaming \'<"<cursorT>">\' to \'<newName>\'", Edits(void(str, int) step) {
+            step("pre-checking rename validity", 1);
+            str cursorName = "<cursorT>";
+            checkResult(preCheck(cursorT, newName, workspaceFolders, getPathConfig));
 
-        // step("preloading minimal workspace information", 1);
-        println("preloading minimal workspace information");
-        ProjectFiles preloadFiles = preFiles(cursorT, workspaceFolders, getPathConfig);
-        TModel tm = loadLocs(tmodel(), preloadFiles, getTModels, getPathConfig);
+            step("preloading minimal workspace information", 1);
+            ProjectFiles preloadFiles = preFiles(cursorT, workspaceFolders, getPathConfig);
+            TModel tm = loadLocs(tmodel(), preloadFiles, getTModels, getPathConfig);
 
-        // step("analyzing name at cursor", 1);
-        println("analyzing name at cursor");
-        Cursor cur = getCursor(tm, cursorT);
+            step("analyzing name at cursor", 1);
+            Cursor cur = getCursor(tm, cursorT);
 
-        // step("loading required type information", 1);
-        println("loading required type information");
-        ProjectFiles allLoadFiles = allFiles(tm, cur, workspaceFolders, getPathConfig);
-        tm = loadLocs(tm, allLoadFiles, getTModels, getPathConfig);
+            step("loading required type information", 1);
+            ProjectFiles allLoadFiles = allFiles(tm, cur, workspaceFolders, getPathConfig);
+            tm = loadLocs(tm, allLoadFiles, getTModels, getPathConfig);
 
-        // step("collecting definitions and uses of \'<cursorName>\'", 1);
-        println("collecting definitions and uses of \'<cursorName>\'");
-        map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
-        ChangeAnnotationRegister registerChangeAnnotation = ChangeAnnotationId(str label, str description, bool needsConfirmation) {
-            ChangeAnnotationId makeKey(str label, int suffix) = "<label>_<suffix>";
+            step("collecting definitions and uses of \'<cursorName>\'", 1);
+            map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
+            ChangeAnnotationRegister registerChangeAnnotation = ChangeAnnotationId(str label, str description, bool needsConfirmation) {
+                ChangeAnnotationId makeKey(str label, int suffix) = "<label>_<suffix>";
 
-            int suffix = 1;
-            while (makeKey(label, suffix) in changeAnnotations) {
-                suffix += 1;
+                int suffix = 1;
+                while (makeKey(label, suffix) in changeAnnotations) {
+                    suffix += 1;
+                }
+
+                ChangeAnnotationId id = makeKey(label, suffix);
+                changeAnnotations[id] = changeAnnotation(label, description, needsConfirmation);
+
+                return id;
+            };
+
+            <defs, uses, getRenames> = getDefsUses(tm, cur, registerChangeAnnotation, getPathConfig);
+
+            rel[loc file, RenameLocation defines] defsPerFile = {<d.l.top, d> | d <- defs};
+            rel[loc file, RenameLocation uses] usesPerFile = {<u.l.top, u> | u <- uses};
+            set[loc] \files = defsPerFile.file + usesPerFile.file;
+
+            step("checking rename validity", 1);
+            map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] fileResults =
+                (file: <reasons, edits> | file <- \files, <reasons, edits> :=
+                    computeTextEdits(
+                        tm
+                    , file
+                    , defsPerFile[file]
+                    , usesPerFile[file]
+                    , newName
+                    , registerChangeAnnotation
+                    , postCheck
+                    , escapeName
+                    , findNames
+                    )
+                );
+
+            if (reasons := union({fileResults[file].reasons | file <- fileResults}), reasons != {}) {
+                list[str] reasonDescs = toList({describe(r) | r <- reasons});
+                throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", reasonDescs)>", reasons);
             }
 
-            ChangeAnnotationId id = makeKey(label, suffix);
-            changeAnnotations[id] = changeAnnotation(label, description, needsConfirmation);
+            list[DocumentEdit] changes = [changed(file, fileResults[file].edits) | file <- fileResults];
+            list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
 
-            return id;
-        };
-
-        <defs, uses, getRenames> = getDefsUses(tm, cur, registerChangeAnnotation, getPathConfig);
-
-        rel[loc file, RenameLocation defines] defsPerFile = {<d.l.top, d> | d <- defs};
-        rel[loc file, RenameLocation uses] usesPerFile = {<u.l.top, u> | u <- uses};
-        set[loc] \files = defsPerFile.file + usesPerFile.file;
-
-        // step("checking rename validity", 1);
-        println("checking rename validity");
-        map[loc, tuple[set[IllegalRenameReason] reasons, list[TextEdit] edits]] fileResults =
-            (file: <reasons, edits> | file <- \files, <reasons, edits> :=
-                computeTextEdits(
-                    tm
-                  , file
-                  , defsPerFile[file]
-                  , usesPerFile[file]
-                  , newName
-                  , registerChangeAnnotation
-                  , postCheck
-                  , escapeName
-                  , findNames
-                )
-            );
-
-        if (reasons := union({fileResults[file].reasons | file <- fileResults}), reasons != {}) {
-            list[str] reasonDescs = toList({describe(r) | r <- reasons});
-            throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", reasonDescs)>", reasons);
-        }
-
-        list[DocumentEdit] changes = [changed(file, fileResults[file].edits) | file <- fileResults];
-        list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(newName)];
-
-        return <changes + renames, changeAnnotations>;
+            return <changes + renames, changeAnnotations>;
+        }, totalWork = 6);
     };
 }
+
 private void checkResult(CheckResult r, str msg = "Check failed") {
     if (size(r) > 0) {
         throw illegalRename(msg, r);

@@ -59,7 +59,6 @@ import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import util::FileSystem;
 import util::Maybe;
-import util::Monitor;
 import util::Reflective;
 
 // Rascal compiler-specific extension
