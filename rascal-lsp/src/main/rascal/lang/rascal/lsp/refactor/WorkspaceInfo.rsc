@@ -75,10 +75,11 @@ alias MayOverloadFun = bool(set[loc] defs, map[loc, Define] defines);
 @synopsis{
     A cached wrapper for the Rascal whole-module parse function.
 }
-start[Module] parseModuleWithSpacesCached(loc l) {
-    @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
-    return parseModuleWithSpacesCached(l, lastModified(l));
-}
+start[Module] parseModuleWithSpacesCached(loc l) =
+    _parseModuleWithSpacesCached(l, lastModified(l));
+
+@memo{maximumSize(100), expireAfter(minutes=5)}
+private start[Module] _parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
 
 @memo{maximumSize(1), expireAfter(minutes=5)}
 set[loc] getModuleScopes(TModel ws) = invert(ws.scopes)[|global-scope:///|];
@@ -116,6 +117,7 @@ set[loc] rascalReachableModules(TModel ws, set[loc] froms) {
     return {s.top | s <- reachable.modScope};
 }
 
+@memo{maximumSize(10), expireAfter(minutes=5)}
 set[Define] rascalReachableDefs(TModel ws, set[loc] defs) {
     rel[loc from, loc to] modulePaths = rascalGetTransitiveReflexiveModulePaths(ws);
     rel[loc from, loc to] scopes = rascalGetTransitiveReflexiveScopes(ws);
