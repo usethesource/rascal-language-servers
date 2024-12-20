@@ -62,15 +62,12 @@ export async function activateLanguageClient(
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
 
     schemesReply.then( schemes => {
-        // avoid registering the same schemes multiple times
-        const knownRascalNativeSchemes = vfsServer.getIgnoredSchemes();
-        const remainingSchemes = schemes.filter(s => !knownRascalNativeSchemes.includes(s));
-        if (remainingSchemes.length) {
-            vfsServer.ignoreSchemes(remainingSchemes);
-            new RascalFileSystemProvider(client).registerSchemes(schemes);
+        vfsServer.ignoreSchemes(schemes);
+        const allRegistered = new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
+        if (!allRegistered) {
+            client.warn("At least one of the expected schemes failed to register.", { expectedSchemes: schemes });
         }
     });
-
 
     return client;
 }
