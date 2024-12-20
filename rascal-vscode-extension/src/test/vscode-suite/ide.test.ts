@@ -30,7 +30,6 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-import { fail } from 'assert';
 import * as os from 'os';
 
 
