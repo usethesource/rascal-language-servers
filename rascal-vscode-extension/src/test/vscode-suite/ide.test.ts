@@ -221,17 +221,27 @@ describe('IDE', function () {
         if (os.type() === "Darwin") {
             // Context menus are not supported for macOS:
             // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
-            const OPTION = "\u2325";
-            await driver.actions()
-                .click(libFileInTree)
-                .pause(2000)
-                .sendKeys(Key.COMMAND, 'c', Key.COMMAND)
-                .pause(2000)
-                .click(libFolderInTree)
-                .pause(2000)
-                .sendKeys(Key.COMMAND, OPTION, 'v', OPTION, Key.COMMAND)
-                .perform();
+            //
+            // The following workaround triggers a move of `Lib.rsc` by cutting
+            // and pasting that file using keyboard input. It works under the
+            // assumption that `Lib.rsc` and `lib` are visible in the Explorer.
+            // If this assumption breaks in the future, then see the
+            // implementation of `DefaultTreeSection.findItem` for inspiration
+            // on how to scroll the Explorer down:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
 
+            console.log("Entering special case...");
+            const treeDiv = await workspace.findElement(By.className('monaco-list')); // This div contains the whole visible tree in the Explorer
+
+            // Cut
+            const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
+            await libFileInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'x', Key.COMMAND); // Only this div handles key events; not `libFileInTreeDiv`
+
+            // Paste
+            const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
+            await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
         } else {
             await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
             await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
@@ -265,4 +275,3 @@ describe('IDE', function () {
         }
     });
 });
-
