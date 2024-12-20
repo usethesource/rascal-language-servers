@@ -240,8 +240,8 @@ describe('IDE', function () {
             // Context menus are supported for Windows and Linux
             const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
             const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
-            await driver.wait(ignoreFails((await libFileInTree!.openContextMenu()).select("Cut")), Delays.slow);
-            await driver.wait(ignoreFails((await libFolderInTree!.openContextMenu()).select("Paste")), Delays.slow);
+            await (await libFileInTree!.openContextMenu()).select("Cut");
+            await (await libFolderInTree!.openContextMenu()).select("Paste");
         }
 
         await driver.wait(async() => {
