@@ -202,22 +202,15 @@ describe('IDE', function () {
         await bench.executeCommand("workbench.files.action.refreshFilesExplorer")
         const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
-        await ide.openModule(TestWorkspace.libFile);
+
         // Open the lib file before moving it, so we have the editor ready to inspect afterwards
         const libFile = await ide.openModule(TestWorkspace.libFile);
-        await ide.screenshot("IDE-find-files-in-explorer");
-        const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
-        const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
 
         // Before moving, check that Rascal is really loaded
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        if (!libFileInTree) {fail("Could not find Lib.rsc");}
-        if (!libFolderInTree) {fail("Could not find lib folder");}
-
         // Move the file
-        await ide.screenshot("1IDE-rename-before-move");
         if (os.type() === "Darwin") {
             // Context menus are not supported for macOS:
             // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
@@ -230,8 +223,8 @@ describe('IDE', function () {
             // on how to scroll the Explorer down:
             // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
 
-            console.log("Entering special case...");
-            const treeDiv = await workspace.findElement(By.className('monaco-list')); // This div contains the whole visible tree in the Explorer
+            // Find the div that contains the whole visible tree in the Explorer
+            const treeDiv = await workspace.findElement(By.className('monaco-list'));
 
             // Cut
             const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
@@ -242,11 +235,15 @@ describe('IDE', function () {
             const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
             await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
             await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
-        } else {
-            await driver.wait(ignoreFails((await libFileInTree.openContextMenu()).select("Cut")), Delays.slow);
-            await driver.wait(ignoreFails((await libFolderInTree.openContextMenu()).select("Paste")), Delays.slow);
         }
-        await ide.screenshot("5IDE-rename-after-paste");
+
+        else {
+            // Context menus are supported for Windows and Linux
+            const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
+            const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
+            await driver.wait(ignoreFails((await libFileInTree!.openContextMenu()).select("Cut")), Delays.slow);
+            await driver.wait(ignoreFails((await libFolderInTree!.openContextMenu()).select("Paste")), Delays.slow);
+        }
 
         await driver.wait(async() => {
             const text = await libFile.getText();
