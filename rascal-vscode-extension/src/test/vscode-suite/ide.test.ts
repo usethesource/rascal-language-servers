@@ -198,7 +198,7 @@ describe('IDE', function () {
         await fs.mkdir(newDir, {recursive: true});
 
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await bench.executeCommand("workbench.files.action.refreshFilesExplorer")
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
         const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
 
