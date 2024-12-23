@@ -31,10 +31,12 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Versioned<T> {
     private final int version;
     private final T object;
+    private final long timestamp;
 
     public Versioned(int version, T object) {
         this.version = version;
         this.object = object;
+        this.timestamp = System.currentTimeMillis();
     }
 
     public int version() {
@@ -43,6 +45,10 @@ public class Versioned<T> {
 
     public T get() {
         return object;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 
     @Override
