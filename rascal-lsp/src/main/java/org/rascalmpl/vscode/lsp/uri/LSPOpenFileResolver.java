@@ -88,7 +88,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public String[] list(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("Unimplemented method 'list'");
+        throw new IOException("`list` is not supported on files");
     }
 
     @Override
