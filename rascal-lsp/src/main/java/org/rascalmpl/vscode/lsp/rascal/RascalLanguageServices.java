@@ -250,7 +250,7 @@ public class RascalLanguageServices {
         return CompletableFuture.supplyAsync(() -> fileRenames.stream()
                 .map(r -> VF.tuple(sourceLocationFromUri(r.getOldUri()), sourceLocationFromUri(r.getNewUri())))
                 .collect(VF.listWriter())
-            )
+            , exec)
             .thenCompose(renames -> {
                 return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
                     IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
