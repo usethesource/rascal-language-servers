@@ -37,10 +37,12 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -302,7 +304,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         throw new UnsupportedOperationException("'authority' not supported by fallback resolver");
     }
 
-    private Set<IBaseTextDocumentService> textDocumentServices = new HashSet<>();
+    private final List<IBaseTextDocumentService> textDocumentServices = new CopyOnWriteArrayList<>();
 
     public void registerTextDocumentService(IBaseTextDocumentService service) {
         textDocumentServices.add(service);
