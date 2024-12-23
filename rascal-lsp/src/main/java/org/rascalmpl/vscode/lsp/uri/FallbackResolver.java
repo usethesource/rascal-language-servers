@@ -286,6 +286,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
         if (isFileManaged(input)) {
             try {
+                // The offset/length part of the source location is stripped off here.
+                // This is reinstated by `URIResolverRegistry::resolveAndFixOffsets`
+                // during logical resolution
                 return URIUtil.changeScheme(input, "lsp+" + input.getScheme()).top();
             } catch (URISyntaxException e) {
                 // fall through

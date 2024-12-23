@@ -35,12 +35,14 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public class Locations {
+    // Source locations of files that are opened in the IDE are redirected by prefixing the scheme with "lsp+".
+    // These lsp-redirected source locations must not leak outside of the LSP server. The `toClientLocation` methods
+    // strip source locations of their "lsp+" prefix.
     public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
         var result = URIResolverRegistry.getInstance().logicalToPhysical(loc);
         if (result.getScheme().startsWith("lsp+")) {
