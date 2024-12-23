@@ -493,7 +493,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {
-        return facts.containsFile(file);
+        return documents.containsKey(file.top());
     }
 
     @Override
