@@ -88,6 +88,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
                 .map(f -> Locations.toLoc(f.getUri()))
                 .collect(Collectors.toSet())
             , getExecuter()
-        ).thenAccept(folders -> ((RascalTextDocumentService) docService).didRenameFiles(params, folders));
+        ).thenAccept(folders -> docService.didRenameFiles(params, folders));
     }
 }
