@@ -241,64 +241,21 @@ public class RascalLanguageServices {
         }
     }
 
-    private ISourceLocation findContainingWorkspaceFolder(ISourceLocation loc, List<ISourceLocation> workspaceFolders) {
-        var containingFolder = workspaceFolders.stream()
-            .filter(folderLoc -> URIUtil.isParentOf(folderLoc, loc))
-            .findFirst();
-
-        if (containingFolder.isEmpty()) {
-            throw new RuntimeException(String.format("Cannot automatically change uses of %s, since it is outside the current workspace.", loc));
-        }
-        return containingFolder.get();
-    }
-
-    private ISet qualfiedNameChangesFromRenames(List<FileRename> renames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
-        // Sort workspace folders so we get the most specific folders first
-        List<ISourceLocation> sortedWorkspaceFolders = workspaceFolders.stream()
-            .sorted((o1, o2) -> o1.toString().compareTo(o2.toString()))
-            .collect(Collectors.toList());
-
-        return renames.parallelStream()
-            .map(rename -> {
-                ISourceLocation currentLoc = sourceLocationFromUri(rename.getOldUri());
-                ISourceLocation newLoc = sourceLocationFromUri(rename.getNewUri());
-
-                ISourceLocation currentWsFolder = findContainingWorkspaceFolder(currentLoc, sortedWorkspaceFolders);
-                ISourceLocation newWsFolder = findContainingWorkspaceFolder(newLoc, sortedWorkspaceFolders);
-
-                if (!currentWsFolder.equals(newWsFolder)) {
-                    String commonProjPrefix = StringUtils.getCommonPrefix(currentWsFolder.toString(), newWsFolder.toString());
-                    String currentProject = StringUtils.removeStart(currentWsFolder.toString(), commonProjPrefix);
-                    String newProject = StringUtils.removeStart(newWsFolder.toString(), commonProjPrefix);
-
-                    throw new RuntimeException(String.format("Cannot automatically change uses of %s, since moving files between projects (from %s to %s) is not supported", currentLoc, currentProject, newProject));
-                }
-
-                PathConfig pcfg = getPathConfig.apply(currentWsFolder);
-                try {
-                    IString currentName = VF.string(pcfg.getModuleName(currentLoc));
-                    IString newName = VF.string(pcfg.getModuleName(newLoc));
-
-                    return VF.tuple(currentName, newName, addResources(pcfg));
-                } catch (IOException e) {
-                    throw new RuntimeException(e.getMessage());
-                }
-            })
-            .collect(VF.setWriter());
-    }
-
     public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
             return CompletableFuture.completedFuture(emptyResult);
         }
 
-        return CompletableFuture.supplyAsync(() -> qualfiedNameChangesFromRenames(fileRenames, workspaceFolders, getPathConfig))
-            .thenCompose(qualifiedNameChanges -> {
+        return CompletableFuture.supplyAsync(() -> fileRenames.stream()
+                .map(r -> VF.tuple(sourceLocationFromUri(r.getOldUri()), sourceLocationFromUri(r.getNewUri())))
+                .collect(VF.listWriter())
+            )
+            .thenCompose(renames -> {
                 return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
                     IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
                     try {
-                        return (ITuple) eval.call("rascalRenameModule", qualifiedNameChanges, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
+                        return (ITuple) eval.call("rascalRenameModule", renames, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
                     } catch (Throw e) {
                         throw new RuntimeException(e.getMessage());
                     }

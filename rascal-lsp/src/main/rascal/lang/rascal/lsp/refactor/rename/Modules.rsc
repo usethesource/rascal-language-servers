@@ -73,7 +73,28 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newN
     return changes;
 }
 
-Edits propagateModuleRenames(rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathConfig(loc) getPathConfig) {
+    PathConfig oldPcfg = getPathConfig(old);
+    PathConfig newPcfg = getPathConfig(new);
+    if (isFile(new) && endsWith(new.file, ".rsc")) {
+        return {<getModuleName(old, oldPcfg), getModuleName(new, newPcfg), newPcfg>};
+    }
+
+    return {
+        <getModuleName(oldFile, oldPcfg), getModuleName(newFile, newPcfg), newPcfg>
+        | loc newFile <- find(new, "rsc")
+        , loc relFilePath := relativize(new, newFile)
+        , loc oldFile := old + relFilePath.path
+    };
+}
+
+Edits propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+    rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = {
+        rename
+        | <oldLoc, newLoc> <- renames
+        , tuple[str, str, PathConfig] rename <- getQualifiedNameChanges(oldLoc, newLoc, getPathConfig)
+    };
+
     set[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
     set[DocumentEdit] edits = flatMap(workspaceFolders, set[DocumentEdit](loc wsFolder) {
         PathConfig wsFolderPcfg = getPathConfig(wsFolder);

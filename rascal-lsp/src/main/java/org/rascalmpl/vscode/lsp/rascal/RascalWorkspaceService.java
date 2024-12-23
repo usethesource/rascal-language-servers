@@ -66,7 +66,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
         var fileCap = new FileOperationsServerCapabilities();
         fileCap.setDidRename(new FileOperationOptions(
-            List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")))
+            List.of(new FileOperationFilter(new FileOperationPattern("**")))
         ));
 
         capabilities.getWorkspace().setFileOperations(fileCap);
