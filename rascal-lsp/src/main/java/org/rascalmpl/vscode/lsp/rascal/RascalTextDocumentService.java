@@ -401,7 +401,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
             .thenAccept(editResponse -> {
                 if (!editResponse.isApplied()) {
-                    throw new RuntimeException("Applying module rename failed: " + editResponse.getFailureReason());
+                    throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
                 }
             })
             .exceptionally(e -> {
