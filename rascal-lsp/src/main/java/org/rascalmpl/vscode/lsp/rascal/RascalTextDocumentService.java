@@ -296,7 +296,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
-    private ITree getCursorFromPosition(ISourceLocation file, ITree moduleTree, Position p) {
+    private ITree findQualifiedNameUnderCursor(ISourceLocation file, ITree moduleTree, Position p) {
         Position rascalCursorPos = Locations.toRascalPosition(file, p, columns);
 
         // Find all trees containing the cursor, in ascending order of size
@@ -343,7 +343,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-            .thenApply(tr -> getCursorFromPosition(file.getLocation(), tr, params.getPosition()))
+            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
             .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
             .thenApply(Either3::forFirst);
     }
@@ -361,7 +361,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenApply(tr -> getCursorFromPosition(file.getLocation(), tr, params.getPosition()))
+            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
             .thenCompose(cursor -> rascalServices.getRename(cursor, workspaceFolders, facts::getPathConfig, params.getNewName()).get())
             .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
