@@ -50,6 +50,14 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
 );
 
+test bool commonKeywordFieldFromOtherModule() = testRenameOccurrences({
+    byText("Foo", "data D(int foo = 0, int baz = 0) = d();", {0})
+  , byText("Bar",
+        "import Foo;
+        'D oneTwo = d(foo=1, baz=2);
+  ", {0})
+});
+
 test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = d(1, 2);
     'y = x.foo;
