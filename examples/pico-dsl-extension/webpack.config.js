@@ -48,7 +48,7 @@ const extensionConfig = {
           // we copy the jars to an an easy to predict location
           from: path.resolve(
             __dirname,
-            "node_modules/@usethesource/rascal-vscode-dsl-runtime/assets/jars/"
+            "node_modules/@usethesource/rascal-vscode-dsl-lsp-server/assets/jars/"
           ),
           to: path.resolve(__dirname, "dist/rascal-lsp/"),
         },
