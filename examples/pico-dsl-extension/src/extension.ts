@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ParameterizedLanguageServer, VSCodeUriResolverServer, LanguageParameter } from '@usethesource/rascal-vscode-dsl-runtime';
+import { ParameterizedLanguageServer, VSCodeUriResolverServer, LanguageParameter } from '@usethesource/rascal-vscode-dsl-lsp-server';
 import { join } from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
