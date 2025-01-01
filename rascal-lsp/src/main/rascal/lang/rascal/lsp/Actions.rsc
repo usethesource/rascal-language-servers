@@ -131,7 +131,7 @@ default value evaluateRascalCommand(Command _) =  ("result" : false);
 
 value evaluateRascalCommand(visualImportGraphCommand(PathConfig pcfg)) {
     importGraph(pcfg);
-    return ("result" : true);
+    return true;
 }
 
 value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
@@ -152,5 +152,5 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 '<}>"[..-2];
 
     applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
-    return ("result":true);
+    return true;
 }
