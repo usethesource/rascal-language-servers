@@ -278,7 +278,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
+        file.update(doc.getVersion(), newContents);
+        handleParsingErrors(file, file.getCurrentTreeAsync()); // Warning: Might be a later version (when a concurrent update happened)
         return file;
     }
 
@@ -334,7 +335,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
-                recoverExceptions(file.getCurrentTreeAsync(), file::getMostRecentTree)
+                recoverExceptions(file.getCurrentTreeAsync(), file::getLastTreeWithoutErrors)
                 .thenApply(Versioned::get)
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
@@ -441,7 +442,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parsing, l, columns, doc.getVersion(), doc.getText())
         );
     }
 
