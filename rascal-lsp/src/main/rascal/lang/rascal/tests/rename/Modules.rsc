@@ -38,8 +38,8 @@ test bool deepModule() = testRenameOccurrences({
         'void main() {
         '   some::path::to::Foo::Bool b = and(t(), f());
         '}
-    ", {0, 1})
-}, oldName = "Foo", newName = "Bar");
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "some::path::to::Foo", newName = "some::path::to::Bar");
 
 test bool shadowedModuleWithVar() = testRenameOccurrences({
     byText("Foo", "
@@ -52,7 +52,7 @@ test bool shadowedModuleWithVar() = testRenameOccurrences({
         'void main() {
         '   Foo::Bool b = and(t(), f());
         '}
-    ", {0, 1})
+    ", {0, 1}, skipCursors = {1})
 }, oldName = "Foo", newName = "Bar");
 
 test bool shadowedModuleWithFunc() = testRenameOccurrences({
@@ -65,7 +65,7 @@ test bool shadowedModuleWithFunc() = testRenameOccurrences({
         'void main() {
         '   Foo::f();
         '}
-    ", {0, 1})
+    ", {0, 1}, skipCursors = {1})
 }, oldName = "Foo", newName = "Bar");
 
 test bool singleModule() = testRenameOccurrences({
@@ -78,5 +78,39 @@ test bool singleModule() = testRenameOccurrences({
         'void main() {
         '   util::Foo::Bool b = and(t(), f());
         '}
-    ", {0, 1})
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "util::Foo", newName = "util::Bar");
+
+test bool moduleBarIsNotBaz() = testRenameOccurrences({
+    byText("foo::Foo", "import Foo;", {1}),
+    byText("Foo", "import Baz;", {0}, newName = "Bar"),
+    byText("Baz", "
+        'void f() {}
+        'void g() {
+        '   Baz::f();
+        '}
+    ", {})
+}, oldName = "Foo", newName = "Bar");
+
+test bool moveModule() = testRenameOccurrences({
+    byText("Foo", "int foo() = 8;", {0}, newName = "path::to::Foo"),
+    byText("Main", "
+        'import Foo;
+        'int f = Foo::foo();", {0, 1}, skipCursors = {1})
+}, oldName = "Foo", newName = "path::to::Foo");
+
+test bool qualifiedSelf() = testRenameOccurrences({
+    byText("Foo", "
+        'void f() {}
+        'void g() {
+        '   Foo::f();
+        '}
+    ", {0, 1}, skipCursors = {1}, newName = "Bar")
+}, oldName = "Foo", newName = "Bar");
+
+@expected{unsupportedRename}
+test bool externalImport() = testRenameOccurrences({
+    byText("Main", "
+        'import Foo = |memory:///Foo.rsc|;
+    ", {0})
 }, oldName = "Foo", newName = "Bar");

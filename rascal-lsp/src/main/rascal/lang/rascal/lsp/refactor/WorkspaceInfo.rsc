@@ -43,6 +43,7 @@ import lang::rascal::lsp::refactor::Exception;
 import lang::rascal::lsp::refactor::TextEdits;
 import lang::rascal::lsp::refactor::Util;
 
+import IO;
 import List;
 import Location;
 import Map;
@@ -284,7 +285,6 @@ set[loc] rascalGetOverloadedDefs(TModel ws, set[loc] defs, MayOverloadFun mayOve
 }
 
 private rel[loc, loc] NO_RENAMES(str _) = {};
-private int qualSepSize = size("::");
 
 bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atuple;
 bool rascalIsConstructorType(AType at) = at is acons;
@@ -710,27 +710,34 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(moduleName(), cursorLoc, cur
         }
     }
 
-    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(ws, moduleFile)));
+    set[loc] defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
 
-    defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
-
-    imports = {u | u <- ws.useDef<0>, amodule(modName) := ws.facts[u]};
-    qualifiedUses = {
-        // We compute the location of the module name in the qualified name at `u`
-        // some::qualified::path::to::Foo::SomeVar
-        // \____________________________/\/\_____/
-        // moduleNameSize ^  qualSepSize ^   ^ idSize
-        trim(u, removePrefix = moduleNameSize - size(cursorName)
-              , removeSuffix = idSize + qualSepSize)
-        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
-        , idSize := size(d.id)
-        , u.length > idSize // There might be a qualified prefix
-        , moduleNameSize := size(modName)
-        , u.length == moduleNameSize + qualSepSize + idSize
+    rel[loc fromFile, loc toFile] modulePaths = toRel(getModuleScopePerFile(ws)) o rascalGetTransitiveReflexiveModulePaths(ws);
+    set[loc] importUses = {u
+        | <loc u, Define _: <_, cursorName, _, moduleId(), d, _>> <- ws.useDef o definitionsRel(ws)
+        , <u.top, d> in modulePaths
     };
-    uses = imports + qualifiedUses;
 
-    rel[loc, loc] getRenames(str newName) = {<file, file[file = "<newName>.rsc"]> | d <- defs, file := d.top};
+    rel[loc file, loc use] qualifiedUseCandidates = {
+        <u.top, u>
+        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
+        , u.length > size(d.id) // use name > declaration name, i.e. there is a qualified prefix
+    };
+    set[loc] qualifiedUses = {
+        qn.src
+        | loc file <- qualifiedUseCandidates.file
+        , start[Module] m := parseModuleWithSpacesCached(file)
+        , set[loc] localUses := qualifiedUseCandidates[file]
+        , /QualifiedName qn := m
+        , qn.src in localUses
+        , cursorName == intercalate("::", prefix(["<n>" | n <- qn.names]))
+    };
+
+    set[loc] uses = importUses + qualifiedUses;
+
+    pcfg = getPathConfig(getProjectFolder(ws, moduleFile));
+    loc srcFolder = [srcFolder | relModulePath := relativize(pcfg.srcs, moduleFile), srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
+    rel[loc, loc] getRenames(str newName) = {<file, srcFolder + makeFileName(newName)> | d <- defs, file := d.top};
 
     return <annotateLocs(defs), annotateLocs(uses), getRenames>;
 }

@@ -25,11 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, Key, TextEditor, VSBrowser, ViewSection, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
-import { expect } from 'chai';
+import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
+import * as os from 'os';
 
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
@@ -162,6 +163,10 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+
         let renameSuccess = false;
         let tries = 0;
         while (!renameSuccess && tries < 5) {
@@ -188,6 +193,71 @@ describe('IDE', function () {
         expect(editorText).to.contain("i -2");
     });
 
+    it("renaming files works", async() => {
+        const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
+        await fs.mkdir(newDir, {recursive: true});
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+
+        // Open the lib file before moving it, so we have the editor ready to inspect afterwards
+        const libFile = await ide.openModule(TestWorkspace.libFile);
+
+        // Before moving, check that Rascal is really loaded
+        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+
+        // Move the file
+        if (os.type() === "Darwin") {
+            // Context menus are not supported for macOS:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
+            //
+            // The following workaround triggers a move of `Lib.rsc` by cutting
+            // and pasting that file using keyboard input. It works under the
+            // assumption that `Lib.rsc` and `lib` are visible in the Explorer.
+            // If this assumption breaks in the future, then see the
+            // implementation of `DefaultTreeSection.findItem` for inspiration
+            // on how to scroll the Explorer down:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
+
+            // Find the div that contains the whole visible tree in the Explorer
+            const treeDiv = await workspace.findElement(By.className('monaco-list'));
+
+            // Cut
+            const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
+            await libFileInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'x', Key.COMMAND); // Only this div handles key events; not `libFileInTreeDiv`
+
+            // Paste
+            const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
+            await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
+        }
+
+        else {
+            // Context menus are supported for Windows and Linux
+            const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
+            const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
+            await (await libFileInTree!.openContextMenu()).select("Cut");
+            await (await libFolderInTree!.openContextMenu()).select("Paste");
+        }
+
+        await driver.wait(async() => {
+            const text = await libFile.getText();
+            return text.indexOf("module lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`", Delays.normal);
+
+        const callFile = await ide.openModule(TestWorkspace.libCallFile);
+        await driver.wait(async() => {
+            const text = await callFile.getText();
+            return text.indexOf("import lib::Lib") !== -1;
+        }, Delays.extremelySlow, "Import should have changed to `lib::Lib`", Delays.normal);
+
+        await fs.rm(newDir, {recursive: true, force: true});
+    });
+
     it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await editor.moveCursor(1,8); // in the module name
@@ -201,4 +271,3 @@ describe('IDE', function () {
         }
     });
 });
-
