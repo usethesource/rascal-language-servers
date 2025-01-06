@@ -72,6 +72,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     private static FallbackResolver instance = null;
 
+    // The FallbackResolver is dynamically instantiated by URIResolverRegistry. By implementing it as a singleton and
+    // making it avaible through this method, we allow the IBaseTextDocumentService implementations to interact with it.
     public static FallbackResolver getInstance() {
         if (instance == null) {
             throw new IllegalStateException("FallbackResolver accessed before initialization");
