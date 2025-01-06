@@ -310,12 +310,13 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         textDocumentServices.add(service);
     }
 
-    public TextDocumentState getDocumentState(ISourceLocation file) {
+    public TextDocumentState getDocumentState(ISourceLocation file) throws IOException {
         for (final var service : textDocumentServices) {
-            if (service.isManagingFile(file)) {
-                return service.getDocumentState(file);
+            final var state = service.getDocumentState(file);
+            if (state != null) {
+                return state;
             }
         }
-        return null;
+        throw new IOException("File is not managed by lsp");
     }
 }
