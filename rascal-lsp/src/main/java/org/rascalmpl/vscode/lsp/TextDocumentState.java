@@ -58,7 +58,7 @@ public class TextDocumentState {
     public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent) {
         this.parser = parser;
         this.file = file;
-        this.currentContent = new Versioned<>(initialVersion, initialContent);
+        this.currentContent = new Versioned<>(initialVersion, initialContent, System.currentTimeMillis());
         this.currentTree = newTreeAsync(initialVersion, initialContent);
     }
 
