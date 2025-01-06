@@ -236,7 +236,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), System.currentTimeMillis());
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
@@ -277,10 +277,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync());
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
         return file;
     }
 

@@ -34,9 +34,13 @@ public class Versioned<T> {
     private final long timestamp;
 
     public Versioned(int version, T object) {
+        this(version, object, System.currentTimeMillis());
+    }
+
+    public Versioned(int version, T object, long timestamp) {
         this.version = version;
         this.object = object;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
     }
 
     public int version() {

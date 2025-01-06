@@ -199,7 +199,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), System.currentTimeMillis());
     }
 
     @Override
@@ -221,10 +221,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents));
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
         return file;
     }
 

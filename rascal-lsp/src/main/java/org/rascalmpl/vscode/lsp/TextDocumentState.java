@@ -72,8 +72,8 @@ public class TextDocumentState {
      * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
      * consistent <version, tree> pair.
      */
-    public CompletableFuture<Versioned<ITree>> update(int version, String content) {
-        currentContent = new Versioned<>(version, content);
+    public CompletableFuture<Versioned<ITree>> update(int version, String content, long timestamp) {
+        currentContent = new Versioned<>(version, content, timestamp);
         var newTree = newTreeAsync(version, content);
         currentTree = newTree;
         return newTree;
