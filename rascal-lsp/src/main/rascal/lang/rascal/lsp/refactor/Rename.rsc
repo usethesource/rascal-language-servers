@@ -458,11 +458,11 @@ private bool rascalContainsName(loc l, str name) {
 private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
                                                           [logPathConfig = false];
-    list[str] moduleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
-    ms = rascalTModelForNames(moduleNames, ccfg, dummy_compile1);
+    list[str] topModuleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
+    ms = rascalTModelForNames(topModuleNames, ccfg, dummy_compile1);
 
     set[TModel] tmodels = {};
-    for (str modName <- moduleNames) {
+    for (str modName <- ms.moduleLocs) {
         <found, tm, ms> = getTModelForModule(modName, ms);
         if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
         tmodels += convertTModel2PhysicalLocs(tm);
