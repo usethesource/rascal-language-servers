@@ -41,6 +41,7 @@ import org.eclipse.lsp4j.ResourceOperation;
 import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -63,6 +64,13 @@ import io.usethesource.vallang.IValue;
  */
 public class DocumentChanges {
     private DocumentChanges() { }
+
+    public static WorkspaceEdit translateDocumentChanges(final IBaseTextDocumentService docService, ITuple edits) {
+        WorkspaceEdit wsEdit = new WorkspaceEdit();
+        wsEdit.setDocumentChanges(DocumentChanges.translateDocumentChanges(docService, (IList) edits.get(0)));
+        wsEdit.setChangeAnnotations(DocumentChanges.translateChangeAnnotations((IMap) edits.get(1)));
+        return wsEdit;
+    }
 
     public static List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
@@ -105,7 +113,7 @@ public class DocumentChanges {
             .collect(Collectors.toList());
     }
 
-    private static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
+    public static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
         LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
         return Locations.toRange(loc, columnMap);
     }
@@ -114,7 +122,7 @@ public class DocumentChanges {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
     }
 
-    public static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
+    private static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
         return annos.stream()
             .map(ITuple.class::cast)
             .map(entry -> {
