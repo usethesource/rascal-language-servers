@@ -306,11 +306,10 @@ private bool rascalIsFunctionLocal(TModel ws, cursor(use(), cursorLoc, _)) =
 private bool rascalIsFunctionLocal(TModel _, cursor(typeParam(), _, _)) = true;
 private default bool rascalIsFunctionLocal(_, _) = false;
 
-Maybe[AType] rascalAdtCommonKeywordFieldType(TModel ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>, PathConfig(loc) getPathConfig) {
+Maybe[AType] rascalAdtCommonKeywordFieldType(TModel ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
      && kwf:(KeywordFormal) `<Type _> <Name kwName> = <Expression _>` <- defInfo.commonKeywordFields
      && "<kwName>" == fieldName) {
-        ws = (ws | appendTModel(it, tm) | tm <- rascalTModels({kwf.src.top}, getPathConfig(kwf.src.top)));
         if (ft:just(_) := getFact(ws, kwf.src)) return ft;
         throw "Unknown field type for <kwf.src>";
     }
@@ -327,10 +326,10 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
     return nothing();
 }
 
-private CursorKind rascalGetDataFieldCursorKind(TModel ws, loc container, loc cursorLoc, str cursorName, PathConfig(loc) getPathConfig) {
+private CursorKind rascalGetDataFieldCursorKind(TModel ws, loc container, loc cursorLoc, str cursorName) {
     for (Define dt <- rascalGetADTDefinitions(ws, container)
       && AType adtType := dt.defInfo.atype) {
-        if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt, getPathConfig)) {
+        if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
             // Case 4 or 5 (or 0): common keyword field
             return dataCommonKeywordField(dt.defined, fieldType);
         }
@@ -354,7 +353,7 @@ private CursorKind rascalGetDataFieldCursorKind(TModel ws, loc container, loc cu
     throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
 }
 
-private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName, rel[loc l, CursorKind kind] locsContainingCursor, rel[loc field, loc container] fields, rel[loc kw, loc container] keywords, PathConfig(loc) getPathConfig) {
+private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName, rel[loc l, CursorKind kind] locsContainingCursor, rel[loc field, loc container] fields, rel[loc kw, loc container] keywords) {
     loc c = min(locsContainingCursor.l);
     switch (locsContainingCursor[c]) {
         case {moduleName(), *_}: {
@@ -362,7 +361,7 @@ private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName,
         }
         case {keywordParam(), dataKeywordField(_, _), *_}: {
             if ({loc container} := keywords[c]) {
-                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName, getPathConfig);
+                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
             }
         }
         case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
@@ -381,7 +380,7 @@ private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName,
                     // Case 1 (or 0): collection field
                     return collectionField();
                 }
-                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName, getPathConfig);
+                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
             }
         }
         case {def(), *_}: {
@@ -390,7 +389,7 @@ private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName,
             if (d.idRole is fieldId
              && Define adt: <_, _, _, dataId(), _, _> <- ws.defines
              && isStrictlyContainedIn(c, adt.defined)) {
-                return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName, getPathConfig);
+                return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName);
             }
             return def();
         }
@@ -425,7 +424,7 @@ private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName,
     throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
 }
 
-private Cursor rascalGetCursor(TModel ws, Tree cursorT, PathConfig(loc) getPathConfig) {
+private Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
@@ -474,7 +473,7 @@ private Cursor rascalGetCursor(TModel ws, Tree cursorT, PathConfig(loc) getPathC
         throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
     }
 
-    CursorKind kind = rascalGetCursorKind(ws, cursorLoc, cursorName, locsContainingCursor, fields, keywords, getPathConfig);
+    CursorKind kind = rascalGetCursorKind(ws, cursorLoc, cursorName, locsContainingCursor, fields, keywords);
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
@@ -608,7 +607,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     TModel ws = loadLocs(tmodel(), preloadFiles(workspaceFolders, cursorLoc), localTmodelsForFiles);
 
     step("analyzing name at cursor", 1);
-    cur = rascalGetCursor(ws, cursorT, getPathConfig);
+    cur = rascalGetCursor(ws, cursorT);
 
     step("loading required type information", 1);
     if (!rascalIsFunctionLocal(ws, cur)) {
