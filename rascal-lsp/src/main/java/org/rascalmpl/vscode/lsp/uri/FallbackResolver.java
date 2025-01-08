@@ -291,7 +291,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                 // The offset/length part of the source location is stripped off here.
                 // This is reinstated by `URIResolverRegistry::resolveAndFixOffsets`
                 // during logical resolution
-                return URIUtil.changeScheme(input, "lsp+" + input.getScheme()).top();
+                return URIUtil.changeScheme(input.top(), "lsp+" + input.getScheme());
             } catch (URISyntaxException e) {
                 // fall through
             }
