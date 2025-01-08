@@ -44,10 +44,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     public InputStream getInputStream(ISourceLocation uri) throws IOException {
         var fallbackResolver = FallbackResolver.getInstance();
         uri = stripLspPrefix(uri);
-        if (fallbackResolver.isFileManaged(uri)) {
-            return new ByteArrayInputStream(fallbackResolver.getDocumentState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16));
-        }
-        throw new IOException("File does not exist");
+        return new ByteArrayInputStream(fallbackResolver.getDocumentState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16));
     }
 
     @Override
