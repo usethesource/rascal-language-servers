@@ -228,15 +228,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
-        handleParsingErrors(open(params.getTextDocument()));
+        handleParsingErrors(open(params.getTextDocument(), timestamp));
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), System.currentTimeMillis());
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
@@ -441,9 +443,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private TextDocumentState open(TextDocumentItem doc) {
+    private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText(), timestamp)
         );
     }
 

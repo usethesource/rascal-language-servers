@@ -191,15 +191,17 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.debug("Open: {}", params.getTextDocument());
-        TextDocumentState file = open(params.getTextDocument());
+        TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), System.currentTimeMillis());
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
     }
 
     @Override
@@ -343,9 +345,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return l.get(l.size() - 1);
     }
 
-    private TextDocumentState open(TextDocumentItem doc) {
+    private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText()));
+            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
