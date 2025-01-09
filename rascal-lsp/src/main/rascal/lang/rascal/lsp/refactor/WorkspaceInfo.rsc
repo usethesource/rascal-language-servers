@@ -383,8 +383,7 @@ set[RenameLocation] rascalGetKeywordFieldUses(TModel ws, set[loc] defs, str curs
        , isStrictlyContainedIn(consDef.defined, dataDef.defined)
     ) {
         if (AType fieldType := ws.definitions[d].defInfo.atype) {
-            set[loc] reachableModules = rascalReachableModules(ws, {d});
-            if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, reachableModules, dataDef.defInfo.atype, fieldType, cursorName)) {
+            if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, d, dataDef.defInfo.atype, fieldType, cursorName)) {
                 uses += consUses;
             }
         } else {
@@ -571,14 +570,14 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, curso
         set[Define] reachableDefs = rascalReachableDefs(ws, adtDefs);
         set[loc] reachableModules = rascalReachableModules(ws, reachableDefs.defined);
 
-        for (Define _:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, consType, cursorKind.fieldType, cursorName);
+        for (Define d:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
+            <ds, us, _> = rascalGetFieldDefsUses(ws, d.defined, consType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
-        for (Define _:<_, _, _, IdRole idRole, _, defType(acons(AType dataType, _, _))> <- reachableDefs
-           , idRole != dataId()) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
+        for (Define d:<_, _, _, _, _, defType(acons(AType dataType, _, _))> <- reachableDefs
+           , d.idRole != dataId()) {
+            <ds, us, _> = rascalGetFieldDefsUses(ws, d.defined, dataType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
@@ -609,14 +608,14 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(collectionField(), cursorLoc
       , rascalIsCollectionType(collUseType)
       , collUseType.elemType is atypeList) {
         // We are at a collection definition site
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {cursorLoc}), collUseType, cursorType, cursorName);
+        return rascalGetFieldDefsUses(ws, cursorLoc, collUseType, cursorType, cursorName);
     }
 
     // We can find the collection type by looking for the first use to the left of the cursor that has a collection type
     lrel[loc use, loc def] usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
     if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType collDefType) := define.defInfo, rascalIsCollectionType(collDefType)) {
         // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {define.defined}), collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
+        return rascalGetFieldDefsUses(ws, define.defined, collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
     } else {
         throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
     }
@@ -666,8 +665,8 @@ Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, d:(Declara
 
 default Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str _, Tree _) = nothing();
 
-private DefsUsesRenames rascalGetFieldDefsUses(TModel ws, set[loc] reachableModules, AType containerType, AType fieldType, str cursorName) {
-    set[loc] containerFacts = {f | f <- factsInvert(ws)[containerType], f.top in reachableModules};
+private DefsUsesRenames rascalGetFieldDefsUses(TModel ws, loc consOrDataDef, AType containerType, AType fieldType, str cursorName) {
+    set[loc] containerFacts = {f | f <- factsInvert(ws)[containerType], consOrDataDef.top in  rascalReachableModules(ws, {f})};
     rel[loc file, loc u] factsByModule = groupBy(containerFacts, loc(loc l) { return l.top; });
 
     set[loc] defs = {};
