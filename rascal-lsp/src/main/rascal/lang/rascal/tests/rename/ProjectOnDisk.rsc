@@ -27,6 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::ProjectOnDisk
 
 import lang::rascal::lsp::refactor::Rename;
+import lang::rascal::lsp::refactor::Util;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
 import lang::rascalcore::check::Checker;
