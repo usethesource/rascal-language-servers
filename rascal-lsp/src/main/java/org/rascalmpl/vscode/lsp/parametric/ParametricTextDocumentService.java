@@ -150,6 +150,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final @Nullable LanguageParameter dedicatedLanguage;
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
+        URIResolverRegistry.getInstance();
+
         this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
