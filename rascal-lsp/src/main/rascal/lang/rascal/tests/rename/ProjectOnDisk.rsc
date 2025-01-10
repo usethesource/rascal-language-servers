@@ -29,6 +29,7 @@ module lang::rascal::tests::rename::ProjectOnDisk
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
+import lang::rascalcore::check::Checker;
 
 Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
     PathConfig pcfg;
