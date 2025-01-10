@@ -215,7 +215,8 @@ public class RascalLanguageServices {
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();
-                    if (exception.getType().getAbstractDataType().getName().equals("RenameException")) {
+                    if (exception.getType().getAbstractDataType().getName().equals("RenameException")
+                     || exception.getName().contains("Rename")) {
                         // instead of the generic exception handler, we deal with these ourselfs
                         // and report an LSP error, such that the IDE shows them in a user friendly way
                         String message;
