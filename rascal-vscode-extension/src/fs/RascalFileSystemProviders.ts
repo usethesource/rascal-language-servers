@@ -63,11 +63,17 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
             .map(s => {
                 try {
                     vscode.workspace.registerFileSystemProvider(s, this);
-                    this.client.info(`Scheme registered: ${s}`);
+                    this.client.debug(`Rascal VFS registered scheme: ${s}`);
                     return true;
                 } catch (error) {
-                    this.client.error(`Unable to register scheme: ${s}\n${error}`);
-                    return false;
+                    if (isUnknownFileSystem(s)) {
+                        this.client.error(`Unable to register scheme: ${s}\n${error}`);
+                        return false;
+                    }
+                    else {
+                        this.client.debug(`Rascal VFS lost the race to register scheme: ${s}, which in most cases is fine`);
+                        return true;
+                    }
                 }
             })
             .every(b => b);
