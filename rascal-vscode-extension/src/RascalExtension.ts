@@ -36,6 +36,7 @@ import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
+import { RascalReplNode, RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -52,9 +53,11 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+        this.registerDebuggerCommands();
         checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
+        vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
@@ -99,6 +102,31 @@ export class RascalExtension implements vscode.Disposable {
                     return;
                 }
                 this.startTerminal(text.document.uri, "--loadModule", moduleName);
+            })
+        );
+    }
+
+    private registerDebuggerCommands() {
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (replNode: RascalReplNode) => {
+                console.log("start debugger!!");
+                console.log(replNode);
+                console.log(`type: ${typeof replNode}`);
+                console.log(`serverPort: ${replNode.serverPort}`);
+                if (replNode.serverPort !== undefined) {
+                    console.log("Starting debug session!");
+                    this.rascal.rascalDebugClient.startDebuggingSession(replNode.serverPort);
+                }
+            })
+        );
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand("rascalmpl.stopDebuggerForRepl", (replNode: RascalReplNode) => {
+                console.log("start debugger!!");
+                console.log(replNode);
+                if (replNode.serverPort !== undefined) {
+                    console.log("Stopping debug session!");
+                    // this.rascal.rascalDebugClient.term
+                }
             })
         );
     }
