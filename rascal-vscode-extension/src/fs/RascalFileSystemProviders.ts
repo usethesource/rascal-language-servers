@@ -50,33 +50,28 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     /**
      * Attemptes to register all schemes.
      * @param schemes The list of schemes to register for this provider
-     * @returns `true` if all schemes were registered successfully; `false` if any schemes failed to register.
      */
-    tryRegisterSchemes(schemes: string[]): boolean {
-        return schemes
+    tryRegisterSchemes(schemes: string[]) {
+        schemes
             .filter(s => !this.protectedSchemes.includes(s))
             // we add support for schemes that look inside a jar
             .concat(schemes
                 .filter(s => s !== "jar" && s !== "zip" && s !== "compressed")
                 .map(s => "jar+" + s))
             .filter(isUnknownFileSystem)
-            .map(s => {
+            .forEach(s => {
                 try {
                     vscode.workspace.registerFileSystemProvider(s, this);
                     this.client.debug(`Rascal VFS registered scheme: ${s}`);
-                    return true;
                 } catch (error) {
                     if (isUnknownFileSystem(s)) {
                         this.client.error(`Unable to register scheme: ${s}\n${error}`);
-                        return false;
                     }
                     else {
                         this.client.debug(`Rascal VFS lost the race to register scheme: ${s}, which in most cases is fine`);
-                        return true;
                     }
                 }
-            })
-            .every(b => b);
+            });
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {

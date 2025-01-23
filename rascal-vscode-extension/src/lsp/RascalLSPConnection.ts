@@ -63,10 +63,7 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        const allRegistered = new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
-        if (!allRegistered) {
-            client.warn(`At least one of the expected schemes failed to register.\nExpected schemes: ${schemes}`);
-        }
+        new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
     });
 
     return client;
