@@ -88,7 +88,7 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
 }
 
 // remove leading backslash
-str clean(/\\<rest:.*>/) = clean(rest);
+str clean(/^\\<rest:.*>/) = clean(rest);
 
 str clean("false") = "\\false"; // vscode doesn't like a falsy name
 

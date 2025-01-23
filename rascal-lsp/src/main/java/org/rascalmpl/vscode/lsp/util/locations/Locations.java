@@ -125,6 +125,10 @@ public class Locations {
         return new Location(sloc.getURI().toString(), toRange(sloc, cm));
     }
 
+    public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
+        return new Location(sloc.getURI().toString(), toRange(sloc, map));
+    }
+
     public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {
         return toRange(sloc, cm.get(sloc));
     }
