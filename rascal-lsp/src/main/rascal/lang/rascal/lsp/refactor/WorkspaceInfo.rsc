@@ -411,7 +411,7 @@ private set[RenameLocation] rascalGetExceptUses(TModel ws, set[loc] defs) {
             , <_, !/\a-except(consName)>
             , <l2, at2:  /\a-except(consName)>
             , *_] := sortedFacts
-            , aprod(choice(_, _)) !:= at2
+            , aprod(achoice(_, _)) !:= at2
         ) {
             // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
             uses += <trim(l2, removePrefix = l2.length - size(consName)), nothing()>;
