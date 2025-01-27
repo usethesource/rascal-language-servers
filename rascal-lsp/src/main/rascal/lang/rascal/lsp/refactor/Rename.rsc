@@ -496,7 +496,7 @@ private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     set[TModel] tmodels = {};
     for (str modName <- ms.moduleLocs) {
         <found, tm, ms> = getTModelForModule(modName, ms);
-        if (!found) throw unexpectedRenameFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
+        if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
         tmodels += convertTModel2PhysicalLocs(tm);
     }
     return tmodels;
