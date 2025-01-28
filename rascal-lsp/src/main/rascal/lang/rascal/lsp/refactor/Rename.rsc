@@ -487,6 +487,8 @@ private bool rascalContainsName(loc l, str name) {
 }
 
 private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
+    if (fs == {}) return {};
+
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
                                                           [logPathConfig = false];
     list[str] topModuleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
