@@ -79,11 +79,8 @@ export class RascalDebugClient {
         this.debugSocketServersPorts.set(processID, serverPort);
     }
 
-    getServerPort(processID: number | undefined){
-        if(processID !== undefined && this.debugSocketServersPorts.has(processID)){
-            return this.debugSocketServersPorts.get(processID);
-        }
-        return undefined;
+    getServerPort(processId: number){
+        return this.debugSocketServersPorts.get(processId);
     }
 
     isConnectedToDebugServer(serverPort: number){

@@ -59,6 +59,9 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
 
         if (!debugConfiguration['serverPort']){
             const terminalProcessID = await window.activeTerminal?.processId;
+            if (terminalProcessID === undefined) {
+                throw Error("Active terminal has no associated process ID!");
+            }
             const port = this.debugClient.getServerPort(terminalProcessID);
             if(port === undefined) {
                 throw Error("Active terminal has not a debug server port registered !");
