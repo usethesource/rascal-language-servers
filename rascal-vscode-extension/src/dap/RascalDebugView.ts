@@ -33,23 +33,18 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 
     constructor(private readonly rascalDebugClient: RascalDebugClient) {
         vscode.window.onDidOpenTerminal(_e => {
-            console.log("onDidOpenTerminal");
             this.changeEmitter.fire(undefined);
         });
         vscode.window.onDidCloseTerminal(_e => {
-            console.log("onDidCloseTerminal");
             this.changeEmitter.fire(undefined);
         });
         vscode.window.onDidChangeActiveTerminal(_e => {
-            console.log("onDidChangeActiveTerminal");
             this.changeEmitter.fire(undefined);
         });
         vscode.debug.onDidStartDebugSession(_e => {
-            console.log("onDidStartDebugSession");
             this.changeEmitter.fire(undefined);
         });
         vscode.debug.onDidTerminateDebugSession(_e => {
-            console.log("onDidTerminateDebugSession");
             this.changeEmitter.fire(undefined);
         });
         vscode.workspace.onDidChangeWorkspaceFolders(_e => {
