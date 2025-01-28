@@ -109,12 +109,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerDebuggerCommands() {
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (replNode: RascalReplNode) => {
-                console.log("start debugger!!");
-                console.log(replNode);
-                console.log(`type: ${typeof replNode}`);
-                console.log(`serverPort: ${replNode.serverPort}`);
                 if (replNode.serverPort !== undefined) {
-                    console.log("Starting debug session!");
                     this.rascal.rascalDebugClient.startDebuggingSession(replNode.serverPort);
                 }
             })

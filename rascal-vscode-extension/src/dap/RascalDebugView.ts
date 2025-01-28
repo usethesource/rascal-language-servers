@@ -69,23 +69,18 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
     }
 
     async updateRascalDebugView() : Promise<vscode.TreeItem[]> {
-        console.log(`Update Rascal Debug View. Found (${vscode.window.terminals.length} terminals.`);
-        console.log(console.log(this.rascalDebugClient.debugSocketServersPorts));
         const result : RascalReplNode[] = [];
         for (const terminal of vscode.window.terminals) {
             const processId = await terminal.processId;
             if (processId === undefined) {
-                console.log(`Found one (${terminal.name}, no processId)`);
                 continue;
             }
-            console.log(`\tFound one (${terminal.name}): ${await terminal.processId}`);
             if (terminal.name.includes("Rascal terminal")) {
                 let label = terminal.name;
                 if (await this.isActiveTerminal(terminal.processId)) {
                     label += "***";
                 }
                 const serverPort = this.rascalDebugClient.getServerPort(await terminal.processId);
-                console.log(`ServerPort: ${serverPort}`);
                 const replNode = new RascalReplNode(label, serverPort);
                 if (serverPort !== undefined && this.rascalDebugClient.isConnectedToDebugServer(serverPort)) {
                     replNode.contextValue = "isDebugging";
@@ -95,8 +90,6 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
                 result.push(replNode);
             }
         }
-        console.log("Repl Nodes:");
-        console.log(result);
         return result;
     }
 
