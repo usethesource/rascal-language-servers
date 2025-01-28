@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -488,6 +488,8 @@ private bool rascalContainsName(loc l, str name) {
 }
 
 private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
+    if (fs == {}) return {};
+
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
                                                           [logPathConfig = false];
     list[str] topModuleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
