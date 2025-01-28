@@ -161,8 +161,8 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             success = false;
         }
 
-        for (success, src <- pcfg.srcs) {
-            verifyTypeCorrectRenaming(src, edits, pcfg);
+        if (success) {
+            verifyTypeCorrectRenaming(testDir, edits, pcfg);
         }
 
         if (!moduleExistsOnDisk) {
