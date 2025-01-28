@@ -108,7 +108,7 @@
         {
           "id": "rascalmpl-debugger-view",
           "name": "Rascal debugger",
-          "icon": "./assets/images/rascal-logo-v2.1.svg",
+          "icon": "$(debug)",
           "visibility": "visible"
         }
       ]
