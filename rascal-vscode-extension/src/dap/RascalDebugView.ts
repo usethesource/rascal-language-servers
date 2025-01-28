@@ -31,7 +31,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
     private changeEmitter = new vscode.EventEmitter<RascalReplNode | undefined>();
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
-    constructor(private readonly rascalDebugClient: RascalDebugClient) {
+    constructor(private readonly rascalDebugClient: RascalDebugClient, readonly context: vscode.ExtensionContext) {
         vscode.window.onDidOpenTerminal(_e => {
             this.changeEmitter.fire(undefined);
         });
@@ -50,6 +50,9 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         vscode.debug.onDidReceiveDebugSessionCustomEvent(_e => {
             this.changeEmitter.fire(undefined);
         });
+        context.subscriptions.push(vscode.commands.registerCommand('rascalmpl.updateDebugView', () => {
+            this.changeEmitter.fire(undefined);
+        }));
     }
 
     getTreeItem(element: RascalReplNode): vscode.TreeItem | Thenable<vscode.TreeItem> {

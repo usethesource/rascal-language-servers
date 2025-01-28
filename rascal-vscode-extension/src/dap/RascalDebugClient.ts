@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { debug, DebugConfiguration, DebugSession, Terminal, window } from "vscode";
+import { debug, DebugConfiguration, DebugSession, Terminal, window, commands } from "vscode";
 import { RascalDebugAdapterDescriptorFactory } from "./RascalDebugAdapterDescriptorFactory";
 import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProvider";
 
@@ -77,6 +77,7 @@ export class RascalDebugClient {
 
     registerDebugServerPort(processID: number, serverPort: number){
         this.debugSocketServersPorts.set(processID, serverPort);
+        commands.executeCommand('rascalmpl.updateDebugView');
     }
 
     getServerPort(processId: number){
