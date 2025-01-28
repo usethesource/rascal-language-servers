@@ -88,8 +88,9 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
             if (terminal.name.includes("Rascal terminal")) {
                 const label = await this.makeLabel(terminal.name, processId);
                 const serverPort = this.rascalDebugClient.getServerPort(processId);
-                const replNode = new RascalReplNode(label, serverPort);
-                if (serverPort !== undefined && !this.rascalDebugClient.isConnectedToDebugServer(serverPort)) {
+                const isDebugging = serverPort !== undefined && this.rascalDebugClient.isConnectedToDebugServer(serverPort);
+                const replNode = new RascalReplNode(label, serverPort, isDebugging);
+                if (serverPort !== undefined && !isDebugging) {
                     replNode.contextValue = "canStartDebugging";
                 }
                 result.push(replNode);
@@ -111,8 +112,9 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 export class RascalReplNode extends vscode.TreeItem {
     serverPort? : number | undefined;
 
-    constructor(label : string | vscode.TreeItemLabel, serverPort : number | undefined) {
+    constructor(label : string | vscode.TreeItemLabel, serverPort : number | undefined, isDebugging : boolean) {
         super(label, vscode.TreeItemCollapsibleState.None);
         this.serverPort = serverPort;
+        this.iconPath = new vscode.ThemeIcon(isDebugging ? "debug" : "terminal");
     }
 }
