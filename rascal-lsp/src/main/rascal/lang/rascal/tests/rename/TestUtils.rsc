@@ -81,8 +81,7 @@ private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
 
     // Restore back-up
     remove(root, recursive = true);
-    copy(backupLoc, root, recursive = true);
-    remove(backupLoc, recursive = true);
+    move(backupLoc, root, overwrite = true);
 }
 
 bool expectEq(&T expected, &T actual, str epilogue = "") {
