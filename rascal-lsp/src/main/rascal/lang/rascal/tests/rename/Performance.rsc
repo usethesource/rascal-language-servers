@@ -62,5 +62,6 @@ test bool incrementalTypeCheck() {
 
     ms = rascalTModelForNames([modName], rascalCompilerConfig(pcfg), dummy_compile1);
     res = testRenameOccurrences({byLoc(modName, moduleLoc, {0, 1})});
+    remove(procLoc);
     return res;
 }
