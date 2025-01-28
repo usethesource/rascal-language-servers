@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -79,9 +79,9 @@ void throwAnyErrors(program(_, msgs)) {
     throwAnyErrors(msgs);
 }
 
-private set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] roles) {
+private set[IllegalRenameReason] rascalCheckLegalNameByRoles(str name, set[IdRole] roles) {
     escName = rascalEscapeName(name);
-    tuple[type[&T <: Tree] as, str desc] asType = <#Name, "identifier">;
+    tuple[type[Tree] as, str desc] asType = <#Name, "identifier">;
     if ({moduleId(), *_} := roles) asType = <#QualifiedName, "module name">;
     if ({constructorId(), *_} := roles) asType = <#NonterminalLabel, "constructor name">;
     if ({fieldId(), *_} := roles) asType = <#NonterminalLabel, "constructor field name">;
@@ -91,10 +91,11 @@ private set[IllegalRenameReason] rascalCheckLegalName(str name, set[IdRole] role
     return {};
 }
 
-private void rascalCheckLegalName(str name, Symbol sym) {
+private void rascalCheckLegalNameByType(str name, Symbol sym) {
     escName = rascalEscapeName(name);
     g = grammar(#start[Module]);
-    if (tryParseAs(type(sym, g.rules), escName) is nothing) {
+    if (type[Tree] t := type(sym, g.rules)
+      , tryParseAs(t, escName) is nothing) {
         throw illegalRename("\'<escName>\' is not a valid name at this position", {invalidName(escName, "<sym>")});
     }
 }
@@ -178,7 +179,7 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(TModel ws, rel[loc 
     set[loc] editFiles = defsPerFile.file + usesPerFile.file;
 
     set[IllegalRenameReason] reasons = {};
-    reasons += rascalCheckLegalName(newName, definitionsRel(ws)[defsPerFile.rename.l].idRole);
+    reasons += rascalCheckLegalNameByRoles(newName, definitionsRel(ws)[defsPerFile.rename.l].idRole);
     reasons += rascalCheckDefinitionsOutsideWorkspace(ws, defsPerFile.rename.l);
     reasons += rascalCheckCausesDoubleDeclarations(ws, defsPerFile.rename.l, newNameDefs, newName);
     for (file <- editFiles) {
@@ -611,7 +612,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
-    rascalCheckLegalName(newName, typeOf(cursorT));
+    rascalCheckLegalNameByType(newName, typeOf(cursorT));
 
     step("preloading minimal workspace information", 1);
     set[TModel] localTmodelsForFiles(ProjectFiles projectFiles) = tmodelsForProjectFiles(projectFiles, rascalTModels, getPathConfig);
