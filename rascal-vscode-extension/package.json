@@ -51,10 +51,7 @@
       {
         "command": "rascalmpl.startDebuggerForRepl",
         "title": "Start Rascal debugger for REPL",
-        "icon": {
-          "light": "./assets/images/rascal-logo-v2.1.svg",
-          "dark": "./assets/images/rascal-logo-v2.1.svg"
-        }
+        "icon": "$(debug)"
       }
     ],
     "menus": {
