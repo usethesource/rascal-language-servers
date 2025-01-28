@@ -55,26 +55,13 @@
           "light": "./assets/images/rascal-logo-v2.1.svg",
           "dark": "./assets/images/rascal-logo-v2.1.svg"
         }
-      },
-      {
-        "command": "rascalmpl.stopDebuggerForRepl",
-        "title": "Stop Rascal debugger for REPL",
-        "icon": {
-          "light": "./assets/images/rascal-logo-v2.1.svg",
-          "dark": "./assets/images/rascal-logo-v2.1.svg"
-        }
       }
     ],
     "menus": {
       "view/item/context": [
         {
           "command": "rascalmpl.startDebuggerForRepl",
-          "when": "view == rascalmpl-debugger-view && viewItem == 'isNotDebugging'",
-          "group": "inline"
-        },
-        {
-          "command": "rascalmpl.stopDebuggerForRepl",
-          "when": "view == rascalmpl-debugger-view && viewItem == 'isDebugging'",
+          "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
           "group": "inline"
         }
       ]
