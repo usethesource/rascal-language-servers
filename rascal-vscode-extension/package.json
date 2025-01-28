@@ -107,7 +107,7 @@
       "debug": [
         {
           "id": "rascalmpl-debugger-view",
-          "name": "Rascal debugger",
+          "name": "Debug Rascal Terminal",
           "icon": "$(debug)",
           "visibility": "visible"
         }
