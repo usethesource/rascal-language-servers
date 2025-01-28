@@ -56,7 +56,7 @@ import util::Reflective;
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
-                | byLoc(loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
+                | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
 
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
@@ -68,10 +68,21 @@ private default DocumentEdit sortChanges(DocumentEdit e) = e;
 private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits<0>];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
+
+    // Back-up sources
+    loc backupLoc = |memory://tests/backup|;
+    remove(backupLoc, recursive = true);
+    copy(root, backupLoc, recursive = true);
+
     executeDocumentEdits(sortEdits(edits<0>));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
     throwAnyErrors(checkAll(root, ccfg));
+
+    // Restore back-up
+    remove(root, recursive = true);
+    copy(backupLoc, root, recursive = true);
+    remove(backupLoc, recursive = true);
 }
 
 bool expectEq(&T expected, &T actual, str epilogue = "") {
@@ -92,29 +103,31 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
 
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
-    for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
-        str testName = "Test_<mm.name>_<cursorOcc>";
-        loc testDir = |memory://tests/rename/<testName>|;
 
-        if(any(m <- modules, m is byLoc)) {
-            testDir = cover([m.file | m <- modules, m is byLoc]);
+    bool moduleExistsOnDisk = any(mmm <- modules, mmm is byLoc);
+    for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
+        loc testDir = |unknown:///|;
+        if (moduleExistsOnDisk){
+            testDir = cover([m.file.parent | m <- modules, m is byLoc]).parent;
         } else {
             // If none of the modules refers to an existing file, clear the test directory before writing files.
+            str testName = "Test_<mm.name>_<cursorOcc>";
+            testDir = |memory://tests/rename/<testName>|;
             remove(testDir);
         }
 
         pcfg = getTestPathConfig(testDir);
-        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
 
-        for (byLoc(loc ml, _) <- modulesByLocation) {
+        for (m <- modulesByLocation) {
             try {
-                parseModuleWithSpaces(ml);
+                parseModuleWithSpaces(m.file);
             } catch _: {
                 throw "Parse error in test module <ml>";
             }
         }
 
-        cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
+        cursorT = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <cursorT.src>");
         edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
@@ -153,7 +166,9 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             verifyTypeCorrectRenaming(src, edits, pcfg);
         }
 
-        remove(testDir);
+        if (!moduleExistsOnDisk) {
+            remove(testDir);
+        }
     }
 
     return success;
@@ -186,7 +201,7 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-private PathConfig getTestPathConfig(loc testDir) {
+public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
         libs=[|lib://rascal|],
