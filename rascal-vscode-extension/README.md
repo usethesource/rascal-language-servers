@@ -54,9 +54,9 @@ For other things we are working on have a look here:
 
 ### 0.12.1
 
-* The type-checker got faster, especially if you're editing a single file in a large project.
+* The type-checker got a lot faster, especially if you're editing a single file in a larger project.
 * Various bugfixes in:
-    * The rename functionality 
+    * The rename functionality
     * The code actions
     * The type-checker
 
