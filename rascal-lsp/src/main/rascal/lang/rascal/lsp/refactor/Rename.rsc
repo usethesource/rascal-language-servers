@@ -49,6 +49,7 @@ import String;
 import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Modules;
 
@@ -487,6 +488,12 @@ private bool rascalContainsName(loc l, str name) {
     return false;
 }
 
+private TModel getTModel(str modName, ModuleStatus ms) {
+    <found, tm, ms> = getTModelForModule(modName, ms);
+    if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
+    return convertTModel2PhysicalLocs(tm);
+}
+
 private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     if (fs == {}) return {};
 
@@ -495,13 +502,16 @@ private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
     list[str] topModuleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
     ms = rascalTModelForNames(topModuleNames, ccfg, dummy_compile1);
 
-    set[TModel] tmodels = {};
-    for (str modName <- ms.moduleLocs) {
-        <found, tm, ms> = getTModelForModule(modName, ms);
-        if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
-        tmodels += convertTModel2PhysicalLocs(tm);
+    map[str, TModel] tmodels = ();
+    modsToDo = toSet(topModuleNames);
+    while ({str modName, *rest} := modsToDo) {
+        modsToDo = rest;
+        tm = getTModel(modName, ms);
+        tmodels[modName] = tm;
+        depNames = domain(tm.store[key_bom]);
+        modsToDo += depNames - domain(tmodels);
     }
-    return tmodels;
+    return range(tmodels);
 }
 
 ProjectFiles preloadFiles(set[loc] workspaceFolders, loc cursorLoc) {
