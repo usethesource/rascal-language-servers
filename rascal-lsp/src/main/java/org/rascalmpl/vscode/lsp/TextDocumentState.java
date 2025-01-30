@@ -236,7 +236,7 @@ public class TextDocumentState {
                 IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree);
                 for (IValue error : errors) {
                     ITree errorTree = (ITree) error;
-                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
+                    parseErrors.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree, columns));
                 }
             }
 

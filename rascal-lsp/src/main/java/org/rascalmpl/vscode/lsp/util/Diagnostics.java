@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -54,6 +55,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
@@ -75,6 +77,40 @@ public class Diagnostics {
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
         var message = e.getMessage() + " (irrecoverable)";
         return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
+    }
+
+    public static List<Diagnostic> generateParseErrorDiagnostics(ITree errorTree, ColumnMaps cm) {
+        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+
+        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
+        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+
+        List<Diagnostic> diagnostics = new ArrayList<>();
+
+        int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
+        if (prefixLength > 0) {
+            ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                    errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
+                    errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                    errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
+            diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
+        } else {
+            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
+                skippedLoc.getOffset(), 1,
+                skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                skippedLoc.getBeginColumn(),skippedLoc.getBeginColumn() + 1);
+
+            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location", DiagnosticSeverity.Error, "parser"));
+        }
+        // Do not highlight the skipped part for now
+        //diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", DiagnosticSeverity.Warning, "parser"));
+
+        // Note: DiagnosticSeverity.Hint only highlightes a single character!
+
+        return diagnostics;
     }
 
     public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
