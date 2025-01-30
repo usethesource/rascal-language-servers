@@ -70,8 +70,8 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         return item;
     }
 
-    async makeLabel(label: string, processId : number) : Promise<string | vscode.TreeItemLabel> {
-        if (await this.isActiveTerminal(processId)) {
+    makeLabel(label: string, isActiveTerminal : boolean) : string | vscode.TreeItemLabel {
+        if (isActiveTerminal) {
             return {label: label, highlights : [[0, label.length]]};
         }
         return label;
@@ -79,13 +79,14 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 
     async updateRascalDebugView() : Promise<RascalReplNode[]> {
         const result : RascalReplNode[] = [];
+        const activeTerminalProcessId = await vscode.window.activeTerminal?.processId;
         for (const terminal of vscode.window.terminals) {
             const processId = await terminal.processId;
             if (processId === undefined) {
                 continue;
             }
             if (terminal.name.includes("Rascal terminal")) {
-                const label = await this.makeLabel(terminal.name, processId);
+                const label = this.makeLabel(terminal.name, processId === activeTerminalProcessId);
                 const serverPort = this.rascalDebugClient.getServerPort(processId);
                 const isDebugging = serverPort !== undefined && this.rascalDebugClient.isConnectedToDebugServer(serverPort);
                 const replNode = new RascalReplNode(label, serverPort, isDebugging);
@@ -96,14 +97,6 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
             }
         }
         return result;
-    }
-
-    async isActiveTerminal(processId : number) : Promise<boolean> {
-        const activeTerminal = vscode.window.activeTerminal;
-        if (activeTerminal === undefined) {
-            return false;
-        }
-        return processId === await activeTerminal.processId;
     }
 
 }
