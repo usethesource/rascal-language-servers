@@ -47,8 +47,28 @@
       {
         "command": "rascalmpl.importModule",
         "title": "Start Rascal Terminal and Import this module"
+      },
+      {
+        "command": "rascalmpl.startDebuggerForRepl",
+        "title": "Start Rascal debugger for REPL",
+        "icon": "$(debug)"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
+          "group": "inline"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "rascalmpl",
