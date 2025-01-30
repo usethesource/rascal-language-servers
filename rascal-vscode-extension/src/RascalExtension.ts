@@ -36,7 +36,7 @@ import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
-import { RascalReplNode, RascalDebugViewProvider } from './dap/RascalDebugView';
+import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -53,7 +53,6 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
-        this.registerDebuggerCommand();
         checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
@@ -102,16 +101,6 @@ export class RascalExtension implements vscode.Disposable {
                     return;
                 }
                 this.startTerminal(text.document.uri, "--loadModule", moduleName);
-            })
-        );
-    }
-
-    private registerDebuggerCommand() {
-        this.context.subscriptions.push(
-            vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (replNode: RascalReplNode) => {
-                if (replNode.serverPort !== undefined) {
-                    this.rascal.rascalDebugClient.startDebuggingSession(replNode.serverPort);
-                }
             })
         );
     }
