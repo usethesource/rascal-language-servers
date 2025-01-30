@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -229,7 +229,6 @@ set[loc] rascalGetOverloadedDefs(TModel ws, set[loc] defs, MayOverloadFun mayOve
 }
 
 private rel[loc, loc] NO_RENAMES(str _) = {};
-private int qualSepSize = size("::");
 
 bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atuple;
 bool rascalIsConstructorType(AType at) = at is acons;
@@ -326,8 +325,7 @@ set[RenameLocation] rascalGetKeywordFieldUses(TModel ws, set[loc] defs, str curs
        , isStrictlyContainedIn(consDef.defined, dataDef.defined)
     ) {
         if (AType fieldType := ws.definitions[d].defInfo.atype) {
-            set[loc] reachableModules = rascalReachableModules(ws, {d});
-            if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, reachableModules, dataDef.defInfo.atype, fieldType, cursorName)) {
+            if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, d, dataDef.defInfo.atype, fieldType, cursorName)) {
                 uses += consUses;
             }
         } else {
@@ -355,7 +353,7 @@ private set[RenameLocation] rascalGetExceptUses(TModel ws, set[loc] defs) {
             , <_, !/\a-except(consName)>
             , <l2, at2:  /\a-except(consName)>
             , *_] := sortedFacts
-            , aprod(choice(_, _)) !:= at2
+            , aprod(achoice(_, _)) !:= at2
         ) {
             // There might be whitespace before (but not after) the `cursorName`, so we correct the location length
             uses += <trim(l2, removePrefix = l2.length - size(consName)), nothing()>;
@@ -514,14 +512,14 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(cursorKind, cursorLoc, curso
         set[Define] reachableDefs = rascalReachableDefs(ws, adtDefs);
         set[loc] reachableModules = rascalReachableModules(ws, reachableDefs.defined);
 
-        for (Define _:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, consType, cursorKind.fieldType, cursorName);
+        for (Define d:<_, _, _, constructorId(), _, defType(AType consType)> <- reachableDefs) {
+            <ds, us, _> = rascalGetFieldDefsUses(ws, d.defined, consType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
-        for (Define _:<_, _, _, IdRole idRole, _, defType(acons(AType dataType, _, _))> <- reachableDefs
-           , idRole != dataId()) {
-            <ds, us, _> = rascalGetFieldDefsUses(ws, reachableModules, dataType, cursorKind.fieldType, cursorName);
+        for (Define d:<_, _, _, _, _, defType(acons(AType dataType, _, _))> <- reachableDefs
+           , d.idRole != dataId()) {
+            <ds, us, _> = rascalGetFieldDefsUses(ws, d.defined, dataType, cursorKind.fieldType, cursorName);
             defs += ds;
             uses += us;
         }
@@ -552,14 +550,14 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(collectionField(), cursorLoc
       , rascalIsCollectionType(collUseType)
       , collUseType.elemType is atypeList) {
         // We are at a collection definition site
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {cursorLoc}), collUseType, cursorType, cursorName);
+        return rascalGetFieldDefsUses(ws, cursorLoc, collUseType, cursorType, cursorName);
     }
 
     // We can find the collection type by looking for the first use to the left of the cursor that has a collection type
     lrel[loc use, loc def] usesToLeft = reverse(sort({<u, d> | <u, d> <- ws.useDef, isSameFile(u, cursorLoc), u.offset < cursorLoc.offset}));
     if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType collDefType) := define.defInfo, rascalIsCollectionType(collDefType)) {
         // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
-        return rascalGetFieldDefsUses(ws, rascalReachableModules(ws, {define.defined}), collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
+        return rascalGetFieldDefsUses(ws, define.defined, collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
     } else {
         throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
     }
@@ -609,8 +607,8 @@ Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str fieldName, d:(Declara
 
 default Maybe[tuple[loc, set[loc], bool]] rascalGetKeywordLocs(str _, Tree _) = nothing();
 
-private DefsUsesRenames rascalGetFieldDefsUses(TModel ws, set[loc] reachableModules, AType containerType, AType fieldType, str cursorName) {
-    set[loc] containerFacts = {f | f <- factsInvert(ws)[containerType], f.top in reachableModules};
+private DefsUsesRenames rascalGetFieldDefsUses(TModel ws, loc consOrDataDef, AType containerType, AType fieldType, str cursorName) {
+    set[loc] containerFacts = {f | f <- factsInvert(ws)[containerType], consOrDataDef.top in  rascalReachableModules(ws, {f})};
     rel[loc file, loc u] factsByModule = groupBy(containerFacts, loc(loc l) { return l.top; });
 
     set[loc] defs = {};
@@ -653,27 +651,34 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(moduleName(), cursorLoc, cur
         }
     }
 
-    modName = getModuleName(moduleFile, getPathConfig(getProjectFolder(ws, moduleFile)));
+    set[loc] defs = {ms | ms <- getModuleScopes(ws), ms.top == moduleFile};
 
-    defs = {parseModuleWithSpacesCached(moduleFile).top.header.name.names[-1].src};
-
-    imports = {u | u <- ws.useDef<0>, amodule(modName) := ws.facts[u]};
-    qualifiedUses = {
-        // We compute the location of the module name in the qualified name at `u`
-        // some::qualified::path::to::Foo::SomeVar
-        // \____________________________/\/\_____/
-        // moduleNameSize ^  qualSepSize ^   ^ idSize
-        trim(u, removePrefix = moduleNameSize - size(cursorName)
-              , removeSuffix = idSize + qualSepSize)
-        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
-        , idSize := size(d.id)
-        , u.length > idSize // There might be a qualified prefix
-        , moduleNameSize := size(modName)
-        , u.length == moduleNameSize + qualSepSize + idSize
+    rel[loc fromFile, loc toFile] modulePaths = toRel(getModuleScopePerFile(ws)) o rascalGetTransitiveReflexiveModulePaths(ws);
+    set[loc] importUses = {u
+        | <loc u, Define _: <_, cursorName, _, moduleId(), d, _>> <- ws.useDef o definitionsRel(ws)
+        , <u.top, d> in modulePaths
     };
-    uses = imports + qualifiedUses;
 
-    rel[loc, loc] getRenames(str newName) = {<file, file[file = "<newName>.rsc"]> | d <- defs, file := d.top};
+    rel[loc file, loc use] qualifiedUseCandidates = {
+        <u.top, u>
+        | <loc u, Define d> <- ws.useDef o definitionsRel(ws)
+        , u.length > size(d.id) // use name > declaration name, i.e. there is a qualified prefix
+    };
+    set[loc] qualifiedUses = {
+        qn.src
+        | loc file <- qualifiedUseCandidates.file
+        , start[Module] m := parseModuleWithSpacesCached(file)
+        , set[loc] localUses := qualifiedUseCandidates[file]
+        , /QualifiedName qn := m
+        , qn.src in localUses
+        , cursorName == intercalate("::", prefix(["<n>" | n <- qn.names]))
+    };
+
+    set[loc] uses = importUses + qualifiedUses;
+
+    pcfg = getPathConfig(getProjectFolder(ws, moduleFile));
+    loc srcFolder = [srcFolder | relModulePath := relativize(pcfg.srcs, moduleFile), srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
+    rel[loc, loc] getRenames(str newName) = {<file, srcFolder + makeFileName(newName)> | d <- defs, file := d.top};
 
     return <annotateLocs(defs), annotateLocs(uses), getRenames>;
 }

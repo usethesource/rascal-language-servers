@@ -24,14 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util.locations;
+package org.rascalmpl.vscode.lsp.parametric;
 
-/**
- * Translate ISourceLocation columns to LSP columns
- *
- * vallang uses UTF-32-bit codepoints, while lsp uses UTF-16, so in cases where a codepoint wouldn't fit inside 16bit char, it takes up two chars. Implementations of this class translate these efficiently.
- */
-public interface LineColumnOffsetMap {
-    int translateColumn(int line, int column, boolean isEnd);
-    int translateInverseColumn(int line, int column, boolean isEnd);
+import java.util.concurrent.ExecutorService;
+
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+
+public class ParametricWorkspaceService extends BaseWorkspaceService {
+    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
+        super(exec, docService);
+    }
 }

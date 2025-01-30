@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,9 +63,8 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client).registerSchemes(schemes);
+        new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
     });
-
 
     return client;
 }

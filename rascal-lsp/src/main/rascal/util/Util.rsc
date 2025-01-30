@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,10 @@ import ParseTree;
 import String;
 
 import util::Maybe;
+
+import lang::rascal::lsp::refactor::TextEdits;
+
+alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 @synopsis{
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
@@ -80,9 +84,6 @@ Maybe[&T <: Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbigui
     }
 }
 
-Maybe[&B] flatMap(nothing(), Maybe[&B](&A) _) = nothing();
-Maybe[&B] flatMap(just(&A a), Maybe[&B](&A) f) = f(a);
-
 str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
 str toString(error(msg)) = "[error] \'<msg>\'";
 str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
@@ -103,3 +104,23 @@ rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
 bool isShorter(loc l1, loc l2) = l1.length < l2.length;
 
 bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
+<<<<<<< HEAD:rascal-lsp/src/main/rascal/util/Util.rsc
+=======
+
+@synopsis{
+    Predicate to sort locations by offset.
+}
+bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
+
+@synopsis{
+    Predicate to reverse a sort order.
+}
+bool(&T, &T) desc(bool(&T, &T) f) {
+    return bool(&T t1, &T t2) {
+        return f(t2, t1);
+    };
+}
+
+set[&T] flatMap(set[&S] ss, set[&T](&S) f) = ({} | it + f(s) | s <- ss);
+list[&T] flatMap(list[&S] ss, list[&T](&S) f) = ([] | it + f(s) | s <- ss);
+>>>>>>> origin/main:rascal-lsp/src/main/rascal/lang/rascal/lsp/refactor/Util.rsc
