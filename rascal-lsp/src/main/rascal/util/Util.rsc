@@ -35,10 +35,6 @@ import String;
 
 import util::Maybe;
 
-import lang::rascal::lsp::refactor::TextEdits;
-
-alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
-
 @synopsis{
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
     Accepts a predicate deciding containment as an optional argument.
@@ -104,23 +100,3 @@ rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
 bool isShorter(loc l1, loc l2) = l1.length < l2.length;
 
 bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
-<<<<<<< HEAD:rascal-lsp/src/main/rascal/util/Util.rsc
-=======
-
-@synopsis{
-    Predicate to sort locations by offset.
-}
-bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
-
-@synopsis{
-    Predicate to reverse a sort order.
-}
-bool(&T, &T) desc(bool(&T, &T) f) {
-    return bool(&T t1, &T t2) {
-        return f(t2, t1);
-    };
-}
-
-set[&T] flatMap(set[&S] ss, set[&T](&S) f) = ({} | it + f(s) | s <- ss);
-list[&T] flatMap(list[&S] ss, list[&T](&S) f) = ([] | it + f(s) | s <- ss);
->>>>>>> origin/main:rascal-lsp/src/main/rascal/lang/rascal/lsp/refactor/Util.rsc

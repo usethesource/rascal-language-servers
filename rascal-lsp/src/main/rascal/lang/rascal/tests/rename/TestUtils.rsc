@@ -30,7 +30,7 @@ module lang::rascal::tests::rename::TestUtils
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
 import util::Util;
-import util::refactor::TextEdits;
+import framework::TextEdits;
 
 import IO;
 import List;
@@ -49,6 +49,7 @@ import lang::rascalcore::compile::util::Names;
 import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
+import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Reflective;
@@ -65,8 +66,8 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
-    list[loc] editLocs = [l | /replace(l, _) := edits<0>];
+private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+    list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
 
     // Back-up sources
@@ -74,10 +75,15 @@ private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
-    executeDocumentEdits(sortEdits(edits<0>));
+    executeDocumentEdits(sortEdits(edits));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
-    throwAnyErrors(checkAll(root, ccfg));
+
+    for (program(loc src, msgs) <- checkAll(root, ccfg)) {
+        if (any(m <- msgs, m is error)) {
+            throw msgs;
+        }
+    }
 
     // Restore back-up
     remove(root, recursive = true);
@@ -162,7 +168,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         }
 
         if (success) {
-            verifyTypeCorrectRenaming(testDir, edits, pcfg);
+            verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
         }
 
         if (!moduleExistsOnDisk) {
@@ -239,7 +245,7 @@ PathConfig getPathConfig(loc project) {
 }
 
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
-    Tree cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
+    cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
     return rascalRenameSymbol(cursor, newName, projectDirs, getPathConfig);
 }
 
@@ -248,7 +254,7 @@ tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, 
     occs = extractRenameOccurrences(singleModule, edits, oldName);
 
     for (src <- pcfg.srcs) {
-        verifyTypeCorrectRenaming(src, edits, pcfg);
+        verifyTypeCorrectRenaming(src, edits<0>, pcfg);
     }
 
     return <edits, occs>;
@@ -338,17 +344,12 @@ private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str n
 private str moduleNameToPath(str name) = replaceAll(name, "::", "/");
 private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
-private Tree findCursor(loc f, str id, int occ) {
+private list[Tree] findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
     names = collectNameTrees(m, id);
     if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
-    maybeCursor = names[occ];
-
-    if (<i, l, nothing()> := maybeCursor) {
-        throw "Cannot use <i>th occurrence of \'<id>\' at <l> as cursor";
-    } else {
-        return (maybeCursor<2>).val;
-    }
+    loc cl = (names<1>)[occ];
+    return computeFocusList(m, cl.begin.line, cl.begin.column);
 }
 
 private loc storeTestModule(loc dir, str name, str body) {

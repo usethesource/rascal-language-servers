@@ -51,16 +51,3 @@ str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idD
 str describe(doubleDeclaration(_, _)) = "it causes double declarations";
 str describe(captureChange(_)) = "it changes program semantics";
 str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
-
-void throwAnyErrors(TModel tm) {
-    throwAnyErrors(tm.messages);
-}
-
-void throwAnyErrors(set[Message] msgs) {
-    throwAnyErrors(toList(msgs));
-}
-
-void throwAnyErrors(list[Message] msgs) {
-    errors = {msg | msg <- msgs, msg is error};
-    if (errors != {}) throw errors;
-}

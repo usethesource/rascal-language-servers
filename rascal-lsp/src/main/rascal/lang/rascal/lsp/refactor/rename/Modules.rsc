@@ -88,7 +88,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
     };
 }
 
-Edits propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
     rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = {
         rename
         | <oldLoc, newLoc> <- renames
@@ -109,5 +109,5 @@ Edits propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] wor
         };
     });
 
-    return <toList(edits), ()>;
+    return <toList(edits), {}>;
 }
