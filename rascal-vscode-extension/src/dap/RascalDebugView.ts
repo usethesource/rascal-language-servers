@@ -111,7 +111,6 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 export class RascalReplNode extends vscode.TreeItem {
     constructor(label : string | vscode.TreeItemLabel, readonly serverPort : number | undefined, isDebugging : boolean) {
         super(label, vscode.TreeItemCollapsibleState.None);
-        this.serverPort = serverPort;
         this.iconPath = new vscode.ThemeIcon(isDebugging ? "debug" : "terminal");
     }
 }
