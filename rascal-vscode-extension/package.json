@@ -55,6 +55,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "false"
+        }
+      ],
       "view/item/context": [
         {
           "command": "rascalmpl.startDebuggerForRepl",
