@@ -26,6 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { RascalDebugClient } from './RascalDebugClient';
+import { Command } from 'vscode-languageclient';
 
 export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalReplNode> {
     private changeEmitter = new vscode.EventEmitter<RascalReplNode | undefined>();
@@ -86,7 +87,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         return label;
     }
 
-    async updateRascalDebugView() : Promise<vscode.TreeItem[]> {
+    async updateRascalDebugView() : Promise<RascalReplNode[]> {
         const result : RascalReplNode[] = [];
         for (const terminal of vscode.window.terminals) {
             const processId = await terminal.processId;
@@ -97,10 +98,8 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
                 const label = await this.makeLabel(terminal.name, processId);
                 const serverPort = this.rascalDebugClient.getServerPort(processId);
                 const isDebugging = serverPort !== undefined && this.rascalDebugClient.isConnectedToDebugServer(serverPort);
-                const replNode = new RascalReplNode(label, serverPort, isDebugging);
-                if (serverPort !== undefined && !isDebugging) {
-                    replNode.contextValue = "canStartDebugging";
-                }
+                const canStartDebugging = serverPort !== undefined && !isDebugging;
+                const replNode = new RascalReplNode(label, serverPort, isDebugging, canStartDebugging);
                 result.push(replNode);
             }
         }
@@ -118,9 +117,11 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 }
 
 export class RascalReplNode extends vscode.TreeItem {
-    constructor(label : string | vscode.TreeItemLabel, readonly serverPort : number | undefined, isDebugging : boolean) {
+    constructor(label : string | vscode.TreeItemLabel, readonly serverPort : number | undefined, isDebugging : boolean, canStartDebugging : boolean) {
         super(label, vscode.TreeItemCollapsibleState.None);
-        this.serverPort = serverPort;
         this.iconPath = new vscode.ThemeIcon(isDebugging ? "debug" : "terminal");
+        if (canStartDebugging) {
+            this.command = Command.create("Debug Rascal REPL", "rascalmpl.startDebuggerForRepl", this, {"icon":"$(debug)"});
+        }
     }
 }
