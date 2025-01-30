@@ -201,7 +201,7 @@ RenameResult rename(
         tm = getTModelCached(tr);
 
         for (d <- defs, d.defined.top == f) {
-            renameDefinition(d, newName, tm, r);
+            renameDefinition(d, newName, tr, tm, r);
         }
     }
 
@@ -212,7 +212,7 @@ RenameResult rename(
         tr = parseLocCached(f);
         tm = getTModelCached(tr);
 
-        renameUses(defs, newName, tm, r);
+        renameUses(defs, newName, tr, tm, r);
     }
 
     set[Message] convertedMessages = getMessages();
@@ -276,12 +276,12 @@ default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Defi
 
 default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm) = {};
 
-default void renameDefinition(Define d, str newName, TModel tm, Renamer r) {
+default void renameDefinition(Define d, str newName, Tree _, TModel tm, Renamer r) {
     r.textEdit(replace(d.defined, newName));
 }
 
-default void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
-    for (loc u <- invert(tm.useDef)[defs.defined]) {
+default void renameUses(set[Define] defs, str newName, Tree _, TModel tm, Renamer r) {
+    for (loc u <- invert(tm.useDef)[defs.defined] - defs.defined) {
         r.textEdit(replace(u, newName));
     }
 }

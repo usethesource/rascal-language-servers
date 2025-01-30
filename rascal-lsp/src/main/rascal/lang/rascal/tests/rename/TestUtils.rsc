@@ -132,10 +132,10 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             }
         }
 
-        cursorT = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
+        focus = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
-        println("Renaming \'<oldName>\' from <cursorT.src>");
-        edits = rascalRenameSymbol(cursorT, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+        println("Renaming \'<oldName>\' from <focus[0].src>");
+        edits = rascalRenameSymbol(focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
 
         renamesPerModule = (
             beforeRename: afterRename
@@ -163,7 +163,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
 
-        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
+        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <focus[0].src> failed:")) {
             success = false;
         }
 

@@ -25,26 +25,30 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::tests::rename::ProjectOnDisk
+module lang::rascal::lsp::refactor::rename::Common
 
-import lang::rascal::lsp::refactor::Rename;
-import lang::rascal::tests::rename::TestUtils;
+extend framework::Rename;
+import framework::TextEdits;
+
+import analysis::typepal::TModel;
+import lang::rascal::\syntax::Rascal;
+import lang::rascalcore::check::BasicRascalConfig;
+
+import IO;
+import List;
+import Relation;
+import String;
+import util::Maybe;
 import util::Reflective;
-import lang::rascalcore::check::Checker;
 
-tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
-    PathConfig pcfg;
-    if (projectDir.file == "rascal-core") {
-        pcfg = getRascalCorePathConfig(projectDir);
-    } else {
-        pcfg = pathConfig(
-            srcs = [ projectDir + "src" ],
-            bin = projectDir + "target/classes",
-            generatedSources = projectDir + "target/generated-sources/src/main/java/",
-            generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
-            resources = projectDir + "target/generated-resources/src/main/java/",
-            libs = [ |lib://rascal| ]
-        );
-    }
-    return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
-}
+data RenameConfig(
+    set[loc] workspaceFolders = {}
+);
+
+// Workaround to be able to pattern match on the emulated `src` field
+data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
+
+@memo{maximumSize(1000), expireAfter(minutes=5)}
+str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
+
+default Maybe[loc] nameLocation(Tree _, set[Define] _) = nothing();

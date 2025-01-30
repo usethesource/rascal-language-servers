@@ -51,11 +51,13 @@ import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::BasicRascalConfig;
 
+import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Modules;
+extend lang::rascal::lsp::refactor::rename::Variables;
 
-extend util::refactor::Exception;
 extend framework::Rename;
 import framework::TextEdits;
+import util::refactor::Exception;
 import util::Util;
 
 import lang::rascal::lsp::refactor::WorkspaceInfo;
@@ -175,9 +177,6 @@ private set[IllegalRenameReason] rascalCollectIllegalRenames(TModel ws, rel[loc 
     return reasons;
 }
 
-@memo{maximumSize(1000), expireAfter(minutes=5)}
-private str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
-
 private str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
@@ -254,28 +253,28 @@ Maybe[loc] rascalLocationOfName(Nonterminal nt, CursorKind _, Focus _) = just(nt
 Maybe[loc] rascalLocationOfName(NonterminalLabel l, CursorKind _, Focus _) = just(l.src);
 default Maybe[loc] rascalLocationOfName(Tree t, CursorKind _, Focus _) = nothing();
 
-private list[TextEdit] computeTextEdits(TModel ws, start[Module] m, set[loc] defs, set[loc] uses, cursor(cursorKind, _, _), str newName) {
-    rel[loc l, Maybe[ChangeAnnotationId] ann, bool isDef] renames =
-        {<l, a, true>  | <l, a> <- defs}
-      + {<l, a, false> | <l, a> <- uses};
-    rel[loc name, loc useDef] nameOfUseDef = rascalFindNamesInUseDefs(m, renames.l, cursorKind);
+// private list[TextEdit] computeTextEdits(TModel ws, start[Module] m, set[loc] defs, set[loc] uses, cursor(cursorKind, _, _), str newName) {
+//     rel[loc l, Maybe[ChangeAnnotationId] ann, bool isDef] renames =
+//         {<l, a, true>  | <l, a> <- defs}
+//       + {<l, a, false> | <l, a> <- uses};
+//     rel[loc name, loc useDef] nameOfUseDef = rascalFindNamesInUseDefs(m, renames.l, cursorKind);
 
-    ChangeAnnotationId defAnno = registerChangeAnnotation("Definitions", MANDATORY_CHANGE_DESCRIPTION, false);
-    ChangeAnnotationId useAnno = registerChangeAnnotation("References", MANDATORY_CHANGE_DESCRIPTION, false);
+//     ChangeAnnotationId defAnno = registerChangeAnnotation("Definitions", MANDATORY_CHANGE_DESCRIPTION, false);
+//     ChangeAnnotationId useAnno = registerChangeAnnotation("References", MANDATORY_CHANGE_DESCRIPTION, false);
 
-    // Note: if the implementer of the rename logic has attached annotations to multiple rename suggestions that have the same
-    // name location, one will be arbitrarily chosen here. This could mean that a `needsConfirmation` annotation is thrown away.
-    return [
-        {just(annotation), *_} := renameOpts.ann
-        ? replace(l, rascalEscapeName(newName), annotation = annotation)
-        : replace(l, rascalEscapeName(newName), annotation = any(b <- renameOpts.isDef) ? defAnno : useAnno)
-        | l <- nameOfUseDef.name
-        , rel[Maybe[ChangeAnnotationId] ann, bool isDef] renameOpts := renames[nameOfUseDef[l]]
-    ];
-}
+//     // Note: if the implementer of the rename logic has attached annotations to multiple rename suggestions that have the same
+//     // name location, one will be arbitrarily chosen here. This could mean that a `needsConfirmation` annotation is thrown away.
+//     return [
+//         {just(annotation), *_} := renameOpts.ann
+//         ? replace(l, rascalEscapeName(newName), annotation = annotation)
+//         : replace(l, rascalEscapeName(newName), annotation = any(b <- renameOpts.isDef) ? defAnno : useAnno)
+//         | l <- nameOfUseDef.name
+//         , rel[Maybe[ChangeAnnotationId] ann, bool isDef] renameOpts := renames[nameOfUseDef[l]]
+//     ];
+// }
 
-private list[TextEdit] computeTextEdits(TModel ws, loc moduleLoc, set[loc] defs, set[loc] uses, Cursor cur, str newName) =
-    computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, cur, newName, registerChangeAnnotation);
+// private list[TextEdit] computeTextEdits(TModel ws, loc moduleLoc, set[loc] defs, set[loc] uses, Cursor cur, str newName) =
+//     computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, cur, newName, registerChangeAnnotation);
 
 private bool rascalIsFunctionLocalDefs(TModel ws, set[loc] defs) {
     for (d <- defs) {
@@ -475,32 +474,6 @@ private bool rascalContainsName(loc l, str name) {
     return false;
 }
 
-private TModel getTModel(str modName, ModuleStatus ms) {
-    <found, tm, ms> = getTModelForModule(modName, ms);
-    if (!found) throw unexpectedFailure("Cannot read TModel for module \'<modName>\'\n<toString(ms.messages)>");
-    return convertTModel2PhysicalLocs(tm);
-}
-
-private set[TModel] rascalTModels(set[loc] fs, PathConfig pcfg) {
-    if (fs == {}) return {};
-
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false]
-                                                          [logPathConfig = false];
-    list[str] topModuleNames = [getModuleName(mloc, pcfg) | mloc <- fs];
-    ms = rascalTModelForNames(topModuleNames, ccfg, dummy_compile1);
-
-    map[str, TModel] tmodels = ();
-    modsToDo = toSet(topModuleNames);
-    while ({str modName, *rest} := modsToDo) {
-        modsToDo = rest;
-        tm = getTModel(modName, ms);
-        tmodels[modName] = tm;
-        depNames = domain(tm.store[key_bom]);
-        modsToDo += depNames - domain(tmodels);
-    }
-    return range(tmodels);
-}
-
 set[loc] rascalPreloadFiles(Tree cursorT, set[loc] workspaceFolders, PathConfig(loc) _) {
     loc cursorLoc = cursorT.src;
     return { <
@@ -593,6 +566,10 @@ set[loc] rascalAllWorkspaceFiles(TModel tm, Cursor cur, set[loc] workspaceFolder
 
 alias Edits = tuple[list[DocumentEdit], set[Message]];
 
+data RenameConfig(
+    set[loc] workspaceFolders = {}
+);
+
 public Edits rascalRenameSymbol(list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
     cursor
   , newName
@@ -610,30 +587,39 @@ public Edits rascalRenameSymbol(list[Tree] cursor, str newName, set[loc] workspa
           if (!found) throw ms.messages;
           return tm;
       }
+      , workspaceFolders = workspaceFolders
   )
 );
-
-// public RenameSymbolF rascalRenameSymbol = renameSymbolFramework(
-//     CheckResult(Tree c, str nn, set[loc] _, PathConfig(loc) _) { return rascalCheckLegalNameByType(nn, typeOf(c)); }
-//     , CheckResult(TModel tm, loc moduleLoc, str nn, set[loc] defs, set[loc] uses) {
-//         start[Module] m = parseModuleWithSpacesCached(moduleLoc);
-//         return rascalCollectIllegalRenames(tm, m, defs.l, uses.l, nn);
-//     }
-//     , rascalPreloadFiles
-//     , rascalAllWorkspaceFiles
-//     , rascalTModels
-//     , rascalEscapeName
-//     , rascalGetCursor
-//     , DefsUsesRenames(TModel tm, Cursor cur, ChangeAnnotationRegister regChangeAnno, PathConfigF gpcfg) {
-//         return rascalGetDefsUses(tm, cur, rascalMayOverloadSameName, regChangeAnno, gpcfg);
-//     }
-//     , rascalFindNamesInUseDefs
-// );
 
 Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
-//// WORKAROUNDS
+set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tree) getModel, Renamer r) {
+    loc cursorLoc = cursor[0].src;
+    TModel tm = getModel(cursor[-1]);
+    for (Tree c <- cursor) {
+        if (tm.definitions[c.src]?) {
+            return {tm.definitions[c.src]};
+        } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
+            return {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
+        }
+    }
 
-// Workaround to be able to pattern match on the emulated `src` field
-data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
+    r.error(cursorLoc, "Could not find definition to rename.");
+    return {};
+}
+
+void renameDefinition(Define d, str newName, Tree tr, TModel tm, Renamer r) {
+    r.textEdit(replace(d.defined, rascalEscapeName(newName)));
+}
+
+void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
+    rel[loc, Define] useDef = tm.useDef o {<d.defined, d> | d <- defs};
+    set[loc] usesToDo = useDef<0> - defs.defined;
+    for (/Tree t := tr
+       , t.src in usesToDo
+       , just(nl) := nameLocation(t, useDef[t.src])) {
+        usesToDo -= t.src;
+        r.textEdit(replace(nl, rascalEscapeName(newName)));
+    }
+}

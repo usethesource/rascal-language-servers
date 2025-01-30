@@ -75,7 +75,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.15.0</version>
+      <version>0.15.0-RC1</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
