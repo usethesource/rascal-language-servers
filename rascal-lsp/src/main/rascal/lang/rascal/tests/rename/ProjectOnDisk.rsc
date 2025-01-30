@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,10 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::ProjectOnDisk
 
 import lang::rascal::lsp::refactor::Rename;
+import lang::rascal::lsp::refactor::Util;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
+import lang::rascalcore::check::Checker;
 
 Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
     PathConfig pcfg;
