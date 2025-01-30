@@ -87,7 +87,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         return label;
     }
 
-    async updateRascalDebugView() : Promise<vscode.TreeItem[]> {
+    async updateRascalDebugView() : Promise<RascalReplNode[]> {
         const result : RascalReplNode[] = [];
         for (const terminal of vscode.window.terminals) {
             const processId = await terminal.processId;
