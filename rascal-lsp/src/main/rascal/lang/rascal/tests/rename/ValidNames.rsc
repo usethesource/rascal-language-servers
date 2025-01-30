@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,28 @@ test bool renameToReservedName() {
     return newNames == {"\\int"};
 }
 
+test bool renameToUnescapedQualifiedName() = testRenameOccurrences({
+    byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
+    byText("Main", "
+        'import FooSyntax;
+        'import ParseTree;
+        'void main() {
+        '   s = parse(#FooSyntax::S, \"s\");
+        '}
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "FooSyntax", newName = "syntax::Foo");
+
+test bool renameToEscapedQualifiedName() = testRenameOccurrences({
+    byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
+    byText("Main", "
+        'import FooSyntax;
+        'import ParseTree;
+        'void main() {
+        '   s = parse(#FooSyntax::S, \"s\");
+        '}
+    ", {0, 1}, skipCursors = {1})
+}, oldName = "FooSyntax", newName = "\\syntax::Foo");
+
 @expected{illegalRename}
 test bool renameToUsedReservedName() = testRename("
     'int \\int = 0;
@@ -57,3 +79,6 @@ test bool newNameHasNumericPrefix() = testRename("int foo = 8;", newName = "8abc
 
 @expected{illegalRename}
 test bool newNameIsEscapedInvalid() = testRename("int foo = 8;", newName = "\\8int");
+
+@expected{illegalRename}
+test bool qualifiedNameWhereNameExpected() = testRename("int foo = 8;", newName = "Foo::foo");

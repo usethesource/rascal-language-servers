@@ -10,9 +10,9 @@ import IO;
 // a minimal implementation of a DSL in rascal
 // users can add support for more advanced features
 set[LanguageService] picoContributions() = {
-    parser(parser(#start[Program])), // register the parser function for the Pico language
-    outliner(picoOutliner),
-    summarizer(picoSummarizer, providesImplementations = false)
+    parsing(parser(#start[Program])), // register the parser function for the Pico language
+    documentSymbol(picoOutliner),
+    analysis(picoSummarizer, providesImplementations = false)
   };
 
 
@@ -46,7 +46,7 @@ int main() {
         language(
             pathConfig(srcs=[|project://pico-dsl-lsp/src/main/rascal|]),
             "Pico", // name of the language
-            "pico", // extension
+            {"pico"}, // extension
             "lang::pico::LanguageServer", // module to import
             "picoContributions"
         )

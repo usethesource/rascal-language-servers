@@ -52,6 +52,13 @@ For other things we are working on have a look here:
 
 ## Release Notes
 
+## 0.12.1
+* The type-checker got a lot faster, especially if you're editing a single file in a larger project.
+* Various bugfixes in:
+    * The rename functionality
+    * The code actions
+    * The type-checker
+
 ### 0.12.0
 
 * New feature: The "Rename Symbol" command (default: `F2`) is now supported for all identifiers in Rascal modules. Renaming is safe, so the semantics of Rascal code before/after renaming is the same.

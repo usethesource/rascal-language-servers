@@ -24,42 +24,27 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::Exception
+module lang::rascal::tests::rename::ProjectOnDisk
 
-import analysis::typepal::TModel;
+import lang::rascal::lsp::refactor::Rename;
+import lang::rascal::lsp::refactor::Util;
+import lang::rascal::tests::rename::TestUtils;
+import util::Reflective;
+import lang::rascalcore::check::Checker;
 
-import Message;
-import Set;
-
-alias Capture = tuple[loc def, loc use];
-
-data IllegalRenameReason
-    = invalidName(str name, str identifierDescription)
-    | doubleDeclaration(loc old, set[loc] new)
-    | captureChange(set[Capture] captures)
-    | definitionsOutsideWorkspace(set[loc] defs)
-    ;
-
-data RenameException
-    = illegalRename(str message, set[IllegalRenameReason] reason)
-    | unsupportedRename(str message, rel[loc location, str message] issues = {})
-    | unexpectedFailure(str message)
-    ;
-
-str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idDescription>";
-str describe(doubleDeclaration(_, _)) = "it causes double declarations";
-str describe(captureChange(_)) = "it changes program semantics";
-str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
-
-void throwAnyErrors(TModel tm) {
-    throwAnyErrors(tm.messages);
-}
-
-void throwAnyErrors(set[Message] msgs) {
-    throwAnyErrors(toList(msgs));
-}
-
-void throwAnyErrors(list[Message] msgs) {
-    errors = {msg | msg <- msgs, msg is error};
-    if (errors != {}) throw errors;
+Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
+    PathConfig pcfg;
+    if (projectDir.file == "rascal-core") {
+        pcfg = getRascalCorePathConfig(projectDir);
+    } else {
+        pcfg = pathConfig(
+            srcs = [ projectDir + "src" ],
+            bin = projectDir + "target/classes",
+            generatedSources = projectDir + "target/generated-sources/src/main/java/",
+            generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
+            resources = projectDir + "target/generated-resources/src/main/java/",
+            libs = [ |lib://rascal| ]
+        );
+    }
+    return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
 }
