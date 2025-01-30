@@ -37,7 +37,7 @@ export class RascalDebugClient {
     debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
     runningDebugSessionsPorts: Set<number>; // Stores all running debug session server ports
 
-    private portEventEmitter = new EventEmitter<undefined>();
+    private portEventEmitter = new EventEmitter<{processId: number, serverPort: number}>();
     readonly portRegistrationEvent = this.portEventEmitter.event;
 
     constructor(){
@@ -78,7 +78,7 @@ export class RascalDebugClient {
 
     registerDebugServerPort(processID: number, serverPort: number){
         this.debugSocketServersPorts.set(processID, serverPort);
-        this.portEventEmitter.fire(undefined);
+        this.portEventEmitter.fire({"processId": processID, "serverPort": serverPort});
     }
 
     getServerPort(processId: number){

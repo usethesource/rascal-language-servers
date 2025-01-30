@@ -32,7 +32,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
     constructor(private readonly rascalDebugClient: RascalDebugClient, readonly context: vscode.ExtensionContext) {
-        const fireEmitter = (_: vscode.Terminal | vscode.DebugSession | undefined) : void => {
+        const fireEmitter = (_: vscode.Terminal | vscode.DebugSession | {processId: number, serverPort: number} | undefined) : void => {
             this.changeEmitter.fire(undefined);
         };
 
