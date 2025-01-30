@@ -74,6 +74,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         return [];
     }
     getParent?(_element: RascalReplNode): vscode.ProviderResult<RascalReplNode> {
+        //The Rascal debug view gives a flat list of the opened Rascal terminals. As such, only root items exit in this view.
         return undefined;
     }
     resolveTreeItem?(item: vscode.TreeItem, _element: RascalReplNode, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.TreeItem> {
