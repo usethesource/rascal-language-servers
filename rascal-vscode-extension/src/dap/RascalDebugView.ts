@@ -32,27 +32,16 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
     constructor(private readonly rascalDebugClient: RascalDebugClient, readonly context: vscode.ExtensionContext) {
-        vscode.window.onDidOpenTerminal(_e => {
+        const fireEmitter = (_: vscode.Terminal | vscode.DebugSession | undefined) : void => {
             this.changeEmitter.fire(undefined);
-        });
-        vscode.window.onDidCloseTerminal(_e => {
-            this.changeEmitter.fire(undefined);
-        });
-        vscode.window.onDidChangeActiveTerminal(_e => {
-            this.changeEmitter.fire(undefined);
-        });
-        vscode.debug.onDidStartDebugSession(_e => {
-            this.changeEmitter.fire(undefined);
-        });
-        vscode.debug.onDidTerminateDebugSession(_e => {
-            this.changeEmitter.fire(undefined);
-        });
-        vscode.debug.onDidReceiveDebugSessionCustomEvent(_e => {
-            this.changeEmitter.fire(undefined);
-        });
-        context.subscriptions.push(vscode.commands.registerCommand('rascalmpl.updateDebugView', () => {
-            this.changeEmitter.fire(undefined);
-        }));
+        };
+        context.subscriptions.push(vscode.window.onDidOpenTerminal(fireEmitter));
+        context.subscriptions.push(vscode.window.onDidCloseTerminal(fireEmitter));
+        context.subscriptions.push(vscode.window.onDidChangeActiveTerminal(fireEmitter));
+        context.subscriptions.push(vscode.debug.onDidStartDebugSession(fireEmitter));
+        context.subscriptions.push(vscode.debug.onDidTerminateDebugSession(fireEmitter));
+
+        context.subscriptions.push(this.rascalDebugClient.portRegistrationEvent(fireEmitter));
 
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (replNode: RascalReplNode) => {
