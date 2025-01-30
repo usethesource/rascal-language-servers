@@ -31,6 +31,7 @@ import lang::rascal::lsp::refactor::Rename; // Module under test
 
 import util::Util;
 import framework::TextEdits;
+import util::refactor::Exception;
 
 import IO;
 import List;
@@ -66,9 +67,13 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+private void verifyTypeCorrectRenaming(loc root, <list[DocumentEdit] edits, set[Message] msgs>, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
+
+    if (msg <- msgs, msg is error) {
+        throw illegalRename("Renaming has errors", msgs);
+    }
 
     // Back-up sources
     loc backupLoc = |memory://tests/backup|;
@@ -168,7 +173,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         }
 
         if (success) {
-            verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
+            verifyTypeCorrectRenaming(testDir, edits, pcfg);
         }
 
         if (!moduleExistsOnDisk) {
@@ -254,7 +259,7 @@ tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, 
     occs = extractRenameOccurrences(singleModule, edits, oldName);
 
     for (src <- pcfg.srcs) {
-        verifyTypeCorrectRenaming(src, edits<0>, pcfg);
+        verifyTypeCorrectRenaming(src, edits, pcfg);
     }
 
     return <edits, occs>;

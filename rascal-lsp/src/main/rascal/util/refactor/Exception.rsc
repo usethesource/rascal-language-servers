@@ -42,7 +42,7 @@ data IllegalRenameReason
     ;
 
 data RenameException
-    = illegalRename(str message, set[IllegalRenameReason] reason)
+    = illegalRename(str message, set[Message] reasons)
     | unsupportedRename(str message, rel[loc location, str message] issues = {})
     | unexpectedFailure(str message)
     ;

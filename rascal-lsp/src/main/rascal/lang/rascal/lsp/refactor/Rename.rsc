@@ -67,16 +67,17 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
-private set[IllegalRenameReason] rascalCheckLegalNameByRoles(str name, set[IdRole] roles) {
+private void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
     escName = rascalEscapeName(name);
-    tuple[type[Tree] as, str desc] asType = <#Name, "identifier">;
-    if ({moduleId(), *_} := roles) asType = <#QualifiedName, "module name">;
-    if ({constructorId(), *_} := roles) asType = <#NonterminalLabel, "constructor name">;
-    if ({fieldId(), *_} := roles) asType = <#NonterminalLabel, "constructor field name">;
-    if (size(syntaxRoles & roles) > 0) asType = <#Nonterminal, "non-terminal name">;
+    tuple[type[Tree] as, str desc] t = asType(role);
+    // if ({moduleId(), *_} := roles) t = <#QualifiedName, "module name">;
+    // if ({constructorId(), *_} := roles) t = <#NonterminalLabel, "constructor name">;
+    // if ({fieldId(), *_} := roles) t = <#NonterminalLabel, "constructor field name">;
+    // if (size(syntaxRoles & roles) > 0) t = <#Nonterminal, "non-terminal name">;
 
-    if (tryParseAs(asType.as, escName) is nothing) return {invalidName(escName, asType.desc)};
-    return {};
+    if (tryParseAs(t.as, escName) is nothing) {
+        r.error(at, "<escName> is not a valid <t.desc>");
+    }
 }
 
 private void rascalCheckLegalNameByType(str name, Symbol sym) {
@@ -92,75 +93,82 @@ private void rascalCheckLegalNameByType(str name, Symbol sym) {
 private set[IllegalRenameReason] rascalCheckDefinitionsOutsideWorkspace(TModel ws, set[loc] defs) =
     { definitionsOutsideWorkspace(d) | set[loc] d <- groupRangeByDomain({<f, d> | loc d <- defs, f := d.top, f notin ws.sourceFiles}) };
 
-private set[IllegalRenameReason] rascalCheckCausesDoubleDeclarations(TModel ws, set[loc] currentDefs, set[Define] newDefs, str newName) {
+private void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, cD, _>, TModel tm, str newName, Renamer r) {
+    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
+
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | <loc cD, Define nD> <- (currentDefs * newDefs)
+    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | Define nD <- newNameDefs
                                                                  , isContainedIn(cD, nD.scope)
-                                                                 , !rascalMayOverload({cD, nD.defined}, ws.definitions)
+                                                                 , !rascalMayOverload({cD, nD.defined}, tm.definitions)
     };
 
     rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
-        | Define _: <curFieldScope, _, _, fieldId(), cD, _> <- definitionsRel(ws)[currentDefs]
+        | fieldId() := role
           // The scope of a field def is the surrounding data def
-        , loc dataDef <- rascalGetOverloadedDefs(ws, {curFieldScope}, rascalMayOverloadSameName)
-        , loc nD <- (newDefs<idRole, defined>)[fieldId()] & (ws.defines<idRole, scope, defined>)[fieldId(), dataDef]
+        , loc dataDef <- rascalGetOverloadedDefs(tm, {cS}, rascalMayOverloadSameName)
+        , loc nD <- (newNameDefs<idRole, defined>)[fieldId()] & (tm.defines<idRole, scope, defined>)[fieldId(), dataDef]
     };
 
-    rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
-        | loc cD <- currentDefs
-        , ws.facts[cD]?
-        , cT: aparameter(_, _) := ws.facts[cD]
-        , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- ws.defines
-        , isContainedIn(cD, fD.defined)
-        , <loc nD, nT: aparameter(newName, _)> <- toRel(ws.facts)
-        , isContainedIn(nD, fD.defined)
-        , /nT := funcParams
-    };
+    // TODO Re-do once we decided how to treat definitions that are not in tm.defines
+    // rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
+    //     | loc cD <- currentDefs
+    //     , tm.facts[cD]?
+    //     , cT: aparameter(_, _) := tm.facts[cD]
+    //     , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- tm.defines
+    //     , isContainedIn(cD, fD.defined)
+    //     , <loc nD, nT: aparameter(newName, _)> <- toRel(tm.facts)
+    //     , isContainedIn(nD, fD.defined)
+    //     , /nT := funcParams
+    // };
 
-    return {doubleDeclaration(old, doubleDeclarations[old]) | old <- (doubleDeclarations + doubleFieldDeclarations + doubleTypeParamDeclarations).old};
+    for (<old, new> <- doubleDeclarations + doubleFieldDeclarations /*+ doubleTypeParamDeclarations*/) {
+        r.error(old, "Cannot rename to <newName>, since it will lead to double declaration error (<new>).");
+    }
 }
 
-private set[IllegalRenameReason] rascalCheckCausesCaptures(TModel ws, loc moduleLoc, set[loc] currentDefs, set[loc] currentUses, set[Define] newDefs) {
-    set[Define] rascalFindImplicitDefinitions(TModel ws, start[Module] m, set[Define] newDefs) {
-        set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := m};
-        return {def | Define def <- newDefs, (def.idRole is variableId && def.defined in ws.useDef<0>)
-                                        || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
-    }
 
-    start[Module] m = parseModuleWithSpacesCached(moduleLoc);
-    set[Define] newNameImplicitDefs = rascalFindImplicitDefinitions(ws, m, newDefs);
+private void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, str newName, Tree tr, TModel tm, Renamer r) {
+    loc moduleLoc = tr.src.top;
+    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
+
+    set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
+    set[Define] newNameImplicitDefs = {def | Define def <- newNameDefs
+                                           , (def.idRole is variableId && def.defined in tm.useDef<0>)
+                                          || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 
     // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
     set[Capture] implicitDeclBecomesUseOfCurrentDecl =
         {<cD, nD.defined> | Define nD <- newNameImplicitDefs
-                          , loc cD <- currentDefs
-                          , isContainedIn(nD.defined, ws.definitions[cD].scope)
+                          , loc cD <- currentDefs.defined
+                          , isContainedIn(nD.defined, tm.definitions[cD].scope)
         };
+    for (<d, u> <- implicitDeclBecomesUseOfCurrentDecl) {
+        r.error(d, "Renaming this declaration to <newName> will change the program semantics; this implicit declaration will become a use: <u>.");
+    }
 
     // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
     set[Capture] currentUseShadowedByRename =
-        {<nD.defined, cU> | Define nD <- newDefs
-                          , <cU, cS> <- ident(currentUses) o ws.useDef o ws.defines<defined, scope>
+        {<nD.defined, cU> | Define nD <- newNameDefs
+                          , <cU, cS> <- ident(currentUses) o tm.useDef o tm.defines<defined, scope>
                           , isContainedIn(cU, nD.scope)
                           , isStrictlyContainedIn(nD.scope, cS)
         };
+    for (<d, u> <- currentUseShadowedByRename) {
+        r.error(u, "Renaming this use to <newName> would change the program semantics; its original definition would be shadowed by <d>.");
+    }
 
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     set[Capture] newUseShadowedByRename =
-        {<cD, nU> | Define nD <- newDefs
+        {<cD, nU> | Define nD <- newNameDefs
                   , loc cD <- currentDefs
-                  , loc cS := ws.definitions[cD].scope
+                  , loc cS := tm.definitions[cD].scope
                   , isContainedIn(cS, nD.scope)
-                  , nU <- defUse(ws)[newDefs.defined]
+                  , nU <- defUse(tm)[newNameDefs.defined]
                   , isContainedIn(nU, cS)
         };
-
-    allCaptures =
-        implicitDeclBecomesUseOfCurrentDecl
-      + currentUseShadowedByRename
-      + newUseShadowedByRename;
-
-    return allCaptures == {} ? {} : {captureChange(allCaptures)};
+    for (<d, u> <- newUseShadowedByRename) {
+        r.error(d, "Renaming this declaration to <newName> would change the program semantics; it would shadow the declaration of <u>.");
+    }
 }
 
 private set[IllegalRenameReason] rascalCollectIllegalRenames(TModel ws, rel[loc file, loc rename] defsPerFile, rel[loc file, loc rename] usesPerFile, str newName) {
@@ -610,12 +618,18 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 }
 
 void renameDefinition(Define d, str newName, Tree tr, TModel tm, Renamer r) {
+    rascalCheckLegalNameByRole(d, newName, r);
+    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+
     r.textEdit(replace(d.defined, rascalEscapeName(newName)));
 }
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
     rel[loc, Define] useDef = tm.useDef o {<d.defined, d> | d <- defs};
     set[loc] usesToDo = useDef<0> - defs.defined;
+
+    rascalCheckCausesCaptures(defs, usesToDo, newName, tr, tm, r);
+
     for (/Tree t := tr
        , t.src in usesToDo
        , just(nl) := nameLocation(t, useDef[t.src])) {
