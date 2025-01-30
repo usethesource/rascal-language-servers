@@ -52,6 +52,7 @@ import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Functions;
 import lang::rascal::lsp::refactor::rename::Modules;
 extend lang::rascal::lsp::refactor::rename::Variables;
 
@@ -621,7 +622,11 @@ void renameDefinition(Define d, str newName, Tree tr, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
 
-    r.textEdit(replace(d.defined, rascalEscapeName(newName)));
+    if (/Tree t := tr
+       , t.src == d.defined
+       , just(nl) := nameLocation(t, {d})) {
+        r.textEdit(replace(nl, rascalEscapeName(newName)));
+    }
 }
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
