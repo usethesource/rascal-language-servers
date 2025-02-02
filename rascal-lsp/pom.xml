@@ -36,9 +36,9 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
-    <log4j2.version>2.24.1</log4j2.version>
-    <lsp4j.version>0.23.1</lsp4j.version>
+    <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+    <log4j2.version>2.24.3</log4j2.version>
+    <lsp4j.version>0.24.0</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
