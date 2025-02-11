@@ -149,13 +149,13 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             , afterRename := getModuleName(newLoc, pcfg)
         );
 
-        replacesPerModule = (
-            name: occs
+        replacesPerModule = toMap({
+            <name, occ>
             | changed(file, changes) <- edits<0>
             , name := getModuleName(file, pcfg)
             , locs := {c.range | c <- changes}
-            , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
-        );
+            , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
+        });
 
         editsPerModule = (
             name : <occs, nameAfterRename>
@@ -335,7 +335,7 @@ private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str n
         }
 
         if (nonOldNameLocs != {}) {
-            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <nonOldNameLocs>";
+            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <intercalate("\n- ", ["<readFile(l)> at <l>" | loc l <- nonOldNameLocs])>";
         }
 
         return occs;
