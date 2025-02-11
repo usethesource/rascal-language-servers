@@ -32,11 +32,13 @@ import framework::TextEdits;
 
 import analysis::typepal::TModel;
 import lang::rascal::\syntax::Rascal;
+import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import IO;
 import List;
 import Relation;
+import Set;
 import String;
 import util::Maybe;
 import util::Reflective;
@@ -52,3 +54,12 @@ data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
 
 default Maybe[loc] nameLocation(Tree _, set[Define] _) = nothing();
+
+bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
+    if (l <- defs, !definitions[l]?) return false;
+    set[Define] defines = {definitions[d] | d <- defs};
+
+    if (size(defines.id) > 1) return false;
+    if (size(defines) == 0) return false;
+    return rascalMayOverload(defs, definitions);
+}
