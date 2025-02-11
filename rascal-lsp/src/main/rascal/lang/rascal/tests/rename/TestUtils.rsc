@@ -354,7 +354,7 @@ private list[Tree] findCursor(loc f, str id, int occ) {
     names = collectNameTrees(m, id);
     if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
     loc cl = (names<1>)[occ];
-    return computeFocusList(m, cl.begin.line, cl.begin.column);
+    return computeFocusList(m, cl.begin.line, cl.begin.column + 1);
 }
 
 private loc storeTestModule(loc dir, str name, str body) {

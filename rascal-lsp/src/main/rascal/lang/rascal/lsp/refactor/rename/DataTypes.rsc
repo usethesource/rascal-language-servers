@@ -25,10 +25,11 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::lsp::refactor::rename::Variables
+module lang::rascal::lsp::refactor::rename::DataTypes
 
 extend framework::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
+extend lang::rascal::lsp::refactor::rename::Variables;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -39,39 +40,15 @@ import util::Maybe;
 
 import IO;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, moduleVariableId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
     findVarNameOccurrences(cursor, getTree, r);
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, variableId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r);
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm) =
+    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
-private tuple[set[loc], set[loc]] findVarNameOccurrences(list[Tree] cursor, Tree(loc) getTree, Renamer r) {
-    set[loc] defFiles = {};
-    set[loc] useFiles = {};
+Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, dataId(), _, _>, *_}) =
+    just(d.user.name.src)
+    when d is dataAbstract
+      || d is \data;
 
-    str cursorName = "<cursor[0]>";
-    for (wsFolder <- r.getConfig().workspaceFolders
-       , loc f <- find(wsFolder, "rsc")) {
-        visit (getTree(f)) {
-            case Name n:
-                if ("<n>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-            case QualifiedName qn:
-                if ("<qn.names[-1]>" == cursorName) {
-                    // qualified name can only be a use
-                    useFiles += f;
-                }
-        }
-    }
-
-    return <defFiles, useFiles>;
-}
-
-Maybe[loc] nameLocation(Name n, set[Define] _) = just(n.src);
-Maybe[loc] nameLocation(QualifiedName qn, set[Define] _: {<_, _, _, moduleVariableId(), _, _>, *_}) = just(qn.names[-1].src);
-
-tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
-tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
-tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
+tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;

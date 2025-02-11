@@ -25,7 +25,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::lsp::refactor::rename::Functions
+module lang::rascal::lsp::refactor::rename::Types
 
 extend framework::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
@@ -35,20 +35,24 @@ import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 import lang::rascalcore::check::BasicRascalConfig;
 
-import util::FileSystem;
 import util::Maybe;
 
-import IO;
+bool isTypeId(aliasId()) = true;
+bool isTypeId(annoId()) = true;
+default bool isTypeId(IdRole _) = false;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, functionId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r);
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, idRole, _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
+    findVarNameOccurrences(cursor, getTree, r)
+    when isTypeId(idRole);
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree _, TModel tm) =
-    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, aliasId(), _, _>, *_}) =
+    just(d.user.name.src)
+    when d is \alias;
 
-// TODO:
-// - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
+Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, annoId(), _, _>, *_}) =
+    just(d.name.src)
+    when d is annotation
+      || d is \tag;
 
-Maybe[loc] nameLocation(FunctionDeclaration f, set[Define] _: {<_, _, _, functionId(), _, _>, *_}) = just(f.signature.name.src);
-
-tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;
+tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
+tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
