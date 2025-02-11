@@ -97,7 +97,7 @@ test bool renameParamToUsedConstructorName() = testRename(
     decls = "data Bar = bar(int x);"
 );
 
-test bool paremeterShadowsParameter1() = testRenameOccurrences({0, 3}, "
+test bool parameterShadowsParameter1() = testRenameOccurrences({0, 3}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -107,7 +107,7 @@ test bool paremeterShadowsParameter1() = testRenameOccurrences({0, 3}, "
     '}
 ");
 
-test bool paremeterShadowsParameter2() = testRenameOccurrences({1, 2}, "
+test bool parameterShadowsParameter2() = testRenameOccurrences({1, 2}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -118,7 +118,7 @@ test bool paremeterShadowsParameter2() = testRenameOccurrences({1, 2}, "
 ");
 
 @expected{illegalRename}
-test bool paremeterShadowsParameter3() = testRename("
+test bool parameterShadowsParameter3() = testRename("
     'int f(int bar) {
     '   int g(int baz) {
     '       int h(int foo) {
