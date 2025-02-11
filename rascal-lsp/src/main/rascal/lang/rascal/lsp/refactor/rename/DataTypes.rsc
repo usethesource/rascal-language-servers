@@ -35,10 +35,7 @@ import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 import lang::rascalcore::check::BasicRascalConfig;
 
-import util::FileSystem;
 import util::Maybe;
-
-import IO;
 
 tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
     findVarNameOccurrences(cursor, getTree, r);
