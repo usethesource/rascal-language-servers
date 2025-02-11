@@ -644,6 +644,8 @@ void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
         usesToDo -= t.src;
         r.textEdit(replace(nl, rascalEscapeName(newName)));
     }
+
+    renameAdditionalUses(defs, newName, tr, tm, r);
 }
 
 default tuple[type[Tree] as, str desc] asType(_) = <#Name, "name">;

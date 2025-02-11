@@ -37,15 +37,55 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-import IO;
-
-bool isFormalId(formalId()) = true;
-bool isFormalId(nestedFormalId()) = true;
-bool isFormalId(keywordFormalId()) = true;
-default bool isFormalId(IdRole _) = false;
+bool isFormalId(IdRole role) = role in formalRoles;
 
 tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, idRole, _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
     findVarNameOccurrences(cursor, getTree, r)
     when isFormalId(idRole);
 
+Maybe[loc] nameLocation(KeywordFormal kw, set[Define] _: {<_, _, _, idRole, _, _>, *_}) =
+    just(kw.name.src)
+    when isFormalId(idRole);
+
 tuple[type[Tree] as, str desc] asType(idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
+
+private set[loc] rascalGetKeywordArgs(none()) = {};
+private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
+    { kwArg.name.src
+    | kwArg <- keywordArgs
+    , "<kwArg.name>" == argName};
+private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Expression] ","}+ keywordArgs), str argName) =
+    { kwArg.name.src
+    | kwArg <- keywordArgs
+    , "<kwArg.name>" == argName};
+
+void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
+    if (size(defs.id) > 1) {
+        for (loc l <- defs.defined) {
+            r.error(l, "Cannot rename multiple names at once (<defs.id>)");
+        }
+        return;
+    }
+
+    set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
+    set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
+
+    visit (tr) {
+        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
+            if (e.src in funcCalls) {
+                funcCalls -= e.src;
+                for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
+                    r.textEdit(replace(ul, rascalEscapeName(newName)));
+                }
+            }
+        }
+        case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`: {
+            if (e.src in funcCalls) {
+                funcCalls -= e.src;
+                for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
+                    r.textEdit(replace(ul, rascalEscapeName(newName)));
+                }
+            }
+        }
+    }
+}

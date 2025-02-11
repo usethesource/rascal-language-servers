@@ -63,3 +63,5 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (size(defines) == 0) return false;
     return rascalMayOverload(defs, definitions);
 }
+
+default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {}
