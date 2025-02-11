@@ -33,9 +33,11 @@ extend lang::rascal::lsp::refactor::rename::Variables;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
-import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
+
+// Copied from `lang::rascalcore::check::BasicRascalConfig` to remove dependency on it
+private set[IdRole] formalRoles = {formalId(), keywordFormalId(), nestedFormalId()};
 
 bool isFormalId(IdRole role) = role in formalRoles;
 

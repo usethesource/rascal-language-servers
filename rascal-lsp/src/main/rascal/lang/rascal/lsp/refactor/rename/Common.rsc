@@ -33,9 +33,7 @@ import framework::TextEdits;
 import analysis::typepal::TModel;
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::RascalConfig;
-import lang::rascalcore::check::BasicRascalConfig;
 
-import IO;
 import List;
 import Relation;
 import Set;
@@ -46,6 +44,30 @@ import util::Reflective;
 data RenameConfig(
     set[loc] workspaceFolders = {}
 );
+
+// Copied from `lang::rascalcore::check::BasicRascalConfig` to remove dependency on it
+data IdRole
+    = moduleId()
+    | functionId()
+    | formalId()
+    | keywordFormalId()
+    | nestedFormalId()
+    | patternVariableId()
+    | moduleVariableId()
+    | fieldId()
+    | keywordFieldId()
+    | labelId()
+    | constructorId()
+    | productionId()
+    | dataId()
+    | aliasId()
+    | annoId()
+    | nonterminalId()
+    | lexicalId()
+    | layoutId()
+    | keywordId()
+    | typeVarId()
+    ;
 
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
