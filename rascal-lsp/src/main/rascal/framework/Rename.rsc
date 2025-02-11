@@ -182,10 +182,11 @@ RenameResult rename(
         printDebug("+ Finding additional definitions");
         set[Define] additionalDefs = {};
         for (loc f <- maybeDefFiles) {
-            printDebug("  - ... in <f>");
             tr = parseLocCached(f);
             tm = getTModelCached(tr);
-            additionalDefs += findAdditionalDefinitions(defs, tr, tm);
+            fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm);
+            printDebug("  - ... (<size(fileAdditionalDefs)>) in <f>");
+            additionalDefs += fileAdditionalDefs;
         }
         defs += additionalDefs;
     }
