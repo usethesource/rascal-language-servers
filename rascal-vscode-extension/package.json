@@ -275,7 +275,7 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "2.x",
     "chai": "4.x",
-    "esbuild": "0.24.x",
+    "esbuild": "0.25.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
