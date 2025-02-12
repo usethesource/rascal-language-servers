@@ -35,6 +35,8 @@ import analysis::typepal::TModel;
 
 import util::Maybe;
 
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm) =
+    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
 Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, aliasId(), _, _>, *_}) =
     just(d.user.name.src)
@@ -45,5 +47,11 @@ Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, annoId(), _, _>
     when d is annotation
       || d is \tag;
 
+Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, dataId(), _, _>, *_}) =
+    just(d.user.name.src)
+    when d is dataAbstract
+      || d is \data;
+
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
+tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
