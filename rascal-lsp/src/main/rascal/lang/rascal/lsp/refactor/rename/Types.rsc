@@ -29,20 +29,12 @@ module lang::rascal::lsp::refactor::rename::Types
 
 extend framework::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
-extend lang::rascal::lsp::refactor::rename::Variables;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
 import util::Maybe;
 
-bool isTypeId(aliasId()) = true;
-bool isTypeId(annoId()) = true;
-default bool isTypeId(IdRole _) = false;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, idRole, _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r)
-    when isTypeId(idRole);
 
 Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, aliasId(), _, _>, *_}) =
     just(d.user.name.src)

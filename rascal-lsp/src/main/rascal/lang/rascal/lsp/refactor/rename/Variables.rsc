@@ -33,40 +33,7 @@ extend lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
-import util::FileSystem;
 import util::Maybe;
-
-import IO;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, moduleVariableId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r);
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, variableId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r);
-
-private tuple[set[loc], set[loc]] findVarNameOccurrences(list[Tree] cursor, Tree(loc) getTree, Renamer r) {
-    set[loc] defFiles = {};
-    set[loc] useFiles = {};
-
-    str cursorName = "<cursor[0]>";
-    for (wsFolder <- r.getConfig().workspaceFolders
-       , loc f <- find(wsFolder, "rsc")) {
-        visit (getTree(f)) {
-            case Name n:
-                if ("<n>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-            case QualifiedName qn:
-                if ("<qn.names[-1]>" == cursorName) {
-                    // qualified name can only be a use
-                    useFiles += f;
-                }
-        }
-    }
-
-    return <defFiles, useFiles>;
-}
 
 Maybe[loc] nameLocation(Name n, set[Define] _) = just(n.src);
 Maybe[loc] nameLocation(QualifiedName qn, set[Define] _: {<_, _, _, moduleVariableId(), _, _>, *_}) = just(qn.names[-1].src);

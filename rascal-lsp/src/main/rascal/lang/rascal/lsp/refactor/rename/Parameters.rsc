@@ -29,7 +29,6 @@ module lang::rascal::lsp::refactor::rename::Parameters
 
 extend framework::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
-extend lang::rascal::lsp::refactor::rename::Variables;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -40,10 +39,6 @@ import util::Maybe;
 private set[IdRole] formalRoles = {formalId(), keywordFormalId(), nestedFormalId()};
 
 bool isFormalId(IdRole role) = role in formalRoles;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, idRole, _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r)
-    when isFormalId(idRole);
 
 Maybe[loc] nameLocation(KeywordFormal kw, set[Define] _: {<_, _, _, idRole, _, _>, *_}) =
     just(kw.name.src)

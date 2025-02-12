@@ -29,15 +29,11 @@ module lang::rascal::lsp::refactor::rename::Functions
 
 extend framework::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
-extend lang::rascal::lsp::refactor::rename::Variables;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
 import util::Maybe;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs:{<_, _, _, functionId(), _, _>, *_}, list[Tree] cursor, Tree(loc) getTree, Renamer r) =
-    findVarNameOccurrences(cursor, getTree, r);
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree _, TModel tm) =
     {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
