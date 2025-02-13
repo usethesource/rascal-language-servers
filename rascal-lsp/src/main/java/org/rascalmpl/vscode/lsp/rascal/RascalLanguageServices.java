@@ -44,7 +44,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -56,6 +55,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
@@ -97,10 +97,12 @@ public class RascalLanguageServices {
     private final TypeFactory tf = TypeFactory.getInstance();
     private final TypeStore store = new TypeStore();
     private final Type getPathConfigType = tf.functionType(tf.abstractDataType(store, "PathConfig"), tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
+    private final Type getParseTreeType = tf.functionType(tf.nodeType(), tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
 
     private final ExecutorService exec;
 
     private final IBaseLanguageClient client;
+    private final RascalTextDocumentService rascalTextDocumentService;
 
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
@@ -110,8 +112,9 @@ public class RascalLanguageServices {
 
         documentSymbolEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal document symbols", monitor, null, false, "lang::rascal::lsp::DocumentSymbols");
         semanticEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal semantics", monitor, null, true, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
-        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascalcore::check::Checker");
+        compilerEvaluator = makeFutureEvaluator(exec, docService, workspaceService, client, "Rascal compiler", monitor, null, true, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
+        rascalTextDocumentService = docService;
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
@@ -158,24 +161,26 @@ public class RascalLanguageServices {
 
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
-        return compileFileList(VF.list(file), pcfg, exec);
+        logger.debug("Running Rascal check for: {} with {}", file, pcfg);
+        return runEvaluator("Rascal check", compilerEvaluator,
+            e -> {
+                IFunction getPathConfig = e.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0])));
+                IFunction getParseTree = e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
+                    try {
+                        return rascalTextDocumentService.getFile(URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0])).getMostRecentTree().get();
+                    } catch (IOException e1) {
+                        throw new IllegalArgumentException(e1);
+                    }
+                });
+                return translateCheckResults((IList) e.call("checkFile", file, getParseTree, getPathConfig));
+            },
+            buildEmptyResult(VF.list(file)), exec, false, client);
     }
 
     private Map<ISourceLocation, ISet> buildEmptyResult(IList files) {
         return files.stream()
             .map(ISourceLocation.class::cast)
             .collect(Collectors.toMap(k -> k, k -> VF.set()));
-    }
-
-    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFileList(IList files, PathConfig pcfg,
-        Executor exec) {
-        logger.debug("Running rascal check for: {} with: {}", files, pcfg);
-        return runEvaluator("Rascal check", compilerEvaluator,
-            e -> {
-                var config = e.call("rascalCompilerConfig", addResources(pcfg));
-                return translateCheckResults((IList) e.call("check", files, config));
-            },
-            buildEmptyResult(files), exec, false, client);
     }
 
     private ISourceLocation getFileLoc(ITree moduleTree) {
