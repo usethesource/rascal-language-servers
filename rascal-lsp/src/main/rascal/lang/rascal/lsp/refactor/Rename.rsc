@@ -554,19 +554,16 @@ ProjectFiles preloadFiles(set[loc] workspaceFolders, loc cursorLoc) {
 }
 
 ProjectFiles allWorkspaceFiles(set[loc] workspaceFolders, str cursorName, bool(loc, str) containsName, PathConfig(loc) getPathConfig) {
-    ProjectFiles fs = {};
-    for (folder <- workspaceFolders) {
-        pcfg = getPathConfig(folder);
-        for (srcFolder <- pcfg.srcs) {
-            for (loc f <- find(srcFolder, "rsc")) {
-                // If we do not find any occurrences of the name under the cursor in a module,
-                // we are not interested in loading the model, but we still want to inform the
-                // renaming framework about the existence of the file.
-                fs += <folder, containsName(f, cursorName), f>;
-            }
-        }
-    }
-    return fs;
+    return {
+        // If we do not find any occurrences of the name under the cursor in a module,
+        // we are not interested in loading the model, but we still want to inform the
+        // renaming framework about the existence of the file.
+        <folder, containsName(file, cursorName), file>
+        | folder <- workspaceFolders
+        , PathConfig pcfg := getPathConfig(folder)
+        , srcFolder <- pcfg.srcs
+        , file <- find(srcFolder, "rsc")
+    };
 }
 
 set[TModel] tmodelsForProjectFiles(ProjectFiles projectFiles, set[TModel](set[loc], PathConfig) tmodelsForFiles, PathConfig(loc) getPathConfig) =
