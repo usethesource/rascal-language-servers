@@ -32,6 +32,8 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -166,11 +168,25 @@ public class RascalLanguageServices {
             e -> {
                 IFunction getPathConfig = e.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0])));
                 IFunction getParseTree = e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
+                    ISourceLocation resolvedLocation;
                     try {
-                        return rascalTextDocumentService.getFile(URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0])).getMostRecentTree().get();
+                        resolvedLocation = URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0]);
                     } catch (IOException e1) {
                         throw new IllegalArgumentException(e1);
                     }
+                    // First, check whether the file is open and a parse tree is available
+                    try {
+                        return rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree().get();
+                    } catch (ResponseErrorException e1) {
+                        // File is not open in the IDE
+                    }
+                    // Parse the source file
+                    try {
+                        return RascalServices.parseRascalModule(resolvedLocation, Files.readString(Path.of(resolvedLocation.getURI())).toCharArray());
+                    } catch (IOException e1) {
+                        throw new IllegalArgumentException(e1);
+                    }
+
                 });
                 return translateCheckResults((IList) e.call("checkFile", file, getParseTree, getPathConfig));
             },
