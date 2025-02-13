@@ -484,17 +484,17 @@ private bool(loc) rascalContainsNameFilter(str n) {
 
     // Since QualifiedName is the most liberal and all the others are subsets of it,
     // we default to QualifiedName in case parsing as something else fails.
-    qName = [QualifiedName] n;
     qNameEsc = [QualifiedName] en;
 
     Tree tryNameParse(type[&T <: Tree] a, str s) {
         try {
             return parse(a, s);
         } catch _: {
-            return qName;
+            return qNameEsc;
         }
     }
 
+    qName = tryNameParse(#QualifiedName, n);
     name = tryNameParse(#QualifiedName, n);
     nameEsc = tryNameParse(#QualifiedName, en);
     nonTerm = tryNameParse(#Nonterminal, n);
