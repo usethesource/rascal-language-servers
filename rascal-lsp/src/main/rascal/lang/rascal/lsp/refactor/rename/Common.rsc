@@ -86,28 +86,3 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
 }
 
 default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {}
-
-// Extend rename framework
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
-    set[loc] defFiles = {};
-    set[loc] useFiles = {};
-
-    str cursorName = "<cursor[0]>";
-    for (wsFolder <- r.getConfig().workspaceFolders
-       , loc f <- find(wsFolder, "rsc")) {
-        visit (getTree(f)) {
-            case Name n:
-                if ("<n>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-            case QualifiedName qn:
-                if ("<qn.names[-1]>" == cursorName) {
-                    // qualified name can only be a use
-                    useFiles += f;
-                }
-        }
-    }
-
-    return <defFiles, useFiles>;
-}

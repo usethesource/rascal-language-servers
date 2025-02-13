@@ -620,6 +620,40 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
+    set[loc] defFiles = {};
+    set[loc] useFiles = {};
+
+    str cursorName = "<cursor[0]>";
+    for (wsFolder <- r.getConfig().workspaceFolders
+       , loc f <- find(wsFolder, "rsc")) {
+        visit (getTree(f)) {
+            case Name n:
+                if ("<n>" == cursorName) {
+                    defFiles += f;
+                    useFiles += f;
+                }
+            case QualifiedName qn:
+                if ("<qn.names[-1]>" == cursorName) {
+                    // qualified name can only be a use
+                    useFiles += f;
+                }
+            case Nonterminal nt:
+                if ("<nt>" == cursorName) {
+                    defFiles += f;
+                    useFiles += f;
+                }
+            case NonterminalLabel nt:
+                if ("<nt>" == cursorName) {
+                    defFiles += f;
+                    useFiles += f;
+                }
+        }
+    }
+
+    return <defFiles, useFiles>;
+}
+
 void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
