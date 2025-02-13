@@ -484,16 +484,21 @@ private set[str] rascalNameToEquivalentNames(str name) =
     {name, startsWith(name, "\\") ? name : "\\<name>"};
 
 private bool rascalContainsName(loc l, str name) {
-    m = parseModuleWithSpacesCached(l);
     names = rascalNameToEquivalentNames(name);
     bool matches(Tree t) = "<t>" in names;
 
-    visit (m) {
-        case Name n: if (matches(n)) return true;
-        case QualifiedName n: if (matches(n)) return true;
-        case Nonterminal n: if (matches(n)) return true;
-        case NonterminalLabel n: if (matches(n)) return true;
+    try {
+        m = parseModuleWithSpacesCached(l);
+        visit (m) {
+            case Name n: if (matches(n)) return true;
+            case QualifiedName n: if (matches(n)) return true;
+            case Nonterminal n: if (matches(n)) return true;
+            case NonterminalLabel n: if (matches(n)) return true;
+        }
     }
+    catch Java("ParseError", _): return false;
+    catch ParseError(_): return false;
+
     return false;
 }
 
