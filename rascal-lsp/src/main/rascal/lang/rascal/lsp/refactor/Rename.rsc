@@ -479,21 +479,38 @@ private Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
-@memo{maximumSize(1000), expireAfter(minutes=5)}
-private set[str] rascalNameToEquivalentNames(str name) =
-    {name, startsWith(name, "\\") ? name : "\\<name>"};
+private bool rascalContainsName(loc l, str n) {
+    en = rascalEscapeName(n);
 
-private bool rascalContainsName(loc l, str name) {
-    names = rascalNameToEquivalentNames(name);
-    bool matches(Tree t) = "<t>" in names;
+    // Since QualifiedName is the most liberal and all the others are subsets of it,
+    // we default to QualifiedName in case parsing as something else fails.
+    qName = [QualifiedName] n;
+    qNameEsc = [QualifiedName] en;
 
+    Tree tryNameParse(type[&T <: Tree] a, str s) {
+        try {
+            return parse(a, s);
+        } catch _: {
+            return qName;
+        }
+    }
+
+    name = tryNameParse(#QualifiedName, n);
+    nameEsc = tryNameParse(#QualifiedName, en);
+    nonTerm = tryNameParse(#Nonterminal, n);
+    nonTermEsc = tryNameParse(#Nonterminal, en);
+    nonTermLabel = tryNameParse(#NonterminalLabel, n);
+    nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
     try {
-        m = parseModuleWithSpacesCached(l);
-        visit (m) {
-            case Name n: if (matches(n)) return true;
-            case QualifiedName n: if (matches(n)) return true;
-            case Nonterminal n: if (matches(n)) return true;
-            case NonterminalLabel n: if (matches(n)) return true;
+        visit (parseModuleWithSpacesCached(l)) {
+            case name: return true;
+            case nameEsc: return true;
+            case qName: return true;
+            case qNameEsc: return true;
+            case nonTerm: return true;
+            case nonTermEsc: return true;
+            case nonTermLabel: return true;
+            case nonTermLabel: return true;
         }
     }
     catch Java("ParseError", _): return false;
