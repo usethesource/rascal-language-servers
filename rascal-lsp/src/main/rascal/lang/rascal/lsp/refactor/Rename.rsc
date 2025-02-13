@@ -663,9 +663,9 @@ void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Ren
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
     rel[loc, Define] useDef = tm.useDef o {<d.defined, d> | d <- defs};
-    set[loc] usesToDo = useDef<0> - defs.defined;
+    set[loc] uses = useDef<0> - defs.defined;
 
-    rascalCheckCausesCaptures(defs, usesToDo, newName, tr, tm, r);
+    rascalCheckCausesCaptures(defs, uses, newName, tr, tm, r);
 
     for (u <- uses) {
         r.textEdit(replace(u, rascalEscapeName(newName)));
