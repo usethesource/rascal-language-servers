@@ -264,7 +264,7 @@
   "devDependencies": {
     "@tsconfig/node20": "20.x",
     "@tsconfig/strictest": "2.x",
-    "@types/chai": "4.x",
+    "@types/chai": "5.x",
     "@types/mocha": "10.x",
     "@types/node": "20.x",
     "@types/tar": "6.x",
@@ -274,7 +274,7 @@
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
-    "chai": "4.x",
+    "chai": "5.x",
     "esbuild": "0.25.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
