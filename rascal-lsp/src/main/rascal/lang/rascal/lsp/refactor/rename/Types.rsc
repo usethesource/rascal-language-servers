@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Types
 
 extend framework::Rename;
-extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -37,20 +37,6 @@ import util::Maybe;
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm) =
     {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
-
-Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, aliasId(), _, _>, *_}) =
-    just(d.user.name.src)
-    when d is \alias;
-
-Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, annoId(), _, _>, *_}) =
-    just(d.name.src)
-    when d is annotation
-      || d is \tag;
-
-Maybe[loc] nameLocation(Declaration d, set[Define] _: {<_, _, _, dataId(), _, _>, *_}) =
-    just(d.user.name.src)
-    when d is dataAbstract
-      || d is \data;
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;

@@ -76,8 +76,6 @@ data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 @memo{maximumSize(1000), expireAfter(minutes=5)}
 str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
 
-default Maybe[loc] nameLocation(Tree _, set[Define] _) = nothing();
-
 bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (l <- defs, !definitions[l]?) return false;
     set[Define] defines = {definitions[d] | d <- defs};

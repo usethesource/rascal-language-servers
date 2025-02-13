@@ -40,10 +40,6 @@ private set[IdRole] formalRoles = {formalId(), keywordFormalId(), nestedFormalId
 
 bool isFormalId(IdRole role) = role in formalRoles;
 
-Maybe[loc] nameLocation(KeywordFormal kw, set[Define] _: {<_, _, _, idRole, _, _>, *_}) =
-    just(kw.name.src)
-    when isFormalId(idRole);
-
 tuple[type[Tree] as, str desc] asType(idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
 
 private set[loc] rascalGetKeywordArgs(none()) = {};

@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Functions
 
 extend framework::Rename;
-extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -40,7 +40,5 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, function
 
 // TODO:
 // - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
-
-Maybe[loc] nameLocation(FunctionDeclaration f, set[Define] _: {<_, _, _, functionId(), _, _>, *_}) = just(f.signature.name.src);
 
 tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;

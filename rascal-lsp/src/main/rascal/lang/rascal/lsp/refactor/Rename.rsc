@@ -620,15 +620,11 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
-void renameDefinition(Define d, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
 
-    if (/Tree t := tr
-       , t.src == d.defined
-       , just(nl) := nameLocation(t, {d})) {
-        r.textEdit(replace(nl, rascalEscapeName(newName)));
-    }
+    r.textEdit(replace(nameLoc, rascalEscapeName(newName)));
 }
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
@@ -637,11 +633,8 @@ void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
 
     rascalCheckCausesCaptures(defs, usesToDo, newName, tr, tm, r);
 
-    for (/Tree t := tr
-       , t.src in usesToDo
-       , just(nl) := nameLocation(t, useDef[t.src])) {
-        usesToDo -= t.src;
-        r.textEdit(replace(nl, rascalEscapeName(newName)));
+    for (u <- uses) {
+        r.textEdit(replace(u, rascalEscapeName(newName)));
     }
 
     renameAdditionalUses(defs, newName, tr, tm, r);

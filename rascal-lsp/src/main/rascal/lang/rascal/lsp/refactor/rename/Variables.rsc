@@ -28,15 +28,12 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Variables
 
 extend framework::Rename;
-extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
 import util::Maybe;
-
-Maybe[loc] nameLocation(Name n, set[Define] _) = just(n.src);
-Maybe[loc] nameLocation(QualifiedName qn, set[Define] _: {<_, _, _, moduleVariableId(), _, _>, *_}) = just(qn.names[-1].src);
 
 tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
