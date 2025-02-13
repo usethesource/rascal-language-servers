@@ -479,12 +479,21 @@ private Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
+@memo{maximumSize(1000), expireAfter(minutes=5)}
 private set[str] rascalNameToEquivalentNames(str name) =
     {name, startsWith(name, "\\") ? name : "\\<name>"};
 
 private bool rascalContainsName(loc l, str name) {
     m = parseModuleWithSpacesCached(l);
-    if (/Tree t := m, "<t>" in rascalNameToEquivalentNames(name)) return true;
+    names = rascalNameToEquivalentNames(name);
+    bool matches(Tree t) = "<t>" in names;
+
+    visit (m) {
+        case Name n: if (matches(n)) return true;
+        case QualifiedName n: if (matches(n)) return true;
+        case Nonterminal n: if (matches(n)) return true;
+        case NonterminalLabel n: if (matches(n)) return true;
+    }
     return false;
 }
 
