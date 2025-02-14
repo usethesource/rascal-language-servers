@@ -44,7 +44,7 @@ The Rascal type-checker now has a new binary backward compatibility feature, suc
 in many more situations. Also the type-checker detects and reports possible `.tpl` file incompatibility from now on.
 Typically, the previous versions of .tpl files are not compatible with the new ones, so to avoid spurious errors
 you _must remove all pre-existing `.tpl` files_ after upgrading. Use `mvn clean`, for example. Or remove your
-`target` or `bin` folder in every Rascal project.
+`target` or `bin` folder in every Rascal project. This backwards compatiblitiy functionality is available since rascal 0.40.17, typepal 0.14.8, rascal-maven-plugin 0.28.9, and Rascal VS Code 0.12.0.
 
 For other things we are working on have a look here:
    * https://github.com/usethesource/rascal-language-servers/issues ; on the current extension
