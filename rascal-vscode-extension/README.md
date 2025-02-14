@@ -56,6 +56,13 @@ For other things we are working on have a look here:
 
 * For extension developers (using the npm package): we've moved to node 20, VS Code has switched since 1.90, and some our dependencies have deprecated node 18 support for a while. This will mean having to upgrade your own extension as well.
 
+### 0.12.2
+
+* Debug and Debug side bar got a new view that lists active REPLs and allows the user to start a debugging session for it
+* Bugfixes:
+  * Type checker was to eager in reporting binary incompatiblities
+  * Improved the performance of rename on large rascal files
+
 ## 0.12.1
 * The type-checker got a lot faster, especially if you're editing a single file in a larger project.
 * Various bugfixes in:
