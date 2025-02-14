@@ -31,6 +31,9 @@ import framework::TextEdits;
 
 import lang::rascal::\syntax::Rascal;
 
+import analysis::typepal::TModel;
+extend lang::rascal::lsp::refactor::rename::Common;
+
 import IO;
 import List;
 import Location;
@@ -40,6 +43,34 @@ import String;
 
 import util::FileSystem;
 import util::Reflective;
+
+tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
+
+void renameDefinition(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+    rascalCheckLegalNameByRole(d, newName, r);
+    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+
+    r.textEdit(replace(nameLoc, newName));
+
+    // Additionally, we rename the file
+    loc moduleFile = d.defined.top;
+    pcfg = r.getConfig().getPathConfig(moduleFile);
+    loc relModulePath = relativize(pcfg.srcs, moduleFile);
+    loc srcFolder = [srcFolder | srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
+    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(newName)));
+}
+
+void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
+    set[loc] defFiles = {d.top | d <- defs.defined};
+    for (/QualifiedName qn := tr
+      , any(d <- tm.useDef[qn.src], d.top in defFiles)
+      , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
+        modPrefix = cover(prefix([n.src | n <- qn.names]));
+        // If this replace is issued after a rename (from `renameDefinition` above), the edits will fail to apply.
+        // TODO Fix edit order
+        r.textEdit(replace(modPrefix, rascalEscapeName(newName)));
+    }
+}
 
 private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
 private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {

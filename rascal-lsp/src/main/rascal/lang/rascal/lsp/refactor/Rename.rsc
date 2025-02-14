@@ -604,7 +604,7 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     return <defFiles, useFiles>;
 }
 
-void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
+void renameDefinition(Define d:<_, _, _, !moduleId(), _, _>, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
 
