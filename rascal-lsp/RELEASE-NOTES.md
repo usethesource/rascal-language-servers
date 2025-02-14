@@ -2,6 +2,14 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+
+## Release 2.21.2 (VS Code: 0.12.2)
+
+* Debug and Debug side bar got a new view that lists active REPLs and allows the user to start a debugging session for it
+* Bugfixes:
+  * Type checker was to eager in reporting binary incompatiblities
+  * Improved the performance of rename on large rascal files
+
 ## Release 2.21.1 (VS Code: 0.12.1)
 
 * The type-checker got a lot faster, especially if you're editing a single file in a larger project.
