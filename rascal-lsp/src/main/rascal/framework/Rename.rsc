@@ -64,6 +64,19 @@ data RenameConfig
       , bool debug = true
     );
 
+/*
+ 1. created
+ 2. changed
+ 3. renamed
+ 4. removed
+ */
+list[DocumentEdit] sortDocEdits(list[DocumentEdit] edits) = sort(edits, bool(DocumentEdit e1, DocumentEdit e2) {
+    if (e1 is created && !(e2 is created)) return true;
+    if (e1 is changed && !(e2 is changed)) return !(e2 is created);
+    if (e1 is renamed && !(e2 is renamed)) return (e2 is removed);
+    return false;
+});
+
 RenameResult rename(
         list[Tree] cursor
       , str newName
@@ -174,7 +187,7 @@ RenameResult rename(
     defs = getCursorDefinitions(cursor, parseLocCached, getTModelCached, r);
 
     if (defs == {}) r.error(cursor[0].src, "No definitions found");
-    if (errorReported()) return <docEdits, getMessages()>;
+    if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
 
     printDebug("+ Finding occurrences of cursor");
     <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, parseLocCached, r);
@@ -207,7 +220,7 @@ RenameResult rename(
             renameDefinition(d, defNames[d] ? d.defined, newName, tr, tm, r);
         }
     }
-    if (errorReported()) return <docEdits, getMessages()>;
+    if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
 
     printDebug("+ Renaming uses across <size(maybeUseFiles)> files");
     for (loc f <- maybeUseFiles) {
@@ -245,7 +258,7 @@ RenameResult rename(
         }
     }
 
-    return <docEdits, convertedMessages>;
+    return <sortDocEdits(docEdits), convertedMessages>;
 }
 
 private map[Define, loc] defNameLocations(Tree tr, set[Define] defs, Renamer r) {

@@ -66,8 +66,6 @@ void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>
       , any(d <- tm.useDef[qn.src], d.top in defFiles)
       , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
         modPrefix = cover(prefix([n.src | n <- qn.names]));
-        // If this replace is issued after a rename (from `renameDefinition` above), the edits will fail to apply.
-        // TODO Fix edit order
         r.textEdit(replace(modPrefix, rascalEscapeName(newName)));
     }
 }
