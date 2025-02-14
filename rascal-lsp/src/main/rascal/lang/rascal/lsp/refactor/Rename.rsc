@@ -52,6 +52,7 @@ import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Constructors;
 import lang::rascal::lsp::refactor::rename::Functions;
 import lang::rascal::lsp::refactor::rename::Modules;
 import lang::rascal::lsp::refactor::rename::Parameters;
