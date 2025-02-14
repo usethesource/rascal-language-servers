@@ -1,7 +1,7 @@
 {
   "license": "../LICENSE.txt",
   "ignoreFile": ".gitignore",
-  "ignore": ["**/.DS_Store",".vscode-test","**/*.jar", "**/*.vsix", "**/*.md", ".editorconfig", ".vscodeignore", "**/*.gitignore", "**/*.svg", "webpack.config.js", "test-workspace/**/*", "**/.npmignore"],
+  "ignore": ["**/.DS_Store",".vscode-test","**/*.jar", "**/*.vsix", "**/*.md", ".editorconfig", ".vscodeignore", "**/*.gitignore", "**/*.svg", "webpack.config.js", "test-workspace/**/*", "**/.npmignore", ".node-version"],
   "licenseFormats": {
       "js|ts": {
           "prepend": "/*",
