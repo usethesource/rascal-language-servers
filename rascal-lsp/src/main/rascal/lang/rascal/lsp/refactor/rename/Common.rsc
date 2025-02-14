@@ -91,6 +91,8 @@ default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel
 
 default tuple[type[Tree] as, str desc] asType(_) = <#Name, "name">;
 
+default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
+
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
     escName = rascalEscapeName(name);
     tuple[type[Tree] as, str desc] t = asType(role);

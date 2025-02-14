@@ -558,6 +558,8 @@ Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspa
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
 set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tree) getModel, Renamer r) {
+    if (isUnsupportedCursor(cursor, r)) return {};
+
     loc cursorLoc = cursor[0].src;
     TModel tm = getModel(cursor[-1]);
     for (Tree c <- cursor) {
