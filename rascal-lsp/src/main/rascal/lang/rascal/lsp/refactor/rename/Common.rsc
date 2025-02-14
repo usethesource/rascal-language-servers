@@ -41,9 +41,11 @@ import String;
 import util::FileSystem;
 import util::Maybe;
 import util::Reflective;
+import util::Util;
 
 data RenameConfig(
     set[loc] workspaceFolders = {}
+  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
 // Copied from `lang::rascalcore::check::BasicRascalConfig` to remove dependency on it
@@ -86,3 +88,46 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
 }
 
 default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {}
+
+default tuple[type[Tree] as, str desc] asType(_) = <#Name, "name">;
+
+void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
+    escName = rascalEscapeName(name);
+    tuple[type[Tree] as, str desc] t = asType(role);
+    if (tryParseAs(t.as, escName) is nothing) {
+        r.error(at, "<escName> is not a valid <t.desc>");
+    }
+}
+
+void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, cD, _>, TModel tm, str newName, Renamer r) {
+    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
+
+    // Is newName already resolvable from a scope where <current-name> is currently declared?
+    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | Define nD <- newNameDefs
+                                                                 , isContainedIn(cD, nD.scope)
+                                                                 , !rascalMayOverload({cD, nD.defined}, tm.definitions)
+    };
+
+    rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
+        | fieldId() := role
+          // The scope of a field def is the surrounding data def
+        , loc dataDef <- rascalGetOverloadedDefs(tm, {cS}, rascalMayOverloadSameName)
+        , loc nD <- (newNameDefs<idRole, defined>)[fieldId()] & (tm.defines<idRole, scope, defined>)[fieldId(), dataDef]
+    };
+
+    // TODO Re-do once we decided how to treat definitions that are not in tm.defines
+    // rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
+    //     | loc cD <- currentDefs
+    //     , tm.facts[cD]?
+    //     , cT: aparameter(_, _) := tm.facts[cD]
+    //     , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- tm.defines
+    //     , isContainedIn(cD, fD.defined)
+    //     , <loc nD, nT: aparameter(newName, _)> <- toRel(tm.facts)
+    //     , isContainedIn(nD, fD.defined)
+    //     , /nT := funcParams
+    // };
+
+    for (<old, new> <- doubleDeclarations + doubleFieldDeclarations /*+ doubleTypeParamDeclarations*/) {
+        r.error(old, "Cannot rename to <newName>, since it will lead to double declaration error (<new>).");
+    }
+}
