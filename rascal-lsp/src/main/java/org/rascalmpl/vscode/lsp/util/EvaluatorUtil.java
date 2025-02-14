@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.awt.Desktop;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;

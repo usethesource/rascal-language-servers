@@ -30,7 +30,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -97,7 +96,7 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         try {
             return new TerminalIDEClient(ideServicePort, err, monitor, term);
         } catch (IOException e) {
-            throw new RuntimeException("Could not build IDE service for REPL", e);
+            throw new IllegalStateException("Could not build IDE service for REPL", e);
         }
     }
 
@@ -236,13 +235,11 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         int vfsPort = -1;
 
         for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case "--ideServicesPort":
-                    ideServicesPort = Integer.parseInt(args[++i]);
-                    break;
-                case "--vfsPort":
-                    vfsPort = Integer.parseInt(args[++i]);
-                    break;
+            if (args[i].equals("--ideServicesPort")) {
+                ideServicesPort = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("--vfsPort")) {
+                vfsPort = Integer.parseInt(args[++i]);
             }
         }
 
