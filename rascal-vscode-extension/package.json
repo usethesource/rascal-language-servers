@@ -16,8 +16,8 @@
   },
   "version": "0.13.0-head",
   "engines": {
-    "vscode": "^1.82.0",
-    "node": ">=18.15.0"
+    "vscode": "^1.90.0",
+    "node": ">=20.9.0"
   },
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -262,20 +262,20 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
-    "@tsconfig/node18": "18.x",
+    "@tsconfig/node20": "20.x",
     "@tsconfig/strictest": "2.x",
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
-    "@types/node": "18.x",
+    "@types/node": "20.x",
     "@types/tar": "6.x",
-    "@types/vscode": "1.82.0",
+    "@types/vscode": "1.90.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
-    "@vscode/vsce": "2.x",
+    "@vscode/vsce": "3.x",
     "chai": "4.x",
-    "esbuild": "0.24.x",
+    "esbuild": "0.25.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",

@@ -36,6 +36,16 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
+    } else if (projectDir.file == "rascal") {
+        pcfg = pathConfig(
+            srcs = [ projectDir + "src/org/rascalmpl/library"
+                   , projectDir + "test/org/rascalmpl/benchmark"
+                   , projectDir + "test/org/rascalmpl/test/data"],
+            bin = projectDir + "target/classes",
+            generatedSources = projectDir + "target/generated-sources/src/main/java/",
+            generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
+            resources = projectDir + "target/generated-resources/src/main/java/"
+        );
     } else {
         pcfg = pathConfig(
             srcs = [ projectDir + "src" ],

@@ -431,36 +431,47 @@ Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
-private set[str] rascalNameToEquivalentNames(str name) =
-    {name, startsWith(name, "\\") ? name : "\\<name>"};
+private bool(loc) rascalContainsNameFilter(str n) {
+    en = rascalEscapeName(n);
 
-private bool rascalContainsName(loc l, str name) {
-    m = parseModuleWithSpacesCached(l);
-    if (/Tree t := m, "<t>" in rascalNameToEquivalentNames(name)) return true;
-    return false;
-}
+    // Since QualifiedName is the most liberal and all the others are subsets of it,
+    // we default to QualifiedName in case parsing as something else fails.
+    qNameEsc = [QualifiedName] en;
 
-set[loc] rascalPreloadFiles(Tree cursorT, set[loc] workspaceFolders, PathConfig(loc) _) {
-    loc cursorLoc = cursorT.src;
-    return { <
-        max([f | f <- workspaceFolders, isPrefixOf(f, cursorLoc)]),
-        true,
-        cursorLoc.top
-    > };
-}
+    Tree tryNameParse(type[&T <: Tree] a, str s) {
+        try {
+            return parse(a, s);
+        } catch _: {
+            return qNameEsc;
+        }
+    }
 
-set[loc] rascalAllWorkspaceFiles(TModel tm, Cursor cur, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
-    rascalIsFunctionLocal(tm, cur) ? {}
-    : {
-        // If we do not find any occurrences of the name under the cursor in a module,
-        // we are not interested in loading the model, but we still want to inform the
-        // renaming framework about the existence of the file.
-        <folder, rascalContainsName(file, cur.name), file>
-        | folder <- workspaceFolders
-        , PathConfig pcfg := getPathConfig(folder)
-        , srcFolder <- pcfg.srcs
-        , file <- find(srcFolder, "rsc")
+    qName = tryNameParse(#QualifiedName, n);
+    name = tryNameParse(#QualifiedName, n);
+    nameEsc = tryNameParse(#QualifiedName, en);
+    nonTerm = tryNameParse(#Nonterminal, n);
+    nonTermEsc = tryNameParse(#Nonterminal, en);
+    nonTermLabel = tryNameParse(#NonterminalLabel, n);
+    nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
+    return bool(loc file) {
+        try {
+            visit (parseModuleWithSpacesCached(file)) {
+                case name: return true;
+                case nameEsc: return true;
+                case qName: return true;
+                case qNameEsc: return true;
+                case nonTerm: return true;
+                case nonTermEsc: return true;
+                case nonTermLabel: return true;
+                case nonTermLabel: return true;
+            }
+        }
+        catch Java("ParseError", _): return false;
+        catch ParseError(_): return false;
+
+        return false;
     };
+}
 
 @synopsis{
     Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.
@@ -579,30 +590,13 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     set[loc] useFiles = {};
 
     str cursorName = "<cursor[0]>";
+    containsName = rascalContainsNameFilter(cursorName);
     for (wsFolder <- r.getConfig().workspaceFolders
-       , loc f <- find(wsFolder, "rsc")) {
-        visit (getTree(f)) {
-            case Name n:
-                if ("<n>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-            case QualifiedName qn:
-                if ("<qn.names[-1]>" == cursorName) {
-                    // qualified name can only be a use
-                    useFiles += f;
-                }
-            case Nonterminal nt:
-                if ("<nt>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-            case NonterminalLabel nt:
-                if ("<nt>" == cursorName) {
-                    defFiles += f;
-                    useFiles += f;
-                }
-        }
+       , loc f <- find(wsFolder, "rsc")
+       , containsName(f)) {
+        // TODO Optimize this. A QualifiedName occurrence can never be a definition.
+        defFiles += f;
+        useFiles += f;
     }
 
     return <defFiles, useFiles>;
