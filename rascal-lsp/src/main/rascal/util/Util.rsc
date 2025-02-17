@@ -100,3 +100,6 @@ rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
 bool isShorter(loc l1, loc l2) = l1.length < l2.length;
 
 bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
+
+set[&T] flatMap(set[&U] us, set[&T](&U) f) =
+    {*ts | u <- us, ts := f(u)};

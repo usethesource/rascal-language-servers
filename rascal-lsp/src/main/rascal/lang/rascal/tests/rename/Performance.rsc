@@ -45,7 +45,7 @@ test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, f
     | i <- [0..LARGE_TEST_SIZE])
 , skipCursors = toSet([1..LARGE_TEST_SIZE * 5]));
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool failOnError() = testRename("int foo = x + y;");
 
 test bool incrementalTypeCheck() {

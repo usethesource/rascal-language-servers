@@ -65,15 +65,14 @@ extend framework::Rename;
 import framework::TextEdits;
 import util::Util;
 
-import lang::rascal::lsp::refactor::WorkspaceInfo;
+// import lang::rascal::lsp::refactor::WorkspaceInfo;
 
 import util::FileSystem;
 import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
-private void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, str newName, Tree tr, TModel tm, Renamer r) {
-    loc moduleLoc = tr.src.top;
+void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, str newName, Tree tr, TModel tm, Renamer r) {
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
 
     set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
@@ -105,10 +104,9 @@ private void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] current
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     rel[loc, loc] newUseShadowedByRename =
         {<cD, nU> | Define nD <- newNameDefs
-                  , loc cD <- currentDefs
-                  , loc cS := tm.definitions[cD].scope
+                  , Define _:<cS, _, _, _, cD, _> <- currentDefs
                   , isContainedIn(cS, nD.scope)
-                  , nU <- defUse(tm)[newNameDefs.defined]
+                  , loc nU <- invert(tm.useDef)[newNameDefs.defined]
                   , isContainedIn(nU, cS)
         };
     for (<d, u> <- newUseShadowedByRename) {
@@ -116,31 +114,81 @@ private void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] current
     }
 }
 
+void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
+    escName = rascalEscapeName(name);
+    tuple[type[Tree] as, str desc] t = asType(role);
+    if (tryParseAs(t.as, escName) is nothing) {
+        r.error(at, "<escName> is not a valid <t.desc>");
+    }
+}
+
+void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, loc cD, _>, TModel tm, str newName, Renamer r) {
+    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
+
+    // Is newName already resolvable from a scope where <current-name> is currently declared?
+    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | Define nD <- newNameDefs
+                                                                 , isContainedIn(cD, nD.scope)
+                                                                 , !rascalMayOverload({cD, nD.defined}, tm.definitions)
+    };
+
+    rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
+        | fieldId() := role
+          // The scope of a field def is the surrounding data def
+        , loc dataDef <- rascalGetOverloadedDefs(tm, {cS})
+        , loc nD <- (newNameDefs<idRole, defined>)[fieldId()] & (tm.defines<idRole, scope, defined>)[fieldId(), dataDef]
+    };
+
+    // TODO Re-do once we decided how to treat definitions that are not in tm.defines
+    // rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
+    //     | loc cD <- currentDefs
+    //     , tm.facts[cD]?
+    //     , cT: aparameter(_, _) := tm.facts[cD]
+    //     , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- tm.defines
+    //     , isContainedIn(cD, fD.defined)
+    //     , <loc nD, nT: aparameter(newName, _)> <- toRel(tm.facts)
+    //     , isContainedIn(nD, fD.defined)
+    //     , /nT := funcParams
+    // };
+
+    for (<old, new> <- doubleDeclarations + doubleFieldDeclarations /*+ doubleTypeParamDeclarations*/) {
+        r.error(old, "Cannot rename to <newName>, since it will lead to double declaration error (<new>).");
+    }
+}
+
+void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
+    f = d.defined.top;
+    pcfg = r.getConfig().getPathConfig(f);
+    if (!any(srcFolder <- pcfg.srcs, isPrefixOf(srcFolder, f))) {
+        r.error(d, "Since this definition is not in the sources of open projects, it cannot be renamed.");
+    }
+}
+
+
 private str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
-private rel[loc name, loc useDef] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs, CursorKind cursorKind) {
-    rel[loc, loc] nameOfUseDef = {};
-    useDefsToDo = useDefs;
+// private rel[loc name, loc useDef] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs, CursorKind cursorKind) {
+//     rel[loc, loc] nameOfUseDef = {};
+//     useDefsToDo = useDefs;
 
-    visit(m.top) {
-        case t: appl(prod(_, _, _), _): {
-            if (t.src in useDefsToDo) {
-                focus = computeFocusList(m, t.src.begin.line, t.src.begin.column);
-                if (just(nameLoc) := rascalLocationOfName(t, cursorKind, focus)) {
-                    nameOfUseDef += <nameLoc, t.src>;
-                    useDefsToDo -= t.src;
-                }
-            }
-        }
-    }
+//     visit(m.top) {
+//         case t: appl(prod(_, _, _), _): {
+//             if (t.src in useDefsToDo) {
+//                 focus = computeFocusList(m, t.src.begin.line, t.src.begin.column);
+//                 if (just(nameLoc) := rascalLocationOfName(t, cursorKind, focus)) {
+//                     nameOfUseDef += <nameLoc, t.src>;
+//                     useDefsToDo -= t.src;
+//                 }
+//             }
+//         }
+//     }
 
-    // if (useDefsToDo != {}) {
-    //     throw unsupportedRename("Rename unsupported", issues={<ud, "Cannot find the name for this definition in <m.src.top>."> | ud <- useDefsToDo});
-    // }
+//     // if (useDefsToDo != {}) {
+//     //     throw unsupportedRename("Rename unsupported", issues={<ud, "Cannot find the name for this definition in <m.src.top>."> | ud <- useDefsToDo});
+//     // }
 
-    return nameOfUseDef;
-}
+//     return nameOfUseDef;
+// }
 
 bool isModuleNameInFocus([*_, QualifiedName _, Header _, *_]) = true; // module name declaration
 bool isModuleNameInFocus([*_, QualifiedName _, ImportedModule _, Import _, _, Header _, *_]) = true; // module import/extend
@@ -156,41 +204,41 @@ default bool isModuleNameInFocus(Focus _) = false;
     - When cursor kind == moduleName() (and >1 name segment), return prefix location
     - When cursor kind != moduleName(), return last location
  */
-Maybe[loc] rascalLocationOfName(QualifiedName qn, CursorKind cursorKind, Focus focus) {
-    if (isModuleNameInFocus(focus)) {
-        if (cursorKind is moduleName) {
-            // Full module name
-            return just(qn.src);
-        }
-    } else if (cursorKind == moduleName() && size([n | n <- qn.names]) > 1) {
-        // Only module prefix
-        return just(cover(prefix([n.src | n <- qn.names])));
-    } else if (cursorKind != moduleName()) {
-        // Only definition name
-        return just(qn.names[-1].src);
-    }
+// Maybe[loc] rascalLocationOfName(QualifiedName qn, CursorKind cursorKind, Focus focus) {
+//     if (isModuleNameInFocus(focus)) {
+//         if (cursorKind is moduleName) {
+//             // Full module name
+//             return just(qn.src);
+//         }
+//     } else if (cursorKind == moduleName() && size([n | n <- qn.names]) > 1) {
+//         // Only module prefix
+//         return just(cover(prefix([n.src | n <- qn.names])));
+//     } else if (cursorKind != moduleName()) {
+//         // Only definition name
+//         return just(qn.names[-1].src);
+//     }
 
-    fail;
-}
-Maybe[loc] rascalLocationOfName(Name n, CursorKind _, Focus _) = just(n.src);
-Maybe[loc] rascalLocationOfName(FunctionDeclaration f, CursorKind _, Focus _) = just(f.signature.name.src);
-Maybe[loc] rascalLocationOfName(Variable v, CursorKind _, Focus _) = just(v.name.src);
-Maybe[loc] rascalLocationOfName(KeywordFormal kw, CursorKind _, Focus _) = just(kw.name.src);
-Maybe[loc] rascalLocationOfName(Declaration d, CursorKind _, Focus _) = just(d.name.src) when d is annotation
-                                                                                           || d is \tag;
-Maybe[loc] rascalLocationOfName(Declaration d, CursorKind cursorKind, Focus focus) =
-    rascalLocationOfName(d.user.name, cursorKind, focus) when d is \alias
-                                                           || d is dataAbstract
-                                                           || d is \data;
-Maybe[loc] rascalLocationOfName(TypeVar tv, CursorKind _, Focus _) = just(tv.name.src);
-Maybe[loc] rascalLocationOfName(Header h, CursorKind cursorKind, Focus focus) = rascalLocationOfName(h.name, cursorKind, focus);
-Maybe[loc] rascalLocationOfName(UserType ut, CursorKind cursorKind, Focus focus) = rascalLocationOfName(ut.name, cursorKind, focus);
-Maybe[loc] rascalLocationOfName(Module m, CursorKind cursorKind, Focus focus) = just(m.header.name.src);
-Maybe[loc] rascalLocationOfName(SyntaxDefinition sd, CursorKind cursorKind, Focus focus) = rascalLocationOfName(sd.defined, cursorKind, focus);
-Maybe[loc] rascalLocationOfName(Sym sym, CursorKind _, Focus _) = just(sym.nonterminal.src);
-Maybe[loc] rascalLocationOfName(Nonterminal nt, CursorKind _, Focus _) = just(nt.src);
-Maybe[loc] rascalLocationOfName(NonterminalLabel l, CursorKind _, Focus _) = just(l.src);
-default Maybe[loc] rascalLocationOfName(Tree t, CursorKind _, Focus _) = nothing();
+//     fail;
+// }
+// Maybe[loc] rascalLocationOfName(Name n, CursorKind _, Focus _) = just(n.src);
+// Maybe[loc] rascalLocationOfName(FunctionDeclaration f, CursorKind _, Focus _) = just(f.signature.name.src);
+// Maybe[loc] rascalLocationOfName(Variable v, CursorKind _, Focus _) = just(v.name.src);
+// Maybe[loc] rascalLocationOfName(KeywordFormal kw, CursorKind _, Focus _) = just(kw.name.src);
+// Maybe[loc] rascalLocationOfName(Declaration d, CursorKind _, Focus _) = just(d.name.src) when d is annotation
+//                                                                                            || d is \tag;
+// Maybe[loc] rascalLocationOfName(Declaration d, CursorKind cursorKind, Focus focus) =
+//     rascalLocationOfName(d.user.name, cursorKind, focus) when d is \alias
+//                                                            || d is dataAbstract
+//                                                            || d is \data;
+// Maybe[loc] rascalLocationOfName(TypeVar tv, CursorKind _, Focus _) = just(tv.name.src);
+// Maybe[loc] rascalLocationOfName(Header h, CursorKind cursorKind, Focus focus) = rascalLocationOfName(h.name, cursorKind, focus);
+// Maybe[loc] rascalLocationOfName(UserType ut, CursorKind cursorKind, Focus focus) = rascalLocationOfName(ut.name, cursorKind, focus);
+// Maybe[loc] rascalLocationOfName(Module m, CursorKind cursorKind, Focus focus) = just(m.header.name.src);
+// Maybe[loc] rascalLocationOfName(SyntaxDefinition sd, CursorKind cursorKind, Focus focus) = rascalLocationOfName(sd.defined, cursorKind, focus);
+// Maybe[loc] rascalLocationOfName(Sym sym, CursorKind _, Focus _) = just(sym.nonterminal.src);
+// Maybe[loc] rascalLocationOfName(Nonterminal nt, CursorKind _, Focus _) = just(nt.src);
+// Maybe[loc] rascalLocationOfName(NonterminalLabel l, CursorKind _, Focus _) = just(l.src);
+// default Maybe[loc] rascalLocationOfName(Tree t, CursorKind _, Focus _) = nothing();
 
 // private list[TextEdit] computeTextEdits(TModel ws, start[Module] m, set[loc] defs, set[loc] uses, cursor(cursorKind, _, _), str newName) {
 //     rel[loc l, Maybe[ChangeAnnotationId] ann, bool isDef] renames =
@@ -215,23 +263,23 @@ default Maybe[loc] rascalLocationOfName(Tree t, CursorKind _, Focus _) = nothing
 // private list[TextEdit] computeTextEdits(TModel ws, loc moduleLoc, set[loc] defs, set[loc] uses, Cursor cur, str newName) =
 //     computeTextEdits(ws, parseModuleWithSpacesCached(moduleLoc), defs, uses, cur, newName, registerChangeAnnotation);
 
-private bool rascalIsFunctionLocalDefs(TModel ws, set[loc] defs) {
-    for (d <- defs) {
-        if (Define fun: <_, _, _, _, _, defType(afunc(_, _, _))> <- ws.defines
-         && isContainedIn(ws.definitions[d].scope, fun.defined)) {
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
+// private bool rascalIsFunctionLocalDefs(TModel ws, set[loc] defs) {
+//     for (d <- defs) {
+//         if (Define fun: <_, _, _, _, _, defType(afunc(_, _, _))> <- ws.defines
+//          && isContainedIn(ws.definitions[d].scope, fun.defined)) {
+//             continue;
+//         }
+//         return false;
+//     }
+//     return true;
+// }
 
-private bool rascalIsFunctionLocal(TModel ws, cursor(def(), cursorLoc, _)) =
-    rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, {cursorLoc}, rascalMayOverloadSameName));
-private bool rascalIsFunctionLocal(TModel ws, cursor(use(), cursorLoc, _)) =
-    rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
-private bool rascalIsFunctionLocal(TModel _, cursor(typeParam(), _, _)) = true;
-private default bool rascalIsFunctionLocal(_, _) = false;
+// private bool rascalIsFunctionLocal(TModel ws, cursor(def(), cursorLoc, _)) =
+//     rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, {cursorLoc}, rascalMayOverloadSameName));
+// private bool rascalIsFunctionLocal(TModel ws, cursor(use(), cursorLoc, _)) =
+//     rascalIsFunctionLocalDefs(ws, rascalGetOverloadedDefs(ws, getDefs(ws, cursorLoc), rascalMayOverloadSameName));
+// private bool rascalIsFunctionLocal(TModel _, cursor(typeParam(), _, _)) = true;
+// private default bool rascalIsFunctionLocal(_, _) = false;
 
 Maybe[AType] rascalAdtCommonKeywordFieldType(TModel ws, str fieldName, Define _:<_, _, _, _, _, DefInfo defInfo>) {
     if (defInfo.commonKeywordFields?
@@ -253,158 +301,158 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
     return nothing();
 }
 
-private CursorKind rascalGetDataFieldCursorKind(TModel ws, loc container, loc cursorLoc, str cursorName) {
-    for (Define dt <- rascalGetADTDefinitions(ws, container)
-      && AType adtType := dt.defInfo.atype) {
-        if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
-            // Case 4 or 5 (or 0): common keyword field
-            return dataCommonKeywordField(dt.defined, fieldType);
-        }
+// private CursorKind rascalGetDataFieldCursorKind(TModel ws, loc container, loc cursorLoc, str cursorName) {
+//     for (Define dt <- rascalGetADTDefinitions(ws, container)
+//       && AType adtType := dt.defInfo.atype) {
+//         if (just(fieldType) := rascalAdtCommonKeywordFieldType(ws, cursorName, dt)) {
+//             // Case 4 or 5 (or 0): common keyword field
+//             return dataCommonKeywordField(dt.defined, fieldType);
+//         }
 
-        for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- rascalReachableDefs(ws, {dt.defined})) {
-            if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
-                // Case 3 (or 0): keyword field
-                return dataKeywordField(dt.defined, fieldType);
-            } else if (just(fieldType) := rascalConsFieldType(cursorName, d)) {
-                // Case 2 (or 0): positional field
-                return dataField(dt.defined, fieldType);
-            }
-        }
+//         for (Define d: <_, _, _, constructorId(), _, defType(acons(adtType, _, _))> <- rascalReachableDefs(ws, {dt.defined})) {
+//             if (just(fieldType) := rascalConsKeywordFieldType(cursorName, d)) {
+//                 // Case 3 (or 0): keyword field
+//                 return dataKeywordField(dt.defined, fieldType);
+//             } else if (just(fieldType) := rascalConsFieldType(cursorName, d)) {
+//                 // Case 2 (or 0): positional field
+//                 return dataField(dt.defined, fieldType);
+//             }
+//         }
 
-        if (Define d: <_, cursorName, _, fieldId(), _, defType(adtType)> <- rascalReachableDefs(ws, {dt.defined})) {
-            return dataField(dt.defined, d.defInfo.atype);
-        }
-    }
+//         if (Define d: <_, cursorName, _, fieldId(), _, defType(adtType)> <- rascalReachableDefs(ws, {dt.defined})) {
+//             return dataField(dt.defined, d.defInfo.atype);
+//         }
+//     }
 
-    set[loc] fromDefs = cursorLoc in ws.useDef<1> ? {cursorLoc} : getDefs(ws, cursorLoc);
-    // throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
-}
+//     set[loc] fromDefs = cursorLoc in ws.useDef<1> ? {cursorLoc} : getDefs(ws, cursorLoc);
+//     // throw illegalRename("Cannot rename \'<cursorName>\'; it is not defined in this workspace", {definitionsOutsideWorkspace(fromDefs)});
+// }
 
-private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName, rel[loc l, CursorKind kind] locsContainingCursor, rel[loc field, loc container] fields, rel[loc kw, loc container] keywords) {
-    loc c = min(locsContainingCursor.l);
-    switch (locsContainingCursor[c]) {
-        case {moduleName(), *_}: {
-            return moduleName();
-        }
-        case {keywordParam(), dataKeywordField(_, _), *_}: {
-            if ({loc container} := keywords[c]) {
-                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
-            }
-        }
-        case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
-            /* Possible cases:
-                0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
-                1. We are on a collection field
-                2. We are on a positional field definition (inside a constructor variant, inside a data def)
-                3. We are on a keyword field definition (inside a constructor variant)
-                4. We are on a common keyword field definition (inside a data def)
-                5. We are on a (common) keyword argument (inside a constructor call)
-             */
+// private CursorKind rascalGetCursorKind(TModel ws, loc cursorLoc, str cursorName, rel[loc l, CursorKind kind] locsContainingCursor, rel[loc field, loc container] fields, rel[loc kw, loc container] keywords) {
+//     loc c = min(locsContainingCursor.l);
+//     switch (locsContainingCursor[c]) {
+//         case {moduleName(), *_}: {
+//             return moduleName();
+//         }
+//         case {keywordParam(), dataKeywordField(_, _), *_}: {
+//             if ({loc container} := keywords[c]) {
+//                 return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
+//             }
+//         }
+//         case {collectionField(), dataField(_, _), dataKeywordField(_, _), dataCommonKeywordField(_, _), *_}: {
+//             /* Possible cases:
+//                 0. We are on a field use/access (of either a data or collection field, in an expression/assignment/pattern(?))
+//                 1. We are on a collection field
+//                 2. We are on a positional field definition (inside a constructor variant, inside a data def)
+//                 3. We are on a keyword field definition (inside a constructor variant)
+//                 4. We are on a common keyword field definition (inside a data def)
+//                 5. We are on a (common) keyword argument (inside a constructor call)
+//              */
 
-            // Let's figure out what kind of field we are exactly
-            if ({loc container} := fields[c], maybeContainerType := getFact(ws, container)) {
-                if (maybeContainerType == nothing() || rascalIsCollectionType(maybeContainerType.val)) {
-                    // Case 1 (or 0): collection field
-                    return collectionField();
-                }
-                return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
-            }
-        }
-        case {def(), *_}: {
-            // Cursor is at a definition
-            Define d = ws.definitions[c];
-            if (d.idRole is fieldId
-             && Define adt: <_, _, _, dataId(), _, _> <- ws.defines
-             && isStrictlyContainedIn(c, adt.defined)) {
-                return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName);
-            }
-            return def();
-        }
-        case {use(), *_}: {
-            set[loc] defs = getDefs(ws, c);
-            set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
+//             // Let's figure out what kind of field we are exactly
+//             if ({loc container} := fields[c], maybeContainerType := getFact(ws, container)) {
+//                 if (maybeContainerType == nothing() || rascalIsCollectionType(maybeContainerType.val)) {
+//                     // Case 1 (or 0): collection field
+//                     return collectionField();
+//                 }
+//                 return rascalGetDataFieldCursorKind(ws, container, cursorLoc, cursorName);
+//             }
+//         }
+//         case {def(), *_}: {
+//             // Cursor is at a definition
+//             Define d = ws.definitions[c];
+//             if (d.idRole is fieldId
+//              && Define adt: <_, _, _, dataId(), _, _> <- ws.defines
+//              && isStrictlyContainedIn(c, adt.defined)) {
+//                 return rascalGetDataFieldCursorKind(ws, adt.defined, cursorLoc, cursorName);
+//             }
+//             return def();
+//         }
+//         case {use(), *_}: {
+//             set[loc] defs = getDefs(ws, c);
+//             set[Define] defines = {ws.definitions[d] | d <- defs, ws.definitions[d]?};
 
-            if (d <- defs && just(amodule(_)) := getFact(ws, d)) {
-                // Cursor is at an import
-                return moduleName();
-            } else if (loc u <- {use | loc use <- ws.useDef<0>, isContainedIn(cursorLoc, use)}
-                    && u.end > cursorLoc.end
-                     // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
-                    && {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
-                ) {
-                // Cursor is at a qualified name
-                return moduleName();
-            } else if (defines != {}) {
-                // The cursor is at a use with corresponding definitions.
-                return use();
-            } else if (just(at) := getFact(ws, c)
-                    && aparameter(cursorName, _) := at) {
-                // The cursor is at a type parameter
-                return typeParam();
-            }
-        }
-        case {k}: {
-            return k;
-        }
-    }
+//             if (d <- defs && just(amodule(_)) := getFact(ws, d)) {
+//                 // Cursor is at an import
+//                 return moduleName();
+//             } else if (loc u <- {use | loc use <- ws.useDef<0>, isContainedIn(cursorLoc, use)}
+//                     && u.end > cursorLoc.end
+//                      // If the cursor is on a variable, we expect a module variable (`moduleVariable()`); not a local (`variableId()`)
+//                     && {variableId()} !:= (ws.defines<defined, idRole>)[getDefs(ws, u)]
+//                 ) {
+//                 // Cursor is at a qualified name
+//                 return moduleName();
+//             } else if (defines != {}) {
+//                 // The cursor is at a use with corresponding definitions.
+//                 return use();
+//             } else if (just(at) := getFact(ws, c)
+//                     && aparameter(cursorName, _) := at) {
+//                 // The cursor is at a type parameter
+//                 return typeParam();
+//             }
+//         }
+//         case {k}: {
+//             return k;
+//         }
+//     }
 
-    // throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
-}
+//     // throw unsupportedRename("Could not retrieve information for \'<cursorName>\' at <cursorLoc>.");
+// }
 
-Cursor rascalGetCursor(TModel ws, Tree cursorT) {
-    loc cursorLoc = cursorT.src;
-    str cursorName = "<cursorT>";
+// Cursor rascalGetCursor(TModel ws, Tree cursorT) {
+//     loc cursorLoc = cursorT.src;
+//     str cursorName = "<cursorT>";
 
-    rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
-        | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t) || just(<containerLoc, fieldLocs>) := rascalGetHasLocs(cursorName, t)
-        , loc fieldLoc <- fieldLocs
-    };
+//     rel[loc field, loc container] fields = {<fieldLoc, containerLoc>
+//         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
+//         , just(<containerLoc, fieldLocs, _>) := rascalGetFieldLocs(cursorName, t) || just(<containerLoc, fieldLocs>) := rascalGetHasLocs(cursorName, t)
+//         , loc fieldLoc <- fieldLocs
+//     };
 
-    rel[loc kw, loc container] keywords = {<kwLoc, containerLoc>
-        | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
-        , just(<containerLoc, kwLocs, _>) := rascalGetKeywordLocs(cursorName, t)
-        , loc kwLoc <- kwLocs
-    };
+//     rel[loc kw, loc container] keywords = {<kwLoc, containerLoc>
+//         | /Tree t := parseModuleWithSpacesCached(cursorLoc.top)
+//         , just(<containerLoc, kwLocs, _>) := rascalGetKeywordLocs(cursorName, t)
+//         , loc kwLoc <- kwLocs
+//     };
 
-    Maybe[loc] smallestFieldContainingCursor = findSmallestContaining(fields.field, cursorLoc);
-    Maybe[loc] smallestKeywordContainingCursor = findSmallestContaining(keywords.kw, cursorLoc);
-    loc moduleNameLoc = parseModuleWithSpacesCached(cursorLoc.top).top.header.name.src;
+//     Maybe[loc] smallestFieldContainingCursor = findSmallestContaining(fields.field, cursorLoc);
+//     Maybe[loc] smallestKeywordContainingCursor = findSmallestContaining(keywords.kw, cursorLoc);
+//     loc moduleNameLoc = parseModuleWithSpacesCached(cursorLoc.top).top.header.name.src;
 
-    rel[loc l, CursorKind kind] locsContainingCursor = {
-        <l, k>
-        | <just(l), k> <- {
-                // Uses
-                <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
-                // Defs with an identifier equals the name under the cursor
-              , <findSmallestContaining((ws.defines<id, defined>)[cursorName], cursorLoc), def()>
-                // Type parameters
-              , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
-                // Any kind of field; we'll decide which exactly later
-              , <smallestFieldContainingCursor, collectionField()>
-              , <smallestFieldContainingCursor, dataField(|unknown:///|, avoid())>
-              , <smallestFieldContainingCursor, dataKeywordField(|unknown:///|, avoid())>
-              , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
-                // Any kind of keyword param; we'll decide which exactly later
-              , <smallestKeywordContainingCursor, dataKeywordField(|unknown:///|, avoid())>
-              , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
-              , <smallestKeywordContainingCursor, keywordParam()>
-                // Module name declaration
-              , <isContainedIn(cursorLoc, moduleNameLoc) ? just(moduleNameLoc) : nothing(), moduleName()>
-                // Nonterminal constructor names in exception productions
-              , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is conditional || aprod(prod(_, /conditional(_, _))) := at), /\a-except(cursorName) := at}, cursorLoc), exceptConstructor()>
-            }
-    };
+//     rel[loc l, CursorKind kind] locsContainingCursor = {
+//         <l, k>
+//         | <just(l), k> <- {
+//                 // Uses
+//                 <findSmallestContaining(ws.useDef<0>, cursorLoc), use()>
+//                 // Defs with an identifier equals the name under the cursor
+//               , <findSmallestContaining((ws.defines<id, defined>)[cursorName], cursorLoc), def()>
+//                 // Type parameters
+//               , <findSmallestContaining({l | l <- ws.facts, aparameter(cursorName, _) := ws.facts[l]}, cursorLoc), typeParam()>
+//                 // Any kind of field; we'll decide which exactly later
+//               , <smallestFieldContainingCursor, collectionField()>
+//               , <smallestFieldContainingCursor, dataField(|unknown:///|, avoid())>
+//               , <smallestFieldContainingCursor, dataKeywordField(|unknown:///|, avoid())>
+//               , <smallestFieldContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
+//                 // Any kind of keyword param; we'll decide which exactly later
+//               , <smallestKeywordContainingCursor, dataKeywordField(|unknown:///|, avoid())>
+//               , <smallestKeywordContainingCursor, dataCommonKeywordField(|unknown:///|, avoid())>
+//               , <smallestKeywordContainingCursor, keywordParam()>
+//                 // Module name declaration
+//               , <isContainedIn(cursorLoc, moduleNameLoc) ? just(moduleNameLoc) : nothing(), moduleName()>
+//                 // Nonterminal constructor names in exception productions
+//               , <findSmallestContaining({l | l <- ws.facts, at := ws.facts[l], (at is conditional || aprod(prod(_, /conditional(_, _))) := at), /\a-except(cursorName) := at}, cursorLoc), exceptConstructor()>
+//             }
+//     };
 
-    // if (locsContainingCursor == {}) {
-    //     throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
-    // }
+//     // if (locsContainingCursor == {}) {
+//     //     throw unsupportedRename("Renaming \'<cursorName>\' at  <cursorLoc> is not supported.");
+//     // }
 
-    CursorKind kind = rascalGetCursorKind(ws, cursorLoc, cursorName, locsContainingCursor, fields, keywords);
-    return cursor(kind, min(locsContainingCursor.l), cursorName);
-}
+//     CursorKind kind = rascalGetCursorKind(ws, cursorLoc, cursorName, locsContainingCursor, fields, keywords);
+//     return cursor(kind, min(locsContainingCursor.l), cursorName);
+// }
 
-private bool(loc) rascalContainsNameFilter(str n) {
+private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
     en = rascalEscapeName(n);
 
     // Since QualifiedName is the most liberal and all the others are subsets of it,
@@ -428,7 +476,7 @@ private bool(loc) rascalContainsNameFilter(str n) {
     nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
     return bool(loc file) {
         try {
-            visit (parseModuleWithSpacesCached(file)) {
+            visit (getTree(file)) {
                 case name: return true;
                 case nameEsc: return true;
                 case qName: return true;
@@ -563,7 +611,7 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     set[loc] useFiles = {};
 
     str cursorName = "<cursor[0]>";
-    containsName = rascalContainsNameFilter(cursorName);
+    containsName = rascalContainsNameFilter(cursorName, getTree);
     for (wsFolder <- r.getConfig().workspaceFolders
        , loc f <- find(wsFolder, "rsc")
        , containsName(f)) {

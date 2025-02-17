@@ -64,7 +64,5 @@ set[loc] getUses(TModel ws, set[loc] defs) = defUse(ws)[defs];
 
 set[loc] getDefs(TModel ws, loc use) = ws.useDef[use];
 
-Maybe[AType] getFact(TModel ws, loc l) = l in ws.facts ? just(ws.facts[l]) : nothing();
-
 @memo{maximumSize(1), expireAfter(minutes=5)}
 rel[loc, Define] definitionsRel(TModel ws) = toRel(ws.definitions);

@@ -29,6 +29,7 @@ module lang::rascal::lsp::refactor::rename::Constructors
 
 extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;

@@ -33,7 +33,9 @@ import framework::TextEdits;
 import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;
-extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
 
 import IO;
 import List;
@@ -97,7 +99,7 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
 list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
     list[TextEdit] changes = [];
 
-    start[Module] m = parseModuleWithSpacesCached(f);
+    start[Module] m = parseModuleWithSpaces(f);
     for (/QualifiedName qn := m) {
         for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
            , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]

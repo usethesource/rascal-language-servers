@@ -28,15 +28,16 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Parameters
 
 extend framework::Rename;
+import framework::TextEdits;
 extend lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
+import lang::rascalcore::check::BasicRascalConfig;
 
+import Relation;
+import Set;
 import util::Maybe;
-
-// Copied from `lang::rascalcore::check::BasicRascalConfig` to remove dependency on it
-private set[IdRole] formalRoles = {formalId(), keywordFormalId(), nestedFormalId()};
 
 bool isFormalId(IdRole role) = role in formalRoles;
 
