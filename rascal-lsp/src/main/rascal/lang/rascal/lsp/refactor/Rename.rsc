@@ -589,8 +589,9 @@ void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
 
     rascalCheckCausesCaptures(defs, uses, newName, tr, tm, r);
 
+    escName = rascalEscapeName(newName);
     for (u <- uses) {
-        r.textEdit(replace(u, rascalEscapeName(newName)));
+        r.textEdit(replace(u, escName));
     }
 
     renameAdditionalUses(defs, newName, tr, tm, r);

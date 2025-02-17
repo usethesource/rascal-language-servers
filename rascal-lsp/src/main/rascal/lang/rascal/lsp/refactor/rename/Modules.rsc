@@ -69,11 +69,12 @@ void renameDefinition(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLo
 
 void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
     set[loc] defFiles = {d.top | d <- defs.defined};
+    escName = rascalEscapeName(newName);
     for (/QualifiedName qn := tr
       , any(d <- tm.useDef[qn.src], d.top in defFiles)
       , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
         modPrefix = cover(prefix([n.src | n <- qn.names]));
-        r.textEdit(replace(modPrefix, rascalEscapeName(newName)));
+        r.textEdit(replace(modPrefix, newName));
     }
 }
 
