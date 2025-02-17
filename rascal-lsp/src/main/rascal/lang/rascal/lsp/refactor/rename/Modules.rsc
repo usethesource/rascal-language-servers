@@ -27,6 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Modules
 
+extend framework::Rename;
 import framework::TextEdits;
 
 import lang::rascal::\syntax::Rascal;

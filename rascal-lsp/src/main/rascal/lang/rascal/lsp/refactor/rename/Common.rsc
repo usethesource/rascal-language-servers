@@ -89,7 +89,7 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
 
 default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {}
 
-default tuple[type[Tree] as, str desc] asType(_) = <#Name, "name">;
+default tuple[type[Tree] as, str desc] asType(IdRole _) = <#Name, "name">;
 
 default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
 

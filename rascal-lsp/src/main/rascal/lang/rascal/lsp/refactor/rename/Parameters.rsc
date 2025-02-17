@@ -40,7 +40,7 @@ private set[IdRole] formalRoles = {formalId(), keywordFormalId(), nestedFormalId
 
 bool isFormalId(IdRole role) = role in formalRoles;
 
-tuple[type[Tree] as, str desc] asType(idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
+tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
 
 private set[loc] rascalGetKeywordArgs(none()) = {};
 private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
