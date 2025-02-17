@@ -26,28 +26,3 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
 module util::refactor::Exception
-
-import analysis::typepal::TModel;
-
-import Message;
-import Set;
-
-alias Capture = tuple[loc def, loc use];
-
-data IllegalRenameReason
-    = invalidName(str name, str identifierDescription)
-    | doubleDeclaration(loc old, set[loc] new)
-    | captureChange(set[Capture] captures)
-    | definitionsOutsideWorkspace(set[loc] defs)
-    ;
-
-data RenameException
-    = illegalRename(str message, set[Message] reasons)
-    | unsupportedRename(str message, rel[loc location, str message] issues = {})
-    | unexpectedFailure(str message)
-    ;
-
-str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idDescription>";
-str describe(doubleDeclaration(_, _)) = "it causes double declarations";
-str describe(captureChange(_)) = "it changes program semantics";
-str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";

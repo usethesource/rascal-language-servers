@@ -31,7 +31,6 @@ import lang::rascal::lsp::refactor::Rename; // Module under test
 
 import util::Util;
 import framework::TextEdits;
-import util::refactor::Exception;
 
 import IO;
 import List;
@@ -60,6 +59,10 @@ import util::Reflective;
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
                 | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
 
+data RenameException
+    = illegalRename(set[Message] reasons)
+    ;
+
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
 private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed(l, sort(edits, bool(TextEdit e1, TextEdit e2) {
@@ -67,13 +70,9 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private void verifyTypeCorrectRenaming(loc root, <list[DocumentEdit] edits, set[Message] msgs>, PathConfig pcfg) {
+private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
-
-    if (msg <- msgs, msg is error) {
-        throw illegalRename("Renaming has errors", msgs);
-    }
 
     // Back-up sources
     loc backupLoc = |memory://tests/backup|;
@@ -140,18 +139,20 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         focus = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <focus[0].src>");
-        edits = rascalRenameSymbol(focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+        <edits, msgs> = rascalRenameSymbol(focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+
+        throwMessagesIfError(msgs);
 
         renamesPerModule = (
             beforeRename: afterRename
-            | renamed(oldLoc, newLoc) <- edits<0>
+            | renamed(oldLoc, newLoc) <- edits
             , beforeRename := getModuleName(oldLoc, pcfg)
             , afterRename := getModuleName(newLoc, pcfg)
         );
 
         replacesPerModule = toMap({
             <name, occ>
-            | changed(file, changes) <- edits<0>
+            | changed(file, changes) <- edits
             , name := getModuleName(file, pcfg)
             , locs := {c.range | c <- changes}
             , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
@@ -249,6 +250,12 @@ PathConfig getPathConfig(loc project) {
     return pcfg;
 }
 
+void throwMessagesIfError(set[Message] msgs) {
+    for (msg <- msgs, msg is error) {
+        throw illegalRename(msgs);
+    }
+}
+
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
     cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
     return rascalRenameSymbol(cursor, newName, projectDirs, getPathConfig);
@@ -256,11 +263,13 @@ Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurr
 
 tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
     edits = getEdits(singleModule, {projectDir}, cursorAtOldNameOccurrence, oldName, newName, PathConfig(loc _) { return pcfg; });
-    occs = extractRenameOccurrences(singleModule, edits, oldName);
+    throwMessagesIfError(edits<1>);
 
     for (src <- pcfg.srcs) {
-        verifyTypeCorrectRenaming(src, edits, pcfg);
+        verifyTypeCorrectRenaming(src, edits<0>, pcfg);
     }
+
+    occs = extractRenameOccurrences(singleModule, edits<0>, oldName);
 
     return <edits, occs>;
 }
@@ -319,11 +328,11 @@ private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) 
     return [<i, l, mt> | <i, <l, mt>> <- zip2(index(names), names)];
 }
 
-private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str name) {
+private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
     start[Module] m = parseModuleWithSpaces(moduleFileName);
     list[loc] oldNameOccurrences = [l | <_, l, _> <- collectNameTrees(m, name)];
 
-    if ([changed(_, replaces)] := edits<0>) {
+    if ([changed(_, replaces)] := edits) {
         set[int] occs = {};
         set[loc] nonOldNameLocs = {};
         for (r <- replaces) {

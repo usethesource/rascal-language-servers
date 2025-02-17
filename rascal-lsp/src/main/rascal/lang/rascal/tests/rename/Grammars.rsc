@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Grammars
 
 import lang::rascal::tests::rename::TestUtils;
-import util::refactor::Exception;
 
 test bool productionType() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo func(Foo f) = f.child;

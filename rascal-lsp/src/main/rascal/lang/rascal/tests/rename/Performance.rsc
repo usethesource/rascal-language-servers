@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Performance
 
 import lang::rascal::tests::rename::TestUtils;
-import util::refactor::Exception;
 
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::RascalConfig;

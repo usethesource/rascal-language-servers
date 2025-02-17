@@ -28,8 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::Variables
 
 import lang::rascal::tests::rename::TestUtils;
-import util::refactor::Exception;
-
 
 //// Local
 

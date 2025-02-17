@@ -32,7 +32,6 @@ import Message;
 import Relation;
 import util::Maybe;
 
-import util::refactor::Exception;
 import util::Util;
 
 import analysis::typepal::TModel;

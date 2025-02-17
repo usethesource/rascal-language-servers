@@ -33,7 +33,6 @@ import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;
 extend lang::rascal::lsp::refactor::rename::Common;
-import util::refactor::Exception;
 
 import IO;
 import List;
@@ -49,14 +48,13 @@ tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module nam
 
 bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
     r.error(i.src, "External imports are deprecated; renaming is not supported.");
-    // TODO Instead of throwing here, handle errors gracefully in the framework
-    throw unsupportedRename("External imports are deprecated; renaming is not supported.");
-    return false;
+    return true;
 }
 
 void renameDefinition(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+    rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
     r.textEdit(replace(nameLoc, newName));
 

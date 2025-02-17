@@ -133,3 +133,11 @@ void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, cD, _>, TMode
         r.error(old, "Cannot rename to <newName>, since it will lead to double declaration error (<new>).");
     }
 }
+
+void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
+    f = d.defined.top;
+    pcfg = r.getConfig().getPathConfig(f);
+    if (!any(srcFolder <- pcfg.srcs, isPrefixOf(srcFolder, f))) {
+        r.error(d, "Since this definition is not in the sources of open projects, it cannot be renamed.");
+    }
+}

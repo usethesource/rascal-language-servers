@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::ValidNames
 
 import lang::rascal::tests::rename::TestUtils;
-import util::refactor::Exception;
 
 import framework::TextEdits;
 

@@ -40,7 +40,6 @@ import lang::rascal::\syntax::Rascal;
 import util::Maybe;
 import util::Reflective;
 
-import util::refactor::Exception;
 import framework::TextEdits;
 import util::refactor::WorkspaceInfo;
 import util::Util;
@@ -330,8 +329,8 @@ set[loc] rascalGetKeywordFieldUses(TModel ws, set[loc] defs, str cursorName) {
             if (<{}, consUses, _> := rascalGetFieldDefsUses(ws, d, dataDef.defInfo.atype, fieldType, cursorName)) {
                 uses += consUses;
             }
-        } else {
-            throw unsupportedRename("Unknown type for definition at <d>: <ws.definitions[d].defInfo>");
+        // } else {
+        //     throw unsupportedRename("Unknown type for definition at <d>: <ws.definitions[d].defInfo>");
         }
     }
     return uses;
@@ -492,8 +491,8 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(dataField(loc adtLoc, AType 
             , fieldDef.idRole in {keywordFormalId(), fieldId()}
             , isStrictlyContainedIn(fieldDef.defined, dataDef.defined)
         };
-    } else {
-        throw unsupportedRename("Cannot rename data field \'<cursorName>\' from <cursorLoc>");
+    // } else {
+    //     throw unsupportedRename("Cannot rename data field \'<cursorName>\' from <cursorLoc>");
     }
 
     set[loc] defs = rascalGetOverloadedDefs(ws, initialDefs, mayOverloadF);
@@ -560,8 +559,8 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(collectionField(), cursorLoc
     if (<_, d> <- usesToLeft, define := ws.definitions[d], defType(AType collDefType) := define.defInfo, rascalIsCollectionType(collDefType)) {
         // We are at a use site, where the field element type is wrapped in a `aset` of `alist` constructor
         return rascalGetFieldDefsUses(ws, define.defined, collDefType, isTupleField(cursorType) ? cursorType.elmType : cursorType, cursorName);
-    } else {
-        throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
+    // } else {
+    //     throw unsupportedRename("Could not find a collection definition corresponding to the field at the cursor.");
     }
 }
 
@@ -648,8 +647,8 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(moduleName(), cursorLoc, cur
         // Cursor is at the module part of a qualified use
         if (<u, d> <- ws.useDef, u.begin <= cursorLoc.begin, u.end == cursorLoc.end) {
             moduleFile = d.top;
-        } else {
-            throw unsupportedRename("Could not find cursor location in TPL.");
+        // } else {
+        //     throw unsupportedRename("Could not find cursor location in TPL.");
         }
     }
 
