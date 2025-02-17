@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.OSUtils;
@@ -156,23 +157,31 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
     }
 
     private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
-    private ICommandOutput handleDebuggerCommand(String command) {
+    private @Nullable ICommandOutput handleDebuggerCommand(String command) {
         Matcher matcher = debuggingCommandPattern.matcher(command);
-        if (matcher.find()) {
-            if(matcher.group(1).equals("true")){
-                if(!debugServer.isClientConnected()){
-                    ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
-                    return () -> new AsciiStringOutputPrinter("Debugging session started.");
-                }
-                return () -> new AsciiStringOutputPrinter("Debugging session was already running.");
+        if (!matcher.find()) {
+            return null;
+        }
+        String message;
+        if(matcher.group(1).equals("true")){
+            if(!debugServer.isClientConnected()){
+                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
+                message = "Debugging session started.";
             }
+            else {
+                message = "Debugging session was already running.";
+            }
+        }
+        else {
             if(debugServer.isClientConnected()){
                 debugServer.terminateDebugSession();
-                return () -> new AsciiStringOutputPrinter("Debugging session stopped.");
+                message = "Debugging session stopped.";
             }
-            return () -> new AsciiStringOutputPrinter("Debugging session was not running.");
+            else {
+                message = "Debugging session was not running.";
+            }
         }
-        return null;
+        return () -> new AsciiStringOutputPrinter(message);
     }
 
 
