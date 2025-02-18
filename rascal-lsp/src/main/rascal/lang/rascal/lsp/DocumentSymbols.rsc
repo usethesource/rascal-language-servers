@@ -31,12 +31,12 @@ import String;
 import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
-import util::ErrorRecovery;
+import util::ParseErrorRecovery;
 
 list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
     m= \mod.top;
 
-    if (!(m has header) || hasErrors(m.header)) {
+    if (!(m has header) || hasParseErrors(m.header)) {
         return [];
     }
 
@@ -44,34 +44,34 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
 
     top-down-break visit (m) {
         case decl: (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars];
             }
 
         case decl: (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 children +=  [symbol(clean("<name>"), field(), t@\loc, detail="anno <t> <ot>")];
             }
 
         case decl: (Declaration) `<Tags _> <Visibility _> alias <UserType u> = <Type al>;`:
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 children += [symbol(clean("<u.name>"), struct(), u@\loc, detail="<u> = <al>")];
             }
 
         case decl: (Declaration) `<Tags _> <Visibility _> tag <Kind k> <Name name> on <{Type ","}+ ts>;`:
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 children += [symbol(clean("<name>"), \key(), name@\loc, detail="tag <k> <name> on <ts>")];
             }
 
         case decl: (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws>;`: {
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
                 children += [symbol("<u.name>", struct(), u@\loc, detail="data <u> <kws>", children=kwlist)];
             }
         }
 
         case decl: (Declaration) `<Tags _> <Visibility _> data <UserType u> <CommonKeywordParameters kws> = <{Variant "|"}+ variants>;` : {
-            if (!hasErrors(decl)) {
+            if (!hasParseErrors(decl)) {
                 kwlist = [symbol(".<k.name>", property(), k@\loc, detail="<k.\type>") | kws is present, KeywordFormal k <- kws.keywordFormalList];
                 variantlist = [symbol(clean("<v>"), \constructor(), v@\loc) | v <- variants];
 
@@ -80,7 +80,7 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
         }
 
         case FunctionDeclaration func :
-            if (!hasErrors(func)) {
+            if (!hasParseErrors(func)) {
                 children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature)@\loc, detail="<func.signature.\type>")];
             }
 
@@ -96,9 +96,9 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
 */
 
         case SyntaxDefinition def : {
-            if (!hasErrors(def)) {
+            if (!hasParseErrors(def)) {
                 rs = [symbol(clean("<prefix> <p.syms>"), \function(), p@\loc)
-                    | /Prod p := def.production, !hasErrors(p) && (p is labeled || p is unlabeled),
+                    | /Prod p := def.production, !hasParseErrors(p) && (p is labeled || p is unlabeled),
                     str prefix := (p is labeled ? "<p.name>: " : "")
                 ];
                 children += [symbol(clean("<def.defined>"), \struct(), def@\loc, children=rs)];

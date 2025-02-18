@@ -44,7 +44,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,7 +53,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
@@ -86,7 +85,7 @@ import io.usethesource.vallang.type.TypeStore;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
-    private static final ErrorRecovery RECOVERY = new ErrorRecovery(IRascalValueFactory.getInstance());
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
