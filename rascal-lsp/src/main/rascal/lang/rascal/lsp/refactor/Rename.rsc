@@ -479,13 +479,46 @@ private Cursor rascalGetCursor(TModel ws, Tree cursorT) {
     return cursor(kind, min(locsContainingCursor.l), cursorName);
 }
 
-private set[str] rascalNameToEquivalentNames(str name) =
-    {name, startsWith(name, "\\") ? name : "\\<name>"};
+private bool(loc) rascalContainsNameFilter(str n) {
+    en = rascalEscapeName(n);
 
-private bool rascalContainsName(loc l, str name) {
-    m = parseModuleWithSpacesCached(l);
-    if (/Tree t := m, "<t>" in rascalNameToEquivalentNames(name)) return true;
-    return false;
+    // Since QualifiedName is the most liberal and all the others are subsets of it,
+    // we default to QualifiedName in case parsing as something else fails.
+    qNameEsc = [QualifiedName] en;
+
+    Tree tryNameParse(type[&T <: Tree] a, str s) {
+        try {
+            return parse(a, s);
+        } catch _: {
+            return qNameEsc;
+        }
+    }
+
+    qName = tryNameParse(#QualifiedName, n);
+    name = tryNameParse(#QualifiedName, n);
+    nameEsc = tryNameParse(#QualifiedName, en);
+    nonTerm = tryNameParse(#Nonterminal, n);
+    nonTermEsc = tryNameParse(#Nonterminal, en);
+    nonTermLabel = tryNameParse(#NonterminalLabel, n);
+    nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
+    return bool(loc file) {
+        try {
+            visit (parseModuleWithSpacesCached(file)) {
+                case name: return true;
+                case nameEsc: return true;
+                case qName: return true;
+                case qNameEsc: return true;
+                case nonTerm: return true;
+                case nonTermEsc: return true;
+                case nonTermLabel: return true;
+                case nonTermLabel: return true;
+            }
+        }
+        catch Java("ParseError", _): return false;
+        catch ParseError(_): return false;
+
+        return false;
+    };
 }
 
 private TModel getTModel(str modName, ModuleStatus ms) {
@@ -522,12 +555,12 @@ ProjectFiles preloadFiles(set[loc] workspaceFolders, loc cursorLoc) {
     > };
 }
 
-ProjectFiles allWorkspaceFiles(set[loc] workspaceFolders, str cursorName, bool(loc, str) containsName, PathConfig(loc) getPathConfig) {
+ProjectFiles allWorkspaceFiles(set[loc] workspaceFolders, bool(loc) containsName, PathConfig(loc) getPathConfig) {
     return {
         // If we do not find any occurrences of the name under the cursor in a module,
         // we are not interested in loading the model, but we still want to inform the
         // renaming framework about the existence of the file.
-        <folder, containsName(file, cursorName), file>
+        <folder, containsName(file), file>
         | folder <- workspaceFolders
         , PathConfig pcfg := getPathConfig(folder)
         , srcFolder <- pcfg.srcs
@@ -613,6 +646,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
     str cursorName = "<cursorT>";
 
     rascalCheckLegalNameByType(newName, typeOf(cursorT));
+    rascalContainsName = rascalContainsNameFilter(newName);
 
     step("preloading minimal workspace information", 1);
     set[TModel] localTmodelsForFiles(ProjectFiles projectFiles) = tmodelsForProjectFiles(projectFiles, rascalTModels, getPathConfig);
@@ -624,7 +658,7 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
 
     step("loading required type information", 1);
     if (!rascalIsFunctionLocal(ws, cur)) {
-        ws = loadLocs(ws, allWorkspaceFiles(workspaceFolders, cursorName, rascalContainsName, getPathConfig), localTmodelsForFiles);
+        ws = loadLocs(ws, allWorkspaceFiles(workspaceFolders, rascalContainsName, getPathConfig), localTmodelsForFiles);
     }
 
     step("collecting uses of \'<cursorName>\'", 1);

@@ -28,48 +28,47 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.net.URISyntaxException;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.OSUtils;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.interpreter.env.GlobalEnvironment;
-import org.rascalmpl.interpreter.env.ModuleEnvironment;
-import org.rascalmpl.interpreter.load.StandardLibraryContributor;
-import org.rascalmpl.interpreter.result.IRascalResult;
-import org.rascalmpl.interpreter.result.ResultFactory;
 import org.rascalmpl.interpreter.utils.RascalManifest;
-import org.rascalmpl.jline.Terminal;
-import org.rascalmpl.jline.TerminalFactory;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.repl.BaseREPL;
-import org.rascalmpl.repl.ILanguageProtocol;
-import org.rascalmpl.repl.RascalInterpreterREPL;
-import org.rascalmpl.shell.RascalShell;
+import org.rascalmpl.repl.StopREPLException;
+import org.rascalmpl.repl.output.ICommandOutput;
+import org.rascalmpl.repl.output.impl.AsciiStringOutputPrinter;
+import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
+import org.rascalmpl.repl.rascal.RascalReplServices;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
-import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.io.StandardTextWriter;
 
 /**
@@ -77,14 +76,141 @@ import io.usethesource.vallang.io.StandardTextWriter;
  * connects to a running LSP server instance to
  * provide IDE feature to the user of a terminal instance.
  */
-public class LSPTerminalREPL extends BaseREPL {
-    private static final InputStream stdin = System.in;
-    private static final OutputStream stderr = System.err;
-    private static final boolean prettyPrompt = true;
-    private static final boolean allowColors = true;
+public class LSPTerminalREPL extends RascalInterpreterREPL {
+    private final int ideServicePort;
+    private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
+    private DebugSocketServer debugServer;
 
-    public LSPTerminalREPL(Terminal terminal, IDEServices services, OutputStream stdout) throws IOException, URISyntaxException {
-        super(makeInterpreter(terminal, services), null, stdin, stderr, stdout, true, terminal.isAnsiSupported(), getHistoryFile(), terminal, services);
+    private LSPTerminalREPL(int ideServicesPort) {
+        this.ideServicePort = ideServicesPort;
+    }
+
+    @Override
+    public Map<String, String> availableCommandLineOptions() {
+        var result = super.availableCommandLineOptions();
+        result.put("debugging", "enable debugging (true/false)");
+        return result;
+    }
+
+    @Override
+    protected IDEServices buildIDEService(PrintWriter err, IRascalMonitor monitor, Terminal term) {
+        try {
+            return new TerminalIDEClient(ideServicePort, err, monitor, term);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not build IDE service for REPL", e);
+        }
+    }
+
+    @Override
+    protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
+        var evaluator = super.buildEvaluator(input, stdout, stderr, services);
+        evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+
+        URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+        ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
+        String projectName = "unknown-project";
+        if (projectDir != null) {
+            projectName = new RascalManifest().getProjectName(projectDir);
+        }
+
+        reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
+        reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
+
+        debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+
+        try {
+            PathConfig pcfg;
+            if (projectDir != null) {
+                pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+            }
+            else {
+                pcfg = new PathConfig();
+                pcfg.addSourceLoc(URIUtil.rootLocation("std"));
+            }
+
+            stdout.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
+            stdout.println("Rascal-lsp Version: " + getRascalLspVersion());
+            new StandardTextWriter(true).write(pcfg.asConstructor(), stdout);
+
+            for (IValue srcPath : pcfg.getSrcs()) {
+                ISourceLocation path = (ISourceLocation)srcPath;
+                evaluator.addRascalSearchPath(path);
+                reg.watch(path, true, d -> sourceLocationChanged(path, d));
+            }
+
+            ClassLoader cl = new SourceLocationClassLoader(
+                pcfg.getClassloaders()
+                    .append(URIUtil.correctLocation("lib", "rascal",""))
+                    .append(URIUtil.correctLocation("lib", "rascal-lsp",""))
+                    .append(URIUtil.correctLocation("target", projectName, "")),
+                ClassLoader.getSystemClassLoader()
+            );
+
+            evaluator.addClassLoader(cl);
+        }
+        catch (IOException e) {
+            e.printStackTrace(stderr);
+        }
+
+        return evaluator;
+    }
+
+    private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
+    private @Nullable ICommandOutput handleDebuggerCommand(String command) {
+        Matcher matcher = debuggingCommandPattern.matcher(command);
+        if (!matcher.find()) {
+            return null;
+        }
+        String message;
+        if(matcher.group(1).equals("true")){
+            if(!debugServer.isClientConnected()){
+                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
+                message = "Debugging session started.";
+            }
+            else {
+                message = "Debugging session was already running.";
+            }
+        }
+        else {
+            if(debugServer.isClientConnected()){
+                debugServer.terminateDebugSession();
+                message = "Debugging session stopped.";
+            }
+            else {
+                message = "Debugging session was not running.";
+            }
+        }
+        return () -> new AsciiStringOutputPrinter(message);
+    }
+
+
+    @Override
+    public ICommandOutput handleInput(String command) throws InterruptedException, ParseError, StopREPLException {
+        var result = handleDebuggerCommand(command);
+        if (result != null) {
+            return result;
+        }
+        Set<String> changes = new HashSet<>();
+        changes.addAll(dirtyModules);
+        dirtyModules.removeAll(changes);
+        eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
+        return super.handleInput(command);
+    }
+
+    private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
+        if (URIUtil.isParentOf(srcPath, d.getLocation()) && d.getLocation().getPath().endsWith(".rsc")) {
+            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
+            relative = URIUtil.removeExtension(relative);
+
+            String modName = relative.getPath();
+            if (modName.startsWith("/")) {
+                modName = modName.substring(1);
+            }
+            modName = modName.replace("/", "::");
+            modName = modName.replace("\\", "::");
+            dirtyModules.add(modName);
+        }
     }
 
     private static String getRascalLspVersion() {
@@ -98,176 +224,17 @@ public class LSPTerminalREPL extends BaseREPL {
     }
 
 
-    private static ILanguageProtocol makeInterpreter(Terminal terminal, final IDEServices services) throws IOException, URISyntaxException {
-        RascalInterpreterREPL repl =
-            new RascalInterpreterREPL(prettyPrompt, allowColors, getHistoryFile()) {
-                private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
-                private DebugSocketServer debugServer;
-                private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
-
-                @Override
-                protected SortedSet<String> getCommandLineOptions() {
-                    SortedSet<String> options = super.getCommandLineOptions();
-                    options.add("debugging");
-                    return options;
-                }
-
-                @Override
-                public IRascalResult evalStatement(String statement, String lastLine) throws InterruptedException {
-                    Matcher matcher = debuggingCommandPattern.matcher(statement);
-                    if (matcher.find()) {
-                        if(matcher.group(1).equals("true")){
-                            if(!debugServer.isClientConnected()){
-                                ((TerminalIDEClient) services).startDebuggingSession(debugServer.getPort());
-                                getOutputWriter().println("Debugging session started.");
-                                return ResultFactory.nothing();
-                            }
-                            getOutputWriter().println("Debugging session was already running.");
-                            return ResultFactory.nothing();
-                        }
-                        if(debugServer.isClientConnected()){
-                            debugServer.terminateDebugSession();
-                            getOutputWriter().println("Debugging session stopped.");
-                            return ResultFactory.nothing();
-                        }
-                        getOutputWriter().println("Debugging session was not running.");
-                        return ResultFactory.nothing();
-                    }
-
-                    return super.evalStatement(statement, lastLine);
-                }
-
-                @Override
-                protected Evaluator constructEvaluator(InputStream input, OutputStream stdout, OutputStream stderr, IDEServices services) {
-                    GlobalEnvironment heap = new GlobalEnvironment();
-                    ModuleEnvironment root = heap.addModule(new ModuleEnvironment(ModuleEnvironment.SHELL_MODULE, heap));
-                    IValueFactory vf = ValueFactoryFactory.getValueFactory();
-                    Evaluator evaluator = new Evaluator(vf, input, stderr, stdout, services, root, heap);
-                    evaluator.addRascalSearchPathContributor(StandardLibraryContributor.getInstance());
-                    evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
-                    URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-                    ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-                    String projectName = "unknown-project";
-                    if (projectDir != null) {
-                        projectName = new RascalManifest().getProjectName(projectDir);
-                    }
-
-                    reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
-                    reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
-
-                    debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
-
-                    try {
-                        PathConfig pcfg;
-                        if (projectDir != null) {
-                            pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
-                        }
-                        else {
-                            pcfg = new PathConfig();
-                            pcfg.addSourceLoc(URIUtil.rootLocation("std"));
-                        }
-                        
-                        evaluator.getErrorPrinter().println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
-                        evaluator.getErrorPrinter().println("Rascal-lsp Version: " + getRascalLspVersion());
-                        new StandardTextWriter(true).write(pcfg.asConstructor(), evaluator.getErrorPrinter());
-
-                        for (IValue srcPath : pcfg.getSrcs()) {
-                            ISourceLocation path = (ISourceLocation)srcPath;
-                            evaluator.addRascalSearchPath(path);
-                            reg.watch(path, true, d -> sourceLocationChanged(path, d));
-                        }
-
-                        ClassLoader cl = new SourceLocationClassLoader(
-                            pcfg.getClassloaders()
-                                .append(URIUtil.correctLocation("lib", "rascal",""))
-                                .append(URIUtil.correctLocation("lib", "rascal-lsp",""))
-                                .append(URIUtil.correctLocation("target", projectName, "")),
-                            ClassLoader.getSystemClassLoader()
-                        );
-
-                        evaluator.addClassLoader(cl);
-                    }
-                    catch (IOException e) {
-                        e.printStackTrace(new PrintStream(stderr));
-                    }
-
-                     // this is very important since it hooks up the languageRegistration feature
-                    evaluator.setMonitor(services);
-
-                    return evaluator;
-                }
-
-                private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
-                    if (URIUtil.isParentOf(srcPath, d.getLocation()) && d.getLocation().getPath().endsWith(".rsc")) {
-                        ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
-                        relative = URIUtil.removeExtension(relative);
-
-                        String modName = relative.getPath();
-                        if (modName.startsWith("/")) {
-                            modName = modName.substring(1);
-                        }
-                        modName = modName.replace("/", "::");
-                        modName = modName.replace("\\", "::");
-                        dirtyModules.add(modName);
-                    }
-                }
-
-                @Override
-                public void handleInput(String line, Map<String, InputStream> output, Map<String, String> metadata)
-                    throws InterruptedException {
-                        try {
-                            Set<String> changes = new HashSet<>();
-                            changes.addAll(dirtyModules);
-                            dirtyModules.removeAll(changes);
-                            eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
-                        }
-                        catch (Throwable e) {
-                            getErrorWriter().println("Error during reload: " + e.getMessage());
-                            // in which case the dirty modules are not cleared and the system will try
-                            // again at the next command
-                            return;
-                        }
-
-                        super.handleInput(line, output, metadata);
-
-                        for (String mimetype : output.keySet()) {
-                            if (!mimetype.contains("html") && !mimetype.startsWith("image/")) {
-                                continue;
-                            }
-
-                            services.browse(
-                                URIUtil.assumeCorrect(metadata.get("url")),
-                                metadata.containsKey("title") ? metadata.get("title") : metadata.get("url"),
-                                metadata.containsKey("viewColumn") ? Integer.parseInt(metadata.get("viewColumn")) : 1
-                            );
-                        }
-                }
-            };
-
-        repl.setMeasureCommandTime(false);
-
-        return repl;
-    }
-
-
 
     @SuppressWarnings("java:S899") // it's fine to ignore the result of createNewFile
-    private static File getHistoryFile() throws IOException {
-        File home = new File(System.getProperty("user.home"));
-        File rascal = new File(home, ".rascal");
+    private static Path getHistoryFile() throws IOException {
+        var home = Paths.get(System.getProperty("user.home"));
+        var rascal = home.resolve(".rascal");
 
-        if (!rascal.exists()) {
-            rascal.mkdirs();
+        if (!Files.exists(rascal)) {
+            Files.createDirectories(rascal);
         }
 
-        File historyFile = new File(rascal, ".repl-history-rascal-terminal");
-        if (!historyFile.exists()) {
-            historyFile.createNewFile();
-        }
-
-        return historyFile;
+        return rascal.resolve(".repl-history-rascal-terminal-jline3");
     }
 
 
@@ -275,23 +242,13 @@ public class LSPTerminalREPL extends BaseREPL {
     public static void main(String[] args) throws InterruptedException, IOException {
         int ideServicesPort = -1;
         int vfsPort = -1;
-        String loadModule = null;
-        boolean runModule = false;
 
         for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case "--ideServicesPort":
-                    ideServicesPort = Integer.parseInt(args[++i]);
-                    break;
-                case "--vfsPort":
-                    vfsPort = Integer.parseInt(args[++i]);
-                    break;
-                case "--loadModule":
-                    loadModule = args[++i];
-                    break;
-                case "--runModule":
-                    runModule = true;
-                    break;
+            if (args[i].equals("--ideServicesPort")) {
+                ideServicesPort = Integer.parseInt(args[++i]);
+            }
+            else if (args[i].equals("--vfsPort")) {
+                vfsPort = Integer.parseInt(args[++i]);
             }
         }
 
@@ -299,28 +256,24 @@ public class LSPTerminalREPL extends BaseREPL {
             throw new IllegalArgumentException("missing --ideServicesPort commandline parameter");
         }
 
-        RascalShell.setupWindowsCodepage();
-        RascalShell.enableWindowsAnsiEscapesIfPossible();
-
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
-        try {
-            IRascalMonitor monitor = IRascalMonitor.buildConsoleMonitor(System.in, System.out, false);
+        var terminalBuilder = TerminalBuilder.builder()
+            .dumb(true) // enable fallback
+            .system(true);
 
-            LSPTerminalREPL terminal =
-                new LSPTerminalREPL(TerminalFactory.get(), new TerminalIDEClient(ideServicesPort, monitor), monitor instanceof OutputStream ? (OutputStream) monitor : System.out);
-            if (loadModule != null) {
-                terminal.queueCommand("import " + loadModule + ";");
-                if (runModule) {
-                    terminal.queueCommand("main()");
-                }
-            }
-            terminal.run();
+        if (OSUtils.IS_WINDOWS) {
+            terminalBuilder.encoding(StandardCharsets.UTF_8);
+        }
+
+        try {
+            var repl = new BaseREPL(new RascalReplServices(new LSPTerminalREPL(ideServicesPort), getHistoryFile()), terminalBuilder.build());
+            repl.run();
             System.exit(0); // kill the other threads
         }
-        catch (IOException | URISyntaxException e) {
+        catch (IOException e) {
             e.printStackTrace();
             System.err.println("Rascal terminal terminated exceptionally; press any key to exit process.");
             System.in.read();
