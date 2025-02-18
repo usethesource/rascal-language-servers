@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,9 +27,9 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.awt.Desktop;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -237,9 +237,9 @@ public class EvaluatorUtil {
             String jobName = "Loading " + label;
             try {
                 services.jobStart(jobName, imports.length);
-                Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(new ByteArrayInputStream(new byte[0]),
-                        IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildOutputStream(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildOutputStream(), services);
+                Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(Reader.nullReader(),
+                        IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter(),
+                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter(), services);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());

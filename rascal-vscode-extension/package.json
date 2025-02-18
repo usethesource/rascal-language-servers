@@ -16,8 +16,8 @@
   },
   "version": "0.13.0-head",
   "engines": {
-    "vscode": "^1.82.0",
-    "node": ">=18.15.0"
+    "vscode": "^1.90.0",
+    "node": ">=20.9.0"
   },
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -47,8 +47,28 @@
       {
         "command": "rascalmpl.importModule",
         "title": "Start Rascal Terminal and Import this module"
+      },
+      {
+        "command": "rascalmpl.startDebuggerForRepl",
+        "title": "Start Rascal debugger for REPL",
+        "icon": "$(debug)"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
+          "group": "inline"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "rascalmpl",
@@ -89,12 +109,24 @@
           "icon": "./assets/images/rascal-logo-v2.1.svg",
           "visibility": "collapsed"
         }
+      ],
+      "debug": [
+        {
+          "id": "rascalmpl-debugger-view",
+          "name": "Debug Rascal Terminal",
+          "icon": "$(debug)",
+          "visibility": "visible"
+        }
       ]
     },
     "viewsWelcome": [
       {
         "view": "rascalmpl-configuration-view",
         "contents": "No Rascal Projects found in the workspace"
+      },
+      {
+        "view": "rascalmpl-debugger-view",
+        "contents": "No active Rascal REPLs found"
       }
     ],
     "breakpoints": [
@@ -230,20 +262,20 @@
     "license-add": "npx license-check-and-add add -f license-config.json"
   },
   "devDependencies": {
-    "@tsconfig/node18": "18.x",
+    "@tsconfig/node20": "20.x",
     "@tsconfig/strictest": "2.x",
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
-    "@types/node": "18.x",
+    "@types/node": "20.x",
     "@types/tar": "6.x",
-    "@types/vscode": "1.82.0",
+    "@types/vscode": "1.90.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
-    "@vscode/vsce": "2.x",
+    "@vscode/vsce": "3.x",
     "chai": "4.x",
-    "esbuild": "0.24.x",
+    "esbuild": "0.25.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",

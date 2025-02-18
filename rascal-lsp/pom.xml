@@ -1,6 +1,6 @@
 <!--
 
-    Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+    Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
     <junit.version>4.13.2</junit.version>
     <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
     <log4j2.version>2.24.3</log4j2.version>
-    <lsp4j.version>0.23.1</lsp4j.version>
+    <lsp4j.version>0.24.0</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -65,17 +65,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC7</version>
+      <version>0.41.0-RC10</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.13-RC1</version>
+      <version>0.12.16</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.15.0-RC1</version>
+      <version>0.15.1</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -164,7 +164,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.28.9</version>
+        <version>0.28.11</version>
         <configuration>
           <errorsAsWarnings>false</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
@@ -195,6 +195,7 @@
               <goal>package</goal>
             </goals>
           </execution>
+          <!-- while we have RC builds of rascal, we cannot have tutor builds
           <execution>
             <id>default-cli</id>
             <phase>compile</phase>
@@ -214,7 +215,7 @@
                 <ignore>${project.basedir}/src/main/rascal/lang</ignore>
               </ignores>
             </configuration>
-          </execution>
+          </execution> -->
         </executions>
       </plugin>
 

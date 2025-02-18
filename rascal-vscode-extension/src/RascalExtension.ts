@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
+import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -55,6 +56,7 @@ export class RascalExtension implements vscode.Disposable {
         checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
+        vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
@@ -86,7 +88,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, "--loadModule", moduleName, "--runModule");
+                this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
             })
         );
     }
@@ -98,12 +100,12 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, "--loadModule", moduleName);
+                this.startTerminal(text.document.uri, `import ${moduleName};\n`);
             })
         );
     }
 
-    private async startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
+    private async startTerminal(uri: vscode.Uri | undefined, command?: string | undefined) {
         try {
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -112,7 +114,7 @@ export class RascalExtension implements vscode.Disposable {
             }, async (progress) => {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
-                console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
+                console.log(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
                 if (uri && !uri.path.endsWith(".rsc")) {
                     // do not try to figure out a rascal project path when the focus is not a rascal file
                     uri = undefined;
@@ -134,12 +136,15 @@ export class RascalExtension implements vscode.Disposable {
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(),
-                    shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
+                    shellArgs: this.buildShellArgs(compilationPath, serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
-                    name: `Rascal terminal (${this.getTerminalOrigin(uri, extraArgs)})`,
+                    name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
 
                 terminal.show(false);
+                if (command) {
+                    terminal.sendText(command);
+                }
                 progress.report({increment: 25, message: "Finished creating terminal"});
             });
         } catch (err) {
@@ -147,7 +152,7 @@ export class RascalExtension implements vscode.Disposable {
         }
     }
 
-    private getTerminalOrigin(uri: vscode.Uri | undefined, extraArgs: string[]): string {
+    private getTerminalOrigin(uri: vscode.Uri | undefined, startCommand: string): string {
         if (uri) {
             const config = vscode.workspace.getConfiguration();
             const originFormat = config.get('rascal.terminal.name.originFormat');
@@ -160,18 +165,19 @@ export class RascalExtension implements vscode.Disposable {
                     return "no project";
                 }
                 case 'Module (qualified)': {
-                    if (extraArgs[0] === '--loadModule' &&
-                        extraArgs[1] && extraArgs[1].match(this.qualifiedName)) {
-                        return extraArgs[1];
+                    const name = startCommand.match(this.qualifiedName);
+                    if (name && name[1]) {
+                        if (name[0] !== '') {
+                            return name[0] + "::" + name[1];
+                        }
+                        return name[1];
                     }
                     return "no module";
                 }
                 case 'Module (unqualified)': {
-                    if (extraArgs[0] === '--loadModule' && extraArgs[1]) {
-                        const name = extraArgs[1].match(this.qualifiedName);
-                        if (name && name[1]) {
-                            return name[1];
-                        }
+                    const name = startCommand.match(this.qualifiedName);
+                    if (name && name[1]) {
+                        return name[1];
                     }
                     return "no module";
                 }
@@ -187,7 +193,7 @@ export class RascalExtension implements vscode.Disposable {
         const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
         const name = `(?:${name1}|${name2})`;
         const qualifiedName = `(?:(?:${name}::)*(${name}))`;
-        return new RegExp(`^${qualifiedName}$`);
+        return new RegExp(`^import ${qualifiedName};`);
     })(); // Build the regex only once
 
     private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
