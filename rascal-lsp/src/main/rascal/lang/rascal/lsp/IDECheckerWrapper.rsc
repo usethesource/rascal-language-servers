@@ -57,11 +57,14 @@ list[ModuleMessages] checkFile(loc l, node(loc file) getParseTree, PathConfig(lo
         currentSrc = tree.src.top;
         currentProject = inferProjectRoot(currentSrc);
         for (i <- tree.top.header.imports) {
-            ml = getRascalModuleLocation("<i.\module>", getPathConfig(currentProject));
-            mlProject = inferProjectRoot(ml);
-            dependencies += <currentProject, resolveLocation(mlProject)>;
-            if (ml.extension == "rsc" && ml notin checkedForImports, start[Module] mlpt := getParseTree(ml)) {
-                checkForImports += mlpt;
+            try {
+                ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
+                if (ml.extension == "rsc", start[Module] mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
+                    checkForImports += mlpt;
+                    dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                }
+            } catch msg: {
+                ;// Continue
             }
         }
         checkedForImports += currentSrc;
@@ -73,8 +76,27 @@ list[ModuleMessages] checkFile(loc l, node(loc file) getParseTree, PathConfig(lo
 
 RascalCompilerConfig makeCompilerConfig(PathConfig pcfg) = rascalCompilerConfig(pcfg[resources=pcfg.bin]);
 
+loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
+    fileName = makeFileName(fqn);
+    for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
+        return fileLoc;
+    }
+    if (lib <- pcfg.libs, lib != |lib://rascal/|, dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
+        return fileLoc;
+    }
+    throw "Module `<fqn>` not found!";
+}
+
+loc targetToProject(loc l) {
+    if (l.scheme == "target") {
+        return l[scheme="project"];
+    }
+    return l;
+}
+
+@memo
 loc inferProjectRoot(loc member) {
-    current = member;
+    current = targetToProject(member);
     if (!isDirectory(current)) {
         current = current.parent;
     }
