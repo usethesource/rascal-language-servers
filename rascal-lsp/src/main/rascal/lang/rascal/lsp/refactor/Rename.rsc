@@ -624,12 +624,15 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
 }
 
 void renameDefinition(Define d:<_, _, _, role, _, _>, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
-    if (moduleId() := role) fail;
-    rascalCheckLegalNameByRole(d, newName, r);
-    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
-    rascalCheckDefinitionOutsideWorkspace(d, tm, r);
+    if (moduleId() != role) {
+        rascalCheckLegalNameByRole(d, newName, r);
+        rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+        rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
-    r.textEdit(replace(nameLoc, rascalEscapeName(newName)));
+        r.textEdit(replace(nameLoc, rascalEscapeName(newName)));
+    } else {
+        fail;
+    }
 }
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
