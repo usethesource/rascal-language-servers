@@ -93,8 +93,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.rascalmpl.exceptions.Throw;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -107,7 +105,6 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
@@ -227,7 +224,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         logger.debug("Did Open file: {}", params.getTextDocument());
-        handleParsingErrors(open(params.getTextDocument()));
+        TextDocumentState file = open(params.getTextDocument());
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync()); // No debounce
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
@@ -279,37 +277,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents);
-        handleParsingErrors(file, file.getCurrentTreeAsync()); // Warning: Might be a later version (when a concurrent update happened)
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(Duration.ofMillis(800))); // Warning: Might be a later version (when a concurrent update happened)
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<ITree>> futureTree) {
-        var version = file.getCurrentContent().version();
-        futureTree.handle((tree, excp) -> {
-            Diagnostic newParseError = null;
-            if (excp instanceof CompletionException) {
-                excp = excp.getCause();
-            }
-
-            if (excp instanceof Throw) {
-                Throw thrown = (Throw) excp;
-                newParseError = Diagnostics.translateRascalParseError(thrown.getException(), columns);
-            }
-            else if (excp instanceof ParseError) {
-                newParseError = Diagnostics.translateDiagnostic((ParseError)excp, columns);
-            }
-            else if (excp != null) {
-                logger.error("Parsing crashed", excp);
-                newParseError = new Diagnostic(
-                    new Range(new Position(0,0), new Position(0,1)),
-                    "Parsing failed: " + excp.getMessage(),
-                    DiagnosticSeverity.Error,
-                    "Rascal Parser");
-            }
-            logger.trace("Finished parsing tree, reporting new parse error: {} for: {}", newParseError, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), version,
-                newParseError == null ? Collections.emptyList() : Collections.singletonList(newParseError));
-            return null;
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync) {
+        diagnosticsAsync.thenAccept(diagnostics -> {
+            List<Diagnostic> parseErrors = diagnostics.get();
+            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
+            facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
         });
     }
 
@@ -380,12 +356,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         IConstructor command = (IConstructor) t.get(1);
 
         return new CodeLens(Locations.toRange(loc, columns), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
-    }
-
-
-
-    private void handleParsingErrors(TextDocumentState file) {
-        handleParsingErrors(file, file.getCurrentTreeAsync());
     }
 
     private static <T> T last(List<T> l) {
