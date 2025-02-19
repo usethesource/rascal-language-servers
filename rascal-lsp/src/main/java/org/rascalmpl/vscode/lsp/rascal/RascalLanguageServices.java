@@ -166,35 +166,40 @@ public class RascalLanguageServices {
                 c -> (ISet) c.get("messages")));
     }
 
+    IFunction makePathConfigGetter(Evaluator e) {
+        return e.getFunctionValueFactory().function(getPathConfigType, (t, u) -> {
+            return addResources(rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0]));
+        });
+    }
+
+    IFunction makeParseTreeGetter(Evaluator e) {
+        return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
+            ISourceLocation resolvedLocation;
+            try {
+                resolvedLocation = URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0]);
+            } catch (IOException e1) {
+                throw new IllegalArgumentException(e1);
+            }
+            // First, check whether the file is open and a parse tree is available
+            try {
+                return rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree().get();
+            } catch (ResponseErrorException e1) {
+                // File is not open in the IDE
+            }
+            // Parse the source file
+            try {
+                return RascalServices.parseRascalModule(resolvedLocation, Files.readString(Path.of(resolvedLocation.getURI())).toCharArray());
+            } catch (IOException e1) {
+                throw new IllegalArgumentException(e1);
+            }
+        });
+    }
+
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> {
-                IFunction getPathConfig = e.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0])));
-                IFunction getParseTree = e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
-                    ISourceLocation resolvedLocation;
-                    try {
-                        resolvedLocation = URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0]);
-                    } catch (IOException e1) {
-                        throw new IllegalArgumentException(e1);
-                    }
-                    // First, check whether the file is open and a parse tree is available
-                    try {
-                        return rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree().get();
-                    } catch (ResponseErrorException e1) {
-                        // File is not open in the IDE
-                    }
-                    // Parse the source file
-                    try {
-                        return RascalServices.parseRascalModule(resolvedLocation, Files.readString(Path.of(resolvedLocation.getURI())).toCharArray());
-                    } catch (IOException e1) {
-                        throw new IllegalArgumentException(e1);
-                    }
-
-                });
-                return translateCheckResults((IList) e.call("checkFile", file, getParseTree, getPathConfig));
-            },
+            e -> translateCheckResults((IList) e.call("checkFile", file, makeParseTreeGetter(e), makePathConfigGetter(e))),
             buildEmptyResult(VF.list(file)), exec, false, client);
     }
 
