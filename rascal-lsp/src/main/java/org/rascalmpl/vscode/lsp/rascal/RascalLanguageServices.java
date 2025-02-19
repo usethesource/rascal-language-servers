@@ -182,7 +182,10 @@ public class RascalLanguageServices {
             }
             // First, check whether the file is open and a parse tree is available
             try {
-                return rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree().get();
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree();
+                if (tree != null) {
+                    return tree.get();
+                }
             } catch (ResponseErrorException e1) {
                 // File is not open in the IDE
             }
