@@ -45,7 +45,7 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
             bin = projectDir + "target/classes",
             generatedSources = projectDir + "target/generated-sources/src/main/java/",
             generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
-            resources = projectDir + "target/generated-resources/src/main/java/"
+            resources = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(
