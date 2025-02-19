@@ -36,8 +36,8 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm) =
-    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree() _, TModel() lazyTm) =
+    {d | tm := lazyTm(), d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
