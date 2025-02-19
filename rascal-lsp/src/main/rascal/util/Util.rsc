@@ -24,9 +24,9 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::Util
+@bootstrapParser
+module util::Util
 
-import IO;
 import List;
 import Location;
 import Message;
@@ -34,13 +34,6 @@ import ParseTree;
 import String;
 
 import util::Maybe;
-import util::Reflective;
-
-import lang::rascal::\syntax::Rascal;
-
-import lang::rascal::lsp::refactor::TextEdits;
-
-alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 @synopsis{
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
@@ -77,14 +70,6 @@ bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
 
 @synopsis{
-    A cached wrapper for the Rascal whole-module parse function.
-}
-start[Module] parseModuleWithSpacesCached(loc l) {
-    @memo{expireAfter(minutes=5)} start[Module] parseModuleWithSpacesCached(loc l, datetime _) = parseModuleWithSpaces(l);
-    return parseModuleWithSpacesCached(l, lastModified(l));
-}
-
-@synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
 }
 Maybe[&T <: Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
@@ -116,19 +101,5 @@ bool isShorter(loc l1, loc l2) = l1.length < l2.length;
 
 bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
 
-@synopsis{
-    Predicate to sort locations by offset.
-}
-bool byOffset(loc l1, loc l2) = l1.offset < l2.offset;
-
-@synopsis{
-    Predicate to reverse a sort order.
-}
-bool(&T, &T) desc(bool(&T, &T) f) {
-    return bool(&T t1, &T t2) {
-        return f(t2, t1);
-    };
-}
-
-set[&T] flatMap(set[&S] ss, set[&T](&S) f) = ({} | it + f(s) | s <- ss);
-list[&T] flatMap(list[&S] ss, list[&T](&S) f) = ([] | it + f(s) | s <- ss);
+set[&T] flatMap(set[&U] us, set[&T](&U) f) =
+    {*ts | u <- us, ts := f(u)};

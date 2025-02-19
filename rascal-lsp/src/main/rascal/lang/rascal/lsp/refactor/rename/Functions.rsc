@@ -24,17 +24,23 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::TextEdits
+@bootstrapParser
+module lang::rascal::lsp::refactor::rename::Functions
 
-extend analysis::diff::edits::TextEdits;
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
 
-alias ChangeAnnotationId = str;
+import lang::rascal::\syntax::Rascal;
+import analysis::typepal::TModel;
+import lang::rascalcore::check::BasicRascalConfig;
 
-data ChangeAnnotation
-    = changeAnnotation(str label, str description, bool needsConfirmation)
-    ;
+import util::Maybe;
 
-data TextEdit(ChangeAnnotationId annotation = "");
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree() _, TModel() lazyTm) =
+    {d | tm := lazyTm(), d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
-alias ChangeAnnotationRegister =
-    ChangeAnnotationId(str label, str description, bool needsConfirmation);
+// TODO:
+// - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
+// - Keyword parameters. Currently, they are defined, but references at call sites do not appear as a use in the use/def relation.
+
+tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;

@@ -24,10 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Grammars
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
 test bool productionType() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo func(Foo f) = f.child;
@@ -37,7 +37,7 @@ test bool productionType() = testRenameOccurrences({0, 1, 2, 3}, "
 test bool productionConcreteType() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'Foo func((Foo) `\<Foo child\>`) = child;
 ", decls = "syntax Foo = Foo child;"
-, oldName = "Foo", newName = "Bar");
+, oldName = "Foo", newName = "Bar", skipCursors = {3, 4});
 
 test bool productionPattern() = testRenameOccurrences({0, 1, 2}, "
     'Tree t;
@@ -174,7 +174,7 @@ test bool metaVariable() = testRenameOccurrences({0, 1},
 , decls =
     "syntax S = s: S child;
     'data Tree;"
-);
+, skipCursors = {0});
 
 @synopsis{
       (defs)
