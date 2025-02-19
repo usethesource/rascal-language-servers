@@ -32,8 +32,6 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,9 +51,11 @@ import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.types.RascalTypeFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -178,7 +178,7 @@ public class RascalLanguageServices {
             try {
                 resolvedLocation = URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0]);
             } catch (IOException e1) {
-                throw new IllegalArgumentException(e1);
+                throw RuntimeExceptionFactory.io("Error resolving " + t[0]);
             }
             // First, check whether the file is open and a parse tree is available
             try {
@@ -191,9 +191,10 @@ public class RascalLanguageServices {
             }
             // Parse the source file
             try {
-                return RascalServices.parseRascalModule(resolvedLocation, Files.readString(Path.of(resolvedLocation.getURI())).toCharArray());
+                var contents = Prelude.consumeInputStream(URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation));
+                return RascalServices.parseRascalModule(resolvedLocation, contents.toCharArray());
             } catch (IOException e1) {
-                throw new IllegalArgumentException(e1);
+                throw RuntimeExceptionFactory.io("Could not open " + t[0] + " for reading");
             }
         });
     }
