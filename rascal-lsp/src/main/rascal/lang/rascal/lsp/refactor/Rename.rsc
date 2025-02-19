@@ -617,7 +617,8 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     str cursorName = "<cursor[0]>";
     containsName = rascalContainsNameFilter(cursorName, getTree);
     for (wsFolder <- r.getConfig().workspaceFolders
-       , loc f <- find(wsFolder, "rsc")
+       , srcFolder <- r.getConfig().getPathConfig(wsFolder).srcs
+       , loc f <- find(srcFolder, "rsc")
        , containsName(f)) {
         // TODO Optimize this. A QualifiedName occurrence can never be a definition.
         defFiles += f;
