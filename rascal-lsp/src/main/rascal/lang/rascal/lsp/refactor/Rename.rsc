@@ -459,7 +459,7 @@ private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
     // we default to QualifiedName in case parsing as something else fails.
     qNameEsc = [QualifiedName] en;
 
-    Tree tryNameParse(type[&T <: Tree] a, str s) {
+    &T tryNameParse(type[&T <: Tree] a, str s) {
         try {
             return parse(a, s);
         } catch _: {
@@ -484,7 +484,7 @@ private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
                 case nonTerm: return true;
                 case nonTermEsc: return true;
                 case nonTermLabel: return true;
-                case nonTermLabel: return true;
+                case nonTermLabelEsc: return true;
             }
         }
         catch Java("ParseError", _): return false;
