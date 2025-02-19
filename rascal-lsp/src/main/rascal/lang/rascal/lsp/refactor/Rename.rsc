@@ -475,7 +475,11 @@ private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
     nonTermLabel = tryNameParse(#NonterminalLabel, n);
     nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
     return bool(loc file) {
+        // Workaround while visit is broken
+        contents = readFile(file);
+        return contains(contents, n) || contains(contents, en);
         try {
+            // Currently broken due to https://github.com/usethesource/rascal/issues/2147
             visit (getTree(file)) {
                 case name: return true;
                 case nameEsc: return true;
