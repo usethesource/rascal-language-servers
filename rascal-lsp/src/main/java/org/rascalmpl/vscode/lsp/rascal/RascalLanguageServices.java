@@ -57,9 +57,11 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.types.RascalTypeFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -99,7 +101,9 @@ public class RascalLanguageServices {
     private final TypeFactory tf = TypeFactory.getInstance();
     private final TypeStore store = new TypeStore();
     private final Type getPathConfigType = tf.functionType(tf.abstractDataType(store, "PathConfig"), tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
-    private final Type getParseTreeType = tf.functionType(tf.nodeType(), tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
+    private final IConstructor startModuleConstructor = VF.constructor(RascalValueFactory.Symbol_Start, VF.constructor(RascalValueFactory.Symbol_Sort, VF.string("Module")));
+    private final Type startModuleType = RascalTypeFactory.getInstance().nonTerminalType(startModuleConstructor);
+    private final Type getParseTreeType = tf.functionType(startModuleType, tf.tupleType(tf.sourceLocationType()), tf.tupleEmpty());
 
     private final ExecutorService exec;
 
