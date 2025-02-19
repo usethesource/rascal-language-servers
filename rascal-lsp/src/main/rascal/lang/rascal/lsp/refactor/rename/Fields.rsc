@@ -42,5 +42,5 @@ import util::Maybe;
     // Find all fields with the same name in these ADT definitions
 // }
 
-tuple[type[Tree] as, str desc] asType(fieldId()) = <#Name, "field name">;
+tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;

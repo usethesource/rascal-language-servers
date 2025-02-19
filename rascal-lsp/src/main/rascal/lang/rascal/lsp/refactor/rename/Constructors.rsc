@@ -42,4 +42,4 @@ import util::Maybe;
     // Find all constructors with the same name in these ADT definitions
 // }
 
-tuple[type[Tree] as, str desc] asType(constructorId()) = <#Name, "constructor name">;
+tuple[type[Tree] as, str desc] asType(constructorId()) = <#NonterminalLabel, "constructor name">;
