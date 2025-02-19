@@ -45,8 +45,8 @@ import lang::rascalcore::check::ModuleLocations;
 
     This function must only be used in an IDE context.
 }
-list[ModuleMessages] checkFile(loc l, node(loc file) getParseTree, PathConfig(loc file) getPathConfig) {
-    checkForImports = [pt | start[Module] pt := getParseTree(l)];
+list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    checkForImports = [getParseTree(l)];
     checkedForImports = {};
 
     rel[loc, loc] dependencies = {<root, root> | root := inferProjectRoot(l)};
@@ -59,7 +59,7 @@ list[ModuleMessages] checkFile(loc l, node(loc file) getParseTree, PathConfig(lo
         for (i <- tree.top.header.imports) {
             try {
                 ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
-                if (ml.extension == "rsc", start[Module] mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
+                if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
                     checkForImports += mlpt;
                     dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                 }
