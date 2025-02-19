@@ -32,6 +32,7 @@ import Set;
 import String;
 import analysis::graphs::Graph;
 import util::FileSystem;
+import util::Monitor;
 import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
@@ -45,7 +46,8 @@ import lang::rascalcore::check::ModuleLocations;
 
     This function must only be used in an IDE context.
 }
-list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
+    = job("Rascal check", list[ModuleMessages](void() step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
 
@@ -53,6 +55,7 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     
     msgs = [];
 
+    jobStep("Rascal check", "Building dependency graph");
     while (tree <- checkForImports) {
         currentSrc = tree.src.top;
         currentProject = inferProjectRoot(currentSrc);
@@ -63,7 +66,7 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
                     checkForImports += mlpt;
                     dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                 }
-            } catch msg: {
+            } catch _: {
                 ;// Continue
             }
         }
@@ -71,8 +74,13 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
         checkForImports -= tree;
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
-    return [*check([*modulesPerProject[project]], makeCompilerConfig(getPathConfig(project))) | project <- reverse(order(dependencies)), project in modulesPerProject];
-}
+    msgs = [];
+    for (project <- reverse(order(dependencies)), project in modulesPerProject) {
+        jobStep("Rascal check", "Checking project `<project.file>`");
+        msgs += check([*modulesPerProject[project]], makeCompilerConfig(getPathConfig(project))); 
+    }
+    return msgs;
+});
 
 RascalCompilerConfig makeCompilerConfig(PathConfig pcfg) = rascalCompilerConfig(pcfg[resources=pcfg.bin]);
 
