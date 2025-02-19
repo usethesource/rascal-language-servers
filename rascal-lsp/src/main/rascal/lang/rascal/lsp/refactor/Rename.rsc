@@ -614,6 +614,13 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     set[loc] defFiles = {};
     set[loc] useFiles = {};
 
+    if (Concrete c := cursor[0]) {
+        // Due to how the focus list is computed and the grammar for concrete syntax,
+        // we cannot easily find the exact name that the cursor is at
+        r.error(c.src, "Renaming from concrete syntax is not supported");
+        return <{}, {}>;
+    }
+
     str cursorName = "<cursor[0]>";
     containsName = rascalContainsNameFilter(cursorName, getTree);
     for (wsFolder <- r.getConfig().workspaceFolders
