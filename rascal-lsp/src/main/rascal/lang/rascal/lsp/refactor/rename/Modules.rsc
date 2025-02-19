@@ -54,11 +54,7 @@ bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Ren
     return true;
 }
 
-void renameDefinition(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
-    rascalCheckLegalNameByRole(d, newName, r);
-    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
-    rascalCheckDefinitionOutsideWorkspace(d, tm, r);
-
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file
@@ -66,7 +62,7 @@ void renameDefinition(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLo
     pcfg = r.getConfig().getPathConfig(moduleFile);
     loc relModulePath = relativize(pcfg.srcs, moduleFile);
     loc srcFolder = [srcFolder | srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
-    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(newName)));
+    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(rascalUnescapeName(newName))));
 }
 
 void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {

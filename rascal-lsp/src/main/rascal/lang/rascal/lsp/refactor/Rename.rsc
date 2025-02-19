@@ -164,7 +164,7 @@ void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
 }
 
 
-private str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
+str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 // private rel[loc name, loc useDef] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs, CursorKind cursorKind) {
@@ -623,16 +623,16 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, 
     return <defFiles, useFiles>;
 }
 
-void renameDefinition(Define d:<_, _, _, role, _, _>, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
-    if (moduleId() != role) {
-        rascalCheckLegalNameByRole(d, newName, r);
-        rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
-        rascalCheckDefinitionOutsideWorkspace(d, tm, r);
+default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {
+    r.textEdit(replace(nameLoc, newName));
+}
 
-        r.textEdit(replace(nameLoc, rascalEscapeName(newName)));
-    } else {
-        fail;
-    }
+void renameDefinition(Define d:<_, _, _, role, _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+    rascalCheckLegalNameByRole(d, newName, r);
+    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+    rascalCheckDefinitionOutsideWorkspace(d, tm, r);
+
+    renameDefinitionUnchecked(d, nameLoc, rascalEscapeName(newName), tr, tm, r);
 }
 
 void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
