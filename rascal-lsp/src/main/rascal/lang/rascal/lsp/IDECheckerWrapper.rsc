@@ -28,6 +28,7 @@ module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
 import List;
+import Relation;
 import Set;
 import String;
 import analysis::graphs::Graph;
@@ -73,6 +74,9 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
         }
         checkedForImports += currentSrc;
         checkForImports -= tree;
+    }
+    if (<p,p> <- (dependencies - ident(carrier(dependencies)))+) {
+        return [program(l, error("Detected cyclic dependencies between projects. Fix your project setup.", l))];
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
