@@ -50,8 +50,9 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     = job("Rascal check", list[ModuleMessages]() {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
+    initialProject = inferProjectRoot(l);
 
-    rel[loc, loc] dependencies = {<root, root> | root := inferProjectRoot(l)};
+    rel[loc, loc] dependencies = {};
     
     msgs = [];
 
@@ -75,10 +76,12 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
-    for (project <- reverse(order(dependencies)), project in modulesPerProject) {
+    for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
         jobStep("Rascal check", "Checking project `<project.file>`");
         msgs += check([*modulesPerProject[project]], makeCompilerConfig(getPathConfig(project))); 
     }
+    jobStep("Rascal check", "Checking <l>");
+    msgs += check([l], makeCompilerConfig(getPathConfig(initialProject)));
     return msgs;
 });
 
