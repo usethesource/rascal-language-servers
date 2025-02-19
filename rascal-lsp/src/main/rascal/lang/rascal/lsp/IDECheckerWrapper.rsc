@@ -47,7 +47,7 @@ import lang::rascalcore::check::ModuleLocations;
     This function must only be used in an IDE context.
 }
 list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
-    = job("Rascal check", list[ModuleMessages](void() step) {
+    = job("Rascal check", list[ModuleMessages]() {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
 
