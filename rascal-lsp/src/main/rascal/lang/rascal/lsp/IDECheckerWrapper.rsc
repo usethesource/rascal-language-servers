@@ -85,7 +85,7 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
         msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project))); 
     }
     jobStep("Rascal check", "Checking <l>");
-    msgs += check([l], makeCompilerConfig(getPathConfig(initialProject)));
+    msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
     return msgs;
 });
 
