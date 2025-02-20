@@ -48,7 +48,7 @@ import lang::rascalcore::check::ModuleLocations;
     This function must only be used in an IDE context.
 }
 list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
-    = job("Rascal check", list[ModuleMessages]() {
+    = job("Rascal check", list[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
@@ -56,7 +56,7 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     rel[loc, loc] dependencies = {};
     
 
-    jobStep("Rascal check", "Building dependency graph");
+    step("Building dependency graph", 50);
     while (tree <- checkForImports) {
         currentSrc = tree.src.top;
         currentProject = inferProjectRoot(currentSrc);
@@ -80,10 +80,10 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
     for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
-        jobStep("Rascal check", "Checking project `<project.file>`");
+        step("Checking project `<project.file>`", 1);
         msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project))); 
     }
-    jobStep("Rascal check", "Checking <l>");
+    step("Checking <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
     return dup(msgs);
 });
