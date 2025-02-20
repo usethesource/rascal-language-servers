@@ -190,9 +190,8 @@ public class RascalLanguageServices {
                 // File is not open in the IDE
             }
             // Parse the source file
-            try {
-                var contents = Prelude.consumeInputStream(URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation));
-                return RascalServices.parseRascalModule(resolvedLocation, contents.toCharArray());
+            try (var reader = URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation)) {
+                return RascalServices.parseRascalModule(resolvedLocation, Prelude.consumeInputStream(reader).toCharArray());
             } catch (IOException e1) {
                 throw RuntimeExceptionFactory.io("Could not open " + t[0] + " for reading");
             }
