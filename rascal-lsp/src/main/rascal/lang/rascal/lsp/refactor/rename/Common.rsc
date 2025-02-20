@@ -53,6 +53,23 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
+bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree) {
+    n = parse(t, name);
+    en = parse(t, escape(name));
+    return bool(loc l) {
+        bottom-up-break visit (getTree(l)) {
+            case n: return true;
+            case en: return true;
+        }
+    };
+}
+
+tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str name, set[loc]() getSourceFiles, Tree(loc) getTree) {
+    containsName = containsFilter(N, name, rascalEscapeName, getTree);
+    set[loc] fs = {f | loc f <- getSourceFiles(), containsName(f)};
+    return <fs, fs>;
+}
+
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 

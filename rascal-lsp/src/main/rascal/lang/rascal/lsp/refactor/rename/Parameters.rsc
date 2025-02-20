@@ -43,6 +43,11 @@ bool isFormalId(IdRole role) = role in formalRoles;
 
 tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
 
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, role, _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+    if (!isFormalId(role)) fail;
+    return findOccurrenceFilesSymmetric(#Name, "<focus[0]>", getSourceFiles, getTree);
+}
+
 private set[loc] rascalGetKeywordArgs(none()) = {};
 private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
     { kwArg.name.src

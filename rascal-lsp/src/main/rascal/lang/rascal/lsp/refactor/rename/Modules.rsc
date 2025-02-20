@@ -49,6 +49,37 @@ import util::Reflective;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+    int modIdSize = size(modId);
+    loc modFile = d.top;
+
+    if ([*_, QualifiedName modName, *_] := focus) {
+        escModName = [QualifiedName] rascalEscapeName("<modName>");
+        set[loc] useFiles = {};
+        for (loc f <- getSourceFiles(), f != modFile) {
+            visit (getTree(f)) {
+                case modName: {
+                    useFiles += f;
+                    continue;
+                }
+                case escModName: {
+                    useFiles += f;
+                    continue;
+                }
+                case QualifiedName qn: {
+                    if (qn.src.length > modIdSize && startsWith("<qn>", modId)) {
+                        useFiles += f;
+                        continue;
+                    }
+                }
+            }
+        }
+        return <{modFile}, {modFile, *useFiles}>;
+    }
+
+    return <{d.top}, {d.top}>;
+}
+
 bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
     r.error(i.src, "External imports are deprecated; renaming is not supported.");
     return true;

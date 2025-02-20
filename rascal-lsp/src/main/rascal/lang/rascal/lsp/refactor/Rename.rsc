@@ -625,29 +625,15 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
-    set[loc] defFiles = {};
-    set[loc] useFiles = {};
-
-    if (Concrete c := cursor[0]) {
-        // Due to how the focus list is computed and the grammar for concrete syntax,
-        // we cannot easily find the exact name that the cursor is at
-        r.error(c.src, "Renaming from concrete syntax is not supported");
-        return <{}, {}>;
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
+    set[loc] getSourceFiles() {
+        return {*find(srcFolder, "rsc")
+            | wsFolder <- r.getConfig().workspaceFolders
+            , srcFolder <- r.getConfig().getPathConfig(wsFolder).srcs
+        };
     }
 
-    str cursorName = "<cursor[0]>";
-    containsName = rascalContainsNameFilter(cursorName, getTree);
-    for (wsFolder <- r.getConfig().workspaceFolders
-       , srcFolder <- r.getConfig().getPathConfig(wsFolder).srcs
-       , loc f <- find(srcFolder, "rsc")
-       , containsName(f)) {
-        // TODO Optimize this. A QualifiedName occurrence can never be a definition.
-        defFiles += f;
-        useFiles += f;
-    }
-
-    return <defFiles, useFiles>;
+    return findOccurrenceFiles(defs, cursor, getSourceFiles, getTree, r);
 }
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {

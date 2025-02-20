@@ -198,12 +198,10 @@ RenameResult rename(
         set[Define] additionalDefs = {};
         for (loc f <- maybeDefFiles) {
             printDebug("  - ... in <f>");
-
-            lazyTree = Tree() { return parseLocCached(f); };
-            lazyModel = TModel() { return getTModelCached(lazyTree()); };
-
-            fileAdditionalDefs = findAdditionalDefinitions(defs, lazyTree, lazyModel);
-            printDebug("     (found <size(fileAdditionalDefs)>)");
+            tr = parseLocCached(f);
+            tm = getTModelCached(tr);
+            fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm);
+            printDebug("    (found <size(fileAdditionalDefs)>)");
             additionalDefs += fileAdditionalDefs;
         }
         defs += additionalDefs;
@@ -322,7 +320,7 @@ default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Defi
     return <{f}, {f}>;
 }
 
-default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree() tr, TModel() tm) = {};
+default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm) = {};
 
 // TODO Remove Tree argument
 default void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {

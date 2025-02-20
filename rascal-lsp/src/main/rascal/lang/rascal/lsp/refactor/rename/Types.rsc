@@ -36,9 +36,16 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree() _, TModel() lazyTm) =
-    {d | tm := lazyTm(), d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm) =
+    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+
+private bool isDataRole(IdRole role) = role in dataRoles;
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
 tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
+
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, role, _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+    if (!isDataRole(role) && role != annoId()) fail;
+    return findOccurrenceFilesSymmetric(#Name, "<focus[0]>", getSourceFiles, getTree);
+}
