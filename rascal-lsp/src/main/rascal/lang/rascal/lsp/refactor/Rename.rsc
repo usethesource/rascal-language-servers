@@ -568,8 +568,23 @@ private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
 
 alias Edits = tuple[list[DocumentEdit], set[Message]];
 
-public Edits rascalRenameSymbol(list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
-    cursor
+Tree findCursorInTree(Tree t, loc cursorLoc) {
+    top-down visit (t) {
+        case Name n: if (isContainedIn(n.src, cursorLoc)) return n;
+        // case QualifiedName n: if (isContainedIn(n.src, cursorLoc)) return n;
+        case Nonterminal n: if (isContainedIn(n.src, cursorLoc)) return n;
+        case NonterminalLabel n: if (isContainedIn(n.src, cursorLoc)) return n;
+    }
+    return t;
+}
+
+// Due to how the focus list is computed and the grammar for concrete syntax,
+// we cannot easily find the exact name that the cursor is at
+list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
+default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
+
+public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
+    extendFocusWithConcreteSyntax(cursor, cursorLoc)
   , newName
   , rconfig(
         Tree(loc l) { return parse(#start[Module], l); }

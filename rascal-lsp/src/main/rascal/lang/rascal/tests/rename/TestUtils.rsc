@@ -136,10 +136,10 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             }
         }
 
-        focus = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
+        <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <focus[0].src>");
-        <edits, msgs> = rascalRenameSymbol(focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+        <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
 
         throwMessagesIfError(msgs);
 
@@ -257,8 +257,8 @@ void throwMessagesIfError(set[Message] msgs) {
 }
 
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
-    cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
-    return rascalRenameSymbol(cursor, newName, projectDirs, getPathConfig);
+    <cursor, focus> = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
+    return rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
 }
 
 tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
@@ -358,12 +358,12 @@ private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit]
 private str moduleNameToPath(str name) = replaceAll(name, "::", "/");
 private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
-private list[Tree] findCursor(loc f, str id, int occ) {
+private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
     names = collectNameTrees(m, id);
     if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
     loc cl = (names<1>)[occ];
-    return computeFocusList(m, cl.begin.line, cl.begin.column + 1);
+    return <cl, computeFocusList(m, cl.begin.line, cl.begin.column + 1)>;
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
