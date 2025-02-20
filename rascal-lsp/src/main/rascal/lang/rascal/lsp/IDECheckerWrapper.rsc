@@ -82,14 +82,12 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     msgs = [];
     for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
         jobStep("Rascal check", "Checking project `<project.file>`");
-        msgs += check([*modulesPerProject[project]], makeCompilerConfig(getPathConfig(project))); 
+        msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project))); 
     }
     jobStep("Rascal check", "Checking <l>");
     msgs += check([l], makeCompilerConfig(getPathConfig(initialProject)));
     return msgs;
 });
-
-RascalCompilerConfig makeCompilerConfig(PathConfig pcfg) = rascalCompilerConfig(pcfg[resources=pcfg.bin]);
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
     fileName = makeFileName(fqn);
