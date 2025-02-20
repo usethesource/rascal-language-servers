@@ -90,10 +90,12 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
     fileName = makeFileName(fqn);
+    // Check the source directories
     for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
         return fileLoc;
     }
-    if (lib <- pcfg.libs, lib != |lib://rascal/|, dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
+    // Check the source directories of libraries that are currently open in VS Code
+    if (lib <- pcfg.libs, lib.scheme != "lib", dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
         return fileLoc;
     }
     throw "Module `<fqn>` not found!";
