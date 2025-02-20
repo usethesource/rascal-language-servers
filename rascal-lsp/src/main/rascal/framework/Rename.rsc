@@ -108,7 +108,7 @@ RenameResult rename(
 
     // Messages
     set[FailMessage] messages = {};
-    bool errorReported() = messages != {} && any(m <- messages, m is error);
+    bool errorReported() = messages != {} && any(m <- messages, m is fm_error);
     void registerMessage(FailMessage msg) { messages += msg; };
     AType getType(Tree t) {
         TModel tm = getTModelCached(parseLocCached(t.src.top));
