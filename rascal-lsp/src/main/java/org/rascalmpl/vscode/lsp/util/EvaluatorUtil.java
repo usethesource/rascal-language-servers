@@ -65,6 +65,7 @@ import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -72,6 +73,7 @@ import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -242,8 +244,20 @@ public class EvaluatorUtil {
                         IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter(), services);
 
                 eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
+
+                // for the rascal-lsp jar
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
+
+                // for rascal.jar
                 eval.addClassLoader(IValue.class.getClassLoader());
+
+                // for loading classes from the current project and its dependencies
+                IList classloaders = pcfg.getClassloaders();
+                ClassLoader cl = new SourceLocationClassLoader(
+                    classloaders.contains(pcfg.getBin()) ? classloaders : classloaders.append(pcfg.getBin()), 
+                    ShellEvaluatorFactory.class.getClassLoader());
+                eval.addClassLoader(cl);
+
                 if (addRascalCore) {
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
                     eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
