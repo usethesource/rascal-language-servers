@@ -639,7 +639,7 @@ default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree 
     r.textEdit(replace(nameLoc, newName));
 }
 
-void renameDefinition(Define d:<_, _, _, role, _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinition(Define d, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);

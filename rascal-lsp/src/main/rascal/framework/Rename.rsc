@@ -181,6 +181,7 @@ RenameResult rename(
       , void(value at, str s) { registerMessage(error(at, s)); }
     );
 
+    // TODO Replace debug prints with util::Monitor
     printDebug("Renaming <cursor[0].src> to \'<newName>\'");
 
     printDebug("+ Finding definitions for cursor at <cursor[0].src>");
@@ -310,6 +311,7 @@ default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Defi
 
 default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree() tr, TModel() tm) = {};
 
+// TODO Remove Tree argument
 default void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 }
