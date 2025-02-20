@@ -45,7 +45,9 @@ import lang::rascalcore::check::ModuleLocations;
     may be open in the current workspace. It takes an overapproximation of the import/extend graph,
     and calls the type checker on (transitive) dependencies first.
 
-    This function must only be used in an IDE context.
+    This function must only be used in an IDE context, as this is the only situation in which non-lib
+    source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
+    locations, the type checker uses `tpl` files that are packaged with libraries.
 }
 list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
     = job("Rascal check", list[ModuleMessages](void(str, int) step) {
