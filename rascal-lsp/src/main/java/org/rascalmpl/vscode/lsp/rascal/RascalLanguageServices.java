@@ -160,7 +160,6 @@ public class RascalLanguageServices {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
-            .distinct()
             .collect(Collectors.toMap(
                 c -> (ISourceLocation) c.get("src"),
                 c -> (ISet) c.get("messages")));

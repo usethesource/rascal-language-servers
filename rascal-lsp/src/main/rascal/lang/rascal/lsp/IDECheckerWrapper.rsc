@@ -55,7 +55,6 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
 
     rel[loc, loc] dependencies = {};
     
-    msgs = [];
 
     jobStep("Rascal check", "Building dependency graph");
     while (tree <- checkForImports) {
@@ -86,7 +85,7 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
     }
     jobStep("Rascal check", "Checking <l>");
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return msgs;
+    return dup(msgs);
 });
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
