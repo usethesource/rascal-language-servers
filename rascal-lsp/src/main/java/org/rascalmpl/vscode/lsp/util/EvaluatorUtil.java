@@ -27,6 +27,8 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.awt.Desktop;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -163,24 +165,32 @@ public class EvaluatorUtil {
         var msg = new ShowMessageRequestParams();
         msg.setMessage(title);
         msg.setType(MessageType.Error);
-        msg.setActions(Arrays.asList(new MessageActionItem("Report on GitHub"), new MessageActionItem("Ignore")));
+        final String ReportLabel = "Report on GitHub";
+        final String CopyLabel = "Copy stack trace to clipboard";
+        msg.setActions(Arrays.asList(new MessageActionItem(ReportLabel), new MessageActionItem(CopyLabel), new MessageActionItem("Ignore")));
         client.showMessageRequest(msg)
-            .thenAccept(responds -> {
-                if (responds != null && responds.getTitle().equals("Report on GitHub")) {
-                    var body = new StringWriter();
-                    var bodyWriter = new PrintWriter(body);
-                    bodyWriter.println("Context: ***Please provide context***");
-                    bodyWriter.println();
-                    bodyWriter.println("Exception thrown:");
-                    bodyWriter.println("```");
-                    bodyWriter.println(e.getMessage());
-                    bodyWriter.println("```");
-                    bodyWriter.println("Stacktrace:");
-                    bodyWriter.println("```");
-                    bodyWriter.println(stackTrace);
-                    bodyWriter.println("```");
-                    browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
-                }
+            .thenAccept(reponse -> {
+                if (reponse != null){
+                    var responseTitle = reponse.getTitle();
+                    if (responseTitle.equals(ReportLabel)) {
+                        var body = new StringWriter();
+                        var bodyWriter = new PrintWriter(body);
+                        bodyWriter.println("Context: ***Please provide context***");
+                        bodyWriter.println();
+                        bodyWriter.println("Exception thrown:");
+                        bodyWriter.println("```");
+                        bodyWriter.println(e.getMessage());
+                        bodyWriter.println("```");
+                        bodyWriter.println("Stacktrace:");
+                        bodyWriter.println("```");
+                        bodyWriter.println(stackTrace);
+                        bodyWriter.println("```");
+                        browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
+                    } else if (responseTitle.equals(CopyLabel)) {
+                        var content = new StringSelection(stackTrace);
+                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(content, content);
+                    }
+                } 
             });
     }
 
