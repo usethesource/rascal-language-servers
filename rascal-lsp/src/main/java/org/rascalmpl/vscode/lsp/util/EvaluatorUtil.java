@@ -190,7 +190,7 @@ public class EvaluatorUtil {
                         var content = new StringSelection(stackTrace);
                         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(content, content);
                     }
-                } 
+                }
             });
     }
 
