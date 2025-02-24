@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -191,7 +190,6 @@ public class TextDocumentState {
                 parser
                     .apply(location, content)
                     .whenComplete((t, e) -> {
-
                         // Prepare result values for futures
                         var tree = new Versioned<>(version, t);
                         var diagnostics = new Versioned<>(version, toDiagnostics(t, e));

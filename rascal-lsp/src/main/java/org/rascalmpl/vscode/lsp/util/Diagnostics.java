@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -61,6 +60,12 @@ public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
 
+    // Note: DiagnosticSeverity.Hint only highlightes a single character!
+    static DiagnosticSeverity errorLocationHighlight = DiagnosticSeverity.Error;
+    static DiagnosticSeverity errorTreeHighlight = null;
+    static DiagnosticSeverity prefixHighlight = null;
+    static DiagnosticSeverity skippedHighlight = null;
+
     static {
         severityMap = new HashMap<>();
         severityMap.put("error", DiagnosticSeverity.Error);
@@ -90,23 +95,38 @@ public class Diagnostics {
 
         List<Diagnostic> diagnostics = new ArrayList<>();
 
-        int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
-        if (prefixLength > 0) {
-            ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
-                    errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
-                    errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                    errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-            diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
-        } else {
+        // Highlight selected parts of the error tree
+        if (errorLocationHighlight != null) {
+            // Just the error location
             ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
-                skippedLoc.getOffset(), 1,
-                skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                skippedLoc.getBeginColumn(),skippedLoc.getBeginColumn() + 1);
-
-            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location", DiagnosticSeverity.Error, "parser"));
+                    skippedLoc.getOffset(), 1,
+                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
+            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
+                    errorLocationHighlight, "parser"));
         }
-        // Do not highlight the skipped part for now
-        //diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", DiagnosticSeverity.Warning, "parser"));
+
+        if (errorTreeHighlight != null) {
+            // The whole error tree
+            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", errorTreeHighlight, "parser"));
+        }
+
+        if (prefixHighlight != null) {
+            // The recognized prefix
+            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
+            if (prefixLength > 0) {
+                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
+                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
+                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
+            }
+        }
+
+        if (skippedHighlight != null && skippedLoc.getLength() > 0) {
+            // The skipped part
+            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", skippedHighlight, "parser"));
+        }
 
         // Note: DiagnosticSeverity.Hint only highlightes a single character!
 
