@@ -65,10 +65,20 @@ bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc
     };
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str name, set[loc]() getSourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(N, name, rascalEscapeName, getTree);
-    set[loc] fs = {f | loc f <- getSourceFiles(), containsName(f)};
-    return <fs, fs>;
+tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str curName, str newName, set[loc]() getSourceFiles, Tree(loc) getTree) {
+    containsCurName = containsFilter(N, curName, rascalEscapeName, getTree);
+    containsNewName = containsFilter(N, newName, rascalEscapeName, getTree);
+    set[loc] defFiles = {};
+    set[loc] useFiles = {};
+    for (loc f <- getSourceFiles()) {
+        if (containsCurName(f)) {
+            defFiles += f;
+            useFiles += f;
+        } else if (containsNewName(f)) {
+            useFiles += f;
+        }
+    }
+    return <defFiles, useFiles>;
 }
 
 // Workaround to be able to pattern match on the emulated `src` field
