@@ -34,8 +34,6 @@ import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
-import util::Maybe;
-
 // set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm) {
     // Find the ADT that this constructor is part of
     // Find overloads of this ADT
