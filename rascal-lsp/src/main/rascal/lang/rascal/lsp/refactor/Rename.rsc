@@ -73,10 +73,23 @@ import util::Maybe;
 import util::Reflective;
 
 void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, str newName, Tree tr, TModel tm, Renamer r) {
-    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
+    TModel getModel(loc l) {
+        conf = r.getConfig();
+        return conf.tmodelForTree(conf.parseLoc(l));
+    }
+
+    set[Define] localNewNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
+    set[Define] importedNewNameDefs = {nD
+        | loc importLoc <- (tm.paths<pathRole, to>)[{importPath(), extendPath()}]
+        , importTm := getModel(importLoc) // This should be already typechecked while typechecking the current module
+        , Define nD:<_, newName, _, _, _, _> <- importTm.defines
+    };
+    newNameDefs = localNewNameDefs + importedNewNameDefs;
+
+    defUse = invert(tm.useDef);
 
     set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
-    set[Define] newNameImplicitDefs = {def | Define def <- newNameDefs
+    set[Define] newNameImplicitDefs = {def | Define def <- localNewNameDefs
                                            , (def.idRole is variableId && def.defined in tm.useDef<0>)
                                           || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
 
@@ -92,7 +105,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, st
 
     // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
     rel[loc, loc] currentUseShadowedByRename =
-        {<nD.defined, cU> | Define nD <- newNameDefs
+        {<nD.defined, cU> | Define nD <- localNewNameDefs
                           , <cU, cS> <- ident(currentUses) o tm.useDef o tm.defines<defined, scope>
                           , isContainedIn(cU, nD.scope)
                           , isStrictlyContainedIn(nD.scope, cS)
@@ -103,14 +116,22 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, st
 
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     rel[loc, loc] newUseShadowedByRename =
-        {<cD, nU> | Define nD <- newNameDefs
+        {<cD, nU> | Define nD <- localNewNameDefs
                   , Define _:<cS, _, _, _, cD, _> <- currentDefs
                   , isContainedIn(cS, nD.scope)
-                  , loc nU <- invert(tm.useDef)[newNameDefs.defined]
+                  , loc nU <- defUse[nD.defined]
                   , isContainedIn(nU, cS)
         };
     for (<d, u> <- newUseShadowedByRename) {
         r.error(d, "Renaming this declaration to <newName> would change the program semantics; it would shadow the declaration of <u>.");
+    }
+
+    // Will this rename combine a used definition of `newName` with a definition of `oldName` (overloading)?
+    definitions = (d.defined: d | d <- currentDefs + newNameDefs);
+    for (<loc nD, loc cD> <- newNameDefs.defined * currentDefs.defined
+       , rascalMayOverload({nD, cD}, definitions)
+       , loc nU <- defUse[nD]) {
+        r.error(cD, "Renaming this declaration to <newName> would change the program semantics; it would overload the declaration of <nU> at <nD>");
     }
 }
 
@@ -625,7 +646,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     set[loc] getSourceFiles() {
         return {*find(srcFolder, "rsc")
             | wsFolder <- r.getConfig().workspaceFolders
@@ -636,10 +657,10 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] curso
     if ({IdRole role} := defs.idRole
       && role notin {variableId(), patternVariableId(), moduleId()}) {
         <t, _> = asType(role);
-        return findOccurrenceFilesSymmetric(t, "<cursor[0]>", getSourceFiles, getTree);
+        return findOccurrenceFilesSymmetric(t, "<cursor[0]>", newName, getSourceFiles, getTree);
     }
 
-    return findOccurrenceFiles(defs, cursor, getSourceFiles, getTree, r);
+    return findOccurrenceFiles(defs, cursor, newName, getSourceFiles, getTree, r);
 }
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {

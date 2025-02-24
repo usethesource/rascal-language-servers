@@ -269,6 +269,7 @@ test bool causesDownstreamOverloadOfLib() = testRenameOccurrences({
     ", {})
 }, newName = "println");
 
+@expected{illegalRename}
 test bool downstreamNonOverload() = testRenameOccurrences({
     byText("Definer", "void foo(str s) { }", {0}),
     byText("Main", "

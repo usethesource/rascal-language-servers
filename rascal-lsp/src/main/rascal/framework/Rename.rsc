@@ -191,7 +191,7 @@ RenameResult rename(
     if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
 
     printDebug("+ Finding occurrences of cursor");
-    <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, parseLocCached, r);
+    <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, newName, parseLocCached, r);
 
     if (maybeDefFiles != {}) {
         printDebug("+ Finding additional definitions");
@@ -310,7 +310,7 @@ default set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(
     return {};
 }
 
-default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Define] cursorDefs, list[Tree] cursor, Tree(loc) _, Renamer r) {
+default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Define] cursorDefs, list[Tree] cursor, str newName, Tree(loc) _, Renamer r) {
     loc f = cursor[0].src.top;
     if (any(d <- cursorDefs, f != d.defined.top)) {
         r.error(cursor[0].src, "Rename not implemented for cross-file definitions. Please overload `findOccurrenceFiles`.");

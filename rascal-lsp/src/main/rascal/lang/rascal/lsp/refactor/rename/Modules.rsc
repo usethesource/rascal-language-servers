@@ -49,7 +49,7 @@ import util::Reflective;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, str newName,  set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
     int modIdSize = size(modId);
     loc modFile = d.top;
 

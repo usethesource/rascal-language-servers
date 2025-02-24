@@ -39,7 +39,7 @@ import util::Maybe;
  // Variables
 tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, variableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, variableId(), _, _>, *_}, list[Tree] _, str _, set[loc]() _, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}>;
 
 // Global variables
@@ -48,5 +48,5 @@ tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable na
 // Pattern variables
 tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, str _, set[loc]() _, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}>;
