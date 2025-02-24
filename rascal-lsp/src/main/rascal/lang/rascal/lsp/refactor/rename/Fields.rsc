@@ -45,11 +45,5 @@ import util::Maybe;
 // Positional fields
 tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, fieldId(), _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) =
-    findOccurrenceFilesSymmetric(#NonterminalLabel, "<focus[0]>", getSourceFiles, getTree);
-
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, keywordFieldId(), _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) =
-    findOccurrenceFilesSymmetric(#Name, "<focus[0]>", getSourceFiles, getTree);

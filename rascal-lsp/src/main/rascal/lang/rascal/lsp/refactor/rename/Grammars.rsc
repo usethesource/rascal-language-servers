@@ -52,11 +52,5 @@ void renameDefinitionUnchecked(Define d: <_, _, _, lexicalId(), _, _>, loc _, st
 // Non-terminals
 tuple[type[Tree] as, str desc] asType(nonterminalId()) = <#Nonterminal, "production name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, nonterminalId(), _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) =
-    findOccurrenceFilesSymmetric(#Nonterminal, "<focus[0]>", getSourceFiles, getTree);
-
 // Lexicals
 tuple[type[Tree] as, str desc] asType(lexicalId()) = <#Nonterminal, "production name">;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, lexicalId(), _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) =
-    findOccurrenceFilesSymmetric(#Nonterminal, "<focus[0]>", getSourceFiles, getTree);

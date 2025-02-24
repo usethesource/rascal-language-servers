@@ -45,11 +45,8 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, v
 // Global variables
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}>;
-
 // Pattern variables
 tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, moduleVariableId(), _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) =
-    findOccurrenceFilesSymmetric(#Name, "<focus[0]>", getSourceFiles, getTree);
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}>;

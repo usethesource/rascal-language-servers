@@ -633,6 +633,12 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] curso
         };
     }
 
+    if ({IdRole role} := defs.idRole
+      && role notin {variableId(), patternVariableId(), moduleId()}) {
+        <t, _> = asType(role);
+        return findOccurrenceFilesSymmetric(t, "<cursor[0]>", getSourceFiles, getTree);
+    }
+
     return findOccurrenceFiles(defs, cursor, getSourceFiles, getTree, r);
 }
 

@@ -44,8 +44,3 @@ private bool isDataRole(IdRole role) = role in dataRoles;
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
 tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
-
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, _, _, role, _, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
-    if (!isDataRole(role) && role != annoId()) fail;
-    return findOccurrenceFilesSymmetric(#Name, "<focus[0]>", getSourceFiles, getTree);
-}
