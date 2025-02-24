@@ -70,7 +70,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.17-SNAPSHOT</version>
+      <version>0.12.16</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
