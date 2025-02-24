@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -25,43 +25,44 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::tests::rename::Performance
+module util::refactor::WorkspaceInfo
 
-import lang::rascal::tests::rename::TestUtils;
+import Map;
+import Message;
+import Relation;
+import util::Maybe;
 
-import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::RascalConfig;
+import util::Util;
 
-import IO;
-import List;
-import util::Reflective;
+import analysis::typepal::TModel;
 
-int LARGE_TEST_SIZE = 200;
-test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, foos + 5} | i <- [0..LARGE_TEST_SIZE], foos := 5 * i), (
-    "int foo = 8;"
-    | "<it>
-      'int f<i>(int foo) = foo;
-      'foo = foo + foo;"
-    | i <- [0..LARGE_TEST_SIZE])
-, skipCursors = toSet([1..LARGE_TEST_SIZE * 5]));
+data PathConfig; // util::Reflective
 
-@expected{illegalRename}
-test bool failOnError() = testRename("int foo = x + y;");
+// Extend the TModel to include some workspace information.
+data TModel (
+    set[loc] projects = {},
+    set[loc] sourceFiles = {}
+);
 
-test bool incrementalTypeCheck() {
-    procLoc = |memory://tests/incremental|;
-    pcfg = getTestPathConfig(procLoc);
-    procSrc = pcfg.srcs[0];
+loc getProjectFolder(TModel ws, loc l) {
+    if (project <- ws.projects, isPrefixOf(project, l)) {
+        return project;
+    }
 
-    modName = "A";
-    moduleLoc = procSrc + "<modName>.rsc";
-    writeFile(moduleLoc, "module <modName>
-        'int foo() = 1;
-        'void main() { x = foo(); }
-    ");
-
-    ms = rascalTModelForNames([modName], rascalCompilerConfig(pcfg), dummy_compile1);
-    res = testRenameOccurrences({byLoc(modName, moduleLoc, {0, 1})});
-    remove(procLoc);
-    return res;
+    throw "Could not find project containing <l>";
 }
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+rel[loc, loc] defUse(TModel ws) = invert(ws.useDef);
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+map[AType, set[loc]] factsInvert(TModel ws) = invert(ws.facts);
+
+set[loc] getUses(TModel ws, loc def) = defUse(ws)[def];
+
+set[loc] getUses(TModel ws, set[loc] defs) = defUse(ws)[defs];
+
+set[loc] getDefs(TModel ws, loc use) = ws.useDef[use];
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+rel[loc, Define] definitionsRel(TModel ws) = toRel(ws.definitions);

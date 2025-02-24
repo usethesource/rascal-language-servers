@@ -24,12 +24,18 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::lsp::refactor::rename::Modules
 
-import lang::rascal::lsp::refactor::TextEdits;
-import lang::rascal::lsp::refactor::Util;
+extend framework::Rename;
+import framework::TextEdits;
 
 import lang::rascal::\syntax::Rascal;
+
+import analysis::typepal::TModel;
+import lang::rascal::lsp::refactor::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
 
 import IO;
 import List;
@@ -40,6 +46,66 @@ import String;
 
 import util::FileSystem;
 import util::Reflective;
+
+tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
+
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+    int modIdSize = size(modId);
+    loc modFile = d.top;
+
+    if ([*_, QualifiedName modName, *_] := focus) {
+        escModName = [QualifiedName] rascalEscapeName("<modName>");
+        set[loc] useFiles = {};
+        for (loc f <- getSourceFiles(), f != modFile) {
+            visit (getTree(f)) {
+                case modName: {
+                    useFiles += f;
+                    continue;
+                }
+                case escModName: {
+                    useFiles += f;
+                    continue;
+                }
+                case QualifiedName qn: {
+                    if (qn.src.length > modIdSize && startsWith("<qn>", modId)) {
+                        useFiles += f;
+                        continue;
+                    }
+                }
+            }
+        }
+        return <{modFile}, {modFile, *useFiles}>;
+    }
+
+    return <{d.top}, {d.top}>;
+}
+
+bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
+    r.error(i.src, "External imports are deprecated; renaming is not supported.");
+    return true;
+}
+
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+    r.textEdit(replace(nameLoc, newName));
+
+    // Additionally, we rename the file
+    loc moduleFile = d.defined.top;
+    pcfg = r.getConfig().getPathConfig(moduleFile);
+    loc relModulePath = relativize(pcfg.srcs, moduleFile);
+    loc srcFolder = [srcFolder | srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
+    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(rascalUnescapeName(newName))));
+}
+
+void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
+    set[loc] defFiles = {d.top | d <- defs.defined};
+    escName = rascalEscapeName(newName);
+    for (/QualifiedName qn := tr
+      , any(d <- tm.useDef[qn.src], d.top in defFiles)
+      , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
+        modPrefix = cover(prefix([n.src | n <- qn.names]));
+        r.textEdit(replace(modPrefix, newName));
+    }
+}
 
 private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
 private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {
@@ -60,7 +126,7 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
 list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
     list[TextEdit] changes = [];
 
-    start[Module] m = parseModuleWithSpacesCached(f);
+    start[Module] m = parseModuleWithSpaces(f);
     for (/QualifiedName qn := m) {
         for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
            , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
@@ -88,7 +154,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
     };
 }
 
-Edits propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
     rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = {
         rename
         | <oldLoc, newLoc> <- renames
@@ -109,5 +175,5 @@ Edits propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] wor
         };
     });
 
-    return <toList(edits), ()>;
+    return <toList(edits), {}>;
 }

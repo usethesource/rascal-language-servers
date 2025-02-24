@@ -24,17 +24,5 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::TextEdits
-
-extend analysis::diff::edits::TextEdits;
-
-alias ChangeAnnotationId = str;
-
-data ChangeAnnotation
-    = changeAnnotation(str label, str description, bool needsConfirmation)
-    ;
-
-data TextEdit(ChangeAnnotationId annotation = "");
-
-alias ChangeAnnotationRegister =
-    ChangeAnnotationId(str label, str description, bool needsConfirmation);
+@bootstrapParser
+module util::refactor::Exception
