@@ -42,6 +42,8 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -52,10 +54,17 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
+
+    // Note: DiagnosticSeverity.Hint only highlightes a single character!
+    static DiagnosticSeverity errorLocationHighlight = DiagnosticSeverity.Error;
+    static DiagnosticSeverity errorTreeHighlight = null;
+    static DiagnosticSeverity prefixHighlight = null;
+    static DiagnosticSeverity skippedHighlight = null;
 
     static {
         severityMap = new HashMap<>();
@@ -71,9 +80,64 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+        var message = e.getMessage() + " (irrecoverable)";
+        return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
     }
 
+    public static List<Diagnostic> generateParseErrorDiagnostics(ITree errorTree, ColumnMaps cm) {
+        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+
+        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
+        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+
+        List<Diagnostic> diagnostics = new ArrayList<>();
+
+        // Highlight selected parts of the error tree
+        if (errorLocationHighlight != null) {
+            // Just the error location
+            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
+                    skippedLoc.getOffset(), 1,
+                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
+            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
+                    errorLocationHighlight, "parser"));
+        }
+
+        if (errorTreeHighlight != null) {
+            // The whole error tree
+            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", errorTreeHighlight, "parser"));
+        }
+
+        if (prefixHighlight != null) {
+            // The recognized prefix
+            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
+            if (prefixLength > 0) {
+                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
+                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
+                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
+            }
+        }
+
+        if (skippedHighlight != null && skippedLoc.getLength() > 0) {
+            // The skipped part
+            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", skippedHighlight, "parser"));
+        }
+
+        // Note: DiagnosticSeverity.Hint only highlightes a single character!
+
+        return diagnostics;
+    }
+
+    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
+    }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
@@ -121,14 +185,27 @@ public class Diagnostics {
         return result;
     }
 
+    private static Range toRange(ITree t, ColumnMaps cm) {
+        return toRange(TreeAdapter.getLocation(t), cm);
+    }
+
     private static Range toRange(ParseError pe, ColumnMaps cm) {
-        ISourceLocation loc = pe.getLocation();
+        return toRange(pe.getLocation(), cm);
+    }
+
+    private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
-            loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
-                loc.getOffset(), loc.getLength() + 1,
-                loc.getBeginLine(), loc.getBeginColumn(),
-                loc.getEndLine(), loc.getEndColumn() + 1);
+            try {
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
+                    loc.getOffset(), loc.getLength() + 1,
+                    loc.getBeginLine(), loc.getBeginColumn(),
+                    loc.getEndLine(), loc.getEndColumn() + 1);
+            } catch (Throwable t) {
+                logger.trace("Cannot extend 0-width location for parse error: " + t.getMessage());
+                loc = ValueFactoryFactory.getValueFactory().sourceLocation(
+                    loc, 0, 1, 1, 1, 0, 1);
+            }
         }
         return Locations.toRange(loc, cm);
     }
