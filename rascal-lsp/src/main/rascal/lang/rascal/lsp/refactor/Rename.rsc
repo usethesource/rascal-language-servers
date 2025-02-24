@@ -116,9 +116,9 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, set[loc] currentUses, st
 
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
     escName = rascalEscapeName(name);
-    tuple[type[Tree] as, str desc] t = asType(role);
-    if (tryParseAs(t.as, escName) is nothing) {
-        r.error(at, "<escName> is not a valid <t.desc>");
+    <t, desc> = asType(role);
+    if (tryParseAs(t, escName) is nothing) {
+        r.error(at, "<escName> is not a valid <desc>");
     }
 }
 
