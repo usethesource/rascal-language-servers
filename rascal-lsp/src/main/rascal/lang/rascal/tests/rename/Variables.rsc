@@ -70,12 +70,25 @@ test bool doubleVariableDeclaration() = testRename("
     'int bar = 9;
 ");
 
-test bool adjacentScopes() = testRenameOccurrences({0}, "
+test bool adjacentScopeVars() = testRenameOccurrences({0}, "
     '{
     '   int foo = 8;
     '}
     '{
     '   int bar = 9;
+    '}
+");
+
+test bool adjacentScopePatternVars() = testRenameOccurrences({0}, "
+    '{
+    '   if (int foo := 8) {
+    '       i = foo;
+    '   }
+    '}
+    '{
+    '   if (int bar := 9) {
+    '       j = bar;
+    '   }
     '}
 ");
 

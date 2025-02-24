@@ -278,3 +278,14 @@ test bool downstreamNonOverload() = testRenameOccurrences({
         'void main() { bar(\"a\", \"b\"); }
     ", {})
 });
+
+test bool adjacentScopeFunctions() = testRenameOccurrences({0}, "
+    '{
+    '   int foo() = 8;
+    '   i = foo();
+    '}
+    '{
+    '   int bar() = 9;
+    '   j = bar();
+    '}
+");
