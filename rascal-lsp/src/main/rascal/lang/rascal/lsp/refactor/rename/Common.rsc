@@ -54,13 +54,14 @@ data RenameConfig(
 );
 
 bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree) {
-    n = parse(t, name);
-    en = parse(t, escape(name));
+    Tree n = parse(t, name);
+    Tree en = parse(t, escape(name));
     return bool(loc l) {
         bottom-up-break visit (getTree(l)) {
             case n: return true;
             case en: return true;
         }
+        return false;
     };
 }
 
