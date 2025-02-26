@@ -65,16 +65,13 @@ bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc
     };
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str curName, str newName, set[loc]() getSourceFiles, Tree(loc) getTree) {
-    containsCurName = containsFilter(N, curName, rascalEscapeName, getTree);
-    containsNewName = containsFilter(N, newName, rascalEscapeName, getTree);
+tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str curName, set[loc]() getSourceFiles, Tree(loc) getTree) {
+    containsName = containsFilter(N, curName, rascalEscapeName, getTree);
     set[loc] defFiles = {};
     set[loc] useFiles = {};
     for (loc f <- getSourceFiles()) {
-        if (containsCurName(f)) {
+        if (containsName(f)) {
             defFiles += f;
-            useFiles += f;
-        } else if (containsNewName(f)) {
             useFiles += f;
         }
     }
@@ -136,6 +133,12 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(TModel tm) {
          o (moduleI + extends+) // 0 or more extends
          ;
 }
+
+@memo{maximumSize(100), expireAfter(minutes=5)}
+rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
+    ident(getModuleScopes(tm))
+  + (tm.paths<pathRole, from, to>)[importPath()]
+  + (tm.paths<pathRole, from, to>)[extendPath()];
 
 set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
     if (defs == {}) return {};

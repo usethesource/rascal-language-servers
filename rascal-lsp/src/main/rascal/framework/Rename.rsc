@@ -41,6 +41,7 @@ import Node;
 import ParseTree;
 import Relation;
 import Set;
+import String;
 
 alias RenameResult = tuple[list[DocumentEdit], set[Message]];
 
@@ -191,7 +192,8 @@ RenameResult rename(
     if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
 
     printDebug("+ Finding occurrences of cursor");
-    <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, newName, parseLocCached, r);
+    <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, parseLocCached, r);
+    <newNameDefFiles, newNameUseFiles> = findNewNameOccurrenceFiles(defs, newName, parseLocCached, r);
 
     if (maybeDefFiles != {}) {
         printDebug("+ Finding additional definitions");
@@ -205,6 +207,23 @@ RenameResult rename(
             additionalDefs += fileAdditionalDefs;
         }
         defs += additionalDefs;
+    }
+
+    printDebug("+ Checking definitions of new name \'<newName>\'");
+    set[Define] newNameDefs = {};
+    for (loc f <- newNameDefFiles) {
+        printDebug("  - ... <f>");
+        tr = parseLocCached(f);
+        tm = getTModelCached(tr);
+        newNameDefs += checkNewNameDefinitions(defs, newName, tr, tm, r);
+    }
+
+    printDebug("+ Checking uses of new name \'<newName>\'");
+    for (loc f <- newNameUseFiles) {
+        printDebug("  - ... <f>");
+        tr = parseLocCached(f);
+        tm = getTModelCached(tr);
+        checkNewNameUses(defs, newNameDefs, newName, tr, tm, r);
     }
 
     defFiles = {d.defined.top | d <- defs};
@@ -310,7 +329,7 @@ default set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(
     return {};
 }
 
-default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Define] cursorDefs, list[Tree] cursor, str newName, Tree(loc) _, Renamer r) {
+default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Define] cursorDefs, list[Tree] cursor, Tree(loc) _, Renamer r) {
     loc f = cursor[0].src.top;
     if (any(d <- cursorDefs, f != d.defined.top)) {
         r.error(cursor[0].src, "Rename not implemented for cross-file definitions. Please overload `findOccurrenceFiles`.");
@@ -320,7 +339,19 @@ default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Defi
     return <{f}, {f}>;
 }
 
+default tuple[set[loc] defFiles, set[loc] useFiles] findNewNameOccurrenceFiles(set[Define] cursorDefs, str name, Tree(loc) _, Renamer _) {
+    set[loc] defFiles = {d.defined.top | d <- cursorDefs};
+    set[loc] fs = {f
+        | loc f <- defFiles
+        , contains(readFile(f), name)
+    };
+    return <fs, fs>;
+}
+
 default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm) = {};
+
+default set[Define] checkNewNameDefinitions(set[Define] cursorDefs, str newName, Tree tr, TModel tm, Renamer r) = {};
+default void checkNewNameUses(set[Define] cursorDefs, set[Define] newNameDefs, str newName, Tree tr, TModel tm, Renamer r) {}
 
 // TODO Remove Tree argument
 default void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
