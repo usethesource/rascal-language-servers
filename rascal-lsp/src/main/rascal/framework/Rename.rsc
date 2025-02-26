@@ -193,7 +193,7 @@ RenameResult rename(
 
     printDebug("+ Finding occurrences of cursor");
     <maybeDefFiles, maybeUseFiles> = findOccurrenceFiles(defs, cursor, parseLocCached, r);
-    <newNameDefFiles, newNameUseFiles> = findNewNameOccurrenceFiles(defs, newName, parseLocCached, r);
+    <newNameDefFiles, newNameUseFiles> = findNewNameOccurrenceFiles(defs, cursor, newName, parseLocCached, r);
 
     if (maybeDefFiles != {}) {
         printDebug("+ Finding additional definitions");
@@ -339,7 +339,7 @@ default tuple[set[loc] defFiles, set[loc] useFiles] findOccurrenceFiles(set[Defi
     return <{f}, {f}>;
 }
 
-default tuple[set[loc] defFiles, set[loc] useFiles] findNewNameOccurrenceFiles(set[Define] cursorDefs, str name, Tree(loc) _, Renamer _) {
+default tuple[set[loc] defFiles, set[loc] useFiles] findNewNameOccurrenceFiles(set[Define] cursorDefs, list[Tree] cursor, str name, Tree(loc) _, Renamer _) {
     set[loc] defFiles = {d.defined.top | d <- cursorDefs};
     set[loc] fs = {f
         | loc f <- defFiles

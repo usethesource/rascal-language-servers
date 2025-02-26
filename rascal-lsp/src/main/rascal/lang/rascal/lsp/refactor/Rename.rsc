@@ -657,16 +657,26 @@ tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] curso
     if ({IdRole role} := defs.idRole
       && role notin {variableId(), patternVariableId(), moduleId()}) {
         <t, _> = asType(role);
-        return findOccurrenceFilesSymmetric(t, "<cursor[0]>", getSourceFiles(r), getTree);
+        name = "<cursor[0]>";
+        try {
+            return findOccurrenceFilesSymmetric(t, name, getSourceFiles(r), getTree);
+        } catch ParseError(_): {
+            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+            return <{}, {}>;
+        }
     }
 
     return findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
 }
 
-tuple[set[loc], set[loc]] findNewNameOccurrenceFiles(set[Define] defs, str name, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc]] findNewNameOccurrenceFiles(set[Define] defs, list[Tree] cursor, str name, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
         <t, _> = asType(role);
-        return findOccurrenceFilesSymmetric(t, name, getSourceFiles(r), getTree);
+        try {
+            return findOccurrenceFilesSymmetric(t, name, getSourceFiles(r), getTree);
+        } catch ParseError(_): {
+            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+        }
     }
     return <{}, {}>;
 }
