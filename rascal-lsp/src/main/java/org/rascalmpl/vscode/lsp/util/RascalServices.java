@@ -38,6 +38,8 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class RascalServices {
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
-        IActionExecutor<ITree> actions = new NoActionExecutor();        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+        IActionExecutor<ITree> actions = new NoActionExecutor();
+        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
+            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
     }
 }
