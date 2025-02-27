@@ -79,7 +79,7 @@ test bool adjacentScopeVars() = testRenameOccurrences({0}, "
     '}
 ");
 
-test bool adjacentScopePatternVars() = testRenameOccurrences({0}, "
+test bool adjacentScopePatternVars() = testRenameOccurrences({0, 1}, "
     '{
     '   if (int foo := 8) {
     '       i = foo;
