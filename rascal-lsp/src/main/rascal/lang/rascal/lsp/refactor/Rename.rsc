@@ -98,7 +98,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
         {<nD.defined, cU> | Define nD <- newNameDefs
                           , <cU, cS> <- ident(uses) o tm.useDef o tm.defines<defined, scope>
                           , isContainedInScope(cU, nD.scope, tm)
-                          , isStrictlyContainedIn(nD.scope, cS)
+                          , isContainedInScope(nD.scope, cS, tm)
         };
     for (<d, u> <- currentUseShadowedByRename) {
         r.error(u, "Renaming this use to <newName> would change the program semantics; its original definition would be shadowed by <d>.");
@@ -135,20 +135,29 @@ void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renam
     }
 }
 
-void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, loc cD, _>, TModel tm, str newName, Renamer r) {
+void rascalCheckCausesDoubleDeclarations(Define cD, TModel tm, str newName, Renamer r) {
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
 
     // Is newName already resolvable from a scope where <current-name> is currently declared?
-    rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | Define nD <- newNameDefs
-                                                                 , isContainedInScope(cD, nD.scope, tm) || isContainedInScope(nD.defined, cS, tm)
-    };
+    for (Define nD <- newNameDefs) {
+        if (rascalMayOverload({cD.defined, nD.defined}, (d.defined: d | Define d <- {cD, nD}))) {
+            // Overloading
+            if (isContainedInScope(cD.defined, nD.scope, tm) || isContainedInScope(nD.defined, cD.scope, tm)) {
+                r.error(cD.defined, "Cannot rename to \'<newName>\', since this would overload an existing definition at <nD.defined>.");
+            }
+        } else if (isContainedInScope(cD.defined, nD.scope, tm)) {
+            // Double declarations
+            r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD.defined>.");
+        }
+    }
 
-    rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
-        | fieldId() := role
+    for (fieldId() := cD.idRole
           // The scope of a field def is the surrounding data def
-        , loc dataDef <- rascalGetOverloadedDefs(tm, {cS})
+        , loc dataDef <- rascalGetOverloadedDefs(tm, {cD.scope})
         , loc nD <- (newNameDefs<idRole, defined>)[fieldId()] & (tm.defines<idRole, scope, defined>)[fieldId(), dataDef]
-    };
+    ) {
+        r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
+    }
 
     // TODO Re-do once we decided how to treat definitions that are not in tm.defines
     // rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
@@ -161,10 +170,6 @@ void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, loc cD, _>, T
     //     , isContainedIn(nD, fD.defined)
     //     , /nT := funcParams
     // };
-
-    for (<old, new> <- doubleDeclarations + doubleFieldDeclarations /*+ doubleTypeParamDeclarations*/) {
-        r.error(old, "Cannot rename to <newName>, since it will lead to double declaration error (<new>).");
-    }
 }
 
 void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
