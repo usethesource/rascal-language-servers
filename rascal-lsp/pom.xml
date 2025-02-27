@@ -1,6 +1,6 @@
 <!--
 
-    Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+    Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -32,13 +32,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.21.0-SNAPSHOT</version>
+  <version>2.22.0-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.0</maven-surefire-plugin.version>
-    <log4j2.version>2.23.1</log4j2.version>
-    <lsp4j.version>0.23.1</lsp4j.version>
+    <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+    <log4j2.version>2.24.3</log4j2.version>
+    <lsp4j.version>0.24.0</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -65,17 +65,17 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.8-SNAPSHOT</version>
+      <version>0.41.0-RC10</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.4</version>
+      <version>0.12.16</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
-      <version>0.14.0</version>
+      <version>0.15.1</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -157,14 +157,14 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.0</version>
+            <version>3.5.2</version>
           </dependency>
         </dependencies>
       </plugin>
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.28.1</version>
+        <version>0.28.11</version>
         <configuration>
           <errorsAsWarnings>false</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
@@ -195,6 +195,7 @@
               <goal>package</goal>
             </goals>
           </execution>
+          <!-- while we have RC builds of rascal, we cannot have tutor builds
           <execution>
             <id>default-cli</id>
             <phase>compile</phase>
@@ -214,13 +215,13 @@
                 <ignore>${project.basedir}/src/main/rascal/lang</ignore>
               </ignores>
             </configuration>
-          </execution>
+          </execution> -->
         </executions>
       </plugin>
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.8.0</version>
+        <version>3.8.1</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -320,7 +321,7 @@
         <!-- check and possible add license header
           run mvn license:format to automatically update all license headers
           and add missing ones -->
-        <version>4.5</version>
+        <version>4.6</version>
         <configuration>
           <headerDefinitions>
             <headerDefinition>rascal_style.xml</headerDefinition>
@@ -378,7 +379,7 @@
       <plugin> <!-- needs to be explictily envoked using mvn checkstyle:check -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.5.0</version>
+        <version>3.6.0</version>
         <configuration>
           <configLocation>checkstyle.xml</configLocation>
         </configuration>

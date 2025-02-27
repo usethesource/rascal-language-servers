@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.io.IOException;
 import java.io.Reader;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,11 +39,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -92,6 +96,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -101,22 +106,25 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.exceptions.FactParseError;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -159,7 +167,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return columns.get(file);
     }
 
-    private String getContents(ISourceLocation file) {
+    public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = files.get(file);
         if (ideState != null) {
@@ -167,7 +175,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
-
         }
         catch (IOException e) {
             logger.error("Error opening file {} to get contents", file, e);
@@ -183,8 +190,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
+        result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
@@ -311,7 +320,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::lenses)
+            .thenApply(contrib::codeLens)
             .thenCompose(InterruptibleFuture::get)
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
@@ -353,7 +362,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
         var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
 
-
         // translate to lsp
         var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
         result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
@@ -370,14 +378,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ISourceLocation loc = (ISourceLocation) t.get(0);
         IConstructor command = (IConstructor) t.get(1);
 
-        return new CodeLens(Locations.toRange(loc, columns), constructorToCommand(languageName, command), null);
+        return new CodeLens(Locations.toRange(loc, columns), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
     }
 
-    private Command constructorToCommand(String languageName, IConstructor command) {
-        IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
 
-        return new Command(kw.hasParameter("title") ? ((IString) kw.getParameter("title")).getValue() : command.toString(), getRascalMetaCommandName(), Arrays.asList(languageName, command.toString()));
-    }
 
     private void handleParsingErrors(TextDocumentState file) {
         handleParsingErrors(file, file.getCurrentTreeAsync());
@@ -437,7 +441,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parseSourceFile, l, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText())
         );
     }
 
@@ -458,9 +462,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
+        var specialCaseHighlighting = contributions(doc).specialCaseHighlighting();
         return recoverExceptions(getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )
@@ -488,16 +493,56 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenApply(contrib::outline)
+            .thenApply(contrib::documentSymbol)
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             , Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        logger.debug("codeAction: {}", params);
+
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+
+        var range = Locations.toRascalRange(params.getTextDocument(), params.getRange(), columns);
+
+        // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
+        // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+        // CompletableFuture<Stream<IValue>>
+        var quickfixes = CodeActions.extractActionsFromDiagnostics(params, contribs::parseCodeActions);
+
+        // here we dynamically ask the contributions for more actions,
+        // based on the cursor position in the file and the current parse tree
+        CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+            getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
+                .thenApply(IList::stream)
+            , () -> Stream.<IValue>empty())
+            ;
+
+        // final merging the two streams of commmands, and their conversion to LSP Command data-type
+        return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
+        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
+
+        if (!focus.isEmpty()) {
+            return contribs.codeAction(focus).get();
+        }
+        else {
+            logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
+            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+        }
     }
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
@@ -531,7 +576,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-        logger.debug("Implementation: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("References: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::references, params.getTextDocument(), params.getPosition())
             .thenApply(l -> l) // hack to help compiler see type
@@ -542,14 +587,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
-            lookup(ParametricSummary::documentation, params.getTextDocument(), params.getPosition())
+            lookup(ParametricSummary::hovers, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
             , () -> null);
     }
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
-        logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
+        logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
@@ -631,12 +676,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
-            return contribs.executeCommand(command).get();
+            return contribs.execution(command).get();
         }
         else {
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFuture.completedFuture(null);
         }
     }
-
 }

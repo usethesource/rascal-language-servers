@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,19 +91,33 @@ public class Diagnostics {
         }
     }
 
+    private static void storeFixCommands(IConstructor d, Diagnostic result) {
+        // Here we attach quick-fix commands to every Diagnostic, if present.
+        // Later when codeActions are requested, the LSP client sends selected
+        // messages back to us, in which we can find these commands and send
+        // them right back in response to the codeActions request.
+
+        if (d.asWithKeywordParameters().hasParameter("fixes")) {
+            // setData is meant exactly for this!
+            result.setData(d.asWithKeywordParameters().getParameter("fixes").toString());
+        }
+    }
+
     public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
-        Diagnostic result = new Diagnostic();
-        result.setSeverity(severityMap.get(d.getName()));
-        result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange(getMessageLocation(d), cm));
-        return result;
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
     }
 
     public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+    }
+
+    public static Diagnostic translateDiagnostic(IConstructor d, Range range) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(((IString) d.get("msg")).getValue());
-        result.setRange(Locations.toRange(getMessageLocation(d), cm));
+        result.setRange(range);
+
+        storeFixCommands(d, result);
         return result;
     }
 

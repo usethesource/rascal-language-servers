@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,9 +45,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OndemandCalculator;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.OnDemandFocusToSetCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalculator;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -60,6 +59,8 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
@@ -71,7 +72,7 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * The purpose of this interface is to provide a general abstraction for
- * `Position`-based look-ups of documentation, definitions, references, and
+ * `Position`-based look-ups of hovers, definitions, references, and
  * implementations, regardless of which component calculates the requested
  * information. There are two implementations:
  *
@@ -95,7 +96,7 @@ public interface ParametricSummary {
     // this happens when no on-demand summarizer exists for the requested
     // information.
     @SuppressWarnings("deprecation") // For `MarkedString`
-    @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor);
+    @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
@@ -112,8 +113,8 @@ public interface ParametricSummary {
     // (i.e., it later comes from the analyzer, builder, or an on-demand
     // summarizer).
     @SuppressWarnings("deprecation") // For `MarkedString`
-    public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> documentation(ParametricSummary summary, Position position) {
-        return summary.getDocumentation(position);
+    public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> hovers(ParametricSummary summary, Position position) {
+        return summary.getHovers(position);
     }
     public static @Nullable InterruptibleFuture<List<Location>> definitions(ParametricSummary summary, Position position) {
         return summary.getDefinitions(position);
@@ -138,7 +139,7 @@ public interface ParametricSummary {
 class NullSummary implements ParametricSummary {
     @Override
     @SuppressWarnings("deprecation") // For `MarkedString`
-    public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
+    public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
         return null;
     }
 
@@ -259,15 +260,25 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
     public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
         @SuppressWarnings("deprecation") // For `MarkedString`
-        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> documentation;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> hovers;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
-            this.documentation = config.providesDocumentation ?
-                mapCalculation(SummaryFields.DOCUMENTATION, calculation, SummaryFields.DOCUMENTATION, ParametricSummaryFactory::mapValueToString) : null;
+
+            // for temporary backward compatibility between SummaryFields.HOVERS and SummaryFields.DEPRECATED_DOCUMENTATION
+            calculation = calculation.thenApply(summary -> {
+                var kws = summary.asWithKeywordParameters();
+                if (kws.hasParameter(SummaryFields.DEPRECATED_DOCUMENTATION) && !kws.hasParameter(SummaryFields.HOVERS)) {
+                    return kws.setParameter(SummaryFields.HOVERS, kws.getParameter(SummaryFields.DEPRECATED_DOCUMENTATION));
+                }
+                return summary;
+            });
+
+            this.hovers = config.providesHovers ?
+                mapCalculation(SummaryFields.HOVERS, calculation, SummaryFields.HOVERS, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
@@ -278,8 +289,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(documentation, cursor);
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
+            return get(hovers, cursor);
         }
 
         @Override
@@ -300,7 +311,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         @Override
         public void invalidate() {
             super.invalidate();
-            documentation.interrupt();
+            hovers.interrupt();
             definitions.interrupt();
             references.interrupt();
             implementations.interrupt();
@@ -423,13 +434,13 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         @SuppressWarnings("deprecation") // For `MarkedString`
-        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getDocumentation(Position cursor) {
-            return get(config.providesDocumentation, cursor, contrib::documentation, ParametricSummaryFactory::mapValueToString, SummaryFields.DOCUMENTATION);
+        public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
+            return get(config.providesHovers, cursor, contrib::hover, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
         }
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
-            return get(config.providesDefinitions, cursor, contrib::definitions, locationMapper(columns), SummaryFields.DEFINITIONS);
+            return get(config.providesDefinitions, cursor, contrib::definition, locationMapper(columns), SummaryFields.DEFINITIONS);
         }
 
         @Override
@@ -439,7 +450,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor) {
-            return get(config.providesImplementations, cursor, contrib::implementations, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
+            return get(config.providesImplementations, cursor, contrib::implementation, locationMapper(columns), SummaryFields.IMPLEMENTATIONS);
         }
 
         @Override
@@ -453,7 +464,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         }
 
         private <T> @Nullable InterruptibleFuture<List<T>> get(boolean provides, Position cursor,
-                OndemandCalculator calculator, Function<IValue, T> valueMapper, String logName) {
+                OnDemandFocusToSetCalculator calculator, Function<IValue, T> valueMapper, String logName) {
 
             if (!provides) {
                 return null;
@@ -468,18 +479,17 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
                 return null;
             }
 
-            var line = cursor.getLine() + 1;
-            var translatedOffset = columns.get(file).translateInverseColumn(line, cursor.getCharacter(), false);
-            var cursorTree = TreeAdapter.locateLexical(tree.get(), line, translatedOffset);
+            var pos = Locations.toRascalPosition(file, cursor, columns);
+            var focus = TreeSearch.computeFocusList(tree.get(), pos.getLine(), pos.getCharacter());
 
             InterruptibleFuture<ISet> set = null;
-            if (cursorTree == null) {
-                logger.trace("{}: could not find substree at line {} and offset {}", logName, line, translatedOffset);
+
+            if (focus.isEmpty()) {
+                logger.trace("{}: could not find substree at line {} and offset {}", logName, pos.getLine(), pos.getCharacter());
                 set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
             } else {
-                var yielded = TreeAdapter.yield(cursorTree);
-                logger.trace("{}: looked up cursor to: {}, now calling dedicated function", logName, yielded);
-                set = calculator.apply(file, tree.get(), cursorTree);
+                logger.trace("{}: looked up focus with length: {}, now calling dedicated function", logName, focus.length());
+                set = calculator.apply(focus);
             }
 
             logger.trace("{}: dedicated returned: {}", logName, set);

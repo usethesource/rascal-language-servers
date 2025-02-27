@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,7 +114,7 @@ public class ParametricFileFacts {
 
     public void reloadContributions() {
         analyzerSummaryFactory = contrib.getAnalyzerSummaryConfig().thenApply(config ->
-            new ScheduledSummaryFactory(config, exec, columns, contrib::analyze));
+            new ScheduledSummaryFactory(config, exec, columns, contrib::analysis));
         builderSummaryFactory = contrib.getBuilderSummaryConfig().thenApply(config ->
             new ScheduledSummaryFactory(config, exec, columns, contrib::build));
         ondemandSummaryFactory = contrib.getOndemandSummaryConfig().thenApply(config ->

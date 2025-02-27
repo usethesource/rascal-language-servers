@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -25,14 +25,14 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::lsp::Outline
+module lang::rascal::lsp::DocumentSymbols
 
 import String;
 import ParseTree;
 import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 
-list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
+list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
     m= \mod.top;
     children = [];
 
@@ -88,7 +88,7 @@ list[DocumentSymbol] outlineRascalModule(start[Module] \mod) {
 }
 
 // remove leading backslash
-str clean(/\\<rest:.*>/) = clean(rest);
+str clean(/^\\<rest:.*>/) = clean(rest);
 
 str clean("false") = "\\false"; // vscode doesn't like a falsy name
 

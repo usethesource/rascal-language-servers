@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -165,6 +165,14 @@ test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
                        'bool func(Foo foo) = foo == f();", {0}),       byText("RightUser", "import RightExtender;
                                                                         'bool func(Foo foo) = foo == g();", {})
 }, oldName = "Foo", newName = "Bar");
+
+test bool asType() = testRenameOccurrences({0, 1}, "
+    'str s = \"text\";
+    'if (t := [Foo] s) {
+    '   str u = t;
+    '}
+", decls = "alias Foo = str;"
+, oldName = "Foo", newName = "Bar");
 
 test bool sameIdRoleOnly() = testRenameOccurrences({
     byText("A", "data foo = f();", {})

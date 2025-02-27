@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,14 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.parametric;
 
-public class TimedReference<T> {
-    final T value;
-    final long timestamp;
+import java.util.concurrent.ExecutorService;
 
-    public TimedReference(T ref, long timestamp) {
-        this.value = ref;
-        this.timestamp = timestamp;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+
+public class ParametricWorkspaceService extends BaseWorkspaceService {
+    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
+        super(exec, docService);
     }
 }

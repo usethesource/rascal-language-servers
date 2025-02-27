@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,17 @@ import IO;
 import List;
 import Location;
 import Message;
+import ParseTree;
 import String;
 
 import util::Maybe;
 import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
+
+import lang::rascal::lsp::refactor::TextEdits;
+
+alias Edits = tuple[list[DocumentEdit], map[ChangeAnnotationId, ChangeAnnotation]];
 
 @synopsis{
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
@@ -79,18 +84,26 @@ start[Module] parseModuleWithSpacesCached(loc l) {
     return parseModuleWithSpacesCached(l, lastModified(l));
 }
 
-Maybe[&B] flatMap(nothing(), Maybe[&B](&A) _) = nothing();
-Maybe[&B] flatMap(just(&A a), Maybe[&B](&A) f) = f(a);
+@synopsis{
+    Try to parse string `name` as reified type `begin` and return whether this succeeded.
+}
+Maybe[&T <: Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
+    try {
+        return just(parse(begin, name, allowAmbiguity = allowAmbiguity));
+    } catch ParseError(_): {
+        return nothing();
+    }
+}
 
 str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
 str toString(error(msg)) = "[error] \'<msg>\'";
 str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
 str toString(info(msg, l)) = "[info] \'<msg>\' at <l>";
 
-str toString(list[Message] msgs, int indent = 1) =
+str toString(set[Message] msgs, int indent = 1) =
     intercalate("\n", ([] | it + "<for (_ <- [0..indent]) {> <}>- <toString(msg)>" | msg <- msgs));
 
-str toString(map[str, list[Message]] moduleMsgs) =
+str toString(map[str, set[Message]] moduleMsgs) =
     intercalate("\n", ([] | it + "Messages for <m>:\n<toString(moduleMsgs[m])>" | m <- moduleMsgs));
 
 rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
@@ -116,3 +129,6 @@ bool(&T, &T) desc(bool(&T, &T) f) {
         return f(t2, t1);
     };
 }
+
+set[&T] flatMap(set[&S] ss, set[&T](&S) f) = ({} | it + f(s) | s <- ss);
+list[&T] flatMap(list[&S] ss, list[&T](&S) f) = ([] | it + f(s) | s <- ss);

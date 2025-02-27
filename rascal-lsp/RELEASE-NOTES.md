@@ -2,6 +2,49 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.21.1 (VS Code: 0.12.1)
+* The type-checker got a lot faster, especially if you're editing a single file in a larger project.
+* Various bugfixes in:
+    * The rename functionality
+    * The code actions
+    * The type-checker
+
+## Release 2.21.0 (VS Code: 0.12.0)
+
+* New feature: The "Rename Symbol" command (default: `F2`) is now supported for all identifiers in Rascal modules. Renaming is safe, so the semantics of Rascal code before/after renaming is the same.
+* New feature: Code Actions (default: `CTRL+.`) are now supported in Rascal modules to analyze and transform code (e.g.: visualization of import graphs; simplification of functions). Code Actions can also be defined for DSLs.
+* New feature: Keywords, numbers, strings (single-line), regular expressions, comments, and tags are now highlighted in Rascal modules even in the presence of parse errors. This feature uses a TextMate grammar for Rascal, generated using [`rascal-textmate`](https://github.com/SWAT-engineering/rascal-textmate).
+* Upgrade to a greatly improved version of the Rascal type checker, including:
+  * Backward-compatibility between different versions of libraries. After this upgrade, you won't have to keep all your dependencies aligned with the latest released Rascal version. We think we have developed a scheme that should work for all future upgrades, but there might be a few bumps in the road the coming releases.
+  * Better type checking errors (roughly 3 years of bugfixes)
+  * Increased performance for partial type checks
+  * Deprecation warnings for deprecated functions
+* Upgrade to Rascal 0.40.17, including (see also its [release notes](https://www.rascal-mpl.org/release-notes/rascal-0-40-x-release-notes/)):
+  * A new `mvn` scheme for referencing jars in the maven repository
+  * Improvements to json/xml/html deserialization, including better origin tracking
+  * A new REPL progress bar that you can also use via `util::Monitor`
+  * Improvements to our support for defining pretty printing
+  * Clipboard control from Rascal code
+  * Upgraded the Java support in m3
+  * Various bugfixes
+* For DSL extension developers:
+  * The present release is updated to work with Node.js 18. The next release will be updated to work with Node.js 20, to align with the VS Code engine and our dependencies.
+  * Changes to module `util::LanguageServer`:
+    * Code Actions can be defined using constructor `action` of type `CodeAction`, and registered using constructor `codeAction` of type `LanguageService`.
+    * Code Actions can also be attached to info, warning, and error messages as Quick Fixes.
+    * Constructors in type `LanguageService` are renamed to align them with the corresponding requests in LSP. Usage of the old names is now deprecated.
+    * Keyword parameter `useSpecialCaseHighlighting` is introduced on constructor `parsing` of type `LanguageService` (default: `true`). It is used to control whether or not the semantic highlighter should apply an odd special case (i.e., categories of `syntax` non-terminals are sometimes ignored); the semantic highlighter has been applying this special case for several releases. Usage of the special case is now deprecated.
+    * Constructor `codeLens` of type `LanguageService` has a function parameter with return type `lrel` instead of `rel` as before. This is to ensure that multiple code lenses for a single line are always ordered in the same way. Usage of return type `rel` for this function parameter is now deprecated.
+    * Type `Focus` is introduced. It is used to declare the parameters of on-demand services (`hover`, `definition`, `referenes`, `implementation`) instead of `loc`-`Tree`-`Tree` triples as before. Unlike such triples, a value of type `Focus` provides the *full* context (list of subtrees) of the cursor position. Usage of the triples is now deprecated.
+  * For each deprecated item:
+    * In the present release, support is retained for backward-compatibility, but existing code *should* be updated.
+    * In a future release, support will be removed, and existing code *must* be updated. (In the case of keyword parameter `useSpecialCaseHighlighting`, the default will first become `false` before it is removed.)
+* Other improvements:
+  * New feature: When the Rascal LSP server crashes, VS Code will now report the crash in a notification, including a button to open a GitHub issue.
+  * New feature: The default names of Rascal terminals can now be configured via setting `Rascal > Terminal > Name: Origin Format`.
+  * New feature: Project setups are now checked for common errors.
+  * Fixed "Start Rascal Terminal and Import this module" command
+
 ## Release 2.20.2 (VS Code: 0.11.2)
 
 * bumping to rascal 0.34.2:

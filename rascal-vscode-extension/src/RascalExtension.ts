@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
+import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
@@ -55,6 +56,7 @@ export class RascalExtension implements vscode.Disposable {
         checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
+        vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
@@ -86,7 +88,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, "--loadModule", moduleName, "--runModule");
+                this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
             })
         );
     }
@@ -98,12 +100,12 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, "--loadModule", moduleName);
+                this.startTerminal(text.document.uri, `import ${moduleName};\n`);
             })
         );
     }
 
-    private async startTerminal(uri: vscode.Uri | undefined, ...extraArgs: string[]) {
+    private async startTerminal(uri: vscode.Uri | undefined, command?: string | undefined) {
         try {
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -112,7 +114,7 @@ export class RascalExtension implements vscode.Disposable {
             }, async (progress) => {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
-                console.log(`Starting Rascal REPL: on ${uri} and with args: ${extraArgs}`);
+                console.log(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
                 if (uri && !uri.path.endsWith(".rsc")) {
                     // do not try to figure out a rascal project path when the focus is not a rascal file
                     uri = undefined;
@@ -121,8 +123,9 @@ export class RascalExtension implements vscode.Disposable {
                 if (uri) {
                     const [error, detail] = await this.verifyProjectSetup(uri);
                     if (error !== '') {
-                        await this.reportTerminalStartError(error, detail, {showOutput : false});
-                        return;
+                        if (!await this.reportTerminalStartError(error, detail, {showOutput : false, canContinue: true})) {
+                            return;
+                        }
                     }
                 }
                 progress.report({increment: 20, message: "Requesting IDE configuration"});
@@ -130,36 +133,87 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Calculating project class path"});
                 const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
                 progress.report({increment: 25, message: "Creating terminal"});
-                const projectRoot = uri ? vscode.workspace.getWorkspaceFolder(uri) : undefined;
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(),
-                    shellArgs: this.buildShellArgs(compilationPath, serverConfig, ...extraArgs),
+                    shellArgs: this.buildShellArgs(compilationPath, serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
-                    name: `Rascal Terminal (${projectRoot?.name ?? "no project"})`,
+                    name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
 
                 terminal.show(false);
+                if (command) {
+                    terminal.sendText(command);
+                }
                 progress.report({increment: 25, message: "Finished creating terminal"});
             });
         } catch (err) {
-            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true});
+            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true, canContinue: false});
         }
     }
 
-    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean}) {
+    private getTerminalOrigin(uri: vscode.Uri | undefined, startCommand: string): string {
+        if (uri) {
+            const config = vscode.workspace.getConfiguration();
+            const originFormat = config.get('rascal.terminal.name.originFormat');
+            switch (originFormat) {
+                case 'Project root': {
+                    const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
+                    if (projectRoot && projectRoot.name) {
+                        return projectRoot.name;
+                    }
+                    return "no project";
+                }
+                case 'Module (qualified)': {
+                    const name = startCommand.match(this.qualifiedName);
+                    if (name && name[1]) {
+                        if (name[0] !== '') {
+                            return name[0] + "::" + name[1];
+                        }
+                        return name[1];
+                    }
+                    return "no module";
+                }
+                case 'Module (unqualified)': {
+                    const name = startCommand.match(this.qualifiedName);
+                    if (name && name[1]) {
+                        return name[1];
+                    }
+                    return "no module";
+                }
+                default:
+                    console.log(`Unknown origin format: ${originFormat}`);
+            }
+        }
+        return 'no project or module';
+    }
+
+    private qualifiedName: RegExp = (() => {
+        const name1 = '(?:[A-Z_a-z][0-9A-Z_a-z]*)';
+        const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
+        const name = `(?:${name1}|${name2})`;
+        const qualifiedName = `(?:(?:${name}::)*(${name}))`;
+        return new RegExp(`^import ${qualifiedName};`);
+    })(); // Build the regex only once
+
+    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
         const options = ["View Documentation"];
         if (config.showOutput) {
             options.push("Show Rascal Output Window");
         }
-        options.push("Ok");
+        if (config.canContinue === true) {
+            options.push("Still start the REPL");
+        }
         const selected = await vscode.window.showErrorMessage(msg, {detail : detail, modal: config.modal ?? true}, ...options);
         if (selected === "View Documentation") {
             await vscode.env.openExternal(vscode.Uri.parse("https://www.rascal-mpl.org/docs/GettingStarted/CreateNewProject/"));
+            return false;
         }
         if (selected === "Show Rascal Output Window") {
             await vscode.commands.executeCommand("workbench.action.output.show.extension-output-usethesource.rascalmpl-#1-Rascal MPL Language Server");
+            return false;
         }
+        return config.canContinue === true;
     }
 
     async fileExists(f: vscode.Uri) {

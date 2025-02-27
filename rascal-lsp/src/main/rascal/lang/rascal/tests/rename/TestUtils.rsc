@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ import lang::rascal::lsp::refactor::Util;
 import IO;
 import List;
 import Location;
+import ParseTree;
 import Set;
 import String;
 
@@ -45,15 +46,17 @@ import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::compile::util::Names;
 
 import analysis::diff::edits::ExecuteTextEdits;
+import lang::rascal::lsp::refactor::TextEdits;
 
 import util::FileSystem;
 import util::Math;
+import util::Maybe;
 import util::Reflective;
 
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
-                | byLoc(loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
+                | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
 
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
@@ -62,11 +65,23 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
-    executeDocumentEdits(sortEdits(edits));
+private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
+    list[loc] editLocs = [l | /replace(l, _) := edits<0>];
+    assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
+
+    // Back-up sources
+    loc backupLoc = |memory://tests/backup|;
+    remove(backupLoc, recursive = true);
+    copy(root, backupLoc, recursive = true);
+
+    executeDocumentEdits(sortEdits(edits<0>));
     remove(pcfg.resources);
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[forceCompilationTopModule = true][verbose = false][logPathConfig = false];
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
     throwAnyErrors(checkAll(root, ccfg));
+
+    // Restore back-up
+    remove(root, recursive = true);
+    move(backupLoc, root, overwrite = true);
 }
 
 bool expectEq(&T expected, &T actual, str epilogue = "") {
@@ -87,36 +102,47 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
 
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
-    for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
-        str testName = "Test<abs(arbInt())>";
-        loc testDir = |memory://tests/rename/<testName>|;
 
-        if(any(m <- modules, m is byLoc)) {
-            testDir = cover([m.file | m <- modules, m is byLoc]);
+    bool moduleExistsOnDisk = any(mmm <- modules, mmm is byLoc);
+    for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
+        loc testDir = |unknown:///|;
+        if (moduleExistsOnDisk){
+            testDir = cover([m.file.parent | m <- modules, m is byLoc]).parent;
         } else {
             // If none of the modules refers to an existing file, clear the test directory before writing files.
+            str testName = "Test_<mm.name>_<cursorOcc>";
+            testDir = |memory://tests/rename/<testName>|;
             remove(testDir);
         }
 
         pcfg = getTestPathConfig(testDir);
-        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
-        cursorT = findCursor([m.file | m <- modulesByLocation, getModuleName(m.file, pcfg) == mm.name][0], oldName, cursorOcc);
+        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+
+        for (m <- modulesByLocation) {
+            try {
+                parseModuleWithSpaces(m.file);
+            } catch _: {
+                throw "Parse error in test module <ml>";
+            }
+        }
+
+        cursorT = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
         println("Renaming \'<oldName>\' from <cursorT.src>");
         edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
 
         renamesPerModule = (
             beforeRename: afterRename
-            | renamed(oldLoc, newLoc) <- edits
+            | renamed(oldLoc, newLoc) <- edits<0>
             , beforeRename := getModuleName(oldLoc, pcfg)
             , afterRename := getModuleName(newLoc, pcfg)
         );
 
         replacesPerModule = (
             name: occs
-            | changed(file, changes) <- edits
+            | changed(file, changes) <- edits<0>
             , name := getModuleName(file, pcfg)
-            , locs := {l | replace(l, _) <- changes}
+            , locs := {c.range | c <- changes}
             , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
         );
 
@@ -135,11 +161,13 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             success = false;
         }
 
-        for (src <- pcfg.srcs) {
-            verifyTypeCorrectRenaming(src, edits, pcfg);
+        if (success) {
+            verifyTypeCorrectRenaming(testDir, edits, pcfg);
         }
 
-        remove(testDir);
+        if (!moduleExistsOnDisk) {
+            remove(testDir);
+        }
     }
 
     return success;
@@ -172,7 +200,7 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-private PathConfig getTestPathConfig(loc testDir) {
+public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
         libs=[|std://rascal|],
@@ -182,17 +210,13 @@ private PathConfig getTestPathConfig(loc testDir) {
     );
 }
 
-PathConfig getRascalCorePathConfig(loc rascalCoreProject, loc typepalProject) {
+PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
    return pathConfig(
-        srcs = [
-                |std:///|,
-                rascalCoreProject + "src/org/rascalmpl/core/library",
-                typepalProject + "src"
-               ],
+        srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
         generatedSources = rascalCoreProject + "target/generated-test-sources",
         resources = rascalCoreProject + "target/generated-test-resources",
-        libs = []
+        libs = [|lib://typepal|, |lib://rascal|]
     );
 }
 
@@ -206,34 +230,20 @@ PathConfig getPathConfig(loc project) {
     println("Getting path config for <project.file> (<project>)");
 
     if (project.file == "rascal-core") {
-        pcfg = getRascalCorePathConfig();
-        return resolveLocations(pcfg);
+        pcfg = getRascalCorePathConfig(|home:///swat/projects/Rascal/rascal-core|);
+        return pcfg;
     }
 
     pcfg = getProjectPathConfig(project);
-    return resolveLocations(pcfg);
+    return pcfg;
 }
 
-list[DocumentEdit] testRascalCore(loc rascalCoreDir, loc typepalDir) {
-    registerLocations("project", "", (
-        |project://rascal-core/target/test-classes|: rascalCoreDir + "target/test-classes",
-        |project://rascal-core/target/generated-test-sources|: rascalCoreDir + "target/generated-test-sources",
-        |project://rascal-core/target/generated-test-resources|: rascalCoreDir + "target/generated-test-resources",
-        |project://rascal-core/src/org/rascalmpl/core/library|: rascalCoreDir + "src/org/rascalmpl/core/library",
-        |project://typepal/src|: typepalDir + "src"));
-
-    return getEdits(rascalCoreDir + "src/org/rascalmpl/core/library/lang/rascalcore/check/ATypeBase.rsc", {resolveLocation(rascalCoreDir), resolveLocation(typepalDir)}, 0, "arat", "arational", getPathConfig);
-}
-
-list[DocumentEdit] getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
-    loc f = resolveLocation(singleModule);
-    m = parseModuleWithSpaces(f);
-
-    Tree cursor = [n | /Name n := m.top, "<n>" == oldName][cursorAtOldNameOccurrence];
+Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
+    Tree cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
     return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
 }
 
-tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
+tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
     edits = getEdits(singleModule, {projectDir}, cursorAtOldNameOccurrence, oldName, newName, PathConfig(loc _) { return pcfg; });
     occs = extractRenameOccurrences(singleModule, edits, oldName);
 
@@ -244,12 +254,12 @@ tuple[list[DocumentEdit], set[int]] getEditsAndOccurrences(loc singleModule, loc
     return <edits, occs>;
 }
 
-list[DocumentEdit] getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports) {
+Edits getEdits(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports) {
     <edits, _> = getEditsAndModule(stmtsStr, cursorAtOldNameOccurrence, oldName, newName, decls, imports);
     return edits;
 }
 
-private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule<abs(arbInt())>") {
+private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNameOccurrence, str oldName, str newName, str decls, str imports, str moduleName = "TestModule") {
     str moduleStr =
     "module <moduleName>
     '<trim(imports)>
@@ -260,6 +270,7 @@ private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int 
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
     loc testDir = |memory://tests/rename/<moduleName>|;
+    remove(testDir);
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
 
@@ -267,23 +278,56 @@ private tuple[list[DocumentEdit], set[int]] getEditsAndModule(str stmtsStr, int 
     return <edits, occs>;
 }
 
-private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
-    start[Module] m = parseModuleWithSpaces(moduleFileName);
-    list[loc] oldNameOccurrences = [];
-    for (/Name n := m, "<n>" == name) {
-        oldNameOccurrences += n.src;
+private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) {
+    lrel[loc, Maybe[Tree]] names = [];
+        top-down-break visit (m) {
+        case QualifiedName qn: {
+            if ("<qn>" == name) {
+                names += <qn.src, just(qn)>;
+            }
+            else {
+                modPrefix = prefix([n | n <- qn.names]);
+                if (intercalate("::", ["<n>" | n <- modPrefix]) == name) {
+                    names += <cover([n.src | n <- modPrefix]), nothing()>;
+                } else {
+                    fail;
+                }
+            }
+        }
+        // 'Normal' names
+        case Name n:
+            if ("<n>" == name) names += <n.src, just(n)>;
+        // Nonterminals (grammars)
+        case Nonterminal s:
+            if ("<s>" == name) names += <s.src, just(s)>;
+        // Labels for nonterminals (grammars)
+        case NonterminalLabel label:
+            if ("<label>" == name) names += <label.src, just(label)>;
     }
 
-    // print("All locations of \'<name>\': ");
-    // iprintln(sort(oldNameOccurrences, byOffset));
+    return [<i, l, mt> | <i, <l, mt>> <- zip2(index(names), names)];
+}
 
-    if ([changed(_, replaces)] := edits) {
-        set[int] idx = {};
-        for (replace(replaceAt, replaceWith) <- replaces) {
-            if (oldText := readFile(replaceAt), "<oldText>" != name) throw "Unexpected change for \'<oldText>\' at <replaceAt>";
-            idx += indexOf(oldNameOccurrences, replaceAt);
+private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str name) {
+    start[Module] m = parseModuleWithSpaces(moduleFileName);
+    list[loc] oldNameOccurrences = [l | <_, l, _> <- collectNameTrees(m, name)];
+
+    if ([changed(_, replaces)] := edits<0>) {
+        set[int] occs = {};
+        set[loc] nonOldNameLocs = {};
+        for (r <- replaces) {
+            if (idx := indexOf(oldNameOccurrences, r.range), idx >= 0) {
+                occs += idx;
+            } else {
+                nonOldNameLocs += r.range;
+            }
         }
-        return idx;
+
+        if (nonOldNameLocs != {}) {
+            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <nonOldNameLocs>";
+        }
+
+        return occs;
     } else {
         print("Unexpected changes: ");
         iprintln(edits);
@@ -296,7 +340,15 @@ private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
 private Tree findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
-    return [n | /Name n := m.top, "<n>" == id][occ];
+    names = collectNameTrees(m, id);
+    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
+    maybeCursor = names[occ];
+
+    if (<i, l, nothing()> := maybeCursor) {
+        throw "Cannot use <i>th occurrence of \'<id>\' at <l> as cursor";
+    } else {
+        return (maybeCursor<2>).val;
+    }
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
@@ -311,6 +363,5 @@ private loc storeTestModule(loc dir, str name, str body) {
     return moduleFile;
 }
 
-private set[Tree] occsToTrees(start[Module] m, str name, set[int] occs) = {n | i <- occs, n := [n | /Name n := m.top, "<n>" == name][i]};
-private set[loc] occsToLocs(start[Module] m, str name, set[int] occs) = {t.src | t <- occsToTrees(m, name, occs)};
-private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) = {indexOf(names, occ) | names := [n.src | /Name n := m.top, "<n>" == name], occ <- occs};
+private set[int] locsToOccs(start[Module] m, str name, set[loc] occs) =
+    toSet((collectNameTrees(m, name)<1, 0>)[occs]);

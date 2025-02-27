@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@ describe('REPL', function () {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
-        ide = new IDEOperations(browser, bench);
+        ide = new IDEOperations(browser);
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();
@@ -83,8 +83,8 @@ describe('REPL', function () {
     it("edit call module via repl", async() => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute(":edit demo::lang::pico::LanguageServer");
+        await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
-        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.normal, "LanguageServer should be opened");
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
     });
 });

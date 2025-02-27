@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,12 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -52,5 +56,9 @@ public class RascalInterface {
 
     public ISourceLocation resolveProjectLocation(ISourceLocation project) {
         return services.resolveProjectLocation(project);
+    }
+
+    public IList computeFocusList(IConstructor input, IInteger line, IInteger column) {
+        return TreeSearch.computeFocusList((ITree) input, line.intValue(), column.intValue());
     }
 }

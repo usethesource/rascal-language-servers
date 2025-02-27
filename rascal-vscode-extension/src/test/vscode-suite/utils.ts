@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@ import { assert } from "chai";
 import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -50,11 +50,13 @@ function target(project : string) { return path.join(project, 'target', 'classes
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
     public static readonly workspaceFile = path.join(this.workspacePrefix, 'test.code-workspace');
+    public static readonly workspaceName = "test (Workspace)";
     public static readonly testProject = path.join(this.workspacePrefix, 'test-project');
     public static readonly libProject = path.join(this.workspacePrefix, 'test-lib');
     public static readonly mainFile = path.join(src(this.testProject), 'Main.rsc');
     public static readonly mainFileTpl = path.join(target(this.testProject),'$Main.tpl');
     public static readonly libCallFile = path.join(src(this.testProject), 'LibCall.rsc');
+    public static readonly licenseFile = path.join(this.testProject, 'LICENSE');
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
@@ -89,18 +91,31 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
-    async waitForReplReady() {
+    async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
-            for (let tries = 0; tries < 5; tries++) {
-                await sleep(Delays.slow / 10);
-                output = await this.terminal.getText();
-                if (/rascal>\s*$/.test(output)) {
-                    return true;
-                }
-                await sleep(Delays.slow / 10);
+            let stopRunning = false;
+            try {
+                return await this.driver.wait(async () => {
+                    if (stopRunning) {
+                        // sometimes this code keeps running in a loop
+                        // and messes up all the other interactions
+                        // so we keep track if we're done, and make sure to
+                        // exit quickly in this case.
+                        return true;
+                    }
+                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    if (/rascal>\s*$/.test(output)) {
+                        stopRunning = true;
+                        return true;
+                    }
+                    return false;
+                }, wait, "Rascal prompt", 500);
+            } catch (_ignored) {
+                stopRunning = true;
+                console.log("**** ignoring exception: ", _ignored);
+                return false;
             }
-            return false;
         }
         finally {
             const lines = output.split('\n').map(l => l.trimEnd());
@@ -126,10 +141,10 @@ export class RascalREPL {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(), "Repl prompt should print");
+        assert(await this.waitForReplReady(Delays.extremelySlow), "Repl prompt should print");
     }
 
-    async execute(command: string, waitForReady = true) {
+    async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
@@ -137,16 +152,11 @@ export class RascalREPL {
             await ignoreFails(i.sendKeys(command + '\n'));
         }
         if (waitForReady) {
-            assert(await this.waitForReplReady());
+            assert(await this.waitForReplReady(wait), "Repl should have finished processing at some point: " + this.lastReplOutput);
         }
     }
 
     get lastOutput() { return this.lastReplOutput; }
-
-    async waitForLastOutput(): Promise<string> {
-        assert(await this.waitForReplReady());
-        return this.lastReplOutput;
-    }
 
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
@@ -154,11 +164,25 @@ export class RascalREPL {
     }
 }
 
+function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCondition {
+    return new WebElementCondition("locating element in scope", async (_driver) => {
+        try {
+            const result = await scope.findElements(selector);
+            if (result && result.length > 0) {
+                return result[0] ?? null;
+            }
+            return null;
+        }
+        catch (_ignored) {
+            return null;
+        }
+    });
+}
+
 export class IDEOperations {
     private driver: WebDriver;
     constructor(
         private browser: VSBrowser,
-        private bench: Workbench,
     ) {
         this.driver = browser.driver;
     }
@@ -167,6 +191,10 @@ export class IDEOperations {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
+                const isWorkSpaceOpen =await this.driver.findElements(By.xpath(`//*[contains(text(),'${TestWorkspace.workspaceName}')]`));
+                if (isWorkSpaceOpen !== undefined && isWorkSpaceOpen.length > 0) {
+                    break;
+                }
                 await this.browser.openResources(TestWorkspace.workspaceFile);
             } catch (ex) {
                 console.debug("Error opening workspace, retrying.", ex);
@@ -174,21 +202,28 @@ export class IDEOperations {
         }
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
-        const center = await ignoreFails(this.bench.openNotificationsCenter());
+        const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
     }
 
     async cleanup() {
         await ignoreFails(this.revertOpenChanges());
-        await ignoreFails(this.bench.getEditorView().closeAllEditors());
-        const center = await ignoreFails(this.bench.openNotificationsCenter());
+        await ignoreFails(new Workbench().getEditorView().closeAllEditors());
+        const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
     }
 
+    assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
+        return this.driver.wait(async () => {
+            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            return currentContent === lineContents;
+        }, wait, msg, 100);
+    }
+
     hasElement(editor: TextEditor, selector: Locator, timeout: number, message: string): Promise<WebElement> {
-        return this.driver.wait(() => editor.findElement(selector), timeout, message );
+        return this.driver.wait(scopedElementLocated(editor, selector), timeout, message, 50);
     }
 
     hasWarningSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
@@ -196,7 +231,7 @@ export class IDEOperations {
     }
 
     hasErrorSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
-        return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message);
+        return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
@@ -208,20 +243,45 @@ export class IDEOperations {
     }
 
     revertOpenChanges(): Promise<void> {
-        return this.bench.executeCommand("workbench.action.revertAndCloseActiveEditor");
+        let tryCount = 0;
+        return this.driver.wait(async () => {
+            tryCount++;
+            try {
+                await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
+            } catch (ex) {
+                this.screenshot("revert failed " + tryCount);
+                console.log("Revert failed, but we ignore it", ex);
+            }
+            try {
+                let anyEditor = true;
+                try {
+                    anyEditor = (await (new EditorView().getOpenEditorTitles())).length > 0;
+                } catch (_ignored) {
+                    anyEditor = false;
+                }
+                if (!anyEditor) {
+                    return true;
+                }
+                return !(await new TextEditor().isDirty());
+            }
+            catch (ignored) {
+                this.screenshot("open editor check failed " + tryCount);
+                console.log("Open editor dirtry check failed: ", ignored);
+                return false;
+
+            }
+        }, Delays.normal, "We should be able to undo").then(_b => {});
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        for (let tries = 0; tries < 10; tries++) {
-            await ignoreFails(this.browser.openResources(file));
-            await sleep(Delays.fast);
-            const result = await ignoreFails(this.bench.getEditorView().openEditor(path.basename(file))) as TextEditor;
-            await sleep(Delays.fast);
+        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
+        return this.driver.wait(async () => {
+            const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
-        }
-        throw new Error("Could not open file " + file);
+            return undefined;
+        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
@@ -246,13 +306,34 @@ export class IDEOperations {
         }
     }
 
+    /**
+     * This makes the code action menu popup _if there are code actions on the current line_
+     * and then selects the first entry from the menu. This works only if the given actionLabel
+     * indeed becomes the first menu item.
+     *
+     * @param editor
+     * @param actionLabel
+     */
+    async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
+        const inputarea = await editor.findElement(By.className('inputarea'));
+        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+
+        // finds an open menu with the right item in it (Change to a) and then select
+        // the parent that handles UI events like click() and sendKeys()
+        const menuContainer = await this.hasElement(editor, By.xpath("//div[contains(@class, 'focused') and contains(@class, 'action')]/span[contains(text(), '" + actionLabel + "')]//ancestor::*[contains(@class, 'monaco-list')]"), Delays.normal, actionLabel + " action should be available and focused");
+
+        // menu container works a bit strangely, it ask the focus to keep track of it,
+        // and manages clicks and menus on the highest level (not per item).
+        await menuContainer.sendKeys(Key.RETURN);
+    }
+
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
         return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
         return async () => {
-            for (const st of await ignoreFails(this.bench.getStatusBar().getItems()) ?? []) {
+            for (const st of await ignoreFails(new Workbench().getStatusBar().getItems()) ?? []) {
                 if ((await ignoreFails(st.getText()))?.includes(needle)) {
                     return true;
                 }
@@ -261,8 +342,12 @@ export class IDEOperations {
         };
     }
 
+    private screenshotSeqNumber = 0;
+
     screenshot(name: string): Promise<void> {
-        return this.browser.takeScreenshot(name.replace(/[/\\?%*:|"<>]/g, '-'));
+        return this.browser.takeScreenshot(
+            `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
+            name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
 }
 

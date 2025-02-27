@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,15 +39,12 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensCapabilities;
 import org.eclipse.lsp4j.SemanticTokensClientCapabilitiesRequests;
-import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensLegend;
 import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
@@ -60,7 +57,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
-public class SemanticTokenizer implements ISemanticTokens {
+public class SemanticTokenizer {
 
     private static final Logger logger = LogManager.getLogger(SemanticTokenizer.class);
 
@@ -74,24 +71,12 @@ public class SemanticTokenizer implements ISemanticTokens {
         this.patch = rascal ? new RascalCategoryPatch() : new DefaultCategoryPatch();
     }
 
-    @Override
-    public SemanticTokens semanticTokensFull(ITree tree) {
+    public SemanticTokens semanticTokensFull(ITree tree, boolean specialCaseHighlighting) {
         TokenList tokens = new TokenList();
-        new TokenCollector(tokens, patch).collect(tree);
+        new TokenCollector(tokens, specialCaseHighlighting, patch).collect(tree);
         return new SemanticTokens(tokens.getTheList());
     }
 
-    @Override
-    public Either<SemanticTokens, SemanticTokensDelta> semanticTokensFullDelta(String previousId, ITree tree) {
-        return Either.forLeft(semanticTokensFull(tree));
-    }
-
-    @Override
-    public SemanticTokens semanticTokensRange(Range range, ITree tree) {
-        return semanticTokensFull(tree);
-    }
-
-    @Override
     public SemanticTokensWithRegistrationOptions options() {
         SemanticTokensWithRegistrationOptions result = new SemanticTokensWithRegistrationOptions();
         SemanticTokensLegend legend = new SemanticTokensLegend(TokenTypes.getTokenTypes(), TokenTypes.getTokenModifiers());
@@ -102,7 +87,6 @@ public class SemanticTokenizer implements ISemanticTokens {
         return result;
     }
 
-    @Override
     public SemanticTokensCapabilities capabilities() {
         SemanticTokensClientCapabilitiesRequests requests = new SemanticTokensClientCapabilitiesRequests(true);
         SemanticTokensCapabilities cps = new SemanticTokensCapabilities(
@@ -394,67 +378,60 @@ public class SemanticTokenizer implements ISemanticTokens {
     private static class TokenCollector {
         private int line;
         private int column;
-        private int startLineCurrentToken;
-        private int startColumnCurrentToken;
-        private String currentTokenCategory;
 
         private final boolean showAmb = false;
-        private TokenList tokens;
+
+        private final TokenList tokens;
+        private final boolean specialCaseHighlighting;
         private final CategoryPatch patch;
 
-        public TokenCollector(TokenList tokens, CategoryPatch patch) {
+        public TokenCollector(TokenList tokens, boolean specialCaseHighlighting, CategoryPatch patch) {
             this.tokens = tokens;
+            this.specialCaseHighlighting = specialCaseHighlighting;
             this.patch = patch;
+
             line = 0;
             column = 0;
         }
 
         public void collect(ITree tree) {
             collect(tree, null);
-            //check for final token
-            if (column > startColumnCurrentToken) {
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-            }
         }
 
-        private void collect(ITree tree, @Nullable String currentCategory) {
+        private void collect(ITree tree, @Nullable String parentCategory) {
             if (tree.isAppl()) {
-                collectAppl(tree, currentCategory);
+                collectAppl(tree, parentCategory);
             }
             else if (tree.isAmb()) {
-                collectAmb(tree, currentCategory);
+                collectAmb(tree, parentCategory);
             }
             else if (tree.isChar()) {
-                collectChar(tree, currentCategory);
+                collectChar(tree, parentCategory);
             }
         }
 
-        @SuppressWarnings("java:S3776") // parsing tends to be complex
-        private void collectAppl(ITree arg, @Nullable String currentCategory) {
+        private void collectAppl(ITree tree, @Nullable String parentCategory) {
             String category = null;
+            if (TokenTypes.AMBIGUITY.equals(parentCategory)) {
+                category = TokenTypes.AMBIGUITY;
+            }
 
-            IValue catParameter = arg.asWithKeywordParameters().getParameter("category");
-
-            if (catParameter != null) {
+            IValue catParameter = tree.asWithKeywordParameters().getParameter("category");
+            if (category == null && catParameter != null) {
                 category = ((IString) catParameter).getValue();
             }
 
-            IConstructor prod = TreeAdapter.getProduction(arg);
-
+            IConstructor prod = TreeAdapter.getProduction(tree);
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }
 
-            if (category == null && currentCategory == null && (ProductionAdapter.isLiteral(prod) || ProductionAdapter.isCILiteral(prod))) {
+            if (category == null && parentCategory == null && isKeyword(tree)) {
                 category = SemanticTokenTypes.Keyword;
+            }
 
-                // unless this is an operator
-                for (IValue child : TreeAdapter.getArgs(arg)) {
-                    int c = TreeAdapter.getCharacter((ITree) child);
-                    if (c != '-' && !Character.isJavaIdentifierPart(c)) {
-                        category = null;
-                    }
-                }
+            if (category == null) {
+                category = parentCategory;
             }
 
             // Apply a patch to the parse tree to dynamically add categories. In
@@ -463,79 +440,54 @@ public class SemanticTokenizer implements ISemanticTokens {
             // is empty and does nothing.
             category = patch.apply(prod, category);
 
-            // now we go down in the tree to find more tokens and to advance the counters
-            for (IValue child : TreeAdapter.getArgs(arg)) {
+            // Collect tokens from children
+            for (IValue child : TreeAdapter.getArgs(tree)) {
                 //Propagate current category to child unless currently in a syntax nonterminal
                 //*AND* the current child is a syntax nonterminal too
-                if (TreeAdapter.isAmb((ITree)child)) {
-                    collectAmb((ITree) child, category != null ? category : currentCategory);
-                }
-                else if (!TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
-                        ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child))) {
-                    collect((ITree) child, null);
-                } else {
-                    collect((ITree) child, category != null ? category : currentCategory);
-                }
+                var specialCase = specialCaseHighlighting &&
+                    !TreeAdapter.isChar((ITree) child) && ProductionAdapter.isSort(prod) &&
+                    ProductionAdapter.isSort(TreeAdapter.getProduction((ITree) child));
+
+                collect((ITree) child, specialCase ? null : category);
             }
         }
 
-        private void collectAmb(ITree arg, @Nullable String currentCategory) {
-            if (showAmb) {
-                startLineCurrentToken = line;
-                startColumnCurrentToken = column;
-
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), TokenTypes.AMBIGUITY);
-
-                tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, TokenTypes.AMBIGUITY);
-            } else {
-                collect((ITree) TreeAdapter.getAlternatives(arg).iterator().next(), currentCategory);
-            }
+        private void collectAmb(ITree tree, @Nullable String parentCategory) {
+            var category = showAmb ? TokenTypes.AMBIGUITY : parentCategory;
+            var child = (ITree) TreeAdapter.getAlternatives(tree).iterator().next();
+            collect(child, category);
         }
 
-        private void collectChar(ITree ch, @Nullable String currentCategory) {
-            int currentChar = TreeAdapter.getCharacter(ch);
-            //First check whether the token category has changed
-            if (currentCategory == null) {
-                //character has no semantic category
-                if (column > startColumnCurrentToken) {
-                    //add token and set column offset
-                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    startColumnCurrentToken = column;
-                    //startLineCurrentToken remains unchanged
-                }
-                currentTokenCategory = currentCategory;
-            }
-            if (currentCategory != null && !currentCategory.equals(currentTokenCategory)) {
-                //character has a semantic category that doesn't match the running token
-                if (column > startColumnCurrentToken) {
-                    //add token and set column offset
-                    tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    startColumnCurrentToken = column;
-                }
-                currentTokenCategory = currentCategory;
-                //startLineCurrentToken remains unchanged
-            }
+        private void collectChar(ITree tree, @Nullable String parentCategory) {
+            var ch = TreeAdapter.getCharacter(tree);
+            var length = Character.isSupplementaryCodePoint(ch) ? 2 : 1; // LSP counts 16-bit code units instead of Unicode code points
+            tokens.addToken(line, column, length, parentCategory);
 
-            //Token administration done, advance column/line counters
-            if (currentChar == '\n') {
+            if (ch == '\n') {
                 line++;
-
-                // this splits multi-line tokens automatically across the lines
-                if (currentTokenCategory != null) {
-                    if (column > startColumnCurrentToken) {
-                        tokens.addToken(startLineCurrentToken, startColumnCurrentToken, column - startColumnCurrentToken, currentTokenCategory);
-                    }
-                }
-                startColumnCurrentToken = 0;
-                startLineCurrentToken = line;
                 column = 0;
+            } else {
+                column += length;
             }
-            else if (Character.isSupplementaryCodePoint(currentChar)) {
-                column += 2; // lsp counts 16-bit chars instead of 32bit codepoints
+        }
+
+        private static boolean isKeyword(ITree tree) {
+            var p = tree.getProduction();
+
+            // A keyword must be a (ci)literal
+            if (!ProductionAdapter.isLiteral(p) && !ProductionAdapter.isCILiteral(p)) {
+                return false;
             }
-            else {
-                column++;
+
+            // A keyword must consist solely of Java identifier chars or '-'
+            for (IValue child : TreeAdapter.getArgs(tree)) {
+                int ch = TreeAdapter.getCharacter((ITree) child);
+                if (ch != '-' && !Character.isJavaIdentifierPart(ch)) {
+                    return false;
+                }
             }
+
+            return true;
         }
     }
 
@@ -544,7 +496,7 @@ public class SemanticTokenizer implements ISemanticTokens {
     // (i.e., semantic token types). These categories should eventually be
     // incorporated directly in the grammar. Additional background:
     // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
-    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {};
+    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {}
 
     private static class DefaultCategoryPatch implements CategoryPatch {
         @Override

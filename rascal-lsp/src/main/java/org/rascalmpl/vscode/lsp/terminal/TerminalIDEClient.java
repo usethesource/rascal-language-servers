@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.library.Prelude;
@@ -67,9 +68,11 @@ public class TerminalIDEClient implements IDEServices {
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
     private final IRascalMonitor monitor;
+    private final Terminal terminal;
+    private final PrintWriter err;
 
-    public TerminalIDEClient(int port, IRascalMonitor monitor) throws IOException {
-        @SuppressWarnings({ "java:S2095", "resource" }) // we don't have to close the socket, we are passing it off to the lsp4j framework
+    public TerminalIDEClient(int port, PrintWriter err, IRascalMonitor monitor, Terminal term) throws IOException {
+        @SuppressWarnings({"resource"}) // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
         Launcher<ITerminalIDEServer> launch = new Launcher.Builder<ITerminalIDEServer>()
@@ -80,13 +83,15 @@ public class TerminalIDEClient implements IDEServices {
             .create();
         launch.startListening();
         server = launch.getRemoteProxy();
+        this.err = err;
         this.monitor = monitor;
+        this.terminal = term;
     }
+
 
     @Override
     public PrintWriter stderr() {
-        assert false: "this method should not be used";
-        return new PrintWriter(System.err);
+        return err;
     }
 
     @Override
@@ -212,5 +217,11 @@ public class TerminalIDEClient implements IDEServices {
     public void registerDebugServerPort(int processID, int serverPort){
         server.registerDebugServerPort(processID, serverPort);
     }
+
+    @Override
+    public Terminal activeTerminal() {
+        return terminal;
+    }
+
 
 }

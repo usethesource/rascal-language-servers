@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,35 +33,55 @@ public class RascalADTs {
     private RascalADTs() {}
     public static class LanguageContributions {
         private LanguageContributions () {}
-        public static final String PARSER = "parser";
-        public static final String ANALYZER = "analyzer";
-        public static final String BUILDER = "builder";
-        public static final String OUTLINER = "outliner";
-        public static final String LENS_DETECTOR = "lenses";
-        public static final String INLAY_HINTER = "inlayHinter";
-        public static final String COMMAND_EXECUTOR = "executor";
-        public static final String DOCUMENTER = "documenter";
-        public static final String DEFINER = "definer";
-        public static final String REFERRER = "referrer";
-        public static final String IMPLEMENTER = "implementer";
-        public static class Summarizers {
-            private Summarizers() {}
 
-            public static final String PROVIDES_IMPLEMENTATIONS = "providesImplementations";
-            public static final String PROVIDES_REFERENCES = "providesReferences";
+        public static final String PARSING = "parsing";
+        public static final String ANALYSIS = "analysis";
+        public static final String BUILD = "build";
+        public static final String DOCUMENT_SYMBOL = "documentSymbol";
+        public static final String CODE_LENS = "codeLens";
+        public static final String INLAY_HINT = "inlayHint";
+        public static final String EXECUTION = "execution";
+        public static final String HOVER = "hover";
+        public static final String DEFINITION = "definition";
+        public static final String REFERENCES = "references";
+        public static final String IMPLEMENTATION = "implementation";
+        public static final String CODE_ACTION = "codeAction";
+
+        public static class Parameters {
+            private Parameters() {}
+
+            public static final String USES_SPECIAL_CASE_HIGHLIGHTING = "usesSpecialCaseHighlighting";
+
+            public static final String PROVIDES_HOVERS = "providesHovers";
             public static final String PROVIDES_DEFINITIONS = "providesDefinitions";
-            public static final String PROVIDES_DOCUMENTATION = "providesDocumentation";
+            public static final String PROVIDES_REFERENCES = "providesReferences";
+            public static final String PROVIDES_IMPLEMENTATIONS = "providesImplementations";
         }
     }
 
     public static class SummaryFields {
         private SummaryFields() {}
 
-        public static final String DOCUMENTATION = "documentation";
+        public static final String DEPRECATED_DOCUMENTATION = "documentation";
+
+        public static final String HOVERS = "hovers";
         public static final String DEFINITIONS = "definitions";
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATIONS = "implementations";
-
     }
 
+    public static class CommandFields {
+        private CommandFields() {}
+
+        public static final String TITLE = "title";
+    }
+
+    public static class CodeActionFields {
+        private CodeActionFields() { }
+
+        public static final String EDITS = "edits";
+        public static final String COMMAND = "command";
+        public static final String TITLE = "title";
+        public static final String KIND = "kind";
+    }
 }

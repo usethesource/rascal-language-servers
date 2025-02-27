@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -45,46 +46,52 @@ import io.usethesource.vallang.type.TypeStore;
 public interface ILanguageContributions {
     public String getName();
 
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input);
-    public InterruptibleFuture<IList> outline(ITree input);
-    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input);
+    public CompletableFuture<ITree> parsing(ISourceLocation loc, String input);
+    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
-    public InterruptibleFuture<ISet> lenses(ITree input);
-    public InterruptibleFuture<@Nullable IValue> executeCommand(String command);
+    public InterruptibleFuture<IList> documentSymbol(ITree input);
+    public InterruptibleFuture<IList> codeLens(ITree input);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor);
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor);
+    public InterruptibleFuture<@Nullable IValue> execution(String command);
+    public InterruptibleFuture<ISet> hover(IList focus);
+    public InterruptibleFuture<ISet> definition(IList focus);
+    public InterruptibleFuture<ISet> references(IList focus);
+    public InterruptibleFuture<ISet> implementation(IList focus);
+    public InterruptibleFuture<IList> codeAction(IList focus);
 
-    public CompletableFuture<Boolean> hasAnalyzer();
-    public CompletableFuture<Boolean> hasBuilder();
-    public CompletableFuture<Boolean> hasOutliner();
-    public CompletableFuture<Boolean> hasLensDetector();
-    public CompletableFuture<Boolean> hasInlayHinter();
-    public CompletableFuture<Boolean> hasCommandExecutor();
-    public CompletableFuture<Boolean> hasDocumenter();
-    public CompletableFuture<Boolean> hasDefiner();
-    public CompletableFuture<Boolean> hasReferrer();
-    public CompletableFuture<Boolean> hasImplementer();
+    public CompletableFuture<IList> parseCodeActions(String command);
+
+    public CompletableFuture<Boolean> hasAnalysis();
+    public CompletableFuture<Boolean> hasBuild();
+    public CompletableFuture<Boolean> hasDocumentSymbol();
+    public CompletableFuture<Boolean> hasCodeLens();
+    public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<Boolean> hasExecution();
+    public CompletableFuture<Boolean> hasHover();
+    public CompletableFuture<Boolean> hasDefinition();
+    public CompletableFuture<Boolean> hasReferences();
+    public CompletableFuture<Boolean> hasImplementation();
+    public CompletableFuture<Boolean> hasCodeAction();
+
+    public CompletableFuture<Boolean> specialCaseHighlighting();
 
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig();
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig();
 
     public static class SummaryConfig {
-        public final boolean providesDocumentation;
+        public final boolean providesHovers;
         public final boolean providesDefinitions;
         public final boolean providesReferences;
         public final boolean providesImplementations;
 
         public SummaryConfig(
-                boolean providesDocumentation,
+                boolean providesHovers,
                 boolean providesDefinitions,
                 boolean providesReferences,
                 boolean providesImplementations) {
 
-            this.providesDocumentation = providesDocumentation;
+            this.providesHovers = providesHovers;
             this.providesDefinitions = providesDefinitions;
             this.providesReferences = providesReferences;
             this.providesImplementations = providesImplementations;
@@ -94,23 +101,22 @@ public interface ILanguageContributions {
 
         public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
             return new SummaryConfig(
-                a.providesDocumentation || b.providesDocumentation,
+                a.providesHovers || b.providesHovers,
                 a.providesDefinitions || b.providesDefinitions,
                 a.providesReferences || b.providesReferences,
                 a.providesImplementations || b.providesImplementations);
         }
     }
 
-
     @FunctionalInterface // Type alias to conveniently pass methods `analyze`and `build` as parameters
     public static interface ScheduledCalculator extends BiFunction<ISourceLocation, ITree, InterruptibleFuture<IConstructor>> {}
 
     @FunctionalInterface
-    // To conveniently pass methods `documentation`, `definitions`,
-    // `references`, and `implementations` as parameters.
-    public static interface OndemandCalculator {
-        InterruptibleFuture<ISet> apply(ISourceLocation file, ITree tree, ITree cursor);
-    }
+    /**
+     * To conveniently pass methods `documentation`, `definitions`,
+     * `references`, and `implementations` as parameter.
+     */
+    public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
 }
 
 /*package*/ class EmptySummary {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,16 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -44,4 +48,6 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void unregisterLanguage(LanguageParameter lang);
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
+
+    default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
 }

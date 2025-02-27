@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,11 +37,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
@@ -55,6 +61,7 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -62,8 +69,15 @@ import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RenameFilesParams;
+import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
@@ -79,14 +93,18 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -95,16 +113,19 @@ import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Outline;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -132,7 +153,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return columns.get(file);
     }
 
-    private String getContents(ISourceLocation file) {
+    public String getContents(ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = documents.get(file);
         if (ideState != null) {
@@ -156,8 +177,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
-        result.setRenameProvider(true);
+        result.setRenameProvider(new RenameOptions(true));
+        result.setCodeActionProvider(true);
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RascalWorkspaceService.RASCAL_COMMAND)));
     }
+
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
         this.workspaceService = workspaceService;
@@ -176,14 +200,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        logger.debug("Open file: {}", params.getTextDocument());
+        logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument());
         handleParsingErrors(file);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        logger.trace("Change contents: {}", params.getTextDocument());
+        logger.trace("Change: {}", params.getTextDocument());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
     }
 
@@ -244,10 +268,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         handleParsingErrors(file,file.getCurrentTreeAsync());
     }
 
-
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
-        logger.debug("Definition: {} at {}", params.getTextDocument(), params.getPosition());
+        logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         if (facts != null) {
             return facts.getSummary(Locations.toLoc(params.getTextDocument()))
@@ -263,14 +286,66 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>
         documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbols: {}", params.getTextDocument());
+        logger.debug("textDocument/documentSymbol: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getOutline(tr).get())
-            .thenApply(c -> Outline.buildOutline(c, columns.get(file.getLocation())))
+            .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             ;
+    }
+
+    private ITree findQualifiedNameUnderCursor(ISourceLocation file, ITree moduleTree, Position p) {
+        Position rascalCursorPos = Locations.toRascalPosition(file, p, columns);
+
+        // Find all trees containing the cursor, in ascending order of size
+        IList focusList = TreeSearch.computeFocusList(moduleTree, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+        List<String> sortNames = focusList.stream()
+            .map(ITree.class::cast)
+            .map(TreeAdapter::getProduction)
+            .map(ProductionAdapter::getSortName)
+            .collect(Collectors.toList());
+
+        int qNameIdx = sortNames.indexOf("QualifiedName");
+        if (qNameIdx != -1) {
+            // Cursor is at a qualified name
+            ITree qualifiedName = (ITree) focusList.get(qNameIdx);
+
+            // If the qualified name is in a header, but not in module parameters or a syntax defintion, it is a full module path
+            if (sortNames.contains("Header") && !(sortNames.contains("ModuleParameters") || sortNames.contains("SyntaxDefinition"))) {
+                return qualifiedName;
+            }
+
+            // Since the cursor is not in a header, the qualified name consists of a declaration name on the right, and an optional module path prefix.
+            IList names = TreeAdapter.getListASTArgs(TreeAdapter.getArg(qualifiedName, "names"));
+
+            // Even if the cursor is on the module prefix, we steer towards renaming the declaration
+            return (ITree) names.get(names.size() - 1);
+        }
+
+        switch (sortNames.get(0)) {
+            case "Name": // intentional fall-through
+            case "Nonterminal": // intentional fall-through
+            case "NonterminalLabel": {
+                // Return name location
+                return (ITree) focusList.get(0);
+            }
+            default: return null;
+        }
+    }
+
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(PrepareRenameParams params) {
+        logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
+        TextDocumentState file = getFile(params.getTextDocument());
+
+        return file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
+            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
+            .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
+            .thenApply(Either3::forFirst);
     }
 
     @Override
@@ -286,9 +361,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenCompose(tr -> rascalServices.getRename(tr, params.getPosition(), workspaceFolders, facts::getPathConfig, params.getNewName(), columns).get())
-            .thenApply(c -> new WorkspaceEdit(DocumentChanges.translateDocumentChanges(this, c)))
-            ;
+            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
+            .thenCompose(cursor -> rascalServices.getRename(cursor, workspaceFolders, facts::getPathConfig, params.getNewName()).get())
+            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
 
     @Override
@@ -319,6 +394,25 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             );
     }
 
+    @Override
+    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+
+        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
+            .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
+            .thenAccept(editResponse -> {
+                if (!editResponse.isApplied()) {
+                    throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+                }
+            })
+            .exceptionally(e -> {
+                logger.catching(Level.ERROR, e.getCause());
+                client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
+                return null; // Return of type `Void` is unused, but required
+            });
+    }
+
     // Private utility methods
 
     private static <T> T last(List<T> l) {
@@ -334,7 +428,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return getFile(Locations.toLoc(doc));
     }
 
-    private TextDocumentState getFile(ISourceLocation loc) {
+    protected TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = documents.get(loc);
         if (file == null) {
             throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
@@ -347,9 +441,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
+        var specialCaseHighlighting = CompletableFuture.completedFuture(false);
         return getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenApplyAsync(tokenizer::semanticTokensFull, ownExecuter)
+                .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .exceptionally(e -> {
                     logger.error("Tokenization failed", e);
                     return new SemanticTokens(Collections.emptyList());
@@ -415,6 +510,42 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        logger.debug("codeAction: {}", params);
+
+        var range = Locations.toRascalRange(params.getTextDocument(), params.getRange(), columns);
+        var loc = Locations.toLoc(params.getTextDocument());
+
+
+        // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
+        // and which came back with the codeAction's list of relevant (in scope) diagnostics:
+        // CompletableFuture<Stream<IValue>>
+        CompletableFuture<Stream<IValue>> quickfixes
+            = CodeActions.extractActionsFromDiagnostics(params, rascalServices::parseCodeActions);
+
+        // here we dynamically ask the contributions for more actions,
+        // based on the cursor position in the file and the current parse tree
+        CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
+            getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, facts.getPathConfig(loc)))
+                .thenApply(IList::stream)
+            , () -> Stream.<IValue>empty())
+            ;
+
+        // final merging the two streams of commmands, and their conversion to LSP Command data-type
+        return CodeActions.mergeAndConvertCodeActions(this, "", RascalWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
+    }
+
+    private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
+        return CompletableFuture.<IList>supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn))
+            .thenCompose(focus -> focus.isEmpty()
+                ? CompletableFuture.completedFuture(focus /* an empty list */)
+                : rascalServices.codeActions(focus, pcfg).get());
+    }
+
     private CodeLens makeRunCodeLens(CodeLensSuggestion detected) {
         return new CodeLens(
             Locations.toRange(detected.getLine(), columns),
@@ -425,10 +556,18 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
-        // there is currently no way the Rascal LSP can receive this, but the Rascal DSL LSP does.
-        logger.warn("ignoring execute command in Rascal LSP: {}, {}", extension, command);
-        return CompletableFuture.completedFuture(null);
+        return rascalServices.executeCommand(command).get();
     }
 
+    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+        return future
+                .exceptionally(e -> {
+                    logger.error("Operation failed with", e);
+                    return defaultValue.get();
+                });
+    }
 
+    public @MonotonicNonNull FileFacts getFileFacts() {
+        return facts;
+    }
 }

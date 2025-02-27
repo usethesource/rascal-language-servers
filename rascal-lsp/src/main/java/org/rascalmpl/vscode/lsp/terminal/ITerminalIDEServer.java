@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -528,13 +528,17 @@ public interface ITerminalIDEServer {
         private final @Nullable Boolean nonTerminalIsStart;
         /** allowAmbiguity (default is false) */
         private final @Nullable Boolean allowAmbiguity;
+        /** apply the special case for highlighting syntax-in-syntax, default: true */
+        private final @Nullable Boolean specialCaseHighlighting;
 
 
-        public ParserSpecification(String parserLocation, String nonTerminalName, @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity) {
+        public ParserSpecification(String parserLocation, String nonTerminalName,
+                @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity, @Nullable Boolean specialCaseHighlighting) {
             this.parserLocation = parserLocation;
             this.nonTerminalName = nonTerminalName;
             this.nonTerminalIsStart = nonTerminalIsStart;
             this.allowAmbiguity = allowAmbiguity;
+            this.specialCaseHighlighting = specialCaseHighlighting;
         }
 
         public ISourceLocation getParserLocation() throws FactTypeUseException {
@@ -551,6 +555,10 @@ public interface ITerminalIDEServer {
 
         public boolean getAllowAmbiguity() {
             return allowAmbiguity != null && allowAmbiguity;
+        }
+
+        public boolean getSpecialCaseHighlighting() {
+            return specialCaseHighlighting == null || specialCaseHighlighting;
         }
 
         @Override

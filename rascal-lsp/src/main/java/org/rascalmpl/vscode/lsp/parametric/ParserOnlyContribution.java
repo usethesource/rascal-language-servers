@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,9 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,6 +60,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final String name;
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
+    private final CompletableFuture<Boolean> specialCaseHighlighting;
 
     public ParserOnlyContribution(String name, ParserSpecification spec) {
         this.name = name;
@@ -67,6 +69,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
         Either<IFunction,Exception> result = loadParser(spec);
         this.parser = result.getLeft();
         this.loadingParserError = result.getRight();
+        this.specialCaseHighlighting = CompletableFuture.completedFuture(spec.getSpecialCaseHighlighting());
     }
 
     @Override
@@ -75,7 +78,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
+    public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
         if (loadingParserError != null || parser == null) {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
@@ -86,7 +89,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
         GlobalEnvironment unusedHeap = new GlobalEnvironment();
-        Evaluator unusedEvaluator = new Evaluator(VF, InputStream.nullInputStream(), OutputStream.nullOutputStream(), OutputStream.nullOutputStream(), new NullRascalMonitor(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
+        Evaluator unusedEvaluator = new Evaluator(VF, Reader.nullReader(), new PrintWriter(Writer.nullWriter()), new PrintWriter(Writer.nullWriter()), new NullRascalMonitor(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
         // this is what we are after: a factory that can load back parsers.
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
         IConstructor reifiedType = makeReifiedType(spec, vf);
@@ -114,12 +117,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> outline(ITree input) {
+    public InterruptibleFuture<IList> documentSymbol(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<IConstructor> analyze(ISourceLocation loc, ITree input) {
+    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
         return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
     }
 
@@ -129,13 +132,18 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> lenses(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.set());
+    public InterruptibleFuture<IList> codeLens(ITree input) {
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> executeCommand(String command) {
+    public InterruptibleFuture<@Nullable IValue> execution(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
+    }
+
+    @Override
+    public CompletableFuture<IList> parseCodeActions(String commands) {
+        return CompletableFuture.completedFuture(VF.list());
     }
 
     @Override
@@ -144,73 +152,88 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<ISet> documentation(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> hover(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> definitions(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> definition(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> references(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<ISet> references(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public InterruptibleFuture<ISet> implementations(ISourceLocation loc, ITree input, ITree cursor) {
+    public InterruptibleFuture<IList> codeAction(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<ISet> implementation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumenter() {
+    public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefiner() {
+    public CompletableFuture<Boolean> hasDefinition() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferrer() {
+    public CompletableFuture<Boolean> hasReferences() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementer() {
+    public CompletableFuture<Boolean> hasImplementation() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasOutliner() {
+    public CompletableFuture<Boolean> hasDocumentSymbol() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalyzer() {
+    public CompletableFuture<Boolean> hasAnalysis() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuilder() {
+    public CompletableFuture<Boolean> hasBuild() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasLensDetector() {
+    public CompletableFuture<Boolean> hasCodeAction() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCommandExecutor() {
+    public CompletableFuture<Boolean> hasCodeLens() {
         return CompletableFuture.completedFuture(false);
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHinter() {
+    public CompletableFuture<Boolean> hasExecution() {
         return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasInlayHint() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> specialCaseHighlighting() {
+        return specialCaseHighlighting;
     }
 
     @Override
