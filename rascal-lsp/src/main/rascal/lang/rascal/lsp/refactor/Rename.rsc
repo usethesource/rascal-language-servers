@@ -655,21 +655,20 @@ private set[loc]() getSourceFiles(Renamer r) {
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
         <t, _> = asType(role);
-        // TODO Check if specific subtype of Tree is correct here
-        newNameFiles = findSortOccurrenceFiles(t, newName, getSourceFiles(r), getTree);
-
-        if (role notin {variableId(), patternVariableId(), moduleId()}) {
-            name = "<cursor[0]>";
-            try {
+        try {
+            // TODO Check if specific subtype of Tree is correct here
+            newNameFiles = findSortOccurrenceFiles(t, newName, getSourceFiles(r), getTree);
+            if (role notin {variableId(), patternVariableId(), moduleId()}) {
+                name = "<cursor[0]>";
                 defUseFiles = findSortOccurrenceFiles(t, name, getSourceFiles(r), getTree);
                 return <defUseFiles, defUseFiles, newNameFiles>;
-            } catch ParseError(_): {
-                r.error(cursor[0], "\'<name>\' is not a valid name at this position");
-                return <{}, {}, {}>;
             }
+            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
+            return <defFiles, useFiles, newNameFiles>;
+        } catch ParseError(_): {
+            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+            return <{}, {}, {}>;
         }
-        <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
-        return <defFiles, useFiles, newNameFiles>;
     }
 
     r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
