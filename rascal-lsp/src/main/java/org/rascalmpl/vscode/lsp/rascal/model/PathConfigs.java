@@ -170,7 +170,7 @@ public class PathConfigs {
     }
 
     private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER);
+        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
     }
 
 
