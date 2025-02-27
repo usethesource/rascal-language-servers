@@ -36,7 +36,7 @@ import analysis::typepal::TModel;
 
 import util::Maybe;
 
-// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm) {
+// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
     // Find the ADT that this constructor is part of
     // Find overloads of this ADT
     // Find all fields with the same name in these ADT definitions

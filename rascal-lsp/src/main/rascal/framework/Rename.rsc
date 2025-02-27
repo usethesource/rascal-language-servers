@@ -201,7 +201,7 @@ RenameResult rename(
             printDebug("  - ... in <f>");
             tr = parseLocCached(f);
             tm = getTModelCached(tr);
-            fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm);
+            fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm, r);
             printDebug("    (found <size(fileAdditionalDefs)>)");
             additionalDefs += fileAdditionalDefs;
         }
@@ -328,7 +328,7 @@ default tuple[set[loc] defFiles, set[loc] useFiles, set[loc] newNameFiles] findO
     return <{f}, {f}, {}>;
 }
 
-default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm) = {};
+default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) = {};
 
 default void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree _, Renamer r) {}
 
