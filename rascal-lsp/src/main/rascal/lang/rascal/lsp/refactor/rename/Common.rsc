@@ -40,6 +40,7 @@ import util::refactor::WorkspaceInfo;
 import List;
 import Location;
 import Map;
+import ParseTree;
 import Relation;
 import Set;
 import String;
