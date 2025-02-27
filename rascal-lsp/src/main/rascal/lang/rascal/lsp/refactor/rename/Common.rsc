@@ -65,6 +65,15 @@ bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc
     };
 }
 
+bool isContainedInScope(loc l, loc scope, TModel tm) {
+    // lexical containment
+    if (isContainedIn(l, scope)) return true;
+
+    // via import/extend
+    set[loc] reachableFrom = (tm.paths<pathRole, to, from>)[{importPath(), extendPath()}, scope];
+    return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
+}
+
 set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str curName, set[loc]() getSourceFiles, Tree(loc) getTree) {
     containsName = containsFilter(N, curName, rascalEscapeName, getTree);
     return {f

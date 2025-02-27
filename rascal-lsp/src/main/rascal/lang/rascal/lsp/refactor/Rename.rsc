@@ -87,7 +87,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
     rel[loc, loc] implicitDeclBecomesUseOfCurrentDecl =
         {<cD, nD.defined> | Define nD <- newNameImplicitDefs
                           , loc cD <- currentDefs.defined
-                          , isContainedIn(nD.defined, tm.definitions[cD].scope)
+                          , isContainedInScope(nD.defined, tm.definitions[cD].scope, tm)
         };
     for (<d, u> <- implicitDeclBecomesUseOfCurrentDecl) {
         r.error(d, "Renaming this declaration to <newName> will change the program semantics; this implicit declaration will become a use: <u>.");
@@ -97,7 +97,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
     rel[loc, loc] currentUseShadowedByRename =
         {<nD.defined, cU> | Define nD <- newNameDefs
                           , <cU, cS> <- ident(uses) o tm.useDef o tm.defines<defined, scope>
-                          , isContainedIn(cU, nD.scope)
+                          , isContainedInScope(cU, nD.scope, tm)
                           , isStrictlyContainedIn(nD.scope, cS)
         };
     for (<d, u> <- currentUseShadowedByRename) {
@@ -108,9 +108,9 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
     rel[loc, loc] newUseShadowedByRename =
         {<cD, nU> | Define nD <- newNameDefs
                   , Define _:<cS, _, _, _, cD, _> <- currentDefs
-                  , isContainedIn(cS, nD.scope)
+                  , isContainedInScope(cS, nD.scope, tm)
                   , loc nU <- defUse[nD.defined]
-                  , isContainedIn(nU, cS)
+                  , isContainedInScope(nU, cS, tm)
         };
     for (<d, u> <- newUseShadowedByRename) {
         r.error(d, "Renaming this declaration to <newName> would change the program semantics; it would shadow the declaration of <u>.");
@@ -140,8 +140,7 @@ void rascalCheckCausesDoubleDeclarations(Define _:<cS, _, _, role, loc cD, _>, T
 
     // Is newName already resolvable from a scope where <current-name> is currently declared?
     rel[loc old, loc new] doubleDeclarations = {<cD, nD.defined> | Define nD <- newNameDefs
-                                                                 , isContainedIn(cD, nD.scope)
-                                                                 , !rascalMayOverload({cD, nD.defined}, tm.definitions)
+                                                                 , isContainedInScope(cD, nD.scope, tm) || isContainedInScope(nD.defined, cS, tm)
     };
 
     rel[loc old, loc new] doubleFieldDeclarations = {<cD, nD>
@@ -671,8 +670,13 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
     return <{}, {}, {}>;
 }
 
-void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) =
-    rascalCheckCausesCaptures(cursorDefs, newName, tr, r.getConfig().tmodelForTree(tr), r);
+void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {
+    tm = r.getConfig().tmodelForTree(tr);
+    rascalCheckCausesCaptures(cursorDefs, newName, tr, tm, r);
+    for (d <- cursorDefs) {
+        rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+    }
+}
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
@@ -680,7 +684,6 @@ default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree 
 
 void renameDefinition(Define d, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
-    rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
     renameDefinitionUnchecked(d, nameLoc, rascalEscapeName(newName), tr, tm, r);
