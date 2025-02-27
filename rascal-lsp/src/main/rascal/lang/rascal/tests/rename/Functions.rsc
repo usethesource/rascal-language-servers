@@ -250,7 +250,7 @@ test bool functionsInIIModuleStructure() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool causesDownstreamOverload() = testRenameOccurrences({
+test bool usedOverload() = testRenameOccurrences({
     byText("Definer", "void foo(str s) { }", {0}),
     byText("Main", "
         'import Definer;
@@ -260,12 +260,21 @@ test bool causesDownstreamOverload() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool causesDownstreamOverloadOfLib() = testRenameOccurrences({
+test bool usedOverloadOfLib() = testRenameOccurrences({
     byText("Definer", "void foo(str s) { }", {0}),
     byText("Main", "
         'import Definer;
         'import IO;
         'void main() { println(\"a\"); }
+    ", {})
+}, newName = "println");
+
+@expected{illegalRename}
+test bool unusedOverloadOfLib() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'import IO;
     ", {})
 }, newName = "println");
 
