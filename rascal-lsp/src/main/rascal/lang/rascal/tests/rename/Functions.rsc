@@ -270,13 +270,27 @@ test bool causesDownstreamOverloadOfLib() = testRenameOccurrences({
 }, newName = "println");
 
 @expected{illegalRename}
-test bool downstreamNonOverload() = testRenameOccurrences({
-    byText("Definer", "void foo(str s) { }", {0}),
-    byText("Main", "
-        'import Definer;
-        'void bar(str s, str t) { }
-        'void main() { bar(\"a\", \"b\"); }
-    ", {})
+test bool localOverload() = testRename("
+    'int foo() = 8;
+    'if (true) {
+        int bar() = 9;
+    '}
+");
+
+@expected{illegalRename}
+test bool extendedOverloadWithUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {}),
+    byText("C", "import B;
+                'void main() { x = bar(); }", {})
+});
+
+@expected{illegalRename}
+test bool extendedOverloadWithoutUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {})
 });
 
 test bool adjacentScopeFunctions() = testRenameOccurrences({0, 1}, "

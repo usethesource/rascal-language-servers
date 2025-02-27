@@ -72,7 +72,7 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
-set[Define] checkNewNameDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
+void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
 
     set[loc] uses = defUse[currentDefs.defined] - currentDefs.defined;
@@ -103,12 +103,6 @@ set[Define] checkNewNameDefinitions(set[Define] currentDefs, str newName, Tree t
     for (<d, u> <- currentUseShadowedByRename) {
         r.error(u, "Renaming this use to <newName> would change the program semantics; its original definition would be shadowed by <d>.");
     }
-
-    return newNameDefs;
-}
-
-void checkNewNameUses(set[Define] currentDefs, set[Define] newNameDefs, str newName, Tree tr, TModel tm, Renamer r) {
-    defUse = invert(tm.useDef);
 
     // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
     rel[loc, loc] newUseShadowedByRename =
@@ -653,33 +647,32 @@ private set[loc]() getSourceFiles(Renamer r) {
     };
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, Tree(loc) getTree, Renamer r) {
-    if ({IdRole role} := defs.idRole
-      && role notin {variableId(), patternVariableId(), moduleId()}) {
-        <t, _> = asType(role);
-        name = "<cursor[0]>";
-        try {
-            return findOccurrenceFilesSymmetric(t, name, getSourceFiles(r), getTree);
-        } catch ParseError(_): {
-            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
-            return <{}, {}>;
-        }
-    }
-
-    return findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
-}
-
-tuple[set[loc], set[loc]] findNewNameOccurrenceFiles(set[Define] defs, list[Tree] cursor, str name, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
         <t, _> = asType(role);
-        try {
-            return findOccurrenceFilesSymmetric(t, name, getSourceFiles(r), getTree);
-        } catch ParseError(_): {
-            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+        // TODO Check if specific subtype of Tree is correct here
+        newNameFiles = findSortOccurrenceFiles(t, newName, getSourceFiles(r), getTree);
+
+        if (role notin {variableId(), patternVariableId(), moduleId()}) {
+            name = "<cursor[0]>";
+            try {
+                defUseFiles = findSortOccurrenceFiles(t, name, getSourceFiles(r), getTree);
+                return <defUseFiles, defUseFiles, newNameFiles>;
+            } catch ParseError(_): {
+                r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+                return <{}, {}, {}>;
+            }
         }
+        <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
+        return <defFiles, useFiles, newNameFiles>;
     }
-    return <{}, {}>;
+
+    r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
+    return <{}, {}, {}>;
 }
+
+void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) =
+    rascalCheckCausesCaptures(cursorDefs, newName, tr, r.getConfig().tmodelForTree(tr), r);
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
