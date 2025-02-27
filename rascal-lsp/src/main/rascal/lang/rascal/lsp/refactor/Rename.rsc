@@ -619,6 +619,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
       }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
+      , debug = false
   )
 );
 
