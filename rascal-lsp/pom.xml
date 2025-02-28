@@ -65,7 +65,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.17</version>
+      <version>0.41.0-RC10</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -196,6 +196,7 @@
               <goal>package</goal>
             </goals>
           </execution>
+          <!-- while we have RC builds of rascal, we cannot have tutor builds
           <execution>
             <id>default-cli</id>
             <phase>compile</phase>
@@ -215,7 +216,7 @@
                 <ignore>${project.basedir}/src/main/rascal/lang</ignore>
               </ignores>
             </configuration>
-          </execution>
+          </execution> -->
         </executions>
       </plugin>
 
