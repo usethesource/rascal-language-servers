@@ -146,9 +146,9 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
   + (tm.paths<pathRole, from, to>)[extendPath()];
 
 set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
-    if (defs == {}) return {};
+    set[Define] overloadedDefs = {tm.definitions[d] | d <- defs, tm.definitions[d]?};
+    if (overloadedDefs == {}) return {};
 
-    set[Define] overloadedDefs = {tm.definitions[d] | d <- defs};
     set[IdRole] roles = overloadedDefs.idRole;
 
     // Pre-conditions
