@@ -133,7 +133,10 @@ public class RascalLanguageServices {
     private static IConstructor addResources(PathConfig pcfg) {
         var result = pcfg.asConstructor();
         return result.asWithKeywordParameters()
-            .setParameter("resources", pcfg.getBin());
+            .setParameter("resources", pcfg.getBin())
+            .asWithKeywordParameters()
+            .setParameter("classloaders", VF.list())
+            ;
     }
 
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
