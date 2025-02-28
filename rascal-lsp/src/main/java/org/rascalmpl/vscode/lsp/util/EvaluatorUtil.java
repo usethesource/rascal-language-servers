@@ -64,6 +64,7 @@ import org.rascalmpl.interpreter.staticErrors.StaticError;
 import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -245,14 +246,15 @@ public class EvaluatorUtil {
                 eval.addClassLoader(IValue.class.getClassLoader());
 
                 if (addRascalCore) {
-                    var rascalCoreJar = PathConfig.resolveProjectOnClasspath("rascal-core");
-                    var typePalJar = PathConfig.resolveProjectOnClasspath("typepal");
+                    var rascalCoreJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-core"));
+                    var typePalJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("typepal"));
+
 
                     eval.addRascalSearchPath(typePalJar);
                     eval.addRascalSearchPath(rascalCoreJar);
                 }
 
-                var rascalLspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+                var rascalLspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
                 eval.addRascalSearchPath(rascalLspJar);
 
                 if (pcfg != null) {
@@ -268,7 +270,7 @@ public class EvaluatorUtil {
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
-            } 
+            }
             finally {
                 services.jobEnd(jobName, jobSuccess);
             }
