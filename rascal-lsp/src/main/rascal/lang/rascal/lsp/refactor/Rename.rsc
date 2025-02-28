@@ -135,7 +135,7 @@ void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renam
     }
 }
 
-void rascalCheckCausesDoubleDeclarations(Define cD, TModel tm, str newName, Renamer r) {
+void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Renamer r) {
     set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
 
     // Is newName already resolvable from a scope where <current-name> is currently declared?
@@ -679,7 +679,7 @@ void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Re
     tm = r.getConfig().tmodelForTree(tr);
     rascalCheckCausesCaptures(cursorDefs, newName, tr, tm, r);
     for (d <- cursorDefs) {
-        rascalCheckCausesDoubleDeclarations(d, tm, newName, r);
+        rascalCheckCausesDoubleDeclarations(d, newName, tm, r);
     }
 }
 
