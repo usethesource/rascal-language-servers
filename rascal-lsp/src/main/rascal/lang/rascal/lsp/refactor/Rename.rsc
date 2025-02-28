@@ -643,12 +643,11 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
-private set[loc]() getSourceFiles(Renamer r) {
-    return set[loc]() {
-        return {*find(srcFolder, "rsc")
-            | wsFolder <- r.getConfig().workspaceFolders
-            , srcFolder <- r.getConfig().getPathConfig(wsFolder).srcs
-        };
+private set[loc] getSourceFiles(Renamer r) {
+    c = r.getConfig();
+    return {*find(srcFolder, "rsc")
+        | wsFolder <- c.workspaceFolders
+        , srcFolder <- c.getPathConfig(wsFolder).srcs
     };
 }
 
@@ -656,14 +655,15 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
     if ({IdRole role} := defs.idRole) {
         <t, _> = asType(role);
         name = "<cursor[0]>";
+        sourceFiles = getSourceFiles(r);
         try {
             // TODO Check if specific subtype of Tree is correct here
-            newNameFiles = findSortOccurrenceFiles(t, newName, getSourceFiles(r), getTree);
+            newNameFiles = findSortOccurrenceFiles(t, newName, sourceFiles, getTree);
             if (role notin {variableId(), patternVariableId(), moduleId()}) {
-                defUseFiles = findSortOccurrenceFiles(t, name, getSourceFiles(r), getTree);
+                defUseFiles = findSortOccurrenceFiles(t, name, sourceFiles, getTree);
                 return <defUseFiles, defUseFiles, newNameFiles>;
             }
-            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, getSourceFiles(r), getTree, r);
+            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
             return <defFiles, useFiles, newNameFiles>;
         } catch ParseError(_): {
             r.error(cursor[0], "\'<name>\' is not a valid name at this position");

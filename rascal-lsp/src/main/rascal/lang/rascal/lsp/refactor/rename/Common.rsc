@@ -75,12 +75,9 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
-set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str curName, set[loc]() getSourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(N, curName, rascalEscapeName, getTree);
-    return {f
-        | loc f <- getSourceFiles()
-        , containsName(f)
-    };
+set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str name, set[loc] sourceFiles, Tree(loc) getTree) {
+    containsName = containsFilter(N, name, rascalEscapeName, getTree);
+    return {f | loc f <- sourceFiles, containsName(f)};
 }
 
 // Workaround to be able to pattern match on the emulated `src` field
