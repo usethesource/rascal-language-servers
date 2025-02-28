@@ -40,6 +40,7 @@ import util::refactor::WorkspaceInfo;
 import List;
 import Location;
 import Map;
+import ParseTree;
 import Relation;
 import Set;
 import String;
@@ -53,22 +54,47 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
-bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree) {
-    Tree n = parse(t, name);
-    Tree en = parse(t, escape(name));
-    return bool(loc l) {
-        bottom-up-break visit (getTree(l)) {
-            case n: return true;
-            case en: return true;
-        }
-        return false;
-    };
+bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree, bool throwParseError = true) {
+    try {
+        Tree n = parse(t, name);
+        Tree en = parse(t, escape(name));
+        return bool(loc l) {
+            bottom-up-break visit (getTree(l)) {
+                case n: return true;
+                case en: return true;
+            }
+            return false;
+        };
+    } catch e:ParseError(_): {
+        if (throwParseError) throw e;
+    } catch e: {
+        throw e;
+    }
+
+    return bool(loc _) { return false; };
 }
 
-tuple[set[loc], set[loc]] findOccurrenceFilesSymmetric(type[&T <: Tree] N, str name, set[loc]() getSourceFiles, Tree(loc) getTree) {
+bool isContainedInScope(loc l, loc scope, TModel tm) {
+    // lexical containment
+    if (isContainedIn(l, scope)) return true;
+
+    // via import/extend
+    set[loc] reachableFrom = (tm.paths<pathRole, to, from>)[{importPath(), extendPath()}, scope];
+    return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
+}
+
+set[loc] findAllSortsOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
+    containsName = containsFilter(#Name, name, rascalEscapeName, getTree, throwParseError = false);
+    containsQName = containsFilter(#QualifiedName, name, rascalEscapeName, getTree, throwParseError = false);
+    containsNonTerm = containsFilter(#Nonterminal, name, rascalEscapeName, getTree, throwParseError = false);
+    containsNonTermLabel = containsFilter(#NonterminalLabel, name, rascalEscapeName, getTree, throwParseError = false);
+
+    return {f | loc f <- sourceFiles, containsName(f) || containsQName(f) || containsNonTerm(f) || containsNonTermLabel(f)};
+}
+
+set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str name, set[loc] sourceFiles, Tree(loc) getTree) {
     containsName = containsFilter(N, name, rascalEscapeName, getTree);
-    set[loc] fs = {f | loc f <- getSourceFiles(), containsName(f)};
-    return <fs, fs>;
+    return {f | loc f <- sourceFiles, containsName(f)};
 }
 
 // Workaround to be able to pattern match on the emulated `src` field
@@ -127,10 +153,16 @@ rel[loc from, loc to] rascalGetTransitiveReflexiveModulePaths(TModel tm) {
          ;
 }
 
-set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
-    if (defs == {}) return {};
+@memo{maximumSize(100), expireAfter(minutes=5)}
+rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
+    ident(getModuleScopes(tm))
+  + (tm.paths<pathRole, from, to>)[importPath()]
+  + (tm.paths<pathRole, from, to>)[extendPath()];
 
-    set[Define] overloadedDefs = {tm.definitions[d] | d <- defs};
+set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
+    set[Define] overloadedDefs = {tm.definitions[d] | d <- defs, tm.definitions[d]?};
+    if (overloadedDefs == {}) return {};
+
     set[IdRole] roles = overloadedDefs.idRole;
 
     // Pre-conditions

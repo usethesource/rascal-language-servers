@@ -85,6 +85,7 @@ test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration1() = testRename("int f(int foo = 8, int bar = 9) = 1;");
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration2() = testRename("int f(int bar = 9, int foo = 8) = 1;");
 
+@expected{illegalRename} // TODO Support this?
 test bool renameParamToConstructorName() = testRenameOccurrences({0, 1},
     "int f(int foo) = foo;",
     decls = "data Bar = bar();"
