@@ -651,19 +651,33 @@ private set[loc] getSourceFiles(Renamer r) {
     };
 }
 
+private bool isLocal(IdRole role) = role in variableRoles && role !:= moduleVariableId();
+
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
         <t, _> = asType(role);
+        if (tryParseAs(t, rascalEscapeName(newName)) is nothing) {
+            r.error(cursor[0], "Name \'<newName>\' is not valid at this location.");
+            return <{}, {}, {}>;
+        }
+
         name = "<cursor[0]>";
         sourceFiles = getSourceFiles(r);
+        set[loc] defFiles = {};
+        set[loc] useFiles = {};
+        set[loc] newNameFiles = {};
         try {
-            // TODO Check if specific subtype of Tree is correct here
-            newNameFiles = findSortOccurrenceFiles(t, newName, sourceFiles, getTree);
             if (role notin {variableId(), patternVariableId(), moduleId()}) {
-                defUseFiles = findSortOccurrenceFiles(t, name, sourceFiles, getTree);
-                return <defUseFiles, defUseFiles, newNameFiles>;
+                defFiles = findSortOccurrenceFiles(t, name, sourceFiles, getTree);
+                useFiles = defFiles;
+                newNameFiles = defFiles;
+            } else {
+                <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
+                newNameFiles = defFiles + useFiles;
             }
-            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
+
+            if (!isLocal(role)) newNameFiles = findAllSortsOccurrenceFiles(newName, sourceFiles, getTree);
+
             return <defFiles, useFiles, newNameFiles>;
         } catch ParseError(_): {
             r.error(cursor[0], "\'<name>\' is not a valid name at this position");

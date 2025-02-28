@@ -54,16 +54,24 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
-bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree) {
-    Tree n = parse(t, name);
-    Tree en = parse(t, escape(name));
-    return bool(loc l) {
-        bottom-up-break visit (getTree(l)) {
-            case n: return true;
-            case en: return true;
-        }
-        return false;
-    };
+bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree, bool throwParseError = true) {
+    try {
+        Tree n = parse(t, name);
+        Tree en = parse(t, escape(name));
+        return bool(loc l) {
+            bottom-up-break visit (getTree(l)) {
+                case n: return true;
+                case en: return true;
+            }
+            return false;
+        };
+    } catch e:ParseError(_): {
+        if (throwParseError) throw e;
+    } catch e: {
+        throw e;
+    }
+
+    return bool(loc _) { return false; };
 }
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
@@ -73,6 +81,15 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     // via import/extend
     set[loc] reachableFrom = (tm.paths<pathRole, to, from>)[{importPath(), extendPath()}, scope];
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
+}
+
+set[loc] findAllSortsOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
+    containsName = containsFilter(#Name, name, rascalEscapeName, getTree, throwParseError = false);
+    containsQName = containsFilter(#QualifiedName, name, rascalEscapeName, getTree, throwParseError = false);
+    containsNonTerm = containsFilter(#Nonterminal, name, rascalEscapeName, getTree, throwParseError = false);
+    containsNonTermLabel = containsFilter(#NonterminalLabel, name, rascalEscapeName, getTree, throwParseError = false);
+
+    return {f | loc f <- sourceFiles, containsName(f) || containsQName(f) || containsNonTerm(f) || containsNonTermLabel(f)};
 }
 
 set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str name, set[loc] sourceFiles, Tree(loc) getTree) {
