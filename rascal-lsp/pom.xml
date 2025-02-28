@@ -65,13 +65,13 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC10</version>
-    </dependency>
+      <version>0.41.0-RC14</version>
+    </dependency><!--
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal-core</artifactId>
-      <version>0.12.16</version>
-    </dependency>
+      <version>0.12.18-SNAPSHOT</version>
+    </dependency> -->
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
@@ -176,7 +176,7 @@
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
-          <sourceLookup>|lib://rascal-lsp|</sourceLookup>
+          <sourceLookup>|mvn://${project.groupId}--${project.name}--${project.version}|</sourceLookup>
           <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
         <executions>
