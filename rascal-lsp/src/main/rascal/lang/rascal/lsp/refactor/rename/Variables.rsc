@@ -24,42 +24,29 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::Exception
+@bootstrapParser
+module lang::rascal::lsp::refactor::rename::Variables
 
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
+
+import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
-import Message;
-import Set;
+import util::Maybe;
 
-alias Capture = tuple[loc def, loc use];
+ // Variables
+tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
 
-data IllegalRenameReason
-    = invalidName(str name, str identifierDescription)
-    | doubleDeclaration(loc old, set[loc] new)
-    | captureChange(set[Capture] captures)
-    | definitionsOutsideWorkspace(set[loc] defs)
-    ;
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, variableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}>;
 
-data RenameException
-    = illegalRename(str message, set[IllegalRenameReason] reason)
-    | unsupportedRename(str message, rel[loc location, str message] issues = {})
-    | unexpectedFailure(str message)
-    ;
+// Global variables
+tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
-str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idDescription>";
-str describe(doubleDeclaration(_, _)) = "it causes double declarations";
-str describe(captureChange(_)) = "it changes program semantics";
-str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
+// Pattern variables
+tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
 
-void throwAnyErrors(TModel tm) {
-    throwAnyErrors(tm.messages);
-}
-
-void throwAnyErrors(set[Message] msgs) {
-    throwAnyErrors(toList(msgs));
-}
-
-void throwAnyErrors(list[Message] msgs) {
-    errors = {msg | msg <- msgs, msg is error};
-    if (errors != {}) throw errors;
-}
+tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}>;

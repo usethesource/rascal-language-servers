@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Modules
 
 import lang::rascal::tests::rename::TestUtils;
@@ -108,7 +109,7 @@ test bool qualifiedSelf() = testRenameOccurrences({
     ", {0, 1}, skipCursors = {1}, newName = "Bar")
 }, oldName = "Foo", newName = "Bar");
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool externalImport() = testRenameOccurrences({
     byText("Main", "
         'import Foo = |memory:///Foo.rsc|;

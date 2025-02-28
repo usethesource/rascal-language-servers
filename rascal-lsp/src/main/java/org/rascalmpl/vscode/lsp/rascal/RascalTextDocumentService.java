@@ -296,11 +296,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
-    private ITree findQualifiedNameUnderCursor(ISourceLocation file, ITree moduleTree, Position p) {
-        Position rascalCursorPos = Locations.toRascalPosition(file, p, columns);
-
-        // Find all trees containing the cursor, in ascending order of size
-        IList focusList = TreeSearch.computeFocusList(moduleTree, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+    private ITree findQualifiedNameUnderCursor(IList focusList) {
         List<String> sortNames = focusList.stream()
             .map(ITree.class::cast)
             .map(TreeAdapter::getProduction)
@@ -343,7 +339,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
+            .thenApply(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                return findQualifiedNameUnderCursor(focus);
+            })
             .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
             .thenApply(Either3::forFirst);
     }
@@ -361,8 +361,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
-            .thenCompose(cursor -> rascalServices.getRename(cursor, workspaceFolders, facts::getPathConfig, params.getNewName()).get())
+            .thenApply(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+                return TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+            })
+            .thenCompose(focus -> {
+                ITree cursorTree = findQualifiedNameUnderCursor(focus);
+                return rascalServices.getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, facts::getPathConfig, params.getNewName()).get();
+            })
             .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
     }
 
