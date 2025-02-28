@@ -203,7 +203,7 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[|std://rascal|],
+        libs=[|std:///|],
         srcs=[testDir + "rascal"],
         resources=testDir + "bin",
         generatedSources=testDir + "generated-sources"
@@ -216,7 +216,7 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
         bin = rascalCoreProject + "target/test-classes",
         generatedSources = rascalCoreProject + "target/generated-test-sources",
         resources = rascalCoreProject + "target/generated-test-resources",
-        libs = [|lib://typepal|, |lib://rascal|]
+        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, |std:///|]
     );
 }
 

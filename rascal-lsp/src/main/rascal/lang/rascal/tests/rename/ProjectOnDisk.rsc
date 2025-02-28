@@ -53,7 +53,7 @@ Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 
             generatedSources = projectDir + "target/generated-sources/src/main/java/",
             generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
             resources = projectDir + "target/generated-resources/src/main/java/",
-            libs = [ |lib://rascal| ]
+            libs = [ |std:///| ]
         );
     }
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
