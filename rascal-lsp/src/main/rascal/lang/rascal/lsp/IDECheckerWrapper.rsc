@@ -49,7 +49,7 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
+set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
     = job("Rascal check", list[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
@@ -81,14 +81,14 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
         return [program(l, error("Cyclic dependencies depected between projects {<intercalate(cyclicDependencies, ", ")>}. This is not supported. Fix your project setup.", l))];
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
-    msgs = [];
+    msgs = {};
     for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
         step("Checking project `<project.file>`", 1);
         msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project))); 
     }
     step("Checking <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return dup(msgs);
+    return msgs;
 });
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {

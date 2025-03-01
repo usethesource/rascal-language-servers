@@ -150,12 +150,12 @@ public class RascalLanguageServices {
         return runEvaluator("Rascal checkAll", compilerEvaluator,
             e -> {
                 var config = e.call("getRascalCoreCompilerConfig", addResources(pcfg));
-                return translateCheckResults((IList) e.call("checkAll", folder, config));
+                return translateCheckResults((ISet) e.call("checkAll", folder, config));
             },
             Collections.emptyMap(), exec, false, client);
     }
 
-    private static Map<ISourceLocation, ISet> translateCheckResults(IList messages) {
+    private static Map<ISourceLocation, ISet> translateCheckResults(ISet messages) {
         logger.trace("Translating messages: {}", messages);
         return messages.stream()
             .filter(IConstructor.class::isInstance)
@@ -201,7 +201,7 @@ public class RascalLanguageServices {
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> translateCheckResults((IList) e.call("checkFile", file, makeParseTreeGetter(e), makePathConfigGetter(e))),
+            e -> translateCheckResults((ISet) e.call("checkFile", file, makeParseTreeGetter(e), makePathConfigGetter(e))),
             buildEmptyResult(VF.list(file)), exec, false, client);
     }
 
