@@ -76,8 +76,9 @@ list[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, Path
         checkedForImports += currentSrc;
         checkForImports -= tree;
     }
-    if (<p,p> <- (dependencies - ident(carrier(dependencies)))+) {
-        return [program(l, error("Detected cyclic dependencies between projects. Fix your project setup.", l))];
+    cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
+    if (cyclicDependencies != {}) {
+        return [program(l, error("Cyclic dependencies depected between projects {<intercalate(cyclicDependencies, ", ")>}. This is not supported. Fix your project setup.", l))];
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
