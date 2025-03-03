@@ -655,9 +655,9 @@ private bool isLocal(IdRole role) = role in variableRoles && role !:= moduleVari
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
-        <t, _> = asType(role);
+        <t, desc> = asType(role);
         if (tryParseAs(t, rascalEscapeName(newName)) is nothing) {
-            r.error(cursor[0], "Name \'<newName>\' is not valid at this location.");
+            r.error(cursor[0], "\'<newName>\' is not a valid <desc>");
             return <{}, {}, {}>;
         }
 
@@ -680,7 +680,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
 
             return <defFiles, useFiles, newNameFiles>;
         } catch ParseError(_): {
-            r.error(cursor[0], "\'<name>\' is not a valid name at this position");
+            r.error(cursor[0], "\'<name>\' is not a valid <desc>");
             return <{}, {}, {}>;
         }
     }
