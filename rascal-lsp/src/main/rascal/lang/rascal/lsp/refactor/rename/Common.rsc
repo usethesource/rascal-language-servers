@@ -77,7 +77,7 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
-set[loc] findAllSortsOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
+set[loc] findNameOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
     containsName = containsFilter(#Name, name, getTree);
     containsQName = containsFilter(#QualifiedName, name, getTree);
     containsNonTerm = containsFilter(#Nonterminal, name, getTree);

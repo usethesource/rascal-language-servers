@@ -668,15 +668,15 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
         set[loc] newNameFiles = {};
 
         if (role notin {variableId(), patternVariableId(), moduleId()}) {
-            defFiles = findAllSortsOccurrenceFiles(rascalEscapeName(name), sourceFiles, getTree);
+            defFiles = findNameOccurrenceFiles(rascalEscapeName(name), sourceFiles, getTree);
             useFiles = defFiles;
             newNameFiles = defFiles;
         } else {
-            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
+            <defFiles, useFiles> = findDefOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
             newNameFiles = defFiles + useFiles;
         }
 
-        if (!isLocal(role)) newNameFiles = findAllSortsOccurrenceFiles(rascalEscapeName(newName), sourceFiles, getTree);
+        if (!isLocal(role)) newNameFiles = findNameOccurrenceFiles(rascalEscapeName(newName), sourceFiles, getTree);
 
         return <defFiles, useFiles, newNameFiles>;
     }
