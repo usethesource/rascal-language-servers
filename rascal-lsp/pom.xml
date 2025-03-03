@@ -65,13 +65,8 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC14</version>
-    </dependency><!--
-    <dependency>
-      <groupId>org.rascalmpl</groupId>
-      <artifactId>rascal-core</artifactId>
-      <version>0.12.18-SNAPSHOT</version>
-    </dependency> -->
+      <version>0.41.0-RC15-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>typepal</artifactId>
@@ -241,14 +236,6 @@
                   <overWrite>true</overWrite>
                   <outputDirectory>${project.build.directory}/lib</outputDirectory>
                   <destFileName>rascal.jar</destFileName>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.rascalmpl</groupId>
-                  <artifactId>rascal-core</artifactId>
-                  <type>jar</type>
-                  <overWrite>true</overWrite>
-                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                  <destFileName>rascal-core.jar</destFileName>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.rascalmpl</groupId>

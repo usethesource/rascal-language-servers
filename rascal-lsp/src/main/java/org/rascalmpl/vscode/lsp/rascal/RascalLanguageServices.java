@@ -134,8 +134,6 @@ public class RascalLanguageServices {
         var result = pcfg.asConstructor();
         return result.asWithKeywordParameters()
             .setParameter("resources", pcfg.getBin())
-            .asWithKeywordParameters()
-            .setParameter("classloaders", VF.list())
             ;
     }
 

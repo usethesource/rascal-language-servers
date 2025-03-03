@@ -148,9 +148,14 @@ public abstract class BaseLanguageServer {
         });
     }
 
+    private static void printClassPath() {
+        logger.trace("Started with classpath: {}", System.getProperty("java.class.path"));
+    }
+
     @SuppressWarnings({"java:S2189", "java:S106"})
     public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
+        printClassPath();
 
         if (DEPLOY_MODE) {
             var docService = docServiceProvider.apply(threadPool);
