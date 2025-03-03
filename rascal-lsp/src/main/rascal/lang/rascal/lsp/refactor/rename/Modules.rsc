@@ -99,7 +99,6 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
 void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
     if ({loc u, *_} := tm.useDef<0>) {
         set[loc] defFiles = {d.top | d <- defs.defined};
-        escName = rascalEscapeName(newName);
         Tree tr = r.getConfig().parseLoc(u.top);
         for (/QualifiedName qn := tr
         , any(d <- tm.useDef[qn.src], d.top in defFiles)

@@ -65,8 +65,6 @@ void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>,
         set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
         set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
 
-        escName = rascalEscapeName(newName);
-
         // TODO Typepal: if the TModel would register kw arg names at call sites as uses, this tree visit would not be necessary
         Tree tr = r.getConfig().parseLoc(u.top);
         visit (tr) {
@@ -74,7 +72,7 @@ void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>,
                 if (e.src in funcCalls) {
                     funcCalls -= e.src;
                     for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                        r.textEdit(replace(ul, escName));
+                        r.textEdit(replace(ul, newName));
                     }
                 }
             }
@@ -82,7 +80,7 @@ void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>,
                 if (e.src in funcCalls) {
                     funcCalls -= e.src;
                     for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                        r.textEdit(replace(ul, escName));
+                        r.textEdit(replace(ul, newName));
                     }
                 }
             }

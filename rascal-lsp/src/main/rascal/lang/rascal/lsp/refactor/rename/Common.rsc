@@ -54,23 +54,17 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
-bool(loc) containsFilter(type[&T <: Tree] t, str name, str(str) escape, Tree(loc) getTree, bool throwParseError = true) {
-    try {
-        Tree n = parse(t, name);
-        Tree en = parse(t, escape(name));
+bool(loc) containsFilter(type[&T <: Tree] T, str name, Tree(loc) getTree) {
+    if (just(t) := tryParseAs(T, name)) {
         return bool(loc l) {
             bottom-up-break visit (getTree(l)) {
-                case n: return true;
-                case en: return true;
+                case t: return true;
             }
             return false;
         };
-    } catch e:ParseError(_): {
-        if (throwParseError) throw e;
-    } catch e: {
-        throw e;
     }
 
+    // If we can't parse the name at all, we don't even have to traverse the tree - we'll never find this.
     return bool(loc _) { return false; };
 }
 
@@ -84,16 +78,16 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
 }
 
 set[loc] findAllSortsOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(#Name, name, rascalEscapeName, getTree, throwParseError = false);
-    containsQName = containsFilter(#QualifiedName, name, rascalEscapeName, getTree, throwParseError = false);
-    containsNonTerm = containsFilter(#Nonterminal, name, rascalEscapeName, getTree, throwParseError = false);
-    containsNonTermLabel = containsFilter(#NonterminalLabel, name, rascalEscapeName, getTree, throwParseError = false);
+    containsName = containsFilter(#Name, name, getTree);
+    containsQName = containsFilter(#QualifiedName, name, getTree);
+    containsNonTerm = containsFilter(#Nonterminal, name, getTree);
+    containsNonTermLabel = containsFilter(#NonterminalLabel, name, getTree);
 
     return {f | loc f <- sourceFiles, containsName(f) || containsQName(f) || containsNonTerm(f) || containsNonTermLabel(f)};
 }
 
 set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str name, set[loc] sourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(N, name, rascalEscapeName, getTree);
+    containsName = containsFilter(N, name, getTree);
     return {f | loc f <- sourceFiles, containsName(f)};
 }
 
