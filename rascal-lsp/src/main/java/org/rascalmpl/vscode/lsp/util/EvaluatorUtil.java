@@ -26,7 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.awt.AWTError;
 import java.awt.Desktop;
+import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
@@ -37,7 +39,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,13 +50,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.aether.impl.DefaultServiceLocator.ErrorHandler;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
@@ -64,7 +63,6 @@ import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.junit.internal.runners.ErrorReportingRunner;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.ideservices.IDEServices;
@@ -169,12 +167,12 @@ public class EvaluatorUtil {
 
     private enum ErrorHandlingOption {
         // The order in which these values are declared is the order in which they will appear in the VS Code tooltip
-        ReportOnGithub("Report on GitHub"),
-        CopyStackTrace("Copy stack trace to clipboard"),
-        Ignore("Ignore");
+        REPORT_ON_GITHUB("Report on GitHub"),
+        COPY_STACK_TRACE("Copy stack trace to clipboard"),
+        IGNORE("Ignore");
 
         final String label;
-        private final static Map<String, ErrorHandlingOption> BY_LABEL = new HashMap<>();
+        private static final Map<String, ErrorHandlingOption> BY_LABEL = new HashMap<>();
 
         static {
             Stream.of(values()).forEach(e -> BY_LABEL.put(e.label, e));
@@ -199,23 +197,34 @@ public class EvaluatorUtil {
 
     private static void createGithubIssue(Throwable e, String title, String stackTrace, LanguageClient client) {
         var body = new StringWriter();
-        var bodyWriter = new PrintWriter(body);
-        bodyWriter.println("Context: ***Please provide context***");
-        bodyWriter.println();
-        bodyWriter.println("Exception thrown:");
-        bodyWriter.println("```");
-        bodyWriter.println(e.getMessage());
-        bodyWriter.println("```");
-        bodyWriter.println("Stacktrace:");
-        bodyWriter.println("```");
-        bodyWriter.println(stackTrace);
-        bodyWriter.println("```");
+        try (var bodyWriter = new PrintWriter(body)) {
+            bodyWriter.println("Context: ***Please provide context***");
+            bodyWriter.println();
+            bodyWriter.println("Exception thrown:");
+            bodyWriter.println("```");
+            bodyWriter.println(e.getMessage());
+            bodyWriter.println("```");
+            bodyWriter.println("Stacktrace:");
+            bodyWriter.println("```");
+            bodyWriter.println(stackTrace);
+            bodyWriter.println("```");
+        }
         browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
     }
 
-    private static void copyToClipboard(String text) {
+    private static void copyToClipboard(String text, LanguageClient client) {
         var content = new StringSelection(text);
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(content, content);
+        try {
+            var toolkit = Toolkit.getDefaultToolkit();
+            if (toolkit == null) {
+                logger.error("Could not find toolkit");
+                return;
+            }
+            toolkit.getSystemClipboard().setContents(content, content);
+        } catch (AWTError | HeadlessException | IllegalStateException e) {
+            client.showMessage(new MessageParams(MessageType.Error, "Cannot copy to clipboard: " + e.getMessage()));
+            logger.catching(e);
+        }
     }
 
     private static void reportInternalError(Throwable e, String task, LanguageClient client) {
@@ -230,11 +239,11 @@ public class EvaluatorUtil {
         client.showMessageRequest(msg).thenAccept(response -> {
             if (response != null){
                 switch (ErrorHandlingOption.valueOfLabel(response.getTitle())) {
-                    case ReportOnGithub:
+                    case REPORT_ON_GITHUB:
                         createGithubIssue(e, title, stackTrace.toString(), client);
                         break;
-                    case CopyStackTrace:
-                        copyToClipboard(stackTrace.toString());
+                    case COPY_STACK_TRACE:
+                        copyToClipboard(stackTrace.toString(), client);
                         break;
                     default:
                         // Do nothing
