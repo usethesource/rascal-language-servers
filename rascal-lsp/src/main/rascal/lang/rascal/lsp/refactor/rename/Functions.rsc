@@ -36,7 +36,7 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree _, TModel tm) =
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree _, TModel tm, Renamer _) =
     {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
 // TODO:

@@ -49,14 +49,14 @@ import util::Reflective;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc]] findDefOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc] sourceFiles, Tree(loc) getTree, Renamer r) {
     int modIdSize = size(modId);
     loc modFile = d.top;
 
     if ([*_, QualifiedName modName, *_] := focus) {
         escModName = [QualifiedName] rascalEscapeName("<modName>");
         set[loc] useFiles = {};
-        for (loc f <- getSourceFiles(), f != modFile) {
+        for (loc f <- sourceFiles, f != modFile) {
             visit (getTree(f)) {
                 case modName: {
                     useFiles += f;
@@ -85,7 +85,7 @@ bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Ren
     return true;
 }
 
-void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file
@@ -96,14 +96,16 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(rascalUnescapeName(newName))));
 }
 
-void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
-    set[loc] defFiles = {d.top | d <- defs.defined};
-    escName = rascalEscapeName(newName);
-    for (/QualifiedName qn := tr
-      , any(d <- tm.useDef[qn.src], d.top in defFiles)
-      , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
-        modPrefix = cover(prefix([n.src | n <- qn.names]));
-        r.textEdit(replace(modPrefix, newName));
+void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
+    if ({loc u, *_} := tm.useDef<0>) {
+        set[loc] defFiles = {d.top | d <- defs.defined};
+        Tree tr = r.getConfig().parseLoc(u.top);
+        for (/QualifiedName qn := tr
+        , any(d <- tm.useDef[qn.src], d.top in defFiles)
+        , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
+            modPrefix = cover(prefix([n.src | n <- qn.names]));
+            r.textEdit(replace(modPrefix, newName));
+        }
     }
 }
 
