@@ -666,23 +666,19 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
         set[loc] defFiles = {};
         set[loc] useFiles = {};
         set[loc] newNameFiles = {};
-        try {
-            if (role notin {variableId(), patternVariableId(), moduleId()}) {
-                defFiles = findSortOccurrenceFiles(t, name, sourceFiles, getTree);
-                useFiles = defFiles;
-                newNameFiles = defFiles;
-            } else {
-                <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
-                newNameFiles = defFiles + useFiles;
-            }
 
-            if (!isLocal(role)) newNameFiles = findAllSortsOccurrenceFiles(newName, sourceFiles, getTree);
-
-            return <defFiles, useFiles, newNameFiles>;
-        } catch ParseError(_): {
-            r.error(cursor[0], "\'<name>\' is not a valid <desc>");
-            return <{}, {}, {}>;
+        if (role notin {variableId(), patternVariableId(), moduleId()}) {
+            defFiles = findAllSortsOccurrenceFiles(rascalEscapeName(name), sourceFiles, getTree);
+            useFiles = defFiles;
+            newNameFiles = defFiles;
+        } else {
+            <defFiles, useFiles> = findOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
+            newNameFiles = defFiles + useFiles;
         }
+
+        if (!isLocal(role)) newNameFiles = findAllSortsOccurrenceFiles(rascalEscapeName(newName), sourceFiles, getTree);
+
+        return <defFiles, useFiles, newNameFiles>;
     }
 
     r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
