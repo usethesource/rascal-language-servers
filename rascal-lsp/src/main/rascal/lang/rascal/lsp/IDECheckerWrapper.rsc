@@ -49,14 +49,14 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) 
+set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", list[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
     rel[loc, loc] dependencies = {};
-    
+
 
     step("Building dependency graph", 50);
     while (tree <- checkForImports) {
@@ -84,7 +84,7 @@ set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathC
     msgs = {};
     for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
         step("Checking project `<project.file>`", 1);
-        msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project))); 
+        msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
     }
     step("Checking <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
@@ -120,16 +120,16 @@ loc inferProjectRoot(loc member) {
 
     while (exists(current), isDirectory(current)) {
         if (exists(current + "META-INF" + "RASCAL.MF")) {
-            return ensureTrailingSpaceInPath(current);
+            return ensureTrailingSlashInPath(current);
         }
         if (!current.parent?) {
             return isDirectory(member) ? member : member.parent;
         }
         current = current.parent;
     }
-    
-    return ensureTrailingSpaceInPath(current);
+
+    return ensureTrailingSlashInPath(current);
 }
 
-loc ensureTrailingSpaceInPath(loc l) = endsWith(l.path, "/") ? l : l[path=l.path + "/"];
+loc ensureTrailingSlashInPath(loc l) = endsWith(l.path, "/") ? l : l[path=l.path + "/"];
 
