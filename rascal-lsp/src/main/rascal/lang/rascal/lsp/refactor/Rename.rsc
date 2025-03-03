@@ -697,18 +697,18 @@ void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Re
     }
 }
 
-default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Tree _, TModel _, Renamer r) {
+default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, TModel _, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 }
 
-void renameDefinition(Define d, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
-    renameDefinitionUnchecked(d, nameLoc, rascalEscapeName(newName), tr, tm, r);
+    renameDefinitionUnchecked(d, nameLoc, rascalEscapeName(newName), tm, r);
 }
 
-void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
+void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     set[loc] uses = invert(tm.useDef)[defs.defined] - defs.defined;
     escName = rascalEscapeName(newName);
 
@@ -716,5 +716,5 @@ void renameUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {
         r.textEdit(replace(u, escName));
     }
 
-    renameAdditionalUses(defs, newName, tr, tm, r);
+    renameAdditionalUses(defs, escName, tm, r);
 }

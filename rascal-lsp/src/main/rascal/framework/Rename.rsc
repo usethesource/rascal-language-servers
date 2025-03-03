@@ -32,6 +32,7 @@ import analysis::typepal::FailMessage;
 import analysis::typepal::Messenger;
 import analysis::typepal::TModel;
 
+import util::Monitor;
 
 import IO;
 import List;
@@ -41,9 +42,12 @@ import Node;
 import ParseTree;
 import Relation;
 import Set;
-import String;
 
 alias RenameResult = tuple[list[DocumentEdit], set[Message]];
+
+// This leaves some room for more fine-grained steps should the user want to monitor that
+private int WORKSPACE_WORK = 10;
+private int FILE_WORK = 5;
 
 data Renamer
     = renamer(
@@ -63,14 +67,18 @@ data RenameConfig
         Tree(loc) parseLoc
       , TModel(Tree) tmodelForTree
       , bool debug = true
+      , str jobLabel = "Renaming"
     );
 
-/*
- 1. created
- 2. changed
- 3. renamed
- 4. removed
- */
+@synopsis{
+    Applying edits through @link{analysis::diff::edits::ExecuteTextEdits} should happen in a specific order.
+    Specifically, files should be created before they can be modified, and after renaming them, modifications/deletions should refer to the new name.
+    This functions sorts edits in the following order.
+        1. created
+        2. changed
+        3. renamed
+        4. removed
+}
 list[DocumentEdit] sortDocEdits(list[DocumentEdit] edits) = sort(edits, bool(DocumentEdit e1, DocumentEdit e2) {
     if (e1 is created && !(e2 is created)) return true;
     if (e1 is changed && !(e2 is changed)) return !(e2 is created);
@@ -182,69 +190,72 @@ RenameResult rename(
       , void(value at, str s) { registerMessage(error(at, s)); }
     );
 
-    // TODO Replace debug prints with util::Monitor
-    printDebug("Renaming <cursor[0].src> to \'<newName>\'");
+    jobStart(config.jobLabel, totalWork = 2 * WORKSPACE_WORK);
 
-    printDebug("+ Finding definitions for cursor at <cursor[0].src>");
+    jobStep(config.jobLabel, "Resolving definitions of <cursor[0].src>", work = WORKSPACE_WORK);
     defs = getCursorDefinitions(cursor, parseLocCached, getTModelCached, r);
 
     if (defs == {}) r.error(cursor[0].src, "No definitions found");
-    if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
-
-    printDebug("+ Finding occurrences of cursor");
-    <maybeDefFiles, maybeUseFiles, newNameFiles> = findOccurrenceFiles(defs, cursor, newName, parseLocCached, r);
-
-    if (maybeDefFiles != {}) {
-        printDebug("+ Finding additional definitions");
-        set[Define] additionalDefs = {};
-        for (loc f <- maybeDefFiles) {
-            printDebug("  - ... in <f>");
-            tr = parseLocCached(f);
-            tm = getTModelCached(tr);
-            fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm, r);
-            printDebug("    (found <size(fileAdditionalDefs)>)");
-            additionalDefs += fileAdditionalDefs;
-        }
-        defs += additionalDefs;
+    if (errorReported()) {
+        jobEnd(config.jobLabel, success=false);
+        return <sortDocEdits(docEdits), getMessages()>;
     }
 
-    printDebug("+ Validating occurrences of new name \'<newName>\'");
+    jobStep(config.jobLabel, "Looking for files with occurrences of name under cursor", work = WORKSPACE_WORK);
+    <maybeDefFiles, maybeUseFiles, newNameFiles> = findOccurrenceFiles(defs, cursor, newName, parseLocCached, r);
+
+    jobTodo(config.jobLabel, work = (size(maybeDefFiles) + size(maybeUseFiles) + size(newNameFiles)) * FILE_WORK);
+
+    set[Define] additionalDefs = {};
+    for (loc f <- maybeDefFiles) {
+        jobStep(config.jobLabel, "Looking for additional definitions in <f>", work = FILE_WORK);
+        tr = parseLocCached(f);
+        tm = getTModelCached(tr);
+        fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm, r);
+        additionalDefs += fileAdditionalDefs;
+    }
+    defs += additionalDefs;
+
     for (loc f <- newNameFiles) {
-        printDebug("  - ... in <f>");
+    jobStep(config.jobLabel, "Validating occurrences of new name \'<newName>\' in <f>", work = FILE_WORK);
         tr = parseLocCached(f);
         validateNewNameOccurrences(defs, newName, tr, r);
     }
+    if (errorReported()) {
+        jobEnd(config.jobLabel, success = false);
+        return <sortDocEdits(docEdits), getMessages()>;
+    }
 
     defFiles = {d.defined.top | d <- defs};
+    jobTodo(config.jobLabel, work = size(defFiles) * FILE_WORK);
 
-    printDebug("+ Renaming definitions across <size(defFiles)> files");
     for (loc f <- defFiles) {
         fileDefs = {d | d <- defs, d.defined.top == f};
-        printDebug("  - ... <size(fileDefs)> in <f>");
-
+        jobStep(config.jobLabel, "Renaming <size(fileDefs)> definitions in <f>", work = FILE_WORK);
         tr = parseLocCached(f);
         tm = getTModelCached(tr);
 
         map[Define, loc] defNames = defNameLocations(tr, fileDefs, r);
         for (d <- fileDefs) {
-            renameDefinition(d, defNames[d] ? d.defined, newName, tr, tm, r);
+            renameDefinition(d, defNames[d] ? d.defined, newName, tm, r);
         }
     }
-    if (errorReported()) return <sortDocEdits(docEdits), getMessages()>;
 
-    printDebug("+ Renaming uses across <size(maybeUseFiles)> files");
+    if (errorReported()) {
+        jobEnd(config.jobLabel, success=false);
+        return <sortDocEdits(docEdits), getMessages()>;
+    }
+
     for (loc f <- maybeUseFiles) {
-        printDebug("  - ... in <f>");
-
+        jobStep(config.jobLabel, "Renaming uses in <f>", work = FILE_WORK);
         tr = parseLocCached(f);
         tm = getTModelCached(tr);
 
-        renameUses(defs, newName, tr, tm, r);
+        renameUses(defs, newName, tm, r);
     }
 
     set[Message] convertedMessages = getMessages();
 
-    printDebug("+ Done!");
     if (config.debug) {
         println("\n\n=================\nRename statistics\n=================\n");
         int nDocs = size({f | de <- docEdits, f := (de has file ? de.file : de.from)});
@@ -268,6 +279,7 @@ RenameResult rename(
         }
     }
 
+    jobEnd(config.jobLabel, success = !errorReported());
     return <sortDocEdits(docEdits), convertedMessages>;
 }
 
@@ -325,19 +337,22 @@ default tuple[set[loc] defFiles, set[loc] useFiles, set[loc] newNameFiles] findO
         return <{}, {}, {}>;
     }
 
-    return <{f}, {f}, {}>;
+    return <{f}, {f}, any(/Tree t := f, "<t>" == newName) ? {f} : {}>;
 }
 
 default set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) = {};
 
-default void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree _, Renamer r) {}
+default void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {
+    for (Define d <- cursorDefs) {
+        r.error(d.defined, "Renaming this to \'<newName>\' would clash with use of \'<newName>\' in <tr.src.top>.");
+    }
+}
 
-// TODO Remove Tree argument
-default void renameDefinition(Define d, loc nameLoc, str newName, Tree _, TModel tm, Renamer r) {
+default void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 }
 
-default void renameUses(set[Define] defs, str newName, Tree _, TModel tm, Renamer r) {
+default void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     for (loc u <- invert(tm.useDef)[defs.defined] - defs.defined) {
         r.textEdit(replace(u, newName));
     }

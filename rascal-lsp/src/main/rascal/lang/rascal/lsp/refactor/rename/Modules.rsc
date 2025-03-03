@@ -85,7 +85,7 @@ bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Ren
     return true;
 }
 
-void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file
@@ -96,14 +96,17 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(rascalUnescapeName(newName))));
 }
 
-void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
-    set[loc] defFiles = {d.top | d <- defs.defined};
-    escName = rascalEscapeName(newName);
-    for (/QualifiedName qn := tr
-      , any(d <- tm.useDef[qn.src], d.top in defFiles)
-      , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
-        modPrefix = cover(prefix([n.src | n <- qn.names]));
-        r.textEdit(replace(modPrefix, newName));
+void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
+    if ({loc u, *_} := tm.useDef<0>) {
+        set[loc] defFiles = {d.top | d <- defs.defined};
+        escName = rascalEscapeName(newName);
+        Tree tr = r.getConfig().parseLoc(u.top);
+        for (/QualifiedName qn := tr
+        , any(d <- tm.useDef[qn.src], d.top in defFiles)
+        , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
+            modPrefix = cover(prefix([n.src | n <- qn.names]));
+            r.textEdit(replace(modPrefix, newName));
+        }
     }
 }
 

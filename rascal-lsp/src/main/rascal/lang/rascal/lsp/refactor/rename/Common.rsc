@@ -252,6 +252,6 @@ set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
     return overloadedDefs.defined;
 }
 
-default void renameAdditionalUses(set[Define] defs, str newName, Tree tr, TModel tm, Renamer r) {}
+default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
 
 default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
