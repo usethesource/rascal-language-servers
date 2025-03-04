@@ -26,7 +26,11 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.awt.AWTError;
 import java.awt.Desktop;
+import java.awt.HeadlessException;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -35,13 +39,17 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -141,47 +149,107 @@ public class EvaluatorUtil {
         });
     }
 
-    private static void reportInternalError(Throwable e, String task, LanguageClient client) {
-        String reason;
-        String stackTrace;
+    private static void extractReasonAndStackTrace(Throwable e, String task, StringWriter reason, StringWriter stackTrace) {
+        reason.append(task);
+        reason.append(" crashed unexpectedly with: ");
         if (e instanceof Throw) {
-            stackTrace = ((Throw)e).getTrace().toString();
-            reason = formatMessage((Throw)e);
-        }
-        else {
+            stackTrace.append(((Throw) e).getTrace().toString());
+            reason.append(formatMessage((Throw) e));
+        } else {
             if (e instanceof StaticError) {
-                reason = formatMessage((StaticError)e).replace('\n', ' ');
+                reason.append(formatMessage((StaticError) e).replace('\n', ' '));
+            } else {
+                reason.append(e.getMessage());
             }
-            else {
-                reason = e.getMessage();
-            }
-            var trace = new StringWriter();
-            e.printStackTrace(new PrintWriter(trace));
-            stackTrace = trace.toString();
+            e.printStackTrace(new PrintWriter(stackTrace));
         }
-        String title = task + " crashed unexpectedly with: " + reason;
+    }
+
+    private enum ErrorHandlingOption {
+        // The order in which these values are declared is the order in which they will appear in the VS Code tooltip
+        REPORT_ON_GITHUB("Report on GitHub"),
+        COPY_STACK_TRACE("Copy stack trace to clipboard"),
+        IGNORE("Ignore");
+
+        final String label;
+        private static final Map<String, ErrorHandlingOption> BY_LABEL = new HashMap<>();
+
+        static {
+            Stream.of(values()).forEach(e -> BY_LABEL.put(e.label, e));
+        }
+
+        ErrorHandlingOption(String label) {
+            this.label = label;
+        }
+
+        MessageActionItem getActionItem() {
+            return new MessageActionItem(label);
+        }
+
+        static List<MessageActionItem> getActionItems() {
+            return Stream.of(ErrorHandlingOption.values()).map(ErrorHandlingOption::getActionItem).collect(Collectors.toList());
+        }
+
+        public static ErrorHandlingOption valueOfLabel(String label) {
+            return BY_LABEL.get(label);
+        }
+    }
+
+    private static void createGithubIssue(Throwable e, String title, String stackTrace, LanguageClient client) {
+        var body = new StringWriter();
+        try (var bodyWriter = new PrintWriter(body)) {
+            bodyWriter.println("Context: ***Please provide context***");
+            bodyWriter.println();
+            bodyWriter.println("Exception thrown:");
+            bodyWriter.println("```");
+            bodyWriter.println(e.getMessage());
+            bodyWriter.println("```");
+            bodyWriter.println("Stacktrace:");
+            bodyWriter.println("```");
+            bodyWriter.println(stackTrace);
+            bodyWriter.println("```");
+        }
+        browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
+    }
+
+    private static void copyToClipboard(String text, LanguageClient client) {
+        var content = new StringSelection(text);
+        try {
+            var toolkit = Toolkit.getDefaultToolkit();
+            if (toolkit == null) {
+                logger.error("Could not find toolkit");
+                return;
+            }
+            toolkit.getSystemClipboard().setContents(content, content);
+        } catch (AWTError | HeadlessException | IllegalStateException e) {
+            client.showMessage(new MessageParams(MessageType.Error, "Cannot copy to clipboard: " + e.getMessage()));
+            logger.catching(e);
+        }
+    }
+
+    private static void reportInternalError(Throwable e, String task, LanguageClient client) {
+        StringWriter reason = new StringWriter();
+        StringWriter stackTrace = new StringWriter();
+        extractReasonAndStackTrace(e, task, reason, stackTrace);
+        String title = task + " crashed unexpectedly with: " + reason.toString();
         var msg = new ShowMessageRequestParams();
         msg.setMessage(title);
         msg.setType(MessageType.Error);
-        msg.setActions(Arrays.asList(new MessageActionItem("Report on GitHub"), new MessageActionItem("Ignore")));
-        client.showMessageRequest(msg)
-            .thenAccept(responds -> {
-                if (responds != null && responds.getTitle().equals("Report on GitHub")) {
-                    var body = new StringWriter();
-                    var bodyWriter = new PrintWriter(body);
-                    bodyWriter.println("Context: ***Please provide context***");
-                    bodyWriter.println();
-                    bodyWriter.println("Exception thrown:");
-                    bodyWriter.println("```");
-                    bodyWriter.println(e.getMessage());
-                    bodyWriter.println("```");
-                    bodyWriter.println("Stacktrace:");
-                    bodyWriter.println("```");
-                    bodyWriter.println(stackTrace);
-                    bodyWriter.println("```");
-                    browse("https://github.com/usethesource/rascal-language-servers/issues/new?labels=bug&title=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + "&body=" + URLEncoder.encode(body.toString(), StandardCharsets.UTF_8), client);
+        msg.setActions(ErrorHandlingOption.getActionItems());
+        client.showMessageRequest(msg).thenAccept(response -> {
+            if (response != null){
+                switch (ErrorHandlingOption.valueOfLabel(response.getTitle())) {
+                    case REPORT_ON_GITHUB:
+                        createGithubIssue(e, title, stackTrace.toString(), client);
+                        break;
+                    case COPY_STACK_TRACE:
+                        copyToClipboard(stackTrace.toString(), client);
+                        break;
+                    default:
+                        // Do nothing
                 }
-            });
+            }
+        });
     }
 
     private static void browse(String url, LanguageClient client) {
