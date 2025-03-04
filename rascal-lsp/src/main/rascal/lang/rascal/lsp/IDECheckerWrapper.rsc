@@ -50,46 +50,58 @@ import lang::rascalcore::check::ModuleLocations;
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
 set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
-    = job("Rascal check", list[ModuleMessages](void(str, int) step) {
+    = job("Rascal check", set[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
     rel[loc, loc] dependencies = {};
 
-
-    step("Building dependency graph", 50);
-    while (tree <- checkForImports) {
-        currentSrc = tree.src.top;
-        currentProject = inferProjectRoot(currentSrc);
-        for (i <- tree.top.header.imports) {
-            try {
-                ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
-                if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
-                    checkForImports += mlpt;
-                    dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+    step("Dependency graph", 1);
+    job("Building dependency graph", bool (void (str, int) step2) {
+        while (tree <- checkForImports) {
+            step2("Calculating imports for <tree.top.header.name>", 1);
+            currentSrc = tree.src.top;
+            currentProject = inferProjectRoot(currentSrc);
+            for (i <- tree.top.header.imports) {
+                try {
+                    ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
+                    if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
+                        checkForImports += mlpt;
+                        jobTodo("Building dependency graph");
+                        dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                    }
+                } catch _: {
+                    ;// Continue
                 }
-            } catch _: {
-                ;// Continue
             }
+            checkedForImports += currentSrc;
+            checkForImports -= tree;
         }
-        checkedForImports += currentSrc;
-        checkForImports -= tree;
-    }
+        return true;
+    }, totalWork=1);
+
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
         return [program(l, error("Cyclic dependencies depected between projects {<intercalate(cyclicDependencies, ", ")>}. This is not supported. Fix your project setup.", l))];
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = {};
-    for (project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject) {
-        step("Checking project `<project.file>`", 1);
-        msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
-    }
-    step("Checking <l>", 1);
+
+    upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
+    step("Checking upstream dependencies ", 1);
+    job("Checking upstream dependencies", bool (void (str, int) step3) {
+        for (project <- upstreamDependencies) {
+            step3("Checked module in `<project.file>`", 1);
+            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
+        }
+        return true;
+    }, totalWork=size(upstreamDependencies));
+
+    step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
     return msgs;
-});
+}, totalWork=3);
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
     fileName = makeFileName(fqn);
