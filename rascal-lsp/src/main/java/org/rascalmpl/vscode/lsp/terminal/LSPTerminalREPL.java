@@ -127,7 +127,7 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             }
 
             // make sure to always add rascal-lsp (even if it wasn't in the pom.xml)
-            // TODO: what if it was already in the pom.xml?
+            // TODO: what if it was already in the pom.xml? PathConfig does a de-dup automatically.
             var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
             // the interpreter must find the Rascal sources of util::LanguageServer etc.
             pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
