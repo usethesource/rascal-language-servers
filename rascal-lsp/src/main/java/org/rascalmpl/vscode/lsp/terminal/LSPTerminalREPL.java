@@ -150,6 +150,8 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             for (IValue entry: pcfg.getLibsAndTarget()) {
                 stdout.println("- " + entry);
             }
+            ClassLoader cl = new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader());
+            evaluator.addClassLoader(cl);
 
             if (!pcfg.getMessages().isEmpty()) {
                 stdout.println("PathConfig messages:");
@@ -158,8 +160,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             }
 
 
-            ClassLoader cl = new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader());
-            evaluator.addClassLoader(cl);
         }
         catch (IOException | URISyntaxException e) {
             e.printStackTrace(stderr);
