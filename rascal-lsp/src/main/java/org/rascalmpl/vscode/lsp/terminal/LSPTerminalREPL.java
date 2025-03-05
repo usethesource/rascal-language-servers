@@ -116,6 +116,18 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             // as VS Code starts us at the project root, we can use the current working directory to know which project we're at
             ISourceLocation projectDir = PathConfig.inferProjectRoot(URIUtil.createFileLocation(System.getProperty("user.dir")));
 
+            // try to use the project:// scheme as often as possible, for a canonical experience between different people
+            // running the same project in their IDE, or on the commandline
+            if (URIResolverRegistry.getInstance().isDirectory(projectDir)) {
+                var folderName = URIUtil.getLocationName(projectDir);
+                var tentativeProjectLoc = URIUtil.correctLocation("project", folderName, "");
+
+                // if the project loc is a true alias for the project directory, then we might as well use it
+                if (services.resolveProjectLocation(tentativeProjectLoc).equals(projectDir)) {
+                    projectDir = tentativeProjectLoc;
+                }
+            }
+
             // now let's calculate the path config
             PathConfig pcfg;
             if (projectDir != null) {
