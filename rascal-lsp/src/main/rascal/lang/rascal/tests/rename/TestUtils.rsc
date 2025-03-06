@@ -70,6 +70,10 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
+private list[DocumentEdit] groupEditsByFile(list[DocumentEdit] _: [*pre, changed(f, e1), *mid, changed(f, e2), *post]) =
+    groupEditsByFile([*pre, changed(f, [*e1, *e2]), *mid, *post]);
+private default list[DocumentEdit] groupEditsByFile(list[DocumentEdit] edits) = edits;
+
 private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
@@ -79,7 +83,7 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
-    executeDocumentEdits(sortEdits(edits));
+    executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
     remove(pcfg.resources);
     RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
 
