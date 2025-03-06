@@ -65,12 +65,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC10</version>
-    </dependency>
-    <dependency>
-      <groupId>org.rascalmpl</groupId>
-      <artifactId>rascal-core</artifactId>
-      <version>0.12.16</version>
+      <version>0.41.0-RC15</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>
@@ -176,7 +171,7 @@
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
-          <sourceLookup>|lib://rascal-lsp|</sourceLookup>
+          <sourceLookup>|mvn://${project.groupId}--${project.name}--${project.version}|</sourceLookup>
           <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
         <executions>
@@ -241,14 +236,6 @@
                   <overWrite>true</overWrite>
                   <outputDirectory>${project.build.directory}/lib</outputDirectory>
                   <destFileName>rascal.jar</destFileName>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.rascalmpl</groupId>
-                  <artifactId>rascal-core</artifactId>
-                  <type>jar</type>
-                  <overWrite>true</overWrite>
-                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                  <destFileName>rascal-core.jar</destFileName>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.rascalmpl</groupId>

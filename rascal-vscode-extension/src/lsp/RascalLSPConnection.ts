@@ -153,7 +153,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
 function buildCompilerJVMPath(jarPath:string, isParametricServer: boolean) :string {
     const jars = ['rascal-lsp.jar', 'rascal.jar'];
     if (!isParametricServer) {
-        jars.push('rascal-core.jar', 'typepal.jar');
+        jars.push('typepal.jar');
     }
     return jars.map(j => path.join(jarPath, j)).join(path.delimiter);
 }
