@@ -134,14 +134,14 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         renamesPerModule = (
             beforeRename: afterRename
             | renamed(oldLoc, newLoc) <- edits<0>
-            , beforeRename := getModuleName(oldLoc, pcfg)
-            , afterRename := getModuleName(newLoc, pcfg)
+            , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
+            , afterRename := safeRelativeModuleName(newLoc, pcfg)
         );
 
         replacesPerModule = (
             name: occs
             | changed(file, changes) <- edits<0>
-            , name := getModuleName(file, pcfg)
+            , name := safeRelativeModuleName(file, pcfg)
             , locs := {c.range | c <- changes}
             , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
         );
@@ -150,12 +150,12 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             name : <occs, nameAfterRename>
             | srcDir <- pcfg.srcs
             , file <- find(srcDir, "rsc")
-            , name := getModuleName(file, pcfg)
+            , name := safeRelativeModuleName(file, pcfg)
             , occs := replacesPerModule[name] ? {}
             , nameAfterRename := renamesPerModule[name] ? name
         );
 
-        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
+        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
 
         if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
             success = false;
