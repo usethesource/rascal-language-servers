@@ -71,14 +71,44 @@ str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reser
 str unescapeNonReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? n : forceUnescapeNames(n) | n <- split(sep, name)]);
 str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
 
+Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
+    just(Tree t) := tryParseAs(T, name) ? t : char(0);
+
+private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
+
+bool(Tree) allNameSortsFilter(str name) {
+    escName = reEscape(name);
+
+    <n1, en1> = escapePair(#Name, escName);
+    <nt1, ent1> = escapePair(#Nonterminal, escName);
+    <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
+    qn1 = parseAsOrEmpty(#QualifiedName, escName);
+
+    return bool(Tree tr) {
+        visit (tr) {
+            case n1: return true;
+            case en1: return true;
+
+            case nt1: return true;
+            case ent1: return true;
+
+            case ntl1: return true;
+            case entl1: return true;
+
+            case qn1: return true;
+
+            case QualifiedName qn: {
+                if (reEscape("<qn>") == escName) return true;
+            }
+        }
+
+        return false;
+    };
+}
+
 tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     sname1 = reEscape(name1);
     sname2 = reEscape(name2);
-
-    Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
-        just(Tree t) := tryParseAs(T, name) ? t : char(0);
-
-    tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);
