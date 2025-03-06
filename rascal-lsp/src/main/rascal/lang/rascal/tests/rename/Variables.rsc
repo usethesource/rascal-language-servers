@@ -216,3 +216,12 @@ test bool unrelatedVar() = testRenameOccurrences({
                       'int foo = 2;
                       'int baz = foo;", {})
 });
+
+@illegalRename
+test bool multiModuleAmbiguous() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + bar;", {0})
+});
