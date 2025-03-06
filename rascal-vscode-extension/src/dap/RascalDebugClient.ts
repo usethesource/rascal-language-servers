@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { debug, DebugConfiguration, DebugSession, Terminal, window } from "vscode";
+import { debug, DebugConfiguration, DebugSession, Terminal, window, EventEmitter } from "vscode";
 import { RascalDebugAdapterDescriptorFactory } from "./RascalDebugAdapterDescriptorFactory";
 import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProvider";
 
@@ -37,7 +37,8 @@ export class RascalDebugClient {
     debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
     runningDebugSessionsPorts: Set<number>; // Stores all running debug session server ports
 
-
+    private portEventEmitter = new EventEmitter<{processId: number, serverPort: number}>();
+    readonly portRegistrationEvent = this.portEventEmitter.event;
 
     constructor(){
         this.rascalDescriptorFactory = new RascalDebugAdapterDescriptorFactory();
@@ -77,13 +78,11 @@ export class RascalDebugClient {
 
     registerDebugServerPort(processID: number, serverPort: number){
         this.debugSocketServersPorts.set(processID, serverPort);
+        this.portEventEmitter.fire({"processId": processID, "serverPort": serverPort});
     }
 
-    getServerPort(processID: number | undefined){
-        if(processID !== undefined && this.debugSocketServersPorts.has(processID)){
-            return this.debugSocketServersPorts.get(processID);
-        }
-        return undefined;
+    getServerPort(processId: number){
+        return this.debugSocketServersPorts.get(processId);
     }
 
     isConnectedToDebugServer(serverPort: number){

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,15 +47,16 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -62,11 +64,10 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -84,7 +85,7 @@ import io.usethesource.vallang.type.TypeStore;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
-    private static final ErrorRecovery RECOVERY = new ErrorRecovery(IRascalValueFactory.getInstance());
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
@@ -207,11 +208,7 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<ITuple> getRename(ITree module, Position cursor, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName, ColumnMaps columns) {
-        var moduleLocation = TreeAdapter.getLocation(module);
-        Position pos = Locations.toRascalPosition(moduleLocation, cursor, columns);
-        var cursorTree = TreeAdapter.locateLexical(module, pos.getLine(), pos.getCharacter());
-
+    public InterruptibleFuture<ITuple> getRename(ITree cursorTree, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
                 IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
@@ -235,6 +232,36 @@ public class RascalLanguageServices {
                 throw e;
             }
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
+    }
+
+    private ISourceLocation sourceLocationFromUri(String uri) {
+        try {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, Map<ISourceLocation, TextDocumentState> documents) {
+        var emptyResult = VF.tuple(VF.list(), VF.map());
+        if (fileRenames.isEmpty()) {
+            return CompletableFuture.completedFuture(emptyResult);
+        }
+
+        return CompletableFuture.supplyAsync(() -> fileRenames.stream()
+                .map(r -> VF.tuple(sourceLocationFromUri(r.getOldUri()), sourceLocationFromUri(r.getNewUri())))
+                .collect(VF.listWriter())
+            , exec)
+            .thenCompose(renames -> {
+                return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+                    IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
+                    try {
+                        return (ITuple) eval.call("rascalRenameModule", renames, VF.set(workspaceFolders.toArray(ISourceLocation[]::new)), rascalGetPathConfig);
+                    } catch (Throw e) {
+                        throw new RuntimeException(e.getMessage());
+                    }
+                }, emptyResult, exec, false, client).get();
+            });
     }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
-import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.parser.Parser;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
 import org.rascalmpl.parser.gtd.util.StackNodeIdDispenser;
@@ -59,7 +59,7 @@ public class RascalServices {
             new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser)));
 
         // Recover
-        ErrorRecovery recoverer = new ErrorRecovery(VALUE_FACTORY);
-        return (ITree) recoverer.disambiguateErrors(tree, TRUE);
+        ParseErrorRecovery recoverer = new ParseErrorRecovery(VALUE_FACTORY);
+        return (ITree) recoverer.disambiguateParseErrors(tree, TRUE);
     }
 }

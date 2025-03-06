@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ data IllegalRenameReason
     | definitionsOutsideWorkspace(set[loc] defs)
     ;
 
-data RuntimeException
+data RenameException
     = illegalRename(str message, set[IllegalRenameReason] reason)
     | unsupportedRename(str message, rel[loc location, str message] issues = {})
     | unexpectedFailure(str message)
