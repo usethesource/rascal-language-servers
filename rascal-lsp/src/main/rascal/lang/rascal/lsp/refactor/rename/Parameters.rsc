@@ -61,6 +61,8 @@ void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>,
         return;
     }
 
+    // We get the module location from the uses. If there are no uses, this is skipped.
+    // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
         set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];

@@ -54,20 +54,6 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
-bool(loc) containsFilter(type[&T <: Tree] T, str name, Tree(loc) getTree) {
-    if (just(t) := tryParseAs(T, name)) {
-        return bool(loc l) {
-            bottom-up-break visit (getTree(l)) {
-                case t: return true;
-            }
-            return false;
-        };
-    }
-
-    // If we can't parse the name at all, we don't even have to traverse the tree - we'll never find this.
-    return bool(loc _) { return false; };
-}
-
 bool isContainedInScope(loc l, loc scope, TModel tm) {
     // lexical containment
     if (isContainedIn(l, scope)) return true;
@@ -77,25 +63,103 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
-set[loc] findNameOccurrenceFiles(str name, set[loc] sourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(#Name, name, getTree);
-    containsQName = containsFilter(#QualifiedName, name, getTree);
-    containsNonTerm = containsFilter(#Nonterminal, name, getTree);
-    containsNonTermLabel = containsFilter(#NonterminalLabel, name, getTree);
+private set[str] reservedNames = getRascalReservedIdentifiers();
 
-    return {f | loc f <- sourceFiles, containsName(f) || containsQName(f) || containsNonTerm(f) || containsNonTermLabel(f)};
+str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
+str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
+str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? forceEscapeSingleName(n) : n | n <- split(sep, name)]);
+str unescapeNonReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? n : forceUnescapeNames(n) | n <- split(sep, name)]);
+str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+
+tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
+    sname1 = reEscape(name1);
+    sname2 = reEscape(name2);
+
+    Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
+        just(Tree t) := tryParseAs(T, name) ? t : char(0);
+
+    tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
+
+    <n1, en1> = escapePair(#Name, sname1);
+    <nt1, ent1> = escapePair(#Nonterminal, sname1);
+    <ntl1, entl1> = escapePair(#NonterminalLabel, sname1);
+    qn1 = parseAsOrEmpty(#QualifiedName, sname1);
+
+    <n2, en2> = escapePair(#Name, sname2);
+    <nt2, ent2> = escapePair(#Nonterminal, sname2);
+    <ntl2, entl2> = escapePair(#NonterminalLabel, sname2);
+    qn2 = parseAsOrEmpty(#QualifiedName, sname2);
+
+    return tuple[bool, bool](Tree tr) {
+        bool has1 = false;
+        bool has2 = false;
+        visit (tr) {
+            case n1: has1 = true;
+            case en1: has1 = true;
+
+            case nt1: has1 = true;
+            case ent1: has1 = true;
+
+            case ntl1: has1 = true;
+            case entl1: has1 = true;
+
+            case n2: has2 = true;
+            case en2: has2 = true;
+
+            case nt2: has2 = true;
+            case ent2: has2 = true;
+
+            case ntl2: has2 = true;
+            case entl2: has2 = true;
+
+            case qn1: has1 = true;
+            case qn2: has2 = true;
+
+            case QualifiedName qn: {
+                escQn = reEscape("<qn>");
+                if (escQn == sname1) has1 = true;
+                if (escQn == sname2) has2 = true;
+            }
+        }
+
+        return <has1, has2>;
+    };
 }
 
-set[loc] findSortOccurrenceFiles(type[&T <: Tree] N, str name, set[loc] sourceFiles, Tree(loc) getTree) {
-    containsName = containsFilter(N, name, getTree);
-    return {f | loc f <- sourceFiles, containsName(f)};
+set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) = {f | loc f <- fs, treeFilter(getTree(f))};
+
+tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeFilter, Tree(loc) getTree) {
+    set[loc] fs1 = {};
+    set[loc] fs2 = {};
+    for (loc f <- fs) {
+        tr = getTree(f);
+        <l, r> = treeFilter(tr);
+        if (l) fs1 += f;
+        if (r) fs2 += f;
+    }
+    return <fs1, fs2>;
+}
+
+default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+    if ({str id} := defs.id) {
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+        return <curFiles, curFiles, newFiles>;
+    }
+
+    r.error(cursor[0], "Cannot find occurrences for defs with multiple names.");
+    return <{}, {}, {}>;
 }
 
 // Workaround to be able to pattern match on the emulated `src` field
 data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
-@memo{maximumSize(1000), expireAfter(minutes=5)}
-str rascalEscapeName(str name) = intercalate("::", [n in getRascalReservedIdentifiers() ? "\\<n>" : n | n <- split("::", name)]);
+set[loc] getSourceFiles(Renamer r) {
+    c = r.getConfig();
+    return {*find(srcFolder, "rsc")
+        | wsFolder <- c.workspaceFolders
+        , srcFolder <- c.getPathConfig(wsFolder).srcs
+    };
+}
 
 Maybe[AType] getFact(TModel tm, loc l) = l in tm.facts ? just(tm.facts[l]) : nothing();
 

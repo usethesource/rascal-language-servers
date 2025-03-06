@@ -128,7 +128,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
 }
 
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
-    escName = rascalEscapeName(name);
+    escName = escapeReservedNames(name);
     <t, desc> = asType(role);
     if (tryParseAs(t, escName) is nothing) {
         r.error(at, "<escName> is not a valid <desc>");
@@ -179,9 +179,6 @@ void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
         r.error(d.defined, "Since this definition is not in the sources of open projects, it cannot be renamed.");
     }
 }
-
-
-str rascalUnescapeName(str name) = replaceAll(name, "\\", "");
 
 // Find the smallest trees of defined non-terminal type with a source location in `useDefs`
 // private rel[loc name, loc useDef] rascalFindNamesInUseDefs(start[Module] m, set[loc] useDefs, CursorKind cursorKind) {
@@ -469,52 +466,6 @@ Maybe[AType] rascalConsFieldType(str fieldName, Define _:<_, _, _, constructorId
 //     return cursor(kind, min(locsContainingCursor.l), cursorName);
 // }
 
-private bool(loc) rascalContainsNameFilter(str n, Tree(loc) getTree) {
-    en = rascalEscapeName(n);
-
-    // Since QualifiedName is the most liberal and all the others are subsets of it,
-    // we default to QualifiedName in case parsing as something else fails.
-    qNameEsc = [QualifiedName] en;
-
-    &T tryNameParse(type[&T <: Tree] a, str s) {
-        try {
-            return parse(a, s);
-        } catch _: {
-            return qNameEsc;
-        }
-    }
-
-    qName = tryNameParse(#QualifiedName, n);
-    name = tryNameParse(#QualifiedName, n);
-    nameEsc = tryNameParse(#QualifiedName, en);
-    nonTerm = tryNameParse(#Nonterminal, n);
-    nonTermEsc = tryNameParse(#Nonterminal, en);
-    nonTermLabel = tryNameParse(#NonterminalLabel, n);
-    nonTermLabelEsc = tryNameParse(#NonterminalLabel, en);
-    return bool(loc file) {
-        // Workaround while visit is broken
-        contents = readFile(file);
-        return contains(contents, n) || contains(contents, en);
-        try {
-            // Currently broken due to https://github.com/usethesource/rascal/issues/2147
-            visit (getTree(file)) {
-                case name: return true;
-                case nameEsc: return true;
-                case qName: return true;
-                case qNameEsc: return true;
-                case nonTerm: return true;
-                case nonTermEsc: return true;
-                case nonTermLabel: return true;
-                case nonTermLabelEsc: return true;
-            }
-        }
-        catch Java("ParseError", _): return false;
-        catch ParseError(_): return false;
-
-        return false;
-    };
-}
-
 @synopsis{
     Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.
     Renaming is not supported for some symbols.
@@ -643,42 +594,16 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     return {};
 }
 
-private set[loc] getSourceFiles(Renamer r) {
-    c = r.getConfig();
-    return {*find(srcFolder, "rsc")
-        | wsFolder <- c.workspaceFolders
-        , srcFolder <- c.getPathConfig(wsFolder).srcs
-    };
-}
-
-private bool isLocal(IdRole role) = role in variableRoles && role !:= moduleVariableId();
-
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({IdRole role} := defs.idRole) {
         <t, desc> = asType(role);
-        if (tryParseAs(t, rascalEscapeName(newName)) is nothing) {
-            r.error(cursor[0], "\'<newName>\' is not a valid <desc>");
+        escNewName = escapeReservedNames(newName);
+        if (tryParseAs(t, escNewName) is nothing) {
+            r.error(cursor[0], "\'<escNewName>\' is not a valid <desc>");
             return <{}, {}, {}>;
         }
 
-        name = "<cursor[0]>";
-        sourceFiles = getSourceFiles(r);
-        set[loc] defFiles = {};
-        set[loc] useFiles = {};
-        set[loc] newNameFiles = {};
-
-        if (role notin {variableId(), patternVariableId(), moduleId()}) {
-            defFiles = findNameOccurrenceFiles(rascalEscapeName(name), sourceFiles, getTree);
-            useFiles = defFiles;
-            newNameFiles = defFiles;
-        } else {
-            <defFiles, useFiles> = findDefOccurrenceFiles(defs, cursor, sourceFiles, getTree, r);
-            newNameFiles = defFiles + useFiles;
-        }
-
-        if (!isLocal(role)) newNameFiles = findNameOccurrenceFiles(rascalEscapeName(newName), sourceFiles, getTree);
-
-        return <defFiles, useFiles, newNameFiles>;
+        return findOccurrenceFilesUnchecked(defs, cursor, escNewName, getTree, r);
     }
 
     r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
@@ -701,12 +626,12 @@ void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) 
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
-    renameDefinitionUnchecked(d, nameLoc, rascalEscapeName(newName), tm, r);
+    renameDefinitionUnchecked(d, nameLoc, reEscape(newName), tm, r);
 }
 
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     set[loc] uses = invert(tm.useDef)[defs.defined] - defs.defined;
-    escName = rascalEscapeName(newName);
+    escName = reEscape(newName);
 
     for (u <- uses) {
         r.textEdit(replace(u, escName));
