@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -44,7 +43,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.rascalmpl.library.util.ErrorRecovery;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
@@ -191,7 +190,6 @@ public class TextDocumentState {
                 parser
                     .apply(location, content)
                     .whenComplete((t, e) -> {
-
                         // Prepare result values for futures
                         var tree = new Versioned<>(version, t);
                         var diagnostics = new Versioned<>(version, toDiagnostics(t, e));
@@ -233,10 +231,10 @@ public class TextDocumentState {
 
             if (tree != null) {
                 RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-                IList errors = new ErrorRecovery(valueFactory).findAllErrors(tree);
+                IList errors = new ParseErrorRecovery(valueFactory).findAllParseErrors(tree);
                 for (IValue error : errors) {
                     ITree errorTree = (ITree) error;
-                    parseErrors.add(Diagnostics.translateErrorRecoveryDiagnostic(errorTree, columns));
+                    parseErrors.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree, columns));
                 }
             }
 

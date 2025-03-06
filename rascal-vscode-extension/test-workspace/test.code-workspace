@@ -8,6 +8,9 @@
     },
 
 
-  ]
+  ],
+  "settings": {
+    "explorer.confirmDragAndDrop": false
+  }
 
 }

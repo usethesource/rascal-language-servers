@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,10 +54,17 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
+
+    // Note: DiagnosticSeverity.Hint only highlightes a single character!
+    static DiagnosticSeverity errorLocationHighlight = DiagnosticSeverity.Error;
+    static DiagnosticSeverity errorTreeHighlight = null;
+    static DiagnosticSeverity prefixHighlight = null;
+    static DiagnosticSeverity skippedHighlight = null;
 
     static {
         severityMap = new HashMap<>();
@@ -75,6 +82,55 @@ public class Diagnostics {
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
         var message = e.getMessage() + " (irrecoverable)";
         return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
+    }
+
+    public static List<Diagnostic> generateParseErrorDiagnostics(ITree errorTree, ColumnMaps cm) {
+        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+
+        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
+        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+
+        List<Diagnostic> diagnostics = new ArrayList<>();
+
+        // Highlight selected parts of the error tree
+        if (errorLocationHighlight != null) {
+            // Just the error location
+            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
+                    skippedLoc.getOffset(), 1,
+                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
+            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
+                    errorLocationHighlight, "parser"));
+        }
+
+        if (errorTreeHighlight != null) {
+            // The whole error tree
+            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", errorTreeHighlight, "parser"));
+        }
+
+        if (prefixHighlight != null) {
+            // The recognized prefix
+            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
+            if (prefixLength > 0) {
+                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
+                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
+                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
+            }
+        }
+
+        if (skippedHighlight != null && skippedLoc.getLength() > 0) {
+            // The skipped part
+            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", skippedHighlight, "parser"));
+        }
+
+        // Note: DiagnosticSeverity.Hint only highlightes a single character!
+
+        return diagnostics;
     }
 
     public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
