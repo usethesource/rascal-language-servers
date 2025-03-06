@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Variables
 
 extend framework::Rename;
-import lang::rascal::lsp::refactor::rename::Common;
+extend lang::rascal::lsp::refactor::rename::Common;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::\syntax::Rascal;
@@ -39,14 +39,17 @@ import util::Maybe;
  // Variables
 tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, variableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}>;
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, variableId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
 
 // Global variables
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, moduleVariableId(), _, defType(_, vis=privateVis())>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+
 // Pattern variables
 tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>, *_}, list[Tree] _, set[loc]() _, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}>;
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;

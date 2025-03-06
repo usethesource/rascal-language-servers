@@ -34,7 +34,7 @@ import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
-// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm) {
+// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
     // Find the ADT that this constructor is part of
     // Find overloads of this ADT
     // Find all constructors with the same name in these ADT definitions
