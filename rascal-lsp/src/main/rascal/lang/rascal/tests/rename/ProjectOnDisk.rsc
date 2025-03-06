@@ -47,7 +47,7 @@ Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 
         pcfg = pathConfig(
             srcs = [ projectDir + "src" ],
             bin = projectDir + "target/classes",
-            libs = [ |std:///| ]
+            libs = [calculateRascalLib()]
         );
     }
     // extension for Rascal compiler

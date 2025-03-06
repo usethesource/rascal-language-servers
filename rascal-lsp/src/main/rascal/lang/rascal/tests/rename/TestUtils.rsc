@@ -200,11 +200,20 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
+public loc calculateRascalLib() {
+    result = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := result.path) {
+        return result.parent.parent.parent;
+    }
+    return result;
+}
+
+
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
         resources=testDir + "bin",
-        libs=[|std:///|],
+        libs=[calculateRascalLib()],
         srcs=[testDir + "rascal"]
     );
 }
@@ -214,7 +223,7 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
         srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
         resources = rascalCoreProject + "target/test-classes",
-        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, |std:///|]
+        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, calculateRascalLib()]
     );
 }
 
