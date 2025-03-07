@@ -120,7 +120,7 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor);
         await editor.setTextAtLine(2, "1 2 3");
-        await ide.hasRecoveredErrorSquiggly(editor);
+        await ide.hasRecoveredError(editor);
     });
 
     function triggerTypeChecker(editor: TextEditor, tplFile : string, waitForFinish = false) {

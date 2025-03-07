@@ -115,12 +115,12 @@ describe('DSL', function () {
         }
     });
 
-    it.only("error recovery works", async function () {
+    it("error recovery works", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
             await editor.setTextAtLine(9, "      x output := 1;");
-            await ide.hasRecoveredErrorSquiggly(editor, Delays.slow);
+            await ide.hasRecoveredError(editor, Delays.slow);
         } finally {
             await ide.revertOpenChanges();
         }

@@ -179,13 +179,13 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
-function minWidthElementLocated(scope:WebElement, selector: Locator, minWidth: number): WebElementCondition {
+function minTopElementLocated(scope:WebElement, selector: Locator, minTop: number): WebElementCondition {
     return new WebElementCondition("locating element in scope", async (_driver) => {
         try {
             const result = await scope.findElements(selector);
             if (result && result.length > 0) {
                 for(const element of result) {
-                    if ((await element.getRect()).width >= minWidth) {
+                    if ((await element.getRect()).y >= minTop) {
                         return element;
                     }
                 }
@@ -254,10 +254,9 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
     }
 
-    hasRecoveredErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing recovered parse error"): Promise<WebElement> {
-        // We need to differentiate between real parse errors (single char squiggly) and recovered parse error (multi-char squiggly).
-        // Checking for a minimum-length squiggly seems to do the trick.
-        return this.driver.wait(minWidthElementLocated(editor, By.className("squiggly-error"), 20), timeout, message, 50);
+    hasRecoveredError(editor: TextEditor, timeout = Delays.normal, message = "Missing recovered parse error"): Promise<WebElement> {
+        // We need to differentiate between real parse errors (error at first line) and recovered parse error (error at parse position).
+        return this.driver.wait(minTopElementLocated(editor, By.className("squiggly-error"), 20), timeout, message, 50);
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
