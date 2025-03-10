@@ -24,42 +24,26 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::Exception
+@bootstrapParser
+module lang::rascal::lsp::refactor::rename::Fields
 
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
+
+import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
-import Message;
-import Set;
+import util::Maybe;
 
-alias Capture = tuple[loc def, loc use];
+// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
+    // Find the ADT that this constructor is part of
+    // Find overloads of this ADT
+    // Find all fields with the same name in these ADT definitions
+// }
 
-data IllegalRenameReason
-    = invalidName(str name, str identifierDescription)
-    | doubleDeclaration(loc old, set[loc] new)
-    | captureChange(set[Capture] captures)
-    | definitionsOutsideWorkspace(set[loc] defs)
-    ;
+// Positional fields
+tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
 
-data RenameException
-    = illegalRename(str message, set[IllegalRenameReason] reason)
-    | unsupportedRename(str message, rel[loc location, str message] issues = {})
-    | unexpectedFailure(str message)
-    ;
-
-str describe(invalidName(name, idDescription)) = "\'<name>\' is not a valid <idDescription>";
-str describe(doubleDeclaration(_, _)) = "it causes double declarations";
-str describe(captureChange(_)) = "it changes program semantics";
-str describe(definitionsOutsideWorkspace(_)) = "it renames definitions outside of currently open projects";
-
-void throwAnyErrors(TModel tm) {
-    throwAnyErrors(tm.messages);
-}
-
-void throwAnyErrors(set[Message] msgs) {
-    throwAnyErrors(toList(msgs));
-}
-
-void throwAnyErrors(list[Message] msgs) {
-    errors = {msg | msg <- msgs, msg is error};
-    if (errors != {}) throw errors;
-}
+// Keyword fields
+tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;

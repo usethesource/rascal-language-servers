@@ -24,12 +24,12 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::ValidNames
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
-import analysis::diff::edits::TextEdits;
+import framework::TextEdits;
 
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");
@@ -39,17 +39,6 @@ test bool renameToReservedName() {
 
     return newNames == {"\\int"};
 }
-
-test bool renameToUnescapedQualifiedName() = testRenameOccurrences({
-    byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
-    byText("Main", "
-        'import FooSyntax;
-        'import ParseTree;
-        'void main() {
-        '   s = parse(#FooSyntax::S, \"s\");
-        '}
-    ", {0, 1}, skipCursors = {1})
-}, oldName = "FooSyntax", newName = "syntax::Foo");
 
 test bool renameToEscapedQualifiedName() = testRenameOccurrences({
     byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),

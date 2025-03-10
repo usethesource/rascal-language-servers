@@ -24,17 +24,20 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::TextEdits
+@bootstrapParser
+module lang::rascal::lsp::refactor::rename::Constructors
 
-extend analysis::diff::edits::TextEdits;
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascalcore::check::BasicRascalConfig;
 
-alias ChangeAnnotationId = str;
+import lang::rascal::\syntax::Rascal;
+import analysis::typepal::TModel;
 
-data ChangeAnnotation
-    = changeAnnotation(str label, str description, bool needsConfirmation)
-    ;
+// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
+    // Find the ADT that this constructor is part of
+    // Find overloads of this ADT
+    // Find all constructors with the same name in these ADT definitions
+// }
 
-data TextEdit(ChangeAnnotationId annotation = "");
-
-alias ChangeAnnotationRegister =
-    ChangeAnnotationId(str label, str description, bool needsConfirmation);
+tuple[type[Tree] as, str desc] asType(constructorId()) = <#NonterminalLabel, "constructor name">;

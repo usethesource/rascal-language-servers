@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Modules
 
 import lang::rascal::tests::rename::TestUtils;
@@ -108,9 +109,21 @@ test bool qualifiedSelf() = testRenameOccurrences({
     ", {0, 1}, skipCursors = {1}, newName = "Bar")
 }, oldName = "Foo", newName = "Bar");
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool externalImport() = testRenameOccurrences({
     byText("Main", "
         'import Foo = |memory:///Foo.rsc|;
     ", {0})
 }, oldName = "Foo", newName = "Bar");
+
+test bool escapeVariants() = testRenameOccurrences({
+    byText("a::b::Foo", "public int foo = 1;", {0}, newName = "a::b::Bar"),
+    byText("EscapeReference", "import a::b::Foo;
+                       'int baz = a::b::\\Foo::foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeImport1", "import \\a::b::Foo;
+                      'int baz = foo;", {0}, skipCursors = {0}),
+    byText("EscapeImport2", "import a::\\b::Foo;
+                      'int baz = foo;", {0}, skipCursors = {0}),
+    byText("EscapeImport3", "import a::b::\\Foo;
+                      'int baz = foo;", {0}, skipCursors = {0})
+}, oldName = "a::b::Foo", newName = "a::b::Bar");

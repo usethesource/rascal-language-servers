@@ -25,43 +25,32 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::tests::rename::Performance
+module lang::rascal::lsp::refactor::rename::Grammars
 
-import lang::rascal::tests::rename::TestUtils;
+extend framework::Rename;
+import lang::rascal::lsp::refactor::Rename;
 
-import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::RascalConfig;
+import lang::rascal::\syntax::Rascal;
+import lang::rascalcore::check::BasicRascalConfig;
 
-import IO;
-import List;
-import util::Reflective;
+data Tree;
 
-int LARGE_TEST_SIZE = 200;
-test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, foos + 5} | i <- [0..LARGE_TEST_SIZE], foos := 5 * i), (
-    "int foo = 8;"
-    | "<it>
-      'int f<i>(int foo) = foo;
-      'foo = foo + foo;"
-    | i <- [0..LARGE_TEST_SIZE])
-, skipCursors = toSet([1..LARGE_TEST_SIZE * 5]));
+// TODO
+// - `has` uses: These do not appear in use/def relations
+// - 'except constructors', like Sym sym!otherSym. These do not appear in use/def relations.
 
-@expected{illegalRename}
-test bool failOnError() = testRename("int foo = x + y;");
-
-test bool incrementalTypeCheck() {
-    procLoc = |memory://tests/incremental|;
-    pcfg = getTestPathConfig(procLoc);
-    procSrc = pcfg.srcs[0];
-
-    modName = "A";
-    moduleLoc = procSrc + "<modName>.rsc";
-    writeFile(moduleLoc, "module <modName>
-        'int foo() = 1;
-        'void main() { x = foo(); }
-    ");
-
-    ms = rascalTModelForNames([modName], rascalCompilerConfig(pcfg), dummy_compile1);
-    res = testRenameOccurrences({byLoc(modName, moduleLoc, {0, 1})});
-    remove(procLoc);
-    return res;
+void renameDefinitionUnchecked(Define d: <_, _, _, nonterminalId(), _, _>, loc _, str _, TModel _, Renamer _) {
+    // Do not register an edit for the definition, as it will appear as a use again
+    // TODO Rascal Core: why register the name of a production definition as a use of itself?
 }
+
+void renameDefinitionUnchecked(Define d: <_, _, _, lexicalId(), _, _>, loc _, str _, TModel _, Renamer _) {
+    // Do not register an edit for the definition, as it will appear as a use again
+    // TODO Rascal Core: why register the name of a production definition as a use of itself?
+}
+
+// Non-terminals
+tuple[type[Tree] as, str desc] asType(nonterminalId()) = <#Nonterminal, "production name">;
+
+// Lexicals
+tuple[type[Tree] as, str desc] asType(lexicalId()) = <#Nonterminal, "production name">;

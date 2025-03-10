@@ -25,43 +25,22 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::tests::rename::Performance
+module lang::rascal::lsp::refactor::rename::Types
 
-import lang::rascal::tests::rename::TestUtils;
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
 
-import lang::rascalcore::check::Checker;
-import lang::rascalcore::check::RascalConfig;
+import lang::rascal::\syntax::Rascal;
+import analysis::typepal::TModel;
+import lang::rascalcore::check::BasicRascalConfig;
 
-import IO;
-import List;
-import util::Reflective;
+import util::Maybe;
 
-int LARGE_TEST_SIZE = 200;
-test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, foos + 5} | i <- [0..LARGE_TEST_SIZE], foos := 5 * i), (
-    "int foo = 8;"
-    | "<it>
-      'int f<i>(int foo) = foo;
-      'foo = foo + foo;"
-    | i <- [0..LARGE_TEST_SIZE])
-, skipCursors = toSet([1..LARGE_TEST_SIZE * 5]));
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm, Renamer _) =
+    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
-@expected{illegalRename}
-test bool failOnError() = testRename("int foo = x + y;");
+private bool isDataRole(IdRole role) = role in dataRoles;
 
-test bool incrementalTypeCheck() {
-    procLoc = |memory://tests/incremental|;
-    pcfg = getTestPathConfig(procLoc);
-    procSrc = pcfg.srcs[0];
-
-    modName = "A";
-    moduleLoc = procSrc + "<modName>.rsc";
-    writeFile(moduleLoc, "module <modName>
-        'int foo() = 1;
-        'void main() { x = foo(); }
-    ");
-
-    ms = rascalTModelForNames([modName], rascalCompilerConfig(pcfg), dummy_compile1);
-    res = testRenameOccurrences({byLoc(modName, moduleLoc, {0, 1})});
-    remove(procLoc);
-    return res;
-}
+tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
+tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
+tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
