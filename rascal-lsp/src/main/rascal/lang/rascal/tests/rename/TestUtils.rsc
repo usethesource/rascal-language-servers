@@ -302,16 +302,21 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     return <edits, occs>;
 }
 
+private set[str] reservedNames = getRascalReservedIdentifiers();
+str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
+str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? "\\<n>" : n | n <- split(sep, name)]);
+str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+
 private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) {
     lrel[loc, Maybe[Tree]] names = [];
         top-down-break visit (m) {
         case QualifiedName qn: {
-            if ("<qn>" == name) {
+            if (reEscape("<qn>") == reEscape(name)) {
                 names += <qn.src, just(qn)>;
             }
             else {
                 modPrefix = prefix([n | n <- qn.names]);
-                if (intercalate("::", ["<n>" | n <- modPrefix]) == name) {
+                if ([_, *_] := modPrefix && reEscape(intercalate("::", ["<n>" | n <- modPrefix])) == reEscape(name)) {
                     names += <cover([n.src | n <- modPrefix]), nothing()>;
                 } else {
                     fail;
@@ -365,7 +370,7 @@ private str modulePathToName(str path) = replaceAll(path, "/", "::");
 private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
     names = collectNameTrees(m, id);
-    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
+    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\' in <f>; cannot use occurrence at position <occ> as cursor";
     loc cl = (names<1>)[occ];
     return <cl, computeFocusList(m, cl.begin.line, cl.begin.column + 1)>;
 }

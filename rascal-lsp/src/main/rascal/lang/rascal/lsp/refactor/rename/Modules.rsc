@@ -49,35 +49,36 @@ import util::Reflective;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
-tuple[set[loc], set[loc]] findOccurrenceFiles(set[Define] _:{<_, str modId, _, moduleId(), loc d, _>, *_}, list[Tree] focus, set[loc]() getSourceFiles, Tree(loc) getTree, Renamer r) {
-    int modIdSize = size(modId);
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str curModName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     loc modFile = d.top;
+    set[loc] useFiles = {};
+    set[loc] newFiles = {};
 
-    if ([*_, QualifiedName modName, *_] := focus) {
-        escModName = [QualifiedName] rascalEscapeName("<modName>");
-        set[loc] useFiles = {};
-        for (loc f <- getSourceFiles(), f != modFile) {
-            visit (getTree(f)) {
-                case modName: {
-                    useFiles += f;
-                    continue;
-                }
-                case escModName: {
-                    useFiles += f;
-                    continue;
-                }
-                case QualifiedName qn: {
-                    if (qn.src.length > modIdSize && startsWith("<qn>", modId)) {
-                        useFiles += f;
-                        continue;
-                    }
+    modName = [QualifiedName] curModName;
+    newModName = reEscape(newName);
+
+    for (loc f <- getSourceFiles(r)) {
+        bottom-up-break visit (getTree(f)) {
+            case modName: {
+                // Import of exact module name
+                useFiles += f;
+            }
+            case QualifiedName qn: {
+                // Import of redundantly escaped module name
+                escQn = reEscape("<qn>");
+                if (curModName == escQn) useFiles += f;
+                else if (newModName == escQn) newFiles += f;
+                else {
+                    // Qualified use of declaration in module
+                    // If through extends, there might be no import
+                    qualPref = reEscape(qualifiedPrefix(qn).name);
+                    if (qualPref == curModName) useFiles += f;
+                    if (qualPref == newModName) newFiles += f;
                 }
             }
         }
-        return <{modFile}, {modFile, *useFiles}>;
     }
-
-    return <{d.top}, {d.top}>;
+    return <{modFile}, useFiles, newFiles>;
 }
 
 bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
@@ -85,7 +86,7 @@ bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Ren
     return true;
 }
 
-void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Tree tr, TModel tm, Renamer r) {
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, TModel tm, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file
@@ -93,30 +94,26 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     pcfg = r.getConfig().getPathConfig(moduleFile);
     loc relModulePath = relativize(pcfg.srcs, moduleFile);
     loc srcFolder = [srcFolder | srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
-    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(rascalUnescapeName(newName))));
+    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(forceUnescapeNames(newName))));
 }
 
-void renameAdditionalUses(set[Define] defs:{<_, moduleName, _, moduleId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
-    set[loc] defFiles = {d.top | d <- defs.defined};
-    escName = rascalEscapeName(newName);
-    for (/QualifiedName qn := tr
-      , any(d <- tm.useDef[qn.src], d.top in defFiles)
-      , moduleName == intercalate("::", prefix(["<n>" | n <- qn.names]))) {
-        modPrefix = cover(prefix([n.src | n <- qn.names]));
-        r.textEdit(replace(modPrefix, newName));
+void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, _>}, str newName, TModel tm, Renamer r) {
+    // We get the module location from the uses. If there are no uses, this is skipped.
+    // That's intended, since this function is only supposed to rename uses.
+    if ({loc u, *_} := tm.useDef<0>) {
+        for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
+            pref := qualifiedPrefix(qn), moduleName == reEscape(pref.name)) {
+            r.textEdit(replace(pref.l, newName));
+        }
     }
 }
 
 private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
-private tuple[str, loc] qualifiedPrefix(QualifiedName qn) {
-    list[Name] names = [n | n <- qn.names];
-    if (size(names) <= 1) return <"", |unknown:///|>;
+private tuple[str name, loc l] qualifiedPrefix(QualifiedName qn) {
+    list[Name] prefixNames = prefix([n | n <- qn.names]);
+    if ([] := prefixNames) return <"", |unknown:///|>;
 
-    str fullName = "<qn>";
-    str namePrefix = fullName[..findLast(fullName, "::")];
-    loc prefixLoc = cover([n.src | Name n <- prefix(names)]);
-
-    return <namePrefix, prefixLoc>;
+    return <intercalate("::", ["<n>" | n <- prefixNames]), cover([n.src | n <- prefixNames])>;
 }
 
 private bool isReachable(PathConfig toProject, PathConfig fromProject) =

@@ -248,3 +248,67 @@ test bool functionsInIIModuleStructure() = testRenameOccurrences({
                            'void main() { foo(\"foo\"); }", {0}),       byText("RightUser",     "import RightExtender;
                                                                                                 'void main() { foo(\"fu\"); }", {})
 });
+
+@expected{illegalRename}
+test bool usedOverload() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'void bar(str s) { }
+        'void main() { bar(\"a\"); }
+    ", {})
+});
+
+@expected{illegalRename}
+test bool usedOverloadOfLib() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'import IO;
+        'void main() { println(\"a\"); }
+    ", {})
+}, newName = "println");
+
+@expected{illegalRename}
+test bool unusedOverloadOfLib() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'import IO;
+    ", {})
+}, newName = "println");
+
+@expected{illegalRename}
+test bool localOverload() = testRename("
+    'int foo() = 8;
+    'if (true) {
+        int bar() = 9;
+    '}
+");
+
+@expected{illegalRename}
+test bool extendedOverloadWithUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {}),
+    byText("C", "import B;
+                'void main() { x = bar(); }", {})
+});
+
+@expected{illegalRename}
+test bool extendedOverloadWithoutUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {})
+});
+
+test bool adjacentScopeFunctions() = testRenameOccurrences({0, 1}, "
+    '{
+    '   int foo() = 8;
+    '   i = foo();
+    '}
+    '{
+    '   int bar() = 9;
+    '   j = bar();
+    '}
+");

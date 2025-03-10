@@ -43,6 +43,10 @@ bool isFormalId(IdRole role) = role in formalRoles;
 
 tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
 
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, IdRole role, _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
+    when isFormalId(role);
+
 private set[loc] rascalGetKeywordArgs(none()) = {};
 private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
     { kwArg.name.src
@@ -53,7 +57,7 @@ private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Expression] "
     | kwArg <- keywordArgs
     , "<kwArg.name>" == argName};
 
-void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, Tree tr, TModel tm, Renamer r) {
+void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
     if (size(defs.id) > 1) {
         for (loc l <- defs.defined) {
             r.error(l, "Cannot rename multiple names at once (<defs.id>)");
@@ -61,26 +65,29 @@ void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>,
         return;
     }
 
-    set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
-    set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
+    // We get the module location from the uses. If there are no uses, this is skipped.
+    // That's intended, since this function is only supposed to rename uses.
+    if ({loc u, *_} := tm.useDef<0>) {
+        set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
+        set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
 
-    escName = rascalEscapeName(newName);
-
-    // TODO Typepal: if the TModel would register kw arg names at call sites as uses, this tree visit would not be necessary
-    visit (tr) {
-        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
-            if (e.src in funcCalls) {
-                funcCalls -= e.src;
-                for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                    r.textEdit(replace(ul, escName));
+        // TODO Typepal: if the TModel would register kw arg names at call sites as uses, this tree visit would not be necessary
+        Tree tr = r.getConfig().parseLoc(u.top);
+        visit (tr) {
+            case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
+                if (e.src in funcCalls) {
+                    funcCalls -= e.src;
+                    for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
+                        r.textEdit(replace(ul, newName));
+                    }
                 }
             }
-        }
-        case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`: {
-            if (e.src in funcCalls) {
-                funcCalls -= e.src;
-                for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                    r.textEdit(replace(ul, escName));
+            case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`: {
+                if (e.src in funcCalls) {
+                    funcCalls -= e.src;
+                    for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
+                        r.textEdit(replace(ul, newName));
+                    }
                 }
             }
         }

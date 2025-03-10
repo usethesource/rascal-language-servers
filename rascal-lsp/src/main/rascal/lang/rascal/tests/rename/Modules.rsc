@@ -115,3 +115,15 @@ test bool externalImport() = testRenameOccurrences({
         'import Foo = |memory:///Foo.rsc|;
     ", {0})
 }, oldName = "Foo", newName = "Bar");
+
+test bool escapeVariants() = testRenameOccurrences({
+    byText("a::b::Foo", "public int foo = 1;", {0}, newName = "a::b::Bar"),
+    byText("EscapeReference", "import a::b::Foo;
+                       'int baz = a::b::\\Foo::foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeImport1", "import \\a::b::Foo;
+                      'int baz = foo;", {0}, skipCursors = {0}),
+    byText("EscapeImport2", "import a::\\b::Foo;
+                      'int baz = foo;", {0}, skipCursors = {0}),
+    byText("EscapeImport3", "import a::b::\\Foo;
+                      'int baz = foo;", {0}, skipCursors = {0})
+}, oldName = "a::b::Foo", newName = "a::b::Bar");
