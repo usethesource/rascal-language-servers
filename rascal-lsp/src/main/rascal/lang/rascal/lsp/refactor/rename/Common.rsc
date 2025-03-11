@@ -250,6 +250,19 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
   + (tm.paths<pathRole, from, to>)[importPath()]
   + (tm.paths<pathRole, from, to>)[extendPath()];
 
+set[&T] flatMapPerFile(set[loc] locs, set[&T](loc, set[loc]) func) {
+    rel[loc file, loc l] fs = {<l.top, l> | loc l <- locs};
+    return {*func(f, fs[f]) | loc f <- fs.file};
+}
+
+set[&T] flatMapPerFile(set[&U] us, set[&T](loc, set[&U]) func, rel[&U, loc] locOf) =
+    flatMapPerFile(locOf[us], set[&T](loc f, set[loc] ls) {
+        return func(f, invert(locOf)[ls]);
+    });
+
+set[&T] flatMapPerFile(set[Define] defs, set[&T](loc, set[Define]) func) =
+    flatMapPerFile(defs, func, {<d, d.defined> | d <- defs});
+
 // set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
 //     if (defs == {}) return {};
 
