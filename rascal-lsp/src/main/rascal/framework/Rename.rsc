@@ -207,17 +207,19 @@ RenameResult rename(
     jobTodo(config.jobLabel, work = (size(maybeDefFiles) + size(maybeUseFiles) + size(newNameFiles)) * FILE_WORK);
 
     set[Define] additionalDefs = {};
-    for (loc f <- maybeDefFiles) {
-        jobStep(config.jobLabel, "Looking for additional definitions in <f>", work = FILE_WORK);
-        tr = parseLocCached(f);
-        tm = getTModelCached(tr);
-        fileAdditionalDefs = findAdditionalDefinitions(defs, tr, tm, r);
-        additionalDefs += fileAdditionalDefs;
+    solve (additionalDefs) {
+        for (loc f <- maybeDefFiles) {
+            jobStep(config.jobLabel, "Looking for additional definitions in <f>", work = 0);
+            tr = parseLocCached(f);
+            tm = getTModelCached(tr);
+            additionalDefs += findAdditionalDefinitions(defs, tr, tm, r);
+        }
+        defs += additionalDefs;
     }
-    defs += additionalDefs;
+    jobStep(config.jobLabel, "Done looking for additional definitions", work = FILE_WORK * size(maybeDefFiles));
 
     for (loc f <- newNameFiles) {
-    jobStep(config.jobLabel, "Validating occurrences of new name \'<newName>\' in <f>", work = FILE_WORK);
+        jobStep(config.jobLabel, "Validating occurrences of new name \'<newName>\' in <f>", work = FILE_WORK);
         tr = parseLocCached(f);
         validateNewNameOccurrences(defs, newName, tr, r);
     }

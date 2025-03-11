@@ -54,6 +54,9 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
 
+set[loc] reachableModuleScopes(TModel tm) =
+    (tm.paths<pathRole, to>)[{importPath(), extendPath()}];
+
 bool isContainedInScope(loc l, loc scope, TModel tm) {
     // lexical containment
     if (isContainedIn(l, scope)) return true;
@@ -247,98 +250,98 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
   + (tm.paths<pathRole, from, to>)[importPath()]
   + (tm.paths<pathRole, from, to>)[extendPath()];
 
-set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
-    set[Define] overloadedDefs = {tm.definitions[d] | d <- defs, tm.definitions[d]?};
-    if (overloadedDefs == {}) return {};
+// set[loc] rascalGetOverloadedDefs(TModel tm, set[loc] defs) {
+//     if (defs == {}) return {};
 
-    set[IdRole] roles = overloadedDefs.idRole;
+//     set[Define] overloadedDefs = {tm.definitions[d] | d <- defs};
+//     set[IdRole] roles = overloadedDefs.idRole;
 
-    // Pre-conditions
-    assert size(roles) == 1:
-        "Initial defs are of different roles!";
-    assert rascalMayOverloadSameName(defs, tm.definitions):
-        "Initial defs are invalid overloads!";
+//     // Pre-conditions
+//     assert size(roles) == 1:
+//         "Initial defs are of different roles!";
+//     assert rascalMayOverloadSameName(defs, tm.definitions):
+//         "Initial defs are invalid overloads!";
 
-    IdRole role = getFirstFrom(roles);
-    map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(tm);
-    rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- tm.useDef};
-    rel[loc fromScope, loc toScope] modulePaths = rascalGetTransitiveReflexiveModulePaths(tm);
+//     IdRole role = getFirstFrom(roles);
+//     map[loc file, loc scope] moduleScopePerFile = getModuleScopePerFile(tm);
+//     rel[loc def, loc scope] defUseScopes = {<d, moduleScopePerFile[u.top]> | <loc u, loc d> <- tm.useDef};
+//     rel[loc fromScope, loc toScope] modulePaths = rascalGetTransitiveReflexiveModulePaths(tm);
 
-    rel[loc def, loc moduleScope] defPathStep =
-        (tm.defines<defined, scope>+ + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
-        o (modulePaths + invert(modulePaths))        // 2. Follow import/extend relations to reachable scopes
-        ;
+//     rel[loc def, loc moduleScope] defPathStep =
+//         (tm.defines<defined, scope>+ + defUseScopes) // 1. Look up scopes of defs and scopes of their uses
+//         o (modulePaths + invert(modulePaths))        // 2. Follow import/extend relations to reachable scopes
+//         ;
 
-    rel[loc fromDef, loc toDef] defPaths = {};
-    set[loc] reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
+//     rel[loc fromDef, loc toDef] defPaths = {};
+//     set[loc] reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
 
-    solve(overloadedDefs) {
-        if (constructorId() := role) {
-            set[AType] adtTypes = {adtType | defType(acons(AType adtType, _, _)) <- overloadedDefs.defInfo};
-            set[loc] initialADTs = {
-                adtDef
-                | Define _: <_, _, _, dataId(), loc adtDef, defType(AType adtType)> <- rascalReachableDefs(tm, overloadedDefs.defined)
-                , adtType in adtTypes
-            };
-            set[loc] selectedADTs = rascalGetOverloadedDefs(tm, initialADTs);
+//     solve(overloadedDefs) {
+//         if (constructorId() := role) {
+//             set[AType] adtTypes = {adtType | defType(acons(AType adtType, _, _)) <- overloadedDefs.defInfo};
+//             set[loc] initialADTs = {
+//                 adtDef
+//                 | Define _: <_, _, _, dataId(), loc adtDef, defType(AType adtType)> <- rascalReachableDefs(tm, overloadedDefs.defined)
+//                 , adtType in adtTypes
+//             };
+//             set[loc] selectedADTs = rascalGetOverloadedDefs(tm, initialADTs);
 
-            // Any constructor definition of the right type where any `selectedADTs` element is in the reachable defs
-            rel[loc scope, loc def] selectedConstructors = {<s, d>
-                | <s, d, defType(acons(AType adtType, _, _))> <- (tm.defines<idRole, scope, defined, defInfo>)[role]
-                , adtType in adtTypes
-                , any(<_, _, _, dataId(), loc r, _> <- rascalReachableDefs(tm, {d}), r in selectedADTs)
-            };
+//             // Any constructor definition of the right type where any `selectedADTs` element is in the reachable defs
+//             rel[loc scope, loc def] selectedConstructors = {<s, d>
+//                 | <s, d, defType(acons(AType adtType, _, _))> <- (tm.defines<idRole, scope, defined, defInfo>)[role]
+//                 , adtType in adtTypes
+//                 , any(<_, _, _, dataId(), loc r, _> <- rascalReachableDefs(tm, {d}), r in selectedADTs)
+//             };
 
-            // We transitively resolve module scopes via modules that have a relevant constructor/ADTs use or definition
-            rel[loc scope, loc def] selectedDefs = selectedConstructors + (tm.defines<defined, scope, defined>)[selectedADTs];
-            rel[loc fromScope, loc toScope] constructorStep = (selectedDefs + invert(defUseScopes)) o defPathStep;
+//             // We transitively resolve module scopes via modules that have a relevant constructor/ADTs use or definition
+//             rel[loc scope, loc def] selectedDefs = selectedConstructors + (tm.defines<defined, scope, defined>)[selectedADTs];
+//             rel[loc fromScope, loc toScope] constructorStep = (selectedDefs + invert(defUseScopes)) o defPathStep;
 
-            defPathStep = defPathStep /* <def, scope> */
-                        + (defPathStep /* <def, scope> */ o constructorStep+ /* <scope, scope> */) /* <def, scope> */;
+//             defPathStep = defPathStep /* <def, scope> */
+//                         + (defPathStep /* <def, scope> */ o constructorStep+ /* <scope, scope> */) /* <def, scope> */;
 
-            defPaths = defPathStep /* <def, scope> */ o selectedConstructors /* <scope, def> */;
-        } else if (dataId() := role) {
-            set[AType] adtTypes = {adtType | defType(AType adtType) <- overloadedDefs.defInfo};
-            set[loc] constructorDefs = {d
-                | <defType(acons(AType adtType, _, _)), d> <- (rascalReachableDefs(tm, overloadedDefs.defined)<idRole, defInfo, defined>)[constructorId()]
-                , adtType in adtTypes
-                , any(dd <- overloadedDefs.defined, isStrictlyContainedIn(d, dd))
-            };
+//             defPaths = defPathStep /* <def, scope> */ o selectedConstructors /* <scope, def> */;
+//         } else if (dataId() := role) {
+//             set[AType] adtTypes = {adtType | defType(AType adtType) <- overloadedDefs.defInfo};
+//             set[loc] constructorDefs = {d
+//                 | <defType(acons(AType adtType, _, _)), d> <- (rascalReachableDefs(tm, overloadedDefs.defined)<idRole, defInfo, defined>)[constructorId()]
+//                 , adtType in adtTypes
+//                 , any(dd <- overloadedDefs.defined, isStrictlyContainedIn(d, dd))
+//             };
 
-            set[Define] defsReachableFromOverloads = rascalReachableDefs(tm, overloadedDefs.defined + defUseScopes[overloadedDefs.defined]);
-            set[Define] defsReachableFromOverloadConstructors = rascalReachableDefs(tm, constructorDefs + defUseScopes[constructorDefs]);
+//             set[Define] defsReachableFromOverloads = rascalReachableDefs(tm, overloadedDefs.defined + defUseScopes[overloadedDefs.defined]);
+//             set[Define] defsReachableFromOverloadConstructors = rascalReachableDefs(tm, constructorDefs + defUseScopes[constructorDefs]);
 
-            rel[loc scope, loc def] selectedADTs = {
-                <s, d>
-                | <s, d, defType(AType adtType)> <- ((defsReachableFromOverloads + defsReachableFromOverloadConstructors)<idRole, scope, defined, defInfo>)[role]
-                , adtType in adtTypes
-            };
+//             rel[loc scope, loc def] selectedADTs = {
+//                 <s, d>
+//                 | <s, d, defType(AType adtType)> <- ((defsReachableFromOverloads + defsReachableFromOverloadConstructors)<idRole, scope, defined, defInfo>)[role]
+//                 , adtType in adtTypes
+//             };
 
-            rel[loc fromScope, loc toScope] adtStep = (selectedADTs + invert(defUseScopes)) o defPathStep;
-            defPathStep = defPathStep
-                        + (defPathStep o adtStep+);
-            defPaths = defPathStep o selectedADTs;
-        } else if (fieldId() := role) {
-            // We are looking for fields for the same ADT type (but not necessarily same constructor type)
-            set[DefInfo] selectedADTTypes = (tm.defines<defined, defInfo>)[overloadedDefs.scope];
-            rel[loc, loc] selectedADTs = (tm.defines<defInfo, scope, defined>)[selectedADTTypes];
-            rel[loc, loc] selectedFields = selectedADTs o tm.defines<scope, defined>;
-            defPaths = defPathStep o selectedFields;
-        } else {
-            // Find definitions in the reached scope, and definitions within those definitions (transitively)
-            defPaths = defPathStep o (tm.defines<idRole, scope, defined>)[role]+;
-        }
+//             rel[loc fromScope, loc toScope] adtStep = (selectedADTs + invert(defUseScopes)) o defPathStep;
+//             defPathStep = defPathStep
+//                         + (defPathStep o adtStep+);
+//             defPaths = defPathStep o selectedADTs;
+//         } else if (fieldId() := role) {
+//             // We are looking for fields for the same ADT type (but not necessarily same constructor type)
+//             set[DefInfo] selectedADTTypes = (tm.defines<defined, defInfo>)[overloadedDefs.scope];
+//             rel[loc, loc] selectedADTs = (tm.defines<defInfo, scope, defined>)[selectedADTTypes];
+//             rel[loc, loc] selectedFields = selectedADTs o tm.defines<scope, defined>;
+//             defPaths = defPathStep o selectedFields;
+//         } else {
+//             // Find definitions in the reached scope, and definitions within those definitions (transitively)
+//             defPaths = defPathStep o (tm.defines<idRole, scope, defined>)[role]+;
+//         }
 
-        set[loc] overloadCandidates = defPaths[overloadedDefs.defined];
-        overloadedDefs += {tm.definitions[d]
-            | loc d <- overloadCandidates
-            , rascalMayOverloadSameName(overloadedDefs.defined + d, tm.definitions)
-        };
-        reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
-    }
+//         set[loc] overloadCandidates = defPaths[overloadedDefs.defined];
+//         overloadedDefs += {tm.definitions[d]
+//             | loc d <- overloadCandidates
+//             , rascalMayOverloadSameName(overloadedDefs.defined + d, tm.definitions)
+//         };
+//         reachableDefs = rascalReachableDefs(tm, overloadedDefs.defined).defined;
+//     }
 
-    return overloadedDefs.defined;
-}
+//     return overloadedDefs.defined;
+// }
 
 default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
 

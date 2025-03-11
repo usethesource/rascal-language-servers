@@ -36,8 +36,52 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm, Renamer _) =
-    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, str id, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+    if ({_, _, *_} := defs.id) {
+        r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
+        return <{}, {}, {}>;
+    }
+
+    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+
+    consIds = {consId
+        | Define _:<_, _, _, _, loc dataDef, defType(AType adtType)> <- defs
+        , tm := r.getConfig().tmodelForTree(getTree(dataDef.top))
+        , Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))> <- tm.defines
+    };
+
+    consFiles = {*filterFiles(getSourceFiles(r), allNameSortsFilter(consId), getTree) | consId <- consIds};
+
+    return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
+}
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+    reachable = reachableModuleScopes(tm);
+    loc currentLoc = tr.src.top;
+
+    if ({str id} := cursorDefs.id) {
+        set[Define] adtDefs = {};
+        if ({_, *_} := (cursorDefs.scope & reachable)) {
+            definitions = (d.defined: d | d <- cursorDefs) + tm.definitions;
+            adtDefs += {d
+                | Define d:<_, id, _, dataId(), _, _> <- tm.defines
+                , rascalMayOverloadSameName(cursorDefs.defined + d.defined, definitions)
+            };
+
+            for (modScope <- reachable, modScope.top != currentLoc) {
+                fileTr = r.getConfig().parseLoc(modScope.top);
+                fileTm = r.getConfig().tmodelForTree(fileTr);
+                adtDefs += findAdditionalDefinitions(cursorDefs + adtDefs, fileTr, fileTm, r);
+            }
+        }
+        return adtDefs;
+    }
+
+    for (loc d <- cursorDefs.defined) {
+        r.error(d, "Cannot find overloads of definitions with multiple names (<cursorDefs.id>)");
+    }
+    return {};
+}
 
 private bool isDataRole(IdRole role) = role in dataRoles;
 

@@ -117,32 +117,32 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     return rascalMayOverload(defs, definitions);
 }
 
-set[Define] rascalGetADTDefinitions(TModel ws, loc lhs) {
-    set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
-        ? {lhs}
-        : getDefs(ws, lhs)
-        ;
+// set[Define] rascalGetADTDefinitions(TModel ws, loc lhs) {
+//     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
+//         ? {lhs}
+//         : getDefs(ws, lhs)
+//         ;
 
-    if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
-        if (rascalIsConstructorType(lhsType)) {
-            return {adt
-                | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-                , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
-                , AType consAdtType := cons.defInfo.atype.adt
-                , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
-                , rascalIsDataTypeLike(adt.idRole)
-            };
-        } else if (rascalIsDataType(lhsType)) {
-            return {adt
-                | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-                , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
-                , rascalIsDataTypeLike(adt.idRole)
-            };
-        }
-    }
+//     if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
+//         if (rascalIsConstructorType(lhsType)) {
+//             return {adt
+//                 | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+//                 , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
+//                 , AType consAdtType := cons.defInfo.atype.adt
+//                 , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
+//                 , rascalIsDataTypeLike(adt.idRole)
+//             };
+//         } else if (rascalIsDataType(lhsType)) {
+//             return {adt
+//                 | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
+//                 , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
+//                 , rascalIsDataTypeLike(adt.idRole)
+//             };
+//         }
+//     }
 
-    return {};
-}
+//     return {};
+// }
 
 set[loc] rascalGetKeywordFormalUses(TModel ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};

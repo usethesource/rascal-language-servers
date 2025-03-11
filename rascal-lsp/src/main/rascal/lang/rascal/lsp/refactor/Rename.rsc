@@ -117,11 +117,11 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
     }
 
     // Will this rename combine a used definition of `newName` with a definition of `oldName` (overloading)?
-    reachableModuleScopes = rascalGetReflexiveModulePaths(tm).to;
+    reachable = rascalGetReflexiveModulePaths(tm).to;
     // Since the newNameDefs are not necessarily in this TModel, constuct a temporary map for the overloading check
     definitions = (d.defined: d | d <- currentDefs + newNameDefs);
     for (<loc nD, Define c> <- newNameDefs.defined * currentDefs
-       , c.scope in reachableModuleScopes && rascalMayOverload({nD, c.defined}, definitions)
+       , c.scope in reachable && rascalMayOverload({nD, c.defined}, definitions)
        , loc nU <- defUse[nD]) {
         r.error(c.defined, "Renaming this declaration to <newName> would change the program semantics; it would overload the declaration of <nU> at <nD>");
     }
