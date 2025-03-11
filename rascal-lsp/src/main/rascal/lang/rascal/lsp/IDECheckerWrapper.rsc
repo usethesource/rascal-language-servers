@@ -86,7 +86,7 @@ set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathC
         return {program(l, error("Cyclic dependencies depected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l))};
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
-    msgs = {};
+    msgs = [];
 
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
     step("Checking upstream dependencies ", 1);
@@ -100,7 +100,7 @@ set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathC
 
     step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return msgs;
+    return {*msgs};
 }, totalWork=3);
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
