@@ -47,3 +47,13 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
+
+bool isUnsupportedCursor(list[Tree] _:[*_, (Expression) `<Expression _> has <Name n>`, *_], Renamer r) {
+    r.error(n, "Cannot rename a field from this expression.");
+    return false;
+}
+
+bool isUnsupportedCursor(list[Tree] _:[*_, TypeArg tp, *_, StructuredType _, *_], Renamer r) {
+    r.error(tp, "Cannot rename a field from a structured type.");
+    return false;
+}
