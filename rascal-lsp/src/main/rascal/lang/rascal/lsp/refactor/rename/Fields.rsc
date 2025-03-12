@@ -38,6 +38,7 @@ import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::Collector;
 import analysis::typepal::TModel;
+import analysis::diff::edits::TextEdits;
 
 import Map;
 import util::Maybe;
@@ -63,24 +64,41 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
     return {};
 }
 
-tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e> has <Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) {
+set[Define] getFieldDefinitions((Expression) `<Expression e> has <Name n>`, TModel tm, Renamer r) {
     lhsDefs = tm.useDef[e.src];
     if ({} := lhsDefs) {
         r.error(e, "Cannot rename field of expression.");
-        return <false, {}>;
+        return {};
     }
 
     set[Define] containerDefs = toRel(tm.definitions)[lhsDefs];
     if ({} := containerDefs) {
         r.error(n, "Cannot rename field of a definition in another module.");
-        return <false, {}>;
+        return {};
     }
     set[AType] containerDefTypes = {di.atype | DefInfo di <- containerDefs.defInfo};
     rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- tm.defines};
     set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
-    set[Define] fieldDefs = toRel(tm.definitions)[(tm.defines<idRole, scope, defined>)[fieldId(), containerTypeDefs.defined]];
+    set[Define] fieldDefs = toRel(tm.definitions)[(tm.defines<id, idRole, scope, defined>)["<n>", fieldId(), containerTypeDefs.defined]];
 
-    return <true, fieldDefs>;
+    return fieldDefs;
+}
+
+tuple[bool, set[Define]] getCursorDefinitions(hasExpr:(Expression) `<Expression e> has <Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) {
+    fieldDefs = getFieldDefinitions(hasExpr, tm, r);
+    return <fieldDefs == {} ? false : true, fieldDefs>;
+}
+
+void renameAdditionalUses(set[Define] defs:{<_, str fieldName, _, fieldId(), _, defType(AType fieldType)>, *_}, str newName, TModel tm, Renamer r) {
+    if ({loc u, *_} := tm.useDef<0>) {
+        visit (r.getConfig().parseLoc(u.top)) {
+            case hasExpr:(Expression) `<Expression e> has <Name n>`: {
+                if ({} != (getFieldDefinitions(hasExpr, tm, r) & defs)) {
+                    r.textEdit(replace(n.src, newName));
+                }
+            }
+        }
+    }
 }
 
 // Positional fields
