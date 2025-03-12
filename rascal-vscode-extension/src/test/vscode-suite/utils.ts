@@ -179,17 +179,12 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
-function minTopElementLocated(scope:WebElement, selector: Locator, minTop: number): WebElementCondition {
-    return new WebElementCondition("locating element in scope", async (_driver) => {
+function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
+    return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
         try {
             const result = await scope.findElements(selector);
-            if (result && result.length > 0) {
-                for(const element of result) {
-                    if ((await element.getRect()).y >= minTop) {
-                        return element;
-                    }
-                }
-                //return result[0] ?? null;
+            if (result && result.length >= minCount) {
+                return scope;
             }
             return null;
         }
@@ -254,9 +249,9 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
     }
 
-    hasRecoveredError(editor: TextEditor, timeout = Delays.normal, message = "Missing recovered parse error"): Promise<WebElement> {
+    hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
         // We need to differentiate between real parse errors (error at first line) and recovered parse error (error at parse position).
-        return this.driver.wait(minTopElementLocated(editor, By.className("squiggly-error"), 20), timeout, message, 50);
+        return this.driver.wait(scopedElementLocatedCountTimes(editor, By.className("squiggly-error"), errorCount), timeout, message, 50);
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {

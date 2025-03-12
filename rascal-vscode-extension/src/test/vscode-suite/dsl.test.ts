@@ -119,8 +119,11 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
-            await editor.setTextAtLine(9, "      x output := 1;");
-            await ide.hasRecoveredError(editor, Delays.slow);
+            // Introduce two parse errors
+            await editor.setTextAtLine(4, "n : x natural");
+            await editor.setTextAtLine(9, "     a := x 2;");
+            await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+            await ide.hasSyntaxHighlighting(editor);
         } finally {
             await ide.revertOpenChanges();
         }

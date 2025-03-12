@@ -119,8 +119,11 @@ describe('IDE', function () {
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor);
+        // Introduce two parse errors
         await editor.setTextAtLine(2, "1 2 3");
-        await ide.hasRecoveredError(editor);
+        await editor.setTextAtLine(4, "1 2 3");
+        await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+        await ide.hasSyntaxHighlighting(editor);
     });
 
     function triggerTypeChecker(editor: TextEditor, tplFile : string, waitForFinish = false) {
