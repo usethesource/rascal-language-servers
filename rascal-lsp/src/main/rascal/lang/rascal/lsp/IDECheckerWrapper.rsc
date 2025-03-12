@@ -63,7 +63,7 @@ set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathC
             step2("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
-            for (i <- tree.top.header.imports) {
+            for (i <- tree.top.header.imports, i has \module) {
                 try {
                     ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
                     if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
