@@ -35,8 +35,11 @@ import lang::rascal::lsp::refactor::rename::Constructors;
 import lang::rascal::lsp::refactor::rename::Types;
 
 import lang::rascal::\syntax::Rascal;
+
+import analysis::typepal::Collector;
 import analysis::typepal::TModel;
 
+import Map;
 import util::Maybe;
 
 bool isFieldRole(IdRole role) = role in {fieldId(), keywordFieldId()};
@@ -60,16 +63,31 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
     return {};
 }
 
+tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e> has <Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) {
+    lhsDefs = tm.useDef[e.src];
+    if ({} := lhsDefs) {
+        r.error(e, "Cannot rename field of expression.");
+        return <false, {}>;
+    }
+
+    set[Define] containerDefs = toRel(tm.definitions)[lhsDefs];
+    if ({} := containerDefs) {
+        r.error(n, "Cannot rename field of a definition in another module.");
+        return <false, {}>;
+    }
+    set[AType] containerDefTypes = {di.atype | DefInfo di <- containerDefs.defInfo};
+    rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- tm.defines};
+    set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
+    set[Define] fieldDefs = toRel(tm.definitions)[(tm.defines<idRole, scope, defined>)[fieldId(), containerTypeDefs.defined]];
+
+    return <true, fieldDefs>;
+}
+
 // Positional fields
 tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
 
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
-
-bool isUnsupportedCursor(list[Tree] _:[*_, (Expression) `<Expression _> has <Name n>`, *_], Renamer r) {
-    r.error(n, "Cannot rename a field from this expression.");
-    return false;
-}
 
 bool isUnsupportedCursor(list[Tree] _:[*_, TypeArg tp, *_, StructuredType _, *_], Renamer r) {
     r.error(tp, "Cannot rename a field from a structured type.");
