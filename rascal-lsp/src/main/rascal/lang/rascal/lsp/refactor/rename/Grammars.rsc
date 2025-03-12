@@ -30,6 +30,8 @@ module lang::rascal::lsp::refactor::rename::Grammars
 extend framework::Rename;
 import lang::rascal::lsp::refactor::Rename;
 
+import lang::rascal::lsp::refactor::rename::Types;
+
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::BasicRascalConfig;
 
@@ -38,6 +40,14 @@ data Tree;
 // TODO
 // - `has` uses: These do not appear in use/def relations
 // - 'except constructors', like Sym sym!otherSym. These do not appear in use/def relations.
+
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
+    findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r)
+    when role in syntaxRoles;
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, IdRole role, _, _>, *_}, Tree tr, TModel tm, Renamer r) =
+    findAdditionalDataLikeDefinitions(cursorDefs, tr, tm, r)
+    when role in syntaxRoles;
 
 void renameDefinitionUnchecked(Define d: <_, _, _, nonterminalId(), _, _>, loc _, str _, TModel _, Renamer _) {
     // Do not register an edit for the definition, as it will appear as a use again

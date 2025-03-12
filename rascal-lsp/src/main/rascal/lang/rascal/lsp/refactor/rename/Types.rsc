@@ -36,7 +36,10 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, str id, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
+    findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
+
+public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({_, _, *_} := defs.id) {
         r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
@@ -55,35 +58,42 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
     return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
 }
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) =
+    findAdditionalDataLikeDefinitions(cursorDefs, tr, tm, r);
+
+public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
     reachable = reachableModuleScopes(tm);
     loc currentLoc = tr.src.top;
 
-    if ({str id} := cursorDefs.id) {
-        set[Define] adtDefs = {};
-        if ({_, *_} := (cursorDefs.scope & reachable)) {
-            definitions = (d.defined: d | d <- cursorDefs) + tm.definitions;
-            adtDefs += {d
-                | Define d:<_, id, _, dataId(), _, _> <- tm.defines
-                , rascalMayOverloadSameName(cursorDefs.defined + d.defined, definitions)
-            };
+    if ({IdRole role} := cursorDefs.idRole, role in dataOrSyntaxRoles) {
+        if ({str id} := cursorDefs.id) {
+            set[Define] defs = {};
+            if ({_, *_} := (cursorDefs.scope & reachable)) {
+                definitions = (d.defined: d | d <- cursorDefs) + tm.definitions;
+                defs += {d
+                    | Define d:<_, id, _, role, _, _> <- tm.defines
+                    , rascalMayOverloadSameName(cursorDefs.defined + d.defined, definitions)
+                };
 
-            for (modScope <- reachable, modScope.top != currentLoc) {
-                fileTr = r.getConfig().parseLoc(modScope.top);
-                fileTm = r.getConfig().tmodelForTree(fileTr);
-                adtDefs += findAdditionalDefinitions(cursorDefs + adtDefs, fileTr, fileTm, r);
+                for (modScope <- reachable, modScope.top != currentLoc) {
+                    fileTr = r.getConfig().parseLoc(modScope.top);
+                    fileTm = r.getConfig().tmodelForTree(fileTr);
+                    defs += findAdditionalDataLikeDefinitions(cursorDefs + defs, fileTr, fileTm, r);
+                }
+            }
+            return defs;
+        } else {
+            for (loc d <- cursorDefs.defined) {
+                r.error(d, "Cannot find overloads of definitions with names (<cursorDefs.id>)");
             }
         }
-        return adtDefs;
-    }
-
-    for (loc d <- cursorDefs.defined) {
-        r.error(d, "Cannot find overloads of definitions with multiple names (<cursorDefs.id>)");
+    } else {
+        for (loc d <- cursorDefs.defined) {
+            r.error(d, "Cannot find overload for definitions with roles (<cursorDefs.idRole>)");
+        }
     }
     return {};
 }
-
-private bool isDataRole(IdRole role) = role in dataRoles;
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
