@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -44,7 +43,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -63,7 +61,6 @@ import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
-import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -151,9 +148,14 @@ public abstract class BaseLanguageServer {
         });
     }
 
+    private static void printClassPath() {
+        logger.trace("Started with classpath: {}", System.getProperty("java.class.path"));
+    }
+
     @SuppressWarnings({"java:S2189", "java:S106"})
     public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
+        printClassPath();
 
         if (DEPLOY_MODE) {
             var docService = docServiceProvider.apply(threadPool);
@@ -262,10 +264,11 @@ public abstract class BaseLanguageServer {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     if (projectFolder.getUri() == null) {
-                        return classLoaderFiles(PathConfig.getDefaultClassloadersList());
+                        return classLoaderFiles(IRascalValueFactory.getInstance().list(PathConfig.resolveCurrentRascalRuntimeJar()));
                     }
+
                     PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.COMPILER);
-                    return classLoaderFiles(pcfg.getClassloaders());
+                    return classLoaderFiles(pcfg.getLibsAndTarget());
                 }
                 catch (IOException | URISyntaxException e) {
                     logger.catching(e);
@@ -279,11 +282,11 @@ public abstract class BaseLanguageServer {
                 path = URIUtil.getParentLocation(path);
             }
 
-            ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(path.getPath()));
+            ISourceLocation projectDir = PathConfig.inferProjectRoot(path);
             if (projectDir == null) {
                 throw new IOException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
             }
-            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode);
+            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode, true);
         }
 
         private static URI[] toURIArray(IList src) {
@@ -297,13 +300,12 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
+                    // TODO: why are we not communicating the JSON representation of the PathConfig constructor?
                     var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(projectFolder.getLocation(), projectFolder.getMode().mapConfigMode());
                     @SuppressWarnings("unchecked")
-                    Two<String, URI[]>[] result = new Two[4];
+                    Two<String, URI[]>[] result = new Two[2];
                     result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
                     result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
-                    result[2] = new Two<>("Java Compiler Path", toURIArray(pcfg.getJavaCompilerPath()));
-                    result[3] = new Two<>("Classloaders", toURIArray(pcfg.getClassloaders()));
                     return result;
                 } catch (IOException | URISyntaxException e) {
                     logger.catching(e);
