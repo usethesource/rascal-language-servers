@@ -273,7 +273,6 @@ test bool tupleField() = testRenameOccurrences({0, 1}, "
     'y = t.foo;
 ");
 
-// We would prefer an illegalRename exception here
 @expected{illegalRename}
 test bool builtinFieldSimpleType() = testRename("
     'loc l = |unknown:///|;

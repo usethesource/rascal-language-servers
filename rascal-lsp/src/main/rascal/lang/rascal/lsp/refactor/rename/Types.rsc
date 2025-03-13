@@ -59,40 +59,23 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
 }
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) =
-    findAdditionalDataLikeDefinitions(cursorDefs, tr, tm, r);
+    findAdditionalDataLikeDefinitions(cursorDefs, tr.src.top, tm, r);
 
-public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
-    reachable = reachableModuleScopes(tm);
-    loc currentLoc = tr.src.top;
+public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc currentLoc, TModel tm, Renamer r) {
+    reachable = rascalGetReflexiveModulePaths(tm).to;
+    reachableCursorDefs = {d.defined | Define d <- cursorDefs, any(loc modScope <- reachable, isContainedInScope(d.defined, modScope, tm))};
 
-    if ({IdRole role} := cursorDefs.idRole, role in dataOrSyntaxRoles) {
-        if ({str id} := cursorDefs.id) {
-            set[Define] defs = {};
-            if ({_, *_} := (cursorDefs.scope & reachable)) {
-                definitions = (d.defined: d | d <- cursorDefs) + tm.definitions;
-                defs += {d
-                    | Define d:<_, id, _, role, _, _> <- tm.defines
-                    , rascalMayOverloadSameName(cursorDefs.defined + d.defined, definitions)
-                };
+    if ({} := reachableCursorDefs) return {};
 
-                for (modScope <- reachable, modScope.top != currentLoc) {
-                    fileTr = r.getConfig().parseLoc(modScope.top);
-                    fileTm = r.getConfig().tmodelForTree(fileTr);
-                    defs += findAdditionalDataLikeDefinitions(cursorDefs + defs, fileTr, fileTm, r);
-                }
-            }
-            return defs;
-        } else {
-            for (loc d <- cursorDefs.defined) {
-                r.error(d, "Cannot find overloads of definitions with names (<cursorDefs.id>)");
-            }
-        }
-    } else {
-        for (loc d <- cursorDefs.defined) {
-            r.error(d, "Cannot find overload for definitions with roles (<cursorDefs.idRole>)");
-        }
-    }
-    return {};
+    return {overload
+        | loc modScope <- reachable
+        , loc f := modScope.top
+        , fileTr := r.getConfig().parseLoc(f)
+        , fileTm := r.getConfig().tmodelForTree(fileTr)
+        , definitions := (d.defined: d | d <- fileTm.defines) + tm.definitions
+        , Define overload <- fileTm.defines
+        , rascalMayOverloadSameName(reachableCursorDefs + overload.defined, definitions)
+    };
 }
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;

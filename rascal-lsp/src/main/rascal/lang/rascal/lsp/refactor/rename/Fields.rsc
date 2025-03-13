@@ -31,16 +31,32 @@ extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascalcore::check::BasicRascalConfig;
 
+import lang::rascal::lsp::refactor::rename::Constructors;
+import lang::rascal::lsp::refactor::rename::Types;
+
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
 import util::Maybe;
 
-// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
-    // Find the ADT that this constructor is part of
-    // Find overloads of this ADT
-    // Find all fields with the same name in these ADT definitions
-// }
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, fieldId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+    if ({str fieldName} := cursorDefs.id) {
+        adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+
+        // Find all fields with the same name in these ADT definitions
+        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
+            fileTr = r.getConfig().parseLoc(f);
+            fileTm = r.getConfig().tmodelForTree(fileTr);
+            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldId(), fileDefs.defined]};
+        });
+    }
+
+    for (d <- cursorDefs) {
+        r.error(d.defined, "Cannot find overloads for fields with multiple names (<cursorDefs.id>).");
+    }
+    return {};
+}
 
 // Positional fields
 tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
