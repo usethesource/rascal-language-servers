@@ -39,7 +39,10 @@ import analysis::typepal::TModel;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, fieldId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+bool isFieldRole(IdRole role) = role in {fieldId(), keywordFieldId()};
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+    if (!isFieldRole(role)) fail findAdditionalDefinitions;
     if ({str fieldName} := cursorDefs.id) {
         adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
         adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
@@ -48,7 +51,7 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, fieldId(
         return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
             fileTr = r.getConfig().parseLoc(f);
             fileTm = r.getConfig().tmodelForTree(fileTr);
-            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldId(), fileDefs.defined]};
+            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, fileDefs.defined]};
         });
     }
 
