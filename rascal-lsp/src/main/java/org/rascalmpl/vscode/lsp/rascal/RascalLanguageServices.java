@@ -178,7 +178,7 @@ public class RascalLanguageServices {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
             ISourceLocation resolvedLocation;
             try {
-                resolvedLocation = URIResolverRegistry.getInstance().logicalToPhysical((ISourceLocation) t[0]);
+                resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             } catch (IOException e1) {
                 throw RuntimeExceptionFactory.io("Error resolving " + t[0]);
             }
