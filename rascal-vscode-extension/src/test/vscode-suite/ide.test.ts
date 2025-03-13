@@ -125,6 +125,11 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
     });
 
+    it("type checker runs on dependencies", async() => {
+        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        await triggerTypeChecker(editor, TestWorkspace.libFileTpl, true);
+    });
+
     it("go to definition works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
