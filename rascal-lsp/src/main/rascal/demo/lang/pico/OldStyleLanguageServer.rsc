@@ -37,10 +37,16 @@ import util::IDEServices;
 import ParseTree;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import util::ParseErrorRecovery;
+
+private Tree picoParser(str input, loc origin) {
+    return parse(#start[Program], input, origin, allowRecovery=true, filters={createParseErrorFilter(false)});
+}
+
 
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
 set[LanguageService] picoLanguageContributor() = {
-    parser(parser(#start[Program])),
+    parsing(picoParser),
     outliner(picoOutliner),
     lenses(picoLenses),
     executor(picoCommands),
@@ -51,7 +57,7 @@ set[LanguageService] picoLanguageContributor() = {
 
 @synopsis{This set of contributions runs slower but provides more detail.}
 set[LanguageService] picoLanguageContributorSlowSummary() = {
-    parser(parser(#start[Program])),
+    parsing(picoParser),
     analyzer(picoAnalyzer, providesImplementations = false),
     builder(picoBuilder)
 };
