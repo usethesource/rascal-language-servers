@@ -49,7 +49,7 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
+set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", set[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
@@ -63,16 +63,18 @@ set[ModuleMessages] checkFile(loc l, start[Module](loc file) getParseTree, PathC
             step2("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
-            for (i <- tree.top.header.imports, i has \module) {
-                try {
-                    ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
-                    if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
-                        checkForImports += mlpt;
-                        jobTodo("Building dependency graph");
-                        dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+            if (currentProject in workspaceFolders) {
+                for (i <- tree.top.header.imports, i has \module) {
+                    try {
+                        ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
+                        if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
+                            checkForImports += mlpt;
+                            jobTodo("Building dependency graph");
+                            dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                        }
+                    } catch _: {
+                        ;// Continue
                     }
-                } catch _: {
-                    ;// Continue
                 }
             }
             checkedForImports += currentSrc;
@@ -132,7 +134,7 @@ loc inferProjectRoot(loc member) {
 
     while (exists(current), isDirectory(current)) {
         if (exists(current + "META-INF" + "RASCAL.MF")) {
-            return ensureTrailingSlashInPath(current);
+            return current;
         }
         if (!current.parent?) {
             return isDirectory(member) ? member : member.parent;
@@ -140,8 +142,5 @@ loc inferProjectRoot(loc member) {
         current = current.parent;
     }
 
-    return ensureTrailingSlashInPath(current);
+    return current;
 }
-
-loc ensureTrailingSlashInPath(loc l) = endsWith(l.path, "/") ? l : l[path=l.path + "/"];
-
