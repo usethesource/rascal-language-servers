@@ -36,10 +36,46 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree _, TModel tm, Renamer _) =
-    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
+    findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
 
-private bool isDataRole(IdRole role) = role in dataRoles;
+public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+    if (size(defs.id) > 1) {
+        r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
+        return <{}, {}, {}>;
+    }
+
+    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+
+    consIds = {consId
+        | Define _:<_, _, _, _, loc dataDef, defType(AType adtType)> <- defs
+        , tm := r.getConfig().tmodelForLoc(dataDef.top)
+        , Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))> <- tm.defines
+    };
+
+    consFiles = {*filterFiles(getSourceFiles(r), allNameSortsFilter(consId), getTree) | consId <- consIds};
+
+    return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
+}
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) =
+    findAdditionalDataLikeDefinitions(cursorDefs, tr.src.top, tm, r);
+
+public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc currentLoc, TModel tm, Renamer r) {
+    reachable = rascalGetReflexiveModulePaths(tm).to;
+    reachableCursorDefs = {d.defined | Define d <- cursorDefs, any(loc modScope <- reachable, isContainedInScope(d.defined, modScope, tm))};
+
+    if ({} := reachableCursorDefs) return {};
+
+    return {overload
+        | loc modScope <- reachable
+        , loc f := modScope.top
+        , fileTm := r.getConfig().tmodelForLoc(f)
+        , definitions := (d.defined: d | d <- fileTm.defines) + tm.definitions
+        , Define overload <- fileTm.defines
+        , rascalMayOverloadSameName(reachableCursorDefs + overload.defined, definitions)
+    };
+}
 
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;

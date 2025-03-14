@@ -29,9 +29,14 @@ module lang::rascal::tests::rename::Fields
 
 import lang::rascal::tests::rename::TestUtils;
 
-test bool constructorField() = testRenameOccurrences({0, 1, 2}, "
+test bool constructorField() = testRenameOccurrences({0, 1}, "
     'D oneTwo = d(1, 2);
     'x = oneTwo.foo;
+    ", decls = "data D = d(int foo, int baz);"
+);
+
+test bool constructorHasField() = testRenameOccurrences({0, 1}, "
+    'D oneTwo = d(1, 2);
     'b = oneTwo has foo;
     ", decls = "data D = d(int foo, int baz);"
 );
@@ -268,7 +273,6 @@ test bool tupleField() = testRenameOccurrences({0, 1}, "
     'y = t.foo;
 ");
 
-// We would prefer an illegalRename exception here
 @expected{illegalRename}
 test bool builtinFieldSimpleType() = testRename("
     'loc l = |unknown:///|;

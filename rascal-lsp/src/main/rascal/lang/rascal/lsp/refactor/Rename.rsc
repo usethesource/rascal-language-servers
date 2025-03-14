@@ -117,11 +117,11 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
     }
 
     // Will this rename combine a used definition of `newName` with a definition of `oldName` (overloading)?
-    reachableModuleScopes = rascalGetReflexiveModulePaths(tm).to;
+    reachable = rascalGetReflexiveModulePaths(tm).to;
     // Since the newNameDefs are not necessarily in this TModel, constuct a temporary map for the overloading check
     definitions = (d.defined: d | d <- currentDefs + newNameDefs);
     for (<loc nD, Define c> <- newNameDefs.defined * currentDefs
-       , c.scope in reachableModuleScopes && rascalMayOverload({nD, c.defined}, definitions)
+       , c.scope in reachable && rascalMayOverload({nD, c.defined}, definitions)
        , loc nU <- defUse[nD]) {
         r.error(c.defined, "Renaming this declaration to <newName> would change the program semantics; it would overload the declaration of <nU> at <nD>");
     }
@@ -151,12 +151,12 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
         }
     }
 
-    for (fieldId() := cD.idRole
-          // The scope of a field def is the surrounding data def
-        , loc dataDef <- rascalGetOverloadedDefs(tm, {cD.scope})
-        , loc nD <- (newNameDefs<idRole, defined>)[fieldId()] & (tm.defines<idRole, scope, defined>)[fieldId(), dataDef]
-    ) {
-        r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
+    if (isFieldRole(cD.idRole)) {
+        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, cD.defined.top, tm, r)
+           , loc nD <- (newNameDefs<idRole, defined>)[{fieldId(), keywordFieldId()}] & (tm.defines<idRole, scope, defined>)[{fieldId(), keywordFieldId()}, dataDef.defined]
+        ) {
+            r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
+        }
     }
 
     // TODO Re-do once we decided how to treat definitions that are not in tm.defines

@@ -31,19 +31,47 @@ extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascalcore::check::BasicRascalConfig;
 
+import lang::rascal::lsp::refactor::rename::Constructors;
+import lang::rascal::lsp::refactor::rename::Types;
+
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 
 import util::Maybe;
 
-// set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree _, TModel tm, Renamer r) {
-    // Find the ADT that this constructor is part of
-    // Find overloads of this ADT
-    // Find all fields with the same name in these ADT definitions
-// }
+bool isFieldRole(IdRole role) = role in {fieldId(), keywordFieldId()};
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
+    if (!isFieldRole(role)) fail findAdditionalDefinitions;
+    if ({str fieldName} := cursorDefs.id) {
+        adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+
+        // Find all fields with the same name in these ADT definitions
+        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
+            fileTm = r.getConfig().tmodelForLoc(f);
+            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, fileDefs.defined]};
+        });
+    }
+
+    for (d <- cursorDefs) {
+        r.error(d.defined, "Cannot find overloads for fields with multiple names (<cursorDefs.id>).");
+    }
+    return {};
+}
 
 // Positional fields
 tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
 
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
+
+bool isUnsupportedCursor(list[Tree] _:[*_, (Expression) `<Expression _> has <Name n>`, *_], Renamer r) {
+    r.error(n, "Cannot rename a field from this expression.");
+    return false;
+}
+
+bool isUnsupportedCursor(list[Tree] _:[*_, TypeArg tp, *_, StructuredType _, *_], Renamer r) {
+    r.error(tp, "Cannot rename a field from a structured type.");
+    return false;
+}
