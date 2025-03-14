@@ -57,8 +57,7 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, construc
         adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
         // Find all constructors with the same name in these ADT definitions
         return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-            fileTr = r.getConfig().parseLoc(f);
-            fileTm = r.getConfig().tmodelForTree(fileTr);
+            fileTm = r.getConfig().tmodelForLoc(f);
             return {consDef
                 | Define consDef:<_, id, _, constructorId(), _, _> <- fileTm.defines
                 , any(adt <- fileDefs.defined, isContainedIn(consDef.defined, adt))

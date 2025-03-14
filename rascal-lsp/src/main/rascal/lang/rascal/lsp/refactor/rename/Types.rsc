@@ -49,7 +49,7 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
 
     consIds = {consId
         | Define _:<_, _, _, _, loc dataDef, defType(AType adtType)> <- defs
-        , tm := r.getConfig().tmodelForTree(getTree(dataDef.top))
+        , tm := r.getConfig().tmodelForLoc(dataDef.top)
         , Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))> <- tm.defines
     };
 
@@ -70,8 +70,7 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc
     return {overload
         | loc modScope <- reachable
         , loc f := modScope.top
-        , fileTr := r.getConfig().parseLoc(f)
-        , fileTm := r.getConfig().tmodelForTree(fileTr)
+        , fileTm := r.getConfig().tmodelForLoc(f)
         , definitions := (d.defined: d | d <- fileTm.defines) + tm.definitions
         , Define overload <- fileTm.defines
         , rascalMayOverloadSameName(reachableCursorDefs + overload.defined, definitions)

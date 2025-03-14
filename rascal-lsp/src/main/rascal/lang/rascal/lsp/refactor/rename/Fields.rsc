@@ -49,8 +49,7 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
 
         // Find all fields with the same name in these ADT definitions
         return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-            fileTr = r.getConfig().parseLoc(f);
-            fileTm = r.getConfig().tmodelForTree(fileTr);
+            fileTr = r.getConfig().tmodelForLoc(f);
             return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, fileDefs.defined]};
         });
     }
