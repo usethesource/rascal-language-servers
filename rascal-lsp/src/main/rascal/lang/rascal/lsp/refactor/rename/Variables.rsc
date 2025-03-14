@@ -45,8 +45,10 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 // Global variables
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
-tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, moduleVariableId(), _, defType(_, vis=privateVis())>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, moduleVariableId(), _, defType(_, vis=privateVis())>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+    <curUseFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+    return <{scope.top}, curUseFiles, newFiles>;
+}
 
 // Pattern variables
 tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;

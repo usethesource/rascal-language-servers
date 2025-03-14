@@ -629,12 +629,25 @@ void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) 
     renameDefinitionUnchecked(d, nameLoc, reEscape(newName), tm, r);
 }
 
+private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
+    if ({str id} := defs.id) {
+        if (l.length == size(id)) return l;
+        return trim(l, removePrefix = l.length - size(id));
+    }
+
+    r.error(l, "Cannot perform rename - definitions for this use have multiple names.");
+    return l;
+}
+
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
-    set[loc] uses = invert(tm.useDef)[defs.defined] - defs.defined;
     escName = reEscape(newName);
 
-    for (u <- uses) {
-        r.textEdit(replace(u, escName));
+    definitions = {<d.defined, d> | d <- defs};
+    useDefs = toMap(tm.useDef o definitions);
+    for (loc u <- useDefs) {
+        if (set[Define] ds:{_, *_} := useDefs[u], u notin defs.defined) {
+            r.textEdit(replace(nameSuffix(u, ds, r), escName));
+        }
     }
 
     renameAdditionalUses(defs, escName, tm, r);
