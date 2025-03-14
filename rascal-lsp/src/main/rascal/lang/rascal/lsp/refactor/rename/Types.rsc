@@ -40,7 +40,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
     findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
 
 public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    if ({_, _, *_} := defs.id) {
+    if (size(defs.id) > 1) {
         r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
     }

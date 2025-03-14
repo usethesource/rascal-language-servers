@@ -39,7 +39,7 @@ import analysis::typepal::TModel;
 import Location;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, constructorId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    if ({_, _, *_} := defs.id) {
+    if (size(defs.id) > 1) {
         r.error(cursor[0], "Cannot find files for constructor definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
     }
