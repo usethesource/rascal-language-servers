@@ -656,3 +656,9 @@ void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
 
     renameAdditionalUses(defs, escName, tm, r);
 }
+
+void renameAdditionalUses(set[Define] defs:{<_, id, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
+    // The role `keywordFormalId()` is used for both formal keyword parameters to functions and constructors
+    if (isFieldRole(role)) renameAdditionalFieldUses(defs, newName, tm, r);
+    if (isFormalId(role)) renameAdditionalParameterUses(defs, newName, tm, r);
+}

@@ -57,7 +57,7 @@ private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Expression] "
     | kwArg <- keywordArgs
     , "<kwArg.name>" == argName};
 
-void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
+void renameAdditionalParameterUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
     if (size(defs.id) > 1) {
         for (loc l <- defs.defined) {
             r.error(l, "Cannot rename multiple names at once (<defs.id>)");
