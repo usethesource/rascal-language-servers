@@ -55,10 +55,10 @@ public class TextDocumentState {
     @SuppressWarnings("java:S3077") // we are use volatile correctly
     private volatile CompletableFuture<Versioned<ITree>> currentTree;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent) {
+    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent, long timestamp) {
         this.parser = parser;
         this.file = file;
-        this.currentContent = new Versioned<>(initialVersion, initialContent);
+        this.currentContent = new Versioned<>(initialVersion, initialContent, timestamp);
         this.currentTree = newTreeAsync(initialVersion, initialContent);
     }
 
@@ -72,8 +72,8 @@ public class TextDocumentState {
      * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
      * consistent <version, tree> pair.
      */
-    public CompletableFuture<Versioned<ITree>> update(int version, String content) {
-        currentContent = new Versioned<>(version, content);
+    public CompletableFuture<Versioned<ITree>> update(int version, String content, long timestamp) {
+        currentContent = new Versioned<>(version, content, timestamp);
         var newTree = newTreeAsync(version, content);
         currentTree = newTree;
         return newTree;
@@ -104,5 +104,9 @@ public class TextDocumentState {
 
     public Versioned<String> getCurrentContent() {
         return currentContent;
+    }
+
+    public long getLastModified() {
+        return currentContent.getTimestamp();
     }
 }

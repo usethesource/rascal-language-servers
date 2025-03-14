@@ -72,12 +72,12 @@ describe('REPL', function () {
     });
 
     it("import module and run in terminal", async () => {
-        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        const editor = await ide.openModule(TestWorkspace.mainFile);
         const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
         await lens!.click();
         const repl = new RascalREPL(bench, driver);
         await repl.connect();
-        expect(repl.lastOutput).is.equal("5\nint: 0");
+        expect(repl.lastOutput).is.equal("Hello World\nint: 0");
     }).timeout(Delays.extremelySlow * 3);
 
     it("edit call module via repl", async() => {
