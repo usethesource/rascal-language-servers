@@ -103,47 +103,6 @@ bool rascalIsCollectionType(AType at) = at is arel || at is alrel || at is atupl
 bool rascalIsConstructorType(AType at) = at is acons;
 bool rascalIsDataType(AType at) = at is aadt;
 
-bool rascalIsDataTypeLike(dataId()) = true;
-bool rascalIsDataTypeLike(nonterminalId()) = true;
-bool rascalIsDataTypeLike(lexicalId()) = true;
-default bool rascalIsDataTypeLike(IdRole _) = false;
-
-bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
-    if (l <- defs, !definitions[l]?) return false;
-    set[Define] defines = {definitions[d] | d <- defs};
-
-    if (size(defines.id) > 1) return false;
-    if (size(defines) == 0) return false;
-    return rascalMayOverload(defs, definitions);
-}
-
-// set[Define] rascalGetADTDefinitions(TModel ws, loc lhs) {
-//     set[loc] fromDefs = (ws.definitions[lhs]? || lhs in ws.useDef<1>)
-//         ? {lhs}
-//         : getDefs(ws, lhs)
-//         ;
-
-//     if ({AType lhsType} := toRel(ws.facts)[fromDefs]) {
-//         if (rascalIsConstructorType(lhsType)) {
-//             return {adt
-//                 | loc cD <- rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-//                 , Define cons: <_, _, _, constructorId(), _, _> := ws.definitions[cD]
-//                 , AType consAdtType := cons.defInfo.atype.adt
-//                 , Define adt: <_, _, _, _, _, defType(consAdtType)> <- rascalReachableDefs(ws, {cons.defined})
-//                 , rascalIsDataTypeLike(adt.idRole)
-//             };
-//         } else if (rascalIsDataType(lhsType)) {
-//             return {adt
-//                 | set[loc] overloads := rascalGetOverloadedDefs(ws, fromDefs, rascalMayOverloadSameName)
-//                 , Define adt: <_, _, _, _, _, defType(lhsType)> <- rascalReachableDefs(ws, overloads)
-//                 , rascalIsDataTypeLike(adt.idRole)
-//             };
-//         }
-//     }
-
-//     return {};
-// }
-
 set[loc] rascalGetKeywordFormalUses(TModel ws, set[loc] defs, str cursorName) {
     set[loc] uses = {};
 
