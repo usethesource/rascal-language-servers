@@ -43,7 +43,9 @@ import analysis::diff::edits::TextEdits;
 import Map;
 import util::Maybe;
 
-set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
+set[IdRole] keywordFieldRoles = {keywordFieldId(), keywordFormalId()};
+set[IdRole] fieldRoles = {fieldId()} + keywordFieldRoles;
+
 bool isFieldRole(IdRole role) = role in fieldRoles;
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
@@ -97,19 +99,20 @@ tuple[bool, set[Define]] getCursorDefinitions((Assignable) `<Assignable rec>.<Na
     <true, getFieldDefinitions(rec, "<n>", tm, r)>;
 
 void renameAdditionalFieldUses(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
-    void renameFieldUse(Tree container, Name fieldName) {
+    void renameFieldUse(Tree container, Name fieldName, bool keywordOnly = false) {
+        if (keywordOnly && role notin keywordFieldRoles) return;
+
         fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, r);
         if ((fieldDefs & defs) != {}) {
             r.textEdit(replace(fieldName.src, newName));
         }
     }
 
-    if (!isFieldRole(role)) fail renameAdditionalFieldUses;
     if ({loc u, *_} := tm.useDef<0>) {
         visit (r.getConfig().parseLoc(u.top)) {
             case (Expression) `<Expression e> has <Name n>`: renameFieldUse(e, n);
-            case (Expression) `<Expression e>.<Name n>`: renameFieldUse(e, n);
-            case (Assignable) `<Assignable rec>.<Name n>`: renameFieldUse(rec, n);
+            case (Expression) `<Expression e>.<Name n>`: renameFieldUse(e, n, keywordOnly = true);
+            case (Assignable) `<Assignable rec>.<Name n>`: renameFieldUse(rec, n, keywordOnly = true);
         }
     }
 }
