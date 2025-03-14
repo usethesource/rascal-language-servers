@@ -50,38 +50,44 @@ import lang::rascalcore::check::ModuleLocations;
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
 set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
-    = job("Rascal check", set[ModuleMessages](void(str, int) step) {
+    {
+        println("Rascal Check");
+        println("File: <l>");
+        println("WorkspaceFolders:");
+        iprintln(workspaceFolders);
+
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
     rel[loc, loc] dependencies = {};
 
-    step("Dependency graph", 1);
-    job("Building dependency graph", bool (void (str, int) step2) {
+        println("Building dependency graph");
         while (tree <- checkForImports) {
-            step2("Calculating imports for <tree.top.header.name>", 1);
+            println("Handling <tree.top.header.name>");
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
+            println("Current source: <currentSrc>");
+            println("Current project: <currentProject>");
             if (currentProject in workspaceFolders) {
+                println("In workspace!");
                 for (i <- tree.top.header.imports, i has \module) {
                     try {
                         ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
                         if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
                             checkForImports += mlpt;
-                            jobTodo("Building dependency graph");
                             dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                         }
                     } catch _: {
                         ;// Continue
                     }
                 }
+            } else {
+                println("Not in workspace");
             }
             checkedForImports += currentSrc;
             checkForImports -= tree;
         }
-        return true;
-    }, totalWork=1);
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
@@ -91,19 +97,13 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
     msgs = [];
 
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
-    step("Checking upstream dependencies ", 1);
-    job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
-            step3("Checked module in `<project.file>`", 1);
             msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
         }
-        return true;
-    }, totalWork=size(upstreamDependencies));
 
-    step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
     return {*msgs};
-}, totalWork=3);
+}
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
     fileName = makeFileName(fqn);
@@ -127,20 +127,23 @@ loc targetToProject(loc l) {
 
 @memo
 loc inferProjectRoot(loc member) {
+    println("inferProjectRoot(<member>)");
     current = targetToProject(member);
     if (!isDirectory(current)) {
         current = current.parent;
     }
-
+    println("Before loop: <current>");
     while (exists(current), isDirectory(current)) {
         if (exists(current + "META-INF" + "RASCAL.MF")) {
+            println("Success, returning <current>");
             return current;
         }
         if (!current.parent?) {
+            println("no parent, returning <isDirectory(member) ? member : member.parent>");
             return isDirectory(member) ? member : member.parent;
         }
         current = current.parent;
     }
-
+    println("Failed, returning <current>");
     return current;
 }
