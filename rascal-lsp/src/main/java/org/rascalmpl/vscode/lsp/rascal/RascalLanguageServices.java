@@ -186,7 +186,7 @@ public class RascalLanguageServices {
             }
             // First, check whether the file is open and a parse tree is available
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree();
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getLastTreeWithoutErrors();
                 if (tree != null) {
                     return tree.get();
                 }
@@ -206,7 +206,7 @@ public class RascalLanguageServices {
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
         var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
-        
+
         return runEvaluator("Rascal check", compilerEvaluator,
             e -> translateCheckResults((ISet) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
             buildEmptyResult(VF.list(file)), exec, false, client);
