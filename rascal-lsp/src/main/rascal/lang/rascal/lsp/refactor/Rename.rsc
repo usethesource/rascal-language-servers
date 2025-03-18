@@ -551,23 +551,38 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
 list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
+TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
+    tm = augmentFieldUses(tr, tm, tmodelForLoc);
+    tm = augmentFormalUses(tr, tm);
+    return tm;
+}
+
+TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig)
+    = tmodelForTree(parse(#start[Module], l), getPathConfig);
+
+TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
+    loc l = t.src.top;
+    pcfg = getPathConfig(l);
+    mname = getModuleName(l, pcfg);
+
+    ccfg = rascalCompilerConfig(pcfg);
+    ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
+
+    <found, tm, ms> = getTModelForModule(mname, ms);
+    if (!found) throw ms.messages;
+    return augmentTModel(t, tm, TModel(loc f) {
+        // Prevent endless recursion
+        if (f == l) return tm;
+        return tmodelForLoc(f, getPathConfig);
+    });
+}
+
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
     extendFocusWithConcreteSyntax(cursor, cursorLoc)
   , newName
   , rconfig(
         Tree(loc l) { return parse(#start[Module], l); }
-      , TModel(Tree t) {
-          loc l = t.src.top;
-          pcfg = getPathConfig(l);
-          mname = getModuleName(l, pcfg);
-
-          ccfg = rascalCompilerConfig(pcfg);
-          ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
-
-          <found, tm, ms> = getTModelForModule(mname, ms);
-          if (!found) throw ms.messages;
-          return tm;
-      }
+      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
@@ -655,10 +670,4 @@ void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     }
 
     renameAdditionalUses(defs, escName, tm, r);
-}
-
-void renameAdditionalUses(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
-    // The role `keywordFormalId()` is used for both formal keyword parameters to functions and constructors
-    if (isFieldRole(role)) renameAdditionalFieldUses(defs, newName, tm, r);
-    if (isFormalId(role)) renameAdditionalParameterUses(defs, newName, tm, r);
 }

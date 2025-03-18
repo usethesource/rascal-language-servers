@@ -67,20 +67,18 @@ test bool privateFunctionParameter() = testRenameOccurrences({0, 1}, "", decls =
 
 test bool nestedKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
     'int f(int foo = 8) = foo;
-    'int x = f(foo = 10);
-", skipCursors = {2});
+    'int x = f(foo = 10);"
+);
 
 test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;"
-    , skipCursors = {2}
 );
 
 test bool functionIsNotConstructor() = testRenameOccurrences({0, 1, 3},
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;
             'data F = g(int foo = 8);"
-    , skipCursors = {3}
 );
 
 @expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
