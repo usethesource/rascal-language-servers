@@ -30,6 +30,7 @@ module lang::rascal::lsp::refactor::rename::Parameters
 extend framework::Rename;
 import framework::TextEdits;
 extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Fields;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -45,7 +46,7 @@ tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, IdRole role, _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
-    when isFormalId(role);
+    when isFormalId(role) && !isFieldRole(role);
 
 private set[loc] rascalGetKeywordArgs(none()) = {};
 private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
@@ -69,7 +70,7 @@ void renameAdditionalParameterUses(set[Define] defs:{<_, id, _, IdRole role, _, 
     // We get the module location from the uses. If there are no uses, this is skipped.
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
-        set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
+        set[Define] funcDefs = {d | Define d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
         set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
 
         // TODO Typepal: if the TModel would register kw arg names at call sites as uses, this tree visit would not be necessary

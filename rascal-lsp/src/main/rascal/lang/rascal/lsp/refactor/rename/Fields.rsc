@@ -80,7 +80,7 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, Rename
         defRel = toRel(fileTm.definitions);
 
         set[Define] containerDefs = defRel[lhsDefs];
-        set[AType] containerDefTypes = {di.atype | DefInfo di <- containerDefs.defInfo};
+        set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
         rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
         set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
         set[loc] fieldDefs = (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldRoles, containerTypeDefs.defined];
@@ -89,31 +89,46 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, Rename
     });
 }
 
-tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e> has <Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) =
+tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e> has <Name n>`, list[Tree] _, TModel tm, Renamer r) =
     <true, getFieldDefinitions(e, "<n>", tm, r)>;
 
-tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e>.<Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) =
+tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e>.<Name n>`, list[Tree] _, TModel tm, Renamer r) =
     <true, getFieldDefinitions(e, "<n>", tm, r)>;
 
-tuple[bool, set[Define]] getCursorDefinitions((Assignable) `<Assignable rec>.<Name n>`, TModel tm, Tree(loc) _, TModel(Tree) _, Renamer r) =
+tuple[bool, set[Define]] getCursorDefinitions((Assignable) `<Assignable rec>.<Name n>`, list[Tree] _, TModel tm, Renamer r) =
     <true, getFieldDefinitions(rec, "<n>", tm, r)>;
 
-void renameAdditionalFieldUses(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
-    void renameFieldUse(Tree container, Name fieldName, bool keywordOnly = false) {
-        if (keywordOnly && role notin keywordFieldRoles) return;
+tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Expression) `<Expression e> ( <{Expression ","}* args> <KeywordArguments[Expression] kwArgs> )`, *_], TModel tm, Renamer r) =
+    <true, getFieldDefinitions(e, "<n>", tm, r)>
+    when kwArgs is \default, kwArg <- kwArgs.keywordArgumentList, n := kwArg.name;
 
+tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Pattern) `<Pattern e> ( <{Pattern ","}* args> <KeywordArguments[Pattern] kwArgs> )`, *_], TModel tm, Renamer r) =
+    <true, getFieldDefinitions(e, "<n>", tm, r)>
+    when kwArgs is \default, kwArg <- kwArgs.keywordArgumentList, n := kwArg.name;
+
+void renameAdditionalFieldUses(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
+    void renameFieldUse(Tree container, Name fieldName, Maybe[ChangeAnnotation] annotation = nothing()) {
         fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, r);
         if ((fieldDefs & defs) != {}) {
-            r.textEdit(replace(fieldName.src, newName));
+            TextEdit te = annotation is nothing
+                ? replace(fieldName.src, newName)
+                : replace(fieldName.src, newName, annotation = annotation.val);
+            r.textEdit(te);
         }
     }
 
-    if ({loc u, *_} := tm.useDef<0>) {
-        visit (r.getConfig().parseLoc(u.top)) {
-            case (Expression) `<Expression e> has <Name n>`: renameFieldUse(e, n);
-            case (Expression) `<Expression e>.<Name n>`: renameFieldUse(e, n, keywordOnly = true);
-            case (Assignable) `<Assignable rec>.<Name n>`: renameFieldUse(rec, n, keywordOnly = true);
-        }
+    loc f = getModuleFile(tm);
+    visit (r.getConfig().parseLoc(f)) {
+        case (Expression) `<Expression e> has <Name n>`:
+            renameFieldUse(e, n, annotation = just(changeAnnotation("Use of `has` \'<"<n>">\'", "", needsConfirmation = true)));
+        case (Expression) `<Expression e>.<Name n>`:
+            if (keywordFormalId() := role) renameFieldUse(e, n);
+        case (Assignable) `<Assignable rec>.<Name n>`:
+            if (keywordFormalId() := role) renameFieldUse(rec, n);
+        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`:
+            if (role in keywordFieldRoles, /(KeywordArgument[Expression]) `<Name n> = <Expression _>` := kwArgs) renameFieldUse(e, n);
+        case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`:
+            if (role in keywordFieldRoles, /(KeywordArgument[Pattern]) `<Name n> = <Pattern _>` := kwArgs) renameFieldUse(e, n);
     }
 }
 

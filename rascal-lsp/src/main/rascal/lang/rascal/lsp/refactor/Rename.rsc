@@ -577,7 +577,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
-default tuple[bool, set[Define]] getCursorDefinitions(Tree _, TModel _, Tree(loc) _, TModel(Tree) _, Renamer _) = <false, {}>;
+default tuple[bool, set[Define]] getCursorDefinitions(Tree _, list[Tree] _, TModel _, Renamer _) = <false, {}>;
 
 set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tree) getModel, Renamer r) {
     if (isUnsupportedCursor(cursor, r)) return {};
@@ -589,7 +589,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
             return {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
             return {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
-        } else if (<true, defs> := getCursorDefinitions(c, tm, getTree, getModel, r)) {
+        } else if (<true, defs> := getCursorDefinitions(c, cursor, tm, r)) {
             return defs;
         }
     }
@@ -657,7 +657,7 @@ void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     renameAdditionalUses(defs, escName, tm, r);
 }
 
-void renameAdditionalUses(set[Define] defs:{<_, id, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
+void renameAdditionalUses(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, str newName, TModel tm, Renamer r) {
     // The role `keywordFormalId()` is used for both formal keyword parameters to functions and constructors
     if (isFieldRole(role)) renameAdditionalFieldUses(defs, newName, tm, r);
     if (isFormalId(role)) renameAdditionalParameterUses(defs, newName, tm, r);

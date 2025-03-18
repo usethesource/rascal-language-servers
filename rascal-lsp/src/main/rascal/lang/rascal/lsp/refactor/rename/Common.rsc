@@ -64,6 +64,8 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
+loc getModuleFile(TModel tm) = getModuleScopes(tm)[tm.modelName].top;
+
 private set[str] reservedNames = getRascalReservedIdentifiers();
 
 str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
