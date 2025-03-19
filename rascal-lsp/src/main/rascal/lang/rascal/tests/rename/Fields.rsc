@@ -157,8 +157,7 @@ test bool complexDataType() = testRenameOccurrences({0, 1},
     '   ProjectFiles() allFiles,
     '   set[TModel](ProjectFiles) tmodelsForLocs
     ');"
-, oldName = "sourceFiles", newName = "sources"
-);
+, oldName = "sourceFiles", newName = "sources");
 
 test bool crossModuleConstructorField() = testRenameOccurrences({
     byText("Foo", "data D = a(int foo) | b(int baz);", {0}),
