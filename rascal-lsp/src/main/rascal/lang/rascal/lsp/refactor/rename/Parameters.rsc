@@ -48,6 +48,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
     when isFormalId(role) && !isFieldRole(role);
 
+@synopsis{Add use/def relations for keyword function parameters, until they exist in the TModel.}
 TModel augmentFormalUses(Tree tr, TModel tm) {
     visit (tr) {
         case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {

@@ -70,14 +70,18 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
     return {};
 }
 
+@synopsis{Collect all definitions for the field with <fieldName> in ADT/collection/tuple <container>.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
     = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] fileDefs) {
         fileTm = f == container.src.top ? tm : getModel(f);
         defRel = toRel(fileTm.definitions);
 
         set[Define] containerDefs = defRel[fileDefs];
+        // Find the type of the container. For a constructor value, the type is its ADT type.
         set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
         rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
+        // Find all type-like definitions (but omit variable definitions etc.)
+        // TODO Consider functions that overload constructors, and their parameter names
         set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
         set[loc] fieldDefs = (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldRoles, containerTypeDefs.defined];
 
@@ -105,6 +109,7 @@ tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Express
     = <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
     when name(n) <- fields;
 
+@synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
     void addDef(Define d) {
         tm = tm[defines = tm.defines + d]

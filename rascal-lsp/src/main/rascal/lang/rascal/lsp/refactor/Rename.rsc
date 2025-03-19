@@ -551,6 +551,10 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
 list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
+@synopsis{
+    Augment the TModel with 'missing' use/def information.
+    Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
+}
 TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     tm = augmentFieldUses(tr, tm, tmodelForLoc);
     tm = augmentFormalUses(tr, tm);
