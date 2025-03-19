@@ -175,7 +175,7 @@ tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeF
 
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({str id} := defs.id) {
-        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter(id, newName), getTree);
         return <curFiles, curFiles, newFiles>;
     }
 
