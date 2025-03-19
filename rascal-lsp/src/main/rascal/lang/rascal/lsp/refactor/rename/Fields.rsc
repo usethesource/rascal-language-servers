@@ -139,7 +139,7 @@ bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expressi
     builtinFields = getBuiltinFieldMap();
     if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
         for (fieldName <- domain(builtinFields[lhsType])) {
-            if (builtin := [Name] fieldName, n1 := builtin, n2 := n1) {
+            if (n1 := [Name] fieldName, n2 := n1) {
                 r.error(n1, "Cannot rename builtin field \'<fieldName>\'");
                 return true;
             }
