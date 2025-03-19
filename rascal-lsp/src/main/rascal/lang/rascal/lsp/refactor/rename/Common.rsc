@@ -238,4 +238,8 @@ set[&T] flatMapPerFile(set[Define] defs, set[&T](loc, set[Define]) func) =
 
 default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
 
+@synopsis{Decide if a cursor is supported based on focus list only.}
 default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
+
+@synopsis{Decide whether a cursor is supported based on type information.}
+default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;

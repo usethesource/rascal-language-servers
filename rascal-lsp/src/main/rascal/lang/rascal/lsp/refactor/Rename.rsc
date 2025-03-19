@@ -599,6 +599,8 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 
     loc cursorLoc = cursor[0].src;
     TModel tm = getModel(cursor[-1]);
+    if (isUnsupportedCursor(cursor, tm, r)) return {};
+
     for (Tree c <- cursor) {
         if (tm.definitions[c.src]?) {
             return {tm.definitions[c.src]};

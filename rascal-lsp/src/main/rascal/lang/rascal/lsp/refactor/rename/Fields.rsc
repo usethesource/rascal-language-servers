@@ -32,6 +32,7 @@ import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::BuiltinFields;
 
 import lang::rascal::lsp::refactor::rename::Constructors;
 import lang::rascal::lsp::refactor::rename::Types;
@@ -161,3 +162,16 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
+
+bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], TModel tm, Renamer r) {
+    builtinFields = getBuiltinFieldMap();
+    if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
+        for (fieldName <- domain(builtinFields[lhsType])) {
+            if (builtin := [Name] fieldName, n1 := builtin, n2 := n1) {
+                r.error(n1, "Cannot rename builtin field \'<fieldName>\'");
+                return true;
+            }
+        }
+    }
+    return false;
+}
