@@ -46,9 +46,7 @@ import analysis::diff::edits::TextEdits;
 import Map;
 import util::Maybe;
 
-set[IdRole] keywordFieldRoles = {keywordFieldId(), keywordFormalId()};
-set[IdRole] fieldRoles = {fieldId()} + keywordFieldRoles;
-
+set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
 bool isFieldRole(IdRole role) = role in fieldRoles;
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
@@ -87,27 +85,6 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
 
         return defRel[fieldDefs];
     });
-
-tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e> has <Name n>`, list[Tree] _, TModel tm, Renamer r) =
-    <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>;
-
-tuple[bool, set[Define]] getCursorDefinitions((Expression) `<Expression e>.<Name n>`, list[Tree] _, TModel tm, Renamer r) =
-    <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>;
-
-tuple[bool, set[Define]] getCursorDefinitions((Assignable) `<Assignable rec>.<Name n>`, list[Tree] _, TModel tm, Renamer r) =
-    <true, getFieldDefinitions(rec, "<n>", tm, r.getConfig().tmodelForLoc)>;
-
-tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Expression) `<Expression e> ( <{Expression ","}* args> <KeywordArguments[Expression] kwArgs> )`, *_], TModel tm, Renamer r) =
-    <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
-    when kwArgs is \default, kwArg <- kwArgs.keywordArgumentList, n := kwArg.name;
-
-tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Pattern) `<Pattern e> ( <{Pattern ","}* args> <KeywordArguments[Pattern] kwArgs> )`, *_], TModel tm, Renamer r) =
-    <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
-    when kwArgs is \default, kwArg <- kwArgs.keywordArgumentList, n := kwArg.name;
-
-tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Expression) `<Expression e>\<<{Field ","}+ fields>\>`, *_], TModel tm, Renamer r)
-    = <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
-    when name(n) <- fields;
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {

@@ -596,8 +596,6 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
-default tuple[bool, set[Define]] getCursorDefinitions(Tree _, list[Tree] _, TModel _, Renamer _) = <false, {}>;
-
 set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tree) getModel, Renamer r) {
     if (isUnsupportedCursor(cursor, r)) return {};
 
@@ -610,8 +608,6 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
             return {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
             return {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
-        } else if (<true, defs> := getCursorDefinitions(c, cursor, tm, r)) {
-            return defs;
         }
     }
 
