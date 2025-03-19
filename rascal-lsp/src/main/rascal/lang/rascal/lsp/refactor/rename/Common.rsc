@@ -214,6 +214,15 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
   + (tm.paths<pathRole, from, to>)[importPath()]
   + (tm.paths<pathRole, from, to>)[extendPath()];
 
+loc parentScope(loc l, TModel tm) {
+    if (tm.scopes[l]?) {
+        return tm.scopes[l];
+    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l, containmentPred = isStrictlyContainedIn)) {
+        return scope;
+    }
+    return |global-scope:///|;
+}
+
 set[&T] flatMapPerFile(set[loc] locs, set[&T](loc, set[loc]) func) {
     rel[loc file, loc l] fs = {<l.top, l> | loc l <- locs};
     return {*func(f, fs[f]) | loc f <- fs.file};

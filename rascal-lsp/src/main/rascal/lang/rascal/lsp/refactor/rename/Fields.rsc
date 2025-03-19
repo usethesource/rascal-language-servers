@@ -29,6 +29,8 @@ module lang::rascal::lsp::refactor::rename::Fields
 
 extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Constructors;
@@ -69,7 +71,7 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
 
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
     = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] fileDefs) {
-        fileTm = getModel(f);
+        fileTm = f == container.src.top ? tm : getModel(f);
         defRel = toRel(fileTm.definitions);
 
         set[Define] containerDefs = defRel[fileDefs];
@@ -98,15 +100,39 @@ tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Pattern
     <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
     when kwArgs is \default, kwArg <- kwArgs.keywordArgumentList, n := kwArg.name;
 
+tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Expression) `<Expression e>\<<{Field ","}+ fields>\>`, *_], TModel tm, Renamer r)
+    = <true, getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc)>
+    when name(n) <- fields;
+
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
+    void addDef(Define d) {
+        tm = tm[defines = tm.defines + d]
+               [definitions = tm.definitions + (d.defined: d)];
+    }
+
+    void addUseDef(loc use, loc def) {
+        tm = tm[useDef = tm.useDef + <use, def>];
+    }
+
+    void removeUseDef(loc use, loc def) {
+        tm = tm[useDef = tm.useDef - <use, def>];
+    }
+
     void addFieldUse(Tree container, Tree fieldName) {
         fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, getModel);
         // Common/ADT keyword field uses currently point to their parent ADT definition instead of the field definition
         // https://github.com/usethesource/rascal/issues/2172?issue=usethesource%7Crascal%7C2186
-        augmentedUseDefs
-            = (tm.useDef - {<fieldName.src, d> | d <- fieldDefs.scope})
-            + {<fieldName.src, d> | d <- fieldDefs.defined};
-        tm = tm[useDef = augmentedUseDefs];
+        for (Define field <- fieldDefs) {
+            removeUseDef(fieldName.src, field.scope);
+            addUseDef(fieldName.src, field.defined);
+        }
+    }
+
+    void addCollectionFieldDef(Tree _, (TypeArg) `<Type _>`) {}
+    void addCollectionFieldDef(Tree structuredType, (TypeArg) `<Type fieldType> <Name fieldName>`) {
+        if (just(AType containerType) := getFact(tm, structuredType.src)) {
+            addDef(<structuredType.src, "<fieldName>", "<fieldName>", fieldId(), fieldName.src, defType(aparameter("<fieldName>", containerType))>);
+        }
     }
 
     visit (tr) {
@@ -117,6 +143,15 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
             for (/(KeywordArgument[Expression]) `<Name n> = <Expression _>` := kwArgs) addFieldUse(e, n);
         case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`:
             for (/(KeywordArgument[Pattern]) `<Name n> = <Pattern _>` := kwArgs) addFieldUse(e, n);
+        case st:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
+            if (just(AType tp) := getFact(tm, st.src)) {
+                addDef(<tm.scopes[parentScope(st.src, tm)], "<st>", "<st>", aliasId(), st.src, defType(tp)>);
+                for (TypeArg arg <- args) addCollectionFieldDef(st, arg);
+            }
+        }
+        case (Expression) `<Expression e>\<<{Field ","}+ fields>\>`:
+            for (name(Name n) <- fields) addFieldUse(e, n);
+        case (Expression) `<Expression e>[<Name n> = <Expression _>]`: addFieldUse(e, n);
     }
     return tm;
 }
@@ -126,8 +161,3 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
-
-bool isUnsupportedCursor(list[Tree] _:[*_, TypeArg tp, *_, StructuredType _, *_], Renamer r) {
-    r.error(tp, "Cannot rename a field from a structured type.");
-    return false;
-}

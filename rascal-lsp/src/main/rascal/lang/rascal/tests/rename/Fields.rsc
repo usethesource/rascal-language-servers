@@ -222,45 +222,39 @@ test bool dataAsFormalField() = testRenameOccurrences({0, 1}, "
     'int getChild(D d) = d.foo;
 ", decls = "data D = x(int foo);");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
     'f = r.foo;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool lrelField() = testRenameOccurrences({0, 1}, "
     'lrel[str foo, str baz] r = [];
     'f = r.foo;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool relSubscript() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
     'x = r\<foo\>;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool relSubscriptWithVar() = testRenameOccurrences({0, 2}, "
     'rel[str foo, str baz] r = {};
     'str foo = \"foo\";
     'x = r\<foo\>;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool tupleFieldSubscriptUpdate() = testRenameOccurrences({0, 1, 2}, "
     'tuple[str foo, int baz] t = \<\"one\", 1\>;
     'u = t[foo = \"two\"];
     'v = u.foo;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool tupleFieldAccessUpdate() = testRenameOccurrences({0, 1}, "
     'tuple[str foo, int baz] t = \<\"one\", 1\>;
     't.foo = \"two\";
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
+@ignore{Ignore this for now, until we figure out the desired semantics here. https://github.com/usethesource/rascal/issues/2188}
 test bool similarCollectionTypes() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'rel[str foo, int baz] r = {};
     'lrel[str foo, int baz] lr = [];
@@ -269,7 +263,6 @@ test bool similarCollectionTypes() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'tuple[str foo, int baz] t = \<\"\", 0\>;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool differentRelWithSameField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, int baz] r1 = {};
     'foos1 = r1.foo;
@@ -277,7 +270,6 @@ test bool differentRelWithSameField() = testRenameOccurrences({0, 1}, "
     'foos2 = r2.foo;
 ");
 
-@ignore{Structured type fields have no definition: https://github.com/usethesource/rascal/issues/2188}
 test bool tupleField() = testRenameOccurrences({0, 1}, "
     'tuple[int foo] t = \<8\>;
     'y = t.foo;
