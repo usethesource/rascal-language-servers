@@ -101,7 +101,12 @@ tuple[bool, set[Define]] getCursorDefinitions(Name n, list[Tree] _:[*_, (Pattern
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
     void addFieldUse(Tree container, Tree fieldName) {
         fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, getModel);
-        tm = tm[useDef = tm.useDef + {<fieldName.src, d> | d <- fieldDefs.defined}];
+        // Common/ADT keyword field uses currently point to their parent ADT definition instead of the field definition
+        // https://github.com/usethesource/rascal/issues/2172?issue=usethesource%7Crascal%7C2186
+        augmentedUseDefs
+            = (tm.useDef - {<fieldName.src, d> | d <- fieldDefs.scope})
+            + {<fieldName.src, d> | d <- fieldDefs.defined};
+        tm = tm[useDef = augmentedUseDefs];
     }
 
     visit (tr) {

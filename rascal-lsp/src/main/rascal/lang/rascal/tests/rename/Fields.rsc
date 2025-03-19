@@ -46,7 +46,6 @@ test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = dd.foo;
     'b = dd has foo;
     ", decls="data D = d(int foo = 0, int baz = 0);"
-    , skipCursors = {2} // TODO Unsupported: use of keyword field refers to full ADT def (https://github.com/usethesource/rascal/issues/2193)
 );
 
 test bool constructorKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -62,7 +61,6 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = oneTwo.foo;
     'b = oneTwo has foo;
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
-    , skipCursors = {2} // TODO Unsupported: use of keyword field refers to full ADT def (https://github.com/usethesource/rascal/issues/2193)
 );
 
 test bool commonKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -104,7 +102,6 @@ test bool commonKeywordFieldsSameType() = testRenameOccurrences({0, 1},
     'xy = x.baz;
     ",
     decls = "data D (set[loc] foo = {}, set[loc] baz = {})= d();"
-, skipCursors = {1} // TODO Unsupported: use of keyword field refers to full ADT def (https://github.com/usethesource/rascal/issues/2193)
 );
 
 test bool sameNameFields() = testRenameOccurrences({0, 2, 3}, "
@@ -161,7 +158,6 @@ test bool complexDataType() = testRenameOccurrences({0, 1},
     '   set[TModel](ProjectFiles) tmodelsForLocs
     ');"
 , oldName = "sourceFiles", newName = "sources"
-, skipCursors = {1} // TODO Unsupported: use of keyword field refers to full ADT def (https://github.com/usethesource/rascal/issues/2193)
 );
 
 test bool crossModuleConstructorField() = testRenameOccurrences({
