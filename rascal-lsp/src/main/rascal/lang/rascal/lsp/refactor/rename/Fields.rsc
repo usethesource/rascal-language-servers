@@ -56,9 +56,9 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
         adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
         // Find all fields with the same name in these ADT definitions
-        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
+        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] localAdtDefs) {
             fileTm = r.getConfig().tmodelForLoc(f);
-            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, fileDefs.defined]};
+            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, localAdtDefs.defined]};
         });
     }
 
@@ -70,11 +70,10 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _,
 
 @synopsis{Collect all definitions for the field with <fieldName> in ADT/collection/tuple <container>.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
-    = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] fileDefs) {
+    = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] localContainerDefs) {
         fileTm = f == container.src.top ? tm : getModel(f);
-        defRel = toRel(fileTm.definitions);
 
-        set[Define] containerDefs = defRel[fileDefs];
+        set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs};
         // Find the type of the container. For a constructor value, the type is its ADT type.
         set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
         rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
@@ -83,23 +82,14 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
         set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
         set[loc] fieldDefs = (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldRoles, containerTypeDefs.defined];
 
-        return defRel[fieldDefs];
+        return {fileTm.definitions[d] | loc d <- fieldDefs};
     });
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
-    void addDef(Define d) {
-        tm = tm[defines = tm.defines + d]
-               [definitions = tm.definitions + (d.defined: d)];
-    }
-
-    void addUseDef(loc use, loc def) {
-        tm = tm[useDef = tm.useDef + <use, def>];
-    }
-
-    void removeUseDef(loc use, loc def) {
-        tm = tm[useDef = tm.useDef - <use, def>];
-    }
+    void addDef(Define d) { tm = tm[defines = tm.defines + d][definitions = tm.definitions + (d.defined: d)]; }
+    void addUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef + <use, def>]; }
+    void removeUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef - <use, def>]; }
 
     void addFieldUse(Tree container, Tree fieldName) {
         fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, getModel);

@@ -50,16 +50,16 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 
 @synopsis{Add use/def relations for keyword function parameters, until they exist in the TModel.}
 TModel augmentFormalUses(Tree tr, TModel tm) {
+    void addUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef + <use, def>]; }
+
     visit (tr) {
         case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
             funcDefs = tm.useDef[e.src];
             keywordFormalDefs = (tm.defines<idRole, scope, id, defined>)[keywordFormalId(), funcDefs];
-            keywordFormalUseDefs = {<kw.src, d>
-                | /(KeywordArgument[Expression]) `<Name kw> = <Expression _>` := kwArgs
-                , loc d <- keywordFormalDefs["<kw>"]
-            };
-
-            tm = tm[useDef = tm.useDef + keywordFormalUseDefs];
+            for (/(KeywordArgument[Expression]) `<Name kw> = <Expression _>` := kwArgs
+              , loc d <- keywordFormalDefs["<kw>"]) {
+                addUseDef(kw.src, d);
+            }
         }
     }
     return tm;
