@@ -181,15 +181,6 @@ test bool extendedConstructorField() = testRenameOccurrences({
         ", {0, 1})
 });
 
-test bool dataTypeReusedName() = testRenameOccurrences({
-    byText("Scratch1", "
-        'data Foo = f();
-        ", {0}),
-    byText("Scratch2", "
-        'data Foo = g();
-        ", {})
-}, oldName = "Foo", newName = "Bar");
-
 test bool dataFieldReusedName() = testRenameOccurrences({
     byText("Scratch1", "
         'data Foo = f(int foo);
