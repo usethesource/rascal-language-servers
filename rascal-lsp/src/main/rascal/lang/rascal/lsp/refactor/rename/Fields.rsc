@@ -70,7 +70,7 @@ set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fiel
 @synopsis{Collect all definitions for the field with <fieldName> in ADT/collection/tuple <container>.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
     = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] localContainerDefs) {
-        fileTm = f == container.src.top ? tm : getModel(f);
+        fileTm = getModel(f);
 
         set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs};
         // Find the type of the container. For a constructor value, the type is its ADT type.
@@ -86,15 +86,17 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
+    // Make sure that everyone receives the (partially) augmented TModel from here on
+    TModel getAugmentedModel(loc l) = (l == tr.src.top) ? tm : getModel(l);
+
     void addDef(Define d) { tm = tm[defines = tm.defines + d][definitions = tm.definitions + (d.defined: d)]; }
     void addUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef + <use, def>]; }
     void removeUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef - <use, def>]; }
 
     void addFieldUse(Tree container, Tree fieldName) {
-        fieldDefs = getFieldDefinitions(container, "<fieldName>", tm, getModel);
         // Common/ADT keyword field uses currently point to their parent ADT definition instead of the field definition
         // https://github.com/usethesource/rascal/issues/2172?issue=usethesource%7Crascal%7C2186
-        for (Define field <- fieldDefs) {
+        for (Define field <- getFieldDefinitions(container, "<fieldName>", tm, getAugmentedModel)) {
             removeUseDef(fieldName.src, field.scope);
             addUseDef(fieldName.src, field.defined);
         }
