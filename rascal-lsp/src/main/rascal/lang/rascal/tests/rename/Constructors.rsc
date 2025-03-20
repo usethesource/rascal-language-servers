@@ -45,6 +45,14 @@ test bool disjunctConstructor() = testRenameOccurrences({
            "data Foo = foo();", {})
 });
 
+test bool functionOverloadsConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'Foo foo(int i, int j) = foo(i + j);", {0, 1}),
+    byText("Main", "import ConsDefiner;
+                   'Foo f = foo(8);", {0})
+});
+
 test bool differentADTsDuplicateConstructorNames() = testRenameOccurrences({
     byText("A", "data Bar = foo();", {0})
   , byText("B",

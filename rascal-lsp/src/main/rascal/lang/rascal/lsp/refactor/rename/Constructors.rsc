@@ -29,6 +29,8 @@ module lang::rascal::lsp::refactor::rename::Constructors
 
 extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Functions;
+
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Types;
@@ -49,26 +51,36 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
     return <curFiles, curFiles, newFiles>;
 }
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) {
-    if ({str id} := cursorDefs.id) {
-        // Find the ADT definitions in this file that these constructors belong to
-        adtDefs = {adt | Define adt:<_, _, _, dataId(), _, _> <- tm.defines, any(cons <- cursorDefs, isContainedIn(cons.defined, adt.defined))};
-        // Find overloads of this ADT
-        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
-        // Find all constructors with the same name in these ADT definitions
-        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-            fileTm = r.getConfig().tmodelForLoc(f);
-            return {consDef
-                | Define consDef:<_, id, _, constructorId(), _, _> <- fileTm.defines
-                , any(adt <- fileDefs.defined, isContainedIn(consDef.defined, adt))
-            };
-        });
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, constructorId(), _, _>, *_}, Tree tr, TModel tm, Renamer r)
+    = findAdditionalConstructorDefinitions(cursorDefs, tr, tm, r)
+    + findAdditionalFunctionDefinitions(cursorDefs, tm)
+    ;
+
+set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
+    if (otherRoles:{_, *_} := cursorDefs.idRole - {constructorId(), functionId()}) {
+        for (<role, d> <- (cursorDefs<idRole, idRole, defined>)[otherRoles]) {
+            r.error(d, "Cannot find constructor definitions that overload definition of <role>");
+        }
+        return {};
     }
 
-    for (loc d <- cursorDefs.defined) {
-        r.error(d, "Cannot find overloads of definitions with multiple names (<cursorDefs.id>)");
-    }
-    return {};
+    // Find the ADT definitions in this file that these constructors belong to
+    adtDefs = {adt | Define adt:<_, _, _, dataId(), _, _> <- tm.defines, any(cons <- cursorDefs, isContainedIn(cons.defined, adt.defined))};
+    // Find overloads of this ADT
+    adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+
+    return {d | d <- findConstructorDefinitions(adtDefs), d.id in cursorDefs.id};
+}
+
+set[Define] findConstructorDefinitions(set[Define] adtDefs) {
+    // Find all constructors with the same name in these ADT definitions
+    return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
+        fileTm = r.getConfig().tmodelForLoc(f);
+        return {fileTm.definitions[d]
+            | loc d <- (fileTm.defines<idRole, defined>)[constructorId()]
+            , any(adt <- fileDefs.defined, isContainedIn(d, adt))
+        };
+    });
 }
 
 tuple[type[Tree] as, str desc] asType(constructorId()) = <#NonterminalLabel, "constructor name">;

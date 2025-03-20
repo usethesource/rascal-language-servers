@@ -616,19 +616,19 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 }
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    if ({IdRole role} := defs.idRole) {
+    escNewName = escapeReservedNames(newName);
+    for (role <- defs.idRole) {
+        hasError = false;
         <t, desc> = asType(role);
-        escNewName = escapeReservedNames(newName);
         if (tryParseAs(t, escNewName) is nothing) {
+            hasError = true;
             r.error(cursor[0], "\'<escNewName>\' is not a valid <desc>");
-            return <{}, {}, {}>;
         }
 
-        return findOccurrenceFilesUnchecked(defs, cursor, escNewName, getTree, r);
+        if (hasError) return <{}, {}, {}>;
     }
 
-    r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
-    return <{}, {}, {}>;
+    return findOccurrenceFilesUnchecked(defs, cursor, escNewName, getTree, r);
 }
 
 void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {
