@@ -103,3 +103,10 @@ bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[
 
 set[&T] flatMap(set[&U] us, set[&T](&U) f) =
     {*ts | u <- us, ts := f(u)};
+
+str describeTree(appl(p, _)) = printSymbol(p.def, false);
+str describeTree(cycle(sym, length)) = "cycle[<length>] of <printSymbol(sym, false)>";
+str describeTree(amb(alts)) = intercalate("|", [describeTree(alt) | alt <- alts]);
+str describeTree(char(int c)) = "char <c>";
+
+list[str] describeTrees(list[Tree] trees) = [describeTree(t) | t <- trees];

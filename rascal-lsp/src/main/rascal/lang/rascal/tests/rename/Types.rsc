@@ -184,3 +184,12 @@ test bool sameIdRoleOnly() = testRenameOccurrences({
   , byText("D", "import C;
                 'int baz = C::foo + 1;", {0})
 });
+
+test bool dataTypeReusedName() = testRenameOccurrences({
+    byText("Scratch1", "
+        'data Foo = f();
+        ", {0}),
+    byText("Scratch2", "
+        'data Foo = g();
+        ", {})
+}, oldName = "Foo", newName = "Bar");

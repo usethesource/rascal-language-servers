@@ -64,6 +64,8 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
+loc getModuleFile(TModel tm) = getModuleScopes(tm)[tm.modelName].top;
+
 private set[str] reservedNames = getRascalReservedIdentifiers();
 
 str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
@@ -173,7 +175,7 @@ tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeF
 
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({str id} := defs.id) {
-        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter(id, newName), getTree);
         return <curFiles, curFiles, newFiles>;
     }
 
@@ -212,6 +214,15 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
   + (tm.paths<pathRole, from, to>)[importPath()]
   + (tm.paths<pathRole, from, to>)[extendPath()];
 
+loc parentScope(loc l, TModel tm) {
+    if (tm.scopes[l]?) {
+        return tm.scopes[l];
+    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l, containmentPred = isStrictlyContainedIn)) {
+        return scope;
+    }
+    return |global-scope:///|;
+}
+
 set[&T] flatMapPerFile(set[loc] locs, set[&T](loc, set[loc]) func) {
     rel[loc file, loc l] fs = {<l.top, l> | loc l <- locs};
     return {*func(f, fs[f]) | loc f <- fs.file};
@@ -227,4 +238,8 @@ set[&T] flatMapPerFile(set[Define] defs, set[&T](loc, set[Define]) func) =
 
 default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
 
+@synopsis{Decide if a cursor is supported based on focus list only.}
 default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
+
+@synopsis{Decide whether a cursor is supported based on type information.}
+default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;
