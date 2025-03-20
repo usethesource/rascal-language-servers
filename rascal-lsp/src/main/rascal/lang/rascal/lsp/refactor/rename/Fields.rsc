@@ -67,7 +67,7 @@ set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fiel
         return {localTm.definitions[d] | loc d <- candidateDefs[localContainerDefs.defined]};
     });
 
-@synopsis{Collect all definitions for the field with <fieldName> in ADT/collection/tuple <container>.}
+@synopsis{Collect all definitions for the field <fieldName> in ADT/collection/tuple by tree.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
     = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] localContainerDefs) {
         fileTm = getModel(f);
@@ -94,7 +94,7 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
     void removeUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef - <use, def>]; }
 
     void addFieldUse(Tree container, Tree fieldName) {
-        // Common/ADT keyword field uses currently point to their parent ADT definition instead of the field definition
+        // Common/ADT keyword field uses currently point to their scope (i.e. parent ADT definition) instead of the field definition
         // https://github.com/usethesource/rascal/issues/2172?issue=usethesource%7Crascal%7C2186
         for (Define field <- getFieldDefinitions(container, "<fieldName>", tm, getAugmentedModel)) {
             removeUseDef(fieldName.src, field.scope);
@@ -119,6 +119,8 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
             for (/(KeywordArgument[Pattern]) `<Name n> = <Pattern _>` := kwArgs) addFieldUse(e, n);
         case st:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
             if (just(AType tp) := getFact(tm, st.src)) {
+                // It is convenient to wrap the collection's fields in a 'type'definition, like with ADTs
+                // This definition serves (only) that purpose
                 addDef(<tm.scopes[parentScope(st.src, tm)], "<st>", "<st>", aliasId(), st.src, defType(tp)>);
                 for (TypeArg arg <- args) addCollectionFieldDef(st, arg);
             }
