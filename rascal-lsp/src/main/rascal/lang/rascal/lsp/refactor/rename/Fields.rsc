@@ -49,24 +49,23 @@ import util::Maybe;
 set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
 bool isFieldRole(IdRole role) = role in fieldRoles;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
-    if (!isFieldRole(role)) fail findAdditionalDefinitions;
-    if ({str fieldName} := cursorDefs.id) {
-        adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
-        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
+    if (any(role <- cursorDefs.idRole, !isFieldRole(role)) || {} := cursorDefs) fail findAdditionalDefinitions;
 
-        // Find all fields with the same name in these ADT definitions
-        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] localAdtDefs) {
-            fileTm = r.getConfig().tmodelForLoc(f);
-            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, localAdtDefs.defined]};
-        });
-    }
+    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+    adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
-    for (d <- cursorDefs) {
-        r.error(d.defined, "Cannot find overloads for fields with multiple names (<cursorDefs.id>).");
-    }
-    return {};
+    // Find all fields with the same name in these ADT definitions
+    return getFieldDefinitions(adtDefs, cursorDefs<idRole, id>, r.getConfig().tmodelForLoc);
 }
+
+@synopsis{Collect all definitions for field <fieldName> in ADT/collection/tuple by definition.}
+set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fields, TModel(loc) getModel)
+    = flatMapPerFile(containerDefs, set[Define](loc f, set[Define] localContainerDefs) {
+        localTm = getModel(f);
+        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[role, name]) | <role, name> <- fields};
+        return {localTm.definitions[d] | loc d <- candidateDefs[localContainerDefs.defined]};
+    });
 
 @synopsis{Collect all definitions for the field with <fieldName> in ADT/collection/tuple <container>.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
@@ -80,9 +79,9 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
         // Find all type-like definitions (but omit variable definitions etc.)
         // TODO Consider functions that overload constructors, and their parameter names
         set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
-        set[loc] fieldDefs = (fileTm.defines<id, idRole, scope, defined>)[fieldName, fieldRoles, containerTypeDefs.defined];
 
-        return {fileTm.definitions[d] | loc d <- fieldDefs};
+        // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
+        return getFieldDefinitions(containerTypeDefs, {<role, fieldName> | role <- fieldRoles}, getModel);
     });
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
