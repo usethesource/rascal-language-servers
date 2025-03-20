@@ -562,7 +562,7 @@ TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
 }
 
 TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig)
-    = tmodelForTree(parse(#start[Module], l), getPathConfig);
+    = tmodelForTree(parseModuleWithSpaces(l), getPathConfig);
 
 TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
     loc l = t.src.top;
