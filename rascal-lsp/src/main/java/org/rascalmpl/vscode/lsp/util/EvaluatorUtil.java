@@ -73,6 +73,8 @@ import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -297,6 +299,9 @@ public class EvaluatorUtil {
         return "Static error: " + e.getMessage();
     }
 
+    /**
+     * This function is used to construct evaluators used by LSP servers, not the terminal REPL
+     */
     public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, IRascalMonitor monitor, PathConfig pcfg, boolean addRascalCore, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
@@ -309,26 +314,37 @@ public class EvaluatorUtil {
                         IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter(),
                         IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter(), services);
 
-                eval.getConfiguration().setRascalJavaClassPathProperty(System.getProperty("rascal.compilerClasspath"));
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
+
                 if (addRascalCore) {
-                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "typepal", ""));
-                    eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-core", ""));
+                    var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntimeJar());
+                    var rascalCore = URIUtil.getChildLocation(rascalJar, "org/rascalmpl/compiler");
+                    var typePalJar = URIUtil.getChildLocation(rascalJar, "org/rascalmpl/typepal");
+
+                    eval.addRascalSearchPath(typePalJar);
+                    eval.addRascalSearchPath(rascalCore);
                 }
-                eval.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
+
+                var rascalLspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
+                eval.addRascalSearchPath(rascalLspJar);
 
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);
                     }
+                    eval.addClassLoader(new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader()));
                 }
 
                 eval.doImport(services, imports);
 
                 jobSuccess = true;
                 return eval;
-            } finally {
+            }
+            catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            finally {
                 services.jobEnd(jobName, jobSuccess);
             }
         }, exec);
