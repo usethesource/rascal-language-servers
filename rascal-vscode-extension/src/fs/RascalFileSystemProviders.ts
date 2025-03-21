@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as vscode from 'vscode';
-import {BaseLanguageClient } from 'vscode-languageclient';
+import {BaseLanguageClient, ResponseError } from 'vscode-languageclient';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -89,7 +89,13 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
-        return this.client.sendRequest<vscode.FileStat>("rascal/filesystem/stat", {uri: uri.toString()});
+        return this.client.sendRequest<vscode.FileStat>("rascal/filesystem/stat", {uri: uri.toString()})
+            .catch((r: ResponseError) => {
+                if (r !== undefined && r.code === -1) {
+                    throw  vscode.FileSystemError.FileNotFound(uri);
+                }
+                throw r;
+            });
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
