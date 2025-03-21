@@ -123,7 +123,7 @@ interface BrowseParameter {
 }
 
 async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg : string | undefined): Promise<ServerOptions> {
-    const classpath = buildCompilerJVMPath(jarPath, isParametricServer);
+    const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration'
         , '-Dlog4j2.level=DEBUG'
@@ -150,12 +150,10 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     };
 }
 
-function buildCompilerJVMPath(jarPath:string, isParametricServer: boolean) :string {
-    const jars = ['rascal-lsp.jar', 'rascal.jar'];
-    if (!isParametricServer) {
-        jars.push('typepal.jar');
-    }
-    return jars.map(j => path.join(jarPath, j)).join(path.delimiter);
+function buildCompilerJVMPath(jarPath:string) :string {
+    return ['rascal-lsp.jar', 'rascal.jar']
+        .map(j => path.join(jarPath, j))
+        .join(path.delimiter);
 }
 
 function gb(amount: integer) {
