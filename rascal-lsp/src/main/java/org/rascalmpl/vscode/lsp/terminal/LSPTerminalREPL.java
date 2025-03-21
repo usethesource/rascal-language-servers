@@ -121,12 +121,9 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             if (projectDir != null && reg.isDirectory(projectDir)) {
                 var folderName = URIUtil.getLocationName(projectDir);
                 var tentativeProjectLoc = URIUtil.correctLocation("project", folderName, "");
-                stdout.println("Trying if : " + tentativeProjectLoc + " might map to this project uri");
-                var inverse = services.resolveProjectLocation(tentativeProjectLoc);
-                stdout.println("It mapped back to : " + inverse + "(we started with " + projectDir + ")");
 
                 // if the project loc is a true alias for the project directory, then we might as well use it
-                if (services.resolveProjectLocation(tentativeProjectLoc).equals(projectDir)) {
+                if (semanticEquals(services.resolveProjectLocation(tentativeProjectLoc), projectDir)) {
                     projectDir = tentativeProjectLoc;
                 }
             }
@@ -182,6 +179,17 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             e.printStackTrace(stderr);
         }
         return evaluator;
+    }
+
+    private static boolean semanticEquals(ISourceLocation a, ISourceLocation b) {
+        if (!a.getScheme().equals("file") || !b.getScheme().equals( "file") || OSUtils.IS_LINUX) {
+            return a.equals(b);
+        }
+        // in Windows & Mac we have to compare paths without case sensitivity
+        // but we only do so for `file` paths, as there it gets really messy with
+        // paths coming from java and vs code (for example java generates C:\ while vs code sometimes generates c:\)
+
+        return a.getPath().equalsIgnoreCase(b.getPath());
     }
 
     private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
