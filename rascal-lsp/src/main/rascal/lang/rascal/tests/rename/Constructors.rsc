@@ -53,6 +53,11 @@ test bool functionOverloadsConstructor() = testRenameOccurrences({
                    'Foo f = foo(8);", {0})
 });
 
+test bool functionDoesNotOverloadConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncDefiner", "int foo(int i) = i;", {})
+});
+
 test bool differentADTsDuplicateConstructorNames() = testRenameOccurrences({
     byText("A", "data Bar = foo();", {0})
   , byText("B",
