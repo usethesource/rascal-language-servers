@@ -35,16 +35,19 @@ import java.nio.charset.StandardCharsets;
 
 import org.rascalmpl.uri.ISourceLocationInput;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 
 import io.usethesource.vallang.ISourceLocation;
 
 public class LSPOpenFileResolver implements ISourceLocationInput {
 
+    private TextDocumentState getEditorState(ISourceLocation uri) throws IOException {
+        return FallbackResolver.getInstance().getDocumentState(stripLspPrefix(uri));
+    }
+
     @Override
     public InputStream getInputStream(ISourceLocation uri) throws IOException {
-        var fallbackResolver = FallbackResolver.getInstance();
-        uri = stripLspPrefix(uri);
-        return new ByteArrayInputStream(fallbackResolver.getDocumentState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16));
+        return new ByteArrayInputStream(getEditorState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16));
     }
 
     @Override
@@ -59,7 +62,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public long lastModified(ISourceLocation uri) throws IOException {
-        return FallbackResolver.getInstance().getDocumentState(stripLspPrefix(uri)).getLastModified();
+        return getEditorState(uri).getLastModified();
     }
 
     @Override
