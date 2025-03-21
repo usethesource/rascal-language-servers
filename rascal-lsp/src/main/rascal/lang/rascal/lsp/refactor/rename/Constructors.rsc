@@ -69,10 +69,10 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
     // Find overloads of this ADT
     adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
-    return {d | d <- findConstructorDefinitions(adtDefs), d.id in cursorDefs.id};
+    return {d | d <- findConstructorDefinitions(adtDefs, r), d.id in cursorDefs.id};
 }
 
-set[Define] findConstructorDefinitions(set[Define] adtDefs) {
+set[Define] findConstructorDefinitions(set[Define] adtDefs, Renamer r) {
     // Find all constructors with the same name in these ADT definitions
     return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
         fileTm = r.getConfig().tmodelForLoc(f);
