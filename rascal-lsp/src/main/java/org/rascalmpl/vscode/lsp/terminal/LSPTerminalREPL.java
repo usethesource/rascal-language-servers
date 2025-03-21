@@ -118,15 +118,18 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
 
             // try to use the project:// scheme as often as possible, for a canonical experience between different people
             // running the same project in their IDE, or on the commandline
-            // if (URIResolverRegistry.getInstance().isDirectory(projectDir)) {
-            //     var folderName = URIUtil.getLocationName(projectDir);
-            //     var tentativeProjectLoc = URIUtil.correctLocation("project", folderName, "");
+            if (projectDir != null && reg.isDirectory(projectDir)) {
+                var folderName = URIUtil.getLocationName(projectDir);
+                var tentativeProjectLoc = URIUtil.correctLocation("project", folderName, "");
+                stdout.println("Trying if : " + tentativeProjectLoc + " might map to this project uri");
+                var inverse = services.resolveProjectLocation(tentativeProjectLoc);
+                stdout.println("It mapped back to : " + inverse + "(we started with " + projectDir + ")");
 
-            //     // if the project loc is a true alias for the project directory, then we might as well use it
-            //     if (services.resolveProjectLocation(tentativeProjectLoc).equals(projectDir)) {
-            //         projectDir = tentativeProjectLoc;
-            //     }
-            // }
+                // if the project loc is a true alias for the project directory, then we might as well use it
+                if (services.resolveProjectLocation(tentativeProjectLoc).equals(projectDir)) {
+                    projectDir = tentativeProjectLoc;
+                }
+            }
 
             // now let's calculate the path config
             PathConfig pcfg;
@@ -134,8 +137,7 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
                 pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPRETER, true);
             }
             else {
-                pcfg = new PathConfig();
-                pcfg.addSourceLoc(URIUtil.rootLocation("std"));
+                pcfg = new PathConfig().addSourceLoc(URIUtil.rootLocation("std"));
             }
 
             // TODO: move this code to somewhere in the rascal project, as apart from rascal-lsp dependency that you always get

@@ -149,7 +149,7 @@ public abstract class BaseLanguageServer {
     }
 
     private static void printClassPath() {
-        logger.trace("Started with classpath: {}", System.getProperty("java.class.path"));
+        logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})

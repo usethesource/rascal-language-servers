@@ -274,7 +274,7 @@ public class EvaluatorUtil {
                 return eval;
             }
             catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new IllegalStateException(e);
             }
             finally {
                 services.jobEnd(jobName, jobSuccess);
