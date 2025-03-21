@@ -43,6 +43,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.library.Prelude;
@@ -141,6 +143,9 @@ public interface IRascalFileSystemServices {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
+                if (!reg.exists(loc)) {
+                    throw new ResponseErrorException(new ResponseError(-1, "File does not exists", null));
+                }
                 var created = reg.created(loc);
                 var lastModified = reg.lastModified(loc);
                 if (reg.isDirectory(loc)) {
