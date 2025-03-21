@@ -162,8 +162,8 @@
             <src>${project.basedir}/src/main/rascal</src>
           </srcs>
           <srcIgnores>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
+            <!-- after we get a new version of the rascal-maven plugin, we might be able to typecheck these modules as well, untill then, no such luck -->
+            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/IDECheckerWrapper.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
