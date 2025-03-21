@@ -213,8 +213,6 @@ jobs:
         run: |
           node src/rewritePackageForNPMPublish.js
           rm -rf assets/images/ 
-          rm assets/jars/rascal-core.jar
-          rm assets/jars/typepal.jar
           rm -rf lib/test
           rm -rf src/test
           mv README-lib.md README.md
