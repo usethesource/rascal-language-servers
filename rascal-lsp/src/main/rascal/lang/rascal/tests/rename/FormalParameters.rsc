@@ -75,6 +75,12 @@ test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
     , decls="int f(int foo = 8) = foo;"
 );
 
+test bool keywordParameterCrossModule() = testRenameOccurrences({
+    byText("Definer", "int f(int foo = 8) = foo + 1;", {0, 1}),
+    byText("Main", "import Definer;
+                   'int x = f(foo = 9);", {0})
+});
+
 test bool functionIsNotConstructor() = testRenameOccurrences({0, 1, 3},
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;

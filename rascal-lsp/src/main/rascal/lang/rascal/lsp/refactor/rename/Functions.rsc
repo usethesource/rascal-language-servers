@@ -47,6 +47,5 @@ set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm)
 
 // TODO:
 // - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
-// - Keyword parameters. Currently, they are defined, but references at call sites do not appear as a use in the use/def relation.
 
 tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;
