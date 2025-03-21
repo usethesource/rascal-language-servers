@@ -65,9 +65,15 @@ test bool privateFunctionParameter() = testRenameOccurrences({0, 1}, "", decls =
     '}
 ");
 
-test bool nestedKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
+test bool nestedFunctionKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
     'int f(int foo = 8) = foo;
     'int x = f(foo = 10);
+");
+
+test bool nestedKeywordParameter() = testRenameOccurrences({2, 3, 5}, "
+    'int f(int foo = 1) = foo + 1;
+    'int g(int foo = 2) = foo + 1; // rename `foo`s in `g` only
+    'int i = f(foo = g(foo = 3));
 ");
 
 test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
