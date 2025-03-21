@@ -72,7 +72,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         return exists(uri);
     }
 
-    private static ISourceLocation stripLspPrefix(ISourceLocation uri) {
+    public static ISourceLocation stripLspPrefix(ISourceLocation uri) {
         if (uri.getScheme().startsWith("lsp+")) {
             try {
                 return URIUtil.changeScheme(uri, uri.getScheme().substring("lsp+".length()));

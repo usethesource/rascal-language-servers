@@ -35,6 +35,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -48,15 +49,7 @@ import io.usethesource.vallang.IValue;
  */
 public class Locations {
     public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
-        var result = URIResolverRegistry.getInstance().logicalToPhysical(loc);
-        if (result.getScheme().startsWith("lsp+")) {
-            try {
-                result = URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
-            } catch (URISyntaxException e) {
-                // fall through
-            }
-        }
-        return result;
+        return LSPOpenFileResolver.stripLspPrefix(URIResolverRegistry.getInstance().logicalToPhysical(loc));
     }
 
     public static ISourceLocation toClientLocationIfPossible(ISourceLocation loc) {
