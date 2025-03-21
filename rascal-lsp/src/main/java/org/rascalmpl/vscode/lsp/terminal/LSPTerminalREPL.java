@@ -138,6 +138,9 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
                 pcfg.addSourceLoc(URIUtil.rootLocation("std"));
             }
 
+            // TODO: move this code to somewhere in the rascal project, as apart from rascal-lsp dependency that you always get
+            // there is nothing special.
+
             // make sure to always add rascal-lsp (even if it wasn't in the pom.xml)
             // TODO: what if it was already in the pom.xml? PathConfig does a de-dup automatically.
             var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
