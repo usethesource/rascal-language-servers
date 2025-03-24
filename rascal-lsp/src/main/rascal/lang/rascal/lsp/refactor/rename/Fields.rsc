@@ -77,7 +77,6 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
         set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
         rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
         // Find all type-like definitions (but omit variable definitions etc.)
-        // TODO Consider functions that overload constructors, and their parameter names
         set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
 
         // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all

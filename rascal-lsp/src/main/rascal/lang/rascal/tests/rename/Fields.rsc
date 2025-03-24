@@ -212,6 +212,15 @@ test bool dataAsFormalField() = testRenameOccurrences({0, 1}, "
     'int getChild(D d) = d.foo;
 ", decls = "data D = x(int foo);");
 
+@ignore{Will be supported in the future.}
+test bool functionOverloadsConstructorFields() = testRenameOccurrences({
+    byText("ConsDefiner", "data F = f(int foo = 8);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'F f(int foo = 8, int baz = 9) = f(foo = foo + baz);", {0, 1, 2}),
+    byText("Main", "import ConsDefiner;
+                   'F x = f(foo=8);", {0})
+});
+
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
     'f = r.foo;
