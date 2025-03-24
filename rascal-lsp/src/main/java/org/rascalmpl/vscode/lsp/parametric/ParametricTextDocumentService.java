@@ -101,6 +101,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
@@ -143,6 +144,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final @Nullable LanguageParameter dedicatedLanguage;
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
+        URIResolverRegistry.getInstance();
+
         this.ownExecuter = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
@@ -154,6 +158,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             this.dedicatedLanguageName = dedicatedLanguage.getName();
             this.dedicatedLanguage = dedicatedLanguage;
         }
+        FallbackResolver.getInstance().registerTextDocumentService(this);
     }
 
     @Override
@@ -220,16 +225,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
-        TextDocumentState file = open(params.getTextDocument());
+        TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync()); // No debounce
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText());
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
         triggerAnalyzer(params.getTextDocument(), Duration.ofMillis(800));
     }
 
@@ -270,10 +277,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync());
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents) {
+    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
-        file.update(doc.getVersion(), newContents);
+        file.update(doc.getVersion(), newContents, timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync(Duration.ofMillis(800))); // Warning: Might be a later version (when a concurrent update happened)
         return file;
     }
@@ -407,9 +414,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private TextDocumentState open(TextDocumentItem doc) {
+    private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parsing, l, columns, doc.getVersion(), doc.getText())
+            l -> new TextDocumentState(contributions(doc)::parsing, l, columns, doc.getVersion(), doc.getText(), timestamp)
         );
     }
 
@@ -650,5 +657,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFuture.completedFuture(null);
         }
+    }
+
+    @Override
+    public boolean isManagingFile(ISourceLocation file) {
+        return files.containsKey(file.top());
+    }
+
+    @Override
+    public TextDocumentState getDocumentState(ISourceLocation file) {
+        return files.get(file.top());
     }
 }

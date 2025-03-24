@@ -83,13 +83,13 @@ public class TextDocumentState {
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
             ISourceLocation location, ColumnMaps columns,
-            int initialVersion, String initialContent) {
+            int initialVersion, String initialContent, long initialTimestamp) {
 
         this.parser = parser;
         this.location = location;
         this.columns = columns;
 
-        this.current = new Update(initialVersion, initialContent);
+        this.current = new Update(initialVersion, initialContent, initialTimestamp);
         this.parseAndGetCurrentDebouncer = new DebouncedSupplier<>(this::parseAndGetCurrent);
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
@@ -99,8 +99,8 @@ public class TextDocumentState {
         return location;
     }
 
-    public void update(int version, String content) {
-        current = new Update(version, content);
+    public void update(int version, String content, long timestamp) {
+        current = new Update(version, content, timestamp);
         // The creation of the `Update` object doesn't trigger the parser yet.
         // This happens only when the tree or diagnostics are requested.
     }
@@ -155,20 +155,26 @@ public class TextDocumentState {
     private class Update {
         private final int version;
         private final String content;
+        private final long timestamp;
         private final CompletableFuture<Versioned<ITree>> treeAsync;
         private final CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync;
         private final AtomicBoolean parsing;
 
-        public Update(int version, String content) {
+        public Update(int version, String content, long timestamp) {
             this.version = version;
             this.content = content;
+            this.timestamp = timestamp;
             this.treeAsync = new CompletableFuture<>();
             this.diagnosticsAsync = new CompletableFuture<>();
             this.parsing = new AtomicBoolean(false);
         }
 
         public Versioned<String> getContent() {
-            return new Versioned<>(version, content);
+            return new Versioned<>(version, content, timestamp);
+        }
+
+        public long getTimestamp() {
+            return timestamp;
         }
 
         public CompletableFuture<Versioned<ITree>> getTreeAsync() {
@@ -191,7 +197,7 @@ public class TextDocumentState {
                     .apply(location, content)
                     .whenComplete((t, e) -> {
                         // Prepare result values for futures
-                        var tree = new Versioned<>(version, t);
+                        var tree = new Versioned<>(version, t, timestamp);
                         var diagnostics = new Versioned<>(version, toDiagnostics(t, e));
 
                         // Complete future to get the tree
@@ -240,5 +246,9 @@ public class TextDocumentState {
 
             return parseErrors;
         }
+    }
+
+    public long getLastModified() {
+        return current.getTimestamp();
     }
 }

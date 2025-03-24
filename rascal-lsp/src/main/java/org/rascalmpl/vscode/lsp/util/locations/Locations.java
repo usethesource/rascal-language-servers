@@ -35,12 +35,34 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
+/**
+ * The Locations class provides utility methods related to source locations and VS Code locations.
+ *
+ * Source locations of files that are opened in the IDE are redirected by prefixing the scheme with "lsp+".
+ * These lsp-redirected source locations must not leak outside of the LSP server. The `toClientLocation` methods
+ * strip source locations of their "lsp+" prefix.
+ */
 public class Locations {
+    public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
+        return LSPOpenFileResolver.stripLspPrefix(URIResolverRegistry.getInstance().logicalToPhysical(loc));
+    }
+
+    public static ISourceLocation toClientLocationIfPossible(ISourceLocation loc) {
+        var result = toPhysicalIfPossible(loc);
+        if (result.getScheme().startsWith("lsp+")) {
+            try {
+                return URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
+            } catch (URISyntaxException e) {
+                // fall through
+            }
+        }
+        return result;
+    }
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
         ISourceLocation physical;
         try {

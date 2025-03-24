@@ -285,4 +285,15 @@ describe('IDE', function () {
             await ide.revertOpenChanges();
         }
     });
+
+    it("editor contents used for open files", async() => {
+        const importerEditor = await ide.openModule(TestWorkspace.importerFile);
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+
+        await importeeEditor.typeTextAt(3, 1, "public str foo;");
+        await ide.openModule(TestWorkspace.importerFile);
+
+        await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
+        await ide.hasErrorSquiggly(importerEditor);
+    });
 });
