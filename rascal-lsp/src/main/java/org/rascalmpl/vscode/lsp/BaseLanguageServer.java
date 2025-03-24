@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
@@ -57,6 +58,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.NotebookDocumentService;
 import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
@@ -267,8 +269,9 @@ public abstract class BaseLanguageServer {
                         return classLoaderFiles(IRascalValueFactory.getInstance().list(PathConfig.resolveCurrentRascalRuntimeJar()));
                     }
 
-                    PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.COMPILER);
-                    return classLoaderFiles(pcfg.getLibsAndTarget());
+                    var isRascal = new AtomicBoolean();
+                    PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.INTERPRETER, isRascal);
+                    return classLoaderFiles(isRascal.get() ? pcfg.getLibs() : pcfg.getLibsAndTarget());
                 }
                 catch (IOException | URISyntaxException e) {
                     logger.catching(e);
@@ -277,15 +280,18 @@ public abstract class BaseLanguageServer {
             });
         }
 
-        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode) throws IOException {
+        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode, AtomicBoolean isRascal) throws IOException {
             if (!reg.isDirectory(path)) {
                 path = URIUtil.getParentLocation(path);
             }
+
+            isRascal.set(false);
 
             ISourceLocation projectDir = PathConfig.inferProjectRoot(path);
             if (projectDir == null) {
                 throw new IOException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
             }
+            isRascal.set(new RascalManifest().getProjectName(projectDir).equals("rascal"));
             return PathConfig.fromSourceProjectRascalManifest(projectDir, mode, true);
         }
 
