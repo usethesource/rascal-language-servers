@@ -108,8 +108,22 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
-            await editor.setTextAtLine(10, "b := ;");
+            await editor.setTextAtLine(1, "");
             await ide.hasErrorSquiggly(editor, Delays.slow);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
+    it("error recovery works", async function () {
+        const editor = await ide.openModule(TestWorkspace.picoNewFile);
+        await ide.hasSyntaxHighlighting(editor);
+        try {
+            // Introduce two parse errors
+            await editor.setTextAtLine(4, "n : x natural");
+            await editor.setTextAtLine(9, "     a := x 2;");
+            await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+            await ide.hasSyntaxHighlighting(editor);
         } finally {
             await ide.revertOpenChanges();
         }
