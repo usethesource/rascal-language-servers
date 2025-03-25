@@ -33,8 +33,13 @@ import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
 import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::Import;
+
+import Map;
+import Set;
 
 import util::Maybe;
+import util::Util;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
     findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
@@ -80,3 +85,63 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
 tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
+
+alias Environment = tuple[TModel tm, map[str, loc] defs];
+
+Environment addDef(Tree def, loc scope, <TModel tm, map[str, loc] defs>) {
+    str name = "<def>";
+    Define d = <scope, name, name, typeVarId(), def.src, noDefInfo()>;
+    tm = tm[defines = tm.defines + d][definitions = tm.definitions + (d.defined: d)];
+
+    defs[name] = def.src;
+    return <tm, defs>;
+}
+
+Environment removeUses(Tree use, <TModel tm, map[str, loc] defs>) {
+    loc u = use.src;
+    if (useDefs:{_, *_} := tm.useDef[u]) {
+        removals = {<u, d> | loc d <- useDefs};
+        tm = tm[useDef = tm.useDef - removals];
+    }
+    return <tm, defs>;
+}
+
+Environment addUse(Tree use, <TModel tm, map[str, loc] defs>, str useName = "<use>") {
+    // We do not know how to augment this; silently fail
+    if (useName notin defs) return <tm, defs>;
+    tm = tm[useDef = tm.useDef + <use.src, defs[useName]>];
+    return <tm, defs>;
+}
+
+Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
+    top-down-break visit (tr) {
+        case (Module) `<Tags _> module <QualifiedName _> <ModuleParameters params> <Import* _> <Body body>`: {
+            if ({loc modScope} := range(getModuleScopes(tm))) {
+                <tm, modDefs> = (<tm, defs> | addDef(tv.name, modScope, it) | TypeVar tv <- params.parameters);
+                <tm, _> = augmentTypeParams(body, <tm, modDefs>);
+            }
+        }
+        case FunctionDeclaration func: {
+            funcDefs = defs;
+            for (Pattern pat <- func.signature.parameters.formals.formals, pat has \type, /TypeVar tv := pat.\type) {
+                // The TModel sometimes contains uses that we do not want
+                <tm, funcDefs> = removeUses(tv.name, <tm, funcDefs>);
+                if ("<tv.name>" notin funcDefs) {
+                    <tm, funcDefs> = addDef(tv.name, func.src, <tm, funcDefs>);
+                } else {
+                    <tm, funcDefs> = addUse(tv.name, <tm, funcDefs>);
+                }
+            }
+            <tm, funcDefs> = (<tm, funcDefs> | addUse(tv.name, removeUses(tv.name, it)) | /TypeVar tv := func.signature.\type);
+
+            if (func has conditions) <tm, funcDefs> = augmentTypeParams(func.conditions, <tm, funcDefs>);
+            if (func has expression) <tm, _> = augmentTypeParams(func.expression, <tm, funcDefs>);
+            else if (func has body) <tm, _> = augmentTypeParams(func.body, <tm, funcDefs>);
+        }
+        case TypeVar tv: <tm, defs> = addUse(tv.name, <tm, defs>);
+    }
+    return <tm, defs>;
+}
+
+TModel augmentTypeParams(Tree tr, TModel tm) =
+    augmentTypeParams(tr, <tm, ()>)<0>;

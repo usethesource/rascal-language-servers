@@ -558,6 +558,7 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
 TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     tm = augmentFieldUses(tr, tm, tmodelForLoc);
     tm = augmentFormalUses(tr, tm, tmodelForLoc);
+    tm = augmentTypeParams(tr, tm);
     return tm;
 }
 
