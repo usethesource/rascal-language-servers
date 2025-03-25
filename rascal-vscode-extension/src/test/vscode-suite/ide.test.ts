@@ -125,6 +125,11 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
     });
 
+    it("type checker runs on dependencies", async() => {
+        const editor = await ide.openModule(TestWorkspace.libCallFile);
+        await triggerTypeChecker(editor, TestWorkspace.libFileTpl, true);
+    });
+
     it("go to definition works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
@@ -269,5 +274,16 @@ describe('IDE', function () {
         finally {
             await ide.revertOpenChanges();
         }
+    });
+
+    it("editor contents used for open files", async() => {
+        const importerEditor = await ide.openModule(TestWorkspace.importerFile);
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+
+        await importeeEditor.typeTextAt(3, 1, "public str foo;");
+        await ide.openModule(TestWorkspace.importerFile);
+
+        await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
+        await ide.hasErrorSquiggly(importerEditor);
     });
 });

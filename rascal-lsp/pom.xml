@@ -138,7 +138,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
+        <version>3.14.0</version>
         <configuration>
           <release>11</release>
           <showWarnings>true</showWarnings>
@@ -175,6 +175,7 @@
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/Rename.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/WorkspaceInfo.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/rename</ignore>
+            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/IDECheckerWrapper.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
           </srcIgnores>
           <sourceLookup>|lib://rascal-lsp|</sourceLookup>
