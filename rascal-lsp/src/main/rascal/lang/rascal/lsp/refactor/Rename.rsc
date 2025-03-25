@@ -158,18 +158,6 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
             r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
         }
     }
-
-    // TODO Re-do once we decided how to treat definitions that are not in tm.defines
-    // rel[loc old, loc new] doubleTypeParamDeclarations = {<cD, nD>
-    //     | loc cD <- currentDefs
-    //     , tm.facts[cD]?
-    //     , cT: aparameter(_, _) := tm.facts[cD]
-    //     , Define fD: <_, _, _, _, _, defType(afunc(_, funcParams:/cT, _))> <- tm.defines
-    //     , isContainedIn(cD, fD.defined)
-    //     , <loc nD, nT: aparameter(newName, _)> <- toRel(tm.facts)
-    //     , isContainedIn(nD, fD.defined)
-    //     , /nT := funcParams
-    // };
 }
 
 void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {

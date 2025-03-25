@@ -238,54 +238,6 @@ DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(exceptConstructor(), l, curs
     return <{}, {}, NO_RENAMES>;
 }
 
-DefsUsesRenames rascalGetDefsUses(TModel ws, cursor(typeParam(), cursorLoc, cursorName), MayOverloadFun _, PathConfig(loc) _) {
-    set[loc] getFormals(afunc(_, _, _), rel[loc, AType] facts) = {l | <l, f> <- facts, f.alabel != ""};
-    set[loc] getFormals(aadt(_, _, _), rel[loc, AType] facts) {
-        perName = {<name, l> | <l, f: aparameter(name, _)> <- facts, f.alabel == ""};
-        // Per parameter name, keep the top-left-most occurrence
-        return mapper(groupRangeByDomain(perName), loc(set[loc] locs) {
-            return (getFirstFrom(locs) | l.offset < it.offset ? l : it | l <- locs);
-        });
-    }
-
-    bool definesTypeParam(Define _: <_, _, _, functionId(), _, defType(AType dT)>, AType paramType) =
-        afunc(_, /paramType, _) := dT;
-    bool definesTypeParam(Define _: <_, _, _, nonterminalId(), _, defType(AType dT)>, AType paramType) =
-        aadt(_, /paramType, _) := dT;
-    default bool definesTypeParam(Define _, AType _) = false;
-
-    AType cursorType = ws.facts[cursorLoc];
-
-    set[loc] defs = {};
-    set[loc] useDefs = {};
-    for (Define containingDef <- ws.defines
-     , isContainedIn(cursorLoc, containingDef.defined)
-     , definesTypeParam(containingDef, cursorType)) {
-        // From here on, we can assume that all locations are in the same file, because we are dealing with type parameters and filtered on `isContainedIn`
-        facts = {<l, ws.facts[l]> | l <- ws.facts
-                                  , cursorType := ws.facts[l]
-                                  , isContainedIn(l, containingDef.defined)};
-
-        formals = getFormals(containingDef.defInfo.atype, facts);
-
-        // Given the location/offset of `&T`, find the location/offset of `T`
-        offsets = sort({l.offset | l <- facts<0>});
-        nextOffsets = toMapUnique(zip2(prefix(offsets), tail(offsets)));
-
-        loc sentinel = |unknown:///|(0, 0, <0, 0>, <0, 0>);
-        defs += {min([f | f <- facts<0>, f.offset == nextOffset]) | formal <- formals, nextOffsets[formal.offset]?, nextOffset := nextOffsets[formal.offset]};
-
-        useDefs += {trim(l, removePrefix = l.length - size(cursorName))
-                    | l <- facts<0>
-                    , !ws.definitions[l]? // If there is a definition at this location, this is a formal argument name
-                    , !any(ud <- ws.useDef[l], ws.definitions[ud]?) // If there is a definition for the use at this location, this is a use of a formal argument
-                    , !any(flInner <- facts<0>, isStrictlyContainedIn(flInner, l)) // Filter out any facts that contain other facts
-        };
-    }
-
-    return <defs, useDefs - defs, NO_RENAMES>;
-}
-
 private str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
 private str describeFact(nothing()) = "unknown type";
 
