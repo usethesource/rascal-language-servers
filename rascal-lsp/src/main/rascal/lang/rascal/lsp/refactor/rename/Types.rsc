@@ -85,6 +85,7 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc
 tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
 tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
 tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
+tuple[type[Tree] as, str desc] asType(typeVarId()) = <#Name, "type variable name">;
 
 alias Environment = tuple[TModel tm, map[str, loc] defs];
 
