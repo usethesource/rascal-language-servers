@@ -134,9 +134,9 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         for (m <- modulesByLocation) {
             try {
-                parseModuleWithSpaces(m.file);
-            } catch _: {
-                throw "Parse error in test module <ml>";
+                parse(#start[Module], m.file);
+            } catch ParseError(l): {
+                throw "Parse error in test module <m.file>: <l>";
             }
         }
 

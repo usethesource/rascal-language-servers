@@ -181,15 +181,6 @@ test bool extendedConstructorField() = testRenameOccurrences({
         ", {0, 1})
 });
 
-test bool dataTypeReusedName() = testRenameOccurrences({
-    byText("Scratch1", "
-        'data Foo = f();
-        ", {0}),
-    byText("Scratch2", "
-        'data Foo = g();
-        ", {})
-}, oldName = "Foo", newName = "Bar");
-
 test bool dataFieldReusedName() = testRenameOccurrences({
     byText("Scratch1", "
         'data Foo = f(int foo);
@@ -220,6 +211,15 @@ test bool dataCommonKeywordFieldReusedName() = testRenameOccurrences({
 test bool dataAsFormalField() = testRenameOccurrences({0, 1}, "
     'int getChild(D d) = d.foo;
 ", decls = "data D = x(int foo);");
+
+@ignore{Will be supported in the future.}
+test bool functionOverloadsConstructorFields() = testRenameOccurrences({
+    byText("ConsDefiner", "data F = f(int foo = 8);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'F f(int foo = 8, int baz = 9) = f(foo = foo + baz);", {0, 1, 2}),
+    byText("Main", "import ConsDefiner;
+                   'F x = f(foo=8);", {0})
+});
 
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
@@ -253,6 +253,7 @@ test bool tupleFieldAccessUpdate() = testRenameOccurrences({0, 1}, "
     't.foo = \"two\";
 ");
 
+@ignore{Ignore this for now, until we figure out the desired semantics here. https://github.com/usethesource/rascal/issues/2188}
 test bool similarCollectionTypes() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'rel[str foo, int baz] r = {};
     'lrel[str foo, int baz] lr = [];

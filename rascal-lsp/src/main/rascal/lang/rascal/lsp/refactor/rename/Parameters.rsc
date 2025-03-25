@@ -30,6 +30,7 @@ module lang::rascal::lsp::refactor::rename::Parameters
 extend framework::Rename;
 import framework::TextEdits;
 extend lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Fields;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -45,51 +46,27 @@ tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, IdRole role, _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
-    when isFormalId(role);
+    when role in positionalFormalRoles;
 
-private set[loc] rascalGetKeywordArgs(none()) = {};
-private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Pattern] ","}+ keywordArgs), str argName) =
-    { kwArg.name.src
-    | kwArg <- keywordArgs
-    , "<kwArg.name>" == argName};
-private set[loc] rascalGetKeywordArgs(\default(_, {KeywordArgument[Expression] ","}+ keywordArgs), str argName) =
-    { kwArg.name.src
-    | kwArg <- keywordArgs
-    , "<kwArg.name>" == argName};
-
-void renameAdditionalUses(set[Define] defs:{<_, id, _, keywordFormalId(), _, _>, *_}, str newName, TModel tm, Renamer r) {
-    if (size(defs.id) > 1) {
-        for (loc l <- defs.defined) {
-            r.error(l, "Cannot rename multiple names at once (<defs.id>)");
-        }
-        return;
-    }
-
-    // We get the module location from the uses. If there are no uses, this is skipped.
-    // That's intended, since this function is only supposed to rename uses.
-    if ({loc u, *_} := tm.useDef<0>) {
-        set[Define] funcDefs = {d | d:<_, _, _, functionId(), _, _> <- tm.defines, d.defined in defs.scope};
-        set[loc] funcCalls = invert(tm.useDef)[funcDefs.defined];
-
-        // TODO Typepal: if the TModel would register kw arg names at call sites as uses, this tree visit would not be necessary
-        Tree tr = r.getConfig().parseLoc(u.top);
-        visit (tr) {
-            case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
-                if (e.src in funcCalls) {
-                    funcCalls -= e.src;
-                    for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                        r.textEdit(replace(ul, newName));
-                    }
-                }
-            }
-            case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`: {
-                if (e.src in funcCalls) {
-                    funcCalls -= e.src;
-                    for (loc ul <- rascalGetKeywordArgs(kwArgs, id)) {
-                        r.textEdit(replace(ul, newName));
+@synopsis{Add use/def relations for keyword function parameters, until they exist in the TModel.}
+TModel augmentFormalUses(Tree tr, TModel tm, TModel(loc) getModel) {
+    rel[loc funcDef, str kwName, loc kwLoc] keywordFormalDefs = {
+        *(fileTm.defines<idRole, scope, id, defined>)[keywordFormalId()]
+        | loc f <- getModuleFile(tm) + (tm.paths<to>)
+        , fileTm := getModel(f.top)
+    };
+    visit (tr) {
+        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
+            funcKwDefs = keywordFormalDefs[tm.useDef[e.src]];
+            // Only visit uses of our keyword arguments - do not go into nested calls
+            top-down-break visit (kwArgs) {
+                case (KeywordArgument[Expression]) `<Name kw> = <Expression _>`: {
+                    for (loc d <- funcKwDefs["<kw>"]) {
+                        tm = tm[useDef = tm.useDef + <kw.src, d>];
                     }
                 }
             }
         }
     }
+    return tm;
 }

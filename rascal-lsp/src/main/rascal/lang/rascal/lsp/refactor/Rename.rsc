@@ -551,23 +551,42 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
 list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
+@synopsis{
+    Augment the TModel with 'missing' use/def information.
+    Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
+}
+TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
+    tm = augmentFieldUses(tr, tm, tmodelForLoc);
+    tm = augmentFormalUses(tr, tm, tmodelForLoc);
+    return tm;
+}
+
+TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig)
+    = tmodelForTree(parseModuleWithSpaces(l), getPathConfig);
+
+TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
+    loc l = t.src.top;
+    pcfg = getPathConfig(l);
+    mname = getModuleName(l, pcfg);
+
+    ccfg = rascalCompilerConfig(pcfg);
+    ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
+
+    <found, tm, ms> = getTModelForModule(mname, ms);
+    if (!found) throw ms.messages;
+    return augmentTModel(t, tm, TModel(loc f) {
+        // Prevent endless recursion
+        if (f == l) return tm;
+        return tmodelForLoc(f, getPathConfig);
+    });
+}
+
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
     extendFocusWithConcreteSyntax(cursor, cursorLoc)
   , newName
   , rconfig(
         Tree(loc l) { return parse(#start[Module], l); }
-      , TModel(Tree t) {
-          loc l = t.src.top;
-          pcfg = getPathConfig(l);
-          mname = getModuleName(l, pcfg);
-
-          ccfg = rascalCompilerConfig(pcfg);
-          ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
-
-          <found, tm, ms> = getTModelForModule(mname, ms);
-          if (!found) throw ms.messages;
-          return tm;
-      }
+      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
@@ -582,6 +601,8 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 
     loc cursorLoc = cursor[0].src;
     TModel tm = getModel(cursor[-1]);
+    if (isUnsupportedCursor(cursor, tm, r)) return {};
+
     for (Tree c <- cursor) {
         if (tm.definitions[c.src]?) {
             return {tm.definitions[c.src]};
@@ -595,19 +616,19 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 }
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    if ({IdRole role} := defs.idRole) {
+    escNewName = escapeReservedNames(newName);
+    for (role <- defs.idRole) {
+        hasError = false;
         <t, desc> = asType(role);
-        escNewName = escapeReservedNames(newName);
         if (tryParseAs(t, escNewName) is nothing) {
+            hasError = true;
             r.error(cursor[0], "\'<escNewName>\' is not a valid <desc>");
-            return <{}, {}, {}>;
         }
 
-        return findOccurrenceFilesUnchecked(defs, cursor, escNewName, getTree, r);
+        if (hasError) return <{}, {}, {}>;
     }
 
-    r.error(cursor[0], "Cannot find occurrence files for mixed-role definitions.");
-    return <{}, {}, {}>;
+    return findOccurrenceFilesUnchecked(defs, cursor, escNewName, getTree, r);
 }
 
 void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {

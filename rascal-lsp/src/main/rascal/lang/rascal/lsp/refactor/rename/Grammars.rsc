@@ -38,7 +38,6 @@ import lang::rascalcore::check::BasicRascalConfig;
 data Tree;
 
 // TODO
-// - `has` uses: These do not appear in use/def relations
 // - 'except constructors', like Sym sym!otherSym. These do not appear in use/def relations.
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, IdRole role, _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =

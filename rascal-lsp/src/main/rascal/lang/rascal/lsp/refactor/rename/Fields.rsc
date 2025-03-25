@@ -29,35 +29,106 @@ module lang::rascal::lsp::refactor::rename::Fields
 
 extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::BuiltinFields;
 
 import lang::rascal::lsp::refactor::rename::Constructors;
 import lang::rascal::lsp::refactor::rename::Types;
 
 import lang::rascal::\syntax::Rascal;
-import analysis::typepal::TModel;
 
+import analysis::typepal::Collector;
+import analysis::typepal::TModel;
+import analysis::diff::edits::TextEdits;
+
+import Map;
 import util::Maybe;
 
-bool isFieldRole(IdRole role) = role in {fieldId(), keywordFieldId()};
+set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
+bool isFieldRole(IdRole role) = role in fieldRoles;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, role, _, _>, *_}, Tree tr, TModel tm, Renamer r) {
-    if (!isFieldRole(role)) fail findAdditionalDefinitions;
-    if ({str fieldName} := cursorDefs.id) {
-        adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
-        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
+    if (any(role <- cursorDefs.idRole, !isFieldRole(role)) || {} := cursorDefs) fail findAdditionalDefinitions;
 
-        // Find all fields with the same name in these ADT definitions
-        return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-            fileTm = r.getConfig().tmodelForLoc(f);
-            return {fileTm.definitions[d] | loc d <- (fileTm.defines<id, idRole, scope, defined>)[fieldName, role, fileDefs.defined]};
-        });
+    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+    adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+
+    // Find all fields with the same name in these ADT definitions
+    return getFieldDefinitions(adtDefs, cursorDefs<idRole, id>, r.getConfig().tmodelForLoc);
+}
+
+@synopsis{Collect all definitions for field <fieldName> in ADT/collection/tuple by definition.}
+set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fields, TModel(loc) getModel)
+    = flatMapPerFile(containerDefs, set[Define](loc f, set[Define] localContainerDefs) {
+        localTm = getModel(f);
+        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[role, name]) | <role, name> <- fields};
+        return {localTm.definitions[d] | loc d <- candidateDefs[localContainerDefs.defined]};
+    });
+
+@synopsis{Collect all definitions for the field <fieldName> in ADT/collection/tuple by tree.}
+set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
+    = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] localContainerDefs) {
+        fileTm = getModel(f);
+
+        set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs};
+        // Find the type of the container. For a constructor value, the type is its ADT type.
+        set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
+        rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
+        // Find all type-like definitions (but omit variable definitions etc.)
+        set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
+
+        // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
+        return getFieldDefinitions(containerTypeDefs, {<role, fieldName> | role <- fieldRoles}, getModel);
+    });
+
+@synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
+TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
+    // Make sure that everyone receives the (partially) augmented TModel from here on
+    TModel getAugmentedModel(loc l) = (l == tr.src.top) ? tm : getModel(l);
+
+    void addDef(Define d) { tm = tm[defines = tm.defines + d][definitions = tm.definitions + (d.defined: d)]; }
+    void addUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef + <use, def>]; }
+    void removeUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef - <use, def>]; }
+
+    void addFieldUse(Tree container, Tree fieldName) {
+        // Common/ADT keyword field uses currently point to their scope (i.e. parent ADT definition) instead of the field definition
+        // https://github.com/usethesource/rascal/issues/2172?issue=usethesource%7Crascal%7C2186
+        for (Define field <- getFieldDefinitions(container, "<fieldName>", tm, getAugmentedModel)) {
+            removeUseDef(fieldName.src, field.scope);
+            addUseDef(fieldName.src, field.defined);
+        }
     }
 
-    for (d <- cursorDefs) {
-        r.error(d.defined, "Cannot find overloads for fields with multiple names (<cursorDefs.id>).");
+    void addCollectionFieldDef(Tree _, (TypeArg) `<Type _>`) {}
+    void addCollectionFieldDef(Tree structuredType, (TypeArg) `<Type fieldType> <Name fieldName>`) {
+        if (just(AType containerType) := getFact(tm, structuredType.src)) {
+            addDef(<structuredType.src, "<fieldName>", "<fieldName>", fieldId(), fieldName.src, defType(aparameter("<fieldName>", containerType))>);
+        }
     }
-    return {};
+
+    visit (tr) {
+        case (Expression) `<Expression e> has <Name n>`: addFieldUse(e, n);
+        case (Expression) `<Expression e>.<Name n>`: addFieldUse(e, n);
+        case (Assignable) `<Assignable rec>.<Name n>`: addFieldUse(rec, n);
+        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`:
+            for (/(KeywordArgument[Expression]) `<Name n> = <Expression _>` := kwArgs) addFieldUse(e, n);
+        case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`:
+            for (/(KeywordArgument[Pattern]) `<Name n> = <Pattern _>` := kwArgs) addFieldUse(e, n);
+        case st:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
+            if (just(AType tp) := getFact(tm, st.src)) {
+                // It is convenient to wrap the collection's fields in a 'type'definition, like with ADTs
+                // This definition serves (only) that purpose
+                addDef(<tm.scopes[parentScope(st.src, tm)], "<st>", "<st>", aliasId(), st.src, defType(tp)>);
+                for (TypeArg arg <- args) addCollectionFieldDef(st, arg);
+            }
+        }
+        case (Expression) `<Expression e>\<<{Field ","}+ fields>\>`:
+            for (name(Name n) <- fields) addFieldUse(e, n);
+        case (Expression) `<Expression e>[<Name n> = <Expression _>]`: addFieldUse(e, n);
+    }
+    return tm;
 }
 
 // Positional fields
@@ -66,12 +137,15 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
 
-bool isUnsupportedCursor(list[Tree] _:[*_, (Expression) `<Expression _> has <Name n>`, *_], Renamer r) {
-    r.error(n, "Cannot rename a field from this expression.");
-    return false;
-}
-
-bool isUnsupportedCursor(list[Tree] _:[*_, TypeArg tp, *_, StructuredType _, *_], Renamer r) {
-    r.error(tp, "Cannot rename a field from a structured type.");
+bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], TModel tm, Renamer r) {
+    builtinFields = getBuiltinFieldMap();
+    if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
+        for (fieldName <- domain(builtinFields[lhsType])) {
+            if (n1 := [Name] fieldName, n2 := n1) {
+                r.error(n1, "Cannot rename builtin field \'<fieldName>\'");
+                return true;
+            }
+        }
+    }
     return false;
 }

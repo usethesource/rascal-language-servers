@@ -29,6 +29,7 @@ module lang::rascal::lsp::refactor::rename::Functions
 
 extend framework::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Constructors;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -36,11 +37,15 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
-set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree _, TModel tm, Renamer _) =
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree tr, TModel tm, Renamer r)
+    = findAdditionalFunctionDefinitions(cursorDefs, tm)
+    + findAdditionalConstructorDefinitions(cursorDefs, tr, tm, r)
+    ;
+
+set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm) =
     {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
 
 // TODO:
 // - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
-// - Keyword parameters. Currently, they are defined, but references at call sites do not appear as a use in the use/def relation.
 
 tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;
