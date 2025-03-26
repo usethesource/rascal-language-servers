@@ -47,7 +47,8 @@ describe('DSL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
-        const replExecuteMain = repl.execute("main();"); // we don't wait yet, because we might miss pico loading window
+        // we don't wait yet, because we might miss pico loading window
+        const replExecuteMain = repl.execute("main(errorRecovery=true);"); // TODO: find a way to run some tests with and some tests without error recovery
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");

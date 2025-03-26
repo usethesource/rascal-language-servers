@@ -40,8 +40,8 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 
-private Tree picoParser(str input, loc origin) {
-    return parse(#start[Program], input, origin, allowRecovery=true, filters={createParseErrorFilter(false)});
+private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
+    return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
 }
 
 @synopsis{A language server is simply a set of ((LanguageService))s.}
@@ -50,8 +50,8 @@ Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
 with the ((Language)) definition later.
 }
-set[LanguageService] picoLanguageServer() = {
-    parsing(picoParser, usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServer(bool allowRecovery) = {
+    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -60,17 +60,23 @@ set[LanguageService] picoLanguageServer() = {
     codeAction(picoCodeActionService)
 };
 
+set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
+set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
+
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
 ((LanguageService))s can be registered asynchronously and incrementally,
 such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
-set[LanguageService] picoLanguageServerSlowSummary() = {
-    parsing(picoParser, usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServerSlowSummary(bool allowRecovery) = {
+    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
+
+set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(false);
+set[LanguageService] picoLanguageServerSlowSummaryWithRecovery() = picoLanguageServerSlowSummary(true);
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
 @description{
@@ -194,14 +200,14 @@ Register the Pico language and the contributions that supply the IDE with featur
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main() {
+void main(bool errorRecovery=false) {
     registerLanguage(
         language(
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            "picoLanguageServer"
+            errorRecovery ? "picoLanguageServerWithRecovery" : "picoLanguageServer"
         )
     );
     registerLanguage(
@@ -210,7 +216,7 @@ void main() {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            "picoLanguageServerSlowSummary"
+            errorRecovery ? "picoLanguageServerSlowSummaryWithRecovery" : "picoLanguageServerSlowSummary"
         )
     );
 }

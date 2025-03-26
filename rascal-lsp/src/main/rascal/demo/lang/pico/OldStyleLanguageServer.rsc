@@ -39,14 +39,13 @@ import util::Reflective;
 import lang::pico::\syntax::Main;
 import util::ParseErrorRecovery;
 
-private Tree picoParser(str input, loc origin) {
-    return parse(#start[Program], input, origin, allowRecovery=true, filters={createParseErrorFilter(false)});
+private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
+    return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
 }
 
-
 @synopsis{Provides each contribution (IDE feature) as a callback element of the set of LanguageServices.}
-set[LanguageService] picoLanguageContributor() = {
-    parsing(picoParser),
+set[LanguageService] picoLanguageContributor(bool allowRecovery) = {
+    parsing(picoParser(allowRecovery)),
     outliner(picoOutliner),
     lenses(picoLenses),
     executor(picoCommands),
@@ -54,13 +53,18 @@ set[LanguageService] picoLanguageContributor() = {
     definer(lookupDef),
     actions(picoActions)
 };
+set[LanguageService] picoLanguageContributor() = picoLanguageContributor(false);
+set[LanguageService] picoLanguageContributorWithRecovery() = picoLanguageContributor(true);
 
 @synopsis{This set of contributions runs slower but provides more detail.}
-set[LanguageService] picoLanguageContributorSlowSummary() = {
-    parsing(picoParser),
+set[LanguageService] picoLanguageContributorSlowSummary(bool allowRecovery) = {
+    parsing(picoParser(allowRecovery)),
     analyzer(picoAnalyzer, providesImplementations = false),
     builder(picoBuilder)
 };
+
+set[LanguageService] picoLanguageContributorSlowSummary() = picoLanguageContributorSlowSummary(false);
+set[LanguageService] picoLanguageContributorSlowSummaryWithRecovery() = picoLanguageContributorSlowSummary(true);
 
 @synopsis{The outliner maps pico syntax trees to lists of DocumentSymbols.}
 list[DocumentSymbol] picoOutliner(start[Program] input)
@@ -178,14 +182,14 @@ Register the Pico language and the contributions that supply the IDE with featur
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main() {
+void main(bool errorRecovery=false) {
     registerLanguage(
         language(
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::OldStyleLanguageServer",
-            "picoLanguageContributor"
+            errorRecovery ? "picoLanguageContributorWithRecovery" : "picoLanguageContributor"
         )
     );
     registerLanguage(
@@ -194,7 +198,7 @@ void main() {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::OldStyleLanguageServer",
-            "picoLanguageContributorSlowSummary"
+            errorRecovery ? "picoLanguageContributorSlowSummaryWithRecovery" : "picoLanguageContributorSlowSummary"
         )
     );
 }

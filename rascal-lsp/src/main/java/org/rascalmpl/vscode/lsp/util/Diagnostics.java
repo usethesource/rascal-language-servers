@@ -61,10 +61,10 @@ public class Diagnostics {
     private static final Map<String, DiagnosticSeverity> severityMap;
 
     // Note: DiagnosticSeverity.Hint only highlightes a single character!
-    static DiagnosticSeverity errorLocationHighlight = DiagnosticSeverity.Error;
-    static DiagnosticSeverity errorTreeHighlight = null;
-    static DiagnosticSeverity prefixHighlight = null;
-    static DiagnosticSeverity skippedHighlight = null;
+    private static final DiagnosticSeverity ERROR_LOCATION_HIGHLIGHT = DiagnosticSeverity.Error;
+    private static final DiagnosticSeverity ERROR_TREE_HIGHLIGHT = null;
+    private static final DiagnosticSeverity PREFIX_HIGHLIGHT = null;
+    private static final DiagnosticSeverity SKIPPED_HIGHLIGHT = null;
 
     static {
         severityMap = new HashMap<>();
@@ -96,22 +96,22 @@ public class Diagnostics {
         List<Diagnostic> diagnostics = new ArrayList<>();
 
         // Highlight selected parts of the error tree
-        if (errorLocationHighlight != null) {
+        if (ERROR_LOCATION_HIGHLIGHT != null) {
             // Just the error location
             ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
                     skippedLoc.getOffset(), 1,
                     skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
                     skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
             diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
-                    errorLocationHighlight, "parser"));
+                    ERROR_LOCATION_HIGHLIGHT, "parser"));
         }
 
-        if (errorTreeHighlight != null) {
+        if (ERROR_TREE_HIGHLIGHT != null) {
             // The whole error tree
-            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", errorTreeHighlight, "parser"));
+            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
         }
 
-        if (prefixHighlight != null) {
+        if (PREFIX_HIGHLIGHT != null) {
             // The recognized prefix
             int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
             if (prefixLength > 0) {
@@ -119,13 +119,13 @@ public class Diagnostics {
                         errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
                         errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
                         errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", DiagnosticSeverity.Error, "parser"));
+                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
             }
         }
 
-        if (skippedHighlight != null && skippedLoc.getLength() > 0) {
+        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
             // The skipped part
-            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", skippedHighlight, "parser"));
+            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
         }
 
         // Note: DiagnosticSeverity.Hint only highlightes a single character!
