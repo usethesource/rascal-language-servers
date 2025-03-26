@@ -148,14 +148,13 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
                 reg.watch(path, true, d -> sourceLocationChanged(path, d));
             }
 
-            var isRascal = projectDir == null ? false : new RascalManifest().getProjectName(projectDir).equals("rascal");
-
+            var isRascal = projectDir != null && new RascalManifest().getProjectName(projectDir).equals("rascal");
+            var libs = (isRascal ? pcfg.getLibs() : pcfg.getLibsAndTarget());
             stdout.println("Rascal Class Loader path: ");
-            for (IValue entry: (isRascal ? pcfg.getLibs() : pcfg.getLibsAndTarget())) {
+            for (IValue entry: libs) {
                 stdout.println("- " + entry);
             }
-            ClassLoader cl = new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader());
-            evaluator.addClassLoader(cl);
+            evaluator.addClassLoader(new SourceLocationClassLoader(libs, ClassLoader.getSystemClassLoader()));
 
             if (!pcfg.getMessages().isEmpty()) {
                 stdout.println("PathConfig messages:");
