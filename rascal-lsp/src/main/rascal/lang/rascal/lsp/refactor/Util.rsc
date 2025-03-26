@@ -76,6 +76,11 @@ bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && l.authority == prefix.authority
                                   && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
 
+str safeRelativeModuleName(loc path, PathConfig pcfg) {
+    l = relativize(pcfg.srcs, path);
+    return replaceAll(l[extension=""].path[1..], "/", "::");
+}
+
 @synopsis{
     A cached wrapper for the Rascal whole-module parse function.
 }

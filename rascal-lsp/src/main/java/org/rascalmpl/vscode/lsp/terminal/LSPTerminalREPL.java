@@ -26,10 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,6 +49,7 @@ import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.parser.gtd.exception.ParseError;
@@ -58,11 +59,11 @@ import org.rascalmpl.repl.output.ICommandOutput;
 import org.rascalmpl.repl.output.impl.AsciiStringOutputPrinter;
 import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
 import org.rascalmpl.repl.rascal.RascalReplServices;
-import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
@@ -104,55 +105,68 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
     @Override
     protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
         var evaluator = super.buildEvaluator(input, stdout, stderr, services);
-        evaluator.addRascalSearchPath(URIUtil.correctLocation("lib", "rascal-lsp", ""));
-
-        URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-        ISourceLocation projectDir = ShellEvaluatorFactory.inferProjectRoot(new File(System.getProperty("user.dir")));
-        String projectName = "unknown-project";
-        if (projectDir != null) {
-            projectName = new RascalManifest().getProjectName(projectDir);
-        }
-
-        reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
-        reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
-
-        debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
-
         try {
+            debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+
+            // setup forwards to the VS Code URI resolvers
+            URIResolverRegistry reg = URIResolverRegistry.getInstance();
+            reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
+            reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
+
+            // as VS Code starts us at the project root, we can use the current working directory to know which project we're at
+            ISourceLocation projectDir = PathConfig.inferProjectRoot(URIUtil.createFileLocation(System.getProperty("user.dir")));
+
+            // now let's calculate the path config
             PathConfig pcfg;
             if (projectDir != null) {
-                pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPETER);
+                pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPRETER, true);
             }
             else {
-                pcfg = new PathConfig();
-                pcfg.addSourceLoc(URIUtil.rootLocation("std"));
+                pcfg = new PathConfig().addSourceLoc(URIUtil.rootLocation("std"));
             }
 
-            stdout.println("Rascal Version: " + RascalManifest.getRascalVersionNumber());
-            stdout.println("Rascal-lsp Version: " + getRascalLspVersion());
-            new StandardTextWriter(true).write(pcfg.asConstructor(), stdout);
+            // TODO: move this code to somewhere in the rascal project, as apart from rascal-lsp dependency that you always get
+            // there is nothing special.
 
+            // make sure to always add rascal-lsp (even if it wasn't in the pom.xml)
+            // TODO: what if it was already in the pom.xml? PathConfig does a de-dup automatically.
+            var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+            // the interpreter must find the Rascal sources of util::LanguageServer etc.
+            pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
+            // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
+            pcfg = pcfg.addLibLoc(lspJar);
+
+            stdout.println("Rascal " + RascalManifest.getRascalVersionNumber());
+            stdout.println("Rascal-lsp " + getRascalLspVersion(lspJar));
+
+            stdout.println("Rascal Search path: ");
             for (IValue srcPath : pcfg.getSrcs()) {
+                // printing and configuring the evalutor at the same time
                 ISourceLocation path = (ISourceLocation)srcPath;
+                stdout.println("- " + path);
                 evaluator.addRascalSearchPath(path);
                 reg.watch(path, true, d -> sourceLocationChanged(path, d));
             }
 
-            ClassLoader cl = new SourceLocationClassLoader(
-                pcfg.getClassloaders()
-                    .append(URIUtil.correctLocation("lib", "rascal",""))
-                    .append(URIUtil.correctLocation("lib", "rascal-lsp",""))
-                    .append(URIUtil.correctLocation("target", projectName, "")),
-                ClassLoader.getSystemClassLoader()
-            );
+            var isRascal = projectDir != null && new RascalManifest().getProjectName(projectDir).equals("rascal");
+            var libs = (isRascal ? pcfg.getLibs() : pcfg.getLibsAndTarget());
+            stdout.println("Rascal Class Loader path: ");
+            for (IValue entry: libs) {
+                stdout.println("- " + entry);
+            }
+            evaluator.addClassLoader(new SourceLocationClassLoader(libs, ClassLoader.getSystemClassLoader()));
 
-            evaluator.addClassLoader(cl);
+            if (!pcfg.getMessages().isEmpty()) {
+                stdout.println("PathConfig messages:");
+                Messages.write(pcfg.getMessages(), stdout);
+                services.registerDiagnostics(pcfg.getMessages());
+            }
+
+
         }
-        catch (IOException e) {
+        catch (IOException | URISyntaxException e) {
             e.printStackTrace(stderr);
         }
-
         return evaluator;
     }
 
@@ -213,10 +227,10 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         }
     }
 
-    private static String getRascalLspVersion() {
+    private static String getRascalLspVersion(ISourceLocation lspJar) {
         try {
             return new Manifest(URIResolverRegistry.getInstance()
-                .getInputStream(URIUtil.correctLocation("lib", "rascal-lsp", "META-INF/MANIFEST.MF")))
+                .getInputStream(URIUtil.getChildLocation(lspJar, "META-INF/MANIFEST.MF")))
                 .getMainAttributes().getValue("Specification-Version");
         } catch (IOException e) {
             return "Unknown";

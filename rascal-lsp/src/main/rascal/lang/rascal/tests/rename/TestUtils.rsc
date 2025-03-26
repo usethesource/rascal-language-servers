@@ -134,14 +134,14 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         renamesPerModule = (
             beforeRename: afterRename
             | renamed(oldLoc, newLoc) <- edits<0>
-            , beforeRename := getModuleName(oldLoc, pcfg)
-            , afterRename := getModuleName(newLoc, pcfg)
+            , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
+            , afterRename := safeRelativeModuleName(newLoc, pcfg)
         );
 
         replacesPerModule = (
             name: occs
             | changed(file, changes) <- edits<0>
-            , name := getModuleName(file, pcfg)
+            , name := safeRelativeModuleName(file, pcfg)
             , locs := {c.range | c <- changes}
             , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
         );
@@ -150,12 +150,12 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             name : <occs, nameAfterRename>
             | srcDir <- pcfg.srcs
             , file <- find(srcDir, "rsc")
-            , name := getModuleName(file, pcfg)
+            , name := safeRelativeModuleName(file, pcfg)
             , occs := replacesPerModule[name] ? {}
             , nameAfterRename := renamesPerModule[name] ? name
         );
 
-        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
+        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
 
         if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
             success = false;
@@ -200,13 +200,21 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
+public loc calculateRascalLib() {
+    result = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := result.path) {
+        return result.parent.parent.parent;
+    }
+    return result;
+}
+
+
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[|lib://rascal|],
-        srcs=[testDir + "rascal"],
         resources=testDir + "bin",
-        generatedSources=testDir + "generated-sources"
+        libs=[calculateRascalLib()],
+        srcs=[testDir + "rascal"]
     );
 }
 
@@ -214,9 +222,8 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
    return pathConfig(
         srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
-        generatedSources = rascalCoreProject + "target/generated-test-sources",
-        resources = rascalCoreProject + "target/generated-test-resources",
-        libs = [|lib://typepal|, |lib://rascal|]
+        resources = rascalCoreProject + "target/test-classes",
+        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, calculateRascalLib()]
     );
 }
 

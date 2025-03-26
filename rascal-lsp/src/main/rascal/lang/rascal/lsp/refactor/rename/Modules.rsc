@@ -77,11 +77,11 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
     PathConfig oldPcfg = getPathConfig(old);
     PathConfig newPcfg = getPathConfig(new);
     if (isFile(new) && endsWith(new.file, ".rsc")) {
-        return {<getModuleName(old, oldPcfg), getModuleName(new, newPcfg), newPcfg>};
+        return {<safeRelativeModuleName(old, oldPcfg), safeRelativeModuleName(new, newPcfg), newPcfg>};
     }
 
     return {
-        <getModuleName(oldFile, oldPcfg), getModuleName(newFile, newPcfg), newPcfg>
+        <safeRelativeModuleName(oldFile, oldPcfg), safeRelativeModuleName(newFile, newPcfg), newPcfg>
         | loc newFile <- find(new, "rsc")
         , loc relFilePath := relativize(new, newFile)
         , loc oldFile := old + relFilePath.path
