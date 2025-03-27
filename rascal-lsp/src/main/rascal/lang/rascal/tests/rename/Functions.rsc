@@ -181,7 +181,7 @@ test bool nestedTypeParamClash() = testRename("
     'void f(&S s, &T t) {
     '   &S g(&S s) = s;
     '   &T g(&T t) = t;
-    }
+    '}
 ", oldName = "S", newName = "T", cursorAtOldNameOccurrence = 1);
 
 test bool adjacentTypeParams() = testRenameOccurrences({0, 1}, "
