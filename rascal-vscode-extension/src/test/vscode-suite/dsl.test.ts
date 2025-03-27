@@ -29,10 +29,16 @@ import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+
+function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
+    describe('DSL', function() { body.apply(this, [false]); });
+    describe('DSL+recovery', function() { body.apply(this, [true]); });
+}
 
 
 
-describe('DSL', function () {
+parameterizedDescribe(function (errorRecovery: boolean) {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
@@ -47,8 +53,7 @@ describe('DSL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
-        // we don't wait yet, because we might miss pico loading window
-        const replExecuteMain = repl.execute("main(errorRecovery=true);"); // TODO: find a way to run some tests with and some tests without error recovery
+        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -74,19 +79,16 @@ describe('DSL', function () {
 
     beforeEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot("DSL-" + this.test?.title);
+            await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
         }
     });
 
     afterEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot("DSL-" + this.test?.title);
+            await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
-    });
-
-    after(async function() {
     });
 
     it("have highlighting and parse errors", async function () {
@@ -117,6 +119,7 @@ describe('DSL', function () {
     });
 
     it("error recovery works", async function () {
+        if (!errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
@@ -131,12 +134,14 @@ describe('DSL', function () {
     });
 
     it("have inlay hints", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
         await ide.hasInlayHint(editor);
     });
 
     it("change runs analyzer", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
             await editor.setTextAtLine(10, "bzzz := 3;");
@@ -147,6 +152,7 @@ describe('DSL', function () {
     });
 
     it("save runs builder", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const line10 = await editor.getTextAtLine(10);
         try {
@@ -160,7 +166,8 @@ describe('DSL', function () {
         }
     });
 
-    it("go to definition works", async () => {
+    it("go to definition works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
         await editor.selectText("x", 2);
@@ -168,14 +175,16 @@ describe('DSL', function () {
         await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
     });
 
-    it("code lens works", async () => {
+    it("code lens works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
         await lens!.click();
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
-    it("quick fix works", async() => {
+    it("quick fix works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "  az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
@@ -191,4 +200,3 @@ describe('DSL', function () {
     });
 
 });
-
