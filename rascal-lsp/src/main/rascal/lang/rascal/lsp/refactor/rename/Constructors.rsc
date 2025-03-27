@@ -64,12 +64,21 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
         return {};
     }
 
-    // Find the ADT definitions in this file that these constructors belong to
-    adtDefs = {adt | Define adt:<_, _, _, dataId(), _, _> <- tm.defines, any(cons <- cursorDefs, isContainedIn(cons.defined, adt.defined))};
-    // Find overloads of this ADT
-    adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+    set[Define] additionalDefs = {};
+    // Collect constructors that overload constructors
+    if (consDefs: {_, *_} := {d | Define d <- cursorDefs, constructorId() := d.idRole}) {
+        // Find the ADT definitions in this file that these constructors belong to
+        adtDefs = {adt | Define adt:<_, _, _, dataId(), _, _> <- tm.defines, any(cons <- consDefs, isContainedIn(cons.defined, adt.defined))};
+        // Find overloads of this ADT
+        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
-    return {d | d <- findConstructorDefinitions(adtDefs, r), d.id in cursorDefs.id};
+        additionalDefs += {d | d <- findConstructorDefinitions(adtDefs, r), d.id in consDefs.id};
+    }
+    // Collect constructors that overload functions
+    if (funcDefs: {_, *_} := {d | Define d <- cursorDefs, functionId() := d.idRole}) {
+        additionalDefs += {tm.definitions[d] | loc d <- (tm.defines<idRole, id, defined>)[constructorId(), funcDefs.id]};
+    }
+    return additionalDefs;
 }
 
 set[Define] findConstructorDefinitions(set[Define] adtDefs, Renamer r) {
