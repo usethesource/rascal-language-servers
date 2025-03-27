@@ -95,7 +95,7 @@ decls = "
 
     'syntax T
     '   = foo: \"foo\"
-    '   | bar: \"bar\"
+    '   | baz: \"baz\"
     '   ;
 ");
 
