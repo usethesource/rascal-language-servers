@@ -53,7 +53,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
         return this.client.sendRequest<R>(method, param ?? { uri: uri.toString()} )
             .catch((r: ResponseError) => {
                 if (r !== undefined) {
-                    this.client.info("Got responds error from the file system: ", r);
+                    this.client.debug("Got response error from the file system: ", r);
                     switch (r.code) {
                         case -1: throw vscode.FileSystemError.FileExists(uri);
                         case -2: throw vscode.FileSystemError.FileIsADirectory(uri);
