@@ -63,7 +63,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
             step2("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
-            if (currentProject in workspaceFolders) {
+            if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
                     try {
                         ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
