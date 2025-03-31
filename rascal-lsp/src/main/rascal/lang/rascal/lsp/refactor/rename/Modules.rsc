@@ -90,6 +90,7 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file
+    if (currentName == newName) return;
     loc moduleFile = d.defined.top;
     pcfg = r.getConfig().getPathConfig(moduleFile);
     loc relModulePath = relativize(pcfg.srcs, moduleFile);
