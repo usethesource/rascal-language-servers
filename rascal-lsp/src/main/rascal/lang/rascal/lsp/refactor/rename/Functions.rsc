@@ -43,9 +43,6 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, function
     ;
 
 set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm) =
-    {d | d <- tm.defines, rascalMayOverloadSameName(cursorDefs.defined + d.defined, tm.definitions)};
-
-// TODO:
-// - Type variables (&Foo). Currently, these are not represented as a `Define`, and cannot be easily modeled by this framework.
+    {tm.definitions[d] | loc d <- (tm.defines<idRole, defined>)[functionId()], rascalMayOverloadSameName(cursorDefs.defined + d, tm.definitions)};
 
 tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;

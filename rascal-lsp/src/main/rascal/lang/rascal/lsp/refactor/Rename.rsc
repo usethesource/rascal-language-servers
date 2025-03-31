@@ -544,6 +544,7 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
 TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
+    tm = augmentExceptProductions(tr, tm, tmodelForLoc);
     tm = augmentFieldUses(tr, tm, tmodelForLoc);
     tm = augmentFormalUses(tr, tm, tmodelForLoc);
     tm = augmentTypeParams(tr, tm);

@@ -107,11 +107,17 @@ Environment removeUses(Tree use, <TModel tm, map[str, loc] defs>) {
     return <tm, defs>;
 }
 
-Environment addUse(Tree use, <TModel tm, map[str, loc] defs>, str useName = "<use>") {
+Environment addUse(Tree use, <TModel tm, map[str, loc] defs>) {
+    str useName = "<use>";
     // We do not know how to augment this; silently fail
     if (useName notin defs) return <tm, defs>;
     tm = tm[useDef = tm.useDef + <use.src, defs[useName]>];
     return <tm, defs>;
+}
+
+Environment addDefOtherwiseUse(Tree occ, loc defScope, <TModel tm, map[str, loc] defs>) {
+    if ("<occ>" in defs) return addUse(occ, <tm, defs>);
+    return addDef(occ, defScope, <tm, defs>);
 }
 
 Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
@@ -127,11 +133,7 @@ Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
             for (Pattern pat <- func.signature.parameters.formals.formals, pat has \type, /TypeVar tv := pat.\type) {
                 // The TModel sometimes contains uses that we do not want
                 <tm, funcDefs> = removeUses(tv.name, <tm, funcDefs>);
-                if ("<tv.name>" notin funcDefs) {
-                    <tm, funcDefs> = addDef(tv.name, func.src, <tm, funcDefs>);
-                } else {
-                    <tm, funcDefs> = addUse(tv.name, <tm, funcDefs>);
-                }
+                <tm, funcDefs> = addDefOtherwiseUse(tv.name, func.src, <tm, funcDefs>);
             }
             <tm, funcDefs> = (<tm, funcDefs> | addUse(tv.name, removeUses(tv.name, it)) | /TypeVar tv := func.signature.\type);
 
@@ -139,7 +141,16 @@ Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
             if (func has expression) <tm, _> = augmentTypeParams(func.expression, <tm, funcDefs>);
             else if (func has body) <tm, _> = augmentTypeParams(func.body, <tm, funcDefs>);
         }
+        case Concrete pat: {
+            <tm, concDefs> = (<tm, defs> | addDefOtherwiseUse(nt, pat.src, it) | /(Sym) `&<Nonterminal nt>` := pat.symbol);
+            <tm, _> = (<tm, concDefs> | addUse(nt, it) | /(Sym) `&<Nonterminal nt>` := pat.parts);
+        }
+        case SyntaxDefinition def: {
+            <tm, symDefs> = (<tm, defs> | addDefOtherwiseUse(nt, def.src, it) | /(Sym) `&<Nonterminal nt>` := def.defined);
+            <tm, _> = (<tm, symDefs> | addUse(nt, it) | /(Sym) `&<Nonterminal nt>` := def.production);
+        }
         case TypeVar tv: <tm, defs> = addUse(tv.name, <tm, defs>);
+        case (Sym) `&<Nonterminal nt>`: <tm, defs> = addUse(nt, <tm, defs>);
     }
     return <tm, defs>;
 }
