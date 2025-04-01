@@ -200,8 +200,8 @@ public class Diagnostics {
                     loc.getOffset(), loc.getLength() + 1,
                     loc.getBeginLine(), loc.getBeginColumn(),
                     loc.getEndLine(), loc.getEndColumn() + 1);
-            } catch (Throwable t) {
-                logger.trace("Cannot extend 0-width location for parse error: " + t.getMessage());
+            } catch (IllegalArgumentException e) {
+                logger.trace("Cannot extend 0-width location for parse error: {}", e.getMessage());
                 loc = ValueFactoryFactory.getValueFactory().sourceLocation(
                     loc, 0, 1, 1, 1, 0, 1);
             }
