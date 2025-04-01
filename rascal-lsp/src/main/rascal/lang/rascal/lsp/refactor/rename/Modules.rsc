@@ -28,8 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Modules
 
 extend framework::Rename;
-import framework::TextEdits;
-
 import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;

@@ -62,7 +62,6 @@ import lang::rascal::lsp::refactor::rename::Types;
 import lang::rascal::lsp::refactor::rename::Variables;
 
 extend framework::Rename;
-import framework::TextEdits;
 import util::Util;
 
 import util::FileSystem;

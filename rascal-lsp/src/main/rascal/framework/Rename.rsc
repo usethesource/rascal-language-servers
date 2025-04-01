@@ -26,8 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module framework::Rename
 
-import framework::TextEdits;
-
+import analysis::diff::edits::TextEdits;
 import analysis::typepal::FailMessage;
 import analysis::typepal::Messenger;
 import analysis::typepal::TModel;

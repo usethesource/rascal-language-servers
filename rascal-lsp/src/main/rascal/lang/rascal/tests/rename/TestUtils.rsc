@@ -30,7 +30,6 @@ module lang::rascal::tests::rename::TestUtils
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
 import util::Util;
-import framework::TextEdits;
 
 import IO;
 import List;

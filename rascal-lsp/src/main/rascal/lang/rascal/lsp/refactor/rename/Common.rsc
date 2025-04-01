@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Common
 
 extend framework::Rename;
-import framework::TextEdits;
 
 import analysis::typepal::TModel;
 import lang::rascal::\syntax::Rascal;
@@ -53,6 +52,9 @@ data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
+
+data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
+data TextEdit(ChangeAnnotation annotation = changeAnnotation("Rename", "Rename"));
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
     // lexical containment
