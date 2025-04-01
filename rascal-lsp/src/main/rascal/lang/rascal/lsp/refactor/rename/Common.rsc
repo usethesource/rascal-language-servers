@@ -36,7 +36,6 @@ import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::Import;
 import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::check::BasicRascalConfig;
-import util::refactor::WorkspaceInfo;
 
 import List;
 import Location;
@@ -204,9 +203,6 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (size(defines) == 0) return false;
     return rascalMayOverload(defs, definitions);
 }
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(TModel tm) = toRel(tm.scopes)*;
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
