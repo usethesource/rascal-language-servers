@@ -80,8 +80,7 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        var message = e.getMessage() + " (irrecoverable)";
-        return new Diagnostic(toRange(e, cm), message, DiagnosticSeverity.Error, "parser");
+        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
     }
 
     public static List<Diagnostic> generateParseErrorDiagnostics(ITree errorTree, ColumnMaps cm) {
