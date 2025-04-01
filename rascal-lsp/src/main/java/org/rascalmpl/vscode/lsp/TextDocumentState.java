@@ -202,28 +202,28 @@ public class TextDocumentState {
                 parser
                     .apply(location, content)
                     .whenComplete((t, e) -> {
-                        // Prepare result values for futures
-                        var tree = new Versioned<>(version, t, timestamp);
-                        var diagnostics = new Versioned<>(version, toDiagnostics(t, e));
+                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
 
                         // Complete future to get the tree
                         if (t == null) {
                             treeAsync.completeExceptionally(e);
                         } else {
+                            var tree = new Versioned<>(version, t, timestamp);
                             treeAsync.complete(tree);
                             Versioned.replaceIfNewer(last, tree);
-                            if (diagnostics.get().isEmpty()) {
+                            if (diagnosticsList.isEmpty()) {
                                 Versioned.replaceIfNewer(lastWithoutErrors, tree);
                             }
                         }
 
                         // Complete future to get diagnostics
+                        var diagnostics = new Versioned<>(version, diagnosticsList);
                         diagnosticsAsync.complete(diagnostics);
                     });
             }
         }
 
-        private List<Diagnostic> toDiagnostics(ITree tree, Throwable excp) {
+        private List<Diagnostic> toDiagnosticsList(ITree tree, Throwable excp) {
             List<Diagnostic> parseErrors = new ArrayList<>();
 
             if (excp instanceof CompletionException) {
