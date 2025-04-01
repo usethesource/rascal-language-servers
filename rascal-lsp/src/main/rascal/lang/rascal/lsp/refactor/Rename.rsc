@@ -643,6 +643,7 @@ void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) 
 private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
     if ({str id} := defs.id) {
         if (l.length == size(id)) return l;
+        if ({moduleId()} := defs.idRole) return l;
         return trim(l, removePrefix = l.length - size(id));
     }
 
