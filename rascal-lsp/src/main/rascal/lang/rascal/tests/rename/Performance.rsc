@@ -48,6 +48,19 @@ test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, f
 @expected{illegalRename}
 test bool failOnError() = testRename("int foo = x + y;");
 
+@expected{illegalRename}
+test bool failOnErrorInImport() = testRenameOccurrences({
+    byText("Foo", "int foo = x + y;", {0}, skipCursors = {0}),
+    byText("Main", "import Foo;
+                   'int baz = Foo::foo;", {0})
+});
+
+@ignore{TODO Currently broken, since all files are marked as potential uses (due to https://github.com/usethesource/rascal/issues/2147)}
+test bool doNotFailOnUnrelatedError() = testRenameOccurrences({
+    byText("Unrelated", "int x = \"notanumber\";", {}),
+    byText("Main", "int foo = 8;", {0})
+});
+
 test bool incrementalTypeCheck() {
     procLoc = |memory://tests/incremental|;
     pcfg = getTestPathConfig(procLoc);
