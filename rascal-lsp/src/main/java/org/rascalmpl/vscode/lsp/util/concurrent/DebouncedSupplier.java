@@ -35,6 +35,20 @@ import java.util.function.Supplier;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+/**
+ * <p>
+ * A supplier whose {@link #get} method wraps its result in a
+ * {@link CompletableFuture}. If no next {@link #get} happens before the
+ * specified debouncing delay of the current {@link #get} has passed, then the
+ * {@link CompletableFuture} of the current {@link #get} completes after that
+ * delay. Otherwise, the {@link CompletableFuture} of the current {@link #get}
+ * completes when the {@link CompletableFuture} of the next {@link #get}
+ * completes.
+ *
+ * <p>
+ * For instance, this class is used to debounce the parser in
+ * {@link org.rascalmpl.vscode.lsp.TextDocumentState}.
+ */
 public class DebouncedSupplier<T> {
     private final Supplier<CompletableFuture<T>> supplier;
     private final AtomicReference<CompletableFuture<@Nullable CompletableFuture<T>>> latest;
