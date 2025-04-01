@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -205,7 +204,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         var timestamp = System.currentTimeMillis();
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync()); // No debounce
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(NO_DEBOUNCE));
     }
 
     @Override
@@ -238,7 +237,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents, timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(Duration.ofMillis(800)));
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(NORMAL_DEBOUNCE));
         return file;
     }
 
@@ -272,7 +271,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         documentSymbol(DocumentSymbolParams params) {
         logger.debug("textDocument/documentSymbol: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync()
+        return file.getCurrentTreeAsync(NO_DEBOUNCE)
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getLastTree().get()) : t))
             .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
@@ -324,7 +323,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
         TextDocumentState file = getFile(params.getTextDocument());
 
-        return file.getCurrentTreeAsync()
+        return file.getCurrentTreeAsync(NO_DEBOUNCE)
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
@@ -342,7 +341,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        return file.getCurrentTreeAsync()
+        return file.getCurrentTreeAsync(NO_DEBOUNCE)
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
@@ -368,7 +367,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return file.getCurrentTreeAsync(NO_DEBOUNCE).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .exceptionally(e -> {
                 logger.error("Tokenization failed", e);
                 return new ArrayList<>();
@@ -426,7 +425,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var specialCaseHighlighting = CompletableFuture.completedFuture(false);
-        return getFile(doc).getCurrentTreeAsync()
+        return getFile(doc).getCurrentTreeAsync(NO_DEBOUNCE)
                 .thenApply(Versioned::get)
                 .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .exceptionally(e -> {
@@ -470,7 +469,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         TextDocumentState f = getFile(params.getTextDocument());
-        return f.getCurrentTreeAsync()
+        return f.getCurrentTreeAsync(NO_DEBOUNCE)
             .handle((r, e) -> {
                 // fallback to tree if a parsing error occurred.
                 if (r == null) {
@@ -512,7 +511,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
             getFile(params.getTextDocument())
-                .getCurrentTreeAsync()
+                .getCurrentTreeAsync(NO_DEBOUNCE)
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, facts.getPathConfig(loc)))
                 .thenApply(IList::stream)

@@ -109,18 +109,10 @@ public class TextDocumentState {
         return current.getContent();
     }
 
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return getCurrentTreeAsync(Duration.ZERO);
-    }
-
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(Duration delay) {
         return parseAndGetCurrent(delay)
             .thenApply(Update::getTreeAsync)
             .thenCompose(Function.identity());
-    }
-
-    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync() {
-        return getCurrentDiagnosticsAsync(Duration.ZERO);
     }
 
     public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(Duration delay) {
