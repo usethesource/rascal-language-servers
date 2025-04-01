@@ -103,6 +103,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
@@ -285,9 +286,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
         diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get();
+            List<Diagnostic> parseErrors = diagnostics.get().stream()
+                .map(diagnostic -> diagnostic.instantiate(columns))
+                .collect(Collectors.toList());
+
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
         });
@@ -416,7 +420,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(doc)::parsing, l, columns, doc.getVersion(), doc.getText(), timestamp)
+            l -> new TextDocumentState(contributions(doc)::parsing, l, doc.getVersion(), doc.getText(), timestamp)
         );
     }
 

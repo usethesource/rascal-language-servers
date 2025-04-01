@@ -112,6 +112,7 @@ import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
@@ -241,9 +242,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync) {
+    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
         diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get();
+            List<Diagnostic> parseErrors = diagnostics.get().stream()
+                .map(diagnostic -> diagnostic.instantiate(columns))
+                .collect(Collectors.toList());
+
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             if (facts != null) {
                 facts.reportParseErrors(file.getLocation(), parseErrors);
@@ -404,7 +408,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, columns, doc.getVersion(), doc.getText(), timestamp));
+            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {

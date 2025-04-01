@@ -71,7 +71,6 @@ public class TextDocumentState {
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
-    private final ColumnMaps columns;
 
     @SuppressWarnings("java:S3077") // Visibility of writes is enough
     private volatile Update current;
@@ -82,12 +81,11 @@ public class TextDocumentState {
 
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
-            ISourceLocation location, ColumnMaps columns,
+            ISourceLocation location,
             int initialVersion, String initialContent, long initialTimestamp) {
 
         this.parser = parser;
         this.location = location;
-        this.columns = columns;
 
         this.current = new Update(initialVersion, initialContent, initialTimestamp);
         this.parseAndGetCurrentDebouncer = new DebouncedSupplier<>(this::parseAndGetCurrent);
@@ -115,7 +113,7 @@ public class TextDocumentState {
             .thenCompose(Function.identity());
     }
 
-    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(Duration delay) {
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync(Duration delay) {
         return parseAndGetCurrent(delay)
             .thenApply(Update::getDiagnosticsAsync)
             .thenCompose(Function.identity());
@@ -155,7 +153,7 @@ public class TextDocumentState {
         private final String content;
         private final long timestamp;
         private final CompletableFuture<Versioned<ITree>> treeAsync;
-        private final CompletableFuture<Versioned<List<Diagnostic>>> diagnosticsAsync;
+        private final CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
         private final AtomicBoolean parsing;
 
         public Update(int version, String content, long timestamp) {
@@ -180,7 +178,7 @@ public class TextDocumentState {
             return treeAsync;
         }
 
-        public CompletableFuture<Versioned<List<Diagnostic>>> getDiagnosticsAsync() {
+        public CompletableFuture<Versioned<List<Diagnostics.Template>>> getDiagnosticsAsync() {
             parseIfNotParsing();
             return diagnosticsAsync;
         }
@@ -215,22 +213,24 @@ public class TextDocumentState {
             }
         }
 
-        private List<Diagnostic> toDiagnosticsList(ITree tree, Throwable excp) {
-            List<Diagnostic> parseErrors = new ArrayList<>();
+        private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
+            List<Diagnostics.Template> diagnostics = new ArrayList<>();
 
             if (excp instanceof CompletionException) {
                 excp = excp.getCause();
             }
 
             if (excp instanceof ParseError) {
-                parseErrors.add(Diagnostics.translateDiagnostic((ParseError)excp, columns));
+                var parseError = (ParseError) excp;
+                diagnostics.add(Diagnostics.generateParseErrorDiagnostic(parseError));
             } else if (excp != null) {
                 logger.error("Parsing crashed", excp);
-                parseErrors.add(new Diagnostic(
+                var diagnostic = new Diagnostic(
                     new Range(new Position(0,0), new Position(0,1)),
                     "Parsing failed: " + excp.getMessage(),
                     DiagnosticSeverity.Error,
-                    "Rascal Parser"));
+                    "Rascal Parser");
+                diagnostics.add(columns -> diagnostic);
             }
 
             if (tree != null) {
@@ -238,11 +238,11 @@ public class TextDocumentState {
                 IList errors = new ParseErrorRecovery(valueFactory).findAllParseErrors(tree);
                 for (IValue error : errors) {
                     ITree errorTree = (ITree) error;
-                    parseErrors.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree, columns));
+                    diagnostics.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree));
                 }
             }
 
-            return parseErrors;
+            return diagnostics;
         }
     }
 

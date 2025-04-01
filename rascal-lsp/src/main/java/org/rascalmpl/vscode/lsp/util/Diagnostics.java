@@ -79,11 +79,20 @@ public class Diagnostics {
                 Collectors.mapping(Entry::getValue, Collectors.toCollection(ArrayList::new))));
     }
 
-    public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+    /**
+     * Template for a diagnostic, to be instantiated using column maps. This
+     * interface is equivalent to: {@code Function<ColumnMaps, Diagnostic>}.
+     */
+    @FunctionalInterface
+    public static interface Template {
+        public Diagnostic instantiate(ColumnMaps columns);
     }
 
-    public static List<Diagnostic> generateParseErrorDiagnostics(ITree errorTree, ColumnMaps cm) {
+    public static Template generateParseErrorDiagnostic(ParseError e) {
+        return cm -> new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+    }
+
+    public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
         IValueFactory factory = ValueFactoryFactory.getValueFactory();
 
         IList args = TreeAdapter.getArgs(errorTree);
@@ -92,7 +101,7 @@ public class Diagnostics {
         ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
         ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
 
-        List<Diagnostic> diagnostics = new ArrayList<>();
+        List<Template> diagnostics = new ArrayList<>();
 
         // Highlight selected parts of the error tree
         if (ERROR_LOCATION_HIGHLIGHT != null) {
@@ -101,13 +110,13 @@ public class Diagnostics {
                     skippedLoc.getOffset(), 1,
                     skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
                     skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
-            diagnostics.add(new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
+            diagnostics.add(cm -> new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
                     ERROR_LOCATION_HIGHLIGHT, "parser"));
         }
 
         if (ERROR_TREE_HIGHLIGHT != null) {
             // The whole error tree
-            diagnostics.add(new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
+            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
         }
 
         if (PREFIX_HIGHLIGHT != null) {
@@ -118,13 +127,13 @@ public class Diagnostics {
                         errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
                         errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
                         errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-                diagnostics.add(new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
+                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
             }
         }
 
         if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
             // The skipped part
-            diagnostics.add(new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
+            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
         }
 
         // Note: DiagnosticSeverity.Hint only highlightes a single character!
