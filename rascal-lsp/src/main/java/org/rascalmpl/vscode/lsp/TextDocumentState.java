@@ -152,6 +152,12 @@ public class TextDocumentState {
         }
     }
 
+    /**
+     * An update of a text document, characterized in terms of its
+     * {@link #version} (typically provied by the client), its {@link #content}
+     * (typically provided by the client), and a {@link #timestamp} (typically
+     * provided by the server).
+     */
     private class Update {
         private final int version;
         private final String content;
