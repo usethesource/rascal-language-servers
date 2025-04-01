@@ -77,6 +77,9 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
 
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
+    checkBefore = checkAll(root, ccfg);
+
     // Back-up sources
     loc backupLoc = |memory://tests/backup|;
     remove(backupLoc, recursive = true);
@@ -84,13 +87,11 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
 
     executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
     remove(pcfg.resources);
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
 
-    for (program(loc src, msgs) <- checkAll(root, ccfg)) {
-        if (any(m <- msgs, m is error)) {
-            throw msgs;
-        }
-    }
+    checkAfter = checkAll(root, ccfg);
+    newMsgs = checkAfter - checkBefore;
+
+    if (newErrors: [_, *_] := [m | m <- newMsgs, m is error]) throw newErrors;
 
     // Restore back-up
     remove(root, recursive = true);

@@ -55,7 +55,6 @@ test bool failOnErrorInImport() = testRenameOccurrences({
                    'int baz = Foo::foo;", {0})
 });
 
-@ignore{TODO Currently broken, since all files are marked as potential uses (due to https://github.com/usethesource/rascal/issues/2147)}
 test bool doNotFailOnUnrelatedError() = testRenameOccurrences({
     byText("Unrelated", "int x = \"notanumber\";", {}),
     byText("Main", "int foo = 8;", {0})

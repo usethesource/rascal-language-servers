@@ -83,6 +83,20 @@ private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpt
 bool(Tree) allNameSortsFilter(str name) {
     escName = reEscape(name);
 
+    return bool(Tree tr) {
+        reEscaped = bottom-up-break visit (tr) {
+            case Name n => reEscape(#Name, n)
+            case QualifiedName qn => reEscape(#QualifiedName, qn)
+            case Nonterminal nt => reEscape(#Nonterminal, nt)
+            case NonterminalLabel ntl => reEscape(#NonterminalLabel, ntl)
+        };
+
+        s = "<reEscaped>";
+        return contains(s, escName);
+    };
+
+    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
+    /*
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
     <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
@@ -108,12 +122,29 @@ bool(Tree) allNameSortsFilter(str name) {
 
         return false;
     };
+    */
 }
+
+&T reEscape(type[&T <: Tree] T, &T t) = parse(T, "<reEscape("<t>")>");
 
 tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     sname1 = reEscape(name1);
     sname2 = reEscape(name2);
 
+    return tuple[bool, bool](Tree tr) {
+        reEscaped = bottom-up-break visit (tr) {
+            case Name n => reEscape(#Name, n)
+            case QualifiedName qn => reEscape(#QualifiedName, qn)
+            case Nonterminal nt => reEscape(#Nonterminal, nt)
+            case NonterminalLabel ntl => reEscape(#NonterminalLabel, ntl)
+        };
+
+        s = "<reEscaped>";
+        return <contains(s, sname1), contains(s, sname2)>;
+    };
+
+    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
+    /*
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);
     <ntl1, entl1> = escapePair(#NonterminalLabel, sname1);
@@ -158,6 +189,7 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
 
         return <has1, has2>;
     };
+    */
 }
 
 set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) = {f | loc f <- fs, treeFilter(getTree(f))};
