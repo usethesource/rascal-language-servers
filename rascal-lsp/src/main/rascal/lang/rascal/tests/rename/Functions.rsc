@@ -269,7 +269,6 @@ test bool usedOverloadOfLib() = testRenameOccurrences({
     ", {})
 }, newName = "println");
 
-@expected{illegalRename}
 test bool unusedOverloadOfLib() = testRenameOccurrences({
     byText("Definer", "void foo(str s) { }", {0}),
     byText("Main", "
