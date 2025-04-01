@@ -42,20 +42,16 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
             srcs = [ projectDir + "src/org/rascalmpl/library"
                    , projectDir + "test/org/rascalmpl/benchmark"
                    , projectDir + "test/org/rascalmpl/test/data"],
-            bin = projectDir + "target/classes",
-            generatedSources = projectDir + "target/generated-sources/src/main/java/",
-            generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
-            resources = projectDir + "target/classes"
+            bin = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(
             srcs = [ projectDir + "src" ],
             bin = projectDir + "target/classes",
-            generatedSources = projectDir + "target/generated-sources/src/main/java/",
-            generatedTestSources = projectDir + "target/generated-test/sources/src/main/java/",
-            resources = projectDir + "target/generated-resources/src/main/java/",
-            libs = [ |lib://rascal| ]
+            libs = [calculateRascalLib()]
         );
     }
+    // extension for Rascal compiler
+    pbcfg = pcfg[resources = pcfg.bin];
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
 }

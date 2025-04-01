@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NotDirectoryException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Set;
@@ -43,6 +44,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.library.Prelude;
@@ -50,6 +53,7 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -73,13 +77,8 @@ public interface IRascalFileSystemServices {
                 }
 
                 return SourceLocation.fromRascalLocation(resolved);
-            }
-            catch (URISyntaxException e) {
-                IRascalFileSystemServices__logger.warn("Could not resolve location {} due to {}.", loc, e.getMessage());
-                return loc;
-            }
-            catch (Throwable e) {
-                IRascalFileSystemServices__logger.warn("Could not resolve location {} due to {}.", loc, e.getMessage());
+            } catch (Exception e) {
+                IRascalFileSystemServices__logger.warn("Could not resolve location {}", loc, e);
                 return loc;
             }
         });
@@ -98,8 +97,8 @@ public interface IRascalFileSystemServices {
                         throw new RuntimeException(e);
                     }
                 });
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -141,6 +140,9 @@ public interface IRascalFileSystemServices {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
+                if (!reg.exists(loc)) {
+                    throw new FileNotFoundException();
+                }
                 var created = reg.created(loc);
                 var lastModified = reg.lastModified(loc);
                 if (reg.isDirectory(loc)) {
@@ -156,8 +158,8 @@ public interface IRascalFileSystemServices {
                     size = Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue();
                 }
                 return new FileStat(FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -167,10 +169,13 @@ public interface IRascalFileSystemServices {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
+                if (!reg.isDirectory(loc)) {
+                    throw VSCodeFSError.notADirectory(loc);
+                }
                 return Arrays.stream(reg.list(loc)).map(l -> new FileWithType(URIUtil.getLocationName(l),
                         reg.isDirectory(l) ? FileType.Directory : FileType.File)).toArray(FileWithType[]::new);
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -179,10 +184,9 @@ public interface IRascalFileSystemServices {
     default CompletableFuture<Void> createDirectory(URIParameter uri) {
         return CompletableFuture.runAsync(() -> {
             try {
-                ISourceLocation loc = uri.getLocation();
-                reg.mkDirectory(loc);
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+                reg.mkDirectory(uri.getLocation());
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -211,8 +215,8 @@ public interface IRascalFileSystemServices {
                     result.append(encoder.encodeToString(buffer));
                 }
                 return new LocationContent(result.toString());
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -227,6 +231,9 @@ public interface IRascalFileSystemServices {
                 if (!fileExists && !params.isCreate()) {
                     throw new FileNotFoundException(loc.toString());
                 }
+                if (fileExists && reg.isDirectory(loc)) {
+                    throw VSCodeFSError.isADirectory(loc);
+                }
 
                 ISourceLocation parentFolder = URIUtil.getParentLocation(loc);
                 if (!reg.exists(parentFolder) && params.isCreate()) {
@@ -239,8 +246,8 @@ public interface IRascalFileSystemServices {
                 try (OutputStream target = reg.getOutputStream(loc, false)) {
                     target.write(Base64.getDecoder().decode(params.getContent()));
                 }
-            } catch (IOException | URISyntaxException e) {
-                throw new CompletionException(e);
+            } catch (IOException | URISyntaxException | RuntimeException e) {
+                throw new VSCodeFSError(e);
             }
         });
     }
@@ -281,6 +288,7 @@ public interface IRascalFileSystemServices {
 
     @JsonNotification("rascal/filesystem/onDidChangeFile")
     default void onDidChangeFile(FileChangeEvent event) { };
+
 
     public static class DeleteParameters {
         private final String uri;
@@ -600,6 +608,66 @@ public interface IRascalFileSystemServices {
 
         public boolean isOverwrite() {
             return overwrite;
+        }
+    }
+
+    /** Maps common exceptions to FileSystemError in VS Code */
+    public static class VSCodeFSError extends ResponseErrorException {
+        public VSCodeFSError(Exception original) {
+            super(translate(original));
+        }
+
+        private static ResponseError fileExists(Object data) {
+            return new ResponseError(-1, "File exists", data);
+        }
+        private static ResponseError fileIsADirectory(Object data) {
+            return new ResponseError(-2, "File is a directory", data);
+        }
+        private static ResponseError fileNotADirectory(Object data) {
+            return new ResponseError(-3, "File is not a directory", data);
+        }
+        private static ResponseError fileNotFound(Object data) {
+            return new ResponseError(-4, "File is not found", data);
+        }
+        private static ResponseError noPermissions(Object data) {
+            return new ResponseError(-5, "No permissions", data);
+        }
+        private static ResponseError unavailable(Object data) {
+            return new ResponseError(-6, "Unavailable", data);
+        }
+
+        private static ResponseError generic(String message, Object data) {
+            return new ResponseError(-99, message, data);
+        }
+
+        public static ResponseErrorException notADirectory(Object data) {
+            return new ResponseErrorException(fileNotADirectory(data));
+        }
+
+        public static ResponseErrorException isADirectory(Object data) {
+            return new ResponseErrorException(fileIsADirectory(data));
+        }
+
+        private static ResponseError translate(Exception original) {
+            if (original instanceof FileNotFoundException
+                || original instanceof UnsupportedSchemeException
+                || original instanceof URISyntaxException
+            ) {
+                return fileNotFound(original);
+            }
+            else if (original instanceof FileAlreadyExistsException) {
+                return fileExists(original);
+            }
+            else if (original instanceof NotDirectoryException) {
+                return fileNotADirectory(original);
+            }
+            else if (original instanceof SecurityException) {
+                return noPermissions(original);
+            }
+            else if (original instanceof ResponseErrorException) {
+                return ((ResponseErrorException)original).getResponseError();
+            }
+            return generic(original.getMessage(), original);
         }
     }
 }
