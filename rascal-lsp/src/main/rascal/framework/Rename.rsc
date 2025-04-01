@@ -34,6 +34,7 @@ import analysis::typepal::TModel;
 
 import util::Monitor;
 
+import Exception;
 import IO;
 import List;
 import Map;
@@ -103,7 +104,11 @@ RenameResult rename(
     // Tree & TModel caching
 
     @memo{maximumSize(50)}
-    TModel getTModelCached(Tree t) = config.tmodelForTree(t);
+    TModel getTModelCached(Tree t) {
+        tm = config.tmodelForTree(t);
+        if (msg <- tm.messages, msg is error) registerMessage(error(t.src.top, "Renaming failed, since this file has type error(s)."));
+        return tm;
+    }
 
     @memo{maximumSize(50)}
     Tree parseLocCached(loc l) {
@@ -112,7 +117,12 @@ RenameResult rename(
             return cursor[-1];
         }
 
-        return config.parseLoc(l);
+        try {
+            return config.parseLoc(l);
+        } catch ParseError(_): {
+            registerMessage(error(l, "Renaming failed, since an error occurred while parsing this file."));
+            return char(-1);
+        }
     }
 
     // Make sure user uses cached functions
