@@ -24,10 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::FormalParameters
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
 test bool outerNestedFunctionParameter() = testRenameOccurrences({0, 3}, "
     'int f(int foo) {
@@ -65,15 +65,32 @@ test bool privateFunctionParameter() = testRenameOccurrences({0, 1}, "", decls =
     '}
 ");
 
-test bool nestedKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
+test bool nestedFunctionKeywordParameter() = testRenameOccurrences({0, 1, 2}, "
     'int f(int foo = 8) = foo;
     'int x = f(foo = 10);
-", skipCursors = {2});
+");
+
+test bool nestedKeywordParameter() = testRenameOccurrences({2, 3, 5}, "
+    'int f(int foo = 1) = foo + 1;
+    'int g(int foo = 2) = foo + 1; // rename `foo`s in `g` only
+    'int i = f(foo = g(foo = 3));
+");
 
 test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
     "int x = f(foo = 10);"
     , decls="int f(int foo = 8) = foo;"
-    , skipCursors = {2}
+);
+
+test bool keywordParameterCrossModule() = testRenameOccurrences({
+    byText("Definer", "int f(int foo = 8) = foo + 1;", {0, 1}),
+    byText("Main", "import Definer;
+                   'int x = f(foo = 9);", {0})
+});
+
+test bool functionIsNotConstructor() = testRenameOccurrences({0, 1, 3},
+    "int x = f(foo = 10);"
+    , decls="int f(int foo = 8) = foo;
+            'data F = g(int foo = 8);"
 );
 
 @expected{illegalRename} test bool doubleParameterDeclaration1() = testRename("int f(int foo, int bar) = 1;");
@@ -85,6 +102,7 @@ test bool keywordParameter() = testRenameOccurrences({0, 1, 2},
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration1() = testRename("int f(int foo = 8, int bar = 9) = 1;");
 @expected{illegalRename} test bool doubleKeywordParameterDeclaration2() = testRename("int f(int bar = 9, int foo = 8) = 1;");
 
+@expected{illegalRename} // TODO Support this?
 test bool renameParamToConstructorName() = testRenameOccurrences({0, 1},
     "int f(int foo) = foo;",
     decls = "data Bar = bar();"
@@ -96,7 +114,7 @@ test bool renameParamToUsedConstructorName() = testRename(
     decls = "data Bar = bar(int x);"
 );
 
-test bool paremeterShadowsParameter1() = testRenameOccurrences({0, 3}, "
+test bool parameterShadowsParameter1() = testRenameOccurrences({0, 3}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -106,7 +124,7 @@ test bool paremeterShadowsParameter1() = testRenameOccurrences({0, 3}, "
     '}
 ");
 
-test bool paremeterShadowsParameter2() = testRenameOccurrences({1, 2}, "
+test bool parameterShadowsParameter2() = testRenameOccurrences({1, 2}, "
     'int f1(int foo) {
     '   int f2(int foo) {
     '       int baz = 9;
@@ -117,7 +135,7 @@ test bool paremeterShadowsParameter2() = testRenameOccurrences({1, 2}, "
 ");
 
 @expected{illegalRename}
-test bool paremeterShadowsParameter3() = testRename("
+test bool parameterShadowsParameter3() = testRename("
     'int f(int bar) {
     '   int g(int baz) {
     '       int h(int foo) {

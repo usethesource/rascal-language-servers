@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Modules
 
 import lang::rascal::tests::rename::TestUtils;
@@ -108,9 +109,38 @@ test bool qualifiedSelf() = testRenameOccurrences({
     ", {0, 1}, skipCursors = {1}, newName = "Bar")
 }, oldName = "Foo", newName = "Bar");
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool externalImport() = testRenameOccurrences({
     byText("Main", "
         'import Foo = |memory:///Foo.rsc|;
     ", {0})
 }, oldName = "Foo", newName = "Bar");
+
+test bool simpleEscapedModule() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}, newName = "Bar"),
+    byText("Main", "import \\Foo;
+                   'int bar = \\Foo::foo;", {0, 1}, skipCursors = {1})
+}, oldName = "Foo", newName = "Bar");
+
+test bool newEscapedModuleName() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}, newName = "Foo")
+}, oldName = "Foo", newName = "\\Foo");
+
+test bool autoEscapeModuleName() = testRenameOccurrences({
+    byText("Foo", "syntax S = \"foo\";", {0}, newName = "syntax::Foo"),
+    byText("Main", "import Foo;", {0})
+}, oldName = "Foo", newName = "syntax::Foo");
+
+test bool escapeVariants() = testRenameOccurrences({
+    byText("a::b::Foo", "public int foo = 1;", {0}, newName = "a::b::Bar"),
+    byText("EscapeReference1", "import a::b::Foo;
+                       'int baz = a::b::\\Foo::foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeReference2", "import a::b::Foo;
+                       'int baz = a::b::Foo::\\foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeImport1", "import \\a::b::Foo;
+                      'int baz = \\a::b::Foo::foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeImport2", "import a::\\b::Foo;
+                      'int baz = a::\\b::Foo::foo;", {0, 1}, skipCursors = {1}),
+    byText("EscapeImport3", "import a::b::\\Foo;
+                      'int baz = a::b::\\Foo::foo;", {0, 1}, skipCursors = {1})
+}, oldName = "a::b::Foo", newName = "a::b::Bar");

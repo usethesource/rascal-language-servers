@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -24,17 +24,15 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::TextEdits
+@bootstrapParser
+module framework::TextEdits
 
 extend analysis::diff::edits::TextEdits;
 
-alias ChangeAnnotationId = str;
+import util::Maybe;
 
 data ChangeAnnotation
     = changeAnnotation(str label, str description, bool needsConfirmation)
     ;
 
-data TextEdit(ChangeAnnotationId annotation = "");
-
-alias ChangeAnnotationRegister =
-    ChangeAnnotationId(str label, str description, bool needsConfirmation);
+data TextEdit(Maybe[ChangeAnnotation] annotation = nothing());

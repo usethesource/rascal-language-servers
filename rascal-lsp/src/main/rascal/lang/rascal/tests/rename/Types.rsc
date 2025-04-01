@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Types
 
 import lang::rascal::tests::rename::TestUtils;
@@ -183,3 +184,12 @@ test bool sameIdRoleOnly() = testRenameOccurrences({
   , byText("D", "import C;
                 'int baz = C::foo + 1;", {0})
 });
+
+test bool dataTypeReusedName() = testRenameOccurrences({
+    byText("Scratch1", "
+        'data Foo = f();
+        ", {0}),
+    byText("Scratch2", "
+        'data Foo = g();
+        ", {})
+}, oldName = "Foo", newName = "Bar");

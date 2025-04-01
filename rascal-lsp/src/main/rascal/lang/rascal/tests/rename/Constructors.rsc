@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Constructors
 
 import lang::rascal::tests::rename::TestUtils;
@@ -42,6 +43,19 @@ test bool disjunctConstructor() = testRenameOccurrences({
     byText("Definer", "data Foo = foo(int i);", {0})
   , byText("Unrelated",
            "data Foo = foo();", {})
+});
+
+test bool functionOverloadsConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'Foo foo(int i, int j) = foo(i + j);", {0, 1}),
+    byText("Main", "import ConsDefiner;
+                   'Foo f = foo(8);", {0})
+});
+
+test bool functionDoesNotOverloadConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncDefiner", "int foo(int i) = i;", {})
 });
 
 test bool differentADTsDuplicateConstructorNames() = testRenameOccurrences({

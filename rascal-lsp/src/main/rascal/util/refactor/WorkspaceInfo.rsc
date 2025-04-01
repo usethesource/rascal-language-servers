@@ -1,5 +1,5 @@
 @license{
-Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
+Copyright (c) 2018-2023, NWO-I CWI and Swat.engineering
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -25,33 +25,44 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
 @bootstrapParser
-module lang::rascal::tests::rename::ProjectOnDisk
+module util::refactor::WorkspaceInfo
 
-import lang::rascal::lsp::refactor::Rename;
-import lang::rascal::tests::rename::TestUtils;
-import util::Reflective;
-import lang::rascalcore::check::Checker;
-import framework::TextEdits;
+import Map;
+import Message;
+import Relation;
+import util::Maybe;
 
-tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
-    PathConfig pcfg;
-    if (projectDir.file == "rascal-core") {
-        pcfg = getRascalCorePathConfig(projectDir);
-    } else if (projectDir.file == "rascal") {
-        pcfg = pathConfig(
-            srcs = [ projectDir + "src/org/rascalmpl/library"
-                   , projectDir + "test/org/rascalmpl/benchmark"
-                   , projectDir + "test/org/rascalmpl/test/data"],
-            bin = projectDir + "target/classes"
-        );
-    } else {
-        pcfg = pathConfig(
-            srcs = [ projectDir + "src" ],
-            bin = projectDir + "target/classes",
-            libs = [calculateRascalLib()]
-        );
+import util::Util;
+
+import analysis::typepal::TModel;
+
+data PathConfig; // util::Reflective
+
+// Extend the TModel to include some workspace information.
+data TModel (
+    set[loc] projects = {},
+    set[loc] sourceFiles = {}
+);
+
+loc getProjectFolder(TModel ws, loc l) {
+    if (project <- ws.projects, isPrefixOf(project, l)) {
+        return project;
     }
-    // extension for Rascal compiler
-    pbcfg = pcfg[resources = pcfg.bin];
-    return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
+
+    throw "Could not find project containing <l>";
 }
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+rel[loc, loc] defUse(TModel ws) = invert(ws.useDef);
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+map[AType, set[loc]] factsInvert(TModel ws) = invert(ws.facts);
+
+set[loc] getUses(TModel ws, loc def) = defUse(ws)[def];
+
+set[loc] getUses(TModel ws, set[loc] defs) = defUse(ws)[defs];
+
+set[loc] getDefs(TModel ws, loc use) = ws.useDef[use];
+
+@memo{maximumSize(1), expireAfter(minutes=5)}
+rel[loc, Define] definitionsRel(TModel ws) = toRel(ws.definitions);
