@@ -229,6 +229,9 @@ set[loc] getSourceFiles(Renamer r) {
 
 Maybe[AType] getFact(TModel tm, loc l) = l in tm.facts ? just(tm.facts[l]) : nothing();
 
+str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
+str describeFact(nothing()) = "unknown type";
+
 bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (l <- defs, !definitions[l]?) return false;
     set[Define] defines = {definitions[d] | d <- defs};
