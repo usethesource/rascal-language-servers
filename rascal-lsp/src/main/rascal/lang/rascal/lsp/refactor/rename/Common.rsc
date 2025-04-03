@@ -73,7 +73,8 @@ str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
 str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
 str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? forceEscapeSingleName(n) : n | n <- split(sep, name)]);
 str unescapeNonReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? n : forceUnescapeNames(n) | n <- split(sep, name)]);
-str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+str reEscape(str name) = escapeMinusIdentifier(escapeReservedNames(forceUnescapeNames(name)));
+str escapeMinusIdentifier(str name) = (contains(name, "-") && !startsWith(name, "\\")) ? "\\<name>" : name;
 
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
@@ -88,7 +89,7 @@ bool(Tree) allNameSortsFilter(str name) {
             case Name n => reEscape(#Name, n)
             case QualifiedName qn => reEscape(#QualifiedName, qn)
             case Nonterminal nt => reEscape(#Nonterminal, nt)
-            case NonterminalLabel ntl => reEscape(#NonterminalLabel, ntl)
+            // No case for `NonterminalLabel`, since this does not use escaping
         };
 
         s = "<reEscaped>";
@@ -136,7 +137,7 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
             case Name n => reEscape(#Name, n)
             case QualifiedName qn => reEscape(#QualifiedName, qn)
             case Nonterminal nt => reEscape(#Nonterminal, nt)
-            case NonterminalLabel ntl => reEscape(#NonterminalLabel, ntl)
+            // No case for `NonterminalLabel`, since this does not use escaping
         };
 
         s = "<reEscaped>";
