@@ -52,6 +52,7 @@ import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Reflective;
+import util::Util;
 
 
 //// Fixtures and utility functions

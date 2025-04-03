@@ -32,6 +32,8 @@ import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
 import lang::rascalcore::check::Checker;
 
+import analysis::diff::edits::TextEdits;
+
 tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {

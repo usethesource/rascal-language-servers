@@ -44,6 +44,7 @@ import String;
 
 import util::FileSystem;
 import util::Reflective;
+import util::Util;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
@@ -79,7 +80,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     return <{modFile}, useFiles, newFiles>;
 }
 
-bool isUnsupportedCursor([*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
+bool isUnsupportedCursor(list[Tree] _:[*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
     r.error(i.src, "External imports are deprecated; renaming is not supported.");
     return true;
 }
