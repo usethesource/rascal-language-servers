@@ -40,7 +40,6 @@ import org.eclipse.lsp4j.CodeActionKind;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -120,7 +119,7 @@ public class CodeActions {
         }
 
         if (edits != null) {
-            result.setEdit(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(doc, edits)));
+            result.setEdit(DocumentChanges.translateDocumentChanges(doc, edits));
         }
 
         result.setKind(constructorToCodeActionKind(kind));

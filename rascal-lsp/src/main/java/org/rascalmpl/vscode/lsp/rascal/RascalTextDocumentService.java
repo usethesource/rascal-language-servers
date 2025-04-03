@@ -102,7 +102,6 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -382,7 +381,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 ITree cursorTree = findQualifiedNameUnderCursor(focus);
                 return rascalServices.getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, facts::getPathConfig, params.getNewName()).get();
             })
-            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
+            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, (IList) t.get(0)));
     }
 
     @Override
@@ -418,7 +417,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
         rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
-            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, (IList) edits.get(0)))
             .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
             .thenAccept(editResponse -> {
                 if (!editResponse.isApplied()) {
