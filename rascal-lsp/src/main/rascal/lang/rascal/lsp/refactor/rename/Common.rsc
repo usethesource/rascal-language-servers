@@ -45,6 +45,7 @@ import Set;
 import String;
 import util::FileSystem;
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 import util::Util;
 
@@ -193,17 +194,33 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     */
 }
 
-set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) = {f | loc f <- fs, treeFilter(getTree(f))};
+set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
+    j = "Checking files for occurrences of relevant names";
+    jobStart(j, totalWork = size(fs));
+    set[loc] filteredFs = {};
+    for (loc f <- fs) {
+        jobStep(j, "<f>");
+        if (treeFilter(getTree(f))) filteredFs += f;
+    };
+    jobEnd(j);
+
+    return filteredFs;
+}
 
 tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeFilter, Tree(loc) getTree) {
     set[loc] fs1 = {};
     set[loc] fs2 = {};
+
+    j = "Checking files for occurrences of relevant names";
+    jobStart(j, totalWork = size(fs));
     for (loc f <- fs) {
+        jobStep(j, "<f>");
         tr = getTree(f);
         <l, r> = treeFilter(tr);
         if (l) fs1 += f;
         if (r) fs2 += f;
     }
+    jobEnd(j);
     return <fs1, fs2>;
 }
 
@@ -222,10 +239,20 @@ data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
 set[loc] getSourceFiles(Renamer r) {
     c = r.getConfig();
-    return {*find(srcFolder, "rsc")
-        | wsFolder <- c.workspaceFolders
-        , srcFolder <- c.getPathConfig(wsFolder).srcs
-    };
+    j = "Collecting source files in workspace";
+    jobStart(j, totalWork = size(c.workspaceFolders));
+    set[loc] sourceFiles = {};
+    for (wsFolder <- c.workspaceFolders) {
+        jobStep(j, "Computing source folders of project <wsFolder.file>");
+        pcfg = c.getPathConfig(wsFolder);
+        jobTodo(j, work = size(pcfg.srcs));
+        for (srcFolder <- pcfg.srcs) {
+            jobStep(j, "Finding Rascal source files in <srcFolder>");
+            sourceFiles += find(srcFolder, "rsc");
+        }
+    }
+    jobEnd(j);
+    return sourceFiles;
 }
 
 Maybe[AType] getFact(TModel tm, loc l) = l in tm.facts ? just(tm.facts[l]) : nothing();
