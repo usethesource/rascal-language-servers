@@ -86,27 +86,6 @@ Maybe[Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = f
     }
 }
 
-str toString(error(msg, l)) = "[error] \'<msg>\' at <l>";
-str toString(error(msg)) = "[error] \'<msg>\'";
-str toString(warning(msg, l)) = "[warning] \'<msg>\' at <l>";
-str toString(info(msg, l)) = "[info] \'<msg>\' at <l>";
-
-str toString(set[Message] msgs, int indent = 1) =
-    intercalate("\n", ([] | it + "<for (_ <- [0..indent]) {> <}>- <toString(msg)>" | msg <- msgs));
-
-str toString(map[str, set[Message]] moduleMsgs) =
-    intercalate("\n", ([] | it + "Messages for <m>:\n<toString(moduleMsgs[m])>" | m <- moduleMsgs));
-
-rel[&K, &V] groupBy(set[&V] s, &K(&V) pred) =
-    {<pred(v), v> | v <- s};
-
-@synopsis{
-    Predicate to sort locations by length.
-}
-bool isShorter(loc l1, loc l2) = l1.length < l2.length;
-
-bool isShorterTuple(tuple[loc, &T] t1, tuple[loc, &T] t2) = isShorter(t1[0], t2[0]);
-
 set[&T] flatMap(set[&U] us, set[&T](&U) f) =
     {*ts | u <- us, ts := f(u)};
 

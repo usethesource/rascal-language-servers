@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Common
 
 extend framework::Rename;
-import framework::TextEdits;
 
 import analysis::typepal::TModel;
 import lang::rascal::\syntax::Rascal;
@@ -36,7 +35,6 @@ import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::Import;
 import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::check::BasicRascalConfig;
-import util::refactor::WorkspaceInfo;
 
 import List;
 import Location;
@@ -47,6 +45,7 @@ import Set;
 import String;
 import util::FileSystem;
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 import util::Util;
 
@@ -54,6 +53,9 @@ data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
 );
+
+data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
+data TextEdit(ChangeAnnotation annotation = changeAnnotation("Rename", "Rename"));
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
     // lexical containment
@@ -72,7 +74,8 @@ str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
 str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
 str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? forceEscapeSingleName(n) : n | n <- split(sep, name)]);
 str unescapeNonReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? n : forceUnescapeNames(n) | n <- split(sep, name)]);
-str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+str reEscape(str name) = escapeMinusIdentifier(escapeReservedNames(forceUnescapeNames(name)));
+str escapeMinusIdentifier(str name) = (contains(name, "-") && !startsWith(name, "\\")) ? "\\<name>" : name;
 
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
@@ -82,6 +85,20 @@ private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpt
 bool(Tree) allNameSortsFilter(str name) {
     escName = reEscape(name);
 
+    return bool(Tree tr) {
+        reEscaped = bottom-up-break visit (tr) {
+            case Name n => reEscape(#Name, n)
+            case QualifiedName qn => reEscape(#QualifiedName, qn)
+            case Nonterminal nt => reEscape(#Nonterminal, nt)
+            // No case for `NonterminalLabel`, since this does not use escaping
+        };
+
+        s = "<reEscaped>";
+        return contains(s, escName);
+    };
+
+    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
+    /*
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
     <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
@@ -107,12 +124,29 @@ bool(Tree) allNameSortsFilter(str name) {
 
         return false;
     };
+    */
 }
+
+&T reEscape(type[&T <: Tree] T, &T t) = parse(T, "<reEscape("<t>")>");
 
 tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     sname1 = reEscape(name1);
     sname2 = reEscape(name2);
 
+    return tuple[bool, bool](Tree tr) {
+        reEscaped = bottom-up-break visit (tr) {
+            case Name n => reEscape(#Name, n)
+            case QualifiedName qn => reEscape(#QualifiedName, qn)
+            case Nonterminal nt => reEscape(#Nonterminal, nt)
+            // No case for `NonterminalLabel`, since this does not use escaping
+        };
+
+        s = "<reEscaped>";
+        return <contains(s, sname1), contains(s, sname2)>;
+    };
+
+    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
+    /*
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);
     <ntl1, entl1> = escapePair(#NonterminalLabel, sname1);
@@ -157,19 +191,36 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
 
         return <has1, has2>;
     };
+    */
 }
 
-set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) = {f | loc f <- fs, treeFilter(getTree(f))};
+set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
+    j = "Checking files for occurrences of relevant names";
+    jobStart(j, totalWork = size(fs));
+    set[loc] filteredFs = {};
+    for (loc f <- fs) {
+        jobStep(j, "<f>");
+        if (treeFilter(getTree(f))) filteredFs += f;
+    };
+    jobEnd(j);
+
+    return filteredFs;
+}
 
 tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeFilter, Tree(loc) getTree) {
     set[loc] fs1 = {};
     set[loc] fs2 = {};
+
+    j = "Checking files for occurrences of relevant names";
+    jobStart(j, totalWork = size(fs));
     for (loc f <- fs) {
+        jobStep(j, "<f>");
         tr = getTree(f);
         <l, r> = treeFilter(tr);
         if (l) fs1 += f;
         if (r) fs2 += f;
     }
+    jobEnd(j);
     return <fs1, fs2>;
 }
 
@@ -188,13 +239,26 @@ data Tree (loc src = |unknown:///|(0,0,<0,0>,<0,0>));
 
 set[loc] getSourceFiles(Renamer r) {
     c = r.getConfig();
-    return {*find(srcFolder, "rsc")
-        | wsFolder <- c.workspaceFolders
-        , srcFolder <- c.getPathConfig(wsFolder).srcs
-    };
+    j = "Collecting source files in workspace";
+    jobStart(j, totalWork = size(c.workspaceFolders));
+    set[loc] sourceFiles = {};
+    for (wsFolder <- c.workspaceFolders) {
+        jobStep(j, "Computing source folders of project <wsFolder.file>");
+        pcfg = c.getPathConfig(wsFolder);
+        jobTodo(j, work = size(pcfg.srcs));
+        for (srcFolder <- pcfg.srcs) {
+            jobStep(j, "Finding Rascal source files in <srcFolder>");
+            sourceFiles += find(srcFolder, "rsc");
+        }
+    }
+    jobEnd(j);
+    return sourceFiles;
 }
 
 Maybe[AType] getFact(TModel tm, loc l) = l in tm.facts ? just(tm.facts[l]) : nothing();
+
+str describeFact(just(AType tp)) = "type \'<prettyAType(tp)>\'";
+str describeFact(nothing()) = "unknown type";
 
 bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (l <- defs, !definitions[l]?) return false;
@@ -204,9 +268,6 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     if (size(defines) == 0) return false;
     return rascalMayOverload(defs, definitions);
 }
-
-@memo{maximumSize(1), expireAfter(minutes=5)}
-rel[loc from, loc to] rascalGetTransitiveReflexiveScopes(TModel tm) = toRel(tm.scopes)*;
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
@@ -243,3 +304,6 @@ default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
 
 @synopsis{Decide whether a cursor is supported based on type information.}
 default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;
+
+@synopsis{Decide whether a cusro is supported based on resolved definitions.}
+default bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs, TModel tm, Renamer _) = false;

@@ -269,7 +269,6 @@ test bool usedOverloadOfLib() = testRenameOccurrences({
     ", {})
 }, newName = "println");
 
-@expected{illegalRename}
 test bool unusedOverloadOfLib() = testRenameOccurrences({
     byText("Definer", "void foo(str s) { }", {0}),
     byText("Main", "
@@ -311,4 +310,10 @@ test bool adjacentScopeFunctions() = testRenameOccurrences({0, 1}, "
     '   int bar() = 9;
     '   j = bar();
     '}
+");
+
+@expected{illegalRename}
+test bool externalJavaFunction() = testRenameOccurrences({0, 1}, "
+    'java bool foo();
+    'b = foo();
 ");

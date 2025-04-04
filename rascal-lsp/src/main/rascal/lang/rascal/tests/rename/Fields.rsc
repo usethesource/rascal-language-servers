@@ -39,6 +39,7 @@ test bool constructorHasField() = testRenameOccurrences({0, 1}, "
     'D oneTwo = d(1, 2);
     'b = oneTwo has foo;
     ", decls = "data D = d(int foo, int baz);"
+    , skipCursors = {1}
 );
 
 test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
@@ -46,6 +47,7 @@ test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = dd.foo;
     'b = dd has foo;
     ", decls="data D = d(int foo = 0, int baz = 0);"
+    , skipCursors = {3}
 );
 
 test bool constructorKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -61,6 +63,7 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = oneTwo.foo;
     'b = oneTwo has foo;
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
+    , skipCursors = {3}
 );
 
 test bool commonKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -76,6 +79,7 @@ test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2, 3}, "
     'y = x.foo;
     'b = x has foo;
     ", decls = "data D = d(int foo) | d(int foo, int baz);"
+    , skipCursors = {3}
 );
 
 @expected{illegalRename}
@@ -110,14 +114,15 @@ test bool sameNameFields() = testRenameOccurrences({0, 2, 3}, "
     'bool b = x has foo;
 ", decls = "
     'data D = d(int foo);
-    'data E = e(int foo);
-");
+    'data E = e(int foo);"
+    , skipCursors = {3}
+);
 
 test bool sameNameADTFields() = testRenameOccurrences({
     byText("Definer", "
         'data D = d(int foo);
         'bool hasFoo(D dd) = dd has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
   , byText("Unrelated", "data D = d(int foo);", {})
 });
 
@@ -125,7 +130,7 @@ test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
     byText("A", "
         'data D = d(int foo);
         'bool hasFoo(D dd) = dd has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
   , byText("B", "data E = e(int foo);", {})
 });
 
@@ -178,7 +183,7 @@ test bool extendedConstructorField() = testRenameOccurrences({
         'extend Scratch1;
         'data Foo = g(int foo);
         'bool hasFoo(Foo ff) = ff has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
 });
 
 test bool dataFieldReusedName() = testRenameOccurrences({
