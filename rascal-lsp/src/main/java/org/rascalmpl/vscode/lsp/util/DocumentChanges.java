@@ -135,19 +135,4 @@ public class DocumentChanges {
     private static String getFileURI(IConstructor edit, String label) {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
     }
-
-    private static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
-        return annos.stream()
-            .map(ITuple.class::cast)
-            .map(entry -> {
-                String annoId = ((IString) entry.get(0)).getValue();
-                ChangeAnnotation anno = new ChangeAnnotation();
-                IConstructor c = (IConstructor) entry.get(1);
-                anno.setLabel(((IString) c.get("label")).getValue());
-                anno.setDescription(((IString) c.get("description")).getValue());
-                anno.setNeedsConfirmation(((IBool) c.get("needsConfirmation")).getValue());
-                return Map.entry(annoId, anno);
-            })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
 }
