@@ -303,4 +303,7 @@ default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Rena
 default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
 
 @synopsis{Decide whether a cursor is supported based on type information.}
+default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;
+
+@synopsis{Decide whether a cusro is supported based on resolved definitions.}
 default bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs, TModel tm, Renamer _) = false;
