@@ -163,6 +163,7 @@
           </srcs>
           <srcIgnores>
             <!-- after we get a new version of the rascal-maven plugin, we might be able to typecheck these modules as well, untill then, no such luck -->
+            <ignore>${project.basedir}/src/main/rascal/framework/</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/IDECheckerWrapper.rsc</ignore>
             <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
