@@ -41,8 +41,7 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
     } else if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
-                   , projectDir + "test/org/rascalmpl/benchmark"
-                   , projectDir + "test/org/rascalmpl/test/data"],
+                   , projectDir + "test/org/rascalmpl/benchmark"],
             bin = projectDir + "target/classes"
         );
     } else {
