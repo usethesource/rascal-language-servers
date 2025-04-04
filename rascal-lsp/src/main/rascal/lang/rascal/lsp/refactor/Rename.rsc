@@ -301,18 +301,24 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 
     loc cursorLoc = cursor[0].src;
     TModel tm = getModel(cursor[-1]);
-    if (isUnsupportedCursor(cursor, tm, r)) return {};
 
-    for (Tree c <- cursor) {
+    set[Define] cursorDefs = {};
+    if (Tree c <- cursor) {
         if (tm.definitions[c.src]?) {
-            return {tm.definitions[c.src]};
+            cursorDefs = {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
-            return {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
+            cursorDefs = {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
+        } else {
+            fail;
         }
     }
 
-    r.error(cursorLoc, "Could not find definition to rename.");
-    return {};
+    if ({} := cursorDefs) {
+        r.error(cursorLoc, "Could not find definition to rename.");
+    } else if (isUnsupportedCursor(cursor, cursorDefs, tm, r)) {
+        return {};
+    }
+    return cursorDefs;
 }
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {

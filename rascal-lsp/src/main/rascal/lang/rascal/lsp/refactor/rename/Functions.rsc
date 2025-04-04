@@ -37,6 +37,15 @@ import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;
 
+bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, TModel _, Renamer r) {
+    bool unsupported = false;
+    for (d <- cursorDefs, d.defInfo.atype is afunc, "java" in d.defInfo.modifiers) {
+        unsupported = true;
+        r.error(d.defined, "Unsupported: renaming a function implemented in Java.");
+    }
+    return unsupported;
+}
+
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree tr, TModel tm, Renamer r)
     = findAdditionalFunctionDefinitions(cursorDefs, tm)
     + findAdditionalConstructorDefinitions(cursorDefs, tr, tm, r)

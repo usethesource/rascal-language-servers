@@ -139,7 +139,7 @@ tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field
 
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_]) = false when n1 := n2;
 
-bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], TModel tm, Renamer r) {
+bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], set[Define] _, TModel tm, Renamer r) {
     builtinFields = getBuiltinFieldMap();
     if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
         for (fieldName <- domain(builtinFields[lhsType])) {

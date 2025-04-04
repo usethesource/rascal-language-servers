@@ -311,3 +311,9 @@ test bool adjacentScopeFunctions() = testRenameOccurrences({0, 1}, "
     '   j = bar();
     '}
 ");
+
+@expected{illegalRename}
+test bool externalJavaFunction() = testRenameOccurrences({0, 1}, "
+    'java bool foo();
+    'b = foo();
+");
