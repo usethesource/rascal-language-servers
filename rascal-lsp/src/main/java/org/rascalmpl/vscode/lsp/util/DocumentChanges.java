@@ -116,7 +116,7 @@ public class DocumentChanges {
 
                     if (!changeAnnotations.containsKey(annoKey)) {
                         var annotation = new ChangeAnnotation(label);
-                        annotation.setDescription(description);;
+                        annotation.setDescription(description);
                         annotation.setNeedsConfirmation(needsConfirmation);
                         changeAnnotations.put(annoKey, annotation);
                     }
