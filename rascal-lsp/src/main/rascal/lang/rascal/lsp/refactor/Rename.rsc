@@ -165,25 +165,9 @@ void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
     }
 }
 
-@synopsis{
-    Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.
-    Renaming is not supported for some symbols.
-}
+@synopsis{Rename the Rascal symbol under the cursor. Renames all related (overloaded) definitions and uses of those definitions.}
 @description {
     Rename the Rascal symbol under the cursor, across all currently open projects in the workspace.
-    The following symbols are supported.
-    - Variables
-    - Pattern variables
-    - Parameters (positional, keyword)
-    - Functions
-    - Annotations (on values)
-    - Collection fields (tuple, relations)
-    - Modules
-    - Aliases
-    - Data types
-    - Type parameters
-    - Data constructors
-    - Data constructor fields (fields, keyword fields, common keyword fields)
 
     The following symbols are currently unsupported.
     - Annotations (on functions)
@@ -228,9 +212,10 @@ void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
 
     *Validity checking*
     Once all rename candidates have been resolved, validity of the renaming will be checked. A rename is valid iff
-    1. It does not introduce errors.
-    2. It does not change the semantics of the application.
-    3. It does not change definitions outside of the current workspace.
+    1. It does not introduce parse errors.
+    2. It does not introduce type errors.
+    3. It does not change the semantics of the application.
+    4. It does not change definitions outside of the current workspace.
 }
 
 alias Edits = tuple[list[DocumentEdit], set[Message]];
@@ -244,8 +229,7 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
     return t;
 }
 
-// Due to how the focus list is computed and the grammar for concrete syntax,
-// we cannot easily find the exact name that the cursor is at
+@synopsis{Due to how the focus list is computed and the grammar for concrete syntax, we cannot easily find the exact name that the cursor is at.}
 list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
