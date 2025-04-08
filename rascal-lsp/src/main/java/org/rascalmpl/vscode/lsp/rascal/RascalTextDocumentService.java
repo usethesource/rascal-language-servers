@@ -126,7 +126,6 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
-import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -391,13 +390,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             });
     }
 
-    private <T extends ICollection<T>> void showMessages(ICollection<T> messages) {
+    private void showMessages(ISet messages) {
         for (var msg : messages) {
-            client.showMessage(mapMessage((IConstructor) msg));
+            client.showMessage(setMessageParams((IConstructor) msg));
         }
     }
 
-    private MessageParams mapMessage(IConstructor message) {
+    private MessageParams setMessageParams(IConstructor message) {
         var params = new MessageParams();
         switch (message.getName()) {
             case "error": {
@@ -635,7 +634,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public TextDocumentState getDocumentState(ISourceLocation file) {
         return documents.get(file.top());
     }
-    
+
     public @MonotonicNonNull FileFacts getFileFacts() {
         return facts;
     }
