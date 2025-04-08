@@ -36,7 +36,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
     <log4j2.version>2.24.3</log4j2.version>
     <lsp4j.version>0.24.0</lsp4j.version>
     <sonar.organization>usethesource</sonar.organization>
@@ -147,7 +147,7 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.2</version>
+            <version>3.5.3</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -296,7 +296,7 @@
         <!-- check and possible add license header
           run mvn license:format to automatically update all license headers
           and add missing ones -->
-        <version>4.6</version>
+        <version>5.0.0</version>
         <configuration>
           <headerDefinitions>
             <headerDefinition>rascal_style.xml</headerDefinition>
