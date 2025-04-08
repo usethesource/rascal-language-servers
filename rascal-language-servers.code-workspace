@@ -7,9 +7,6 @@
 			"path": "rascal-vscode-extension"
 		}
 	],
-	"settings": {
-		"java.configuration.updateBuildConfiguration": "automatic"
-	},
 	"extensions": {
 		"recommendations": [
 			"dbaeumer.vscode-eslint",  // for lint messages
