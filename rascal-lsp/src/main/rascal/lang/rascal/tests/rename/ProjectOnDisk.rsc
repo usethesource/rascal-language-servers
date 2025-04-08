@@ -31,7 +31,8 @@ import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
 import lang::rascalcore::check::Checker;
-import framework::TextEdits;
+
+import analysis::diff::edits::TextEdits;
 
 tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
     PathConfig pcfg;
@@ -40,9 +41,9 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
     } else if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
-                   , projectDir + "test/org/rascalmpl/benchmark"
-                   , projectDir + "test/org/rascalmpl/test/data"],
-            bin = projectDir + "target/classes"
+                   , projectDir + "test/org/rascalmpl/benchmark"],
+            bin = projectDir + "target/classes",
+            resources = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(

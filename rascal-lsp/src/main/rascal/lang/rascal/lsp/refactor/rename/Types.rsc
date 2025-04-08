@@ -72,13 +72,13 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc
 
     if ({} := reachableCursorDefs) return {};
 
-    return {overload
+    return {fileTm.definitions[overload]
         | loc modScope <- reachable
         , loc f := modScope.top
         , fileTm := r.getConfig().tmodelForLoc(f)
         , definitions := (d.defined: d | d <- fileTm.defines) + tm.definitions
-        , Define overload <- fileTm.defines
-        , rascalMayOverloadSameName(reachableCursorDefs + overload.defined, definitions)
+        , loc overload <- (fileTm.defines<idRole, defined>)[dataOrSyntaxRoles]
+        , rascalMayOverloadSameName(reachableCursorDefs + overload, definitions)
     };
 }
 

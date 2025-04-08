@@ -33,6 +33,7 @@ import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascalcore::check::BuiltinFields;
+import lang::rascalcore::check::Import;
 
 import lang::rascal::lsp::refactor::rename::Constructors;
 import lang::rascal::lsp::refactor::rename::Types;
@@ -109,7 +110,6 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
     }
 
     visit (tr) {
-        case (Expression) `<Expression e> has <Name n>`: addFieldUse(e, n);
         case (Expression) `<Expression e>.<Name n>`: addFieldUse(e, n);
         case (Assignable) `<Assignable rec>.<Name n>`: addFieldUse(rec, n);
         case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`:
@@ -137,6 +137,8 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
 
+bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_]) = false when n1 := n2;
+
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], TModel tm, Renamer r) {
     builtinFields = getBuiltinFieldMap();
     if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
@@ -148,4 +150,22 @@ bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expressi
         }
     }
     return false;
+}
+
+void renameAdditionalUses(set[Define] fieldDefs, str newName, TModel tm, Renamer r) {
+    if (any(role <- fieldDefs.idRole, !isFieldRole(role)) || {} := fieldDefs) fail renameAdditionalUses;
+
+    loc mloc = getModuleScopes(tm)[tm.modelName].top;
+    Tree tr = r.getConfig().parseLoc(mloc);
+    visit (tr) {
+        case (Expression) `<Expression e> has <Name n>`: {
+            eFieldDefs = getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc);
+            if (size(fieldDefs & eFieldDefs) > 0) {
+                fieldName = "<n>";
+                if (fieldName in fieldDefs.id) {
+                    r.textEdit(replace(n.src, newName, annotation = changeAnnotation("Use of `has <fieldName>` on value of <describeFact(getFact(tm, e.src))>", "Due to the dynamic nature of these names, please review these suggested changes.", needsConfirmation = true)));
+                }
+            }
+        }
+    }
 }

@@ -28,8 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::tests::rename::ValidNames
 
 import lang::rascal::tests::rename::TestUtils;
-
-import framework::TextEdits;
+import analysis::diff::edits::TextEdits;
 
 test bool renameToReservedName() {
     edits = getEdits("int foo = 8;", 0, "foo", "int", "", "");

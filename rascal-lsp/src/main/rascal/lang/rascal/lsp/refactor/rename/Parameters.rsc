@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::refactor::rename::Parameters
 
 extend framework::Rename;
-import framework::TextEdits;
 extend lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Fields;
 

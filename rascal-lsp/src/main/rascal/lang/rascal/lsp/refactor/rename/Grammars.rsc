@@ -76,7 +76,8 @@ tuple[Nonterminal, list[NonterminalLabel]] extractExcepts(Sym s) {
 
 TModel augmentExceptProductions(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     top-down-break visit (tr) {
-        case outerExcept:(Sym) `<Sym _>!<NonterminalLabel _>`: {
+        case outerExcept:(Sym) `<Sym s>!<NonterminalLabel _>`: {
+            if (nothing() := getFact(tm, s.src)) fail;
             <nonTerm, excepts> = extractExcepts(outerExcept);
             ntDefs = tm.useDef[nonTerm.src];
             rel[loc, loc] exceptUseDefs = flatMapPerFile(ntDefs, rel[loc, loc](loc f, set[loc] localNtDefs) {
