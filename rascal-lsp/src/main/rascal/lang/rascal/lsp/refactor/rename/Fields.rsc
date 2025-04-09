@@ -137,7 +137,7 @@ tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field na
 // Keyword fields
 tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
 
-bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_]) = false when n1 := n2;
+bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_], Renamer _) = (n1 := n2);
 
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression e>.<Name n2>`,*_], TModel tm, Renamer r) {
     builtinFields = getBuiltinFieldMap();
