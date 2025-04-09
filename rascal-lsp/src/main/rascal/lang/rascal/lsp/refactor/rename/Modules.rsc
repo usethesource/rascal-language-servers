@@ -121,19 +121,17 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
 list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
-    list[TextEdit] changes = [];
-
-    start[Module] m = parseModuleWithSpaces(f);
-    for (/QualifiedName qn := m) {
-        for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-           , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
-           , isReachable(projWithRenamedMod, wsProject)
-           ) {
-            changes += replace(l, newName);
-        }
+    try {
+        start[Module] m = parseModuleWithSpaces(f);
+        return [replace(l, newName)
+            | /QualifiedName qn := m
+            , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
+            , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
+            , isReachable(projWithRenamedMod, wsProject)
+        ];
+    } catch Java("ParseError", _): {
+        return [];
     }
-
-    return changes;
 }
 
 set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathConfig(loc) getPathConfig) {
