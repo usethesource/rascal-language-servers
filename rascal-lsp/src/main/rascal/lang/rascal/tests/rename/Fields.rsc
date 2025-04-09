@@ -82,6 +82,24 @@ test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2, 3}, "
     , skipCursors = {3}
 );
 
+test bool constructorCallHasField() = testRenameOccurrences({0, 1}, "
+    bool b = f(8) has foo;
+", decls = "data Foo = f(int foo);", skipCursors = {1});
+
+test bool constructorCallRenameField() = testRenameOccurrences({0, 1}, "
+    int x = f(8).foo;
+", decls = "data Foo = f(int foo);");
+
+test bool constructorCallRenameFieldMultiModule() = testRenameOccurrences({
+    byText("Definer", "data Foo = f(int foo);", {0}),
+    byText("Main", "import Definer;
+                   'int x = f(8).foo;", {0})
+});
+
+test bool constructorCallRenameKeywordField() = testRenameOccurrences({0, 1, 2}, "
+    int x = f(foo = 8).foo;
+", decls = "data Foo = f(int foo = 0);");
+
 @expected{illegalRename}
 test bool duplicateConstructorField() = testRename("", decls =
     "data D = d(int foo, int bar);"
