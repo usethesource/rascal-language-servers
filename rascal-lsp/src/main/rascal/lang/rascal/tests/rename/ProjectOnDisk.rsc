@@ -24,24 +24,26 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::ProjectOnDisk
 
 import lang::rascal::lsp::refactor::Rename;
-import lang::rascal::lsp::refactor::Util;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
 import lang::rascalcore::check::Checker;
 
-Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
+import analysis::diff::edits::TextEdits;
+
+tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
     } else if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
-                   , projectDir + "test/org/rascalmpl/benchmark"
-                   , projectDir + "test/org/rascalmpl/test/data"],
-            bin = projectDir + "target/classes"
+                   , projectDir + "test/org/rascalmpl/benchmark"],
+            bin = projectDir + "target/classes",
+            resources = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(

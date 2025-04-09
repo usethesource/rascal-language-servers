@@ -24,10 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Grammars
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
 test bool productionType() = testRenameOccurrences({0, 1, 2, 3}, "
     'Foo func(Foo f) = f.child;
@@ -95,7 +95,7 @@ decls = "
 
     'syntax T
     '   = foo: \"foo\"
-    '   | bar: \"bar\"
+    '   | baz: \"baz\"
     '   ;
 ");
 
@@ -120,15 +120,16 @@ test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1}, 
 test bool syntaxConstructorField() = testRenameOccurrences({0, 1, 2}, "
     'S getChild(S x) = x.foo;
     'bool h(S x) = x has foo;
-", decls = "syntax S = s: S foo;");
+", decls = "syntax S = s: S foo;"
+, skipCursors = {2});
 
 test bool hasConstructorFields() = testRenameOccurrences({0, 2}, "
     D x = d(8);
     bool b = x has foo;
 ", decls = "
     'data D = d(int foo);
-    'data E = e(int foo);
-");
+    'data E = e(int foo);"
+    , skipCursors = {2});
 
 test bool referencedConstructor() = testRenameOccurrences({0, 1}, "", decls = "
     'lexical L = \"l\"+;

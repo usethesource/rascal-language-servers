@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -65,15 +66,9 @@ import io.usethesource.vallang.IValue;
 public class DocumentChanges {
     private DocumentChanges() { }
 
-    public static WorkspaceEdit translateDocumentChanges(final IBaseTextDocumentService docService, ITuple edits) {
-        WorkspaceEdit wsEdit = new WorkspaceEdit();
-        wsEdit.setDocumentChanges(DocumentChanges.translateDocumentChanges(docService, (IList) edits.get(0)));
-        wsEdit.setChangeAnnotations(DocumentChanges.translateChangeAnnotations((IMap) edits.get(1)));
-        return wsEdit;
-    }
-
-    public static List<Either<TextDocumentEdit, ResourceOperation>> translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
+    public static WorkspaceEdit translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
+        Map<String, ChangeAnnotation> changeAnnotations = new HashMap<>();
 
         for (IValue elem : list) {
             IConstructor edit = (IConstructor) elem;
@@ -93,22 +88,41 @@ public class DocumentChanges {
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits(docService, (IList) edit.get("edits")))));
+                            translateTextEdits(docService, (IList) edit.get("edits"), changeAnnotations))));
                     break;
             }
         }
 
-        return result;
+        WorkspaceEdit wsEdit = new WorkspaceEdit(result);
+        wsEdit.setChangeAnnotations(changeAnnotations);
+
+        return wsEdit;
     }
 
-    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits) {
+    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
+                var range = locationToRange(docService, (ISourceLocation) c.get("range"));
+                var replacement = ((IString) c.get("replacement")).getValue();
+                // Check annotation
                 var kw = c.asWithKeywordParameters();
-                return kw.hasParameter("annotation")
-                    ? new AnnotatedTextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue(), ((IString) kw.getParameter("annotation")).getValue())
-                    : new TextEdit(locationToRange(docService, (ISourceLocation) c.get("range")), ((IString) c.get("replacement")).getValue());
+                if (kw.hasParameter("annotation")) {
+                    var anno = (IConstructor) kw.getParameter("annotation");
+                    var label = ((IString) anno.get("label")).getValue();
+                    var description = ((IString) anno.get("description")).getValue();
+                    var needsConfirmation = ((IBool) anno.asWithKeywordParameters().getParameter("needsConfirmation")).getValue();
+                    var annoKey = String.format("%s_%s_%b", label, description, needsConfirmation);
+
+                    if (!changeAnnotations.containsKey(annoKey)) {
+                        var annotation = new ChangeAnnotation(label);
+                        annotation.setDescription(description);
+                        annotation.setNeedsConfirmation(needsConfirmation);
+                        changeAnnotations.put(annoKey, annotation);
+                    }
+                    return new AnnotatedTextEdit(range, replacement, annoKey);
+                }
+                return new TextEdit(range, replacement);
             })
             .collect(Collectors.toList());
     }
@@ -120,20 +134,5 @@ public class DocumentChanges {
 
     private static String getFileURI(IConstructor edit, String label) {
         return ((ISourceLocation) edit.get(label)).getURI().toString();
-    }
-
-    private static Map<String, ChangeAnnotation> translateChangeAnnotations(IMap annos) {
-        return annos.stream()
-            .map(ITuple.class::cast)
-            .map(entry -> {
-                String annoId = ((IString) entry.get(0)).getValue();
-                ChangeAnnotation anno = new ChangeAnnotation();
-                IConstructor c = (IConstructor) entry.get(1);
-                anno.setLabel(((IString) c.get("label")).getValue());
-                anno.setDescription(((IString) c.get("description")).getValue());
-                anno.setNeedsConfirmation(((IBool) c.get("needsConfirmation")).getValue());
-                return Map.entry(annoId, anno);
-            })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

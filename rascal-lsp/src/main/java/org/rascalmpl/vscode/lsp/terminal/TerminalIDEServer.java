@@ -47,7 +47,6 @@ import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
 import org.eclipse.lsp4j.WorkDoneProgressReport;
-import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.uri.LogicalMapResolver;
@@ -146,7 +145,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         IList list = edits.getEdits();
 
         return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(DocumentChanges.translateDocumentChanges(docService, list))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list)));
         });
     }
 

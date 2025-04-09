@@ -24,17 +24,34 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module lang::rascal::lsp::refactor::TextEdits
+@bootstrapParser
+module lang::rascal::lsp::refactor::rename::Functions
 
-extend analysis::diff::edits::TextEdits;
+extend framework::Rename;
+import lang::rascal::lsp::refactor::rename::Common;
+import lang::rascal::lsp::refactor::rename::Constructors;
 
-alias ChangeAnnotationId = str;
+import lang::rascal::\syntax::Rascal;
+import analysis::typepal::TModel;
+import lang::rascalcore::check::BasicRascalConfig;
 
-data ChangeAnnotation
-    = changeAnnotation(str label, str description, bool needsConfirmation)
+import util::Maybe;
+
+bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, TModel _, Renamer r) {
+    bool unsupported = false;
+    for (d <- cursorDefs, d.defInfo.atype is afunc, "java" in d.defInfo.modifiers) {
+        unsupported = true;
+        r.error(d.defined, "Unsupported: renaming a function implemented in Java.");
+    }
+    return unsupported;
+}
+
+set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, functionId(), _, _>, *_}, Tree tr, TModel tm, Renamer r)
+    = findAdditionalFunctionDefinitions(cursorDefs, tm)
+    + findAdditionalConstructorDefinitions(cursorDefs, tr, tm, r)
     ;
 
-data TextEdit(ChangeAnnotationId annotation = "");
+set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm) =
+    {tm.definitions[d] | loc d <- (tm.defines<idRole, defined>)[functionId()], rascalMayOverloadSameName(cursorDefs.defined + d, tm.definitions)};
 
-alias ChangeAnnotationRegister =
-    ChangeAnnotationId(str label, str description, bool needsConfirmation);
+tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;

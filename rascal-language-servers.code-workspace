@@ -7,7 +7,6 @@
 			"path": "rascal-vscode-extension"
 		}
 	],
-	"settings": {},
 	"extensions": {
 		"recommendations": [
 			"dbaeumer.vscode-eslint",  // for lint messages

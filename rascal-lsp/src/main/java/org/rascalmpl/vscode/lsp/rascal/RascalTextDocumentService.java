@@ -102,7 +102,6 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -127,8 +126,11 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
@@ -309,11 +311,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
     }
 
-    private ITree findQualifiedNameUnderCursor(ISourceLocation file, ITree moduleTree, Position p) {
-        Position rascalCursorPos = Locations.toRascalPosition(file, p, columns);
-
-        // Find all trees containing the cursor, in ascending order of size
-        IList focusList = TreeSearch.computeFocusList(moduleTree, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+    private ITree findQualifiedNameUnderCursor(IList focusList) {
         List<String> sortNames = focusList.stream()
             .map(ITree.class::cast)
             .map(TreeAdapter::getProduction)
@@ -356,7 +354,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getMostRecentTree().get() : t))
-            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
+            .thenApply(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                return findQualifiedNameUnderCursor(focus);
+            })
             .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
             .thenApply(Either3::forFirst);
     }
@@ -374,9 +376,50 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? (file.getMostRecentTree().get()) : t))
-            .thenApply(tr -> findQualifiedNameUnderCursor(file.getLocation(), tr, params.getPosition()))
-            .thenCompose(cursor -> rascalServices.getRename(cursor, workspaceFolders, facts::getPathConfig, params.getNewName()).get())
-            .thenApply(t -> DocumentChanges.translateDocumentChanges(this, t));
+            .thenCompose(tr -> {
+                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
+                var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                var cursorTree = findQualifiedNameUnderCursor(focus);
+                return rascalServices.getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, facts::getPathConfig, params.getNewName()).get();
+            })
+            .thenApply(t -> {
+                showMessages((ISet) t.get(1));
+                return DocumentChanges.translateDocumentChanges(this, (IList) t.get(0));
+            });
+    }
+
+    private void showMessages(ISet messages) {
+        for (var msg : messages) {
+            client.showMessage(setMessageParams((IConstructor) msg));
+        }
+    }
+
+    private MessageParams setMessageParams(IConstructor message) {
+        var params = new MessageParams();
+        switch (message.getName()) {
+            case "error": {
+                params.setType(MessageType.Error);
+                break;
+            }
+            case "warning": {
+                params.setType(MessageType.Warning);
+                break;
+            }
+            case "info": {
+                params.setType(MessageType.Info);
+                break;
+            }
+            default: params.setType(MessageType.Log);
+        }
+
+        var msgText = ((IString) message.get("msg")).getValue();
+        if (message.has("at")) {
+            var at = ((ISourceLocation) message.get("at")).getURI();
+            params.setMessage(String.format("%s (at %s)", msgText, at));
+        } else {
+            params.setMessage(msgText);
+        }
+        return params;
     }
 
     @Override
@@ -412,7 +455,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
         rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
-            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, (IList) edits.get(0)))
             .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
             .thenAccept(editResponse -> {
                 if (!editResponse.isApplied()) {
@@ -589,7 +632,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public TextDocumentState getDocumentState(ISourceLocation file) {
         return documents.get(file.top());
     }
-    
+
     public @MonotonicNonNull FileFacts getFileFacts() {
         return facts;
     }

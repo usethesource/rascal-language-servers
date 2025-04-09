@@ -24,10 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Performance
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::RascalConfig;
@@ -45,8 +45,20 @@ test bool largeTest() = testRenameOccurrences(({0} | it + {foos + 3, foos + 4, f
     | i <- [0..LARGE_TEST_SIZE])
 , skipCursors = toSet([1..LARGE_TEST_SIZE * 5]));
 
-@expected{unsupportedRename}
+@expected{illegalRename}
 test bool failOnError() = testRename("int foo = x + y;");
+
+@expected{illegalRename}
+test bool failOnErrorInImport() = testRenameOccurrences({
+    byText("Foo", "int foo = x + y;", {0}, skipCursors = {0}),
+    byText("Main", "import Foo;
+                   'int baz = Foo::foo;", {0})
+});
+
+test bool doNotFailOnUnrelatedError() = testRenameOccurrences({
+    byText("Unrelated", "int x = \"notanumber\";", {}),
+    byText("Main", "int foo = 8;", {0})
+});
 
 test bool incrementalTypeCheck() {
     procLoc = |memory://tests/incremental|;
