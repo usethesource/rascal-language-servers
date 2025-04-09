@@ -455,12 +455,18 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
         rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
-            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, (IList) edits.get(0)))
-            .thenCompose(docChanges -> client.applyEdit(new ApplyWorkspaceEditParams(docChanges)))
-            .thenAccept(editResponse -> {
-                if (!editResponse.isApplied()) {
-                    throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+            .thenAccept(res -> {
+                var edits = (IList) res.get(0);
+                if (edits.size() == 0) {
+                    return;
                 }
+
+                var changes = DocumentChanges.translateDocumentChanges(this, edits);
+                client.applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
+                    if (!editResponse.isApplied()) {
+                        throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+                    }
+                });
             })
             .exceptionally(e -> {
                 logger.catching(Level.ERROR, e.getCause());
