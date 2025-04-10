@@ -457,6 +457,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig, documents)
             .thenAccept(res -> {
                 var edits = (IList) res.get(0);
+                var messages = (ISet) res.get(1);
+                showMessages(messages);
+
                 if (edits.size() == 0) {
                     return;
                 }
