@@ -26,15 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -50,8 +47,6 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.concurrent.DebouncedSupplier;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -74,7 +69,6 @@ public class TextDocumentState {
 
     @SuppressWarnings("java:S3077") // Visibility of writes is enough
     private volatile Update current;
-    private final DebouncedSupplier<Update> parseAndGetCurrentDebouncer;
 
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
@@ -88,7 +82,6 @@ public class TextDocumentState {
         this.location = location;
 
         this.current = new Update(initialVersion, initialContent, initialTimestamp);
-        this.parseAndGetCurrentDebouncer = new DebouncedSupplier<>(this::parseAndGetCurrent);
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
     }
@@ -107,16 +100,12 @@ public class TextDocumentState {
         return current.getContent();
     }
 
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(Duration delay) {
-        return parseAndGetCurrent(delay)
-            .thenApply(Update::getTreeAsync)
-            .thenCompose(Function.identity());
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
+        return current.getTreeAsync();
     }
 
-    public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync(Duration delay) {
-        return parseAndGetCurrent(delay)
-            .thenApply(Update::getDiagnosticsAsync)
-            .thenCompose(Function.identity());
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync() {
+        return current.getDiagnosticsAsync();
     }
 
     public @MonotonicNonNull Versioned<ITree> getLastTree() {
@@ -125,21 +114,6 @@ public class TextDocumentState {
 
     public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
         return lastWithoutErrors.get();
-    }
-
-    private CompletableFuture<Update> parseAndGetCurrent() {
-        var update = current;
-        update.parseIfNotParsing();
-        return CompletableFuture.completedFuture(update);
-    }
-
-    private CompletableFuture<Update> parseAndGetCurrent(Duration delay) {
-        var update = current;
-        if (update.isParsing()) {
-            return CompletableFuture.completedFuture(update);
-        } else {
-            return parseAndGetCurrentDebouncer.get(delay);
-        }
     }
 
     /**
@@ -154,7 +128,6 @@ public class TextDocumentState {
         private final long timestamp;
         private final CompletableFuture<Versioned<ITree>> treeAsync;
         private final CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
-        private final AtomicBoolean parsing;
 
         public Update(int version, String content, long timestamp) {
             this.version = version;
@@ -162,7 +135,7 @@ public class TextDocumentState {
             this.timestamp = timestamp;
             this.treeAsync = new CompletableFuture<>();
             this.diagnosticsAsync = new CompletableFuture<>();
-            this.parsing = new AtomicBoolean(false);
+            parse();
         }
 
         public Versioned<String> getContent() {
@@ -174,43 +147,34 @@ public class TextDocumentState {
         }
 
         public CompletableFuture<Versioned<ITree>> getTreeAsync() {
-            parseIfNotParsing();
             return treeAsync;
         }
 
         public CompletableFuture<Versioned<List<Diagnostics.Template>>> getDiagnosticsAsync() {
-            parseIfNotParsing();
             return diagnosticsAsync;
         }
 
-        public boolean isParsing() {
-            return parsing.get();
-        }
+        private void parse() {
+            parser.apply(location, content)
+                .whenComplete((t, e) -> {
+                    var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
 
-        private void parseIfNotParsing() {
-            if (parsing.compareAndSet(false, true)) {
-                parser
-                    .apply(location, content)
-                    .whenComplete((t, e) -> {
-                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
-
-                        // Complete future to get the tree
-                        if (t == null) {
-                            treeAsync.completeExceptionally(e);
-                        } else {
-                            var tree = new Versioned<>(version, t, timestamp);
-                            treeAsync.complete(tree);
-                            Versioned.replaceIfNewer(last, tree);
-                            if (diagnosticsList.isEmpty()) {
-                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
-                            }
+                    // Complete future to get the tree
+                    if (t == null) {
+                        treeAsync.completeExceptionally(e);
+                    } else {
+                        var tree = new Versioned<>(version, t, timestamp);
+                        treeAsync.complete(tree);
+                        Versioned.replaceIfNewer(last, tree);
+                        if (diagnosticsList.isEmpty()) {
+                            Versioned.replaceIfNewer(lastWithoutErrors, tree);
                         }
+                    }
 
-                        // Complete future to get diagnostics
-                        var diagnostics = new Versioned<>(version, diagnosticsList);
-                        diagnosticsAsync.complete(diagnostics);
-                    });
-            }
+                    // Complete future to get diagnostics
+                    var diagnostics = new Versioned<>(version, diagnosticsList);
+                    diagnosticsAsync.complete(diagnostics);
+                });
         }
 
         private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
