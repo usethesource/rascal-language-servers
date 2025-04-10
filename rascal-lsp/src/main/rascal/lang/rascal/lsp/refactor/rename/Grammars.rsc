@@ -33,6 +33,8 @@ import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Types;
 
+import util::Util;
+
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::BasicRascalConfig;
 
@@ -64,30 +66,15 @@ tuple[type[Tree] as, str desc] asType(nonterminalId()) = <#Nonterminal, "product
 // Lexicals
 tuple[type[Tree] as, str desc] asType(lexicalId()) = <#Nonterminal, "production name">;
 
-tuple[Nonterminal, list[NonterminalLabel]] extractExcepts(Sym s) {
-    list[NonterminalLabel] excepts = [];
-    top-down visit (s) {
-        case (Sym) `<Sym _>!<NonterminalLabel except>`: excepts += except;
-        case Nonterminal nonTerm: return <nonTerm, excepts>;
-    }
-
-    throw "No Nonterminal reached (for excepts <excepts>)";
-}
-
 TModel augmentExceptProductions(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     top-down-break visit (tr) {
         case outerExcept:(Sym) `<Sym s>!<NonterminalLabel _>`: {
-            if (nothing() := getFact(tm, s.src)) fail;
-            <nonTerm, excepts> = extractExcepts(outerExcept);
-            ntDefs = tm.useDef[nonTerm.src];
-            rel[loc, loc] exceptUseDefs = flatMapPerFile(ntDefs, rel[loc, loc](loc f, set[loc] localNtDefs) {
-                localTm = tmodelForLoc(f);
-                return {<cons.src, cd>
-                    | cons <- excepts
-                    // Find all constructors that are defined in this file
-                    , loc cd <- (localTm.defines<idRole, id, defined>)[constructorId(), "<cons>"]
-                    // Check if they belong to the non-terminal from the original production
-                    , any(loc ntd <- localNtDefs, isContainedIn(cd, ntd))
+            excepts = {e | /(Sym) `<Sym _>!<NonterminalLabel e>` := outerExcept};
+            rel[loc, loc] exceptUseDefs = flatMap(rascalGetReflexiveModulePaths(tm).to, rel[loc, loc](loc scope) {
+                localTm = tmodelForLoc(scope.top);
+                return {<ntl.src, cd>
+                    | ntl <- excepts
+                    , loc cd <- (localTm.defines<idRole, id, defined>)[constructorId(), "<ntl>"]
                 };
             });
 
