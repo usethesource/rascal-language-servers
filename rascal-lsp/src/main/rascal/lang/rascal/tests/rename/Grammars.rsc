@@ -86,7 +86,7 @@ decls = "
     '  ;
 ");
 
-test bool exceptConstructorDifferentNonterminal() = testRenameOccurrences({0, 2}, "",
+test bool exceptConstructorDifferentNonterminal() = testRenameOccurrences({0, 1, 2}, "",
 decls = "
     'syntax S
     '   = anotherBut: T t!foo
@@ -99,7 +99,7 @@ decls = "
     '   ;
 ");
 
-test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1}, "", decls = "
+test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1, 2}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
@@ -108,7 +108,7 @@ test bool exceptedDuplicateConstructorAtEnd() = testRenameOccurrences({0, 1}, ""
     'syntax T = foo: \"Tfoo\";
 ");
 
-test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1}, "", decls = "
+test bool exceptedDuplicateConstructorAtStart() = testRenameOccurrences({0, 1, 2}, "", decls = "
     'syntax S
     '  = foo: \"foo\" S s
     '  | baz: \"baz\"
