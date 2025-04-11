@@ -31,6 +31,7 @@ extend framework::Rename;
 import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;
+import analysis::diff::edits::TextEdits;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascalcore::check::BasicRascalConfig;
@@ -120,20 +121,36 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
     toProject == fromProject           // Both configs belong to the same project
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
-list[TextEdit] getChanges(loc f, PathConfig wsProject, rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges) {
-    list[TextEdit] changes = [];
+list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+    str contents = readFile(f);
+    changesInFile = [<oldName, newName>
+        | <oldName, newName, projWithRenamedMod> <- qualifiedNameChanges
+        , contains(contents, oldName) && isReachable(projWithRenamedMod, wsProject)
+    ];
 
-    start[Module] m = parseModuleWithSpaces(f);
-    for (/QualifiedName qn := m) {
-        for (<oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-           , {<newName, projWithRenamedMod>} := qualifiedNameChanges[oldName]
-           , isReachable(projWithRenamedMod, wsProject)
-           ) {
-            changes += replace(l, newName);
-        }
+    if (changesInFile != []) {
+        enum = "\n - ";
+        changeList = enum + intercalate(enum, ["`<oldName>` -\> `<newName>`" | <oldName, newName> <- changesInFile]);
+        registerMessage(warning("File contains reference(s) to renamed module(s), but it has a parse error and cannot be modified. Please modify this file manually.<changeList>", f));
     }
+    return [];
+}
 
-    return changes;
+list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+    try {
+        start[Module] m = parseModuleWithSpaces(f);
+        return [replace(l, newName)
+            | /QualifiedName qn := m
+            , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
+            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
+            , isReachable(projWithRenamedMod, wsProject)
+        ];
+    }
+    catch Java("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
+    catch JavaException("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
+    // Catch all
+    catch e: registerMessage(error("<e>", f));
+    return [];
 }
 
 set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathConfig(loc) getPathConfig) {
@@ -151,14 +168,17 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
     };
 }
 
-tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    rel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = {
+tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc new] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+    lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = [
         rename
         | <oldLoc, newLoc> <- renames
         , tuple[str, str, PathConfig] rename <- getQualifiedNameChanges(oldLoc, newLoc, getPathConfig)
-    };
+    ];
 
-    set[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
+    set[Message] messages = {};
+    void registerMessage(Message msg) { messages += msg; }
+
+    list[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
     set[DocumentEdit] edits = flatMap(workspaceFolders, set[DocumentEdit](loc wsFolder) {
         PathConfig wsFolderPcfg = getPathConfig(wsFolder);
 
@@ -167,10 +187,9 @@ tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(list[tuple[loc ol
 
         return {changed(file, changes)
             | loc file <- find(wsFolder, "rsc")
-            , changes := getChanges(file, wsFolderPcfg, qualifiedNameChanges)
-            , changes != []
+            , changes:[_, *_] := getChanges(file, wsFolderPcfg, qualifiedNameChanges, registerMessage)
         };
     });
 
-    return <toList(edits), {}>;
+    return <any(msg <- messages, msg is error) ? [] : toList(edits), messages>;
 }
