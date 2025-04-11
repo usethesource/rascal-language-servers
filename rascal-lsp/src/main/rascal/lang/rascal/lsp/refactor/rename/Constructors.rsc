@@ -32,8 +32,11 @@ import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Functions;
 
 import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::Import;
 
 import lang::rascal::lsp::refactor::rename::Types;
+
+import util::Util;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
@@ -64,21 +67,15 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
         return {};
     }
 
-    set[Define] additionalDefs = {};
-    // Collect constructors that overload constructors
-    if (consDefs: {_, *_} := {d | Define d <- cursorDefs, constructorId() := d.idRole}) {
-        // Find the ADT definitions in this file that these constructors belong to
-        adtDefs = {adt | Define adt:<_, _, _, dataId(), _, _> <- tm.defines, any(cons <- consDefs, isContainedIn(cons.defined, adt.defined))};
-        // Find overloads of this ADT
-        adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
+    loc localScope = getModuleScopes(tm)[tm.modelName];
+    if (!any(Define d <- cursorDefs, isContainedInScope(d.defined, localScope, tm) || isContainedInScope(localScope, d.scope, tm))) {
+        return {};
+    }
 
-        additionalDefs += {d | d <- findConstructorDefinitions(adtDefs, r), d.id in consDefs.id};
-    }
-    // Collect constructors that overload functions
-    if (funcDefs: {_, *_} := {d | Define d <- cursorDefs, functionId() := d.idRole}) {
-        additionalDefs += {tm.definitions[d] | loc d <- (tm.defines<idRole, id, defined>)[constructorId(), funcDefs.id]};
-    }
-    return additionalDefs;
+    return flatMap(rascalGetReflexiveModulePaths(tm).to, set[Define](loc scope) {
+        localTm = r.getConfig().tmodelForLoc(scope.top);
+        return {tm.definitions[d] | loc d <- (tm.defines<idRole, id, defined>)[constructorId(), cursorDefs.id]};
+    });
 }
 
 set[Define] findConstructorDefinitions(set[Define] adtDefs, Renamer r) {
