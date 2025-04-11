@@ -42,8 +42,7 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
                    , projectDir + "test/org/rascalmpl/benchmark"],
-            bin = projectDir + "target/classes",
-            resources = projectDir + "target/classes"
+            bin = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(
@@ -53,6 +52,6 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
         );
     }
     // extension for Rascal compiler
-    pbcfg = pcfg[resources = pcfg.bin];
+    pcfg = pcfg[resources = pcfg.bin];
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
 }
