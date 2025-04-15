@@ -195,7 +195,7 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
 }
 
 set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
-    j = "Checking files for occurrences of relevant names";
+    j = "Checking files for occurrences of relevant name";
     jobStart(j, totalWork = size(fs));
     set[loc] filteredFs = {};
     for (loc f <- fs) {

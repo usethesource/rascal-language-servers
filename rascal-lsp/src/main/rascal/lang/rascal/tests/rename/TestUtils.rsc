@@ -51,6 +51,7 @@ import util::FileSystem;
 import util::LanguageServer;
 import util::Math;
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 import util::Util;
 
@@ -269,8 +270,14 @@ void throwMessagesIfError(set[Message] msgs) {
 }
 
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
+    j = "Testing renaming <cursorAtOldNameOccurrence>th occurrence of \'<oldName>\' in <singleModule>";
+    jobStart(j, totalWork = 3);
+    jobStep(j, "Finding cursor focus tree");
     <cursor, focus> = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
-    return rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
+    jobStep(j, "Performing renaming");
+    res =  rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
+    jobEnd(j);
+    return res;
 }
 
 tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
