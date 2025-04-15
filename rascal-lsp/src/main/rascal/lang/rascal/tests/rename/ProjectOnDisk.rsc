@@ -34,21 +34,22 @@ import lang::rascalcore::check::Checker;
 
 import analysis::diff::edits::TextEdits;
 
-tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
+tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"]) {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
     } else if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
+                   , projectDir + "src/org/rascalmpl/compiler"
                    , projectDir + "test/org/rascalmpl/benchmark"],
             bin = projectDir + "target/classes"
         );
     } else {
         pcfg = pathConfig(
-            srcs = [ projectDir + "src" ],
+            srcs = [projectDir + dir | dir <- srcDirs],
             bin = projectDir + "target/classes",
-            libs = [calculateRascalLib()]
+            libs = [calculateRascalLib(), |jar+mvn://org/rascalmpl/typepal/0.15.1/typepal-0.15.1.jar|]
         );
     }
     // extension for Rascal compiler
