@@ -269,7 +269,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
     extendFocusWithConcreteSyntax(cursor, cursorLoc)
   , newName
   , rconfig(
-        Tree(loc l) { return parse(#start[Module], l); }
+        Tree(loc l) { return parseModuleWithSpaces(l); }
       , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
