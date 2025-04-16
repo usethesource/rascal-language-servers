@@ -39,6 +39,11 @@ test bool productionConcreteType() = testRenameOccurrences({0, 1, 2, 3, 4}, "
 ", decls = "syntax Foo = Foo child;"
 , oldName = "Foo", newName = "Bar");
 
+test bool productionConcreteArgument() = testRenameOccurrences({1, 2}, "
+    'Foo func((Foo) `\<Foo foo\>`) = foo;
+", decls = "syntax Foo = Foo foo;"
+);
+
 test bool productionPattern() = testRenameOccurrences({0, 1, 2}, "
     'Tree t;
     'if (/Foo f := t) x = f;
