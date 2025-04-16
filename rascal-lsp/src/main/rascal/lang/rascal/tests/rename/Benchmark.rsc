@@ -56,13 +56,13 @@ map[str, num] benchmarks(loc projDir) {
       , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
       , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
       , "[bird] local var": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "imported", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
-    //   , "[typepal] module name": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "analysis::typepal::Version", srcDirs = ["src"])
-    //   , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
-    //   , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
-    //   , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/ATypeUtils.rsc", "prettyAType")
-    //     "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/Checker.rsc", "msgs")
-    //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
-    //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
+      , "[typepal] module name": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "analysis::typepal::Version", srcDirs = ["src"])
+      , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
+      , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
+      , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/ATypeUtils.rsc", "prettyAType")
+      , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/Checker.rsc", "msgs")
+      , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
+      , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
     ));
     iprintln(results);
 
