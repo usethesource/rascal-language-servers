@@ -34,7 +34,7 @@ import lang::rascalcore::check::Checker;
 
 import analysis::diff::edits::TextEdits;
 
-tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"]) {
+tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
@@ -43,13 +43,14 @@ tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str fi
             srcs = [ projectDir + "src/org/rascalmpl/library"
                    , projectDir + "src/org/rascalmpl/compiler"
                    , projectDir + "test/org/rascalmpl/benchmark"],
-            bin = projectDir + "target/classes"
+            bin = projectDir + "target/classes",
+            libs = libs
         );
     } else {
         pcfg = pathConfig(
             srcs = [projectDir + dir | dir <- srcDirs],
             bin = projectDir + "target/classes",
-            libs = [calculateRascalLib(), |jar+mvn://org/rascalmpl/typepal/0.15.1/typepal-0.15.1.jar|]
+            libs = [calculateRascalLib(), *libs]
         );
     }
     // extension for Rascal compiler

@@ -29,16 +29,20 @@ module lang::rascal::tests::rename::Benchmark
 import lang::rascal::tests::rename::ProjectOnDisk;
 
 import IO;
+import Set;
 import util::Benchmark;
+import analysis::diff::edits::TextEdits;
 
 loc rascalProj(loc projDir) = projDir + "rascal";
 loc typepalProj(loc projDir) = projDir + "typepal";
 loc birdProj(loc projDir) = projDir + "../bird/bird-core";
 
-void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occ = 0, list[str] srcDirs = ["src/main/rascal"]) = void() {
+void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occurrence = 0, list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) = void() {
     println("Rename \'<oldName>\' in <proj + file>");
     try {
-        testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occ, srcDirs = srcDirs);
+        <edits, msgs> = testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occurrence, srcDirs = srcDirs, libs = libs);
+        if (errors:{_, *_} := {msg | msg <- msgs, msg is error}) throw errors;
+        if (size({r | /r:replace(_, _) := edits}) < 2) throw "Unexpected number of edits: <edits>";
     } catch e: {
         println("Renaming \'<oldName>\' to \'<newName>\' in <proj + file> resulted in error:");
         println(e);
@@ -48,13 +52,13 @@ void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occ 
 map[str, num] benchmarks(loc projDir) {
     results = benchmark((
         // "[typepal] local var": run(typepalProj(projDir), "src/analysis/typepal/Solver.rsc", "facts", srcDirs = ["src"])
-        "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl")
-      , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals")
-      , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos")
-      , "[bird] local var": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "imported")
-      , "[typepal] module name": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "analysis::typepal::Version", srcDirs = ["src"])
-      , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
-      , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
+        "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
+      , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
+      , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
+      , "[bird] local var": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "imported", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
+    //   , "[typepal] module name": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "analysis::typepal::Version", srcDirs = ["src"])
+    //   , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
+    //   , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
     //   , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/ATypeUtils.rsc", "prettyAType")
     //     "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/compiler/lang/rascalcore/check/Checker.rsc", "msgs")
     //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
