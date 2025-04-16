@@ -237,7 +237,8 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
     Augment the TModel with 'missing' use/def information.
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
-TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
+TModel augmentTModel(loc l, TModel tm, TModel(loc) tmodelForLoc) {
+    tr = parseModuleWithSpaces(l);
     tm = augmentExceptProductions(tr, tm, tmodelForLoc);
     tm = augmentFieldUses(tr, tm, tmodelForLoc);
     tm = augmentFormalUses(tr, tm, tmodelForLoc);
@@ -245,11 +246,11 @@ TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     return tm;
 }
 
-TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig)
-    = tmodelForTree(parseModuleWithSpaces(l), getPathConfig);
 
-TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
-    loc l = t.src.top;
+TModel tmodelForTree(Tree tr, PathConfig(loc) getPathConfig)
+    = tmodelForLoc(tr.src.top, getPathConfig);
+
+TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
     pcfg = getPathConfig(l);
     mname = getModuleName(l, pcfg);
 
@@ -258,7 +259,7 @@ TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
 
     <found, tm, ms> = getTModelForModule(mname, ms);
     if (!found) throw ms.messages;
-    return augmentTModel(t, tm, TModel(loc f) {
+    return augmentTModel(l, tm, TModel(loc f) {
         // Prevent endless recursion
         if (f == l) return tm;
         return tmodelForLoc(f, getPathConfig);
@@ -271,6 +272,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
   , rconfig(
         Tree(loc l) { return parseModuleWithSpaces(l); }
       , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
+      , tmodelForLoc = TModel(loc l) { return tmodelForLoc(l, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
