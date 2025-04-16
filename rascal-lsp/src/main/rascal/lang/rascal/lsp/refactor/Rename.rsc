@@ -240,13 +240,18 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
 TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
     TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
 
-    try {
-        tr = parseModuleWithSpaces(l);
-        tm = augmentExceptProductions(tr, tm, getModel);
-        tm = augmentFieldUses(tr, tm, getModel);
-        tm = augmentFormalUses(tr, tm, getModel);
-        tm = augmentTypeParams(tr, tm);
-    } catch _: {;}
+    j = "Augmenting TModel for <l>";
+    jobStart(j, work = 0, totalWork = 4);
+    tr = parseModuleWithSpaces(l);
+    jobStep(j, "Augmenting except productions");
+    tm = augmentExceptProductions(tr, tm, getModel);
+    jobStep(j, "Augmenting field uses");
+    tm = augmentFieldUses(tr, tm, getModel);
+    jobStep(j, "Augmenting formal uses");
+    tm = augmentFormalUses(tr, tm, getModel);
+    jobStep(j, "Augmenting type params");
+    tm = augmentTypeParams(tr, tm);
+    jobEnd(j);
     return tm;
 }
 
