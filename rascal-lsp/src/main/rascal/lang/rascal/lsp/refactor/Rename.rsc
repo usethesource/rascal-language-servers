@@ -258,7 +258,7 @@ TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
     ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
 
     <found, tm, ms> = getTModelForModule(mname, ms);
-    if (!found) throw ms.messages;
+    if (!found) throw "No TModel for module \'<mname>\'";
     return augmentTModel(l, tm, TModel(loc f) {
         // Prevent endless recursion
         if (f == l) return tm;
