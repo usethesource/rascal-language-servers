@@ -34,7 +34,7 @@ import lang::rascalcore::check::Checker;
 
 import analysis::diff::edits::TextEdits;
 
-tuple[list[DocumentEdit], set[Message]] testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
+Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
