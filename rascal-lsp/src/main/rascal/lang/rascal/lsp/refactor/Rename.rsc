@@ -257,7 +257,14 @@ TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
     ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
 
     <found, tm, ms> = getTModelForModule(mname, ms);
-    if (!found) throw ms.messages;
+    if (!found) {
+        if (ms.status[mname]?) {
+            // If a module is annotated with `@ignoreCompiler`, silently skip it
+            if (ignored() in ms.status[mname]) return tmodel();
+            throw "No TModel for module \'<mname>\' - status <ms.status[mname]>";
+        }
+        throw "No TModel for module \'<mname>\' - unknown status.";
+    }
     return augmentTModel(t, tm, TModel(loc f) {
         // Prevent endless recursion
         if (f == l) return tm;
