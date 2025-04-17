@@ -57,7 +57,7 @@ import util::Util;
 
 
 //// Fixtures and utility functions
-data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
+data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {}, str annotations = "")
                 | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
 
 data RenameException
@@ -134,7 +134,7 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
         }
 
         pcfg = getTestPathConfig(testDir);
-        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body, annotations = m.annotations), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
 
         for (m <- modulesByLocation) {
             try {
@@ -391,9 +391,9 @@ private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
     return <cl, computeFocusList(m, cl.begin.line, cl.begin.column + 1)>;
 }
 
-private loc storeTestModule(loc dir, str name, str body) {
+private loc storeTestModule(loc dir, str name, str body, str annotations = "") {
     str moduleStr = "
-    'module <name>
+    '<annotations> module <name>
     '<body>
     ";
 
