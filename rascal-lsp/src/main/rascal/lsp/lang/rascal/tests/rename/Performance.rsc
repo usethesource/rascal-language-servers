@@ -77,3 +77,10 @@ test bool incrementalTypeCheck() {
     remove(procLoc);
     return res;
 }
+
+test bool ignoredModule() = testRenameOccurrences({
+    byText("Ignored", "
+        'import Main;
+        'int quz() = foo();", {}, annotations = "@ignoreCompiler{For test purposes.}"),
+    byText("Main", "int foo() = 8;", {0})
+});
