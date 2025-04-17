@@ -44,6 +44,9 @@ import util::Util;
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
     findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
 
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, typeVarId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+
 public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if (size(defs.id) > 1) {
         r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
