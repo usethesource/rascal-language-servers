@@ -49,8 +49,7 @@ void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occu
     }
 };
 
-map[str, num] benchmarks(loc projDir) {
-    results = benchmark((
+map[str, num] benchmarkSingleRun(loc projDir) = benchmark((
         "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
       , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
       , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
@@ -64,7 +63,10 @@ map[str, num] benchmarks(loc projDir) {
       , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
       , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
     ));
-    iprintln(results);
 
-    return results;
+void benchmarks(loc projDir) {
+    println("First run (cold): ");
+    iprintln(benchmarkSingleRun(projDir));
+    println("Second run (warm): ");
+    iprintln(benchmarkSingleRun(projDir));
 }
