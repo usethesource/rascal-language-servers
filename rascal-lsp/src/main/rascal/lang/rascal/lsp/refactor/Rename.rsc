@@ -237,21 +237,28 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
     Augment the TModel with 'missing' use/def information.
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
+@memo{maximumSize(100), expireAfter(minutes=30)}
 TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
+    @memo{maximumSize(100), expireAfter(minutes=30)}
     TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
 
     j = "Augmenting TModel for <l>";
-    jobStart(j, work = 0, totalWork = 4);
-    tr = parseModuleWithSpaces(l);
-    jobStep(j, "Augmenting except productions");
-    tm = augmentExceptProductions(tr, tm, getModel);
-    jobStep(j, "Augmenting field uses");
-    tm = augmentFieldUses(tr, tm, getModel);
-    jobStep(j, "Augmenting formal uses");
-    tm = augmentFormalUses(tr, tm, getModel);
-    jobStep(j, "Augmenting type params");
-    tm = augmentTypeParams(tr, tm);
-    jobEnd(j);
+    jobStart(j, work = 0, totalWork = 5);
+    try {
+        jobStep(j, "Parsing module");
+        tr = parseModuleWithSpaces(l);
+        jobStep(j, "Augmenting except productions");
+        tm = augmentExceptProductions(tr, tm, getModel);
+        jobStep(j, "Augmenting field uses");
+        tm = augmentFieldUses(tr, tm, getModel);
+        jobStep(j, "Augmenting formal uses");
+        tm = augmentFormalUses(tr, tm, getModel);
+        jobStep(j, "Augmenting type params");
+        tm = augmentTypeParams(tr, tm);
+        jobEnd(j);
+    } catch _: {
+        jobEnd(j, success = false);
+    }
     return tm;
 }
 
