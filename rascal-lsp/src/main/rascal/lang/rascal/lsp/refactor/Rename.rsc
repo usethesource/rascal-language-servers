@@ -237,12 +237,16 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
     Augment the TModel with 'missing' use/def information.
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
-TModel augmentTModel(loc l, TModel tm, TModel(loc) tmodelForLoc) {
-    tr = parseModuleWithSpaces(l);
-    tm = augmentExceptProductions(tr, tm, tmodelForLoc);
-    tm = augmentFieldUses(tr, tm, tmodelForLoc);
-    tm = augmentFormalUses(tr, tm, tmodelForLoc);
-    tm = augmentTypeParams(tr, tm);
+TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
+    TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
+
+    try {
+        tr = parseModuleWithSpaces(l);
+        tm = augmentExceptProductions(tr, tm, getModel);
+        tm = augmentFieldUses(tr, tm, getModel);
+        tm = augmentFormalUses(tr, tm, getModel);
+        tm = augmentTypeParams(tr, tm);
+    } catch _: {;}
     return tm;
 }
 
@@ -259,11 +263,7 @@ TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
 
     <found, tm, ms> = getTModelForModule(mname, ms);
     if (!found) throw "No TModel for module \'<mname>\'";
-    return augmentTModel(l, tm, TModel(loc f) {
-        // Prevent endless recursion
-        if (f == l) return tm;
-        return tmodelForLoc(f, getPathConfig);
-    });
+    return tm;
 }
 
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
@@ -271,8 +271,8 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
   , newName
   , rconfig(
         Tree(loc l) { return parseModuleWithSpaces(l); }
-      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
-      , tmodelForLoc = TModel(loc l) { return tmodelForLoc(l, getPathConfig); }
+      , TModel(Tree t) { tm = tmodelForTree(t, getPathConfig); return augmentTModel(t.src, tm, getPathConfig); }
+      , tmodelForLoc = TModel(loc l) { tm = tmodelForLoc(l, getPathConfig); return augmentTModel(l, tm, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
