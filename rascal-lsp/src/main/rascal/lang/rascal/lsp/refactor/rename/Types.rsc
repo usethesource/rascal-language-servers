@@ -131,7 +131,7 @@ Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
                 <tm, _> = augmentTypeParams(body, <tm, modDefs>);
             }
         }
-        case FunctionDeclaration func: {
+        case (FunctionDeclaration) `<FunctionDeclaration func>`: {
             funcDefs = defs;
             for (Pattern pat <- func.signature.parameters.formals.formals, pat has \type, /TypeVar tv := pat.\type) {
                 // The TModel sometimes contains uses that we do not want
@@ -144,15 +144,15 @@ Environment augmentTypeParams(Tree tr, <TModel tm, map[str, loc] defs>) {
             if (func has expression) <tm, _> = augmentTypeParams(func.expression, <tm, funcDefs>);
             else if (func has body) <tm, _> = augmentTypeParams(func.body, <tm, funcDefs>);
         }
-        case Concrete pat: {
+        case (Concrete) `<Concrete pat>`: {
             <tm, concDefs> = (<tm, defs> | addDefOtherwiseUse(nt, pat.src, it) | /(Sym) `&<Nonterminal nt>` := pat.symbol);
             <tm, _> = (<tm, concDefs> | addUse(nt, it) | /(Sym) `&<Nonterminal nt>` := pat.parts);
         }
-        case SyntaxDefinition def: {
+        case (SyntaxDefinition) `<SyntaxDefinition def>`: {
             <tm, symDefs> = (<tm, defs> | addDefOtherwiseUse(nt, def.src, it) | /(Sym) `&<Nonterminal nt>` := def.defined);
             <tm, _> = (<tm, symDefs> | addUse(nt, it) | /(Sym) `&<Nonterminal nt>` := def.production);
         }
-        case TypeVar tv: <tm, defs> = addUse(tv.name, <tm, defs>);
+        case (TypeVar) `<TypeVar tv>`: <tm, defs> = addUse(tv.name, <tm, defs>);
         case (Sym) `&<Nonterminal nt>`: <tm, defs> = addUse(nt, <tm, defs>);
     }
     return <tm, defs>;
