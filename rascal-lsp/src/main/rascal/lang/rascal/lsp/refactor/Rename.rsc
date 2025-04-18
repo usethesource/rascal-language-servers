@@ -64,6 +64,8 @@ import lang::rascal::lsp::refactor::rename::Variables;
 extend framework::Rename;
 import util::Util;
 
+import DateTime;
+import IO;
 import util::FileSystem;
 import util::LanguageServer;
 import util::Maybe;
@@ -264,7 +266,18 @@ TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
 TModel tmodelForTree(Tree tr, PathConfig(loc) getPathConfig)
     = tmodelForLoc(tr.src.top, getPathConfig);
 
-TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
+
+datetime guardedLastModified(loc l) {
+    try {
+        return lastModified(l);
+    } catch _: {
+        return now();
+    }
+}
+
+// As long as augmentation is in place, this greatly benefits from memoization (by last modified timestamp)
+@memo{maximumSize(100), expireAfter(minutes=30)}
+TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig, datetime lm = guardedLastModified(l)) {
     pcfg = getPathConfig(l);
     mname = getModuleName(l, pcfg);
 
