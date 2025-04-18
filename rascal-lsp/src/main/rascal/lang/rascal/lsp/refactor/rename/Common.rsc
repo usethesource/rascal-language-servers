@@ -85,20 +85,6 @@ private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpt
 bool(Tree) allNameSortsFilter(str name) {
     escName = reEscape(name);
 
-    return bool(Tree tr) {
-        reEscaped = bottom-up-break visit (tr) {
-            case Name n => reEscape(#Name, n)
-            case QualifiedName qn => reEscape(#QualifiedName, qn)
-            case Nonterminal nt => reEscape(#Nonterminal, nt)
-            // No case for `NonterminalLabel`, since this does not use escaping
-        };
-
-        s = "<reEscaped>";
-        return contains(s, escName);
-    };
-
-    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
-    /*
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
     <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
@@ -106,25 +92,17 @@ bool(Tree) allNameSortsFilter(str name) {
 
     return bool(Tree tr) {
         visit (tr) {
-            case n1: return true;
-            case en1: return true;
-
-            case nt1: return true;
-            case ent1: return true;
-
-            case ntl1: return true;
-            case entl1: return true;
-
-            case qn1: return true;
-
-            case QualifiedName qn: {
-                if (reEscape("<qn>") == escName) return true;
+            case (Name) `<Name n>`: if (n := n1 || n := en1) return true;
+            case (Nonterminal) `<Nonterminal n>`: if (n := nt1 || n := ent1) return true;
+            case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
+            case (QualifiedName) `<QualifiedName n>`: {
+                if (n.names[0].src == n.src) fail; // skip unqualified names
+                if (n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
             }
         }
 
         return false;
     };
-    */
 }
 
 &T reEscape(type[&T <: Tree] T, &T t) = parse(T, "<reEscape("<t>")>");
@@ -133,20 +111,6 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     sname1 = reEscape(name1);
     sname2 = reEscape(name2);
 
-    return tuple[bool, bool](Tree tr) {
-        reEscaped = bottom-up-break visit (tr) {
-            case Name n => reEscape(#Name, n)
-            case QualifiedName qn => reEscape(#QualifiedName, qn)
-            case Nonterminal nt => reEscape(#Nonterminal, nt)
-            // No case for `NonterminalLabel`, since this does not use escaping
-        };
-
-        s = "<reEscaped>";
-        return <contains(s, sname1), contains(s, sname2)>;
-    };
-
-    // TODO Enable when this issue is solved: https://github.com/usethesource/rascal/issues/2147
-    /*
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);
     <ntl1, entl1> = escapePair(#NonterminalLabel, sname1);
@@ -161,37 +125,47 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
         bool has1 = false;
         bool has2 = false;
         visit (tr) {
-            case n1: has1 = true;
-            case en1: has1 = true;
-
-            case nt1: has1 = true;
-            case ent1: has1 = true;
-
-            case ntl1: has1 = true;
-            case entl1: has1 = true;
-
-            case n2: has2 = true;
-            case en2: has2 = true;
-
-            case nt2: has2 = true;
-            case ent2: has2 = true;
-
-            case ntl2: has2 = true;
-            case entl2: has2 = true;
-
-            case qn1: has1 = true;
-            case qn2: has2 = true;
-
-            case QualifiedName qn: {
-                escQn = reEscape("<qn>");
-                if (escQn == sname1) has1 = true;
-                if (escQn == sname2) has2 = true;
+            case (Name) `<Name n>`: {
+                if (!has1 && n := n1) {
+                    if (has2) return <true, true>;
+                    has1 = true;
+                } else if (!has2 && n := n2) {
+                    if (has1) return <true, true>;
+                    has2 = true;
+                }
+            }
+            case (Nonterminal) `<Nonterminal n>`: {
+                if (!has1 && n := nt1) {
+                    if (has2) return <true, true>;
+                    has1 = true;
+                } else if (!has2 && n := nt2) {
+                    if (has1) return <true, true>;
+                    has2 = true;
+                }
+            }
+            case (NonterminalLabel) `<NonterminalLabel n>`: {
+                if (!has1 && n := ntl1) {
+                    if (has2) return <true, true>;
+                    has1 = true;
+                } else if (!has2 && n := ntl2) {
+                    if (has1) return <true, true>;
+                    has2 = true;
+                }
+            }
+            case (QualifiedName) `<QualifiedName n>`: {
+                if (n.names[0].src == n.src) fail; // skip unqualified names
+                if (!has1 && n := qn1) {
+                    if (has2) return <true, true>;
+                    has1 = true;
+                } else if (!has2 && n := qn2) {
+                    if (has1) return <true, true>;
+                    has2 = true;
+                }
             }
         }
 
         return <has1, has2>;
     };
-    */
 }
 
 set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
