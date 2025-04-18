@@ -35,7 +35,10 @@ import analysis::diff::edits::TextEdits;
 
 loc rascalProj(loc projDir) = projDir + "rascal";
 loc typepalProj(loc projDir) = projDir + "typepal";
-loc birdProj(loc projDir) = projDir + "../bird/bird-core";
+loc birdProj(loc projDir) = projDir + "bird/bird-core"; // removed RASCAL.MF
+
+// Local typepal build - 0.15.1, but based on Rascal 0.41.0-RC20 to work around incompatible versions
+public loc typepalLib = |mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|;
 
 void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occurrence = 0, list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) = void() {
     println("Rename \'<oldName>\' in <proj + file>");
@@ -49,24 +52,26 @@ void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occu
     }
 };
 
-map[str, num] benchmarkSingleRun(loc projDir) = benchmark((
-        "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
-      , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
-      , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
-      , "[bird] local var": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "imported", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
-      , "[bird] module name": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "lang::bird::Checker", libs = [|mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|])
+int NUM_RUNS = 3;
+map[str, num] benchmarks(loc projDir) = benchmark((
+        "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl", libs = [typepalLib])
+      , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [typepalLib])
+      , "[bird] global function": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "collectAnnos", libs = [typepalLib])
+      , "[bird] local var": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "imported", libs = [typepalLib])
+      , "[bird] module name": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "lang::bird::Checker", libs = [typepalLib])
       , "[typepal] local var": run(typepalProj(projDir), "src/analysis/typepal/Solver.rsc", "facts", srcDirs = ["src"])
       , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
       , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
-      , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/m3/AST.rsc", "astNodeSpecification")
-      , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
-      , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
-      , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
-    ));
+    //   , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/m3/AST.rsc", "astNodeSpecification")
+    //   , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
+    //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
+    //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
+), minimum(realTimeOf));
 
-void benchmarks(loc projDir) {
-    println("First run (cold): ");
-    iprintln(benchmarkSingleRun(projDir));
-    println("Second run (warm): ");
-    iprintln(benchmarkSingleRun(projDir));
+int(void()) minimum(int(void()) measure) = int(void() f) { return min({measure(f) | _ <- [0..NUM_RUNS]}); };
+
+void cleanBenchmarkTargets(loc projDir) {
+    for (loc d <- {rascalProj(projDir), typepalProj(projDir), birdProj(projDir)}) {
+        remove(d + "target", recursive = true);
+    }
 }
