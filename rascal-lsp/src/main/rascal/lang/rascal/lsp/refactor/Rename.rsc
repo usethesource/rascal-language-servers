@@ -243,16 +243,14 @@ TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
     TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
 
     j = "Augmenting TModel for <l>";
-    jobStart(j, work = 0, totalWork = 5);
+    jobStart(j, work = 0, totalWork = 4);
     try {
         jobStep(j, "Parsing module");
         tr = parseModuleWithSpaces(l);
         jobStep(j, "Augmenting except productions");
         tm = augmentExceptProductions(tr, tm, getModel);
         jobStep(j, "Augmenting field uses");
-        tm = augmentFieldUses(tr, tm, getModel);
-        jobStep(j, "Augmenting formal uses");
-        tm = augmentFormalUses(tr, tm, getModel);
+        tm = augmentFieldAndFormalUses(tr, tm, getModel);
         jobStep(j, "Augmenting type params");
         tm = augmentTypeParams(tr, tm);
         jobEnd(j);

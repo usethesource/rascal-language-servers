@@ -46,26 +46,3 @@ tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, IdRole role, _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
     when role in positionalFormalRoles;
-
-@synopsis{Add use/def relations for keyword function parameters, until they exist in the TModel.}
-TModel augmentFormalUses(Tree tr, TModel tm, TModel(loc) getModel) {
-    rel[loc funcDef, str kwName, loc kwLoc] keywordFormalDefs = {
-        *(fileTm.defines<idRole, scope, id, defined>)[keywordFormalId()]
-        | loc f <- getModuleFile(tm) + (tm.paths<to>)
-        , fileTm := getModel(f.top)
-    };
-    visit (tr) {
-        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
-            funcKwDefs = keywordFormalDefs[tm.useDef[e.src]];
-            // Only visit uses of our keyword arguments - do not go into nested calls
-            top-down-break visit (kwArgs) {
-                case (KeywordArgument[Expression]) `<Name kw> = <Expression _>`: {
-                    for (loc d <- funcKwDefs["<kw>"]) {
-                        tm = tm[useDef = tm.useDef + <kw.src, d>];
-                    }
-                }
-            }
-        }
-    }
-    return tm;
-}

@@ -111,9 +111,15 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
     });
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
-TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
+TModel augmentFieldAndFormalUses(Tree tr, TModel tm, TModel(loc) getModel) {
     // Make sure that everyone receives the (partially) augmented TModel from here on
     TModel getAugmentedModel(loc l) = (l == tr.src.top) ? tm : getModel(l);
+
+    rel[loc funcDef, str kwName, loc kwDef] keywordFormalDefs = {
+        *(fileTm.defines<idRole, scope, id, defined>)[keywordFormalId()]
+        | loc f <- getModuleFile(tm) + (tm.paths<to>)
+        , fileTm := getAugmentedModel(f.top)
+    };
 
     void addDef(Define d) { tm = tm[defines = tm.defines + d][definitions = tm.definitions + (d.defined: d)]; }
     void addUseDef(loc use, loc def) { tm = tm[useDef = tm.useDef + <use, def>]; }
@@ -125,6 +131,10 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
         for (Define field <- getFieldDefinitions(container, "<fieldName>", tm, getAugmentedModel)) {
             removeUseDef(fieldName.src, field.scope);
             addUseDef(fieldName.src, field.defined);
+        }
+        funcKwDefs = keywordFormalDefs[tm.useDef[container.src]];
+        for (loc d <- funcKwDefs["<fieldName>"]) {
+            addUseDef(fieldName.src, d);
         }
     }
 
@@ -138,8 +148,12 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
     visit (tr) {
         case (Expression) `<Expression e>.<Name n>`: addFieldUse(e, n);
         case (Assignable) `<Assignable rec>.<Name n>`: addFieldUse(rec, n);
-        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`:
-            for (/(KeywordArgument[Expression]) `<Name n> = <Expression _>` := kwArgs) addFieldUse(e, n);
+        case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
+            // Only visit uses of our keyword arguments - do not go into nested calls
+            top-down-break visit (kwArgs) {
+                case (KeywordArgument[Expression]) `<Name n> = <Expression _>`: addFieldUse(e, n);
+            }
+        }
         case (Pattern) `<Pattern e>(<{Pattern ","}* _> <KeywordArguments[Pattern] kwArgs>)`:
             for (/(KeywordArgument[Pattern]) `<Name n> = <Pattern _>` := kwArgs) addFieldUse(e, n);
         case st:(StructuredType) `<BasicType _>[<{TypeArg ","}+ args>]`: {
