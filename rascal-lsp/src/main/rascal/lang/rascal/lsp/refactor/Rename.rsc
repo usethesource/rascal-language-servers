@@ -149,7 +149,7 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
     }
 
     if (isFieldRole(cD.idRole)) {
-        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, cD.defined.top, tm, r)
+        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, tm, r)
            , loc nD <- (newNameDefs<idRole, defined>)[{fieldId(), keywordFieldId()}] & (tm.defines<idRole, scope, defined>)[{fieldId(), keywordFieldId()}, dataDef.defined]
         ) {
             r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
@@ -292,10 +292,13 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     set[Define] cursorDefs = {};
     if (Tree c <- cursor) {
         if (tm.definitions[c.src]?) {
+            // Cursor at definition
             cursorDefs = {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
-            cursorDefs = {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
+            // Cursor at use
+            cursorDefs = {defTm.definitions[d] | loc d <- useDefs, defTm := getModel(getTree(d.top))};
         } else {
+            // Try next cursor candidate in focus list
             fail;
         }
     }
