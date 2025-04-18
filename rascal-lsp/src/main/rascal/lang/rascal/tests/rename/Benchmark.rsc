@@ -42,14 +42,9 @@ public loc typepalLib = |mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|;
 
 void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occurrence = 0, list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) = void() {
     println("Rename \'<oldName>\' in <proj + file>");
-    try {
-        <edits, msgs> = testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occurrence, srcDirs = srcDirs, libs = libs);
-        if (errors:{_, *_} := {msg | msg <- msgs, msg is error}) throw errors;
-        if (size({r | /r:replace(_, _) := edits}) < 2) throw "Unexpected number of edits: <edits>";
-    } catch e: {
-        println("Renaming \'<oldName>\' to \'<newName>\' in <proj + file> resulted in error:");
-        println(e);
-    }
+    <edits, msgs> = testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occurrence, srcDirs = srcDirs, libs = libs);
+    if (errors:{_, *_} := {msg | msg <- msgs, msg is error}) throw errors;
+    if (size({r | /r:replace(_, _) := edits}) < 2) throw "Unexpected number of edits: <edits>";
 };
 
 int NUM_RUNS = 3;
@@ -66,9 +61,17 @@ map[str, num] benchmarks(loc projDir) = benchmark((
     //   , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
     //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
     //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
-), minimum(realTimeOf));
+), safeMinimum(realTimeOf));
 
-int(void()) minimum(int(void()) measure) = int(void() f) { return min({measure(f) | _ <- [0..NUM_RUNS]}); };
+int(void()) safeMinimum(int(void()) measure) = int(void() f) {
+    try {
+        return min({measure(f) | _ <- [0..NUM_RUNS]});
+    } catch e: {
+        println("Renaming \'<oldName>\' to \'<newName>\' in <proj + file> resulted in error:");
+        println(e);
+        return -1;
+    }
+};
 
 void cleanBenchmarkTargets(loc projDir) {
     for (loc d <- {rascalProj(projDir), typepalProj(projDir), birdProj(projDir)}) {
