@@ -41,13 +41,12 @@ loc birdProj(loc projDir) = projDir + "bird/bird-core"; // removed RASCAL.MF
 public loc typepalLib = |mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|;
 
 void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occurrence = 0, list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) = void() {
-    println("Rename \'<oldName>\' in <proj + file>");
+    println("Renameing \'<oldName>\' to \'<newName>\' in <proj + file>");
     <edits, msgs> = testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occurrence, srcDirs = srcDirs, libs = libs);
     if (errors:{_, *_} := {msg | msg <- msgs, msg is error}) throw errors;
     if (size({r | /r:replace(_, _) := edits}) < 2) throw "Unexpected number of edits: <edits>";
 };
 
-int NUM_RUNS = 3;
 map[str, num] benchmarks(loc projDir) = benchmark((
         "[bird] nonterminal": run(birdProj(projDir), "src/main/rascal/lang/bird/Syntax.rsc", "TopLevelDecl", libs = [typepalLib])
       , "[bird] formal param": run(birdProj(projDir), "src/main/rascal/lang/bird/Checker.rsc", "typeFormals", occurrence = 1, libs = [typepalLib])
@@ -61,14 +60,13 @@ map[str, num] benchmarks(loc projDir) = benchmark((
     //   , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
     //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
     //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
-), safeMinimum(realTimeOf));
+), safeRuns(3, min, realTimeOf));
 
-int(void()) safeMinimum(int(void()) measure) = int(void() f) {
+num(void()) safeRuns(int numRuns, &T(set[&T]) aggregate, int(void()) measure) = int(void() f) {
     try {
-        return min({measure(f) | _ <- [0..NUM_RUNS]});
+        return aggregate({measure(f) | _ <- [0..numRuns]});
     } catch e: {
-        println("Renaming \'<oldName>\' to \'<newName>\' in <proj + file> resulted in error:");
-        println(e);
+        println("[ERROR] <e>");
         return -1;
     }
 };
