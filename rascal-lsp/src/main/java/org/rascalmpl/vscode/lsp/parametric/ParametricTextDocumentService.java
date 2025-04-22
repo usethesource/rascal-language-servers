@@ -229,7 +229,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(NO_DEBOUNCE));
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -267,7 +267,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var fileFacts = facts(doc);
         var location = Locations.toLoc(doc);
         fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(doc).getCurrentTreeAsync(NO_DEBOUNCE), doc.getVersion(), delay);
+        fileFacts.calculateAnalyzer(location, getFile(doc).getCurrentTreeAsync(), doc.getVersion(), delay);
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -275,14 +275,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var fileFacts = facts(doc);
         var location = Locations.toLoc(doc);
         fileFacts.invalidateBuilder(location);
-        fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync(NO_DEBOUNCE));
+        fileFacts.calculateBuilder(location, getFile(doc).getCurrentTreeAsync());
     }
 
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents, timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(NORMAL_DEBOUNCE)); // Warning: Might be a later version (when a concurrent update happened)
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         return file;
     }
 
@@ -303,7 +303,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
 
-        return recoverExceptions(file.getCurrentTreeAsync(NO_DEBOUNCE)
+        return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenApply(contrib::codeLens)
             .thenCompose(InterruptibleFuture::get)
@@ -319,7 +319,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(
-                recoverExceptions(file.getCurrentTreeAsync(NO_DEBOUNCE), file::getLastTreeWithoutErrors)
+                recoverExceptions(file.getCurrentTreeAsync(), file::getLastTreeWithoutErrors)
                 .thenApply(Versioned::get)
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
@@ -442,7 +442,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var specialCaseHighlighting = contributions(doc).specialCaseHighlighting();
-        return recoverExceptions(getFile(doc).getCurrentTreeAsync(NO_DEBOUNCE)
+        return recoverExceptions(getFile(doc).getCurrentTreeAsync()
                 .thenApply(Versioned::get)
                 .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
@@ -476,7 +476,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         final TextDocumentState file = getFile(params.getTextDocument());
         ILanguageContributions contrib = contributions(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync(NO_DEBOUNCE)
+        return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenApply(contrib::documentSymbol)
             .thenCompose(InterruptibleFuture::get)
@@ -501,7 +501,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
             getFile(params.getTextDocument())
-                .getCurrentTreeAsync(NO_DEBOUNCE)
+                .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
                 .thenApply(IList::stream)
@@ -526,7 +526,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         return getFile(doc)
-            .getCurrentTreeAsync(NO_DEBOUNCE)
+            .getCurrentTreeAsync()
             .thenApply(tree -> facts(doc).lookupInSummaries(lookup, Locations.toLoc(doc), tree, cursor))
             .thenCompose(Function.identity());
     }
@@ -575,7 +575,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync(NO_DEBOUNCE).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
