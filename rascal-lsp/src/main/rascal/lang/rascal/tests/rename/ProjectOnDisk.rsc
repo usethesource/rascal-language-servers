@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::ProjectOnDisk
 
 import lang::rascal::lsp::refactor::Rename;
@@ -32,25 +33,26 @@ import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
 import lang::rascalcore::check::Checker;
 
-Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new") {
+Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
     PathConfig pcfg;
     if (projectDir.file == "rascal-core") {
         pcfg = getRascalCorePathConfig(projectDir);
     } else if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
-                   , projectDir + "test/org/rascalmpl/benchmark"
-                   , projectDir + "test/org/rascalmpl/test/data"],
-            bin = projectDir + "target/classes"
+                   , projectDir + "src/org/rascalmpl/compiler"
+                   , projectDir + "test/org/rascalmpl/benchmark"],
+            bin = projectDir + "target/classes",
+            libs = libs
         );
     } else {
         pcfg = pathConfig(
-            srcs = [ projectDir + "src" ],
+            srcs = [projectDir + dir | dir <- srcDirs],
             bin = projectDir + "target/classes",
-            libs = [calculateRascalLib()]
+            libs = [calculateRascalLib(), *libs]
         );
     }
     // extension for Rascal compiler
-    pbcfg = pcfg[resources = pcfg.bin];
+    pcfg = pcfg[resources = pcfg.bin];
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
 }

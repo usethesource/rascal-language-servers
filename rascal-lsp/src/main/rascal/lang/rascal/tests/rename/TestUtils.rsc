@@ -53,7 +53,6 @@ import util::Math;
 import util::Maybe;
 import util::Reflective;
 
-
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
                 | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});

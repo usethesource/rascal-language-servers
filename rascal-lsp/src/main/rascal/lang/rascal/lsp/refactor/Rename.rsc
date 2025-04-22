@@ -638,30 +638,31 @@ set[TModel] tmodelsForProjectFiles(ProjectFiles projectFiles, set[TModel](set[lo
     2. It does not change the semantics of the application.
     3. It does not change definitions outside of the current workspace.
 }
-Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig)
-    = job("renaming <cursorT> to <newName>", Edits(void(str, int) step) {
+Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, PathConfig(loc) getPathConfig) {
+    j = "renaming <cursorT> to <newName>";
+    jobStart(j, work = 0, totalWork = 7);
 
-    step("checking validity of new name", 1);
+    jobStep (j, "checking validity of new name");
     loc cursorLoc = cursorT.src;
     str cursorName = "<cursorT>";
 
     rascalCheckLegalNameByType(newName, typeOf(cursorT));
     rascalContainsName = rascalContainsNameFilter(newName);
 
-    step("preloading minimal workspace information", 1);
+    jobStep (j, "preloading minimal workspace information");
     set[TModel] localTmodelsForFiles(ProjectFiles projectFiles) = tmodelsForProjectFiles(projectFiles, rascalTModels, getPathConfig);
 
     TModel ws = loadLocs(tmodel(), preloadFiles(workspaceFolders, cursorLoc), localTmodelsForFiles);
 
-    step("analyzing name at cursor", 1);
+    jobStep (j, "analyzing name at cursor");
     cur = rascalGetCursor(ws, cursorT);
 
-    step("loading required type information", 1);
+    jobStep (j, "loading required type information");
     if (!rascalIsFunctionLocal(ws, cur)) {
         ws = loadLocs(ws, allWorkspaceFiles(workspaceFolders, rascalContainsName, getPathConfig), localTmodelsForFiles);
     }
 
-    step("collecting uses of \'<cursorName>\'", 1);
+    jobStep (j, "collecting uses of \'<cursorName>\'");
 
     map[ChangeAnnotationId, ChangeAnnotation] changeAnnotations = ();
     ChangeAnnotationRegister registerChangeAnnotation = ChangeAnnotationId(str label, str description, bool needsConfirmation) {
@@ -685,21 +686,22 @@ Edits rascalRenameSymbol(Tree cursorT, set[loc] workspaceFolders, str newName, P
 
     set[loc] \files = defsPerFile.file + usesPerFile.file;
 
-    step("checking rename validity", 1);
+    jobStep (j, "checking rename validity");
     if (reasons := rascalCollectIllegalRenames(ws, defsPerFile, usesPerFile, newName)
       , reasons != {}) {
         throw illegalRename("Rename is not valid, because:\n - <intercalate("\n - ", toList({describe(r) | r <- reasons}))>", reasons);
     }
 
-    step("building list of edits", 1);
+    jobStep (j, "building list of edits");
     map[loc, list[TextEdit]] moduleResults =
         (file: edits | file <- \files, edits := computeTextEdits(ws, file, defsPerFile[file], usesPerFile[file], cur, newName, registerChangeAnnotation));
 
     list[DocumentEdit] changes = [changed(file, moduleResults[file]) | file <- moduleResults];
     list[DocumentEdit] renames = [renamed(from, to) | <from, to> <- getRenames(rascalUnescapeName(newName))];
 
+    jobEnd(j);
     return <changes + renames, changeAnnotations>;
-}, totalWork = 7);
+}
 
 Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
