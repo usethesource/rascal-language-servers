@@ -154,7 +154,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.28.11</version>
+        <version>0.30.0-RC20</version>
         <configuration>
           <errorsAsWarnings>false</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
