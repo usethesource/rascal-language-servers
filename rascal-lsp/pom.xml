@@ -65,7 +65,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC20</version>
+      <version>0.41.0-RC39</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -263,7 +263,6 @@
               <artifactSet>
                 <excludes>
                   <exclude>org.rascalmpl:rascal</exclude>
-                  <exclude>org.rascalmpl:rascal-core</exclude>
                   <exclude>org.rascalmpl:typepal</exclude>
                   <!-- exclude dependencies that rascal shades but still contains in the pom -->
                   <exclude>io.usethesource:vallang</exclude>
