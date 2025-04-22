@@ -29,7 +29,7 @@ module lang::rascal::tests::rename::TestUtils
 
 import lang::rascal::lsp::refactor::Rename; // Module under test
 
-import lang::rascal::lsp::refactor::Util;
+import util::Util;
 
 import IO;
 import List;
@@ -46,17 +46,22 @@ import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::compile::util::Names;
 
 import analysis::diff::edits::ExecuteTextEdits;
-import lang::rascal::lsp::refactor::TextEdits;
 
 import util::FileSystem;
+import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Reflective;
+import util::Util;
 
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
                 | byLoc(str name, loc file, set[int] nameOccs, str newName = name, set[int] skipCursors = {});
+
+data RenameException
+    = illegalRename(set[Message] reasons)
+    ;
 
 private list[DocumentEdit] sortEdits(list[DocumentEdit] edits) = [sortChanges(e) | e <- edits];
 
@@ -65,19 +70,29 @@ private DocumentEdit sortChanges(changed(loc l, list[TextEdit] edits)) = changed
 }));
 private default DocumentEdit sortChanges(DocumentEdit e) = e;
 
-private void verifyTypeCorrectRenaming(loc root, Edits edits, PathConfig pcfg) {
-    list[loc] editLocs = [l | /replace(l, _) := edits<0>];
+private list[DocumentEdit] groupEditsByFile(list[DocumentEdit] _: [*pre, changed(f, e1), *mid, changed(f, e2), *post]) =
+    groupEditsByFile([*pre, changed(f, [*e1, *e2]), *mid, *post]);
+private default list[DocumentEdit] groupEditsByFile(list[DocumentEdit] edits) = edits;
+
+private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+    list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
+
+    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
+    checkBefore = checkAll(root, ccfg);
 
     // Back-up sources
     loc backupLoc = |memory://tests/backup|;
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
-    executeDocumentEdits(sortEdits(edits<0>));
+    executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
     remove(pcfg.resources);
-    RascalCompilerConfig ccfg = rascalCompilerConfig(pcfg)[verbose = false][logPathConfig = false];
-    throwAnyErrors(checkAll(root, ccfg));
+
+    checkAfter = checkAll(root, ccfg);
+    newMsgs = checkAfter - checkBefore;
+
+    if (newErrors: [_, *_] := [m | m <- newMsgs, m is error]) throw newErrors;
 
     // Restore back-up
     remove(root, recursive = true);
@@ -120,44 +135,46 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
 
         for (m <- modulesByLocation) {
             try {
-                parseModuleWithSpaces(m.file);
-            } catch _: {
-                throw "Parse error in test module <ml>";
+                parse(#start[Module], m.file);
+            } catch ParseError(l): {
+                throw "Parse error in test module <m.file>: <l>";
             }
         }
 
-        cursorT = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
+        <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
-        println("Renaming \'<oldName>\' from <cursorT.src>");
-        edits = rascalRenameSymbol(cursorT, toSet(pcfg.srcs), newName, PathConfig(loc _) { return pcfg; });
+        println("Renaming \'<oldName>\' from <focus[0].src>");
+        <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+
+        throwMessagesIfError(msgs);
 
         renamesPerModule = (
             beforeRename: afterRename
-            | renamed(oldLoc, newLoc) <- edits<0>
-            , beforeRename := getModuleName(oldLoc, pcfg)
-            , afterRename := getModuleName(newLoc, pcfg)
+            | renamed(oldLoc, newLoc) <- edits
+            , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
+            , afterRename := safeRelativeModuleName(newLoc, pcfg)
         );
 
-        replacesPerModule = (
-            name: occs
-            | changed(file, changes) <- edits<0>
-            , name := getModuleName(file, pcfg)
+        replacesPerModule = toMap({
+            <name, occ>
+            | changed(file, changes) <- edits
+            , name := safeRelativeModuleName(file, pcfg)
             , locs := {c.range | c <- changes}
-            , occs := locsToOccs(parseModuleWithSpaces(file), oldName, locs)
-        );
+            , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
+        });
 
         editsPerModule = (
             name : <occs, nameAfterRename>
             | srcDir <- pcfg.srcs
             , file <- find(srcDir, "rsc")
-            , name := getModuleName(file, pcfg)
+            , name := safeRelativeModuleName(file, pcfg)
             , occs := replacesPerModule[name] ? {}
             , nameAfterRename := renamesPerModule[name] ? name
         );
 
-        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := getModuleName(m.file, pcfg));
+        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
 
-        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <cursorT.src> failed:")) {
+        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <focus[0].src> failed:")) {
             success = false;
         }
 
@@ -200,13 +217,21 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
+public loc calculateRascalLib() {
+    result = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := result.path) {
+        return result.parent.parent.parent;
+    }
+    return result;
+}
+
+
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[|lib://rascal|],
-        srcs=[testDir + "rascal"],
         resources=testDir + "bin",
-        generatedSources=testDir + "generated-sources"
+        libs=[calculateRascalLib()],
+        srcs=[testDir + "rascal"]
     );
 }
 
@@ -214,9 +239,8 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
    return pathConfig(
         srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
-        generatedSources = rascalCoreProject + "target/generated-test-sources",
-        resources = rascalCoreProject + "target/generated-test-resources",
-        libs = [|lib://typepal|, |lib://rascal|]
+        resources = rascalCoreProject + "target/test-classes",
+        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, calculateRascalLib()]
     );
 }
 
@@ -238,18 +262,26 @@ PathConfig getPathConfig(loc project) {
     return pcfg;
 }
 
+void throwMessagesIfError(set[Message] msgs) {
+    for (msg <- msgs, msg is error) {
+        throw illegalRename(msgs);
+    }
+}
+
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
-    Tree cursor = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
-    return rascalRenameSymbol(cursor, projectDirs, newName, getPathConfig);
+    <cursor, focus> = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
+    return rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
 }
 
 tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
     edits = getEdits(singleModule, {projectDir}, cursorAtOldNameOccurrence, oldName, newName, PathConfig(loc _) { return pcfg; });
-    occs = extractRenameOccurrences(singleModule, edits, oldName);
+    throwMessagesIfError(edits<1>);
 
     for (src <- pcfg.srcs) {
-        verifyTypeCorrectRenaming(src, edits, pcfg);
+        verifyTypeCorrectRenaming(src, edits<0>, pcfg);
     }
+
+    occs = extractRenameOccurrences(singleModule, edits<0>, oldName);
 
     return <edits, occs>;
 }
@@ -278,16 +310,22 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     return <edits, occs>;
 }
 
+private set[str] reservedNames = getRascalReservedIdentifiers();
+str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
+str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? "\\<n>" : n | n <- split(sep, name)]);
+str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+
 private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) {
     lrel[loc, Maybe[Tree]] names = [];
-        top-down-break visit (m) {
+    sname = reEscape(name);
+    top-down-break visit (m) {
         case QualifiedName qn: {
-            if ("<qn>" == name) {
+            if (reEscape("<qn>") == sname) {
                 names += <qn.src, just(qn)>;
             }
             else {
                 modPrefix = prefix([n | n <- qn.names]);
-                if (intercalate("::", ["<n>" | n <- modPrefix]) == name) {
+                if ([_, *_] := modPrefix && reEscape(intercalate("::", ["<n>" | n <- modPrefix])) == sname) {
                     names += <cover([n.src | n <- modPrefix]), nothing()>;
                 } else {
                     fail;
@@ -296,23 +334,23 @@ private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) 
         }
         // 'Normal' names
         case Name n:
-            if ("<n>" == name) names += <n.src, just(n)>;
+            if (reEscape("<n>") == sname) names += <n.src, just(n)>;
         // Nonterminals (grammars)
         case Nonterminal s:
-            if ("<s>" == name) names += <s.src, just(s)>;
+            if (reEscape("<s>") == sname) names += <s.src, just(s)>;
         // Labels for nonterminals (grammars)
         case NonterminalLabel label:
-            if ("<label>" == name) names += <label.src, just(label)>;
+            if (reEscape("<label>") == sname) names += <label.src, just(label)>;
     }
 
     return [<i, l, mt> | <i, <l, mt>> <- zip2(index(names), names)];
 }
 
-private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str name) {
+private set[int] extractRenameOccurrences(loc moduleFileName, list[DocumentEdit] edits, str name) {
     start[Module] m = parseModuleWithSpaces(moduleFileName);
     list[loc] oldNameOccurrences = [l | <_, l, _> <- collectNameTrees(m, name)];
 
-    if ([changed(_, replaces)] := edits<0>) {
+    if ([changed(_, replaces)] := edits) {
         set[int] occs = {};
         set[loc] nonOldNameLocs = {};
         for (r <- replaces) {
@@ -324,7 +362,7 @@ private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str n
         }
 
         if (nonOldNameLocs != {}) {
-            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <nonOldNameLocs>";
+            throw "Test produced some invalid (i.e. not pointing to `oldName`) locations: <intercalate("\n- ", ["<readFile(l)> at <l>" | loc l <- nonOldNameLocs])>";
         }
 
         return occs;
@@ -338,17 +376,12 @@ private set[int] extractRenameOccurrences(loc moduleFileName, Edits edits, str n
 private str moduleNameToPath(str name) = replaceAll(name, "::", "/");
 private str modulePathToName(str path) = replaceAll(path, "/", "::");
 
-private Tree findCursor(loc f, str id, int occ) {
+private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
     m = parseModuleWithSpaces(f);
     names = collectNameTrees(m, id);
-    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\'; cannot use occurrence at position <occ> as cursor";
-    maybeCursor = names[occ];
-
-    if (<i, l, nothing()> := maybeCursor) {
-        throw "Cannot use <i>th occurrence of \'<id>\' at <l> as cursor";
-    } else {
-        return (maybeCursor<2>).val;
-    }
+    if (occ >= size(names) || occ < 0) throw "Found <size(names)> occurrences of \'<id>\' in <f>; cannot use occurrence at position <occ> as cursor";
+    loc cl = (names<1>)[occ];
+    return <cl, computeFocusList(m, cl.begin.line, cl.begin.column + 1)>;
 }
 
 private loc storeTestModule(loc dir, str name, str body) {

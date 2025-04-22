@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Constructors
 
 import lang::rascal::tests::rename::TestUtils;
@@ -44,12 +45,25 @@ test bool disjunctConstructor() = testRenameOccurrences({
            "data Foo = foo();", {})
 });
 
+test bool functionOverloadsConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'Foo foo(int i, int j) = foo(i + j);", {0, 1}),
+    byText("Main", "import ConsDefiner;
+                   'Foo f = foo(8);", {0})
+});
+
+test bool functionDoesNotOverloadConstructor() = testRenameOccurrences({
+    byText("ConsDefiner", "data Foo = foo(int i);", {0}),
+    byText("FuncDefiner", "int foo(int i) = i;", {})
+});
+
 test bool differentADTsDuplicateConstructorNames() = testRenameOccurrences({
     byText("A", "data Bar = foo();", {0})
   , byText("B",
            "extend A;
            'data Foo = foo(int i);
-           'Bar f = foo();", {1})
+           'Bar f = foo();", {0, 1})
 });
 
 test bool constructorNameUsedAsVar() = testRenameOccurrences({
@@ -79,6 +93,14 @@ test bool constructorIsCheck() = testRenameOccurrences({0, 1, 2, 3}, "
     '   | baz();
     bool isFoo(Foo f) = f is foo;
 ");
+
+test bool constructorMultiple() = testRenameOccurrences({0, 1, 2}, "", decls = "
+    'syntax Expression = reifyType : \"#\" Type type !\>\> \"[\" !selector;
+    'syntax DataTypeSelector = selector: QualifiedName sort \".\" Name production;
+    'syntax Type = selector: DataTypeSelector s;
+    'syntax QualifiedName = \\default: {Name \"::\"}+ names !\>\> \"::\";
+    'lexical Name = ([A-Z a-z _] !\<\< [A-Z _ a-z] [0-9 A-Z _ a-z]* !\>\> [0-9 A-Z _ a-z]);
+", oldName = "selector");
 
 test bool constructorsAndTypesInVModuleStructure() = testRenameOccurrences({
     byText("Left", "data Foo = foo();", {0}), byText("Right", "data Foo = foo(int i);", {0})

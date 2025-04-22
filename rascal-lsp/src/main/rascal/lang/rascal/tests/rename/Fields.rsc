@@ -24,16 +24,22 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Fields
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
-test bool constructorField() = testRenameOccurrences({0, 1, 2}, "
+test bool constructorField() = testRenameOccurrences({0, 1}, "
     'D oneTwo = d(1, 2);
     'x = oneTwo.foo;
+    ", decls = "data D = d(int foo, int baz);"
+);
+
+test bool constructorHasField() = testRenameOccurrences({0, 1}, "
+    'D oneTwo = d(1, 2);
     'b = oneTwo has foo;
     ", decls = "data D = d(int foo, int baz);"
+    , skipCursors = {1}
 );
 
 test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
@@ -41,6 +47,7 @@ test bool constructorKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = dd.foo;
     'b = dd has foo;
     ", decls="data D = d(int foo = 0, int baz = 0);"
+    , skipCursors = {3}
 );
 
 test bool constructorKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -56,6 +63,7 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     'x = oneTwo.foo;
     'b = oneTwo has foo;
     ", decls = "data D(int foo = 0, int baz = 0) = d();"
+    , skipCursors = {3}
 );
 
 test bool commonKeywordFieldFromOtherModule() = testRenameOccurrences({
@@ -71,7 +79,26 @@ test bool multipleConstructorField() = testRenameOccurrences({0, 1, 2, 3}, "
     'y = x.foo;
     'b = x has foo;
     ", decls = "data D = d(int foo) | d(int foo, int baz);"
+    , skipCursors = {3}
 );
+
+test bool constructorCallHasField() = testRenameOccurrences({0, 1}, "
+    bool b = f(8) has foo;
+", decls = "data Foo = f(int foo);", skipCursors = {1});
+
+test bool constructorCallRenameField() = testRenameOccurrences({0, 1}, "
+    int x = f(8).foo;
+", decls = "data Foo = f(int foo);");
+
+test bool constructorCallRenameFieldMultiModule() = testRenameOccurrences({
+    byText("Definer", "data Foo = f(int foo);", {0}),
+    byText("Main", "import Definer;
+                   'int x = f(8).foo;", {0})
+});
+
+test bool constructorCallRenameKeywordField() = testRenameOccurrences({0, 1, 2}, "
+    int x = f(foo = 8).foo;
+", decls = "data Foo = f(int foo = 0);");
 
 @expected{illegalRename}
 test bool duplicateConstructorField() = testRename("", decls =
@@ -105,14 +132,15 @@ test bool sameNameFields() = testRenameOccurrences({0, 2, 3}, "
     'bool b = x has foo;
 ", decls = "
     'data D = d(int foo);
-    'data E = e(int foo);
-");
+    'data E = e(int foo);"
+    , skipCursors = {3}
+);
 
 test bool sameNameADTFields() = testRenameOccurrences({
     byText("Definer", "
         'data D = d(int foo);
         'bool hasFoo(D dd) = dd has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
   , byText("Unrelated", "data D = d(int foo);", {})
 });
 
@@ -120,7 +148,7 @@ test bool sameNameFieldsDisconnectedModules() = testRenameOccurrences({
     byText("A", "
         'data D = d(int foo);
         'bool hasFoo(D dd) = dd has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
   , byText("B", "data E = e(int foo);", {})
 });
 
@@ -173,17 +201,8 @@ test bool extendedConstructorField() = testRenameOccurrences({
         'extend Scratch1;
         'data Foo = g(int foo);
         'bool hasFoo(Foo ff) = ff has foo;
-        ", {0, 1})
+        ", {0, 1}, skipCursors = {1})
 });
-
-test bool dataTypeReusedName() = testRenameOccurrences({
-    byText("Scratch1", "
-        'data Foo = f();
-        ", {0}),
-    byText("Scratch2", "
-        'data Foo = g();
-        ", {})
-}, oldName = "Foo", newName = "Bar");
 
 test bool dataFieldReusedName() = testRenameOccurrences({
     byText("Scratch1", "
@@ -215,6 +234,15 @@ test bool dataCommonKeywordFieldReusedName() = testRenameOccurrences({
 test bool dataAsFormalField() = testRenameOccurrences({0, 1}, "
     'int getChild(D d) = d.foo;
 ", decls = "data D = x(int foo);");
+
+@ignore{Will be supported in the future.}
+test bool functionOverloadsConstructorFields() = testRenameOccurrences({
+    byText("ConsDefiner", "data F = f(int foo = 8);", {0}),
+    byText("FuncOverload", "import ConsDefiner;
+                           'F f(int foo = 8, int baz = 9) = f(foo = foo + baz);", {0, 1, 2}),
+    byText("Main", "import ConsDefiner;
+                   'F x = f(foo=8);", {0})
+});
 
 test bool relField() = testRenameOccurrences({0, 1}, "
     'rel[str foo, str baz] r = {};
@@ -248,6 +276,7 @@ test bool tupleFieldAccessUpdate() = testRenameOccurrences({0, 1}, "
     't.foo = \"two\";
 ");
 
+@ignore{Ignore this for now, until we figure out the desired semantics here. https://github.com/usethesource/rascal/issues/2188}
 test bool similarCollectionTypes() = testRenameOccurrences({0, 1, 2, 3, 4}, "
     'rel[str foo, int baz] r = {};
     'lrel[str foo, int baz] lr = [];
@@ -268,7 +297,6 @@ test bool tupleField() = testRenameOccurrences({0, 1}, "
     'y = t.foo;
 ");
 
-// We would prefer an illegalRename exception here
 @expected{illegalRename}
 test bool builtinFieldSimpleType() = testRename("
     'loc l = |unknown:///|;

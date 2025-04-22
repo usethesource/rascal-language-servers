@@ -24,11 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Variables
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
-
 
 //// Local
 
@@ -71,12 +70,25 @@ test bool doubleVariableDeclaration() = testRename("
     'int bar = 9;
 ");
 
-test bool adjacentScopes() = testRenameOccurrences({0}, "
+test bool adjacentScopeVars() = testRenameOccurrences({0}, "
     '{
     '   int foo = 8;
     '}
     '{
     '   int bar = 9;
+    '}
+");
+
+test bool adjacentScopePatternVars() = testRenameOccurrences({0, 1}, "
+    '{
+    '   if (int foo := 8) {
+    '       i = foo;
+    '   }
+    '}
+    '{
+    '   if (int bar := 9) {
+    '       j = bar;
+    '   }
     '}
 ");
 
@@ -203,4 +215,13 @@ test bool unrelatedVar() = testRenameOccurrences({
   , byText("Module2", "import Module1;
                       'int foo = 2;
                       'int baz = foo;", {})
+});
+
+@illegalRename
+test bool multiModuleAmbiguous() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + bar;", {0})
 });

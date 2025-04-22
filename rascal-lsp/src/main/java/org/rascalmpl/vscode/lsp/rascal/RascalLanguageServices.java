@@ -147,7 +147,8 @@ public class RascalLanguageServices {
     private static IConstructor addResources(PathConfig pcfg) {
         var result = pcfg.asConstructor();
         return result.asWithKeywordParameters()
-            .setParameter("resources", pcfg.getBin());
+            .setParameter("resources", pcfg.getBin())
+            ;
     }
 
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
@@ -247,11 +248,11 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<ITuple> getRename(ITree cursorTree, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
+    public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
                 IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> addResources(getPathConfig.apply((ISourceLocation) t[0])));
-                return (ITuple) eval.call("rascalRenameSymbol", cursorTree, workspaceFolders.stream().collect(VF.setWriter()), VF.string(newName), rascalGetPathConfig);
+                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();

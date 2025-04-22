@@ -24,10 +24,10 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::tests::rename::Functions
 
 import lang::rascal::tests::rename::TestUtils;
-import lang::rascal::lsp::refactor::Exception;
 
 test bool nestedFunctionParameter() = testRenameOccurrences({0, 1}, "
     'int f(int foo, int baz) {
@@ -181,7 +181,7 @@ test bool nestedTypeParamClash() = testRename("
     'void f(&S s, &T t) {
     '   &S g(&S s) = s;
     '   &T g(&T t) = t;
-    }
+    '}
 ", oldName = "S", newName = "T", cursorAtOldNameOccurrence = 1);
 
 test bool adjacentTypeParams() = testRenameOccurrences({0, 1}, "
@@ -248,3 +248,72 @@ test bool functionsInIIModuleStructure() = testRenameOccurrences({
                            'void main() { foo(\"foo\"); }", {0}),       byText("RightUser",     "import RightExtender;
                                                                                                 'void main() { foo(\"fu\"); }", {})
 });
+
+@expected{illegalRename}
+test bool usedOverload() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'void bar(str s) { }
+        'void main() { bar(\"a\"); }
+    ", {})
+});
+
+@expected{illegalRename}
+test bool usedOverloadOfLib() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'import IO;
+        'void main() { println(\"a\"); }
+    ", {})
+}, newName = "println");
+
+test bool unusedOverloadOfLib() = testRenameOccurrences({
+    byText("Definer", "void foo(str s) { }", {0}),
+    byText("Main", "
+        'import Definer;
+        'import IO;
+    ", {})
+}, newName = "println");
+
+@expected{illegalRename}
+test bool localOverload() = testRename("
+    'int foo() = 8;
+    'if (true) {
+        int bar() = 9;
+    '}
+");
+
+@expected{illegalRename}
+test bool extendedOverloadWithUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {}),
+    byText("C", "import B;
+                'void main() { x = bar(); }", {})
+});
+
+@expected{illegalRename}
+test bool extendedOverloadWithoutUse() = testRenameOccurrences({
+    byText("A", "int foo() = 8;", {0}),
+    byText("B", "extend A;
+                'int bar() = 9;", {})
+});
+
+test bool adjacentScopeFunctions() = testRenameOccurrences({0, 1}, "
+    '{
+    '   int foo() = 8;
+    '   i = foo();
+    '}
+    '{
+    '   int bar() = 9;
+    '   j = bar();
+    '}
+");
+
+@expected{illegalRename}
+test bool externalJavaFunction() = testRenameOccurrences({0, 1}, "
+    'java bool foo();
+    'b = foo();
+");
