@@ -95,3 +95,5 @@ str describeTree(amb(alts)) = intercalate("|", [describeTree(alt) | alt <- alts]
 str describeTree(char(int c)) = "char <c>";
 
 list[str] describeTrees(list[Tree] trees) = [describeTree(t) | t <- trees];
+
+set[&T] toSet(tuple[&T, &T] ts) = {ts<0>, ts<1>};

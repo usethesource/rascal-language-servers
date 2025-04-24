@@ -172,6 +172,35 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
     };
 }
 
+bool(Tree) anyNameFilter(set[str] names) {
+    escNamesS = {reEscape(name) | name <- names};
+    escNames = {};
+    escNonterminals = {};
+    escNonterminalLabels = {};
+    qualifiedNames = {};
+
+    for (escName <- escNames) {
+        escNames += toSet(escapePair(#Name, escName));
+        escNonterminals += toSet(escapePair(#Nonterminal, escName));
+        escNonterminalLabels += toSet(escapePair(#NonterminalLabel, escName));
+        qualifiedNames += parseAsOrEmpty(#QualifiedName, escName);
+    }
+
+    return bool(Tree tr) {
+        visit (tr) {
+            case (Name) `<Name n>`: for (n1 <- escNames, n := n1) return true;
+            case (Nonterminal) `<Nonterminal n>`: for (nt1 <- escNonterminals, n := nt1) return true;
+            case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
+            case (QualifiedName) `<QualifiedName n>`: {
+                if (n.names[0].src == n.src) fail; // skip unqualified names
+                for (qn <- qualifiedNames, n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
+            }
+        }
+
+        return false;
+    };
+}
+
 set[loc] filterFiles(set[loc] fs, str name, bool(Tree)(str) treeFilterBuilder, Tree(loc) getTree) {
     j = "Checking files for occurrences of \'<name>\'";
     jobStart(j, totalWork = size(fs));
@@ -202,6 +231,21 @@ tuple[set[loc], set[loc]] filterFiles(set[loc] fs, str name1, str name2, tuple[b
     }
     jobEnd(j);
     return <fs1, fs2>;
+}
+
+set[loc] filterFiles(set[loc] fs, set[str] names, bool(Tree)(set[str]) treeFilterBuilder, Tree(loc) getTree) {
+    set[loc] ffs = {};
+
+    j = "Checking files for occurrences of <["\'<name>\'" | name <- names]>";
+    jobStart(j, totalWork = size(fs));
+    treeFilter = treeFilterBuilder(names);
+    for (loc f <- fs) {
+        jobStep(j, "<f>");
+        tr = getTree(f);
+        if (treeFilter(tr)) ffs += f;
+    }
+    jobEnd(j);
+    return ffs;
 }
 
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {

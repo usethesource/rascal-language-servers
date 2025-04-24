@@ -53,14 +53,16 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
         return <{}, {}, {}>;
     }
 
-    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, twoNameFilter, getTree);
+    sourceFiles = getSourceFiles(r);
+
+    <curAdtFiles, newFiles> = filterFiles(sourceFiles, "<cursor[0]>", newName, twoNameFilter, getTree);
 
     consIds = flatMapPerFile(defs, set[str](loc f, set[Define] localDataDefs) {
         localTm = r.getConfig().tmodelForLoc(f);
         return {consId | <Define _:<_, _, _, _, _, defType(AType adtType)>, Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))>> <- localDataDefs * localTm.defines};
     });
 
-    consFiles = {*filterFiles(getSourceFiles(r), consId, singleNameFilter, getTree) | consId <- consIds};
+    consFiles = filterFiles(sourceFiles, consIds, anyNameFilter, getTree);
 
     return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
 }
