@@ -78,15 +78,4 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
     });
 }
 
-set[Define] findConstructorDefinitions(set[Define] adtDefs, Renamer r) {
-    // Find all constructors with the same name in these ADT definitions
-    return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-        fileTm = r.getConfig().tmodelForLoc(f);
-        return {fileTm.definitions[d]
-            | loc d <- (fileTm.defines<idRole, defined>)[constructorId()]
-            , any(adt <- fileDefs.defined, isContainedIn(d, adt))
-        };
-    });
-}
-
 tuple[type[Tree] as, str desc] asType(constructorId()) = <#NonterminalLabel, "constructor name">;
