@@ -305,9 +305,12 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _,
         if (tm.definitions[c.src]?) {
             // Cursor at definition
             cursorDefs = {tm.definitions[c.src]};
-        } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
+        } else if (defs: {_, *_} := tm.useDef[c.src]) {
             // Cursor at use
-            cursorDefs = {defTm.definitions[d] | loc d <- useDefs, defTm := r.getConfig().augmentedTModelForLoc(d.top, r)};
+            cursorDefs = flatMapPerFile(defs, set[Define](loc f, set[loc] localDefs) {
+                localTm = r.getConfig().augmentedTModelForLoc(f, r);
+                return {localTm.definitions[d] | loc d <- localDefs};
+            });
         } else {
             // Try next cursor candidate in focus list
             fail;
