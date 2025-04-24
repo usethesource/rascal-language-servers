@@ -52,6 +52,7 @@ import util::Util;
 data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
+  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
 );
 
 data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);

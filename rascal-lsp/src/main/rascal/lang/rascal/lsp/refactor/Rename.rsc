@@ -233,12 +233,22 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
 list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
+data AugmentComponents = augmentUses() | augmentDefs();
+
+bool requiresAugmentation(set[Define] defs, {augmentUses(), *_}) = (defs.idRole & {constructorId(), functionId(), fieldId(), keywordFieldId(), keywordFormalId(), typeVarId()}) != {};
+bool requiresAugmentation(set[Define] defs, {augmentDefs()}) = (defs.idRole & {fieldId(), typeVarId()}) != {};
+
+TModel getConditionallyAugmentedTModel(loc l, set[Define] defs, set[AugmentComponents] useOrDef, Renamer r)
+    = requiresAugmentation(defs, useOrDef)
+    ? r.getConfig().augmentedTModelForLoc(l, r)
+    : r.getConfig().tmodelForLoc(l);
+
 @synopsis{
     Augment the TModel with 'missing' use/def information.
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
-TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
-    TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
+TModel augmentTModel(loc l, TModel tm, TModel(loc) tmodelForLoc) {
+    TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f);
 
     try {
         tr = parseModuleWithSpaces(l);
@@ -271,8 +281,9 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
   , newName
   , rconfig(
         Tree(loc l) { return parseModuleWithSpaces(l); }
-      , TModel(Tree t) { tm = tmodelForTree(t, getPathConfig); return augmentTModel(t.src, tm, getPathConfig); }
-      , tmodelForLoc = TModel(loc l) { tm = tmodelForLoc(l, getPathConfig); return augmentTModel(l, tm, getPathConfig); }
+      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
+      , tmodelForLoc = TModel(loc l) { return tmodelForLoc(l, getPathConfig); }
+      , augmentedTModelForLoc = TModel(loc l, Renamer r) { return augmentTModel(l, r.getConfig().tmodelForLoc(l), r.getConfig().tmodelForLoc); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
@@ -282,11 +293,11 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 public Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
-set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tree) getModel, Renamer r) {
+set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _, Renamer r) {
     if (isUnsupportedCursor(cursor, r)) return {};
 
     loc cursorLoc = cursor[0].src;
-    TModel tm = getModel(cursor[-1]);
+    TModel tm = r.getConfig().augmentedTModelForLoc(cursorLoc.top, r);
     if (isUnsupportedCursor(cursor, tm, r)) return {};
 
     set[Define] cursorDefs = {};
@@ -296,7 +307,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
             cursorDefs = {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
             // Cursor at use
-            cursorDefs = {defTm.definitions[d] | loc d <- useDefs, defTm := getModel(getTree(d.top))};
+            cursorDefs = {defTm.definitions[d] | loc d <- useDefs, defTm := r.getConfig().augmentedTModelForLoc(d.top, r)};
         } else {
             // Try next cursor candidate in focus list
             fail;
@@ -328,7 +339,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
 }
 
 void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {
-    tm = r.getConfig().tmodelForTree(tr);
+    tm = getConditionallyAugmentedTModel(tr.src.top, cursorDefs, {augmentDefs(), augmentUses()}, r);
     rascalCheckCausesCaptures(cursorDefs, newName, tr, tm, r);
     for (d <- cursorDefs) {
         rascalCheckCausesDoubleDeclarations(d, newName, tm, r);
@@ -359,6 +370,7 @@ private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
 
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     escName = reEscape(newName);
+    tm = getConditionallyAugmentedTModel(getModuleScopes(tm)[tm.modelName].top, defs, {augmentUses()}, r);
 
     definitions = {<d.defined, d> | d <- defs};
     useDefs = toMap(tm.useDef o definitions);
