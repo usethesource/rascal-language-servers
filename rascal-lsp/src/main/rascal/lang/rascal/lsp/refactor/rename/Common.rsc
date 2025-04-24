@@ -86,7 +86,7 @@ Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
 
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
-bool(Tree) allNameSortsFilter(str name) {
+bool(Tree) singleNameFilter(str name) {
     escName = reEscape(name);
 
     <n1, en1> = escapePair(#Name, escName);
@@ -111,7 +111,7 @@ bool(Tree) allNameSortsFilter(str name) {
 
 &T reEscape(type[&T <: Tree] T, &T t) = parse(T, "<reEscape("<t>")>");
 
-tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
+tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
     sname1 = reEscape(name1);
     sname2 = reEscape(name2);
 
@@ -172,10 +172,11 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     };
 }
 
-set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
-    j = "Checking files for occurrences of relevant name";
+set[loc] filterFiles(set[loc] fs, str name, bool(Tree)(str) treeFilterBuilder, Tree(loc) getTree) {
+    j = "Checking files for occurrences of \'<name>\'";
     jobStart(j, totalWork = size(fs));
     set[loc] filteredFs = {};
+    treeFilter = treeFilterBuilder(name);
     for (loc f <- fs) {
         jobStep(j, "<f>");
         if (treeFilter(getTree(f))) filteredFs += f;
@@ -185,12 +186,13 @@ set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
     return filteredFs;
 }
 
-tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeFilter, Tree(loc) getTree) {
+tuple[set[loc], set[loc]] filterFiles(set[loc] fs, str name1, str name2, tuple[bool, bool](Tree)(str, str) treeFilterBuilder, Tree(loc) getTree) {
     set[loc] fs1 = {};
     set[loc] fs2 = {};
 
-    j = "Checking files for occurrences of relevant names";
+    j = "Checking files for occurrences of \'<name1>\' and \'<name2>\'";
     jobStart(j, totalWork = size(fs));
+    treeFilter = treeFilterBuilder(name1, name2);
     for (loc f <- fs) {
         jobStep(j, "<f>");
         tr = getTree(f);
@@ -204,7 +206,7 @@ tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeF
 
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({str id} := defs.id) {
-        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter(id, newName), getTree);
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), id, newName, twoNameFilter, getTree);
         return <curFiles, curFiles, newFiles>;
     }
 

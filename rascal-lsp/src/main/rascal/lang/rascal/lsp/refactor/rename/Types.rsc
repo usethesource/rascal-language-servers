@@ -45,7 +45,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
     findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, typeVarId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+    <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
 
 public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if (size(defs.id) > 1) {
@@ -53,7 +53,7 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
         return <{}, {}, {}>;
     }
 
-    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, twoNameFilter, getTree);
 
     consIds = {consId
         | Define _:<_, _, _, _, loc dataDef, defType(AType adtType)> <- defs
@@ -61,7 +61,7 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
         , Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))> <- tm.defines
     };
 
-    consFiles = {*filterFiles(getSourceFiles(r), allNameSortsFilter(consId), getTree) | consId <- consIds};
+    consFiles = {*filterFiles(getSourceFiles(r), consId, singleNameFilter, getTree) | consId <- consIds};
 
     return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
 }

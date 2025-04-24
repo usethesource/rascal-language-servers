@@ -40,13 +40,13 @@ import util::Maybe;
 tuple[type[Tree] as, str desc] asType(variableId()) = <#Name, "variable name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, variableId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+    <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
 
 // Global variables
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, moduleVariableId(), _, defType(_, vis=privateVis())>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    <curUseFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+    <curUseFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, twoNameFilter, getTree);
     return <{scope.top}, curUseFiles, newFiles>;
 }
 
@@ -54,4 +54,4 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 tuple[type[Tree] as, str desc] asType(patternVariableId()) = <#Name, "pattern variable name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+    <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
