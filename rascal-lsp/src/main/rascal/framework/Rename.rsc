@@ -113,6 +113,9 @@ RenameResult rename(
     }
 
     @memo{maximumSize(50)}
+    TModel getTModelForLocCached(loc l) = config.tmodelForLoc(l);
+
+    @memo{maximumSize(50)}
     Tree parseLocCached(loc l) {
         // We already have the parse tree of the module under cursor
         if (l == cursor[-1].src.top) {
@@ -128,7 +131,11 @@ RenameResult rename(
     }
 
     // Make sure user uses cached functions
-    cachedConfig = config[parseLoc = parseLocCached][tmodelForTree = getTModelCached];
+    cachedConfig = config
+        [parseLoc = parseLocCached]
+        [tmodelForTree = getTModelCached]
+        [tmodelForLoc = getTModelForLocCached]
+        ;
 
     // Messages
     set[FailMessage] messages = {};
