@@ -86,7 +86,7 @@ bool isUnsupportedCursor(list[Tree] _:[*_, QualifiedName _, i:Import _, _, Heade
     return true;
 }
 
-void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, TModel tm, Renamer r) {
+void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 
     // Additionally, we rename the file

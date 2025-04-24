@@ -157,7 +157,7 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
     }
 }
 
-void rascalCheckDefinitionOutsideWorkspace(Define d, TModel tm, Renamer r) {
+void rascalCheckDefinitionOutsideWorkspace(Define d, Renamer r) {
     f = d.defined.top;
     pcfg = r.getConfig().getPathConfig(f);
     if (!any(srcFolder <- pcfg.srcs, isPrefixOf(srcFolder, f))) {
@@ -335,15 +335,15 @@ void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Re
     }
 }
 
-default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, TModel _, Renamer r) {
+default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Renamer r) {
     r.textEdit(replace(nameLoc, newName));
 }
 
-void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) {
+void renameDefinition(Define d, loc nameLoc, str newName, TModel _, Renamer r) {
     rascalCheckLegalNameByRole(d, newName, r);
-    rascalCheckDefinitionOutsideWorkspace(d, tm, r);
+    rascalCheckDefinitionOutsideWorkspace(d, r);
 
-    renameDefinitionUnchecked(d, nameLoc, reEscape(newName), tm, r);
+    renameDefinitionUnchecked(d, nameLoc, reEscape(newName), r);
 }
 
 private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
