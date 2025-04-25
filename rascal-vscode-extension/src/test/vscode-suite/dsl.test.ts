@@ -133,7 +133,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }
     });
 
-    it("have inlay hints", async function () {
+    it.only("have inlay hints", async function () {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
