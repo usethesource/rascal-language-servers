@@ -322,14 +322,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 recoverExceptions(file.getCurrentTreeAsync(), file::getLastTreeWithoutErrors)
                 .thenApply(Versioned::get)
                 .thenApply(x -> {
-                    logger.debug(x);
-                    return contrib.inlayHint(x);
+                    var y = contrib.inlayHint(x);
+                    logger.debug(y);
+                    logger.debug(y.get());
+                    return y;
                 })
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
                     .collect(Collectors.toList())
-            ), () -> null);
+            ), () -> {
+                logger.debug("Oh no...");
+                return null;
+            });
     }
 
 
