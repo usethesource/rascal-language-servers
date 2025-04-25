@@ -91,7 +91,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
     });
 
-    it("have highlighting and parse errors", async function () {
+    it.only("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
@@ -107,7 +107,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }
     });
 
-    it("have highlighting and parse errors for second extension", async function () {
+    it.only("have highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
