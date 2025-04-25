@@ -135,7 +135,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     it.only("have inlay hints", async function () {
         if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const editor = await ide.openModule(TestWorkspace.picoFile2);
         await ide.hasSyntaxHighlighting(editor);
         await ide.hasInlayHint(editor);
     });

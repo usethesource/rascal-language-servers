@@ -66,6 +66,7 @@ export class TestWorkspace {
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
+    public static readonly picoFile2 = path.join(src(this.testProject, 'pico'), 'testing2.pico');
 }
 
 
