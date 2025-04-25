@@ -330,8 +330,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> {
                     var t = s.stream()
-                    .map(this::rowToInlayHint)
-                    .collect(Collectors.toList());
+                        .map(this::rowToInlayHint)
+                        .collect(Collectors.toList());
                     logger.debug(t.size());
                     return t;
                 }

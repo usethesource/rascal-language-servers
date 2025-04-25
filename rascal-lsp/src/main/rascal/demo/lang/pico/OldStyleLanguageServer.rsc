@@ -39,6 +39,8 @@ import util::Reflective;
 import lang::pico::\syntax::Main;
 import util::ParseErrorRecovery;
 
+import IO;
+
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
 }
@@ -147,11 +149,17 @@ rel[loc,Command] picoLenses(start[Program] input)
 list[InlayHint] picoHinter(start[Program] input) {
     typeLookup = ( "<name>" : "<tp>" | /(IdType)`<Id name> : <Type tp>` := input);
 
-    return [
+    println("input: <input>");
+
+    ret = [
         hint(name.src, " : <typeLookup["<name>"]>", \type(), atEnd = true)
         | /(Expression)`<Id name>` := input
         , "<name>" in typeLookup
     ];
+
+    println("output: <ret>");
+
+    return ret;
 }
 
 @synopsis{Helper function to generate actual edit actions for the renameAtoB command}
