@@ -48,7 +48,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
         r.error(cursor[0], "Cannot find files for constructor definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
     }
-    <curFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, twoNameFilter, getTree);
+    <curFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, containsNameCheck, getTree);
 
     return <curFiles, curFiles, newFiles>;
 }

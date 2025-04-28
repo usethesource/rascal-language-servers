@@ -201,48 +201,85 @@ bool(Tree) anyNameFilter(set[str] names) {
     };
 }
 
-set[loc] filterFiles(set[loc] fs, str name, bool(Tree)(str) treeFilterBuilder, Tree(loc) getTree) {
+bool(loc) containsQualifiedNameCheck(str _) =
+    bool(loc _) { return true; };
+
+bool(loc) containsNameCheck(str name) =
+    bool(loc l) {
+        return contains(readFile(l), name);
+    };
+
+@synopsis{
+    Filters a given set of locations based on occurrence of `name` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+set[loc] filterFiles(set[loc] fs, str name, bool(loc l)(str) loosePreCheckBuilder, Tree(loc) getTree) {
     j = "Checking files for occurrences of \'<name>\'";
     jobStart(j, totalWork = size(fs));
     set[loc] filteredFs = {};
-    treeFilter = treeFilterBuilder(name);
+    treeFilter = singleNameFilter(name);
+    loosePreCheck = loosePreCheckBuilder(name);
     for (loc f <- fs) {
         jobStep(j, "<f>");
-        if (treeFilter(getTree(f))) filteredFs += f;
+        if (loosePreCheck(f) && treeFilter(getTree(f))) filteredFs += f;
     };
     jobEnd(j);
 
     return filteredFs;
 }
 
-tuple[set[loc], set[loc]] filterFiles(set[loc] fs, str name1, str name2, tuple[bool, bool](Tree)(str, str) treeFilterBuilder, Tree(loc) getTree) {
+@synopsis{
+    Filters a given set of locations based on occurrences of `name1` and `name2` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+tuple[set[loc], set[loc]] filterFiles(set[loc] fs, str name1, str name2, bool(loc l)(str) loosePreCheckBuilder, Tree(loc) getTree) {
     set[loc] fs1 = {};
     set[loc] fs2 = {};
 
     j = "Checking files for occurrences of \'<name1>\' and \'<name2>\'";
     jobStart(j, totalWork = size(fs));
-    treeFilter = treeFilterBuilder(name1, name2);
+
+    twoNameTreeFilter = twoNameFilter(name1, name2);
+
+    loosePreCheck1 = loosePreCheckBuilder(name1);
+    loosePreCheck2 = loosePreCheckBuilder(name2);
+
+    singleNameTreeFilter1 = singleNameFilter(name1);
+    singleNameTreeFilter2 = singleNameFilter(name2);
+
     for (loc f <- fs) {
         jobStep(j, "<f>");
-        tr = getTree(f);
-        <l, r> = treeFilter(tr);
-        if (l) fs1 += f;
-        if (r) fs2 += f;
+        if (loosePreCheck1(f)) {
+            if (loosePreCheck2(f)) {
+                // 1 and 2
+                <l, r> = twoNameTreeFilter(getTree(f));
+                if (l) fs1 += f;
+                if (r) fs2 += f;
+            } else if (singleNameTreeFilter1(getTree(f))) {
+                fs1 += f;
+            }
+        } else if (loosePreCheck2(f) && singleNameTreeFilter2(getTree(f))) {
+            fs2 += f;
+        }
     }
     jobEnd(j);
     return <fs1, fs2>;
 }
 
-set[loc] filterFiles(set[loc] fs, set[str] names, bool(Tree)(set[str]) treeFilterBuilder, Tree(loc) getTree) {
+@synopsis{
+    Filters a given set of locations based on occurrence of `names` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+set[loc] filterFiles(set[loc] fs, set[str] names, bool(loc l)(str) loosePreCheckBuilder, Tree(loc) getTree) {
     set[loc] ffs = {};
 
     j = "Checking files for occurrences of <["\'<name>\'" | name <- names]>";
     jobStart(j, totalWork = size(fs));
-    treeFilter = treeFilterBuilder(names);
+    treeFilter = anyNameFilter(names);
+    loosePreChecks = {loosePreCheckBuilder(n) | n <- names};
     for (loc f <- fs) {
         jobStep(j, "<f>");
-        tr = getTree(f);
-        if (treeFilter(tr)) ffs += f;
+        if (any(check <- loosePreChecks, check(f)) && treeFilter(getTree(f))) ffs += f;
     }
     jobEnd(j);
     return ffs;
@@ -250,7 +287,7 @@ set[loc] filterFiles(set[loc] fs, set[str] names, bool(Tree)(set[str]) treeFilte
 
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({str id} := defs.id) {
-        <curFiles, newFiles> = filterFiles(getSourceFiles(r), id, newName, twoNameFilter, getTree);
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), id, newName, containsNameCheck, getTree);
         return <curFiles, curFiles, newFiles>;
     }
 

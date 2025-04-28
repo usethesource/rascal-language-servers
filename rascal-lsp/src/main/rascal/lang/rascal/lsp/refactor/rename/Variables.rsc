@@ -46,7 +46,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 tuple[type[Tree] as, str desc] asType(moduleVariableId()) = <#Name, "variable name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, moduleVariableId(), _, defType(_, vis=privateVis())>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    <curUseFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, twoNameFilter, getTree);
+    <curUseFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, containsNameCheck, getTree);
     return <{scope.top}, curUseFiles, newFiles>;
 }
 
