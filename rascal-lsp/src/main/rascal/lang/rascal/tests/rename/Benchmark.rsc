@@ -43,7 +43,7 @@ loc birdProj(loc projDir) = projDir + "bird/bird-core"; // removed RASCAL.MF
 public loc typepalLib = |mvn://org.rascalmpl--typepal--0.15.1-SNAPSHOT/|;
 
 void() run(loc proj, str file, str oldName, str newName = "<oldName>2", int occurrence = 0, list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) = void() {
-    println("Renameing \'<oldName>\' to \'<newName>\' in <proj + file>");
+    println("Renaming \'<oldName>\' to \'<newName>\' in <proj + file>");
     <edits, msgs> = testProjectOnDisk(proj, file, oldName, newName = newName, occurrence = occurrence, srcDirs = srcDirs, libs = libs);
     if (errors:{_, *_} := {msg | msg <- msgs, msg is error}) throw errors;
     if (size({r | /r:replace(_, _) := edits}) < 2) throw "Unexpected number of edits: <edits>";
