@@ -172,7 +172,10 @@ Register the Pico language and the contributions that supply the IDE with featur
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main() {
+void main(bool unregister = false) {
+    if (unregister) {
+        unregisterLanguage("Pico", {"pico", "pico-new"});
+    }
     registerLanguage(
         language(
             pathConfig(),
