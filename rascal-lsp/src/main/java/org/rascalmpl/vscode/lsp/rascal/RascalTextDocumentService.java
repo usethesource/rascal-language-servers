@@ -213,7 +213,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         var timestamp = System.currentTimeMillis();
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file);
     }
 
     @Override
@@ -246,21 +246,18 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents, timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file);
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
-        diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get().stream()
-                .map(diagnostic -> diagnostic.instantiate(columns))
-                .collect(Collectors.toList());
-
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            if (facts != null) {
-                facts.reportParseErrors(file.getLocation(), parseErrors);
-            }
-        });
+    private void handleParsingErrors(TextDocumentState file) {
+        file.getCurrentDiagnosticsAsync(diagnostic -> diagnostic.instantiate(columns))
+            .thenAccept(parseErrors -> {
+                logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
+                if (facts != null) {
+                    facts.reportParseErrors(file.getLocation(), parseErrors.get());
+                }
+            });
     }
 
     @Override

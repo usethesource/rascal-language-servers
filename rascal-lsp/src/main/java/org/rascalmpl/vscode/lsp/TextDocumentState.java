@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -108,6 +110,11 @@ public class TextDocumentState {
         return current.getDiagnosticsAsync();
     }
 
+    public CompletableFuture<Versioned<List<Diagnostic>>> getCurrentDiagnosticsAsync(
+            Function<Diagnostics.Template, Diagnostic> instantiate) {
+        return current.getDiagnosticsAsync(instantiate);
+    }
+
     public @MonotonicNonNull Versioned<ITree> getLastTree() {
         return last.get();
     }
@@ -152,6 +159,14 @@ public class TextDocumentState {
 
         public CompletableFuture<Versioned<List<Diagnostics.Template>>> getDiagnosticsAsync() {
             return diagnosticsAsync;
+        }
+
+        public CompletableFuture<Versioned<List<Diagnostic>>> getDiagnosticsAsync(
+                Function<Diagnostics.Template, Diagnostic> instantiate) {
+            return diagnosticsAsync.thenApply(diagnostics -> {
+                var instantiated = map(instantiate, diagnostics.get());
+                return new Versioned<>(version, instantiated);
+            });
         }
 
         private void parse() {
@@ -212,5 +227,9 @@ public class TextDocumentState {
 
     public long getLastModified() {
         return current.getTimestamp();
+    }
+
+    private static <T, R> List<R> map(Function<T, R> f, List<T> list) {
+        return list.stream().map(f).collect(Collectors.toList());
     }
 }

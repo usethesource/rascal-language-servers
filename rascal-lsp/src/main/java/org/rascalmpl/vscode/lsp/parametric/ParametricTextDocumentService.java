@@ -229,7 +229,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file);
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -282,19 +282,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         file.update(doc.getVersion(), newContents, timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file);
         return file;
     }
 
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
-        diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get().stream()
-                .map(diagnostic -> diagnostic.instantiate(columns))
-                .collect(Collectors.toList());
-
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
-        });
+    private void handleParsingErrors(TextDocumentState file) {
+        file.getCurrentDiagnosticsAsync(diagnostic -> diagnostic.instantiate(columns))
+            .thenAccept(parseErrors -> {
+                logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
+                facts(file.getLocation()).reportParseErrors(file.getLocation(), parseErrors.version(), parseErrors.get());
+            });
     }
 
     @Override
