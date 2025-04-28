@@ -183,8 +183,6 @@ Register the Pico language and the contributions that supply the IDE with featur
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
 void main(bool errorRecovery=false) {
-    // since error recovery has an influence on which contributor we register, we have to unregister all existing registrations
-    unregisterLanguage("Pico", {"pico", "pico-new"});
     registerLanguage(
         language(
             pathConfig(),
