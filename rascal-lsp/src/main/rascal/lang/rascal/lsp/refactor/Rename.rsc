@@ -243,52 +243,59 @@ TModel getConditionallyAugmentedTModel(loc l, set[Define] defs, set[AugmentCompo
     ? r.getConfig().augmentedTModelForLoc(l, r)
     : r.getConfig().tmodelForLoc(l);
 
-@synopsis{
-    Augment the TModel with 'missing' use/def information.
-    Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
+public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
+    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], (), (), (), (), pathConfig(), tconfig());
+
+    TModel tmodelForTree(Tree tr) = tmodelForLoc(tr.src.top);
+
+    TModel tmodelForLoc(loc l) {
+        pcfg = getPathConfig(l);
+        mname = getModuleName(l, pcfg);
+
+        ccfg = rascalCompilerConfig(pcfg);
+        <found, tm, ms> = getTModelForModule(mname, ms);
+        if (found) return tm;
+
+        ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
+
+        <found, tm, ms> = getTModelForModule(mname, ms);
+        if (!found) throw "No TModel for module \'<mname>\'";
+        return tm;
+    }
+
+    @synopsis{
+        Augment the TModel with 'missing' use/def information.
+        Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
+    }
+    TModel augmentTModel(loc l, Renamer r) {
+        TModel getModel(loc f) = f.top == l.top ? tm : r.getConfig().tmodelForLoc(f);
+
+        tm = r.getConfig().tmodelForLoc(l);
+        try {
+            tr = parseModuleWithSpaces(l);
+            tm = augmentExceptProductions(tr, tm, getModel);
+            tm = augmentFieldUses(tr, tm, getModel);
+            tm = augmentFormalUses(tr, tm, getModel);
+            tm = augmentTypeParams(tr, tm);
+        } catch _: {;}
+        return tm;
+    }
+
+    return rename(
+        extendFocusWithConcreteSyntax(cursor, cursorLoc)
+      , newName
+      , rconfig(
+            Tree(loc l) { return parseModuleWithSpaces(l); }
+          , tmodelForTree
+          , tmodelForLoc = tmodelForLoc
+            // Call functions from the config so we re-use its cache
+          , augmentedTModelForLoc = TModel(loc l, Renamer r) { return augmentTModel(l, r); }
+          , workspaceFolders = workspaceFolders
+          , getPathConfig = getPathConfig
+          , debug = false
+        )
+    );
 }
-TModel augmentTModel(loc l, TModel tm, TModel(loc) tmodelForLoc) {
-    TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f);
-
-    try {
-        tr = parseModuleWithSpaces(l);
-        tm = augmentExceptProductions(tr, tm, getModel);
-        tm = augmentFieldUses(tr, tm, getModel);
-        tm = augmentFormalUses(tr, tm, getModel);
-        tm = augmentTypeParams(tr, tm);
-    } catch _: {;}
-    return tm;
-}
-
-
-TModel tmodelForTree(Tree tr, PathConfig(loc) getPathConfig)
-    = tmodelForLoc(tr.src.top, getPathConfig);
-
-TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
-    pcfg = getPathConfig(l);
-    mname = getModuleName(l, pcfg);
-
-    ccfg = rascalCompilerConfig(pcfg);
-    ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
-
-    <found, tm, ms> = getTModelForModule(mname, ms);
-    if (!found) throw "No TModel for module \'<mname>\'";
-    return tm;
-}
-
-public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
-    extendFocusWithConcreteSyntax(cursor, cursorLoc)
-  , newName
-  , rconfig(
-        Tree(loc l) { return parseModuleWithSpaces(l); }
-      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
-      , tmodelForLoc = TModel(loc l) { return tmodelForLoc(l, getPathConfig); }
-      , augmentedTModelForLoc = TModel(loc l, Renamer r) { return augmentTModel(l, r.getConfig().tmodelForLoc(l), r.getConfig().tmodelForLoc); }
-      , workspaceFolders = workspaceFolders
-      , getPathConfig = getPathConfig
-      , debug = false
-  )
-);
 
 public Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
