@@ -49,36 +49,68 @@ import util::Util;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
-tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str curModName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    loc modFile = d.top;
+@memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
+
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str defName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
+    // if (getModuleLocation(reEscape(newName), r.getConfig().getPathConfig()))
+
     set[loc] useFiles = {};
     set[loc] newFiles = {};
 
-    modName = [QualifiedName] curModName;
+    modName = reEscape(defName);
+    modNameTree = [QualifiedName] modName;
     newModName = reEscape(newName);
+    newModNameTree = [QualifiedName] newModName;
+
+    modNameNumberOfNames = size(findAll(modName, "::")) + 1;
+    newModNameNumberOfNames = size(findAll(newModName, "::")) + 1;
+
+    try {
+        loc oldLoc = getModuleLocation(modName, r.getConfig().getPathConfig(d.top));
+        loc newLoc = getModuleLocation(newModName, r.getConfig().getPathConfig(d.top));
+        if (oldLoc != newLoc) {
+            r.error(d, "Cannot rename, since module \'<newModName>\' already exists at <newLoc>");
+            return <{}, {}, {}>;
+        }
+    } catch _: {;}
 
     for (loc f <- getSourceFiles(r)) {
-        bottom-up-break visit (getTree(f)) {
-            case modName: {
+        m = getTree(f);
+
+        bool markedNew = false;
+        bool markedUse = false;
+
+        top-down-break visit (m.top.header.imports) {
+            case modNameTree: {
                 // Import of exact module name
                 useFiles += f;
+                markedUse = true;
             }
+        }
+        bottom-up-break visit(m) {
             case QualifiedName qn: {
                 // Import of redundantly escaped module name
-                escQn = reEscape("<qn>");
-                if (curModName == escQn) useFiles += f;
-                else if (newModName == escQn) newFiles += f;
-                else {
-                    // Qualified use of declaration in module
-                    // If through extends, there might be no import
-                    qualPref = reEscape(qualifiedPrefix(qn).name);
-                    if (qualPref == curModName) useFiles += f;
-                    if (qualPref == newModName) newFiles += f;
+                qnSize = size(asNames(qn));
+                if (qnSize == modNameNumberOfNames && modName == reEscape("<qn>")) {
+                    useFiles += f;
+                    markedUse = true;
                 }
+                else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
+                    qualPref = qualifiedPrefix(qn);
+                    if (qualPref.name == modName || reEscape(qualPref.name) == modName) {
+                        useFiles += f;
+                        markedUse = true;
+                    }
+                    else if (qualPref.name == newModName || reEscape(qualPref.name) == newModName) {
+                        newFiles += f;
+                        markedNew = true;
+                    }
+                }
+                if (markedUse && markedNew) continue;
             }
         }
     }
-    return <{modFile}, useFiles, newFiles>;
+    return <{d.top}, useFiles, newFiles>;
 }
 
 bool isUnsupportedCursor(list[Tree] _:[*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
