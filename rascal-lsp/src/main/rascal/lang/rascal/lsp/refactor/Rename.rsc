@@ -301,28 +301,53 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 public Edits rascalRenameModule(list[tuple[loc old, loc new]] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) =
     propagateModuleRenames(renames, workspaceFolders, getPathConfig);
 
-set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _, Renamer r) {
-    if (isUnsupportedCursor(cursor, r)) return {};
 
+private set[Define] tryGetCursorDefinitions(list[Tree] cursor, TModel(loc) getModel) {
     loc cursorLoc = cursor[0].src;
-    TModel tm = r.getConfig().augmentedTModelForLoc(cursorLoc.top, r);
-    if (isUnsupportedCursor(cursor, tm, r)) return {};
+    TModel tm = getModel(cursorLoc.top);
 
     set[Define] cursorDefs = {};
-    if (Tree c <- cursor) {
+    if ([*pre, Tree c, *_] := cursor) {
         if (tm.definitions[c.src]?) {
             // Cursor at definition
             cursorDefs = {tm.definitions[c.src]};
         } else if (defs: {_, *_} := tm.useDef[c.src]) {
             // Cursor at use
             cursorDefs = flatMapPerFile(defs, set[Define](loc f, set[loc] localDefs) {
-                localTm = f == cursorLoc.top ? tm : r.getConfig().augmentedTModelForLoc(f, r);
-                return {localTm.definitions[d] | loc d <- localDefs};
+                localTm = f.top == cursorLoc.top ? tm : getModel(f);
+                return {localTm.definitions[d] | loc d <- localDefs, localTm.definitions[d]?};
             });
-        } else {
-            // Try next cursor candidate in focus list
-            fail;
         }
+
+        // Check if the name of the found declaration(s) actually appears in the focus list.
+        // If this is not the case, we went too far up.
+        if (cursorDefs != {}) {
+            visit (c) {
+                case Tree tr: {
+                    if (any(t <- [*pre, c], tr.src == t.src) && reEscape("<tr>") in cursorDefs.id) return cursorDefs;
+                }
+            }
+            return {};
+        }
+        // Try next cursor candidate in focus list
+        fail;
+    }
+
+    return {};
+}
+
+set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _, Renamer r) {
+    if (isUnsupportedCursor(cursor, r)) return {};
+
+    loc cursorLoc = cursor[0].src;
+    TModel tm = r.getConfig().tmodelForLoc(cursorLoc.top);
+    if (isUnsupportedCursor(cursor, tm, r)) return {};
+
+    set[Define] cursorDefs = tryGetCursorDefinitions(cursor, r.getConfig().tmodelForLoc);
+    if (cursorDefs == {}) {
+        tm = r.getConfig().augmentedTModelForLoc(cursorLoc.top, r);
+        if (isUnsupportedCursor(cursor, tm, r)) return {};
+        cursorDefs = tryGetCursorDefinitions(cursor, TModel(loc l) { return r.getConfig().augmentedTModelForLoc(l, r); });
     }
 
     if ({} := cursorDefs) {
