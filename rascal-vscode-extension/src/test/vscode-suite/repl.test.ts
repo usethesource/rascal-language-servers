@@ -27,7 +27,7 @@
 
 import { expect } from 'chai';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, RascalREPL, Delays, IDEOperations, printRascalOutputOnFailure } from './utils';
+import { TestWorkspace, RascalREPL, Delays, IDEOperations, printRascalOutputOnFailure, sleep } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -73,6 +73,7 @@ describe('REPL', function () {
 
     it("import module and run in terminal", async () => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
+        sleep(3000);
         const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
         await lens!.click();
         const repl = new RascalREPL(bench, driver);
