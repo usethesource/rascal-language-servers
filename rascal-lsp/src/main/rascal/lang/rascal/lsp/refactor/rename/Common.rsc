@@ -86,6 +86,17 @@ Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
 
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
+private set[&T] escapeSet(type[&T <: Tree] T, str n) {
+    set[&T] res = {};
+    if (just(&T t) := tryParseAs(T, n)) {
+        res += t;
+    }
+    if (just(&T t) := tryParseAs(T, forceEscapeSingleName(n))) {
+        res += t;
+    }
+    return res;
+}
+
 bool(Tree) singleNameFilter(str name) {
     escName = reEscape(name);
 
@@ -101,7 +112,7 @@ bool(Tree) singleNameFilter(str name) {
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
+                if (n := qn1 || qn1 := reEscape(#QualifiedName, n)) return true;
             }
         }
 
@@ -158,10 +169,10 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
             }
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (!has1 && n := qn1) {
+                if (!has1 && qn1 := n || qn1 := reEscape(#QualifiedName, n)) {
                     if (has2) return <true, true>;
                     has1 = true;
-                } else if (!has2 && n := qn2) {
+                } else if (!has2 && qn2 := n || qn2 := reEscape(#QualifiedName, n)) {
                     if (has1) return <true, true>;
                     has2 = true;
                 }
@@ -173,18 +184,11 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
 }
 
 bool(Tree) anyNameFilter(set[str] names) {
-    escNamesS = {reEscape(name) | name <- names};
-    escNames = {};
-    escNonterminals = {};
-    escNonterminalLabels = {};
-    qualifiedNames = {};
-
-    for (escName <- escNames) {
-        escNames += toSet(escapePair(#Name, escName));
-        escNonterminals += toSet(escapePair(#Nonterminal, escName));
-        escNonterminalLabels += toSet(escapePair(#NonterminalLabel, escName));
-        qualifiedNames += parseAsOrEmpty(#QualifiedName, escName);
-    }
+    set[str] escNamesS = {reEscape(name) | name <- names};
+    set[Name] escNames = {*escapeSet(#Name, name) | name <- escNamesS};
+    set[Nonterminal] escNonterminals = {*escapeSet(#Nonterminal, name) | name <- escNamesS};
+    set[NonterminalLabel] escNonterminalLabels = {*escapeSet(#NonterminalLabel, name) | name <- escNamesS};
+    set[QualifiedName] qualifiedNames = {t | name <- escNamesS, just(QualifiedName t) := tryParseAs(#QualifiedName, name)};
 
     return bool(Tree tr) {
         visit (tr) {
@@ -193,7 +197,7 @@ bool(Tree) anyNameFilter(set[str] names) {
             case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                for (qn <- qualifiedNames, n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
+                for (qn <- qualifiedNames, qn := n || qn := reEscape(#QualifiedName, n)) return true;
             }
         }
 
