@@ -316,7 +316,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _,
         } else if (defs: {_, *_} := tm.useDef[c.src]) {
             // Cursor at use
             cursorDefs = flatMapPerFile(defs, set[Define](loc f, set[loc] localDefs) {
-                localTm = r.getConfig().augmentedTModelForLoc(f, r);
+                localTm = f == cursorLoc.top ? tm : r.getConfig().augmentedTModelForLoc(f, r);
                 return {localTm.definitions[d] | loc d <- localDefs};
             });
         } else {
