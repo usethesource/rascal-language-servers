@@ -58,10 +58,11 @@ map[str, num] benchmarks(loc projDir) = benchmark((
       , "[typepal] local var": run(typepalProj(projDir), "src/analysis/typepal/Solver.rsc", "facts", srcDirs = ["src"])
       , "[typepal] constructor": run(typepalProj(projDir), "src/analysis/typepal/Collector.rsc", "collector", srcDirs = ["src"])
       , "[typepal] global var": run(typepalProj(projDir), "src/analysis/typepal/Version.rsc", "currentTplVersion", srcDirs = ["src"])
-    //   , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/m3/AST.rsc", "astNodeSpecification")
-    //   , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
-    //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
-    //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
+      , "[rascal] function": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/m3/AST.rsc", "astNodeSpecification")
+      , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
+      , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
+      , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
+      , "[rascal] nonterminal label": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "lhs", newName = "lefthandside")
 ), safeRuns(3, intMedian, realTimeOf));
 
 num(void()) safeRuns(int numRuns, num(list[num]) aggregate, int(void()) measure) = int(void() f) {
