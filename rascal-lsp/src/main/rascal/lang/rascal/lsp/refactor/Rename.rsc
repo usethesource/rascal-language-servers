@@ -319,15 +319,21 @@ private set[Define] tryGetCursorDefinitions(list[Tree] cursor, TModel(loc) getMo
             });
         }
 
+        bool isDefNameInFocus(Tree name)
+            = any(t <- [*pre, c], name.src == t.src) && forceUnescapeNames("<name>") in cursorDefs.id;
+
         // Check if the name of the found declaration(s) actually appears in the focus list.
         // If this is not the case, we went too far up.
         if (cursorDefs != {}) {
             visit (c) {
-                case Tree tr: {
-                    if (any(t <- [*pre, c], tr.src == t.src) && reEscape("<tr>") in cursorDefs.id) return cursorDefs;
+                case Name tr: if (isDefNameInFocus(tr)) return cursorDefs;
+                case QualifiedName tr: {
+                    if (tr.names[0].src == tr.src) fail; // skip unqualified names
+                    if (isDefNameInFocus(tr)) return cursorDefs;
                 }
+                case Nonterminal tr: if (isDefNameInFocus(tr)) return cursorDefs;
+                case NonterminalLabel tr: if (isDefNameInFocus(tr)) return cursorDefs;
             }
-            return {};
         }
         // Try next cursor candidate in focus list
         fail;

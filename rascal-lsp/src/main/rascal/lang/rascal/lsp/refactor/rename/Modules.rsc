@@ -49,8 +49,6 @@ import util::Util;
 
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
-@memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
-
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str defName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     // if (getModuleLocation(reEscape(newName), r.getConfig().getPathConfig()))
 
