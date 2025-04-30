@@ -72,10 +72,13 @@ private set[str] reservedNames = getRascalReservedIdentifiers();
 
 str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
 str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
-str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? forceEscapeSingleName(n) : n | n <- split(sep, name)]);
-str unescapeNonReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? n : forceUnescapeNames(n) | n <- split(sep, name)]);
-str reEscape(str name) = escapeMinusIdentifier(escapeReservedNames(forceUnescapeNames(name)));
 str escapeMinusIdentifier(str name) = (contains(name, "-") && !startsWith(name, "\\")) ? "\\<name>" : name;
+str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName(name) : name;
+
+str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
+
+@memo{maximumSize(100), expireAfter(minutes=5)}
+str reEscape(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
 
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
