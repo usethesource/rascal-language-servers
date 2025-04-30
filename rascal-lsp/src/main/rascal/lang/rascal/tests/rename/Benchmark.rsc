@@ -29,8 +29,10 @@ module lang::rascal::tests::rename::Benchmark
 import lang::rascal::tests::rename::ProjectOnDisk;
 
 import IO;
+import List;
 import Set;
 import util::Benchmark;
+import util::Math;
 import analysis::diff::edits::TextEdits;
 
 loc rascalProj(loc projDir) = projDir + "rascal";
@@ -60,11 +62,11 @@ map[str, num] benchmarks(loc projDir) = benchmark((
     //   , "[rascal] local var": run(rascalProj(projDir), "src/org/rascalmpl/library/analysis/diff/edits/ExecuteTextEdits.rsc", "e")
     //   , "[rascal] type param": run(rascalProj(projDir), "src/org/rascalmpl/library/Map.rsc", "K")
     //   , "[rascal] grammar constructor": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "transitiveReflexiveClosure")
-), safeRuns(3, min, realTimeOf));
+), safeRuns(3, intMedian, realTimeOf));
 
-num(void()) safeRuns(int numRuns, &T(set[&T]) aggregate, int(void()) measure) = int(void() f) {
+num(void()) safeRuns(int numRuns, num(list[num]) aggregate, int(void()) measure) = int(void() f) {
     try {
-        return aggregate({measure(f) | _ <- [0..numRuns]});
+        return aggregate([measure(f) | _ <- [0..numRuns]]);
     } catch e: {
         println("[ERROR] <e>");
         return -1;
@@ -75,4 +77,22 @@ void cleanBenchmarkTargets(loc projDir) {
     for (loc d <- {rascalProj(projDir), typepalProj(projDir), birdProj(projDir)}) {
         remove(d + "target", recursive = true);
     }
+}
+
+int intMedian(list[num] nums) = toInt(median(nums));
+
+// Copied from analysis::statistics::Descriptive
+default real median(list[num] nums:[_, *_])
+	= mean(middle(nums));
+
+real mean(list[num] nums:[_, *_]) = toReal(sum(nums)) / size(nums);
+
+private list[&T] middle(list[&T] nums) {
+	nums = sort(nums);
+	n = size(nums);
+	if (n % 2 == 1) {
+		return [nums[n/2]];
+	}
+	n = n / 2;
+	return nums[n-1..n+1];
 }
