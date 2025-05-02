@@ -104,7 +104,7 @@ public class Diagnostics {
         List<Template> diagnostics = new ArrayList<>();
 
         // Highlight selected parts of the error tree
-        if (ERROR_LOCATION_HIGHLIGHT != null) { // NOSONAR
+        if (ERROR_LOCATION_HIGHLIGHT != null) {
             // Just the error location
             ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
                     skippedLoc.getOffset(), 1,
@@ -114,12 +114,12 @@ public class Diagnostics {
                     ERROR_LOCATION_HIGHLIGHT, "parser"));
         }
 
-        if (ERROR_TREE_HIGHLIGHT != null) { // NOSONAR
+        if (ERROR_TREE_HIGHLIGHT != null) {
             // The whole error tree
             diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
         }
 
-        if (PREFIX_HIGHLIGHT != null) { // NOSONAR
+        if (PREFIX_HIGHLIGHT != null) {
             // The recognized prefix
             int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
             if (prefixLength > 0) {
@@ -131,7 +131,7 @@ public class Diagnostics {
             }
         }
 
-        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) { // NOSONAR
+        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
             // The skipped part
             diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
         }
