@@ -78,7 +78,7 @@ str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName
 str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
-str reEscape(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
+str normalizeEscaping(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
 
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
@@ -86,7 +86,7 @@ Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
 bool(Tree) allNameSortsFilter(str name) {
-    escName = reEscape(name);
+    escName = normalizeEscaping(name);
 
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
@@ -100,7 +100,7 @@ bool(Tree) allNameSortsFilter(str name) {
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
+                if (n := qn1 || qn1 := [QualifiedName] normalizeEscaping("<n>")) return true;
             }
         }
 
@@ -108,11 +108,11 @@ bool(Tree) allNameSortsFilter(str name) {
     };
 }
 
-&T reEscape(type[&T <: Tree] T, &T t) = parse(T, "<reEscape("<t>")>");
+&T normalizeEscaping(type[&T <: Tree] T, &T t) = parse(T, "<normalizeEscaping("<t>")>");
 
 tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
-    sname1 = reEscape(name1);
-    sname2 = reEscape(name2);
+    sname1 = normalizeEscaping(name1);
+    sname2 = normalizeEscaping(name2);
 
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);

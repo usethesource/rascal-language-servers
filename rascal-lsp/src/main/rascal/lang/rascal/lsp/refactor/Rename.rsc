@@ -125,7 +125,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
 }
 
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
-    escName = reEscape(name);
+    escName = normalizeEscaping(name);
     <t, desc> = asType(role);
     if (tryParseAs(t, escName) is nothing) {
         r.error(at, "<escName> is not a valid <desc>");
@@ -314,7 +314,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 }
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    escNewName = reEscape(newName);
+    escNewName = normalizeEscaping(newName);
     for (role <- defs.idRole) {
         hasError = false;
         <t, desc> = asType(role);
@@ -345,7 +345,7 @@ void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) 
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
-    renameDefinitionUnchecked(d, nameLoc, reEscape(newName), tm, r);
+    renameDefinitionUnchecked(d, nameLoc, normalizeEscaping(newName), tm, r);
 }
 
 private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
@@ -360,7 +360,7 @@ private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
 }
 
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
-    escName = reEscape(newName);
+    escName = normalizeEscaping(newName);
 
     definitions = {<d.defined, d> | d <- defs};
     useDefs = toMap(tm.useDef o definitions);

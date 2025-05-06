@@ -55,7 +55,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     set[loc] newFiles = {};
 
     modName = [QualifiedName] curModName;
-    newModName = reEscape(newName);
+    newModName = normalizeEscaping(newName);
 
     for (loc f <- getSourceFiles(r)) {
         bottom-up-break visit (getTree(f)) {
@@ -65,13 +65,13 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
             }
             case QualifiedName qn: {
                 // Import of redundantly escaped module name
-                escQn = reEscape("<qn>");
+                escQn = normalizeEscaping("<qn>");
                 if (curModName == escQn) useFiles += f;
                 else if (newModName == escQn) newFiles += f;
                 else {
                     // Qualified use of declaration in module
                     // If through extends, there might be no import
-                    qualPref = reEscape(qualifiedPrefix(qn).name);
+                    qualPref = normalizeEscaping(qualifiedPrefix(qn).name);
                     if (qualPref == curModName) useFiles += f;
                     if (qualPref == newModName) newFiles += f;
                 }
@@ -103,7 +103,7 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            pref := qualifiedPrefix(qn), moduleName == reEscape(pref.name)) {
+            pref := qualifiedPrefix(qn), moduleName == normalizeEscaping(pref.name)) {
             r.textEdit(replace(pref.l, newName));
         }
     }
