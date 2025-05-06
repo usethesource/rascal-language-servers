@@ -66,7 +66,7 @@ test bool commonKeywordField() = testRenameOccurrences({0, 1, 2, 3}, "
     , skipCursors = {3}
 );
 
-test bool commonKeywordFieldFromOtherModule() = testRenameOccurrences({
+test bool commonKeywordFieldFromDefinition() = testRenameOccurrences({
     byText("Foo", "data D(int foo = 0, int baz = 0) = d();", {0})
   , byText("Bar",
         "import Foo;

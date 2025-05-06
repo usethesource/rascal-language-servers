@@ -125,7 +125,7 @@ void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TM
 }
 
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
-    escName = escapeReservedNames(name);
+    escName = normalizeEscaping(name);
     <t, desc> = asType(role);
     if (tryParseAs(t, escName) is nothing) {
         r.error(at, "<escName> is not a valid <desc>");
@@ -149,7 +149,7 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
     }
 
     if (isFieldRole(cD.idRole)) {
-        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, cD.defined.top, tm, r)
+        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, tm, r)
            , loc nD <- (newNameDefs<idRole, defined>)[{fieldId(), keywordFieldId()}] & (tm.defines<idRole, scope, defined>)[{fieldId(), keywordFieldId()}, dataDef.defined]
         ) {
             r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
@@ -237,19 +237,26 @@ default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cur
     Augment the TModel with 'missing' use/def information.
     Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
 }
-TModel augmentTModel(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
-    tm = augmentExceptProductions(tr, tm, tmodelForLoc);
-    tm = augmentFieldUses(tr, tm, tmodelForLoc);
-    tm = augmentFormalUses(tr, tm, tmodelForLoc);
-    tm = augmentTypeParams(tr, tm);
+TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
+    TModel getModel(loc f) = f.top == l.top ? tm : tmodelForLoc(f, getPathConfig);
+
+    try {
+        tr = parseModuleWithSpaces(l);
+        tm = augmentExceptProductions(tr, tm, getModel);
+        tm = augmentFieldUses(tr, tm, getModel);
+        tm = augmentFormalUses(tr, tm, getModel);
+        tm = augmentTypeParams(tr, tm);
+    } catch e: {
+        println("Suppressed error during TModel augmentation: <e>");
+    }
     return tm;
 }
 
-TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig)
-    = tmodelForTree(parseModuleWithSpaces(l), getPathConfig);
 
-TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
-    loc l = t.src.top;
+TModel tmodelForTree(Tree tr, PathConfig(loc) getPathConfig)
+    = tmodelForLoc(tr.src.top, getPathConfig);
+
+TModel tmodelForLoc(loc l, PathConfig(loc) getPathConfig) {
     pcfg = getPathConfig(l);
     mname = getModuleName(l, pcfg);
 
@@ -257,20 +264,17 @@ TModel tmodelForTree(Tree t, PathConfig(loc) getPathConfig) {
     ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
 
     <found, tm, ms> = getTModelForModule(mname, ms);
-    if (!found) throw ms.messages;
-    return augmentTModel(t, tm, TModel(loc f) {
-        // Prevent endless recursion
-        if (f == l) return tm;
-        return tmodelForLoc(f, getPathConfig);
-    });
+    if (!found) throw "No TModel for module \'<mname>\'";
+    return tm;
 }
 
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) = rename(
     extendFocusWithConcreteSyntax(cursor, cursorLoc)
   , newName
   , rconfig(
-        Tree(loc l) { return parse(#start[Module], l); }
-      , TModel(Tree t) { return tmodelForTree(t, getPathConfig); }
+        Tree(loc l) { return parseModuleWithSpaces(l); }
+      , TModel(Tree t) { tm = tmodelForTree(t, getPathConfig); return augmentTModel(t.src, tm, getPathConfig); }
+      , tmodelForLoc = TModel(loc l) { tm = tmodelForLoc(l, getPathConfig); return augmentTModel(l, tm, getPathConfig); }
       , workspaceFolders = workspaceFolders
       , getPathConfig = getPathConfig
       , debug = false
@@ -290,10 +294,13 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
     set[Define] cursorDefs = {};
     if (Tree c <- cursor) {
         if (tm.definitions[c.src]?) {
+            // Cursor at definition
             cursorDefs = {tm.definitions[c.src]};
         } else if (useDefs: {_, *_} := tm.useDef[c.src]) {
-            cursorDefs = {defTm.definitions[d] | d <- useDefs, defTm := getModel(getTree(d.top))};
+            // Cursor at use
+            cursorDefs = {defTm.definitions[d] | loc d <- useDefs, defTm := getModel(getTree(d.top))};
         } else {
+            // Try next cursor candidate in focus list
             fail;
         }
     }
@@ -307,7 +314,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) getTree, TModel(Tr
 }
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    escNewName = escapeReservedNames(newName);
+    escNewName = normalizeEscaping(newName);
     for (role <- defs.idRole) {
         hasError = false;
         <t, desc> = asType(role);
@@ -338,7 +345,7 @@ void renameDefinition(Define d, loc nameLoc, str newName, TModel tm, Renamer r) 
     rascalCheckLegalNameByRole(d, newName, r);
     rascalCheckDefinitionOutsideWorkspace(d, tm, r);
 
-    renameDefinitionUnchecked(d, nameLoc, reEscape(newName), tm, r);
+    renameDefinitionUnchecked(d, nameLoc, normalizeEscaping(newName), tm, r);
 }
 
 private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
@@ -353,7 +360,7 @@ private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
 }
 
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
-    escName = reEscape(newName);
+    escName = normalizeEscaping(newName);
 
     definitions = {<d.defined, d> | d <- defs};
     useDefs = toMap(tm.useDef o definitions);
