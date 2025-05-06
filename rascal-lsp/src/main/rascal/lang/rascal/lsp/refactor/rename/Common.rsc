@@ -108,6 +108,7 @@ bool(Tree) singleNameFilter(str name) {
     <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
     qn1 = parseAsOrEmpty(#QualifiedName, escName);
     qnSize = QualifiedName _ := qn1 ? size(asNames(qn1)) : -1;
+    qnStr = normalizeEscaping("<qn1>");
 
     return bool(Tree tr) {
         visit (tr) {
@@ -115,9 +116,9 @@ bool(Tree) singleNameFilter(str name) {
             case (Nonterminal) `<Nonterminal n>`: if (n := nt1 || n := ent1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (size(asNames(n)) != qnSize) fail;
-                if (n := qn1 || qn1 := [QualifiedName] normalizeEscaping("<n>")) return true;
+                if (n.names[0].src != n.src // skip unqualified names
+                    && size(asNames(n)) == qnSize // check for same length
+                    && (qn1 := n || qnStr := normalizeEscaping("<n>"))) return true;
             }
         }
 
@@ -173,13 +174,14 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
                 }
             }
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
-                    if (has2) return <true, true>;
-                    has1 = true;
-                } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
-                    if (has1) return <true, true>;
-                    has2 = true;
+                if (n.names[0].src != n.src) { // skip unqualified names
+                    if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
+                        if (has2) return <true, true>;
+                        has1 = true;
+                    } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
+                        if (has1) return <true, true>;
+                        has2 = true;
+                    }
                 }
             }
         }
@@ -201,8 +203,9 @@ bool(Tree) anyNameFilter(set[str] names) {
             case (Nonterminal) `<Nonterminal n>`: for (nt1 <- escNonterminals, n := nt1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) fail; // skip unqualified names
-                for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] normalizeEscaping("<n>")) return true;
+                if (n.names[0].src == n.src) { // skip unqualified names
+                    for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] normalizeEscaping("<n>")) return true;
+                }
             }
         }
 
