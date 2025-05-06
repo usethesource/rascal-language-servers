@@ -36,6 +36,7 @@ import lang::rascalcore::check::Import;
 import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::check::BasicRascalConfig;
 
+import IO;
 import List;
 import Location;
 import Map;
