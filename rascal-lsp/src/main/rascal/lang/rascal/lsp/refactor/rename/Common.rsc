@@ -112,6 +112,8 @@ bool(Tree) singleNameFilter(str name) {
 
     return bool(Tree tr) {
         visit (tr) {
+            // Replace patterns with `n1` etc. once this issue is solved
+            // https://github.com/usethesource/rascal/issues/2147
             case (Name) `<Name n>`: if (n := n1 || n := en1) return true;
             case (Nonterminal) `<Nonterminal n>`: if (n := nt1 || n := ent1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
@@ -146,6 +148,8 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
         bool has1 = false;
         bool has2 = false;
         visit (tr) {
+            // Replace patterns with `n1` and `n2` once this issue is solved
+            // https://github.com/usethesource/rascal/issues/2147
             case (Name) `<Name n>`: {
                 if (!has1 && n := n1) {
                     if (has2) return <true, true>;
