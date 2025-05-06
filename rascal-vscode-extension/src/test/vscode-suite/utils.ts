@@ -170,7 +170,7 @@ export class RascalREPL {
 function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCondition {
     return new WebElementCondition("locating element in scope", async (_driver) => {
         try {
-            const result = await scope.findElements(selector);
+            const result = await ignoreFails(scope.findElements(selector));
             if (result && result.length > 0) {
                 return result[0] ?? null;
             }
@@ -378,8 +378,11 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             let tries = 0;
             while (textLines.length === 0 && tries < 3) {
                 await showRascalOutput(bbp, channel);
-                textLines = await bbp.findElements(By.className('view-line'));
+                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
                 tries++;
+            }
+            if (textLines.length === 0) {
+                console.log("We could not capture the output lines");
             }
 
             for (const l of textLines) {
