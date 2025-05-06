@@ -34,13 +34,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
@@ -59,7 +57,6 @@ import org.rascalmpl.repl.output.ICommandOutput;
 import org.rascalmpl.repl.output.impl.AsciiStringOutputPrinter;
 import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
 import org.rascalmpl.repl.rascal.RascalReplServices;
-import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
@@ -68,9 +65,9 @@ import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
 import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.io.StandardTextWriter;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -79,7 +76,6 @@ import io.usethesource.vallang.io.StandardTextWriter;
  */
 public class LSPTerminalREPL extends RascalInterpreterREPL {
     private final int ideServicePort;
-    private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
     private DebugSocketServer debugServer;
 
     private LSPTerminalREPL(int ideServicesPort) {
@@ -205,26 +201,7 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         if (result != null) {
             return result;
         }
-        Set<String> changes = new HashSet<>();
-        changes.addAll(dirtyModules);
-        dirtyModules.removeAll(changes);
-        eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
         return super.handleInput(command);
-    }
-
-    private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
-        if (URIUtil.isParentOf(srcPath, d.getLocation()) && d.getLocation().getPath().endsWith(".rsc")) {
-            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
-            relative = URIUtil.removeExtension(relative);
-
-            String modName = relative.getPath();
-            if (modName.startsWith("/")) {
-                modName = modName.substring(1);
-            }
-            modName = modName.replace("/", "::");
-            modName = modName.replace("\\", "::");
-            dirtyModules.add(modName);
-        }
     }
 
     private static String getRascalLspVersion(ISourceLocation lspJar) {
@@ -236,8 +213,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             return "Unknown";
         }
     }
-
-
 
     @SuppressWarnings("java:S899") // it's fine to ignore the result of createNewFile
     private static Path getHistoryFile() throws IOException {
