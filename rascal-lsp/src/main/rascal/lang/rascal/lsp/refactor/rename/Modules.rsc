@@ -50,14 +50,12 @@ import util::Util;
 tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str defName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
-    // if (getModuleLocation(reEscape(newName), r.getConfig().getPathConfig()))
-
     set[loc] useFiles = {};
     set[loc] newFiles = {};
 
-    modName = reEscape(defName);
+    modName = normalizeEscaping(defName);
     modNameTree = [QualifiedName] modName;
-    newModName = reEscape(newName);
+    newModName = normalizeEscaping(newName);
     newModNameTree = [QualifiedName] newModName;
 
     modNameNumberOfNames = size(findAll(modName, "::")) + 1;
@@ -89,17 +87,17 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
             case QualifiedName qn: {
                 // Import of redundantly escaped module name
                 qnSize = size(asNames(qn));
-                if (qnSize == modNameNumberOfNames && modName == reEscape("<qn>")) {
+                if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
                     useFiles += f;
                     markedUse = true;
                 }
                 else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
                     qualPref = qualifiedPrefix(qn);
-                    if (qualPref.name == modName || reEscape(qualPref.name) == modName) {
+                    if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
                         useFiles += f;
                         markedUse = true;
                     }
-                    else if (qualPref.name == newModName || reEscape(qualPref.name) == newModName) {
+                    else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {
                         newFiles += f;
                         markedNew = true;
                     }
@@ -133,7 +131,7 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            pref := qualifiedPrefix(qn), moduleName == reEscape(pref.name)) {
+            pref := qualifiedPrefix(qn), moduleName == normalizeEscaping(pref.name)) {
             r.textEdit(replace(pref.l, newName));
         }
     }

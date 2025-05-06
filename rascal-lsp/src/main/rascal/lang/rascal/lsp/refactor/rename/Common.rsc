@@ -79,7 +79,7 @@ str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName
 str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
-str reEscape(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
+str normalizeEscaping(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
 
 @memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
 
@@ -100,7 +100,7 @@ private set[&T] escapeSet(type[&T <: Tree] T, str n) {
 }
 
 bool(Tree) singleNameFilter(str name) {
-    escName = reEscape(name);
+    escName = normalizeEscaping(name);
 
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
@@ -116,7 +116,7 @@ bool(Tree) singleNameFilter(str name) {
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
                 if (size(asNames(n)) != qnSize) fail;
-                if (n := qn1 || qn1 := [QualifiedName] reEscape("<n>")) return true;
+                if (n := qn1 || qn1 := [QualifiedName] normalizeEscaping("<n>")) return true;
             }
         }
 
@@ -124,9 +124,11 @@ bool(Tree) singleNameFilter(str name) {
     };
 }
 
+&T normalizeEscaping(type[&T <: Tree] T, &T t) = parse(T, "<normalizeEscaping("<t>")>");
+
 tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
-    sname1 = reEscape(name1);
-    sname2 = reEscape(name2);
+    sname1 = normalizeEscaping(name1);
+    sname2 = normalizeEscaping(name2);
 
     <n1, en1> = escapePair(#Name, sname1);
     <nt1, ent1> = escapePair(#Nonterminal, sname1);
@@ -171,10 +173,10 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
             }
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (!has1 && qn1 := n || qn1 := [QualifiedName] reEscape("<n>")) {
+                if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
                     if (has2) return <true, true>;
                     has1 = true;
-                } else if (!has2 && qn2 := n || qn2 := [QualifiedName] reEscape("<n>")) {
+                } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
                     if (has1) return <true, true>;
                     has2 = true;
                 }
@@ -186,7 +188,7 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
 }
 
 bool(Tree) anyNameFilter(set[str] names) {
-    set[str] escNamesS = {reEscape(name) | name <- names};
+    set[str] escNamesS = {normalizeEscaping(name) | name <- names};
     set[Name] escNames = {*escapeSet(#Name, name) | name <- escNamesS};
     set[Nonterminal] escNonterminals = {*escapeSet(#Nonterminal, name) | name <- escNamesS};
     set[NonterminalLabel] escNonterminalLabels = {*escapeSet(#NonterminalLabel, name) | name <- escNamesS};
@@ -199,7 +201,7 @@ bool(Tree) anyNameFilter(set[str] names) {
             case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
                 if (n.names[0].src == n.src) fail; // skip unqualified names
-                for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] reEscape("<n>")) return true;
+                for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] normalizeEscaping("<n>")) return true;
             }
         }
 
