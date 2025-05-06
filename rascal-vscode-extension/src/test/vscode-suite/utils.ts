@@ -331,7 +331,7 @@ export class IDEOperations {
     }
 
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
+        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
