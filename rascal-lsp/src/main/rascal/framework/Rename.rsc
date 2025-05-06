@@ -94,6 +94,13 @@ RenameResult rename(
       , str newName
       , RenameConfig config) {
 
+    /* Initially, we expect at least the following work
+      - 1 unit of work to initialize the renaming
+      - 1 unit of 'workspace work' to resolve definitions
+      - 1 unit of 'workspace work' to find all files with occurrences
+
+      Any additional work will be added based on the results of above steps.
+    */
     jobStart(config.jobLabel, totalWork = 2 * WORKSPACE_WORK + 1);
     jobStep(config.jobLabel, "Initializing renamer");
 

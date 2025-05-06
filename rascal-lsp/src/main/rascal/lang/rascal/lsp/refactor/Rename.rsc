@@ -246,7 +246,9 @@ TModel augmentTModel(loc l, TModel tm, PathConfig(loc) getPathConfig) {
         tm = augmentFieldUses(tr, tm, getModel);
         tm = augmentFormalUses(tr, tm, getModel);
         tm = augmentTypeParams(tr, tm);
-    } catch _: {;}
+    } catch e: {
+        println("Suppressed error during TModel augmentation: <e>");
+    }
     return tm;
 }
 
