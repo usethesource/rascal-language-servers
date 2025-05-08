@@ -42,7 +42,9 @@ Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
                    , projectDir + "src/org/rascalmpl/compiler"
-                   , projectDir + "test/org/rascalmpl/benchmark"],
+                   , projectDir + "src/org/rascalmpl/tutor"
+                   , projectDir + "test/org/rascalmpl/benchmark"
+                   ],
             bin = projectDir + "target/classes",
             libs = libs
         );
