@@ -115,15 +115,18 @@ bool isUnsupportedCursor(list[Tree] _:[*_, QualifiedName _, i:Import _, _, Heade
 }
 
 void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, loc nameLoc, str newName, Renamer r) {
-    r.textEdit(replace(nameLoc, newName));
-
-    // Additionally, we rename the file
     if (currentName == newName) return;
     loc moduleFile = d.defined.top;
     pcfg = r.getConfig().getPathConfig(moduleFile);
-    loc relModulePath = relativize(pcfg.srcs, moduleFile);
-    loc srcFolder = [srcFolder | srcFolder <- pcfg.srcs, exists(srcFolder + relModulePath.path)][0];
-    r.documentEdit(renamed(moduleFile, srcFolder + makeFileName(forceUnescapeNames(newName))));
+    // Re-implement `relativize(loc, list[loc])`
+    if (loc srcDir <- pcfg.srcs, loc relModulePath := relativize(srcDir, moduleFile), relModulePath != moduleFile) {
+        // Change the file header
+        r.textEdit(replace(nameLoc, newName));
+        // Rename the file
+        r.documentEdit(renamed(moduleFile, srcDir + makeFileName(forceUnescapeNames(newName))));
+    } else {
+        r.error(moduleFile, "Cannot rename <currentName>, since it is not defined in this project.");
+    }
 }
 
 void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, _>}, str newName, TModel tm, Renamer r) {

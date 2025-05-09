@@ -116,6 +116,13 @@ test bool externalImport() = testRenameOccurrences({
     ", {0})
 }, oldName = "Foo", newName = "Bar");
 
+@expected{illegalRename}
+test bool stdlibImport() = testRenameOccurrences({
+    byText("Main", "
+        'import IO;
+    ", {0})
+}, oldName = "IO", newName = "InOut");
+
 test bool simpleEscapedModule() = testRenameOccurrences({
     byText("Foo", "int foo = 8;", {0}, newName = "Bar"),
     byText("Main", "import \\Foo;
@@ -123,7 +130,7 @@ test bool simpleEscapedModule() = testRenameOccurrences({
 }, oldName = "Foo", newName = "Bar");
 
 test bool newEscapedModuleName() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}, newName = "Foo")
+    byText("Foo", "int foo = 8;", {}, newName = "Foo")
 }, oldName = "Foo", newName = "\\Foo");
 
 test bool autoEscapeModuleName() = testRenameOccurrences({
