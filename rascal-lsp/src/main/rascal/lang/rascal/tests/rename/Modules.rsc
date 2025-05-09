@@ -144,3 +144,9 @@ test bool escapeVariants() = testRenameOccurrences({
     byText("EscapeImport3", "import a::b::\\Foo;
                       'int baz = a::b::\\Foo::foo;", {0, 1}, skipCursors = {1})
 }, oldName = "a::b::Foo", newName = "a::b::Bar");
+
+@expected{illegalRename}
+test bool moduleExists() = testRenameOccurrences({
+    byText("Foo", "", {0}),
+    byText("foo::Foo", "", {})
+}, oldName = "Foo", newName = "foo::Foo");

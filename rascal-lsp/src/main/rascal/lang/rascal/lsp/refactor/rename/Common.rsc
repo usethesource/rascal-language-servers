@@ -36,6 +36,7 @@ import lang::rascalcore::check::Import;
 import lang::rascalcore::check::RascalConfig;
 import lang::rascalcore::check::BasicRascalConfig;
 
+import IO;
 import List;
 import Location;
 import Map;
@@ -52,6 +53,7 @@ import util::Util;
 data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
+  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
 );
 
 data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
@@ -80,27 +82,45 @@ str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n 
 @memo{maximumSize(100), expireAfter(minutes=5)}
 str normalizeEscaping(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
 
+@memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
+
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
 
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
-bool(Tree) allNameSortsFilter(str name) {
+private set[&T] escapeSet(type[&T <: Tree] T, str n) {
+    set[&T] res = {};
+    if (just(&T t) := tryParseAs(T, n)) {
+        res += t;
+    }
+    if (just(&T t) := tryParseAs(T, forceEscapeSingleName(n))) {
+        res += t;
+    }
+    return res;
+}
+
+bool(Tree) singleNameFilter(str name) {
     escName = normalizeEscaping(name);
 
     <n1, en1> = escapePair(#Name, escName);
     <nt1, ent1> = escapePair(#Nonterminal, escName);
     <ntl1, entl1> = escapePair(#NonterminalLabel, escName);
     qn1 = parseAsOrEmpty(#QualifiedName, escName);
+    qnSize = QualifiedName _ := qn1 ? size(asNames(qn1)) : -1;
+    qnStr = normalizeEscaping("<qn1>");
 
     return bool(Tree tr) {
         visit (tr) {
+            // Replace patterns with `n1` etc. once this issue is solved
+            // https://github.com/usethesource/rascal/issues/2147
             case (Name) `<Name n>`: if (n := n1 || n := en1) return true;
             case (Nonterminal) `<Nonterminal n>`: if (n := nt1 || n := ent1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (n := qn1 || qn1 := [QualifiedName] normalizeEscaping("<n>")) return true;
+                if (n.names[0].src != n.src // skip unqualified names
+                    && size(asNames(n)) == qnSize // check for same length
+                    && (qn1 := n || qnStr := normalizeEscaping("<n>"))) return true;
             }
         }
 
@@ -110,7 +130,7 @@ bool(Tree) allNameSortsFilter(str name) {
 
 &T normalizeEscaping(type[&T <: Tree] T, &T t) = parse(T, "<normalizeEscaping("<t>")>");
 
-tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
+tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
     sname1 = normalizeEscaping(name1);
     sname2 = normalizeEscaping(name2);
 
@@ -128,6 +148,8 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
         bool has1 = false;
         bool has2 = false;
         visit (tr) {
+            // Replace patterns with `n1` and `n2` once this issue is solved
+            // https://github.com/usethesource/rascal/issues/2147
             case (Name) `<Name n>`: {
                 if (!has1 && n := n1) {
                     if (has2) return <true, true>;
@@ -156,13 +178,14 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
                 }
             }
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) fail; // skip unqualified names
-                if (!has1 && n := qn1) {
-                    if (has2) return <true, true>;
-                    has1 = true;
-                } else if (!has2 && n := qn2) {
-                    if (has1) return <true, true>;
-                    has2 = true;
+                if (n.names[0].src != n.src) { // skip unqualified names
+                    if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
+                        if (has2) return <true, true>;
+                        has1 = true;
+                    } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
+                        if (has1) return <true, true>;
+                        has2 = true;
+                    }
                 }
             }
         }
@@ -171,39 +194,106 @@ tuple[bool, bool](Tree) allNameSortsFilter(str name1, str name2) {
     };
 }
 
-set[loc] filterFiles(set[loc] fs, bool(Tree) treeFilter, Tree(loc) getTree) {
-    j = "Checking files for occurrences of relevant name";
+bool(Tree) anyNameFilter(set[str] names) {
+    set[str] escNamesS = {normalizeEscaping(name) | name <- names};
+    set[Name] escNames = {*escapeSet(#Name, name) | name <- escNamesS};
+    set[Nonterminal] escNonterminals = {*escapeSet(#Nonterminal, name) | name <- escNamesS};
+    set[NonterminalLabel] escNonterminalLabels = {*escapeSet(#NonterminalLabel, name) | name <- escNamesS};
+    set[QualifiedName] qualifiedNames = {t | name <- escNamesS, just(QualifiedName t) := tryParseAs(#QualifiedName, name)};
+
+    return bool(Tree tr) {
+        visit (tr) {
+            case (Name) `<Name n>`: for (n <- escNames) return true;
+            case (Nonterminal) `<Nonterminal n>`: for (nt1 <- escNonterminals, n := nt1) return true;
+            case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
+            case (QualifiedName) `<QualifiedName n>`: {
+                if (n.names[0].src == n.src) { // skip unqualified names
+                    for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] normalizeEscaping("<n>")) return true;
+                }
+            }
+        }
+
+        return false;
+    };
+}
+
+@synopsis{
+    Filters a given set of locations based on occurrence of `name` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+set[loc] filterFiles(set[loc] fs, str name, Tree(loc) getTree) {
+    j = "Checking files for occurrences of \'<name>\'";
     jobStart(j, totalWork = size(fs));
     set[loc] filteredFs = {};
+    treeFilter = singleNameFilter(name);
     for (loc f <- fs) {
         jobStep(j, "<f>");
-        if (treeFilter(getTree(f))) filteredFs += f;
+        contents = readFile(f);
+        if (contains(contents, name) && treeFilter(getTree(f))) filteredFs += f;
     };
     jobEnd(j);
 
     return filteredFs;
 }
 
-tuple[set[loc], set[loc]] filterFiles(set[loc] fs, tuple[bool, bool](Tree) treeFilter, Tree(loc) getTree) {
+@synopsis{
+    Filters a given set of locations based on occurrences of `name1` and `name2` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+tuple[set[loc], set[loc]] filterFiles(set[loc] fs, str name1, str name2, Tree(loc) getTree) {
     set[loc] fs1 = {};
     set[loc] fs2 = {};
 
-    j = "Checking files for occurrences of relevant names";
+    j = "Checking files for occurrences of \'<name1>\' and \'<name2>\'";
     jobStart(j, totalWork = size(fs));
+
+    twoNameTreeFilter = twoNameFilter(name1, name2);
+
+    singleNameTreeFilter1 = singleNameFilter(name1);
+    singleNameTreeFilter2 = singleNameFilter(name2);
+
     for (loc f <- fs) {
         jobStep(j, "<f>");
-        tr = getTree(f);
-        <l, r> = treeFilter(tr);
-        if (l) fs1 += f;
-        if (r) fs2 += f;
+        contents = readFile(f);
+        if (contains(contents, name1)) {
+            if (contains(contents, name2)) {
+                // 1 and 2
+                <l, r> = twoNameTreeFilter(getTree(f));
+                if (l) fs1 += f;
+                if (r) fs2 += f;
+            } else if (singleNameTreeFilter1(getTree(f))) {
+                fs1 += f;
+            }
+        } else if (contains(contents, name2) && singleNameTreeFilter2(getTree(f))) {
+            fs2 += f;
+        }
     }
     jobEnd(j);
     return <fs1, fs2>;
 }
 
+@synopsis{
+    Filters a given set of locations based on occurrence of `names` in parse tree.
+    Accepts a loose pre-check builder function that, given a name, returns a function that, given a location, cheaply computes whether the parse tree for that location *might* contain an occurrence of the given name.
+}
+set[loc] filterFiles(set[loc] fs, set[str] names, Tree(loc) getTree) {
+    set[loc] ffs = {};
+
+    j = "Checking files for occurrences of <["\'<name>\'" | name <- names]>";
+    jobStart(j, totalWork = size(fs));
+    treeFilter = anyNameFilter(names);
+    for (loc f <- fs) {
+        jobStep(j, "<f>");
+        contents = readFile(f);
+        if (any(n <- names, contains(contents, n)) && treeFilter(getTree(f))) ffs += f;
+    }
+    jobEnd(j);
+    return ffs;
+}
+
 default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if ({str id} := defs.id) {
-        <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter(id, newName), getTree);
+        <curFiles, newFiles> = filterFiles(getSourceFiles(r), id, newName, getTree);
         return <curFiles, curFiles, newFiles>;
     }
 

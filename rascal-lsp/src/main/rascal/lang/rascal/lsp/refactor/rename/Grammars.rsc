@@ -50,12 +50,12 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, IdRole r
     findAdditionalDataLikeDefinitions(cursorDefs, tm, r)
     when role in syntaxRoles;
 
-void renameDefinitionUnchecked(Define d: <_, _, _, nonterminalId(), _, _>, loc _, str _, TModel _, Renamer _) {
+void renameDefinitionUnchecked(Define d: <_, _, _, nonterminalId(), _, _>, loc _, str _, Renamer _) {
     // Do not register an edit for the definition, as it will appear as a use again
     // TODO Rascal Core: why register the name of a production definition as a use of itself?
 }
 
-void renameDefinitionUnchecked(Define d: <_, _, _, lexicalId(), _, _>, loc _, str _, TModel _, Renamer _) {
+void renameDefinitionUnchecked(Define d: <_, _, _, lexicalId(), _, _>, loc _, str _, Renamer _) {
     // Do not register an edit for the definition, as it will appear as a use again
     // TODO Rascal Core: why register the name of a production definition as a use of itself?
 }
