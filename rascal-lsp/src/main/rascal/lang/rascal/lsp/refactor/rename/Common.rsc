@@ -204,12 +204,13 @@ bool(Tree) anyNameFilter(set[str] names) {
     return bool(Tree tr) {
         visit (tr) {
             case (Name) `<Name n>`: for (n <- escNames) return true;
-            case (Nonterminal) `<Nonterminal n>`: for (nt1 <- escNonterminals, n := nt1) return true;
-            case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
+            case (Nonterminal) `<Nonterminal n>`: for (n <- escNonterminals) return true;
+            case (NonterminalLabel) `<NonterminalLabel n>`: for (n <- escNonterminalLabels) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src == n.src) { // skip unqualified names
-                    for (qn <- qualifiedNames, qn := n || qn := [QualifiedName] normalizeEscaping("<n>")) return true;
-                }
+                if (n.names[0].src != n.src // skip unqualified names
+                  , qn <- qualifiedNames
+                  , qn := n || qn := [QualifiedName] normalizeEscaping("<n>"))
+                    return true;
             }
         }
 
