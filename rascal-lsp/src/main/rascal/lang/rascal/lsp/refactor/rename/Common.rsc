@@ -203,7 +203,7 @@ bool(Tree) anyNameFilter(set[str] names) {
 
     return bool(Tree tr) {
         visit (tr) {
-            case (Name) `<Name n>`: for (n1 <- escNames, n := n1) return true;
+            case (Name) `<Name n>`: for (n <- escNames) return true;
             case (Nonterminal) `<Nonterminal n>`: for (nt1 <- escNonterminals, n := nt1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: for (ntl1 <- escNonterminalLabels, n := ntl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
