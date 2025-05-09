@@ -53,7 +53,7 @@ bool isFieldRole(IdRole role) = role in fieldRoles;
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
     if (any(role <- cursorDefs.idRole, !isFieldRole(role)) || {} := cursorDefs) fail findAdditionalDefinitions;
 
-    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataOrSyntaxRoles, cursorDefs.scope]};
     adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
     // Find all fields with the same name in these ADT definitions

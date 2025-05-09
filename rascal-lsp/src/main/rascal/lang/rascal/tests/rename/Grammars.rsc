@@ -128,6 +128,15 @@ test bool syntaxConstructorField() = testRenameOccurrences({0, 1, 2}, "
 ", decls = "syntax S = s: S foo;"
 , skipCursors = {2});
 
+test bool syntaxConstructorsSameField() = testRenameOccurrences({0, 1, 2}, "
+    'Expression f(Expression e) = e.lhs;
+", decls = "
+    'syntax Expression
+    '   = remainder: Expression lhs \"%\" Expression rhs
+    '   | division: Expression lhs \"/\" Expression rhs
+    '   ;
+", oldName = "lhs");
+
 test bool hasConstructorFields() = testRenameOccurrences({0, 2}, "
     D x = d(8);
     bool b = x has foo;
