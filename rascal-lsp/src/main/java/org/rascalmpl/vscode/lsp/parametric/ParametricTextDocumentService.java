@@ -582,7 +582,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public void registerLanguage(LanguageParameter lang) {
+    public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
         for (var extension: lang.getExtensions()) {
@@ -626,7 +626,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public void unregisterLanguage(LanguageParameter lang) {
+    public synchronized void unregisterLanguage(LanguageParameter lang) {
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
             if (!contributions.get(lang.getName()).removeContributor(buildContributionKey(lang))) {

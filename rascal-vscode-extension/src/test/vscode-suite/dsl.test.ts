@@ -26,7 +26,7 @@
  */
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
+import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
@@ -53,6 +53,18 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
+
+        // If Pico was registered before as part of another series of tests,
+        // then it needs to be unregistered first (because error recovery
+        // en/disabledness affects which contributors to use). Until issue #630
+        // is fixed (race between `unregister` and `register`), the
+        // unregistration can't reliably be done as part of `main` (tried in
+        // commit `a955a05`). Instead, it's done here and followed by a suitably
+        // long sleep.
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+        await sleep(Delays.normal);
+
         const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
