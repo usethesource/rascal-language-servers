@@ -42,7 +42,6 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -72,8 +71,8 @@ public class FileFacts {
         this.client = client;
     }
 
-    public void invalidate(ISourceLocation changedFile) {
-        getFile(changedFile).invalidate();
+    public void invalidate(ISourceLocation file) {
+        getFile(file).invalidate();
     }
 
     public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
@@ -85,6 +84,7 @@ public class FileFacts {
     }
 
     private FileFact getFile(ISourceLocation l) {
+        l = l.top();
         ISourceLocation resolved = null;
         try {
             resolved = URIResolverRegistry.getInstance().logicalToPhysical(l);

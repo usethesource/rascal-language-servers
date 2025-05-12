@@ -108,8 +108,12 @@ public class ParametricFileFacts {
         getFile(file).reportParseErrors(version, msgs);
     }
 
-    private FileFact getFile(ISourceLocation l) {
-        return files.computeIfAbsent(l, FileFact::new);
+    private FileFact getFile(ISourceLocation file) {
+        return files.computeIfAbsent(file.top(), FileFact::new);
+    }
+
+    private FileFact removeFile(ISourceLocation file) {
+        return files.remove(file.top());
     }
 
     public void reloadContributions() {
@@ -122,14 +126,14 @@ public class ParametricFileFacts {
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
-        var current = files.get(file);
+        var current = getFile(file);
         if (current != null) {
             current.invalidateAnalyzer(false);
         }
     }
 
     public void invalidateBuilder(ISourceLocation file) {
-        var current = files.get(file);
+        var current = getFile(file);
         if (current != null) {
             current.invalidateBuilder(false);
         }
@@ -147,8 +151,8 @@ public class ParametricFileFacts {
         return getFile(file).lookupInSummaries(lookup, tree, cursor);
     }
 
-    public void close(ISourceLocation loc) {
-        var present = files.get(loc);
+    public void close(ISourceLocation file) {
+        var present = getFile(file);
         if (present != null) {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
@@ -159,7 +163,7 @@ public class ParametricFileFacts {
                 if (aMessages.isEmpty() && bMessages.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
                     // else vscode comes back and we've dropped the messages in our internal data
-                    files.remove(loc);
+                    removeFile(file);
                 }
             });
         }
