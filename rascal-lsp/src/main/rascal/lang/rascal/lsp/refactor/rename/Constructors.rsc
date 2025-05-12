@@ -48,8 +48,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
         r.error(cursor[0], "Cannot find files for constructor definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
     }
-
-    <curFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+    <curFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, getTree);
 
     return <curFiles, curFiles, newFiles>;
 }
@@ -75,17 +74,6 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
     return flatMap(rascalGetReflexiveModulePaths(tm).to, set[Define](loc scope) {
         localTm = r.getConfig().tmodelForLoc(scope.top);
         return {tm.definitions[d] | loc d <- (tm.defines<idRole, id, defined>)[constructorId(), cursorDefs.id]};
-    });
-}
-
-set[Define] findConstructorDefinitions(set[Define] adtDefs, Renamer r) {
-    // Find all constructors with the same name in these ADT definitions
-    return flatMapPerFile(adtDefs, set[Define](loc f, set[Define] fileDefs) {
-        fileTm = r.getConfig().tmodelForLoc(f);
-        return {fileTm.definitions[d]
-            | loc d <- (fileTm.defines<idRole, defined>)[constructorId()]
-            , any(adt <- fileDefs.defined, isContainedIn(d, adt))
-        };
     });
 }
 

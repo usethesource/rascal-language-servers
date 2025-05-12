@@ -53,7 +53,7 @@ bool isFieldRole(IdRole role) = role in fieldRoles;
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
     if (any(role <- cursorDefs.idRole, !isFieldRole(role)) || {} := cursorDefs) fail findAdditionalDefinitions;
 
-    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataId(), cursorDefs.scope]};
+    adtDefs = {tm.definitions[d] | loc d <- (tm.defines<idRole, defined, defined>)[dataOrSyntaxRoles, cursorDefs.scope]};
     adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
     // Find all fields with the same name in these ADT definitions
@@ -70,7 +70,7 @@ set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fiel
 
 @synopsis{Collect all definitions for the field <fieldName> by ADT/constructor type.}
 set[Define] getFieldDefinitions(set[AType] containerTypes, str fieldName, TModel tm, TModel(loc) getModel) {
-    rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- tm.defines};
+    rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- tm.defines, d.defInfo.atype?};
     // Find all type-like definitions (but omit variable definitions etc.)
     set[Define] containerTypeDefs = definesByType[containerTypes, dataOrSyntaxRoles];
     // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
@@ -83,7 +83,7 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
         return flatMapPerFile(defs, set[Define](loc f, set[loc] localContainerDefs) {
             fileTm = getModel(f);
 
-            set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs};
+            set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs, fileTm.definitions[d]?};
             // Find the type of the container. For a constructor value, the type is its ADT type.
             set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
             return getFieldDefinitions(containerDefTypes, fieldName, fileTm, getModel);
@@ -94,21 +94,6 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
 
     return {};
 }
-
-set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel)
-    = flatMapPerFile(tm.useDef[container.src], set[Define](loc f, set[loc] localContainerDefs) {
-        fileTm = getModel(f);
-
-        set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs};
-        // Find the type of the container. For a constructor value, the type is its ADT type.
-        set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
-        rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- fileTm.defines};
-        // Find all type-like definitions (but omit variable definitions etc.)
-        set[Define] containerTypeDefs = definesByType[containerDefTypes, dataOrSyntaxRoles];
-
-        // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
-        return getFieldDefinitions(containerTypeDefs, {<role, fieldName> | role <- fieldRoles}, getModel);
-    });
 
 @synopsis{Add artificial definitions and use/def relations for fields, until they exist in the TModel.}
 TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {

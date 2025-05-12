@@ -78,7 +78,7 @@ str safeRelativeModuleName(loc path, PathConfig pcfg) {
 @synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
 }
-Maybe[Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
+Maybe[&T] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
     try {
         return just(parse(begin, name, allowAmbiguity = allowAmbiguity));
     } catch ParseError(_): {
@@ -95,3 +95,5 @@ str describeTree(amb(alts)) = intercalate("|", [describeTree(alt) | alt <- alts]
 str describeTree(char(int c)) = "char <c>";
 
 list[str] describeTrees(list[Tree] trees) = [describeTree(t) | t <- trees];
+
+set[&T] toSet(tuple[&T, &T] ts) = {ts<0>, ts<1>};

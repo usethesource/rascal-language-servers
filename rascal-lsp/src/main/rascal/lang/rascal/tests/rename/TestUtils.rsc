@@ -51,6 +51,7 @@ import util::FileSystem;
 import util::LanguageServer;
 import util::Math;
 import util::Maybe;
+import util::Monitor;
 import util::Reflective;
 import util::Util;
 
@@ -269,8 +270,14 @@ void throwMessagesIfError(set[Message] msgs) {
 }
 
 Edits getEdits(loc singleModule, set[loc] projectDirs, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig(loc) getPathConfig) {
+    j = "Testing renaming <cursorAtOldNameOccurrence>th occurrence of \'<oldName>\' in <singleModule>";
+    jobStart(j, totalWork = 3);
+    jobStep(j, "Finding cursor focus tree");
     <cursor, focus> = findCursor(singleModule, oldName, cursorAtOldNameOccurrence);
-    return rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
+    jobStep(j, "Performing renaming");
+    res =  rascalRenameSymbol(cursor, focus, newName, projectDirs, getPathConfig);
+    jobEnd(j);
+    return res;
 }
 
 tuple[Edits, set[int]] getEditsAndOccurrences(loc singleModule, loc projectDir, int cursorAtOldNameOccurrence, str oldName, str newName, PathConfig pcfg = getTestPathConfig(projectDir)) {
@@ -313,19 +320,19 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
 private set[str] reservedNames = getRascalReservedIdentifiers();
 str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
 str escapeReservedNames(str name, str sep = "::") = intercalate(sep, [n in reservedNames ? "\\<n>" : n | n <- split(sep, name)]);
-str reEscape(str name) = escapeReservedNames(forceUnescapeNames(name));
+str normalizeEscaping(str name) = escapeReservedNames(forceUnescapeNames(name));
 
 private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) {
     lrel[loc, Maybe[Tree]] names = [];
-    sname = reEscape(name);
+    sname = normalizeEscaping(name);
     top-down-break visit (m) {
         case QualifiedName qn: {
-            if (reEscape("<qn>") == sname) {
+            if (normalizeEscaping("<qn>") == sname) {
                 names += <qn.src, just(qn)>;
             }
             else {
                 modPrefix = prefix([n | n <- qn.names]);
-                if ([_, *_] := modPrefix && reEscape(intercalate("::", ["<n>" | n <- modPrefix])) == sname) {
+                if ([_, *_] := modPrefix && normalizeEscaping(intercalate("::", ["<n>" | n <- modPrefix])) == sname) {
                     names += <cover([n.src | n <- modPrefix]), nothing()>;
                 } else {
                     fail;
@@ -334,13 +341,13 @@ private lrel[int, loc, Maybe[Tree]] collectNameTrees(start[Module] m, str name) 
         }
         // 'Normal' names
         case Name n:
-            if (reEscape("<n>") == sname) names += <n.src, just(n)>;
+            if (normalizeEscaping("<n>") == sname) names += <n.src, just(n)>;
         // Nonterminals (grammars)
         case Nonterminal s:
-            if (reEscape("<s>") == sname) names += <s.src, just(s)>;
+            if (normalizeEscaping("<s>") == sname) names += <s.src, just(s)>;
         // Labels for nonterminals (grammars)
         case NonterminalLabel label:
-            if (reEscape("<label>") == sname) names += <label.src, just(label)>;
+            if (normalizeEscaping("<label>") == sname) names += <label.src, just(label)>;
     }
 
     return [<i, l, mt> | <i, <l, mt>> <- zip2(index(names), names)];

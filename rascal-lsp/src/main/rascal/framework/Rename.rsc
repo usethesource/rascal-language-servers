@@ -94,6 +94,16 @@ RenameResult rename(
       , str newName
       , RenameConfig config) {
 
+    /* Initially, we expect at least the following work
+      - 1 unit of work to initialize the renaming
+      - 1 unit of 'workspace work' to resolve definitions
+      - 1 unit of 'workspace work' to find all files with occurrences
+
+      Any additional work will be added based on the results of above steps.
+    */
+    jobStart(config.jobLabel, totalWork = 2 * WORKSPACE_WORK + 1);
+    jobStep(config.jobLabel, "Initializing renamer");
+
     void printDebug(str s) {
         if (config.debug) {
             println(s);
@@ -108,6 +118,9 @@ RenameResult rename(
         if (msg <- tm.messages, msg is error) registerMessage(error(t.src.top, "Renaming failed, since this file has type error(s)."));
         return tm;
     }
+
+    @memo{maximumSize(50)}
+    TModel getTModelForLocCached(loc l) = config.tmodelForLoc(l);
 
     @memo{maximumSize(50)}
     Tree parseLocCached(loc l) {
@@ -125,7 +138,11 @@ RenameResult rename(
     }
 
     // Make sure user uses cached functions
-    cachedConfig = config[parseLoc = parseLocCached][tmodelForTree = getTModelCached];
+    cachedConfig = config
+        [parseLoc = parseLocCached]
+        [tmodelForTree = getTModelCached]
+        [tmodelForLoc = getTModelForLocCached]
+        ;
 
     // Messages
     set[FailMessage] messages = {};
@@ -201,8 +218,6 @@ RenameResult rename(
       , void(value at, str s) { registerMessage(warning(at, s)); }
       , void(value at, str s) { registerMessage(error(at, s)); }
     );
-
-    jobStart(config.jobLabel, totalWork = 2 * WORKSPACE_WORK);
 
     jobStep(config.jobLabel, "Resolving definitions of <cursor[0].src>", work = WORKSPACE_WORK);
     defs = getCursorDefinitions(cursor, parseLocCached, getTModelCached, r);

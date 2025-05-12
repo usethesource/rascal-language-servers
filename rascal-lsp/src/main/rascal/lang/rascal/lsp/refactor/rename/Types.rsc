@@ -44,31 +44,35 @@ import util::Util;
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, dataId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) =
     findDataLikeOccurrenceFilesUnchecked(defs, cursor, newName, getTree, r);
 
+tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, typeVarId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
+    <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
+
 public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if (size(defs.id) > 1) {
         r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
         return <{}, {}, {}>;
     }
 
-    <curAdtFiles, newFiles> = filterFiles(getSourceFiles(r), allNameSortsFilter("<cursor[0]>", newName), getTree);
+    sourceFiles = getSourceFiles(r);
 
-    consIds = {consId
-        | Define _:<_, _, _, _, loc dataDef, defType(AType adtType)> <- defs
-        , tm := r.getConfig().tmodelForLoc(dataDef.top)
-        , Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))> <- tm.defines
-    };
+    <curAdtFiles, newFiles> = filterFiles(sourceFiles, "<cursor[0]>", newName, getTree);
 
-    consFiles = {*filterFiles(getSourceFiles(r), allNameSortsFilter(consId), getTree) | consId <- consIds};
+    consIds = flatMapPerFile(defs, set[str](loc f, set[Define] localDataDefs) {
+        localTm = r.getConfig().tmodelForLoc(f);
+        return {consId | <Define _:<_, _, _, _, _, defType(AType adtType)>, Define _:<_, str consId, _, constructorId(), _, defType(acons(adtType, _, _))>> <- localDataDefs * localTm.defines};
+    });
+
+    consFiles = filterFiles(sourceFiles, consIds, getTree);
 
     return <curAdtFiles + consFiles, curAdtFiles, newFiles>;
 }
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) =
-    findAdditionalDataLikeDefinitions(cursorDefs, tr.src.top, tm, r);
+    findAdditionalDataLikeDefinitions(cursorDefs, tm, r);
 
-public set[Define] findAdditionalDataLikeDefinitions(set[Define] cursorDefs, loc currentLoc, TModel tm, Renamer r) {
+public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm, Renamer r) {
     reachable = rascalGetReflexiveModulePaths(tm).to;
-    reachableCursorDefs = {d.defined | Define d <- cursorDefs, any(loc modScope <- reachable, isContainedInScope(d.defined, modScope, tm))};
+    reachableCursorDefs = {d.defined | Define d <- defs, any(loc modScope <- reachable, isContainedInScope(d.defined, modScope, tm))};
 
     if ({} := reachableCursorDefs) return {};
 
