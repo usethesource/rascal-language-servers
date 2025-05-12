@@ -26,13 +26,11 @@
     POSSIBILITY OF SUCH DAMAGE.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.22.0-SNAPSHOT</version>
+  <version>2.22.0-RC3-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
@@ -132,10 +130,10 @@
         <configuration>
           <release>11</release>
           <showWarnings>true</showWarnings>
-          <compilerArguments>
+          <compilerArgs>
             <parameters />
             <Werror />
-          </compilerArguments>
+          </compilerArgs>
         </configuration>
       </plugin>
       <plugin>
@@ -154,49 +152,41 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.0-RC22</version>
-        <configuration>
-          <errorsAsWarnings>false</errorsAsWarnings>
-          <bin>${project.build.outputDirectory}</bin>
-          <srcs>
-            <src>${project.basedir}/src/main/rascal</src>
-          </srcs>
-          <srcIgnores>
-            <!-- after we get a new version of the rascal-maven plugin, we might be able to typecheck these modules as well, untill then, no such luck -->
-            <ignore>${project.basedir}/src/main/rascal/framework/</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/IDECheckerWrapper.rsc</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
-          </srcIgnores>
-          <sourceLookup>|mvn://${project.groupId}--${project.name}--${project.version}|</sourceLookup>
-          <enableStandardLibrary>false</enableStandardLibrary>
-        </configuration>
+        <version>0.30.0-RC25</version>
         <executions>
           <execution>
             <?m2e ignore?>
-            <id>it-compile</id>
+            <id>default-compile</id>
             <phase>compile</phase>
             <goals>
               <goal>compile</goal>
             </goals>
+            <configuration>
+                <errorsAsWarnings>false</errorsAsWarnings>
+                <bin>${project.build.outputDirectory}</bin>
+                <srcs>
+                    <src>${project.basedir}/src/main/rascal</src>
+                </srcs>
+                <ignores>
+                    <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
+                    <ignore>${project.basedir}/src/main/rascal/framework</ignore>
+                </ignores>
+            </configuration>
           </execution>
           <execution>
-            <id>it-package</id>
+            <id>default-package</id>
             <phase>prepare-package</phase>
             <goals>
               <goal>package</goal>
             </goals>
           </execution>
-          <!-- while we have RC builds of rascal, we cannot have tutor builds
           <execution>
-            <id>default-cli</id>
-            <phase>compile</phase>
+            <id>default-tutor</id>
+            <phase>process-resources</phase>
             <goals>
               <goal>tutor</goal>
             </goals>
             <configuration>
-              <enableStandardLibrary>false</enableStandardLibrary>
-              <errorsAsWarnings>false</errorsAsWarnings>
               <bin>${project.build.outputDirectory}</bin>
               <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
               <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
@@ -204,10 +194,11 @@
                 <src>${project.basedir}/src/main/rascal</src>
               </srcs>
               <ignores>
-                <ignore>${project.basedir}/src/main/rascal/lang</ignore>
+                  <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
+                  <ignore>${project.basedir}/src/main/rascal/framework</ignore>
               </ignores>
             </configuration>
-          </execution> -->
+          </execution> 
         </executions>
       </plugin>
 
