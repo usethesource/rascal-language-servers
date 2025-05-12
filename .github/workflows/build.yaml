@@ -157,7 +157,10 @@ jobs:
 
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
-        run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
+        run: |
+          grep -q package.json "\"version\":.*\\-head" &&
+            sed -i "1i⚠️ WARNING: This is pre-release build, based on [CI build #$GITHUB_RUN_NUMBER](https://github.com/usethesource/rascal-language-servers/actions/runs/$GITHUB_RUN_ID).\n\n" README.md
+          sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
