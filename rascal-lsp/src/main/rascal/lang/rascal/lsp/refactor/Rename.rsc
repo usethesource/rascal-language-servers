@@ -149,7 +149,7 @@ void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Rena
     }
 
     if (isFieldRole(cD.idRole)) {
-        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, tm, r)
+        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, tm, r.getConfig().tmodelForLoc)
            , loc nD <- (newNameDefs<idRole, defined>)[{fieldId(), keywordFieldId()}] & (tm.defines<idRole, scope, defined>)[{fieldId(), keywordFieldId()}, dataDef.defined]
         ) {
             r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
