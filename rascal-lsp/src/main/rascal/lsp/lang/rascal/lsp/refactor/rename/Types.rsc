@@ -68,9 +68,9 @@ public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(
 }
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, dataId(), _, _>, *_}, Tree tr, TModel tm, Renamer r) =
-    findAdditionalDataLikeDefinitions(cursorDefs, tm, r);
+    findAdditionalDataLikeDefinitions(cursorDefs, tm, r.getConfig().tmodelForLoc);
 
-public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm, Renamer r) {
+public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm, TModel(loc) getModel) {
     reachable = rascalGetReflexiveModulePaths(tm).to;
     reachableCursorDefs = {d.defined | Define d <- defs, any(loc modScope <- reachable, isContainedInScope(d.defined, modScope, tm))};
 
@@ -79,7 +79,7 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm
     return {fileTm.definitions[overload]
         | loc modScope <- reachable
         , loc f := modScope.top
-        , fileTm := r.getConfig().tmodelForLoc(f)
+        , fileTm := getModel(f)
         , definitions := (d.defined: d | d <- fileTm.defines) + tm.definitions
         , loc overload <- (fileTm.defines<idRole, defined>)[dataOrSyntaxRoles]
         , rascalMayOverloadSameName(reachableCursorDefs + overload, definitions)

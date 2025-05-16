@@ -47,7 +47,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] def
     when role in syntaxRoles;
 
 set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, IdRole role, _, _>, *_}, Tree tr, TModel tm, Renamer r) =
-    findAdditionalDataLikeDefinitions(cursorDefs, tm, r)
+    findAdditionalDataLikeDefinitions(cursorDefs, tm, r.getConfig().tmodelForLoc)
     when role in syntaxRoles;
 
 void renameDefinitionUnchecked(Define d: <_, _, _, nonterminalId(), _, _>, loc _, str _, Renamer _) {
