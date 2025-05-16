@@ -207,6 +207,10 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
+* The ((prepareRename)) service discovers places in the editor where a ((util::LanguageServer::rename)) is possible.
+* The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
+* The ((willRenameFiles)) service collects ((DocumentEdit))s corresponding to renaming files (e.g. to rename a class when the class file will be renamed). The IDE applies the edits before moving the files.
+* The ((didRenameFiles)) service collects and applies ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed).
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -268,6 +272,10 @@ data LanguageService
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
+    | prepareRename (loc (Focus _focus) prepareRenameService)
+    | rename        (tuple[list[DocumentEdit], set[Message]] (Focus _focus, str newName) renameService)
+    | willRenameFiles(list[DocumentEdit](map[loc old, loc new] fileRenames) willRenameFilesService)
+    | didRenameFiles(void(map[loc old, loc new] fileRenames) didRenameFilesService)
     ;
 
 @deprecated{Backward compatible with ((parsing)).}
