@@ -145,6 +145,32 @@ test bool commonKeywordFieldImported() = testRenameOccurrences({
   ", {0})
 });
 
+test bool commonKeywordFieldsMerged() = testRenameOccurrences({
+    byText("Foo", "data D(int foo = 1) = d();", {0})
+  , byText("Baz", "data D(int foo = 0, int baz = 0);", {0})
+  , byText("Bar",
+        "import Foo;
+        'import Baz;
+        'D oneTwo = d(foo=1, baz=2);
+  ", {0})
+});
+
+test bool commonKeywordFieldsMergedMixedRole() = testRenameOccurrences({
+    byText("Foo", "data D = d(int foo = 1);", {0})
+  , byText("Baz", "data D(int foo = 0, int baz = 0);", {0})
+  , byText("Bar",
+        "import Foo;
+        'import Baz;
+        'D oneTwo = d(foo=1, baz=2);
+  ", {0})
+  , byText("Qux",
+        "import Foo;
+        'import Baz;
+        'D three = d(foo=3);
+
+  ", {0})
+});
+
 test bool sameNameFields() = testRenameOccurrences({0, 2, 3}, "
     'D x = d(8);
     'int i = x.foo;

@@ -57,14 +57,14 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm
     adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
     // Find all fields with the same name in these ADT definitions
-    return getFieldDefinitions(adtDefs, cursorDefs<idRole, id>, r.getConfig().tmodelForLoc);
+    return getFieldDefinitions(adtDefs, cursorDefs.id, r.getConfig().tmodelForLoc);
 }
 
 @synopsis{Collect all definitions for field <fieldName> in ADT/collection/tuple by definition.}
-set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fields, TModel(loc) getModel)
+set[Define] getFieldDefinitions(set[Define] containerDefs, set[str] fieldNames, TModel(loc) getModel)
     = flatMapPerFile(containerDefs, set[Define](loc f, set[Define] localContainerDefs) {
         localTm = getModel(f);
-        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[role, name]) | <role, name> <- fields};
+        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[fieldRoles, name]) | name <- fieldNames};
         return {localTm.definitions[d] | loc d <- candidateDefs[localContainerDefs.defined]};
     });
 
@@ -80,7 +80,7 @@ set[Define] getFieldDefinitions(set[AType] containerTypes, str fieldName, TModel
         }
     }
     // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
-    return getFieldDefinitions(containerTypeDefs, {<role, fieldName> | role <- fieldRoles}, getModel);
+    return getFieldDefinitions(containerTypeDefs, {fieldName}, getModel);
 }
 
 @synopsis{Collect all definitions for the field <fieldName> in ADT/collection/tuple by tree.}
