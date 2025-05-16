@@ -26,14 +26,31 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
+import org.rascalmpl.library.util.ParseErrorRecovery;
+import org.rascalmpl.parser.gtd.exception.ParseError;
+import org.rascalmpl.values.RascalValueFactory;
+import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 /**
  * TextDocumentState encapsulates the current contents of every open file editor,
@@ -45,68 +62,155 @@ import io.usethesource.vallang.ISourceLocation;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
+
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
+    private final ISourceLocation location;
 
-    private final ISourceLocation file;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile Versioned<String> currentContent;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<Versioned<ITree>> currentTree;
+    @SuppressWarnings("java:S3077") // Visibility of writes is enough
+    private volatile Update current;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent, long timestamp) {
+    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
+    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
+
+    public TextDocumentState(
+            BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
+            ISourceLocation location,
+            int initialVersion, String initialContent, long initialTimestamp) {
+
         this.parser = parser;
-        this.file = file;
-        this.currentContent = new Versioned<>(initialVersion, initialContent, timestamp);
-        this.currentTree = newTreeAsync(initialVersion, initialContent);
-    }
+        this.location = location;
 
-    /**
-     * The current call of this method guarantees that, until the next call,
-     * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
-     * *correct* versioned tree. This means that:
-     *   - the version of the tree is parameter `version`;
-     *   - the tree is produced by parsing parameter `content`.
-     *
-     * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
-     * consistent <version, tree> pair.
-     */
-    public CompletableFuture<Versioned<ITree>> update(int version, String content, long timestamp) {
-        currentContent = new Versioned<>(version, content, timestamp);
-        var newTree = newTreeAsync(version, content);
-        currentTree = newTree;
-        return newTree;
-    }
-
-    @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
-        return parser.apply(file, content)
-            .thenApply(t -> new Versioned<ITree>(version, t))
-            .whenComplete((r, t) -> {
-                if (r != null) {
-                    lastFullTree = r;
-                }
-            });
-    }
-
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return currentTree;
-    }
-
-    public @MonotonicNonNull Versioned<ITree> getMostRecentTree() {
-        return lastFullTree;
+        this.current = new Update(initialVersion, initialContent, initialTimestamp);
+        this.lastWithoutErrors = new AtomicReference<>();
+        this.last = new AtomicReference<>();
     }
 
     public ISourceLocation getLocation() {
-        return file;
+        return location;
+    }
+
+    public void update(int version, String content, long timestamp) {
+        current = new Update(version, content, timestamp);
+        // The creation of the `Update` object doesn't trigger the parser yet.
+        // This happens only when the tree or diagnostics are requested.
     }
 
     public Versioned<String> getCurrentContent() {
-        return currentContent;
+        return current.getContent();
+    }
+
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
+        return current.getTreeAsync();
+    }
+
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync() {
+        return current.getDiagnosticsAsync();
+    }
+
+    public @MonotonicNonNull Versioned<ITree> getLastTree() {
+        return last.get();
+    }
+
+    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
+        return lastWithoutErrors.get();
+    }
+
+    /**
+     * An update of a text document, characterized in terms of its
+     * {@link #version} (typically provied by the client), its {@link #content}
+     * (typically provided by the client), and a {@link #timestamp} (typically
+     * provided by the server).
+     */
+    private class Update {
+        private final int version;
+        private final String content;
+        private final long timestamp;
+        private final CompletableFuture<Versioned<ITree>> treeAsync;
+        private final CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
+
+        public Update(int version, String content, long timestamp) {
+            this.version = version;
+            this.content = content;
+            this.timestamp = timestamp;
+            this.treeAsync = new CompletableFuture<>();
+            this.diagnosticsAsync = new CompletableFuture<>();
+            parse();
+        }
+
+        public Versioned<String> getContent() {
+            return new Versioned<>(version, content, timestamp);
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public CompletableFuture<Versioned<ITree>> getTreeAsync() {
+            return treeAsync;
+        }
+
+        public CompletableFuture<Versioned<List<Diagnostics.Template>>> getDiagnosticsAsync() {
+            return diagnosticsAsync;
+        }
+
+        private void parse() {
+            parser.apply(location, content)
+                .whenComplete((t, e) -> {
+                    var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
+
+                    // Complete future to get the tree
+                    if (t == null) {
+                        treeAsync.completeExceptionally(e);
+                    } else {
+                        var tree = new Versioned<>(version, t, timestamp);
+                        treeAsync.complete(tree);
+                        Versioned.replaceIfNewer(last, tree);
+                        if (diagnosticsList.isEmpty()) {
+                            Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                        }
+                    }
+
+                    // Complete future to get diagnostics
+                    var diagnostics = new Versioned<>(version, diagnosticsList);
+                    diagnosticsAsync.complete(diagnostics);
+                });
+        }
+
+        private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
+            List<Diagnostics.Template> diagnostics = new ArrayList<>();
+
+            if (excp instanceof CompletionException) {
+                excp = excp.getCause();
+            }
+
+            if (excp instanceof ParseError) {
+                var parseError = (ParseError) excp;
+                diagnostics.add(Diagnostics.generateParseErrorDiagnostic(parseError));
+            } else if (excp != null) {
+                logger.error("Parsing crashed", excp);
+                var diagnostic = new Diagnostic(
+                    new Range(new Position(0,0), new Position(0,1)),
+                    "Parsing failed: " + excp.getMessage(),
+                    DiagnosticSeverity.Error,
+                    "Rascal Parser");
+                diagnostics.add(columns -> diagnostic);
+            }
+
+            if (tree != null) {
+                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
+                IList errors = new ParseErrorRecovery(valueFactory).findAllParseErrors(tree);
+                for (IValue error : errors) {
+                    ITree errorTree = (ITree) error;
+                    diagnostics.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree));
+                }
+            }
+
+            return diagnostics;
+        }
     }
 
     public long getLastModified() {
-        return currentContent.getTimestamp();
+        return current.getTimestamp();
     }
 }
