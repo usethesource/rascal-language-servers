@@ -53,8 +53,7 @@ set[LanguageService] picoLanguageServer() = {
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
-    prepareRename(picoRenamePreparingService),
-    rename(picoRenamingService)
+    rename(picoRenamingService, prepareRenameService = picoRenamePreparingService)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
