@@ -209,8 +209,7 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((prepareRename)) service discovers places in the editor where a ((util::LanguageServer::rename)) is possible.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
-* The ((willRenameFiles)) service collects ((DocumentEdit))s corresponding to renaming files (e.g. to rename a class when the class file will be renamed). The IDE applies the edits before moving the files. It might fail and report why in diagnostics. Failure aborts the renaming.
-* The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits before moving the files. It might fail and report why in diagnostics.
+* The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -247,7 +246,6 @@ typical programming language concepts. Since these are all just `rel[loc, loc]` 
    * ((definition)) points the other way around, from a use to the declaration, but only if a value is associated there explicitly or implicitly.
    * ((implementation)) points from abstract declarations (interfaces, classes, function signatures) to more concrete realizations of those declarations.
 * `providesDocumentation` is deprecated. Use `providesHovers` instead.
-* ((willRenameFiles)) is tricky to use, since it requires a fast and reliable response. Since the Rascal evaluator running this service might be locked doing some else first, this cannot be guaranteed. If this causes issues, consider implementing ((didRenameFiles)) instead.
 }
 data LanguageService
     = parsing(Tree (str _input, loc _origin) parsingService
@@ -275,7 +273,6 @@ data LanguageService
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | prepareRename (loc (Focus _focus) prepareRenameService)
     | rename        (tuple[list[DocumentEdit], set[Message]] (Focus _focus, str newName) renameService)
-    | willRenameFiles(tuple[list[DocumentEdit], set[Message]] (lrel[loc old, loc new] fileRenames) willRenameFilesService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (lrel[loc old, loc new] fileRenames) didRenameFilesService)
     ;
 
