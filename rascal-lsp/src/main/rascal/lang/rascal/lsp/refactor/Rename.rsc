@@ -69,58 +69,51 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
-void rascalCheckCausesCaptures(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
+void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
-
-    set[loc] uses = defUse[currentDefs.defined] - currentDefs.defined;
-    set[Define] newNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
-
-    set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
-    set[Define] newNameImplicitDefs = {def | Define def <- newNameDefs
-                                           , (def.idRole is variableId && def.defined in tm.useDef<0>)
-                                          || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
-
-    // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
-    rel[loc, loc] implicitDeclBecomesUseOfCurrentDecl =
-        {<cD, nD.defined> | Define nD <- newNameImplicitDefs
-                          , loc cD <- currentDefs.defined
-                          , isContainedInScope(nD.defined, tm.definitions[cD].scope, tm)
-        };
-    for (<d, u> <- implicitDeclBecomesUseOfCurrentDecl) {
-        r.error(d, "Renaming this declaration to <newName> will change the program semantics; this implicit declaration will become a use: <u>.");
-    }
-
-    // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
-    rel[loc, loc] currentUseShadowedByRename =
-        {<nD.defined, cU> | Define nD <- newNameDefs
-                          , <cU, cS> <- ident(uses) o tm.useDef o tm.defines<defined, scope>
-                          , isContainedInScope(cU, nD.scope, tm)
-                          , isContainedInScope(nD.scope, cS, tm)
-        };
-    for (<d, u> <- currentUseShadowedByRename) {
-        r.error(u, "Renaming this use to <newName> would change the program semantics; its original definition would be shadowed by <d>.");
-    }
-
-    // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
-    rel[loc, loc] newUseShadowedByRename =
-        {<cD, nU> | Define nD <- newNameDefs
-                  , Define _:<cS, _, _, _, cD, _> <- currentDefs
-                  , isContainedInScope(cS, nD.scope, tm)
-                  , loc nU <- defUse[nD.defined]
-                  , isContainedInScope(nU, cS, tm)
-        };
-    for (<d, u> <- newUseShadowedByRename) {
-        r.error(d, "Renaming this declaration to <newName> would change the program semantics; it would shadow the declaration of <u>.");
-    }
-
-    // Will this rename combine a used definition of `newName` with a definition of `oldName` (overloading)?
     reachable = rascalGetReflexiveModulePaths(tm).to;
-    // Since the newNameDefs are not necessarily in this TModel, constuct a temporary map for the overloading check
-    definitions = (d.defined: d | d <- currentDefs + newNameDefs);
-    for (<loc nD, Define c> <- newNameDefs.defined * currentDefs
-       , c.scope in reachable && rascalMayOverload({nD, c.defined}, definitions)
-       , loc nU <- defUse[nD]) {
-        r.error(c.defined, "Renaming this declaration to <newName> would change the program semantics; it would overload the declaration of <nU> at <nD>");
+    newNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
+    curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
+    maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
+
+    bool isImplicitDef(Define d)
+        = (d.idRole is variableId && d.defined in tm.useDef<0>) // variable that's both a use and a def
+        || (d.idRole is patternVariableId && d.defined in maybeImplicitDefs) // or pattern variable without a type
+        ;
+
+    for (<Define c, Define n> <- currentDefs * newNameDefs) {
+        set[loc] curUses = defUse[c.defined];
+        set[loc] newUses = defUse[n.defined];
+
+        // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
+        for (loc cU <- curUses
+           , isContainedInScope(cU, n.scope, tm)
+           , isContainedInScope(n.scope, c.scope, tm)) {
+            r.error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>.");
+        }
+
+        // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
+        for (isContainedInScope(c.scope, n.scope, tm)
+           , loc nU <- newUses
+           , isContainedInScope(nU, c.scope, tm)) {
+            r.error(c.defined, "Renaming this to \'<newName>\' would change the program semantics; it would shadow the declaration of <nU>.");
+        }
+
+        // Is `newName` already resolvable from a scope where `oldName` is currently declared?
+        if (rascalMayOverload({c.defined, n.defined}, curAndNewDefinitions)) {
+            // Overloading
+            if (c.scope in reachable || isContainedInScope(c.defined, n.scope, tm) || isContainedInScope(n.defined, c.scope, tm)) {
+                r.error(c.defined, "Renaming this to \'<newName>\' would overload an existing definition at <n.defined>.");
+            }
+        } else if (isContainedInScope(c.defined, n.scope, tm)) {
+            // Double declaration
+            r.error(c.defined, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>).");
+        }
+
+        // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
+        if (isImplicitDef(n) && isContainedInScope(n.defined, c.scope, tm)) {
+            r.error(c.defined, "Renaming this declaration to \'<newName>\' would change the program semantics; this implicit declaration would become a use: <n.defined>.");
+        }
     }
 }
 
@@ -129,31 +122,6 @@ void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renam
     <t, desc> = asType(role);
     if (tryParseAs(t, escName) is nothing) {
         r.error(at, "<escName> is not a valid <desc>");
-    }
-}
-
-void rascalCheckCausesDoubleDeclarations(Define cD, str newName, TModel tm, Renamer r) {
-    set[Define] newNameDefs = {def | Define def:<_, newName, _, _, _, _> <- tm.defines};
-
-    // Is newName already resolvable from a scope where <current-name> is currently declared?
-    for (Define nD <- newNameDefs) {
-        if (rascalMayOverload({cD.defined, nD.defined}, (d.defined: d | Define d <- {cD, nD}))) {
-            // Overloading
-            if (isContainedInScope(cD.defined, nD.scope, tm) || isContainedInScope(nD.defined, cD.scope, tm)) {
-                r.error(cD.defined, "Cannot rename to \'<newName>\', since this would overload an existing definition at <nD.defined>.");
-            }
-        } else if (isContainedInScope(cD.defined, nD.scope, tm)) {
-            // Double declarations
-            r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD.defined>.");
-        }
-    }
-
-    if (isFieldRole(cD.idRole)) {
-        for (Define dataDef <- findAdditionalDataLikeDefinitions({cD}, tm, r)
-           , loc nD <- (newNameDefs<idRole, defined>)[{fieldId(), keywordFieldId()}] & (tm.defines<idRole, scope, defined>)[{fieldId(), keywordFieldId()}, dataDef.defined]
-        ) {
-            r.error(cD.defined, "Cannot rename to \'<newName>\', since this would clash with an existing definition at <nD>.");
-        }
     }
 }
 
@@ -384,10 +352,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
 
 void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Renamer r) {
     tm = getConditionallyAugmentedTModel(tr.src.top, cursorDefs, {augmentDefs(), augmentUses()}, r);
-    rascalCheckCausesCaptures(cursorDefs, newName, tr, tm, r);
-    for (d <- cursorDefs) {
-        rascalCheckCausesDoubleDeclarations(d, newName, tm, r);
-    }
+    rascalCheckCausesOverlappingDefinitions(cursorDefs, newName, tr, tm, r);
 }
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Renamer r) {
