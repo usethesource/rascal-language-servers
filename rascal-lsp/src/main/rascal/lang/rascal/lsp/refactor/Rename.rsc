@@ -74,18 +74,12 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
     reachable = rascalGetReflexiveModulePaths(tm).to;
     newNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
     curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
+    maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
 
-    set[loc] maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
-    set[Define] newNameImplicitDefs = {def | Define def <- newNameDefs
-                                           , (def.idRole is variableId && def.defined in tm.useDef<0>)
-                                          || (def.idRole is patternVariableId && def.defined in maybeImplicitDefs)};
-
-    // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
-    for (Define nD <- newNameImplicitDefs
-       , loc cD <- currentDefs.defined
-       , isContainedInScope(nD.defined, tm.definitions[cD].scope, tm)) {
-        r.error(cD, "Renaming this declaration to \'<newName>\' would change the program semantics; this implicit declaration will become a use: <nD.defined>.");
-    }
+    bool isImplicitDef(Define d)
+        = (d.idRole is variableId && d.defined in tm.useDef<0>) // variable that's both a use and a def
+        || (d.idRole is patternVariableId && d.defined in maybeImplicitDefs) // or pattern variable without a type
+        ;
 
     for (<Define c, Define n> <- currentDefs * newNameDefs) {
         set[loc] curUses = defUse[c.defined];
@@ -114,6 +108,11 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
         } else if (isContainedInScope(c.defined, n.scope, tm)) {
             // Double declaration
             r.error(c.defined, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>).");
+        }
+
+        // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
+        if (isImplicitDef(n) && isContainedInScope(n.defined, c.scope, tm)) {
+            r.error(c.defined, "Renaming this declaration to \'<newName>\' would change the program semantics; this implicit declaration would become a use: <n.defined>.");
         }
     }
 }
