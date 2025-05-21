@@ -26,13 +26,19 @@
  */
 
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
+import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+
+function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
+    describe('DSL', function() { body.apply(this, [false]); });
+    describe('DSL+recovery', function() { body.apply(this, [true]); });
+}
 
 
 
-describe('DSL', function () {
+parameterizedDescribe(function (errorRecovery: boolean) {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
@@ -47,7 +53,19 @@ describe('DSL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
-        const replExecuteMain = repl.execute("main();"); // we don't wait yet, because we might miss pico loading window
+
+        // If Pico was registered before as part of another series of tests,
+        // then it needs to be unregistered first (because error recovery
+        // en/disabledness affects which contributors to use). Until issue #630
+        // is fixed (race between `unregister` and `register`), the
+        // unregistration can't reliably be done as part of `main` (tried in
+        // commit `a955a05`). Instead, it's done here and followed by a suitably
+        // long sleep.
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+        await sleep(Delays.normal);
+
+        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -73,19 +91,16 @@ describe('DSL', function () {
 
     beforeEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot("DSL-" + this.test?.title);
+            await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
         }
     });
 
     afterEach(async function () {
         if (this.test?.title) {
-            await ide.screenshot("DSL-" + this.test?.title);
+            await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
-    });
-
-    after(async function() {
     });
 
     it("have highlighting and parse errors", async function () {
@@ -108,20 +123,37 @@ describe('DSL', function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
-            await editor.setTextAtLine(10, "b := ;");
+            await editor.setTextAtLine(1, "");
             await ide.hasErrorSquiggly(editor, Delays.slow);
         } finally {
             await ide.revertOpenChanges();
         }
     });
 
+    it("error recovery works", async function () {
+        if (!errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoNewFile);
+        await ide.hasSyntaxHighlighting(editor);
+        try {
+            // Introduce two parse errors
+            await editor.setTextAtLine(4, "n : x natural");
+            await editor.setTextAtLine(9, "     a := x 2;");
+            await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+            await ide.hasSyntaxHighlighting(editor);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
     it("have inlay hints", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.hasSyntaxHighlighting(editor);
         await ide.hasInlayHint(editor);
     });
 
     it("change runs analyzer", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
             await editor.setTextAtLine(10, "bzzz := 3;");
@@ -132,6 +164,7 @@ describe('DSL', function () {
     });
 
     it("save runs builder", async function () {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const line10 = await editor.getTextAtLine(10);
         try {
@@ -145,7 +178,8 @@ describe('DSL', function () {
         }
     });
 
-    it("go to definition works", async () => {
+    it("go to definition works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
         await editor.selectText("x", 2);
@@ -153,14 +187,16 @@ describe('DSL', function () {
         await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
     });
 
-    it("code lens works", async () => {
+    it("code lens works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
         await lens!.click();
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
-    it("quick fix works", async() => {
+    it("quick fix works", async function() {
+        if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "  az := 2;");
         await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
@@ -176,4 +212,3 @@ describe('DSL', function () {
     });
 
 });
-

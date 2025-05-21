@@ -182,6 +182,21 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
+function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
+    return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
+        try {
+            const result = await scope.findElements(selector);
+            if (result && result.length >= minCount) {
+                return scope;
+            }
+            return null;
+        }
+        catch (_ignored) {
+            return null;
+        }
+    });
+}
+
 export class IDEOperations {
     private driver: WebDriver;
     constructor(
@@ -235,6 +250,11 @@ export class IDEOperations {
 
     hasErrorSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
+    }
+
+    hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
+        // We need to differentiate between real parse errors (error at first line) and recovered parse error (error at parse position).
+        return this.driver.wait(scopedElementLocatedCountTimes(editor, By.className("squiggly-error"), errorCount), timeout, message, 50);
     }
 
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
