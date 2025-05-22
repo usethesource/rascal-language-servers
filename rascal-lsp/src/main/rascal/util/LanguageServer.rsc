@@ -209,7 +209,7 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
-   * The optional ((prepareRename)) service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
+   * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
