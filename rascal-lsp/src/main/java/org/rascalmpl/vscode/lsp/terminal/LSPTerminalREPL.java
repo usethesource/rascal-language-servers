@@ -145,7 +145,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
                 ISourceLocation path = (ISourceLocation)srcPath;
                 stdout.println("- " + path);
                 evaluator.addRascalSearchPath(path);
-                reg.watch(path, true, d -> sourceLocationChanged(path, d));
             }
 
             var isRascal = projectDir != null && new RascalManifest().getProjectName(projectDir).equals("rascal");
