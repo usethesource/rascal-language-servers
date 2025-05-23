@@ -274,7 +274,7 @@ data LanguageService
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | rename        (tuple[list[DocumentEdit], set[Message]] (Focus _focus, str newName) renameService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
-    | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (lrel[loc old, loc new] fileRenames) didRenameFilesService)
+    | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
