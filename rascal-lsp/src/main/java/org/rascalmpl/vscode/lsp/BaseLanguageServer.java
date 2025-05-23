@@ -313,7 +313,7 @@ public abstract class BaseLanguageServer {
                     result[0] = new Two<>("Sources", toURIArray(pcfg.getSrcs()));
                     result[1] = new Two<>("Libraries", toURIArray(pcfg.getLibs()));
                     return result;
-                } catch (IOException | URISyntaxException e) {
+                } catch (URISyntaxException e) {
                     logger.catching(e);
                     throw new CompletionException(e);
                 }
