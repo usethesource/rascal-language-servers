@@ -52,7 +52,8 @@ set[LanguageService] picoLanguageServer() = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+    codeAction(picoCodeActionService),
+    rename(picoRenamingService, prepareRenameService = picoRenamePreparingService)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
@@ -176,6 +177,15 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
+
+loc picoRenamePreparingService(Focus _:[Id id, *_]) = id.src;
+
+tuple[list[DocumentEdit], set[Message]] picoRenamingService(Focus focus, str newName) = <[changed(focus[0].src.top, [
+    replace(id.src, newName)
+    | cursor := focus[0]
+    , /Id id := focus[-1]
+    , id := cursor
+])], {}>;
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
