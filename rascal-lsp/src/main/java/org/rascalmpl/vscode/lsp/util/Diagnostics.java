@@ -136,8 +136,6 @@ public class Diagnostics {
             diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
         }
 
-        // Note: DiagnosticSeverity.Hint only highlightes a single character!
-
         return diagnostics;
     }
 
@@ -204,16 +202,10 @@ public class Diagnostics {
     private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
-            try {
-                loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
-                    loc.getOffset(), loc.getLength() + 1,
-                    loc.getBeginLine(), loc.getBeginColumn(),
-                    loc.getEndLine(), loc.getEndColumn() + 1);
-            } catch (IllegalArgumentException e) {
-                logger.trace("Cannot extend 0-width location for parse error: {}", e.getMessage());
-                loc = ValueFactoryFactory.getValueFactory().sourceLocation(
-                    loc, 0, 1, 1, 1, 0, 1);
-            }
+            loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
+                loc.getOffset(), loc.getLength() + 1,
+                loc.getBeginLine(), loc.getEndLine(),
+                loc.getBeginColumn(), loc.getEndColumn() + 1);
         }
         return Locations.toRange(loc, cm);
     }
