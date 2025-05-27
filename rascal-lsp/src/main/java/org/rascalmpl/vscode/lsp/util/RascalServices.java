@@ -45,9 +45,9 @@ public class RascalServices {
 
     private static final RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
     private static final IBool TRUE = VALUE_FACTORY.bool(true);
-    private static final int MAX_AMB_DEPTH = 1;
-    private static final int MAX_RECOVERY_ATTEMPTS = 50;
-    private static final int MAX_RECOVERY_TOKENS = 3;
+    public static final int MAX_AMB_DEPTH = 2;
+    public static final int MAX_RECOVERY_ATTEMPTS = 50;
+    public static final int MAX_RECOVERY_TOKENS = 3;
 
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
         // TODO: Which of these objects are stateless and can be reused?

@@ -45,6 +45,7 @@ import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
+import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -55,9 +56,9 @@ import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 
 public class ParserOnlyContribution implements ILanguageContributions {
-    private static final int MAX_AMB_DEPTH = 2;
-    private static final int MAX_RECOVERY_ATTEMPTS = 50;
-    private static final int MAX_RECOVERY_TOKENS = 3;
+    private static final int MAX_AMB_DEPTH = RascalServices.MAX_AMB_DEPTH;
+    private static final int MAX_RECOVERY_ATTEMPTS = RascalServices.MAX_RECOVERY_ATTEMPTS;
+    private static final int MAX_RECOVERY_TOKENS = RascalServices.MAX_RECOVERY_TOKENS;
 
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
