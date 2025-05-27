@@ -58,7 +58,12 @@ public class RascalServices {
             new UPTRNodeFactory(true),
             new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
 
-        // Recover
+        // We pre-emptively disambiguate parse errors here to avoid performance issues.
+        // Parse forests with parse errors can be very large, and Rascal is currently
+        // not well equipped to handle such large forests. For instance visits and deep matches
+        // can take a long time until we implement memoization in those constructs.
+        // In the future we will remove this automatic disambiguation so language developers are free
+        // to handle parse errors as they see fit.
         return (ITree) RECOVERY.disambiguateParseErrors(tree, VF.bool(true));
     }
 }
