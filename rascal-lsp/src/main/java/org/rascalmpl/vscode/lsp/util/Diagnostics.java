@@ -136,8 +136,6 @@ public class Diagnostics {
             diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
         }
 
-        // Note: DiagnosticSeverity.Hint only highlightes a single character!
-
         return diagnostics;
     }
 
