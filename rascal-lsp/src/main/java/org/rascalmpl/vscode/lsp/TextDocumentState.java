@@ -67,9 +67,7 @@ public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
 
-    @SuppressWarnings("java:S3077") // Visibility of writes is enough
-    private volatile Update current;
-
+    private final AtomicReference<@MonotonicNonNull Versioned<Update>> current;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
 
@@ -81,7 +79,8 @@ public class TextDocumentState {
         this.parser = parser;
         this.location = location;
 
-        this.current = new Update(initialVersion, initialContent, initialTimestamp);
+        var u = new Update(initialVersion, initialContent, initialTimestamp);
+        this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
     }
@@ -90,22 +89,26 @@ public class TextDocumentState {
         return location;
     }
 
-    public void update(int version, String content, long timestamp) {
-        current = new Update(version, content, timestamp);
-        // The creation of the `Update` object doesn't trigger the parser yet.
-        // This happens only when the tree or diagnostics are requested.
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> update(int version, String content, long timestamp) {
+        var u = new Update(version, content, timestamp);
+        Versioned.replaceIfNewer(current, new Versioned<>(version, u));
+        return u.getDiagnosticsAsync();
     }
 
     public Versioned<String> getCurrentContent() {
-        return current.getContent();
+        return unpackCurrent().getContent();
     }
 
     public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return current.getTreeAsync();
+        return unpackCurrent().getTreeAsync();
     }
 
     public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync() {
-        return current.getDiagnosticsAsync();
+        return unpackCurrent().getDiagnosticsAsync();
+    }
+
+    private Update unpackCurrent() {
+        return current.get().get();
     }
 
     public @MonotonicNonNull Versioned<ITree> getLastTree() {
@@ -211,6 +214,6 @@ public class TextDocumentState {
     }
 
     public long getLastModified() {
-        return current.getTimestamp();
+        return unpackCurrent().getTimestamp();
     }
 }
