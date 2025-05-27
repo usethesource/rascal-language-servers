@@ -45,6 +45,9 @@ public class RascalServices {
 
     private static final RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
     private static final IBool TRUE = VALUE_FACTORY.bool(true);
+    private static final int MAX_AMB_DEPTH = 1;
+    private static final int MAX_RECOVERY_ATTEMPTS = 50;
+    private static final int MAX_RECOVERY_TOKENS = 3;
 
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
         // TODO: Which of these objects are stateless and can be reused?
@@ -52,11 +55,11 @@ public class RascalServices {
         // Parse
         RascalParser parser = new RascalParser();
         ITree tree = parser.parse(
-            Parser.START_MODULE, loc.getURI(), input,
+            Parser.START_MODULE, loc.getURI(), input, MAX_AMB_DEPTH,
             new NoActionExecutor(),
             new DefaultNodeFlattener<>(),
             new UPTRNodeFactory(true),
-            new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser)));
+            new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
 
         // Recover
         ParseErrorRecovery recoverer = new ParseErrorRecovery(VALUE_FACTORY);

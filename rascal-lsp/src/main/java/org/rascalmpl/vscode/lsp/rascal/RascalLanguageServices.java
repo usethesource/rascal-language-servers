@@ -322,7 +322,7 @@ public class RascalLanguageServices {
         ITree body = TreeAdapter.getArg(tree, "body");
         ITree toplevels = TreeAdapter.getArg(body, "toplevels");
         for (IValue topLevel : TreeAdapter.getListASTArgs(toplevels)) {
-            if (RECOVERY.hasErrors((ITree) topLevel)) {
+            if (RECOVERY.hasParseErrors((ITree) topLevel).getValue()) {
                 continue;
             }
 
