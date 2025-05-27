@@ -45,6 +45,7 @@ import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
+import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -97,7 +98,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
         try {
             logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), VF.bool(false), vf.set());
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.integer(spec.getMaxAmbDepth()),
+                VF.bool(spec.getAllowRecovery()), VF.integer(spec.getMaxRecoveryAttempts()), VF.integer(spec.getMaxRecoveryTokens()), VF.bool(false), VF.bool(false), vf.set());
             logger.debug("Got parser: {}", parser);
             return Either.forLeft(parser);
         }

@@ -528,16 +528,32 @@ public interface ITerminalIDEServer {
         private final @Nullable Boolean nonTerminalIsStart;
         /** allowAmbiguity (default is false) */
         private final @Nullable Boolean allowAmbiguity;
+        /** Max ambiguity level from the parser (default 2, only of interest when allowAmbiguity is true or allowRecovery is true) */
+        private final @Nullable Integer maxAmbDepth;
+
+        /** do we allow the parser to recover from parse errors (and thus possibly generating error trees) (default is false) */
+        private final @Nullable Boolean allowRecovery;
+        /** configure max recovery attempts parameter of the error recover (default: 50) */
+        private final @Nullable Integer maxRecoveryAttempts;
+        /** configure max recovery tokens parameter of the error recover (default: 3) */
+        private final @Nullable Integer maxRecoveryTokens;
+
         /** apply the special case for highlighting syntax-in-syntax, default: true */
         private final @Nullable Boolean specialCaseHighlighting;
 
 
         public ParserSpecification(String parserLocation, String nonTerminalName,
-                @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity, @Nullable Boolean specialCaseHighlighting) {
+                @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity, @Nullable Integer maxAmbDepth,
+                @Nullable Boolean allowRecovery, @Nullable Integer maxRecoveryAttempts, @Nullable Integer maxRecoveryTokens,
+                @Nullable Boolean specialCaseHighlighting) {
             this.parserLocation = parserLocation;
             this.nonTerminalName = nonTerminalName;
             this.nonTerminalIsStart = nonTerminalIsStart;
             this.allowAmbiguity = allowAmbiguity;
+            this.maxAmbDepth = maxAmbDepth;
+            this.allowRecovery = allowRecovery;
+            this.maxRecoveryAttempts = maxRecoveryAttempts;
+            this.maxRecoveryTokens = maxRecoveryTokens;
             this.specialCaseHighlighting = specialCaseHighlighting;
         }
 
@@ -555,6 +571,22 @@ public interface ITerminalIDEServer {
 
         public boolean getAllowAmbiguity() {
             return allowAmbiguity != null && allowAmbiguity;
+        }
+
+        public int getMaxAmbDepth() {
+            return maxAmbDepth != null ? maxAmbDepth : 2;
+        }
+
+        public boolean getAllowRecovery() {
+            return allowRecovery != null && allowRecovery;
+        }
+
+        public int getMaxRecoveryAttempts() {
+            return maxRecoveryAttempts != null ? maxRecoveryAttempts : 50;
+        }
+
+        public int getMaxRecoveryTokens() {
+            return maxRecoveryTokens != null ? maxRecoveryTokens : 3;
         }
 
         public boolean getSpecialCaseHighlighting() {

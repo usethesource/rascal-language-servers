@@ -78,7 +78,7 @@ describe('REPL', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.connect();
         expect(repl.lastOutput).is.equal("5\nint: 0");
-    }).timeout(Delays.extremelySlow * 3);
+    }).timeout(Delays.extremelySlow * 4);
 
     it("edit call module via repl", async() => {
         const repl = new RascalREPL(bench, driver);

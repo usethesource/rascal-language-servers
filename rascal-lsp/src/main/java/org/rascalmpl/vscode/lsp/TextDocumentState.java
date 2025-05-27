@@ -42,8 +42,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.parser.gtd.exception.ParseError;
-import org.rascalmpl.values.RascalValueFactory;
-import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -63,6 +62,7 @@ import io.usethesource.vallang.IValue;
  */
 public class TextDocumentState {
     private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
@@ -201,11 +201,8 @@ public class TextDocumentState {
             }
 
             if (tree != null) {
-                RascalValueFactory valueFactory = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-                IList errors = new ParseErrorRecovery(valueFactory).findAllParseErrors(tree);
-                for (IValue error : errors) {
-                    ITree errorTree = (ITree) error;
-                    diagnostics.addAll(Diagnostics.generateParseErrorDiagnostics(errorTree));
+                for (IValue error : RECOVERY.findAllParseErrors(tree)) {
+                    diagnostics.addAll(Diagnostics.generateParseErrorDiagnostics((ITree) error));
                 }
             }
 

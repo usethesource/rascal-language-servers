@@ -212,21 +212,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         return super.handleInput(command);
     }
 
-    private void sourceLocationChanged(ISourceLocation srcPath, ISourceLocationChanged d) {
-        if (URIUtil.isParentOf(srcPath, d.getLocation()) && d.getLocation().getPath().endsWith(".rsc")) {
-            ISourceLocation relative = URIUtil.relativize(srcPath, d.getLocation());
-            relative = URIUtil.removeExtension(relative);
-
-            String modName = relative.getPath();
-            if (modName.startsWith("/")) {
-                modName = modName.substring(1);
-            }
-            modName = modName.replace("/", "::");
-            modName = modName.replace("\\", "::");
-            dirtyModules.add(modName);
-        }
-    }
-
     private static String getRascalLspVersion(ISourceLocation lspJar) {
         try {
             return new Manifest(URIResolverRegistry.getInstance()

@@ -44,7 +44,7 @@ bool isFormalId(IdRole role) = role in formalRoles;
 tuple[type[Tree] as, str desc] asType(IdRole idRole) = <#Name, "formal parameter name"> when isFormalId(idRole);
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, IdRole role, _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
-    <{scope.top}, {scope.top}, allNameSortsFilter(newName)(cursor[-1]) ? {scope.top} : {}>
+    <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>
     when role in positionalFormalRoles;
 
 @synopsis{Add use/def relations for keyword function parameters, until they exist in the TModel.}

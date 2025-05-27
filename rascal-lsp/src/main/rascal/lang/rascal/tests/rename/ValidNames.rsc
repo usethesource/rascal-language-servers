@@ -39,6 +39,10 @@ test bool renameToReservedName() {
     return newNames == {"\\int"};
 }
 
+test bool renameFromMinusName() = testRenameOccurrences({0}, "int \\foo-bar = 0;", oldName = "foo-bar");
+
+test bool renameToMinusName() = testRenameOccurrences({0}, "int foo = 0;", newName = "foo-bar");
+
 test bool renameToUnescapedQualifiedName() = testRenameOccurrences({
     byText("FooSyntax", "syntax S = \"s\";", {0}, newName = "syntax::Foo"),
     byText("Main", "
