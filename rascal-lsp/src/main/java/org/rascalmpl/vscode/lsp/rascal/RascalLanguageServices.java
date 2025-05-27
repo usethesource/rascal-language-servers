@@ -58,6 +58,7 @@ import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.types.RascalTypeFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -199,6 +200,8 @@ public class RascalLanguageServices {
                 return RascalServices.parseRascalModule(resolvedLocation, Prelude.consumeInputStream(reader).toCharArray());
             } catch (IOException e1) {
                 throw RuntimeExceptionFactory.io("Could not open " + t[0] + " for reading");
+            } catch (ParseError pe) {
+                throw RuntimeExceptionFactory.parseError(pe.getLocation());
             }
         });
     }

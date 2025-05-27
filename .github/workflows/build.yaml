@@ -143,7 +143,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 20.x
           cache: 'npm'
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
@@ -157,7 +157,10 @@ jobs:
 
       - name: Append build id if pre-release
         working-directory: ./rascal-vscode-extension
-        run: sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
+        run: |
+          grep -q "\"version\":.*\\-head" package.json &&
+            sed -i "1i⚠️ This is pre-release build, based on [CI build $GITHUB_RUN_NUMBER](https://github.com/usethesource/rascal-language-servers/actions/runs/$GITHUB_RUN_ID). ⚠️\n\n" README.md
+          sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension

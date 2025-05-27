@@ -39,6 +39,11 @@ test bool productionConcreteType() = testRenameOccurrences({0, 1, 2, 3, 4}, "
 ", decls = "syntax Foo = Foo child;"
 , oldName = "Foo", newName = "Bar");
 
+test bool productionConcreteArgument() = testRenameOccurrences({1, 2}, "
+    'Foo func((Foo) `\<Foo foo\>`) = foo;
+", decls = "syntax Foo = Foo foo;"
+);
+
 test bool productionPattern() = testRenameOccurrences({0, 1, 2}, "
     'Tree t;
     'if (/Foo f := t) x = f;
@@ -122,6 +127,15 @@ test bool syntaxConstructorField() = testRenameOccurrences({0, 1, 2}, "
     'bool h(S x) = x has foo;
 ", decls = "syntax S = s: S foo;"
 , skipCursors = {2});
+
+test bool syntaxConstructorsSameField() = testRenameOccurrences({0, 1, 2}, "
+    'Expression f(Expression e) = e.lhs;
+", decls = "
+    'syntax Expression
+    '   = remainder: Expression lhs \"%\" Expression rhs
+    '   | division: Expression lhs \"/\" Expression rhs
+    '   ;
+", oldName = "lhs");
 
 test bool hasConstructorFields() = testRenameOccurrences({0, 2}, "
     D x = d(8);
