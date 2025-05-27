@@ -181,16 +181,19 @@ export interface ParserSpecification {
     nonTerminalName: string;
     /** is the non-terminal a `start` non-terminal, default: true */
     nonTerminalIsStart?: boolean;
+
     /** allow ambiguities during parsing, default: false */
     allowAmbiguity?: boolean;
     /** limit the maximum nesting depth of ambiguities, ambiguities will be pruned below this level. Only of interest if allowAmbiguity or allowRecovery are set to true. default: 2 */
     maxAmbDepth?: number;
     /** Allow error recovery during parsing resulting in error trees. default: false */
+
     allowRecovery?: boolean;
     /** The maximum number of recovery attempts made during a single parse when error recovery is enabled. default: 50 */
     maxRecoveryAttempts?: number;
     /** The maximum number of tokens used in each recovery attempt. default: 3 */
     maxRecoveryTokens?: number;
+
     /** apply the special case for highlighting syntax-in-syntax, default: true
         Note: This is a temporary property. In a short-term future release, the
         default will become `false`. In a mid-term future release, the property
