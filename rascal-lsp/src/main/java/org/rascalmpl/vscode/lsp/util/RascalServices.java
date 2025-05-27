@@ -34,17 +34,14 @@ import org.rascalmpl.parser.gtd.util.StackNodeIdDispenser;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.parser.uptr.recovery.ToTokenRecoverer;
-import org.rascalmpl.values.RascalValueFactory;
-import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 
-import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.ISourceLocation;
 
 public class RascalServices {
-
-    private static final RascalValueFactory VALUE_FACTORY = (RascalValueFactory) ValueFactoryFactory.getValueFactory();
-    private static final IBool TRUE = VALUE_FACTORY.bool(true);
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(VF);
     public static final int MAX_AMB_DEPTH = 2;
     public static final int MAX_RECOVERY_ATTEMPTS = 50;
     public static final int MAX_RECOVERY_TOKENS = 3;
@@ -62,7 +59,6 @@ public class RascalServices {
             new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
 
         // Recover
-        ParseErrorRecovery recoverer = new ParseErrorRecovery(VALUE_FACTORY);
-        return (ITree) recoverer.disambiguateParseErrors(tree, TRUE);
+        return (ITree) RECOVERY.disambiguateParseErrors(tree, VF.bool(true));
     }
 }

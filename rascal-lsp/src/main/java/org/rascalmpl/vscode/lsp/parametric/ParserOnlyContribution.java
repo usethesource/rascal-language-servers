@@ -56,10 +56,6 @@ import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 
 public class ParserOnlyContribution implements ILanguageContributions {
-    private static final int MAX_AMB_DEPTH = RascalServices.MAX_AMB_DEPTH;
-    private static final int MAX_RECOVERY_ATTEMPTS = RascalServices.MAX_RECOVERY_ATTEMPTS;
-    private static final int MAX_RECOVERY_TOKENS = RascalServices.MAX_RECOVERY_TOKENS;
-
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private final String name;
@@ -102,8 +98,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
         try {
             logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.integer(MAX_AMB_DEPTH),
-                VF.bool(false), VF.integer(MAX_RECOVERY_ATTEMPTS), VF.integer(MAX_RECOVERY_TOKENS), VF.bool(false), VF.bool(false), vf.set());
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.integer(spec.getMaxAmbDepth()),
+                VF.bool(spec.getAllowRecovery()), VF.integer(spec.getMaxRecoveryAttempts()), VF.integer(spec.getMaxRecoveryTokens()), VF.bool(false), VF.bool(false), vf.set());
             logger.debug("Got parser: {}", parser);
             return Either.forLeft(parser);
         }
