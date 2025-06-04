@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,6 +41,9 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public interface IBaseTextDocumentService extends TextDocumentService {
+    static final Duration NO_DEBOUNCE = Duration.ZERO;
+    static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
+
     void initializeServerCapabilities(ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);

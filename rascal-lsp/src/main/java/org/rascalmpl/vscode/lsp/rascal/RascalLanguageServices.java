@@ -54,6 +54,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
@@ -91,6 +92,7 @@ import io.usethesource.vallang.type.TypeStore;
 
 public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
@@ -186,7 +188,7 @@ public class RascalLanguageServices {
             }
             // First, check whether the file is open and a parse tree is available
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getMostRecentTree();
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getLastTreeWithoutErrors();
                 if (tree != null) {
                     return tree.get();
                 }
@@ -317,8 +319,13 @@ public class RascalLanguageServices {
         List<CodeLensSuggestion> result = new ArrayList<>(2);
         result.add(new CodeLensSuggestion(module, "Import in new Rascal terminal", "rascalmpl.importModule", moduleName));
 
-        for (IValue topLevel : TreeAdapter
-            .getListASTArgs(TreeAdapter.getArg(TreeAdapter.getArg(tree, "body"), "toplevels"))) {
+        ITree body = TreeAdapter.getArg(tree, "body");
+        ITree toplevels = TreeAdapter.getArg(body, "toplevels");
+        for (IValue topLevel : TreeAdapter.getListASTArgs(toplevels)) {
+            if (RECOVERY.hasParseErrors((ITree) topLevel).getValue()) {
+                continue;
+            }
+
             ITree decl = TreeAdapter.getArg((ITree) topLevel, "declaration");
             if ("function".equals(TreeAdapter.getConstructorName(decl))) {
                 ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");

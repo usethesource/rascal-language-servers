@@ -67,7 +67,7 @@ public class Versioned<T> {
     public static <T> boolean replaceIfNewer(AtomicReference<Versioned<T>> current, Versioned<T> maybeNewer) {
         while (true) {
             var old = current.get();
-            if (old.version() < maybeNewer.version()) {
+            if (old == null || old.version() < maybeNewer.version()) {
                 if (current.compareAndSet(old, maybeNewer)) {
                     return true;
                 }
