@@ -112,16 +112,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
                 pcfg = new PathConfig().addSourceLoc(URIUtil.rootLocation("std"));
             }
 
-            // make sure to always add rascal-lsp (even if it wasn't in the pom.xml)
-            // TODO: what if it was already in the pom.xml? PathConfig does a de-dup automatically.
-            var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
-            // the interpreter must find the Rascal sources of util::LanguageServer etc.
-            pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
-            // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
-            pcfg = pcfg.addLibLoc(lspJar);
-
-            stdout.println("Rascal-lsp " + getRascalLspVersion(lspJar));
-            
             var evaluator = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg, input, stdout, stderr, services);
             services.registerDiagnostics(pcfg.getMessages());
             debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
