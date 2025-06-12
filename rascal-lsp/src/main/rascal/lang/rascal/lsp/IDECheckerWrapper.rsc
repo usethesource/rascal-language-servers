@@ -85,7 +85,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        return {program(l, error("Cyclic dependencies depected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l))};
+        return {program(l, {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)})};
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
