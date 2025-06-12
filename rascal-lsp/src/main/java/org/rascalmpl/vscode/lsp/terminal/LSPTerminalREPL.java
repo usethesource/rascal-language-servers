@@ -100,23 +100,11 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
     @Override
     protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
         try {
-            // as VS Code starts us at the project root, we can use the current working directory to know which project we're at
-            ISourceLocation projectDir = PathConfig.inferProjectRoot(URIUtil.createFileLocation(System.getProperty("user.dir")));
-
-            // now let's calculate the path config
-            PathConfig pcfg;
-            if (projectDir != null) {
-                pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPRETER, true);
-            }
-            else {
-                pcfg = new PathConfig().addSourceLoc(URIUtil.rootLocation("std"));
-            }
-
-            var evaluator = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg, input, stdout, stderr, services);
+            var evaluator = ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr, services);
             debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
             return evaluator;
         }
-        catch (IOException | URISyntaxException e) {
+        catch (Exception e) {
             stderr.println("Initialization of REPL failed. Only basic features will work.");
             e.printStackTrace(stderr);
             return super.buildEvaluator(input, stdout, stderr, services);
