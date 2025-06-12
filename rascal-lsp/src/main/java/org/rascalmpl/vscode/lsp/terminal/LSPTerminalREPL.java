@@ -113,7 +113,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             }
 
             var evaluator = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg, input, stdout, stderr, services);
-            services.registerDiagnostics(pcfg.getMessages());
             debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
             return evaluator;
         }
