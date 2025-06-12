@@ -74,7 +74,6 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class LSPTerminalREPL extends RascalInterpreterREPL {
     private final int ideServicePort;
-    private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
     private DebugSocketServer debugServer;
 
     private LSPTerminalREPL(int ideServicesPort) {
