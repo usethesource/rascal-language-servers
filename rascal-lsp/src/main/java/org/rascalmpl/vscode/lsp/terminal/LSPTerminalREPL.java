@@ -63,12 +63,9 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
-import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
-import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -103,11 +100,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
     @Override
     protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
         try {
-            // setup forwards to the VS Code URI resolvers
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
-            reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
-
             // as VS Code starts us at the project root, we can use the current working directory to know which project we're at
             ISourceLocation projectDir = PathConfig.inferProjectRoot(URIUtil.createFileLocation(System.getProperty("user.dir")));
 
