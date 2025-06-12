@@ -145,17 +145,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         return super.handleInput(command);
     }
 
-    private static String getRascalLspVersion(ISourceLocation lspJar) {
-        try {
-            return new Manifest(URIResolverRegistry.getInstance()
-                .getInputStream(URIUtil.getChildLocation(lspJar, "META-INF/MANIFEST.MF")))
-                .getMainAttributes().getValue("Specification-Version");
-        } catch (IOException e) {
-            return "Unknown";
-        }
-    }
-
-
 
     @SuppressWarnings("java:S899") // it's fine to ignore the result of createNewFile
     private static Path getHistoryFile() throws IOException {
