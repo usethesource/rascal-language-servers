@@ -99,16 +99,9 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
 
     @Override
     protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
-        try {
-            var evaluator = ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr, services);
-            debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
-            return evaluator;
-        }
-        catch (Exception e) {
-            stderr.println("Initialization of REPL failed. Only basic features will work.");
-            e.printStackTrace(stderr);
-            return super.buildEvaluator(input, stdout, stderr, services);
-        }
+        var evaluator = ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr, services);
+        debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+        return evaluator;
     }
 
     private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
