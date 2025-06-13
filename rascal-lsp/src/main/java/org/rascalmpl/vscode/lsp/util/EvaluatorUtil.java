@@ -326,9 +326,6 @@ public class EvaluatorUtil {
                     eval.addRascalSearchPath(rascalCore);
                 }
 
-                var rascalLspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
-                eval.addRascalSearchPath(rascalLspJar);
-
                 if (pcfg != null) {
                     for (IValue src : pcfg.getSrcs()) {
                         eval.addRascalSearchPath((ISourceLocation) src);

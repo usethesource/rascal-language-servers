@@ -51,7 +51,6 @@ import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
-import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -67,8 +66,6 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
-import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
@@ -223,25 +220,6 @@ public abstract class BaseLanguageServer {
             this.onExit = onExit;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = lspWorkspaceService;
-            reg.registerLogical(new ProjectURIResolver(this::resolveProjectLocation));
-            reg.registerLogical(new TargetURIResolver(this::resolveProjectLocation));
-        }
-
-        private ISourceLocation resolveProjectLocation(ISourceLocation loc) {
-            try {
-                for (WorkspaceFolder folder : lspWorkspaceService.workspaceFolders()) {
-                    if (folder.getName().equals(loc.getAuthority())) {
-                        ISourceLocation root = URIUtil.createFromURI(folder.getUri());
-                        return URIUtil.getChildLocation(root, loc.getPath());
-                    }
-                }
-
-                return loc;
-            }
-            catch (URISyntaxException e) {
-                logger.catching(e);
-                return loc;
-            }
         }
 
         @Override

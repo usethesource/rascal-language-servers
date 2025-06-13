@@ -85,7 +85,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        return {program(l, error("Cyclic dependencies depected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l))};
+        return {program(l, {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)})};
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
@@ -109,10 +109,6 @@ loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathCon
     fileName = makeFileName(fqn);
     // Check the source directories
     for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
-        return fileLoc;
-    }
-    // Check the source directories of libraries that are currently open in VS Code
-    if (lib <- pcfg.libs, lib.scheme != "lib", dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
         return fileLoc;
     }
     throw "Module `<fqn>` not found!";

@@ -88,7 +88,9 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     copy(root, backupLoc, recursive = true);
 
     executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
-    remove(pcfg.resources);
+    for (res <- pcfg.resources) {
+        remove(res);
+    }
 
     checkAfter = checkAll(root, ccfg);
     newMsgs = checkAfter - checkBefore;
@@ -230,7 +232,7 @@ public loc calculateRascalLib() {
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        resources=testDir + "bin",
+        resources=[testDir + "bin"],
         libs=[calculateRascalLib()],
         srcs=[testDir + "rascal"]
     );
@@ -240,7 +242,7 @@ PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
    return pathConfig(
         srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
         bin = rascalCoreProject + "target/test-classes",
-        resources = rascalCoreProject + "target/test-classes",
+        resources = [rascalCoreProject + "target/test-classes"],
         libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, calculateRascalLib()]
     );
 }
