@@ -31,6 +31,7 @@ import List;
 import Relation;
 import Set;
 import String;
+import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
 import util::Monitor;
@@ -66,7 +67,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
                     try {
-                        ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig);
+                        ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig, workspaceFolders);
                         if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
                             checkForImports += mlpt;
                             jobTodo("Building dependency graph");
@@ -91,6 +92,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
     msgs = [];
 
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
+
     step("Checking upstream dependencies ", 1);
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
@@ -105,12 +107,27 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
     return {*msgs};
 }, totalWork=3);
 
-loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig) {
+private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
+    try {
+        relativize([*workspaceFolders], lib);
+        return true;
+    } catch PathNotFound(_):  {
+        return false;
+    }
+}
+
+loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
     // Check the source directories
     for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
         return fileLoc;
     }
+
+    // And libraries available in the current workspace
+    if (lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
+        return fileLoc;
+    }
+
     throw "Module `<fqn>` not found!";
 }
 
