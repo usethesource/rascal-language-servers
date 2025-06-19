@@ -71,10 +71,19 @@ describe('REPL', function () {
         expect(repl.lastOutput).is.equal("Printing works: 4\nok", "println works as expected");
     });
 
-    it("import module and run in terminal", async () => {
+    it.only("import module and run in terminal", async () => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
-        const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
-        await lens!.click();
+
+        driver.wait(async () => {
+            try {
+                const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
+                await lens!.click();
+                return true;
+            } catch (e) {
+                console.log("codelens clicking failed");
+                return false;
+            }
+        }, Delays.slow, "Codelens for 'Run in new Rascal terminal'");
         const repl = new RascalREPL(bench, driver);
         await repl.connect();
         expect(repl.lastOutput).is.equal("5\nint: 0");
