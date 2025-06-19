@@ -220,7 +220,7 @@ lookup services. Each of those four services require the same information that i
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
 your own ((CodeAction))s and Commands
-   * create an ((execution)) service to give semantics to each command. This includes creating ((DocumentEdit))s but also ((IDEServices))
+   * create an ((execution)) service to give semantics to each command. This includes creating ((DocumentEdit))s but also ((util::IDEServices))
    can be used to have interesting effects in the IDE.
    * ((CodeAction))s can also be attached to error, warning and into ((Message))s as a result of ((parsing)), ((analysis)) or ((util::LanguageServer::build)).
    Such actions will lead to "quick-fix" UX options in the editor.
