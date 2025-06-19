@@ -71,7 +71,7 @@ describe('REPL', function () {
         expect(repl.lastOutput).is.equal("Printing works: 4\nok", "println works as expected");
     });
 
-    it.only("import module and run in terminal", async () => {
+    it("import module and run in terminal", async () => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
 
         driver.wait(async () => {
