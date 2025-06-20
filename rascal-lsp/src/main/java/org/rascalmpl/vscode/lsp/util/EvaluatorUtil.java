@@ -311,11 +311,11 @@ public class EvaluatorUtil {
             try {
                 services.jobStart(jobName, imports.length);
                 Evaluator eval;
-                Reader nullReader = Reader.nullReader();
-                PrintWriter infoWriter = IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter();
-                PrintWriter errorWriter = IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter();
+                var input = Reader.nullReader();
+                var out = IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter();
+                var err = IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter();
                 if (pcfg == null) {
-                    eval = ShellEvaluatorFactory.getDefaultEvaluator(nullReader, infoWriter, errorWriter, services);
+                    eval = ShellEvaluatorFactory.getDefaultEvaluator(input, out, err, services);
                 } else {
                     var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
                     var newPcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
