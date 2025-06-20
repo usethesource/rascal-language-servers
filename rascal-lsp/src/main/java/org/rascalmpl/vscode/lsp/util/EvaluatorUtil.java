@@ -321,7 +321,7 @@ public class EvaluatorUtil {
                     var newPcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
 
                     eval = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg.getProjectRoot(), newPcfg,
-                        nullReader, infoWriter, errorWriter, services);
+                        input, out, err, services);
                 }
 
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
