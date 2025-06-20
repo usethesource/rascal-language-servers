@@ -63,7 +63,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC45</version>
+      <version>0.41.0-RC53</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -198,7 +198,7 @@
                   <ignore>${project.basedir}/src/main/rascal/framework</ignore>
               </ignores>
             </configuration>
-          </execution> 
+          </execution>
         </executions>
       </plugin>
 

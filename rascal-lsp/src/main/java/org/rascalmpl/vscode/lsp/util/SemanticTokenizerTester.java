@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 
 import io.usethesource.vallang.IBool;

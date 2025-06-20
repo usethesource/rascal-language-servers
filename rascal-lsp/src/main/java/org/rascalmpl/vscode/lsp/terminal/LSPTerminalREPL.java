@@ -63,12 +63,9 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
-import org.rascalmpl.vscode.lsp.uri.ProjectURIResolver;
-import org.rascalmpl.vscode.lsp.uri.TargetURIResolver;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
 
 /**
  * This class runs a Rascal terminal REPL that
@@ -77,7 +74,6 @@ import io.usethesource.vallang.IValue;
  */
 public class LSPTerminalREPL extends RascalInterpreterREPL {
     private final int ideServicePort;
-    private final Set<String> dirtyModules = ConcurrentHashMap.newKeySet();
     private DebugSocketServer debugServer;
 
     private LSPTerminalREPL(int ideServicesPort) {
@@ -102,44 +98,9 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
 
     @Override
     protected Evaluator buildEvaluator(Reader input, PrintWriter stdout, PrintWriter stderr, IDEServices services) {
-        try {
-            // setup forwards to the VS Code URI resolvers
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            reg.registerLogical(new ProjectURIResolver(services::resolveProjectLocation));
-            reg.registerLogical(new TargetURIResolver(services::resolveProjectLocation));
-
-            // as VS Code starts us at the project root, we can use the current working directory to know which project we're at
-            ISourceLocation projectDir = PathConfig.inferProjectRoot(URIUtil.createFileLocation(System.getProperty("user.dir")));
-
-            // now let's calculate the path config
-            PathConfig pcfg;
-            if (projectDir != null) {
-                pcfg = PathConfig.fromSourceProjectRascalManifest(projectDir, RascalConfigMode.INTERPRETER, true);
-            }
-            else {
-                pcfg = new PathConfig().addSourceLoc(URIUtil.rootLocation("std"));
-            }
-
-            // make sure to always add rascal-lsp (even if it wasn't in the pom.xml)
-            // TODO: what if it was already in the pom.xml? PathConfig does a de-dup automatically.
-            var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
-            // the interpreter must find the Rascal sources of util::LanguageServer etc.
-            pcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
-            // the interpreter must load the Java parts for calling util::IDEServices and registerLanguage
-            pcfg = pcfg.addLibLoc(lspJar);
-
-            stdout.println("Rascal-lsp " + getRascalLspVersion(lspJar));
-            
-            var evaluator = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg, input, stdout, stderr, services);
-            services.registerDiagnostics(pcfg.getMessages());
-            debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
-            return evaluator;
-        }
-        catch (IOException | URISyntaxException e) {
-            stderr.println("Initialization of REPL failed. Only basic features will work.");
-            e.printStackTrace(stderr);
-            return super.buildEvaluator(input, stdout, stderr, services);
-        }
+        var evaluator = ShellEvaluatorFactory.getDefaultEvaluator(input, stdout, stderr, services);
+        debugServer = new DebugSocketServer(evaluator, (TerminalIDEClient) services);
+        return evaluator;
     }
 
     private final Pattern debuggingCommandPattern = Pattern.compile("^\\s*:set\\s+debugging\\s+(true|false)");
@@ -183,17 +144,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         eval.reloadModules(eval.getMonitor(), changes, URIUtil.rootLocation("reloader"));
         return super.handleInput(command);
     }
-
-    private static String getRascalLspVersion(ISourceLocation lspJar) {
-        try {
-            return new Manifest(URIResolverRegistry.getInstance()
-                .getInputStream(URIUtil.getChildLocation(lspJar, "META-INF/MANIFEST.MF")))
-                .getMainAttributes().getValue("Specification-Version");
-        } catch (IOException e) {
-            return "Unknown";
-        }
-    }
-
 
 
     @SuppressWarnings("java:S899") // it's fine to ignore the result of createNewFile
