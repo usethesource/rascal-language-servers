@@ -310,9 +310,19 @@ public class EvaluatorUtil {
             String jobName = "Loading " + label;
             try {
                 services.jobStart(jobName, imports.length);
-                Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(Reader.nullReader(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter(), services);
+                Evaluator eval;
+                var input = Reader.nullReader();
+                var out = IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter();
+                var err = IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter();
+                if (pcfg == null) {
+                    eval = ShellEvaluatorFactory.getDefaultEvaluator(input, out, err, services);
+                } else {
+                    var lspJar = PathConfig.resolveProjectOnClasspath("rascal-lsp");
+                    var newPcfg = pcfg.addSourceLoc(JarURIResolver.jarify(lspJar));
+
+                    eval = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(pcfg.getProjectRoot(), newPcfg,
+                        input, out, err, services);
+                }
 
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
                 eval.addClassLoader(IValue.class.getClassLoader());
@@ -324,16 +334,6 @@ public class EvaluatorUtil {
 
                     eval.addRascalSearchPath(typePalJar);
                     eval.addRascalSearchPath(rascalCore);
-                }
-
-                var rascalLspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
-                eval.addRascalSearchPath(rascalLspJar);
-
-                if (pcfg != null) {
-                    for (IValue src : pcfg.getSrcs()) {
-                        eval.addRascalSearchPath((ISourceLocation) src);
-                    }
-                    eval.addClassLoader(new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader()));
                 }
 
                 eval.doImport(services, imports);
