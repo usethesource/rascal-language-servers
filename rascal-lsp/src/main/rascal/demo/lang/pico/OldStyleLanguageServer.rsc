@@ -35,7 +35,7 @@ module demo::lang::pico::OldStyleLanguageServer
 import util::LanguageServer;
 import util::IDEServices;
 import ParseTree;
-import util::Reflective;
+import util::PathConfig;
 import lang::pico::\syntax::Main;
 import util::ParseErrorRecovery;
 
