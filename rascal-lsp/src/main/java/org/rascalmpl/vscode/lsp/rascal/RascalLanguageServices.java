@@ -323,7 +323,7 @@ public class RascalLanguageServices {
                     }
                 }
             } catch (Exception e) {
-                // We must have encountered an error tree. This exception can be more specific (IndexOutOfBounds) once a Rascal version with a more robust version of "TreeAdapter.getArg()" is released.
+                // We must have encountered an error tree. This exception can be more specific once a Rascal version with a more robust version of "TreeAdapter.getArg()" is released.
                 logger.warn("Failed to process top-level tree, it probably contains a parse error: {}", topLevel, e);
             }
         }
