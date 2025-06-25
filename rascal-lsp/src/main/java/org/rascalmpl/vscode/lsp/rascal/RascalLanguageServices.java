@@ -49,6 +49,7 @@ import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.exceptions.ImplementationError;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
@@ -64,6 +65,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -74,6 +76,7 @@ import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -310,17 +313,18 @@ public class RascalLanguageServices {
         ITree body = TreeAdapter.getArg(tree, "body");
         ITree toplevels = TreeAdapter.getArg(body, "toplevels");
         for (IValue topLevel : TreeAdapter.getListASTArgs(toplevels)) {
-            if (RECOVERY.hasParseErrors((ITree) topLevel).getValue()) {
-                continue;
-            }
-
-            ITree decl = TreeAdapter.getArg((ITree) topLevel, "declaration");
-            if ("function".equals(TreeAdapter.getConstructorName(decl))) {
-                ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");
-                ITree name = TreeAdapter.getArg(signature, "name");
-                if ("main".equals(TreeAdapter.yield(name))) {
-                    result.add(new CodeLensSuggestion(name, "Run in new Rascal terminal", "rascalmpl.runMain", moduleName));
+            try {
+                ITree decl = TreeAdapter.getArg((ITree) topLevel, "declaration");
+                if ("function".equals(TreeAdapter.getConstructorName(decl))) {
+                    ITree signature = TreeAdapter.getArg(TreeAdapter.getArg(decl, "functionDeclaration"), "signature");
+                    ITree name = TreeAdapter.getArg(signature, "name");
+                    if ("main".equals(TreeAdapter.yield(name))) {
+                        result.add(new CodeLensSuggestion(name, "Run in new Rascal terminal", "rascalmpl.runMain", moduleName));
+                    }
                 }
+            } catch (Exception e) {
+                // We must have encountered an error tree. This exception can be more specific (IndexOutOfBounds) once a Rascal version with a more robust version of "TreeAdapter.getArg()" is released.
+                logger.warn("Failed to process top-level tree, it probably contains a parse error: {}", topLevel, e);
             }
         }
         return result;
