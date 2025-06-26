@@ -1,2 +1,2 @@
 Project-Name: rascal-lsp
-Source: src/main/rascal
+Source: src/main/rascal/library,src/main/rascal/lsp/

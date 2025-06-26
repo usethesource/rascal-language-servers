@@ -165,12 +165,8 @@
                 <errorsAsWarnings>false</errorsAsWarnings>
                 <bin>${project.build.outputDirectory}</bin>
                 <srcs>
-                    <src>${project.basedir}/src/main/rascal</src>
+                    <src>${project.basedir}/src/main/rascal/library</src>
                 </srcs>
-                <ignores>
-                    <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
-                    <ignore>${project.basedir}/src/main/rascal/framework</ignore>
-                </ignores>
             </configuration>
           </execution>
           <execution>
