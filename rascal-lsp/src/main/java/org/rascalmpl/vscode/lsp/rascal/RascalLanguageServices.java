@@ -119,22 +119,17 @@ public class RascalLanguageServices {
 
         var monitor = new RascalLSPMonitor(client, logger);
 
-        try {
-            var pcfg = new PathConfig().parse("pathConfig(projectRoot=|cwd:///|)");
-            pcfg = EvaluatorUtil.addLSPSources(pcfg, true);
-            var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
+        var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
+        var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
 
-            var context = new LSPContext(exec, docService, workspaceService, client);
+        var context = new LSPContext(exec, docService, workspaceService, client);
 
-            documentSymbolEvaluator = makeFutureEvaluator(context, "Rascal document symbols", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols");
-            semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
-            compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
-            actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
-            rascalTextDocumentService = docService;
-            this.workspaceService = workspaceService;
-        } catch (IOException ex) {
-            throw new RuntimeException("Could not setup Rascal Language Server instance", ex);
-        }
+        documentSymbolEvaluator = makeFutureEvaluator(context, "Rascal document symbols", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
+        compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
+        actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
+        rascalTextDocumentService = docService;
+        this.workspaceService = workspaceService;
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
