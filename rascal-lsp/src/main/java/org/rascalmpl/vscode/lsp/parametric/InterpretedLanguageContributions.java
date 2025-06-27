@@ -50,6 +50,7 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
+import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
@@ -114,12 +115,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         this.exec = exec;
 
         try {
-            PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
+            var pcfg = new PathConfig().parse(lang.getPathConfig());
+            pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
             var monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
-            this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), monitor, pcfg, false, lang.getMainModule());
+            this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
+                "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
