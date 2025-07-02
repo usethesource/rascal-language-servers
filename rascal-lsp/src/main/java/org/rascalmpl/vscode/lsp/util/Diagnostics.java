@@ -245,7 +245,7 @@ public class Diagnostics {
     }
 
     private static ISourceLocation getMessageLocation(IConstructor message) {
-        return Locations.toClientLocationIfPossible(((ISourceLocation) message.get("at")));
+        return Locations.toClientLocation(((ISourceLocation) message.get("at")));
     }
 
     private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {

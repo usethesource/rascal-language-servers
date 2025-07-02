@@ -87,13 +87,8 @@ public class FileFacts {
 
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
-        ISourceLocation resolved = null;
-        try {
-            resolved = Locations.toClientLocation(l);
-            if (resolved == null) {
-                resolved = l;
-            }
-        } catch (IOException e) {
+        ISourceLocation resolved = Locations.toClientLocation(l);
+        if (resolved == null) {
             resolved = l;
         }
         return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));

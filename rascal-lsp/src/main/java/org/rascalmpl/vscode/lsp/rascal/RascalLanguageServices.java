@@ -174,13 +174,7 @@ public class RascalLanguageServices {
 
     IFunction makeParseTreeGetter(Evaluator e) {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
-            ISourceLocation resolvedLocation;
-            try {
-                resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
-            } catch (IOException e1) {
-                throw RuntimeExceptionFactory.io("Error resolving " + t[0]);
-            }
-            // First, check whether the file is open and a parse tree is available
+            ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
                 var tree = rascalTextDocumentService.getFile(resolvedLocation).getLastTreeWithoutErrors();
                 if (tree != null) {
