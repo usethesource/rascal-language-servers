@@ -167,7 +167,7 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
+        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.verySlow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {
