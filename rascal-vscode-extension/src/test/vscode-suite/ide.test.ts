@@ -160,14 +160,14 @@ describe('IDE', function () {
     it("go to definition works across projects", async () => {
         // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
         const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
+        await ide.triggerTypeChecker(libEditor, {tplFile : TestWorkspace.libFileTpl, waitForFinish: true, timeout: Delays.extremelySlow });
         await bench.getEditorView().closeAllEditors();
 
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.verySlow, "Lib.rsc should be opened for fib");
+        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {
