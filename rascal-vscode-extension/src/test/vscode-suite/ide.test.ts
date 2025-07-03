@@ -146,12 +146,21 @@ describe('IDE', function () {
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
+
+        await editor.selectText("&T", 0);
+        const defLoc = await editor.getCoordinates();
+
+        await editor.selectText("&T", 1);
+        await bench.executeCommand("Go to Definition");
+        const jumpLoc = await editor.getCoordinates();
+
+        expect(jumpLoc).to.deep.equal(defLoc);
     });
 
     it("go to definition works across projects", async () => {
         // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
         const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
+        await triggerTypeChecker(libEditor, "", true);
         await bench.getEditorView().closeAllEditors();
 
         const editor = await ide.openModule(TestWorkspace.libCallFile);

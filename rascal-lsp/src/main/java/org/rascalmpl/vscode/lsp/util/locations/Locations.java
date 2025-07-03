@@ -48,21 +48,14 @@ import io.usethesource.vallang.IValue;
  * strip source locations of their "lsp+" prefix.
  */
 public class Locations {
-    public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
-        return LSPOpenFileResolver.stripLspPrefix(URIResolverRegistry.getInstance().logicalToPhysical(loc));
+    public static ISourceLocation toClientLocation(ISourceLocation loc) {
+        loc = LSPOpenFileResolver.stripLspPrefix(loc);
+        if (loc.getScheme().equals("project")) {
+            return toPhysicalIfPossible(loc);
+        }
+        return loc;
     }
 
-    public static ISourceLocation toClientLocationIfPossible(ISourceLocation loc) {
-        var result = toPhysicalIfPossible(loc);
-        if (result.getScheme().startsWith("lsp+")) {
-            try {
-                return URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
-            } catch (URISyntaxException e) {
-                // fall through
-            }
-        }
-        return result;
-    }
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
         ISourceLocation physical;
         try {

@@ -91,19 +91,15 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void edit(ISourceLocation path) {
-        try {
-            ISourceLocation physical = Locations.toClientLocation(path);
-            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-            params.setTakeFocus(true);
+        ISourceLocation physical = Locations.toClientLocation(path);
+        ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
+        params.setTakeFocus(true);
 
-            if (physical.hasOffsetLength()) {
-                params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
-            }
-
-            languageClient.showDocument(params);
-        } catch (IOException e) {
-            logger.info("ignored edit of {}, because {}", path, e);
+        if (physical.hasOffsetLength()) {
+            params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
         }
+
+        languageClient.showDocument(params);
     }
 
     @Override
