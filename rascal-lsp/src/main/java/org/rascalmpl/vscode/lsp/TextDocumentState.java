@@ -166,11 +166,11 @@ public class TextDocumentState {
                         treeAsync.completeExceptionally(e);
                     } else {
                         var tree = new Versioned<>(version, t, timestamp);
-                        treeAsync.complete(tree);
                         Versioned.replaceIfNewer(last, tree);
                         if (diagnosticsList.isEmpty()) {
                             Versioned.replaceIfNewer(lastWithoutErrors, tree);
                         }
+                        treeAsync.complete(tree);
                     }
 
                     // Complete future to get diagnostics
