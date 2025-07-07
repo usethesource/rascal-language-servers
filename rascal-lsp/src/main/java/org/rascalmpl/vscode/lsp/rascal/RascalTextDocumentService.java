@@ -541,9 +541,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
                 return r;
             })
-            .thenApply(Versioned::get)
             // Replace with the last tree without errors, might be the same as `tree` if the parse succeeded without any error recovery
-            .thenApply(tree -> f.getLastTreeWithoutErrors().get())
+            .thenApply(tree -> f.getLastTreeWithoutErrors())
+            .thenApply(Versioned::get)
             .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
