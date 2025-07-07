@@ -51,6 +51,7 @@ import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
+import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -365,6 +366,11 @@ public abstract class BaseLanguageServer {
         @Override
         public void registerVFS(VFSRegister registration) {
             VSCodeVFSClient.buildAndRegister(registration.getPort());
+        }
+
+        @Override
+        public void cancelProgress(WorkDoneProgressCancelParams params) {
+            lspDocumentService.cancelProgress(params.getToken().getLeft());
         }
     }
 }

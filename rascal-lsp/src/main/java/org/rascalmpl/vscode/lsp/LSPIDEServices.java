@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -194,6 +193,10 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void warning(String message, ISourceLocation src) {
         monitor.warning(message, src);
+    }
+
+    public IRascalMonitor getMonitor() {
+        return monitor;
     }
 
 }

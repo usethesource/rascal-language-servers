@@ -26,9 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
@@ -37,6 +41,8 @@ import org.eclipse.lsp4j.WorkDoneProgressNotification;
 import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -78,7 +84,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
             var msg = new WorkDoneProgressBegin();
             msg.setTitle(progressPrefix + rootName);
-            msg.setCancellable(false);
+            msg.setCancellable(true);
             notifyProgress(msg);
         }
 
@@ -90,7 +96,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
         public void progress(String message) {
             var msg = new WorkDoneProgressReport();
             msg.setMessage(message);
-            msg.setCancellable(false);
+            msg.setCancellable(true);
             notifyProgress(msg);
         }
 
@@ -126,6 +132,19 @@ public class RascalLSPMonitor implements IRascalMonitor {
     }
 
     private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
+    private final Map<String, InterruptibleFuture<?>> activeFutures = new ConcurrentHashMap<>();
+
+    public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
+        activeFutures.put(generateProgressId(name), future);
+    }
+
+    public void unregisterActiveFuture(String name) {
+        activeFutures.remove(generateProgressId(name));
+    }
+
+    public @Nullable InterruptibleFuture<?> getActiveFuture(String progressId) {
+        return activeFutures.get(progressId);
+    }
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
@@ -147,7 +166,6 @@ public class RascalLSPMonitor implements IRascalMonitor {
     private static String generateProgressId(String topLevelName) {
         Thread t = Thread.currentThread();
         return "T" + Integer.toHexString(t.hashCode()) + "" + Long.toHexString(t.getId()) + "" + Integer.toHexString(System.identityHashCode(topLevelName));
-
     }
 
 

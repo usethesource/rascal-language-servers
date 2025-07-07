@@ -112,12 +112,13 @@ public class RascalLanguageServices {
     private final IBaseLanguageClient client;
     private final RascalTextDocumentService rascalTextDocumentService;
     private final BaseWorkspaceService workspaceService;
+    private final RascalLSPMonitor monitor;
 
     public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
         this.exec = exec;
 
-        var monitor = new RascalLSPMonitor(client, logger);
+        monitor = new RascalLSPMonitor(client, logger);
 
         var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
         var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
@@ -410,5 +411,15 @@ public class RascalLanguageServices {
             return (IList) eval.call("rascalCodeActions", "lang::rascal::lsp::Actions", kws, focus);
         },
         VF.list(), exec, false, client);
+    }
+
+    public void cancelProgress(String progressId) {
+        var future = monitor.getActiveFuture(progressId);
+        if (future != null) {
+            logger.debug("Interrupting future {}", progressId);
+            future.interrupt();
+        } else {
+            logger.debug("No future for progress ID {}", progressId);
+        }
     }
 }
