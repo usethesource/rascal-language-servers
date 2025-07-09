@@ -87,6 +87,7 @@ public abstract class BaseLanguageServer {
     private static final @Nullable PrintStream capturedOut;
     private static final @Nullable InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
+    private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
     static {
         DEPLOY_MODE = System.getProperty("rascal.lsp.deploy", "false").equalsIgnoreCase("true");
@@ -102,6 +103,8 @@ public abstract class BaseLanguageServer {
             capturedOut = null;
         }
         System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
+        // Do not overwrite existing settings (e.g. passed by the extension)
+        System.setProperty(LOG_CONFIGURATION_KEY, System.getProperty(LOG_CONFIGURATION_KEY, LogRedirectConfiguration.class.getName()));
     }
 
     // hide implicit constructor
