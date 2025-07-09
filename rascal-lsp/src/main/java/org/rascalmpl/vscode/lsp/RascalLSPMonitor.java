@@ -84,7 +84,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
             var msg = new WorkDoneProgressBegin();
             msg.setTitle(progressPrefix + rootName);
-            msg.setCancellable(true);
+            msg.setCancellable(activeFutures.containsKey(progressId));
             notifyProgress(msg);
         }
 
@@ -96,7 +96,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
         public void progress(String message) {
             var msg = new WorkDoneProgressReport();
             msg.setMessage(message);
-            msg.setCancellable(true);
+            msg.setCancellable(activeFutures.containsKey(progressId));
             notifyProgress(msg);
         }
 
