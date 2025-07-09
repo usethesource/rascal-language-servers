@@ -113,22 +113,23 @@ public class EvaluatorUtil {
 
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
-                    boolean jobSuccess = false;
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
                             return defaultResult;
                         }
                         T result = call.apply(actualEval);
-                        jobSuccess = true;
+                        actualEval.jobEnd(task, true);
                         return result;
                     } catch (InterruptException e) {
+                        // Since the interrupt is not caught by try-catch in Rascal, any jobs started from Rascal with the same name as this task will be 'nested', and might lead to stale progress bars.
+                        // Here, we remove all (nested) jobs.
+                        actualEval.endAllJobs();
                         return defaultResult;
                     } finally {
                         if (monitor instanceof RascalLSPMonitor) {
                             ((RascalLSPMonitor) monitor).unregisterActiveFuture(task);
                         }
-                        actualEval.jobEnd(task, jobSuccess);
                         runningEvaluator.set(null);
                         actualEval.__setInterrupt(false);
                     }
