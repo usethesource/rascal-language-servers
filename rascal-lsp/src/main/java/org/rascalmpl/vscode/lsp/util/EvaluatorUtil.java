@@ -98,7 +98,8 @@ public class EvaluatorUtil {
 
         future.set(new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
             try {
-                while (future.get() == null) {
+                InterruptibleFuture<T> self;
+                while ((self = future.get()) == null) {
                     // yield until our value has been set
                     Thread.yield();
                 }
@@ -108,7 +109,7 @@ public class EvaluatorUtil {
                     monitor = ((LSPIDEServices) monitor).getMonitor();
                 }
                 if (monitor instanceof RascalLSPMonitor) {
-                    ((RascalLSPMonitor) monitor).registerActiveFuture(task, future.get());
+                    ((RascalLSPMonitor) monitor).registerActiveFuture(task, self);
                 }
 
                 actualEval.jobStart(task);
