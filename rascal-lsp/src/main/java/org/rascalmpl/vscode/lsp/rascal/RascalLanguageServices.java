@@ -414,9 +414,6 @@ public class RascalLanguageServices {
     }
 
     public void cancelProgress(String progressId) {
-        var future = monitor.getActiveFuture(progressId);
-        if (future != null) {
-            future.interrupt();
-        }
+        monitor.cancelProgress(progressId);
     }
 }

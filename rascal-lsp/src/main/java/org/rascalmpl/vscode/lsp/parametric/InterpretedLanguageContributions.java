@@ -464,9 +464,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public void cancelProgress(String progressId) {
-        var future = monitor.getActiveFuture(progressId);
-        if (future != null) {
-            future.interrupt();
-        }
+        monitor.cancelProgress(progressId);
     }
 }

@@ -153,10 +153,6 @@ public class RascalLSPMonitor implements IRascalMonitor {
         activeFutures.remove(generateProgressId(name));
     }
 
-    public @Nullable InterruptibleFuture<?> getActiveFuture(String progressId) {
-        return activeFutures.get(progressId);
-    }
-
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
         var progress = this.activeProgress.get();
@@ -234,5 +230,16 @@ public class RascalLSPMonitor implements IRascalMonitor {
     @Override
     public void warning(String message, ISourceLocation src) {
         logger.warn("{} : {}", src, message);
+    }
+
+    /**
+     * Cancel the running {@link InterruptibleFuture} corresponding to a specific progress bar.
+     * @param progressId The identifier of the progress bar.
+     */
+    public void cancelProgress(String progressId) {
+        var future = activeFutures.get(progressId);
+        if (future != null) {
+            future.interrupt();
+        }
     }
 }
