@@ -57,24 +57,30 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs, Tree tr, TModel tm
     adtDefs += findAdditionalDefinitions(adtDefs, tr, tm, r);
 
     // Find all fields with the same name in these ADT definitions
-    return getFieldDefinitions(adtDefs, cursorDefs<idRole, id>, r.getConfig().tmodelForLoc);
+    return getFieldDefinitions(adtDefs, cursorDefs.id, r.getConfig().tmodelForLoc);
 }
 
 @synopsis{Collect all definitions for field <fieldName> in ADT/collection/tuple by definition.}
-set[Define] getFieldDefinitions(set[Define] containerDefs, rel[IdRole, str] fields, TModel(loc) getModel)
+set[Define] getFieldDefinitions(set[Define] containerDefs, set[str] fieldNames, TModel(loc) getModel)
     = flatMapPerFile(containerDefs, set[Define](loc f, set[Define] localContainerDefs) {
         localTm = getModel(f);
-        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[role, name]) | <role, name> <- fields};
+        candidateDefs = {*(localTm.defines<idRole, id, scope, defined>[fieldRoles, name]) | name <- fieldNames};
         return {localTm.definitions[d] | loc d <- candidateDefs[localContainerDefs.defined]};
     });
 
 @synopsis{Collect all definitions for the field <fieldName> by ADT/constructor type.}
-set[Define] getFieldDefinitions(set[AType] containerTypes, str fieldName, TModel tm, TModel(loc) getModel) {
+set[Define] getFieldDefinitions(set[AType] containerTypes, str fieldName, TModel tm, set[loc] reachableFromUse, TModel(loc) getModel) {
     rel[AType, IdRole, Define] definesByType = {<d.defInfo.atype, d.idRole, d> | d <- tm.defines, d.defInfo.atype?};
     // Find all type-like definitions (but omit variable definitions etc.)
     set[Define] containerTypeDefs = definesByType[containerTypes, dataOrSyntaxRoles];
+    if (dataId() in containerTypeDefs.idRole) {
+        // Find overloads
+        for (loc modScope <- reachableFromUse) {
+            containerTypeDefs += findAdditionalDataLikeDefinitions(containerTypeDefs, getModel(modScope.top), getModel);
+        }
+    }
     // Since we do not know (based on tree) what kind of field role (positional, keyword) we are looking for, select them all
-    return getFieldDefinitions(containerTypeDefs, {<role, fieldName> | role <- fieldRoles}, getModel);
+    return getFieldDefinitions(containerTypeDefs, {fieldName}, getModel);
 }
 
 @synopsis{Collect all definitions for the field <fieldName> in ADT/collection/tuple by tree.}
@@ -86,10 +92,10 @@ set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel
             set[Define] containerDefs = {fileTm.definitions[d] | loc d <- localContainerDefs, fileTm.definitions[d]?};
             // Find the type of the container. For a constructor value, the type is its ADT type.
             set[AType] containerDefTypes = {acons(AType adt, _, _) := di.atype ? adt : di.atype | DefInfo di <- containerDefs.defInfo};
-            return getFieldDefinitions(containerDefTypes, fieldName, fileTm, getModel);
+            return getFieldDefinitions(containerDefTypes, fieldName, fileTm, rascalGetReflexiveModulePaths(tm).to, getModel);
         });
     } else if (just(AType containerType) := getFact(tm, container.src)) {
-        return getFieldDefinitions({containerType}, fieldName, tm, getModel) ;
+        return getFieldDefinitions({containerType}, fieldName, tm, rascalGetReflexiveModulePaths(tm).to, getModel) ;
     }
 
     return {};
