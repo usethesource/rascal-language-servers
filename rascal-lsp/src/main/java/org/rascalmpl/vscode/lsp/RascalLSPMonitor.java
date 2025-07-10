@@ -134,10 +134,21 @@ public class RascalLSPMonitor implements IRascalMonitor {
     private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
     private final Map<String, InterruptibleFuture<? extends Object>> activeFutures = new ConcurrentHashMap<>();
 
+    /**
+     * Register a running {@link InterruptibleFuture}, so it can be interrupted later.
+     * Must be called from the same thread as the corresponding {@link jobStarted}.
+     * @param name The task name, equal to the one used for {@link jobStarted}.
+     * @param future The future doing the work.
+     */
     public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
         activeFutures.put(generateProgressId(name), future);
     }
 
+    /**
+     * Unregister an {@link InterruptibleFuture} that has finished.
+     * Must be called from the same thread as the corresponding {@link jobEnded}.
+     * @param name The task name, equal to the one used for {@link jobEnded}.
+     */
     public void unregisterActiveFuture(String name) {
         activeFutures.remove(generateProgressId(name));
     }
