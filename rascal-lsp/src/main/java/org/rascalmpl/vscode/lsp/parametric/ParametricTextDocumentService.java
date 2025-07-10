@@ -674,6 +674,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void cancelProgress(String progressId) {
-        throw new UnsupportedOperationException("Unimplemented method 'cancelProgress'");
+        contributions.values().forEach(plex -> {
+            plex.cancelProgress(progressId);
+        });
     }
 }
