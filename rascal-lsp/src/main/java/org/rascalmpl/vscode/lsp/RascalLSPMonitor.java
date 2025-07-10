@@ -132,7 +132,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
     }
 
     private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
-    private final Map<String, InterruptibleFuture<?>> activeFutures = new ConcurrentHashMap<>();
+    private final Map<String, InterruptibleFuture<? extends Object>> activeFutures = new ConcurrentHashMap<>();
 
     public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
         activeFutures.put(generateProgressId(name), future);
