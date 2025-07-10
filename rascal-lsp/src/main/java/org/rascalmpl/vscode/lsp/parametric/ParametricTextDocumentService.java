@@ -671,4 +671,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public TextDocumentState getDocumentState(ISourceLocation file) {
         return files.get(file.top());
     }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        contributions.values().forEach(plex -> {
+            plex.cancelProgress(progressId);
+        });
+    }
 }

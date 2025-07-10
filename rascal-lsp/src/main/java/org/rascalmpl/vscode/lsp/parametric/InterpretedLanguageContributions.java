@@ -107,6 +107,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
     private final IBaseLanguageClient client;
+    private final RascalLSPMonitor monitor;
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
@@ -118,7 +119,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             var pcfg = new PathConfig().parse(lang.getPathConfig());
             pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
-            var monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
+            monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
             this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
                 "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
@@ -459,5 +460,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true, client);
             }),
             exec);
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        monitor.cancelProgress(progressId);
     }
 }

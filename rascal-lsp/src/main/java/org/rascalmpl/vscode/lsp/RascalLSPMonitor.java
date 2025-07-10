@@ -26,9 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
@@ -37,6 +41,8 @@ import org.eclipse.lsp4j.WorkDoneProgressNotification;
 import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -78,7 +84,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
             var msg = new WorkDoneProgressBegin();
             msg.setTitle(progressPrefix + rootName);
-            msg.setCancellable(false);
+            msg.setCancellable(activeFutures.containsKey(progressId));
             notifyProgress(msg);
         }
 
@@ -90,7 +96,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
         public void progress(String message) {
             var msg = new WorkDoneProgressReport();
             msg.setMessage(message);
-            msg.setCancellable(false);
+            msg.setCancellable(activeFutures.containsKey(progressId));
             notifyProgress(msg);
         }
 
@@ -126,6 +132,26 @@ public class RascalLSPMonitor implements IRascalMonitor {
     }
 
     private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
+    private final Map<String, InterruptibleFuture<? extends Object>> activeFutures = new ConcurrentHashMap<>();
+
+    /**
+     * Register a running {@link InterruptibleFuture}, so it can be interrupted later.
+     * Must be called from the same thread as the corresponding {@link jobStarted}.
+     * @param name The task name, equal to the one used for {@link jobStarted}.
+     * @param future The future doing the work.
+     */
+    public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
+        activeFutures.put(generateProgressId(name), future);
+    }
+
+    /**
+     * Unregister an {@link InterruptibleFuture} that has finished.
+     * Must be called from the same thread as the corresponding {@link jobEnded}.
+     * @param name The task name, equal to the one used for {@link jobEnded}.
+     */
+    public void unregisterActiveFuture(String name) {
+        activeFutures.remove(generateProgressId(name));
+    }
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
@@ -147,7 +173,6 @@ public class RascalLSPMonitor implements IRascalMonitor {
     private static String generateProgressId(String topLevelName) {
         Thread t = Thread.currentThread();
         return "T" + Integer.toHexString(t.hashCode()) + "" + Long.toHexString(t.getId()) + "" + Integer.toHexString(System.identityHashCode(topLevelName));
-
     }
 
 
@@ -205,5 +230,16 @@ public class RascalLSPMonitor implements IRascalMonitor {
     @Override
     public void warning(String message, ISourceLocation src) {
         logger.warn("{} : {}", src, message);
+    }
+
+    /**
+     * Cancel the running {@link InterruptibleFuture} corresponding to a specific progress bar.
+     * @param progressId The identifier of the progress bar.
+     */
+    public void cancelProgress(String progressId) {
+        var future = activeFutures.get(progressId);
+        if (future != null) {
+            future.interrupt();
+        }
     }
 }

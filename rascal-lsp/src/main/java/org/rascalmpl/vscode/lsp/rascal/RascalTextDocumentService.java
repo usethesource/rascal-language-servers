@@ -626,4 +626,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public @MonotonicNonNull FileFacts getFileFacts() {
         return facts;
     }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        this.rascalServices.cancelProgress(progressId);
+    }
 }

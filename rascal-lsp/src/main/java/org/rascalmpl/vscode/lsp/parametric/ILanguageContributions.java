@@ -117,6 +117,8 @@ public interface ILanguageContributions {
      * `references`, and `implementations` as parameter.
      */
     public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
+
+    public void cancelProgress(String progressId);
 }
 
 /*package*/ class EmptySummary {

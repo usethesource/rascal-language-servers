@@ -57,4 +57,5 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     boolean isManagingFile(ISourceLocation file);
 
     default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
+    void cancelProgress(String progressId);
 }

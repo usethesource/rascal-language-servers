@@ -79,6 +79,7 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -93,23 +94,43 @@ public class EvaluatorUtil {
     public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean isParametric, LanguageClient client) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
-        return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
+        AtomicReference<InterruptibleFuture<T>> future = new AtomicReference<>();
+
+        future.set(new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
             try {
+                InterruptibleFuture<T> self;
+                while ((self = future.get()) == null) {
+                    // yield until our value has been set
+                    Thread.yield();
+                }
+                var monitor = actualEval.getMonitor();
+                // unwrap until we find the RascalLSPMonitor doing the heavy lifting
+                if (monitor instanceof LSPIDEServices) {
+                    monitor = ((LSPIDEServices) monitor).getMonitor();
+                }
+                if (monitor instanceof RascalLSPMonitor) {
+                    ((RascalLSPMonitor) monitor).registerActiveFuture(task, self);
+                }
+
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
-                    boolean jobSuccess = false;
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
                             return defaultResult;
                         }
                         T result = call.apply(actualEval);
-                        jobSuccess = true;
+                        actualEval.jobEnd(task, true);
                         return result;
                     } catch (InterruptException e) {
+                        // Since the interrupt is not caught by try-catch in Rascal, any jobs started from Rascal with the same name as this task will be 'nested', and might lead to stale progress bars.
+                        // Here, we remove all (nested) jobs.
+                        actualEval.endAllJobs();
                         return defaultResult;
                     } finally {
-                        actualEval.jobEnd(task, jobSuccess);
+                        if (monitor instanceof RascalLSPMonitor) {
+                            ((RascalLSPMonitor) monitor).unregisterActiveFuture(task);
+                        }
                         runningEvaluator.set(null);
                         actualEval.__setInterrupt(false);
                     }
@@ -148,7 +169,9 @@ public class EvaluatorUtil {
             if (actualEval != null) {
                 actualEval.interrupt();
             }
-        });
+        }));
+
+        return future.get();
     }
 
     private static void extractReasonAndStackTrace(Throwable e, String task, StringWriter reason, StringWriter stackTrace) {

@@ -251,4 +251,9 @@ public class ParserOnlyContribution implements ILanguageContributions {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
     }
 
+    @Override
+    public void cancelProgress(String progressId) {
+        // empty, since this contribution does not have any running tasks nor a monitor
+    }
+
 }
