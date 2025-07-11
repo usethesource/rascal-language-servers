@@ -62,6 +62,7 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
@@ -100,6 +101,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -725,6 +727,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("formatting: {}", params);
+
+        // convert the `FormattingOptions` map to a `formattingOptions` constructor
+        // call the `formatting` implementation of the relevant language contribution
+        // with the resulting string and the input tree, compute a list of `TextEdit`s to return
+
+        return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
