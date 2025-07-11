@@ -268,7 +268,18 @@ data LanguageService
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
+    | formatting    (str (Tree _input, FormattingOptions _opts) formattingService)
     ;
+
+data FormattingOptions
+    // If LSP adds more options, add them as keyword arguments for backward compatibility
+    = formattingOptions(
+        int tabSize
+      , bool insertSpaces
+      , bool trimTrailingWhiteSpace
+      , bool insertFinalNewLine
+      , bool trimFinalNewLines
+    );
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}

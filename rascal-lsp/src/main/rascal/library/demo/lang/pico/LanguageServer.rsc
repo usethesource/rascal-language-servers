@@ -39,6 +39,8 @@ import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import IO;
+import String;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -57,8 +59,36 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+    codeAction(picoCodeActionService),
+    formatting(picoFormattingService)
 };
+
+str picoFormattingService(Tree input, formattingOptions(int tabSize, bool insertSpaces, bool trimTrailingWhiteSpace, bool insertFinalNewLine, bool trimFinalNewLines)) {
+    str formatted = "<input>";
+    str linesep = "\n";
+
+    println("Warning; `tabSize` (<tabSize>) is ignored");
+    if (insertSpaces) {
+        println("Warning; `insertSpaces` is ignored");
+    }
+
+    str trimLineTrailingWs(/^<nonWhiteSpace:.*\S>\s*$/) = nonWhiteSpace;
+    default str trimLineTrailingWs(/^\s*$/) = "";
+
+    if (trimTrailingWhiteSpace) {
+        formatted = intercalate(linesep, [trimLineTrailingWs(l) | l <- split(linesep, formatted)]);
+    }
+
+    if (trimFinalNewLines, /^<textLines:.*[^\n]>\n+$/ := formatted) {
+        formatted = textLines;
+    }
+
+    if (insertFinalNewLine && /\n$/ !:= formatted) {
+        formatted += "\n";
+    }
+
+    return formatted;
+}
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
