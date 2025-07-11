@@ -58,6 +58,7 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
@@ -69,8 +70,8 @@ import org.eclipse.lsp4j.ImplementationParams;
 import org.eclipse.lsp4j.InlayHint;
 import org.eclipse.lsp4j.InlayHintKind;
 import org.eclipse.lsp4j.InlayHintParams;
-import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -83,6 +84,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -104,8 +106,8 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
+import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -509,6 +511,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("formatting: {}", params);
+
+        // convert the `FormattingOptions` map to a `formattingOptions` constructor
+        // call the `formatting` implementation of the relevant language contribution
+        // with the resulting string and the input tree, compute a list of `TextEdit`s to return
+
+        return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
