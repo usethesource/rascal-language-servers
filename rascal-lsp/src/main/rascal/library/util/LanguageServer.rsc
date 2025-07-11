@@ -270,7 +270,18 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | formatting    (str (Tree _input, FormattingOptions _opts) formattingService)
     ;
+
+data FormattingOptions
+    // If LSP adds more options, add them as keyword arguments for backward compatibility
+    = formattingOptions(
+        int tabSize
+      , bool insertSpaces
+      , bool trimTrailingWhiteSpace
+      , bool insertFinalNewLine
+      , bool trimFinalNewLines
+    );
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
