@@ -549,11 +549,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         ISetWriter opts = vf.setWriter();
         for (Entry<String, Either3<String, Number, Boolean>> e : options.entrySet()) {
-            opts.append(e.getValue().map(
+            var opt = e.getValue().map(
                 s -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.stringType()), vf.string(s)),
                 n -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.integerType()), vf.integer(n.longValue())),
                 b -> vf.constructor(tf.constructor(store, optionType, e.getKey()))
-            ));
+            );
+            opts.append(opt);
         }
         return opts.done();
     }
