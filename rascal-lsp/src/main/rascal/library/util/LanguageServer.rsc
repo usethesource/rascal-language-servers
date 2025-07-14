@@ -282,9 +282,9 @@ data LanguageService
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
     | formatting    (str(Tree _input, set[FormattingOption] _opts) formattingService,
-                     str(str) trimTrailingWhiteSpace = defaultTrimTrailingWhiteSpace,
-                     str(str) insertFinalNewLine = defaultInsertFinalNewLine,
-                     str(str) trimFinalNewLines = defaultTrimFinalNewLines)
+                     str(str) trimTrailingWhitespace = defaultTrimTrailingWhitespace,
+                     str(str) insertFinalNewline = defaultInsertFinalNewline,
+                     str(str) trimFinalNewlines = defaultTrimFinalNewlines)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
@@ -293,9 +293,9 @@ default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(foc
 data FormattingOption
     = tabSize(int)
     | insertSpaces()
-    | trimTrailingWhiteSpace()
-    | insertFinalNewLine()
-    | trimFinalNewLines()
+    | trimTrailingWhitespace()
+    | insertFinalNewline()
+    | trimFinalNewlines()
     ;
 
 set[str] newLineCharacters = {
@@ -338,25 +338,25 @@ test bool mostUsedNewlineTestTie()
 test bool mostUsedNewlineTestGreedy()
     = mostUsedNewline("\r\n\r\n\n") == "\r\n";
 
-str defaultInsertFinalNewLine(str input, set[str] lineseps = newLineCharacters)
+str defaultInsertFinalNewline(str input, set[str] lineseps = newLineCharacters)
     = any(nl <- lineseps, endsWith(input, nl))
     ? input
     : input + mostUsedNewline(input)
     ;
 
-test bool defaultInsertFinalNewLineTestSimple()
-    = defaultInsertFinalNewLine("a\nb")
+test bool defaultInsertFinalNewlineTestSimple()
+    = defaultInsertFinalNewline("a\nb")
     == "a\nb\n";
 
-test bool defaultInsertFinalNewLineTestNoop()
-    = defaultInsertFinalNewLine("a\nb\n")
+test bool defaultInsertFinalNewlineTestNoop()
+    = defaultInsertFinalNewline("a\nb\n")
     == "a\nb\n";
 
-test bool defaultInsertFinalNewLineTestMixed()
-    = defaultInsertFinalNewLine("a\nb\r\n")
+test bool defaultInsertFinalNewlineTestMixed()
+    = defaultInsertFinalNewline("a\nb\r\n")
     == "a\nb\r\n";
 
-str defaultTrimFinalNewLines(str input, set[str] lineseps = newLineCharacters) {
+str defaultTrimFinalNewlines(str input, set[str] lineseps = newLineCharacters) {
     orderedSeps = sort(lineseps, bySize);
     while (nl <- orderedSeps, endsWith(input, nl)) {
         input = input[0..-size(nl)];
@@ -364,14 +364,14 @@ str defaultTrimFinalNewLines(str input, set[str] lineseps = newLineCharacters) {
     return input;
 }
 
-test bool defaultTrimFinalNewLinesTestSimple()
-    = defaultTrimFinalNewLines("a\n\n\n") == "a";
+test bool defaultTrimFinalNewlinesTestSimple()
+    = defaultTrimFinalNewlines("a\n\n\n") == "a";
 
-test bool defaultTrimFinalNewLinesTestEndOnly()
-    = defaultTrimFinalNewLines("a\n\n\nb\n\n") == "a\n\n\nb";
+test bool defaultTrimFinalNewlinesTestEndOnly()
+    = defaultTrimFinalNewlines("a\n\n\nb\n\n") == "a\n\n\nb";
 
-test bool defaultTrimFinalNewLinesTestWhiteSpace()
-    = defaultTrimFinalNewLines("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
+test bool defaultTrimFinalNewlinesTestWhiteSpace()
+    = defaultTrimFinalNewlines("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
 
 str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters) {
     orderedSeps = sort(lineseps, bySize);
@@ -399,15 +399,15 @@ str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters)
 test bool perLineTest()
     = perLine("a\nb\r\nc\n\r\n", str(str line) { return line + "x"; }) == "ax\nbx\r\ncx\nx\r\nx";
 
-str defaultTrimTrailingWhiteSpace(str input) {
+str defaultTrimTrailingWhitespace(str input) {
     str trimLineTrailingWs(/^<nonWhiteSpace:.*\S>\s*$/) = nonWhiteSpace;
     default str trimLineTrailingWs(/^\s*$/) = "";
 
     return perLine(input, trimLineTrailingWs);
 }
 
-test bool defaultTrimTrailingWhiteSpaceTest()
-    = defaultTrimTrailingWhiteSpace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
+test bool defaultTrimTrailingWhitespaceTest()
+    = defaultTrimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
