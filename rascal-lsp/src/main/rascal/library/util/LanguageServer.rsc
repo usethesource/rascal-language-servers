@@ -409,6 +409,18 @@ str defaultTrimTrailingWhitespace(str input) {
 test bool defaultTrimTrailingWhitespaceTest()
     = defaultTrimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
 
+
+list[TextEdit] formattingWrapper(Tree input, set[FormattingOption] opts, f:formatting(format)) {
+    formatted = format(input, opts);
+    if (trimTrailingWhitespace() in opts) formatted = f.trimTrailingWhitespace(formatted);
+    if (trimFinalNewlines() in opts) formatted = f.trimFinalNewlines(formatted);
+    if (insertFinalNewline() in opts) formatted = f.insertFinalNewline(formatted);
+
+    // wrap complete formatted string in edit
+    // later, we should calculate more precise, local edits here, to not mess up the history stack in the editor
+    return [replace(input.src, formatted)];
+}
+
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
 LanguageService parser(Parser parser) = parsing(parser);

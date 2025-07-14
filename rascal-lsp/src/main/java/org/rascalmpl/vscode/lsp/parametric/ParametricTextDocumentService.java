@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -69,6 +70,7 @@ import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -143,6 +145,7 @@ import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
+import io.usethesource.vallang.ISetWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -238,6 +241,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setDocumentFormattingProvider(true);
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
@@ -733,11 +737,32 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         logger.debug("formatting: {}", params);
 
-        // convert the `FormattingOptions` map to a `formattingOptions` constructor
-        // call the `formatting` implementation of the relevant language contribution
-        // with the resulting string and the input tree, compute a list of `TextEdit`s to return
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
 
-        return CompletableFuture.completedFuture(Collections.emptyList());
+        // convert the `FormattingOptions` map to a `set[FormattingOption]`
+        ISet optSet = getFormattingOptions(params.getOptions());
+        // call the `formatting` implementation of the relevant language contribution
+        return getFile(params.getTextDocument())
+            .getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> contribs.formatting(tree, optSet).get())
+            // convert the document changes
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
+    }
+
+    private ISet getFormattingOptions(FormattingOptions options) {
+        var optionType = tf.abstractDataType(typeStore, "FormattingOption");
+
+        ISetWriter opts = VF.setWriter();
+        for (Entry<String, Either3<String, Number, Boolean>> e : options.entrySet()) {
+            var opt = e.getValue().map(
+                s -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey(), tf.stringType()), VF.string(s)),
+                n -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey(), tf.integerType()), VF.integer(n.longValue())),
+                b -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey()))
+            );
+            opts.append(opt);
+        }
+        return opts.done();
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
