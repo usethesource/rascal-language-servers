@@ -67,31 +67,15 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     formatting(picoFormattingService)
 };
 
-str picoFormattingService(Tree input, formattingOptions(int tabSize, bool insertSpaces, bool trimTrailingWhiteSpace, bool insertFinalNewLine, bool trimFinalNewLines)) {
-    str formatted = "<input>";
-    str linesep = "\n";
-
-    println("Warning; `tabSize` (<tabSize>) is ignored");
-    if (insertSpaces) {
+str picoFormattingService(Tree input, set[FormattingOption] opts) {
+     if (tabSize(int tabSize) <- opts) {
+        println("Warning; `tabSize` (<tabSize>) is ignored");
+    }
+    if (insertSpaces() <- opts) {
         println("Warning; `insertSpaces` is ignored");
     }
 
-    str trimLineTrailingWs(/^<nonWhiteSpace:.*\S>\s*$/) = nonWhiteSpace;
-    default str trimLineTrailingWs(/^\s*$/) = "";
-
-    if (trimTrailingWhiteSpace) {
-        formatted = intercalate(linesep, [trimLineTrailingWs(l) | l <- split(linesep, formatted)]);
-    }
-
-    if (trimFinalNewLines, /^<textLines:.*[^\n]>\n+$/ := formatted) {
-        formatted = textLines;
-    }
-
-    if (insertFinalNewLine && /\n$/ !:= formatted) {
-        formatted += "\n";
-    }
-
-    return formatted;
+    return "<input>";
 }
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
