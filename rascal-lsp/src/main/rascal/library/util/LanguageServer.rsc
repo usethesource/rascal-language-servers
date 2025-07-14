@@ -406,7 +406,6 @@ list[TextEdit] formattingWrapper(Tree input, set[FormattingOption] opts, f:forma
     if (trimFinalNewlines() in opts) formatted = f.trimFinalNewlines(formatted);
     if (insertFinalNewline() in opts) formatted = f.insertFinalNewline(formatted);
 
-    println("Done formatting!");
     // wrap complete formatted string in edit
     // later, we should calculate more precise, local edits here, to not mess up the history stack in the editor
     return [replace(input.src, formatted)];

@@ -26,12 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.logging.log4j.LogManager;
@@ -361,14 +361,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions) {
         debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions.size());
-        return EvaluatorUtil.runEvaluator(LanguageContributions.FORMATTING, eval, actualEval -> {
-            try {
-                return (IList) formatting.thenApply(formattingContrib -> actualEval.call("formattingWrapper", "util::LanguageServer", ((Map<String, IValue>) null), input, formattingOptions, formattingContrib)).get();
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error(e);
-                return VF.list();
-            }
-        }, VF.list(), exec, true, client);
+        return InterruptibleFuture.flatten(formatting.thenApply(formattingContrib ->
+            runEvaluator(LanguageContributions.FORMATTING, eval, actualEval ->
+                (IList) actualEval.call(actualEval.getMonitor(), "util::LanguageServer", "formattingWrapper", input, formattingOptions, formattingContrib)
+            , VF.list(), exec, true, client)), exec);
     }
 
     private void debug(String name, Object param) {
