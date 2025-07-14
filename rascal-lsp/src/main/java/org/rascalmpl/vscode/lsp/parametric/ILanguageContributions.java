@@ -59,6 +59,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
+    public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 
@@ -74,6 +75,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
     public CompletableFuture<Boolean> hasSelectionRange();
+    public CompletableFuture<Boolean> hasFormatting();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
