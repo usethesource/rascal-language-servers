@@ -130,7 +130,6 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.exceptions.FactParseError;
-import io.usethesource.vallang.impl.persistent.ValueFactory;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
