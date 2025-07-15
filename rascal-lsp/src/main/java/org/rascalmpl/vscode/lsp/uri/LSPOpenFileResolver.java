@@ -33,6 +33,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ISourceLocationInput;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -99,6 +100,21 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     @Override
     public boolean supportsHost() {
         return false;
+    }
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`size` not supported by LSPOpenFileResolver");
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`isReadable` not supported by LSPOpenFileResolver");
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`stat` not supported by LSPOpenFileResolver");
     }
     
 }

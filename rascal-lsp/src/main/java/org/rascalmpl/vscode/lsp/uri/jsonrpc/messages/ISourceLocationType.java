@@ -53,15 +53,4 @@ public enum ISourceLocationType {
         }
         return allValues[value - 1];
     }
-
-    public static ISourceLocationWatcher.ISourceLocationType translate(ISourceLocationType lsp) {
-        switch (lsp) {
-            case DIRECTORY:
-                return ISourceLocationWatcher.ISourceLocationType.DIRECTORY;
-            case FILE:
-                return ISourceLocationWatcher.ISourceLocationType.FILE;
-            default:
-                throw new RuntimeException("Forgotten type: " + lsp);
-        }
-    }
 }
