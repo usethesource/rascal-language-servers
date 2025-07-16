@@ -60,7 +60,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
-    formatting(picoFormattingService)
+    formatting(picoParser(allowRecovery), picoFormattingService)
 };
 
 str picoFormattingService(Tree input, set[FormattingOption] opts) {
