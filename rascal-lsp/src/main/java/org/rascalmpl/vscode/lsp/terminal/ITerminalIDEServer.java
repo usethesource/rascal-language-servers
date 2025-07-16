@@ -176,14 +176,6 @@ public interface ITerminalIDEServer {
 
     }
 
-    private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
-        try {
-            return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
-        } catch (IOException e) {
-            throw new RuntimeException("this should never happen:", e);
-        }
-    }
-
     public static String value2string(IValue value) {
         final Encoder encoder = Base64.getEncoder();
         ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
@@ -448,6 +440,14 @@ public interface ITerminalIDEServer {
         public String toString() {
             return "ParserSpecification [parserLocation=" + parserLocation + ", nonTerminalName=" + nonTerminalName
                 + ", nonTerminalIsStart=" + nonTerminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+        }
+
+        private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
+            try {
+                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+            } catch (IOException e) {
+                throw new RuntimeException("this should never happen:", e);
+            }
         }
 
     }
