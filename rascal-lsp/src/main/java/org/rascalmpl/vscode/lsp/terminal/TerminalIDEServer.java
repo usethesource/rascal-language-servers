@@ -28,11 +28,9 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
@@ -65,7 +63,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
-    private final Set<String> jobs = new HashSet<>();
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
 
