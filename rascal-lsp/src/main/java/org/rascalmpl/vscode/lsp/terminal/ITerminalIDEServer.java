@@ -96,36 +96,6 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/jobStart")
-    default CompletableFuture<Void>  jobStart(JobStartParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobStep")
-    default CompletableFuture<Void>  jobStep(JobStepParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobEnd")
-    default CompletableFuture<AmountOfWork> jobEnd(JobEndParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobIsCanceled")
-    default CompletableFuture<BooleanParameter> jobIsCanceled() {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobTodo")
-    default CompletableFuture<Void> jobTodo(AmountOfWork param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/warning")
-    default void warning(WarningMessage param) {
-        throw new UnsupportedOperationException();
-    }
-
     @JsonNotification("rascal/registerLocations")
     default void registerLocations(RegisterLocationsParameters param) {
         throw new UnsupportedOperationException();
@@ -206,118 +176,11 @@ public interface ITerminalIDEServer {
 
     }
 
-    public static class WarningMessage {
-        private final String location;
-        private final String message;
-
-        public WarningMessage(String message, ISourceLocation src) {
-            this.message = message;
-            this.location = src.toString();
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public ISourceLocation getLocation() {
-            return buildLocation(location);
-        }
-
-    }
-
     private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
         try {
             return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
         } catch (IOException e) {
             throw new RuntimeException("this should never happen:", e);
-        }
-    }
-    public static class AmountOfWork {
-        private final int amount;
-
-        public AmountOfWork(int amount) {
-            this.amount = amount;
-        }
-
-        public int getAmount() {
-            return amount;
-        }
-    }
-
-    public static class BooleanParameter {
-        private final boolean truth;
-
-        public BooleanParameter(boolean s) {
-            this.truth = s;
-        }
-
-        public boolean isTrue() {
-            return truth;
-        }
-    }
-    public static class JobStartParameter {
-        private final String name;
-        private final int workShare;
-        private final int totalWork;
-
-        public JobStartParameter(String name, int workShare, int totalWork) {
-            this.name = name;
-            this.workShare = workShare;
-            this.totalWork = totalWork;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public int getTotalWork() {
-            return totalWork;
-        }
-
-        public int getWorkShare() {
-            return workShare;
-        }
-    }
-
-    public static class JobStepParameter {
-        private final String name;
-        private final String message;
-        private final int inc;
-
-        public JobStepParameter(String name, String message, int inc) {
-            this.name = name;
-            this.message = message;
-            this.inc = inc;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public int getInc() {
-            return inc;
-        }
-    }
-
-    public static class JobEndParameter {
-        private final String name;
-        private final boolean success;
-
-        public JobEndParameter(String name, boolean total) {
-            this.name = name;
-            this.success = total;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public boolean getSuccess() {
-            return success;
         }
     }
 
@@ -375,18 +238,6 @@ public interface ITerminalIDEServer {
         @Override
         public String toString() {
             return "editParameter: " + module;
-        }
-    }
-
-    public static class JobCanceledParameter {
-        private String jobName;
-
-        public JobCanceledParameter(String jobName) {
-            this.jobName = jobName;
-        }
-
-        public String getModule() {
-            return jobName;
         }
     }
 
