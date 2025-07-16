@@ -34,6 +34,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -58,6 +59,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
+    public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 
@@ -72,6 +74,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasReferences();
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
+    public CompletableFuture<Boolean> hasFormatting();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 

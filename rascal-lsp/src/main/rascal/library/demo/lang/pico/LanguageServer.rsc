@@ -39,6 +39,8 @@ import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import IO;
+import String;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -57,8 +59,20 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+    codeAction(picoCodeActionService),
+    formatting(picoParser(allowRecovery), picoFormattingService)
 };
+
+str picoFormattingService(Tree input, set[FormattingOption] opts) {
+     if (tabSize(int tabSize) <- opts) {
+        println("Warning; `tabSize` (<tabSize>) is ignored");
+    }
+    if (insertSpaces() <- opts) {
+        println("Warning; `insertSpaces` is ignored");
+    }
+
+    return "<input>";
+}
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
