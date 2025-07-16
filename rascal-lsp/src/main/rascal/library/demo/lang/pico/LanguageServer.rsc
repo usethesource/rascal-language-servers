@@ -61,7 +61,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
     selectionRange(picoSelectionRangeService),
-    formatting(picoFormattingService)
+    formatting(picoParser(allowRecovery), picoFormattingService)
 };
 
 str picoFormattingService(Tree input, set[FormattingOption] opts) {
