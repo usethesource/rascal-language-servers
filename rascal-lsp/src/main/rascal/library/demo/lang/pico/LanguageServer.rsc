@@ -64,7 +64,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
-    formatting(picoFormattingService)
+    formatting(picoParser(allowRecovery), picoFormattingService)
 };
 
 str picoFormattingService(Tree input, set[FormattingOption] opts) {

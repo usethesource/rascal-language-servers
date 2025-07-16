@@ -281,7 +281,8 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
-    | formatting    (str(Tree _input, set[FormattingOption] _opts) formattingService,
+    | formatting    (Tree (str _input, loc _origin) parsingService,
+                     str(Tree _input, set[FormattingOption] _opts) formattingService,
                      str(str) trimTrailingWhitespace = defaultTrimTrailingWhitespace,
                      str(str) insertFinalNewline = defaultInsertFinalNewline,
                      str(str) trimFinalNewlines = defaultTrimFinalNewlines)
@@ -409,16 +410,17 @@ str defaultTrimTrailingWhitespace(str input) {
 test bool defaultTrimTrailingWhitespaceTest()
     = defaultTrimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
 
+list[TextEdit] layoutDiff(Tree a, Tree b, bool copyComments = false);
 
-list[TextEdit] formattingWrapper(Tree input, set[FormattingOption] opts, f:formatting(format)) {
-    formatted = format(input, opts);
+list[TextEdit] formattingWrapper(Tree input, set[FormattingOption] opts, f:formatting(parser, formatter)) {
+    formatted = formatter(input, opts);
     if (trimTrailingWhitespace() in opts) formatted = f.trimTrailingWhitespace(formatted);
     if (trimFinalNewlines() in opts) formatted = f.trimFinalNewlines(formatted);
     if (insertFinalNewline() in opts) formatted = f.insertFinalNewline(formatted);
 
     // wrap complete formatted string in edit
     // later, we should calculate more precise, local edits here, to not mess up the history stack in the editor
-    return [replace(input.src, formatted)];
+    return layoutDiff(input, parser(formatted, input@\loc.top));
 }
 
 @deprecated{Backward compatible with ((parsing)).}
