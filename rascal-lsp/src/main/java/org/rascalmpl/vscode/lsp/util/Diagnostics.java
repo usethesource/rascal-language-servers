@@ -235,11 +235,7 @@ public class Diagnostics {
             ISourceLocation file = getMessageLocation(message).top();
             Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
 
-            List<Diagnostic> lst = results.get(file);
-            if (lst == null) {
-                lst = new LinkedList<>();
-                results.put(file, lst);
-            }
+            List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
         }
 
