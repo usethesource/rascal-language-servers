@@ -468,7 +468,7 @@ public interface IRascalFileSystemServices {
         }
     }
 
-    public static enum FileChangeType {
+    public enum FileChangeType {
         Changed(1), Created(2), Deleted(3);
 
         private final int value;
@@ -501,7 +501,7 @@ public interface IRascalFileSystemServices {
 
     }
 
-    public static enum FileType {
+    public enum FileType {
         Unknown(0), File(1), Directory(2), SymbolicLink(64);
 
         private final int value;
@@ -518,7 +518,7 @@ public interface IRascalFileSystemServices {
 
     // this enum models the enum inside vscode, which in the future might become an enum flag
     // in that case we have to solve that
-    public static enum FilePermission {
+    public enum FilePermission {
         Readonly(1);
         private final int value;
         private FilePermission(int val) {
