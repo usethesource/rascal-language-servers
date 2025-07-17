@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,8 +36,6 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,8 +46,6 @@ import org.jline.utils.OSUtils;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.interpreter.Evaluator;
-import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.repl.BaseREPL;
 import org.rascalmpl.repl.StopREPLException;
@@ -59,13 +54,9 @@ import org.rascalmpl.repl.output.impl.AsciiStringOutputPrinter;
 import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
 import org.rascalmpl.repl.rascal.RascalReplServices;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.dap.DebugSocketServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
-
-import io.usethesource.vallang.ISourceLocation;
 
 /**
  * This class runs a Rascal terminal REPL that

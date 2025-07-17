@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -73,7 +74,6 @@ import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
@@ -82,8 +82,8 @@ import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.io.StandardTextWriter;

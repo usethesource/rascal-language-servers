@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
@@ -42,6 +43,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,7 +56,6 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.Prelude;
-import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.types.RascalTypeFactory;
@@ -68,12 +69,12 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
-import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
