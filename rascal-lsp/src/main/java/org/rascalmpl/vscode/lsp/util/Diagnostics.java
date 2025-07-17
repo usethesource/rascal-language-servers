@@ -257,7 +257,7 @@ public class Diagnostics {
         }
 
         if (!loc.top().equals(file.top())) {
-            logger.error("Dropping diagnostic, reported for the wrong file: " + loc + ", " + file);
+            logger.error("Dropping diagnostic, reported for the wrong file: {}, {}", loc, file);
             return false;
         }
         return true;

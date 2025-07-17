@@ -154,7 +154,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
         }
         else {
-            logger.debug("job " + param.getName() + " was already running. ignored.");
+            logger.debug("job {} was already running. ignored.", param.getName());
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -173,7 +173,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             );
         }
         else {
-            logger.debug("stepping a job that does not exist: " + param.getName());
+            logger.debug("stepping a job that does not exist: {}", param.getName());
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -193,7 +193,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             );
         }
         else {
-            logger.debug("ended an non-existing job: " + param.getName());
+            logger.debug("ended an non-existing job: {}", param.getName());
             return CompletableFuture.completedFuture(new AmountOfWork(1));
         }
     }
