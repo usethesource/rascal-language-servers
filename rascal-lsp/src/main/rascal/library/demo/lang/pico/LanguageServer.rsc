@@ -57,7 +57,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+    codeAction(picoCodeActionService),
+    selectionRange(picoSelectionRangeService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -187,6 +188,9 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
+
+list[list[loc]] picoSelectionRangeService(Tree input, list[loc] positions)
+    = [dup([t@\loc | t <- computeFocusList(input, l.begin.line, l.begin.column)]) | l <- positions];
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
