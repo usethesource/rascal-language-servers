@@ -58,6 +58,9 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * Reusable utilities for code actions and commands (maps between Rascal and LSP world)
  */
 public class CodeActions {
+
+    private CodeActions() { /* hide implicit public constructor */ }
+
     /**
      *  Makes a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
      *  and which came back with the codeAction's list of relevant (in scope) diagnostics.

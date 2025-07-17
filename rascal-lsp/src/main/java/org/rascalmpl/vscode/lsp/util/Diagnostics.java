@@ -73,6 +73,8 @@ public class Diagnostics {
         severityMap.put("info", DiagnosticSeverity.Information);
     }
 
+    private Diagnostics() {/* hide implicit public constructor */ }
+
     public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
         return diagnostics.collect(
             Collectors.groupingBy(Entry::getKey,
