@@ -451,6 +451,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+        if (target == null) {
+            return InterruptibleFuture.completedFuture(defaultResult);
+        }
         return InterruptibleFuture.flatten(target.thenApply(
             s -> {
                 if (s == null) {
