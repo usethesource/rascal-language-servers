@@ -287,7 +287,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonNotification("rascal/filesystem/onDidChangeFile")
-    default void onDidChangeFile(FileChangeEvent event) { };
+    default void onDidChangeFile(FileChangeEvent event) { }
 
 
     public static class DeleteParameters {
@@ -481,7 +481,7 @@ public interface IRascalFileSystemServices {
         public int getValue() {
             return value;
         }
-    };
+    }
 
     public static class FileStat {
         FileType type;
@@ -514,7 +514,7 @@ public interface IRascalFileSystemServices {
         public int getValue() {
             return value;
         }
-    };
+    }
 
     // this enum models the enum inside vscode, which in the future might become an enum flag
     // in that case we have to solve that
