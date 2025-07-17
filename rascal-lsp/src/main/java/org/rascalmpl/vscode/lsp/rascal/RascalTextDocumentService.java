@@ -77,6 +77,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -190,6 +192,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
+        result.setSelectionRangeProvider(true);
     }
 
     @Override
@@ -515,6 +518,36 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         logger.debug("semanticTokensRange: {}", params.getTextDocument());
         return getSemanticTokens(params.getTextDocument());
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        logger.debug("textDocument/selectionRange: {}", params);
+        TextDocumentState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
+            .thenApply(tr -> params.getPositions().stream()
+                .map(p -> {
+                    Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), p, columns);
+                    // Compute focus list for cursor position
+                    var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                    // Iterate in reverse order, starting with the outermost location
+                    var ranges = focus.reverse().stream()
+                        .map(ITree.class::cast)
+                        .map(TreeAdapter::getLocation)
+                        // Map to distinct ranges
+                        .map(l -> Locations.toRange(l, columns)).distinct()
+                        .collect(Collectors.toList());
+
+                    // reduce to a single, nested SelectionRange
+                    SelectionRange parent = null;
+                    for (var r : ranges) {
+                        parent = new SelectionRange(r, parent);
+                    }
+                    return parent;
+                })
+                .collect(Collectors.toList()));
     }
 
     @Override
