@@ -168,9 +168,8 @@ public class RascalLanguageServices {
     }
 
     IFunction makePathConfigGetter(Evaluator e) {
-        return e.getFunctionValueFactory().function(getPathConfigType, (t, u) -> {
-            return rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0]).asConstructor();
-        });
+        return e.getFunctionValueFactory().function(getPathConfigType, (t, u) ->
+            rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0]).asConstructor());
     }
 
     IFunction makeParseTreeGetter(Evaluator e) {
@@ -284,16 +283,15 @@ public class RascalLanguageServices {
                 .map(r -> VF.tuple(sourceLocationFromUri(r.getOldUri()), sourceLocationFromUri(r.getNewUri())))
                 .collect(VF.listWriter())
             , exec)
-            .thenCompose(renames -> {
-                return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+            .thenCompose(renames ->
+                runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
                     IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> getPathConfig.apply((ISourceLocation) t[0]).asConstructor());
                     try {
                         return (ITuple) eval.call("rascalRenameModule", renames, workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
                     } catch (Throw e) {
                         throw new RuntimeException(e.getMessage());
                     }
-                }, emptyResult, exec, false, client).get();
-            });
+                }, emptyResult, exec, false, client).get());
     }
 
 

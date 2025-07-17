@@ -504,7 +504,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
                 .thenApply(IList::stream)
-            , () -> Stream.<IValue>empty())
+            , Stream::empty)
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
@@ -674,8 +674,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void cancelProgress(String progressId) {
-        contributions.values().forEach(plex -> {
-            plex.cancelProgress(progressId);
-        });
+        contributions.values().forEach(plex ->
+            plex.cancelProgress(progressId));
     }
 }

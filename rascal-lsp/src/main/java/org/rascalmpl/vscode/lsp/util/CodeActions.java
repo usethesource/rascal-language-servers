@@ -89,7 +89,7 @@ public class CodeActions {
             Stream.concat(quicks, actions)
                 .map(IConstructor.class::cast)
                 .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
-                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                .map(Either::<Command,CodeAction>forRight)
                 .collect(Collectors.toList())
         );
     }

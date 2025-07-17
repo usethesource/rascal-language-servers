@@ -578,7 +578,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, facts.getPathConfig(loc)))
                 .thenApply(IList::stream)
-            , () -> Stream.<IValue>empty())
+            , Stream::empty)
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
