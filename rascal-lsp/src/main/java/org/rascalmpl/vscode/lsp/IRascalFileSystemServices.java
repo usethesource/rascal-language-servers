@@ -632,6 +632,7 @@ public interface IRascalFileSystemServices {
         private static ResponseError noPermissions(Object data) {
             return new ResponseError(-5, "No permissions", data);
         }
+        @SuppressWarnings("unused")
         private static ResponseError unavailable(Object data) {
             return new ResponseError(-6, "Unavailable", data);
         }
