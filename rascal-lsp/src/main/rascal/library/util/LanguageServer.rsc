@@ -268,7 +268,7 @@ data LanguageService
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
-    | selectionRange(list[list[loc]](Tree _input, list[loc] _positions) selectionRangeService)
+    | selectionRange(list[loc](Focus _focus) selectionRangeService)
     ;
 
 @deprecated{Backward compatible with ((parsing)).}

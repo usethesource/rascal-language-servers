@@ -189,8 +189,8 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
     return ("result": true);
 }
 
-list[list[loc]] picoSelectionRangeService(Tree input, list[loc] positions)
-    = [dup([t@\loc | t <- computeFocusList(input, l.begin.line, l.begin.column)]) | l <- positions];
+list[loc] picoSelectionRangeService(Focus focus)
+    = dup([t@\loc | t <- focus]);
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
