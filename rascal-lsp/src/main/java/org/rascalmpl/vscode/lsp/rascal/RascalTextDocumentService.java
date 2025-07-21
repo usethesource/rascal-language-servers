@@ -538,8 +538,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // Compute focus list for cursor position
         var focus = TreeSearch.computeFocusList(tr, pos.getLine(), pos.getCharacter());
 
-        // Iterate in reverse order, starting with the outermost location
-        return focus.reverse().stream()
+        return focus
+            // Iterate in reverse order, starting with the outermost tree
+            .reverse()
+            .stream()
             .map(ITree.class::cast)
             .map(TreeAdapter::getLocation)
             // Map to distinct ranges
@@ -552,10 +554,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     // `t` contains `u`
                     u.setParent(t);
                     return u;
+                } else if (Ranges.containsRange(u.getRange(), t.getRange())) {
+                    // `u` contains `t`
+                    t.setParent(u);
+                    return t;
+                } else {
+                    throw new UnsupportedOperationException(String.format("Cannot combine two `SelectionRange`s, since they are not nested (%s and %s)", t, u));
                 }
-                // `u` contains `t`
-                t.setParent(u);
-                return t;
             })
             .orElse(new SelectionRange());
     }
