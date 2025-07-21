@@ -98,6 +98,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -528,26 +529,35 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> params.getPositions().stream()
-                .map(p -> {
-                    Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), p, columns);
-                    // Compute focus list for cursor position
-                    var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
-                    // Iterate in reverse order, starting with the outermost location
-                    var ranges = focus.reverse().stream()
-                        .map(ITree.class::cast)
-                        .map(TreeAdapter::getLocation)
-                        // Map to distinct ranges
-                        .map(l -> Locations.toRange(l, columns)).distinct()
-                        .collect(Collectors.toList());
-
-                    // reduce to a single, nested SelectionRange
-                    SelectionRange parent = null;
-                    for (var r : ranges) {
-                        parent = new SelectionRange(r, parent);
-                    }
-                    return parent;
-                })
+                .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
+                .map(p -> selectionRangeForPosition(tr, p))
                 .collect(Collectors.toList()));
+    }
+
+    private SelectionRange selectionRangeForPosition(ITree tr, Position pos) {
+        // Compute focus list for cursor position
+        var focus = TreeSearch.computeFocusList(tr, pos.getLine(), pos.getCharacter());
+
+        // Iterate in reverse order, starting with the outermost location
+        return focus.reverse().stream()
+            .map(ITree.class::cast)
+            .map(TreeAdapter::getLocation)
+            // Map to distinct ranges
+            .map(l -> Locations.toRange(l, columns))
+            .distinct()
+            // Reduce to a single, nested SelectionRange
+            .map(r -> new SelectionRange(r, null))
+            .reduce((t, u) -> {
+                if (Ranges.containsRange(t.getRange(), u.getRange())) {
+                    // `t` contains `u`
+                    u.setParent(t);
+                    return u;
+                }
+                // `u` contains `t`
+                t.setParent(u);
+                return t;
+            })
+            .orElse(new SelectionRange());
     }
 
     @Override
