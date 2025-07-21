@@ -98,7 +98,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -537,32 +536,22 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private SelectionRange selectionRangeForPosition(ITree tr, Position pos) {
         // Compute focus list for cursor position
         var focus = TreeSearch.computeFocusList(tr, pos.getLine(), pos.getCharacter());
-
-        return focus
-            // Iterate in reverse order, starting with the outermost tree
+        var ranges = focus
+            // Reverse, to prepare for folding later
             .reverse()
             .stream()
             .map(ITree.class::cast)
             .map(TreeAdapter::getLocation)
-            // Map to distinct ranges
             .map(l -> Locations.toRange(l, columns))
+            // Remove duplicate ranges
             .distinct()
-            // Reduce to a single, nested SelectionRange
-            .map(r -> new SelectionRange(r, null))
-            .reduce((t, u) -> {
-                if (Ranges.containsRange(t.getRange(), u.getRange())) {
-                    // `t` contains `u`
-                    u.setParent(t);
-                    return u;
-                } else if (Ranges.containsRange(u.getRange(), t.getRange())) {
-                    // `u` contains `t`
-                    t.setParent(u);
-                    return t;
-                } else {
-                    throw new UnsupportedOperationException(String.format("Cannot combine two `SelectionRange`s, since they are not nested (%s and %s)", t, u));
-                }
-            })
-            .orElse(new SelectionRange());
+            .collect(Collectors.toList());
+
+        SelectionRange selectionRange = null;
+        for (var r : ranges) {
+            selectionRange = new SelectionRange(r, selectionRange);
+        }
+        return selectionRange;
     }
 
     @Override
