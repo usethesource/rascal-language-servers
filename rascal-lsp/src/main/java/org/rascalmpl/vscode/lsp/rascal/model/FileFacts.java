@@ -27,12 +27,12 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +51,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -107,7 +108,7 @@ public class FileFacts {
 
         public FileFact(ISourceLocation file, Executor exec) {
             this.file = file;
-            this.typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Collections.emptyMap()));
+            this.typeCheckResults = new ReplaceableFuture<>(typeCheck());
             this.summary = new LazyUpdateableReference<>(
                 new InterruptibleFuture<>(CompletableFuture.completedFuture(new SummaryBridge()), () -> {
                 }),
@@ -150,14 +151,15 @@ public class FileFacts {
         public void invalidate() {
             summary.invalidate();
             typeCheckerMessages.clear();
-            this.typeCheckResults.replace(
-                rascal.compileFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(m -> {
-                        Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
-                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(l, msgs, cm)));
-                        return result;
-                    })
-            ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
+            this.typeCheckResults.replace(typeCheck()).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
+        }
+
+        private InterruptibleFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheck() {
+            return rascal.compileFile(file, confs.lookupConfig(file), exec)
+                .thenApply(m -> m.entrySet().stream().collect(Collectors.toMap(
+                    Map.Entry<ISourceLocation, ISet>::getKey,
+                    e -> Diagnostics.translateDiagnostics(e.getKey(), e.getValue(), cm)
+                )));
         }
 
     }
