@@ -69,8 +69,10 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
+        await ide.screenshot("Pico loading");
         // now wait for the Pico loader to disappear
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
+        await ide.screenshot("Pico done loading");
         await replExecuteMain;
         await repl.terminate();
     }
