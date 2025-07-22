@@ -92,7 +92,7 @@ public class FileFacts {
         if (resolved == null) {
             resolved = l;
         }
-        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
+        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1));
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
@@ -106,7 +106,7 @@ public class FileFacts {
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
-        public FileFact(ISourceLocation file, Executor exec) {
+        public FileFact(ISourceLocation file) {
             this.file = file;
             this.typeCheckResults = new ReplaceableFuture<>(typeCheck());
             this.summary = new LazyUpdateableReference<>(
