@@ -75,7 +75,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> { languageClient.showContent(uri); });
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri));
     }
 
     @Override
@@ -113,18 +113,16 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveRegisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveRegisterLanguage(lang));
     }
 
     @Override
     public CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveUnregisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveUnregisterLanguage(lang));
     }
 
     @Override
@@ -136,9 +134,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         IList list = edits.getEdits();
 
-        return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list)));
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list))));
     }
 
     @Override
