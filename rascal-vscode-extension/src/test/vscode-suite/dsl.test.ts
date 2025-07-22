@@ -87,17 +87,22 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
+        await ide.screenshot("IDE-after load");
     });
 
     beforeEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
+        } else {
+            await ide.screenshot(`DSL-${errorRecovery}-unknown`);
         }
     });
 
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
+        } else {
+            await ide.screenshot(`DSL-${errorRecovery}-unknown`);
         }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
