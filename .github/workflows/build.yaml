@@ -120,7 +120,7 @@ jobs:
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
-          path: ./rascal-vscode-extension/uitests/**/screenshots/*.png
+          path: ./rascal-vscode-extension/uitests/screenshots/**/*.png
           retention-days: 5
 
       - name: "cleanup before cache"
