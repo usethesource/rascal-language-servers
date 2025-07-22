@@ -83,7 +83,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> { languageClient.showContent(uri); });
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri));
     }
 
     @Override
@@ -121,18 +121,16 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveRegisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveRegisterLanguage(lang));
     }
 
     @Override
     public CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveUnregisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveUnregisterLanguage(lang));
     }
 
     @Override
@@ -144,9 +142,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         IList list = edits.getEdits();
 
-        return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list)));
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list))));
     }
 
     @Override
@@ -157,7 +154,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
         }
         else {
-            logger.debug("job " + param.getName() + " was already running. ignored.");
+            logger.debug("job {} was already running. ignored.", param.getName());
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -176,7 +173,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             );
         }
         else {
-            logger.debug("stepping a job that does not exist: " + param.getName());
+            logger.debug("stepping a job that does not exist: {}", param.getName());
             return CompletableFuture.completedFuture(null);
         }
     }
@@ -196,7 +193,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
             );
         }
         else {
-            logger.debug("ended an non-existing job: " + param.getName());
+            logger.debug("ended an non-existing job: {}", param.getName());
             return CompletableFuture.completedFuture(new AmountOfWork(1));
         }
     }
