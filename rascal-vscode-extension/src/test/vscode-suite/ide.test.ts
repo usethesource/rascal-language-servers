@@ -58,22 +58,14 @@ describe('IDE', function () {
             originalFiles.set(f, await fs.readFile(f));
         }
         await makeSureRascalModulesAreLoaded();
-        await ide.screenshot("DSL-after load");
     });
 
-    beforeEach(async function () {
-        if (this.test?.title) {
-            await ide.screenshot("IDE-" + this.test?.title);
-        } else {
-            await ide.screenshot("IDE-unknown");
-        }
+    beforeEach(async () => {
     });
 
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
-        } else {
-            await ide.screenshot("IDE-unknown");
         }
         await ide.cleanup();
         for (const [f, b] of originalFiles) {
