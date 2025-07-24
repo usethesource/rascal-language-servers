@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
 public class TreeMapLookup<T> implements IRangeMap<T> {
@@ -41,29 +42,31 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
     private final NavigableMap<Range, T> data = new TreeMap<>(TreeMapLookup::compareRanges);
 
     private static int compareRanges(Range a, Range b) {
+        if (a.equals(b)) {
+            return 0;
+        }
+        // check containment; strict since `a != b`
+        // parent is always smaller than child
+        if (Ranges.containsRange(a, b)) {
+            return -1;
+        }
+        if (Ranges.containsRange(b, a)) {
+            return 1;
+        }
+
         Position aStart = a.getStart();
         Position aEnd = a.getEnd();
         Position bStart = b.getStart();
         Position bEnd = b.getEnd();
-        if (aEnd.getLine() < bStart.getLine()) {
-            return -1;
+
+        if (aStart.getLine() != bStart.getLine()) {
+            return Integer.compare(aStart.getLine(), bStart.getLine());
         }
-        if (aStart.getLine() > bEnd.getLine()) {
-            return 1;
-        }
-        // some kind of containment, or just on the same line
-        if (aStart.getLine() == bStart.getLine()) {
-            // start at same line
-            if (aEnd.getLine() == bEnd.getLine()) {
-                // end at same line
-                if (aStart.getCharacter() == bStart.getCharacter()) {
-                    return Integer.compare(aEnd.getCharacter(), bEnd.getCharacter());
-                }
-                return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
-            }
+        if (aEnd.getLine() != bEnd.getLine()) {
             return Integer.compare(aEnd.getLine(), bEnd.getLine());
         }
-        return Integer.compare(aStart.getLine(), bStart.getLine());
+        // start characters cannot be equal since start/end lines are equal and neither range contains the other
+        return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
     }
 
     private static boolean rangeContains(Range a, Range b) {
