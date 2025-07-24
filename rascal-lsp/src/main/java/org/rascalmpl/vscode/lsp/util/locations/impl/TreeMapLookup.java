@@ -69,33 +69,10 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
     }
 
-    private static boolean rangeContains(Range a, Range b) {
-        Position aStart = a.getStart();
-        Position aEnd = a.getEnd();
-        Position bStart = b.getStart();
-        Position bEnd = b.getEnd();
-
-        if (aStart.getLine() <= bStart.getLine()
-            && aEnd.getLine() >= bEnd.getLine()) {
-            if (aStart.getLine() == bStart.getLine()) {
-                if (aStart.getCharacter() > bStart.getCharacter()) {
-                    return false;
-                }
-            }
-            if (aEnd.getLine() == bEnd.getLine()) {
-                if (aEnd.getCharacter() < bEnd.getCharacter()) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
     private @Nullable T contains(@Nullable Entry<Range, T> entry, Range from) {
         if (entry != null) {
             Range match = entry.getKey();
-            if (rangeContains(match, from)) {
+            if (Ranges.containsRange(match, from)) {
                 return entry.getValue();
             }
         }
