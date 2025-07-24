@@ -69,30 +69,18 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
     }
 
-    private @Nullable T contains(@Nullable Entry<Range, T> entry, Range from) {
-        if (entry != null) {
-            Range match = entry.getKey();
-            if (Ranges.containsRange(match, from)) {
-                return entry.getValue();
-            }
-        }
-        return null;
-    }
-
     @Override
     public @Nullable T lookup(Range from) {
         // since we allow for overlapping ranges, it might be that we have to
         // search all the way to the "bottom" of the tree to see if we are
         // contained in something larger than the closest key
-        var previousKeys = data.headMap(from, true).descendingMap();
-        for (var candidate : previousKeys.entrySet()) {
-            T result = contains(candidate, from);
-            if (result != null) {
-                return result;
-            }
-        }
-        // could be that it's at the start of the entry (so the entry it not in the head map)
-        return contains(data.ceilingEntry(from), from);
+        // if we could come up with a *valid* ordering such that `data.floorKey(from)` is always
+        // the smallest key containing `from` (or another key when none contain `from`), we could use `data.floorEntry` here instead of iterating
+        return data.headMap(from, true).descendingMap().entrySet()
+            .stream()
+            .filter(e -> Ranges.containsRange(e.getKey(), from))
+            .map(Entry::getValue)
+            .findFirst().orElse(null);
     }
 
     @Override
