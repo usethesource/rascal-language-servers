@@ -547,6 +547,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .distinct()
             .collect(Collectors.toList());
 
+        // Fold into a single nested selection range
         SelectionRange selectionRange = null;
         for (var r : ranges) {
             selectionRange = new SelectionRange(r, selectionRange);
