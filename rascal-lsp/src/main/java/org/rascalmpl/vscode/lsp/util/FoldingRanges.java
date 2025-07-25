@@ -43,6 +43,9 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class FoldingRanges {
+
+    private FoldingRanges() { /* hide implicit public constructor */ }
+
     public static List<FoldingRange> getFoldingRanges(ITree tree) {
         List<FoldingRange> result = new ArrayList<>();
         tree.accept(new TreeVisitor<RuntimeException>() {

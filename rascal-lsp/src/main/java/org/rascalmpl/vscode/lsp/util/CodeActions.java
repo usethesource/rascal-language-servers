@@ -58,6 +58,9 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * Reusable utilities for code actions and commands (maps between Rascal and LSP world)
  */
 public class CodeActions {
+
+    private CodeActions() { /* hide implicit public constructor */ }
+
     /**
      *  Makes a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
      *  and which came back with the codeAction's list of relevant (in scope) diagnostics.
@@ -89,7 +92,7 @@ public class CodeActions {
             Stream.concat(quicks, actions)
                 .map(IConstructor.class::cast)
                 .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
-                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                .map(Either::<Command,CodeAction>forRight)
                 .collect(Collectors.toList())
         );
     }

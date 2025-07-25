@@ -46,6 +46,8 @@ public class RascalServices {
     public static final int MAX_RECOVERY_ATTEMPTS = 50;
     public static final int MAX_RECOVERY_TOKENS = 3;
 
+    private RascalServices() { /* hide implicit public constructor */ }
+
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
         // TODO: Which of these objects are stateless and can be reused?
 
