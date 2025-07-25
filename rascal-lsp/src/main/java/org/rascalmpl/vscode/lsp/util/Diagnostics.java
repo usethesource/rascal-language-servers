@@ -73,6 +73,8 @@ public class Diagnostics {
         severityMap.put("info", DiagnosticSeverity.Information);
     }
 
+    private Diagnostics() {/* hide implicit public constructor */ }
+
     public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
         return diagnostics.collect(
             Collectors.groupingBy(Entry::getKey,
@@ -233,11 +235,7 @@ public class Diagnostics {
             ISourceLocation file = getMessageLocation(message).top();
             Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
 
-            List<Diagnostic> lst = results.get(file);
-            if (lst == null) {
-                lst = new LinkedList<>();
-                results.put(file, lst);
-            }
+            List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
         }
 
@@ -257,7 +255,7 @@ public class Diagnostics {
         }
 
         if (!loc.top().equals(file.top())) {
-            logger.error("Dropping diagnostic, reported for the wrong file: " + loc + ", " + file);
+            logger.error("Dropping diagnostic, reported for the wrong file: {}, {}", loc, file);
             return false;
         }
         return true;

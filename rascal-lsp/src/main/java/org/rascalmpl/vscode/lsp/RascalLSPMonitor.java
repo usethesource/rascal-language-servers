@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;

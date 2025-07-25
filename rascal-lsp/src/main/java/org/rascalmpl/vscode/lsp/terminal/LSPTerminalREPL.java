@@ -76,7 +76,9 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
         return rascal.resolve(".repl-history-rascal-terminal-jline3");
     }
 
-    public static void main(String[] args) throws InterruptedException, IOException {
+
+
+    public static void main(String[] args) throws IOException {
         int ideServicesPort = -1;
         int vfsPort = -1;
 
