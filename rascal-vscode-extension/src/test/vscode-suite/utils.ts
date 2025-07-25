@@ -297,7 +297,7 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
+        await this.browser.openResources(file);
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
