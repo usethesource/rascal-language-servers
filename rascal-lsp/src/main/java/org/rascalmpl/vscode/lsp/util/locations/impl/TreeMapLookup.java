@@ -46,12 +46,12 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
             return 0;
         }
         // check containment; strict since `a != b`
-        // parent is always smaller than child
+        // parent is always larger than child
         if (Ranges.containsRange(a, b)) {
-            return -1;
+            return 1;
         }
         if (Ranges.containsRange(b, a)) {
-            return 1;
+            return -1;
         }
 
         Position aStart = a.getStart();
@@ -60,13 +60,13 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         Position bEnd = b.getEnd();
 
         if (aStart.getLine() != bStart.getLine()) {
-            return Integer.compare(aStart.getLine(), bStart.getLine());
+            return Integer.compare(bStart.getLine(), aStart.getLine());
         }
         if (aEnd.getLine() != bEnd.getLine()) {
-            return Integer.compare(aEnd.getLine(), bEnd.getLine());
+            return Integer.compare(bEnd.getLine(), aEnd.getLine());
         }
         // start characters cannot be equal since start/end lines are equal and neither range contains the other
-        return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
+        return Integer.compare(bEnd.getCharacter(), aEnd.getCharacter());
     }
 
     @Override
@@ -76,7 +76,7 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         // contained in something larger than the closest key
         // if we could come up with a *valid* ordering such that `data.floorKey(from)` is always
         // the smallest key containing `from` (or another key when none contain `from`), we could use `data.floorEntry` here instead of iterating
-        return data.headMap(from, true).descendingMap().entrySet()
+        return data.tailMap(from, true).entrySet()
             .stream()
             .filter(e -> Ranges.containsRange(e.getKey(), from))
             .map(Entry::getValue)
