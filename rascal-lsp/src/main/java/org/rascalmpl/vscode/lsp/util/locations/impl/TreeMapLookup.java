@@ -63,26 +63,18 @@ class ContainmentTree<K, V> {
         void setValue(V value) { this.value = value; }
         ContainmentTree<K, V> getSubtree() { return this.subTree; }
 
-        private @Nullable <R> R ceilingProjection(K key, Function<Node, R> project) {
+        private @Nullable Node ceilingNode(K key) {
             if (getKey().equals(key)) {
-                return project.apply(this);
+                return this;
             }
             if (contains.test(getKey(), key)) {
                 var subCeiling = getSubtree().ceilingNode(key);
                 if (subCeiling != null) {
-                    return project.apply(subCeiling);
+                    return subCeiling;
                 }
-                return project.apply(this);
+                return this;
             }
             return null;
-        }
-
-        private @Nullable K ceilingKey(K key) {
-            return ceilingProjection(key, Node::getKey);
-        }
-
-        private @Nullable Node ceilingNode(K key) {
-            return ceilingProjection(key, n -> n);
         }
 
         private @Nullable V get(K key) {
