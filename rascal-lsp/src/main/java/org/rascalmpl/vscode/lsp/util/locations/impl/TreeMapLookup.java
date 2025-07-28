@@ -26,10 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp.util.locations.impl;
 
-import java.util.Map.Entry;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
@@ -37,50 +40,148 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
+
+class ContainmentTree<K, V> {
+    class Node {
+        private K key;
+        private V value;
+        private ContainmentTree<K, V> subTree;
+
+        Node(K key, V value) {
+            this.key = key;
+            this.value = value;
+            this.subTree = new ContainmentTree<>(contains);
+        }
+
+        Node(K key, V value, Set<Node> nodes) {
+            this(key, value);
+            this.subTree.rootNodes.addAll(nodes);
+        }
+
+        K getKey() { return this.key; }
+        V getValue() { return this.value; }
+        void setValue(V value) { this.value = value; }
+        ContainmentTree<K, V> getSubtree() { return this.subTree; }
+
+        private @Nullable <R> R ceilingProjection(K key, Function<Node, R> project) {
+            if (getKey().equals(key)) {
+                return project.apply(this);
+            }
+            if (contains.test(getKey(), key)) {
+                var subCeiling = getSubtree().ceilingNode(key);
+                if (subCeiling != null) {
+                    return project.apply(subCeiling);
+                }
+                return project.apply(this);
+            }
+            return null;
+        }
+
+        private @Nullable K ceilingKey(K key) {
+            return ceilingProjection(key, Node::getKey);
+        }
+
+        private @Nullable Node ceilingNode(K key) {
+            return ceilingProjection(key, n -> n);
+        }
+
+        private @Nullable V get(K key) {
+            if (getKey().equals(key)) {
+                return getValue();
+            }
+            if (contains.test(getKey(), key)) {
+                return subTree.get(key);
+            }
+            return null;
+        }
+    }
+
+    private Set<Node> rootNodes;
+    private BiPredicate<K, K> contains;
+
+    public ContainmentTree(BiPredicate<K, K> containsFunc) {
+        this.rootNodes = new HashSet<>();
+        this.contains = containsFunc;
+    }
+
+    public ContainmentTree(Map<K, V> m, BiPredicate<K, K> containsFunc) {
+        this(containsFunc);
+        for (var e : m.entrySet()) {
+            put(e.getKey(), e.getValue());
+        }
+    }
+
+    public void put(K key, V value) {
+        for (var node : rootNodes) {
+            if (node.getKey().equals(key)) {
+                // this node has our key
+                node.setValue(value);
+                return;
+            } else if (contains.test(node.key, key)) {
+                // this node's key contains our key; go deeper
+                node.getSubtree().put(key, value);
+                return;
+            }
+        }
+
+        var containedNodes = rootNodes.stream()
+            .filter(node -> contains.test(key, node.getKey()))
+            .collect(Collectors.toSet());
+
+        var mergedNode = new Node(key, value, containedNodes);
+        this.rootNodes.removeAll(containedNodes);
+        this.rootNodes.add(mergedNode);
+    }
+
+    public @Nullable Node ceilingNode(K key) {
+        return rootNodes.stream()
+            .map(node -> node.ceilingNode(key))
+            .filter(Objects::nonNull)
+            .reduce((n1, n2) -> {
+                var k1 = n1.getKey();
+                var k2 = n2.getKey();
+                if (k1.equals(k2) || contains.test(k1, k2)) {
+                    return n2;
+                }
+                if (contains.test(k2, k1)) {
+                    return n1;
+                }
+                // return either here, since it should be reduced away anyway
+                return n1;
+            }).orElse(null);
+    }
+
+    public @Nullable V get(K key) {
+        for (var node : this.rootNodes) {
+            var v = node.get(key);
+            if (v != null) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    public V computeIfAbsent(K key, Function<K, V> compute ) {
+        // TODO Optimize if slow; this could be 1 pass over the tree
+        var value = get(key);
+        if (value != null) {
+            return value;
+        }
+
+        value = compute.apply(key);
+        put(key, value);
+        return value;
+    }
+}
+
 public class TreeMapLookup<T> implements IRangeMap<T> {
 
-    private final NavigableMap<Range, T> data = new TreeMap<>(TreeMapLookup::compareRanges);
-
-    private static int compareRanges(Range a, Range b) {
-        if (a.equals(b)) {
-            return 0;
-        }
-        // check containment; strict since `a != b`
-        // parent is always larger than child
-        if (Ranges.containsRange(a, b)) {
-            return 1;
-        }
-        if (Ranges.containsRange(b, a)) {
-            return -1;
-        }
-
-        Position aStart = a.getStart();
-        Position aEnd = a.getEnd();
-        Position bStart = b.getStart();
-        Position bEnd = b.getEnd();
-
-        if (aStart.getLine() != bStart.getLine()) {
-            return Integer.compare(bStart.getLine(), aStart.getLine());
-        }
-        if (aEnd.getLine() != bEnd.getLine()) {
-            return Integer.compare(bEnd.getLine(), aEnd.getLine());
-        }
-        // start characters cannot be equal since start/end lines are equal and neither range contains the other
-        return Integer.compare(bEnd.getCharacter(), aEnd.getCharacter());
-    }
+    private final ContainmentTree<Range, T> data = new ContainmentTree<>(Ranges::containsRange);
 
     @Override
     public @Nullable T lookup(Range from) {
-        // since we allow for overlapping ranges, it might be that we have to
-        // search all the way to the "bottom" of the tree to see if we are
-        // contained in something larger than the closest key
-        // if we could come up with a *valid* ordering such that `data.floorKey(from)` is always
-        // the smallest key containing `from` (or another key when none contain `from`), we could use `data.floorEntry` here instead of iterating
-        return data.tailMap(from, true).entrySet()
-            .stream()
-            .filter(e -> Ranges.containsRange(e.getKey(), from))
-            .map(Entry::getValue)
-            .findFirst().orElse(null);
+        var ceil = data.ceilingNode(from);
+        return ceil != null ? ceil.getValue() : null;
     }
 
     @Override
@@ -88,6 +189,7 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         return lookup(new Range(at, at));
     }
 
+    @Override
     public void put(Range from, T to) {
         data.put(from, to);
     }
