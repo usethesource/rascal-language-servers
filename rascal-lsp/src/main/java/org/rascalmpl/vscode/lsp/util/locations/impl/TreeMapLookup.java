@@ -40,7 +40,9 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
-
+/**
+ * A map structured as a set of trees, where keys of subtrees are contained within the parent key.
+ */
 class ContainmentTree<K, V> {
     class Node {
         private K key;
@@ -63,20 +65,34 @@ class ContainmentTree<K, V> {
         void setValue(V value) { this.value = value; }
         ContainmentTree<K, V> getSubtree() { return this.subTree; }
 
+        /**
+         * Returns the {@link Node} with the innermost key greater than or equal to the given key, or `null` if there is no such key.
+         * @param key the key to look up
+         * @return a {@link Node} with the innermost key greater than or equal to the given key, or `null` if there is no such key
+         * @see NavigableMap#ceilingNode
+         */
         private @Nullable Node ceilingNode(K key) {
+            // exact match
             if (getKey().equals(key)) {
                 return this;
             }
             if (contains.test(getKey(), key)) {
+                // recurse to find an inner key that contains the lookup key, if present
                 var subCeiling = getSubtree().ceilingNode(key);
                 if (subCeiling != null) {
                     return subCeiling;
                 }
+                // this node is a leaf of the tree
                 return this;
             }
             return null;
         }
 
+        /**
+         * Returns the value of the node with this key, or `null` if no such node exists.
+         * @param key the key to look up
+         * @return the value associated with this key, or `null` is no such node exists
+         */
         private @Nullable V get(K key) {
             if (getKey().equals(key)) {
                 return getValue();
@@ -88,8 +104,8 @@ class ContainmentTree<K, V> {
         }
     }
 
-    private Set<Node> rootNodes;
-    private BiPredicate<K, K> contains;
+    private final Set<Node> rootNodes;
+    private final BiPredicate<K, K> contains;
 
     public ContainmentTree(BiPredicate<K, K> containsFunc) {
         this.rootNodes = new HashSet<>();
