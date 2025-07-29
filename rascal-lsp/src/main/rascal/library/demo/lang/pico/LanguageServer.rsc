@@ -38,7 +38,15 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
+
+syntax IdType
+    = func: Type returnType Id id "(" {IdType ","}* params ")" "=" Expression body ";"
+    ;
+
+syntax Expression
+    = call: Id id "(" {Expression ","}* args ")"
+    ;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -57,7 +65,10 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService)
+    codeAction(picoCodeActionService),
+    callHierarchy(picoCallHierarchyService),
+    incomingCalls(picoIncomingCallsService),
+    outgoingCalls(picoOutgoingCallsService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -187,6 +198,18 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
+
+set[CallHierarchyItem] picoCallHierarchyService(Focus _:[*_, call:(Expression) `<Id id>(<{Expression ","}* _>)`, *_])
+    = {item("<id>", function(), call@\loc)};
+
+default set[CallHierarchyItem] picoCallHierarchyService(Focus _)
+    = {};
+
+set[loc] picoIncomingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
+    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
+
+set[loc] picoOutgoingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
+    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

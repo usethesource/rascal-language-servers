@@ -269,8 +269,8 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | callHierarchy (set[CallHierarchyItem] (Focus _focus) callHierarchyService)
-    | incomingCalls (set[loc] (loc src, value _data) incomingCallsService)
-    | outgoingCalls (set[loc] (loc src, value _data) outgoingCallsService)
+    | incomingCalls (set[loc] (Focus focus, value _data) incomingCallsService)
+    | outgoingCalls (set[loc] (Focus focus, value _data) outgoingCallsService)
     ;
 
 data CallHierarchyItem
@@ -278,7 +278,7 @@ data CallHierarchyItem
         str name,
         DocumentSymbolKind kind,
         loc src,
-        loc selection,
+        loc selection = src,
         list[DocumentSymbolTag] tags = [],
         str detail = "",
         value \data = ()
