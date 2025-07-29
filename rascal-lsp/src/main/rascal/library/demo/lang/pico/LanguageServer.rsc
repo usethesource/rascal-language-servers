@@ -38,8 +38,16 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
 import DateTime;
+
+syntax IdType
+    = func: Type returnType Id id "(" {IdType ","}* params ")" "=" Expression body ";"
+    ;
+
+syntax Expression
+    = call: Id id "(" {Expression ","}* args ")"
+    ;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,7 +69,10 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    callHierarchy(picoCallHierarchyService),
+    incomingCalls(picoIncomingCallsService),
+    outgoingCalls(picoOutgoingCallsService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -226,6 +237,18 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
+
+set[CallHierarchyItem] picoCallHierarchyService(Focus _:[*_, call:(Expression) `<Id id>(<{Expression ","}* _>)`, *_])
+    = {item("<id>", function(), call@\loc)};
+
+default set[CallHierarchyItem] picoCallHierarchyService(Focus _)
+    = {};
+
+set[loc] picoIncomingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
+    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
+
+set[loc] picoOutgoingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
+    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

@@ -278,8 +278,8 @@ data LanguageService
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
     | callHierarchy (set[CallHierarchyItem] (Focus _focus) callHierarchyService)
-    | incomingCalls (set[loc] (loc src, value _data) incomingCallsService)
-    | outgoingCalls (set[loc] (loc src, value _data) outgoingCallsService)
+    | incomingCalls (set[loc] (Focus focus, value _data) incomingCallsService)
+    | outgoingCalls (set[loc] (Focus focus, value _data) outgoingCallsService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
@@ -290,7 +290,7 @@ data CallHierarchyItem
         str name,
         DocumentSymbolKind kind,
         loc src,
-        loc selection,
+        loc selection = src,
         list[DocumentSymbolTag] tags = [],
         str detail = "",
         value \data = ()
