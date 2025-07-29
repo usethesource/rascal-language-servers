@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.util.locations.impl;
 
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -119,7 +118,15 @@ class ContainmentTree<K, V> {
         }
     }
 
+    /**
+     * Invariants:
+     * - No two root node keys contain one another.
+     * - Any sub tree is contained in it's parent's key.
+     * @param key
+     * @param value
+     */
     public void put(K key, V value) {
+        // we insert a node in any subtrees
         for (var node : rootNodes) {
             if (node.getKey().equals(key)) {
                 // this node has our key
@@ -142,21 +149,17 @@ class ContainmentTree<K, V> {
     }
 
     public @Nullable Node ceilingNode(K key) {
-        return rootNodes.stream()
-            .map(node -> node.ceilingNode(key))
-            .filter(Objects::nonNull)
-            .reduce((n1, n2) -> {
-                var k1 = n1.getKey();
-                var k2 = n2.getKey();
-                if (k1.equals(k2) || contains.test(k1, k2)) {
-                    return n2;
-                }
-                if (contains.test(k2, k1)) {
-                    return n1;
-                }
-                // return either here, since it should be reduced away anyway
-                return n1;
-            }).orElse(null);
+        Node result = null;
+        for (var node : rootNodes) {
+            var ceil = node.ceilingNode(key);
+            if (ceil == null) {
+                continue;
+            }
+            if (result == null || contains.test(result.getKey(), ceil.getKey())) {
+                result = ceil;
+            }
+        }
+        return result;
     }
 
     public @Nullable V get(K key) {
