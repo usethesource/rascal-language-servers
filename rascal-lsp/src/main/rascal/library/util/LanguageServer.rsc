@@ -277,10 +277,24 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | callHierarchy (set[CallHierarchyItem] (Focus _focus) callHierarchyService)
+    | incomingCalls (set[loc] (loc src, value _data) incomingCallsService)
+    | outgoingCalls (set[loc] (loc src, value _data) outgoingCallsService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
+
+data CallHierarchyItem
+    = item(
+        str name,
+        DocumentSymbolKind kind,
+        loc src,
+        loc selection,
+        list[DocumentSymbolTag] tags = [],
+        str detail = "",
+        value \data = ()
+    );
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
