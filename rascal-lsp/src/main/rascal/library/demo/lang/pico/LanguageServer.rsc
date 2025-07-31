@@ -65,10 +65,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
-    codeAction(picoCodeActionService),
-    callHierarchy(picoCallHierarchyService),
-    incomingCalls(picoIncomingCallsService),
-    outgoingCalls(picoOutgoingCallsService)
+    codeAction(picoCodeActionService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -198,18 +195,6 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
-
-set[CallHierarchyItem] picoCallHierarchyService(Focus _:[*_, call:(Expression) `<Id id>(<{Expression ","}* _>)`, *_])
-    = {item("<id>", function(), call@\loc)};
-
-default set[CallHierarchyItem] picoCallHierarchyService(Focus _)
-    = {};
-
-set[loc] picoIncomingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
-    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
-
-set[loc] picoOutgoingCallsService(Focus focus:[(Expression) `<Id defId>(<{Expression ","}* _>)`, *_], value _)
-    = {call@\loc | /call:(Expression) `<Id callId>(<{Expression ","}* _>)` := focus[-1], "<defId>" == "<callId>"};
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
