@@ -268,7 +268,21 @@ data LanguageService
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
+    | callHierarchy (set[CallHierarchyItem] (Focus _focus) callHierarchyService)
+    | incomingCalls (rel[CallHierarchyItem def, loc calls] (CallHierarchyItem _f, Focus _focus) incomingCallsService)
+    | outgoingCalls (rel[CallHierarchyItem def, loc calls] (CallHierarchyItem _f, Focus _focus) outgoingCallsService)
     ;
+
+data CallHierarchyItem
+    = item(
+        str name,
+        DocumentSymbolKind kind,
+        loc src,
+        loc selection = src,
+        list[DocumentSymbolTag] tags = [],
+        str detail = "",
+        value \data = ()
+    );
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
