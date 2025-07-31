@@ -269,8 +269,8 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | callHierarchy (set[CallHierarchyItem] (Focus _focus) callHierarchyService)
-    | incomingCalls (rel[CallHierarchyItem, loc] (CallHierarchyItem f, Focus focus) incomingCallsService)
-    | outgoingCalls (rel[CallHierarchyItem, loc] (CallHierarchyItem f, Focus focus) outgoingCallsService)
+    | incomingCalls (rel[CallHierarchyItem def, loc calls] (CallHierarchyItem _f, Focus _focus) incomingCallsService)
+    | outgoingCalls (rel[CallHierarchyItem def, loc calls] (CallHierarchyItem _f, Focus _focus) outgoingCallsService)
     ;
 
 data CallHierarchyItem
