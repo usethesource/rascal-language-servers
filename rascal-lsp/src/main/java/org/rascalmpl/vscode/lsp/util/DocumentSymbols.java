@@ -29,15 +29,19 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.SymbolKind;
+import org.eclipse.lsp4j.SymbolTag;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IWithKeywordParameters;
@@ -87,7 +91,18 @@ public class DocumentSymbols {
             ? Locations.toRange(((ISourceLocation) kwp.getParameter("selection")), om)
             : range;
         String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : null;
+        List<SymbolTag> tags = kwp.hasParameter("tags") ?
+            ((ISet) kwp.getParameter("tags"))
+                .stream()
+                .map(IConstructor.class::cast)
+                .map(IConstructor::getName)
+                .map(DocumentSymbols::capitalize)
+                .map(SymbolTag::valueOf)
+                .collect(Collectors.toList())
+            : Collections.emptyList();
 
-        return new  DocumentSymbol(symbolName, kind, range, selection, detail, children);
+        var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
+        lspSymbol.setTags(tags); // since 3.16
+        return lspSymbol;
     }
 }
