@@ -52,6 +52,11 @@
         "command": "rascalmpl.startDebuggerForRepl",
         "title": "Start Rascal debugger for REPL",
         "icon": "$(debug)"
+      },
+      {
+        "command": "rascalmpl.copySourceLocation",
+        "title": "Copy path as source location",
+        "icon": "$(copy)"
       }
     ],
     "menus": {
@@ -66,6 +71,11 @@
           "command": "rascalmpl.startDebuggerForRepl",
           "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
           "group": "inline"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "rascalmpl.copySourceLocation"
         }
       ]
     },
