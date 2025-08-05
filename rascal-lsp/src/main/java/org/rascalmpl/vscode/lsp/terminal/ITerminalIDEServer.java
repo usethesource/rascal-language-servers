@@ -96,36 +96,6 @@ public interface ITerminalIDEServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/jobStart")
-    default CompletableFuture<Void>  jobStart(JobStartParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobStep")
-    default CompletableFuture<Void>  jobStep(JobStepParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobEnd")
-    default CompletableFuture<AmountOfWork> jobEnd(JobEndParameter param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobIsCanceled")
-    default CompletableFuture<BooleanParameter> jobIsCanceled() {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/jobTodo")
-    default CompletableFuture<Void> jobTodo(AmountOfWork param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/warning")
-    default void warning(WarningMessage param) {
-        throw new UnsupportedOperationException();
-    }
-
     @JsonNotification("rascal/registerLocations")
     default void registerLocations(RegisterLocationsParameters param) {
         throw new UnsupportedOperationException();
@@ -206,121 +176,6 @@ public interface ITerminalIDEServer {
 
     }
 
-    public static class WarningMessage {
-        private final String location;
-        private final String message;
-
-        public WarningMessage(String message, ISourceLocation src) {
-            this.message = message;
-            this.location = src.toString();
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public ISourceLocation getLocation() {
-            return buildLocation(location);
-        }
-
-    }
-
-    private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
-        try {
-            return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
-        } catch (IOException e) {
-            throw new RuntimeException("this should never happen:", e);
-        }
-    }
-    public static class AmountOfWork {
-        private final int amount;
-
-        public AmountOfWork(int amount) {
-            this.amount = amount;
-        }
-
-        public int getAmount() {
-            return amount;
-        }
-    }
-
-    public static class BooleanParameter {
-        private final boolean truth;
-
-        public BooleanParameter(boolean s) {
-            this.truth = s;
-        }
-
-        public boolean isTrue() {
-            return truth;
-        }
-    }
-    public static class JobStartParameter {
-        private final String name;
-        private final int workShare;
-        private final int totalWork;
-
-        public JobStartParameter(String name, int workShare, int totalWork) {
-            this.name = name;
-            this.workShare = workShare;
-            this.totalWork = totalWork;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public int getTotalWork() {
-            return totalWork;
-        }
-
-        public int getWorkShare() {
-            return workShare;
-        }
-    }
-
-    public static class JobStepParameter {
-        private final String name;
-        private final String message;
-        private final int inc;
-
-        public JobStepParameter(String name, String message, int inc) {
-            this.name = name;
-            this.message = message;
-            this.inc = inc;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public int getInc() {
-            return inc;
-        }
-    }
-
-    public static class JobEndParameter {
-        private final String name;
-        private final boolean success;
-
-        public JobEndParameter(String name, boolean total) {
-            this.name = name;
-            this.success = total;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public boolean getSuccess() {
-            return success;
-        }
-    }
-
     public static String value2string(IValue value) {
         final Encoder encoder = Base64.getEncoder();
         ByteArrayOutputStream stream = new ByteArrayOutputStream(512);
@@ -375,18 +230,6 @@ public interface ITerminalIDEServer {
         @Override
         public String toString() {
             return "editParameter: " + module;
-        }
-    }
-
-    public static class JobCanceledParameter {
-        private String jobName;
-
-        public JobCanceledParameter(String jobName) {
-            this.jobName = jobName;
-        }
-
-        public String getModule() {
-            return jobName;
         }
     }
 
@@ -528,16 +371,32 @@ public interface ITerminalIDEServer {
         private final @Nullable Boolean nonTerminalIsStart;
         /** allowAmbiguity (default is false) */
         private final @Nullable Boolean allowAmbiguity;
+        /** Max ambiguity level from the parser (default 2, only of interest when allowAmbiguity is true or allowRecovery is true) */
+        private final @Nullable Integer maxAmbDepth;
+
+        /** do we allow the parser to recover from parse errors (and thus possibly generating error trees) (default is false) */
+        private final @Nullable Boolean allowRecovery;
+        /** configure max recovery attempts parameter of the error recover (default: 50) */
+        private final @Nullable Integer maxRecoveryAttempts;
+        /** configure max recovery tokens parameter of the error recover (default: 3) */
+        private final @Nullable Integer maxRecoveryTokens;
+
         /** apply the special case for highlighting syntax-in-syntax, default: true */
         private final @Nullable Boolean specialCaseHighlighting;
 
 
         public ParserSpecification(String parserLocation, String nonTerminalName,
-                @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity, @Nullable Boolean specialCaseHighlighting) {
+                @Nullable Boolean nonTerminalIsStart, @Nullable Boolean allowAmbiguity, @Nullable Integer maxAmbDepth,
+                @Nullable Boolean allowRecovery, @Nullable Integer maxRecoveryAttempts, @Nullable Integer maxRecoveryTokens,
+                @Nullable Boolean specialCaseHighlighting) {
             this.parserLocation = parserLocation;
             this.nonTerminalName = nonTerminalName;
             this.nonTerminalIsStart = nonTerminalIsStart;
             this.allowAmbiguity = allowAmbiguity;
+            this.maxAmbDepth = maxAmbDepth;
+            this.allowRecovery = allowRecovery;
+            this.maxRecoveryAttempts = maxRecoveryAttempts;
+            this.maxRecoveryTokens = maxRecoveryTokens;
             this.specialCaseHighlighting = specialCaseHighlighting;
         }
 
@@ -557,6 +416,22 @@ public interface ITerminalIDEServer {
             return allowAmbiguity != null && allowAmbiguity;
         }
 
+        public int getMaxAmbDepth() {
+            return maxAmbDepth != null ? maxAmbDepth : 2;
+        }
+
+        public boolean getAllowRecovery() {
+            return allowRecovery != null && allowRecovery;
+        }
+
+        public int getMaxRecoveryAttempts() {
+            return maxRecoveryAttempts != null ? maxRecoveryAttempts : 50;
+        }
+
+        public int getMaxRecoveryTokens() {
+            return maxRecoveryTokens != null ? maxRecoveryTokens : 3;
+        }
+
         public boolean getSpecialCaseHighlighting() {
             return specialCaseHighlighting == null || specialCaseHighlighting;
         }
@@ -565,6 +440,14 @@ public interface ITerminalIDEServer {
         public String toString() {
             return "ParserSpecification [parserLocation=" + parserLocation + ", nonTerminalName=" + nonTerminalName
                 + ", nonTerminalIsStart=" + nonTerminalIsStart + ", allowAmbiguity=" + allowAmbiguity + "]";
+        }
+
+        private static ISourceLocation buildLocation(String location) throws FactTypeUseException {
+            try {
+                return (ISourceLocation) new StandardTextReader().read(IRascalValueFactory.getInstance(), TypeFactory.getInstance().sourceLocationType(), new StringReader(location));
+            } catch (IOException e) {
+                throw new RuntimeException("this should never happen:", e);
+            }
         }
 
     }

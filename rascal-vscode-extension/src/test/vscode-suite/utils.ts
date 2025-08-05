@@ -182,6 +182,21 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
+function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
+    return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
+        try {
+            const result = await scope.findElements(selector);
+            if (result && result.length >= minCount) {
+                return scope;
+            }
+            return null;
+        }
+        catch (_ignored) {
+            return null;
+        }
+    });
+}
+
 export class IDEOperations {
     private driver: WebDriver;
     constructor(
@@ -237,6 +252,11 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
     }
 
+    hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
+        // We need to differentiate between real parse errors (error at first line) and recovered parse error (error at parse position).
+        return this.driver.wait(scopedElementLocatedCountTimes(editor, By.className("squiggly-error"), errorCount), timeout, message, 50);
+    }
+
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
         return this.hasElement(editor, By.css('span[class^="mtk"]:not(.mtk1)'), timeout, message);
     }
@@ -277,7 +297,7 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
+        await this.browser.openResources(file);
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {

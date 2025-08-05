@@ -42,6 +42,8 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -52,10 +54,17 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
+
+    // Note: DiagnosticSeverity.Hint only highlightes a single character!
+    private static final DiagnosticSeverity ERROR_LOCATION_HIGHLIGHT = DiagnosticSeverity.Error;
+    private static final DiagnosticSeverity ERROR_TREE_HIGHLIGHT = null;
+    private static final DiagnosticSeverity PREFIX_HIGHLIGHT = null;
+    private static final DiagnosticSeverity SKIPPED_HIGHLIGHT = null;
 
     static {
         severityMap = new HashMap<>();
@@ -64,16 +73,79 @@ public class Diagnostics {
         severityMap.put("info", DiagnosticSeverity.Information);
     }
 
+    private Diagnostics() {/* hide implicit public constructor */ }
+
     public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
         return diagnostics.collect(
             Collectors.groupingBy(Entry::getKey,
                 Collectors.mapping(Entry::getValue, Collectors.toCollection(ArrayList::new))));
     }
 
-    public static Diagnostic translateDiagnostic(ParseError e, ColumnMaps cm) {
-        return new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+    /**
+     * Template for a diagnostic, to be instantiated using column maps. This
+     * interface is equivalent to: {@code Function<ColumnMaps, Diagnostic>}.
+     */
+    @FunctionalInterface
+    public static interface Template {
+        public Diagnostic instantiate(ColumnMaps columns);
     }
 
+    public static Template generateParseErrorDiagnostic(ParseError e) {
+        return cm -> new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+    }
+
+    public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
+        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+
+        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
+        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+
+        List<Template> diagnostics = new ArrayList<>();
+
+        // Highlight selected parts of the error tree
+        if (ERROR_LOCATION_HIGHLIGHT != null) {
+            // Just the error location
+            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
+                    skippedLoc.getOffset(), 1,
+                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
+            diagnostics.add(cm -> new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
+                    ERROR_LOCATION_HIGHLIGHT, "parser"));
+        }
+
+        if (ERROR_TREE_HIGHLIGHT != null) {
+            // The whole error tree
+            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
+        }
+
+        if (PREFIX_HIGHLIGHT != null) {
+            // The recognized prefix
+            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
+            if (prefixLength > 0) {
+                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
+                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
+                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
+                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
+            }
+        }
+
+        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
+            // The skipped part
+            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
+        }
+
+        return diagnostics;
+    }
+
+    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
+        IList args = TreeAdapter.getArgs(errorTree);
+        ITree skipped = (ITree) args.get(args.size()-1);
+        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
+    }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
@@ -121,14 +193,21 @@ public class Diagnostics {
         return result;
     }
 
+    private static Range toRange(ITree t, ColumnMaps cm) {
+        return toRange(TreeAdapter.getLocation(t), cm);
+    }
+
     private static Range toRange(ParseError pe, ColumnMaps cm) {
-        ISourceLocation loc = pe.getLocation();
+        return toRange(pe.getLocation(), cm);
+    }
+
+    private static Range toRange(ISourceLocation loc, ColumnMaps cm) {
         if (loc.getBeginLine() == loc.getEndLine() && loc.getBeginColumn() == loc.getEndColumn()) {
             // zero width parse error is not something LSP likes, so we make it one char wider
             loc = ValueFactoryFactory.getValueFactory().sourceLocation(loc,
                 loc.getOffset(), loc.getLength() + 1,
-                loc.getBeginLine(), loc.getBeginColumn(),
-                loc.getEndLine(), loc.getEndColumn() + 1);
+                loc.getBeginLine(), loc.getEndLine(),
+                loc.getBeginColumn(), loc.getEndColumn() + 1);
         }
         return Locations.toRange(loc, cm);
     }
@@ -156,11 +235,7 @@ public class Diagnostics {
             ISourceLocation file = getMessageLocation(message).top();
             Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
 
-            List<Diagnostic> lst = results.get(file);
-            if (lst == null) {
-                lst = new LinkedList<>();
-                results.put(file, lst);
-            }
+            List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
         }
 
@@ -168,7 +243,7 @@ public class Diagnostics {
     }
 
     private static ISourceLocation getMessageLocation(IConstructor message) {
-        return Locations.toClientLocationIfPossible(((ISourceLocation) message.get("at")));
+        return Locations.toClientLocation(((ISourceLocation) message.get("at")));
     }
 
     private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {
@@ -180,7 +255,7 @@ public class Diagnostics {
         }
 
         if (!loc.top().equals(file.top())) {
-            logger.error("Dropping diagnostic, reported for the wrong file: " + loc + ", " + file);
+            logger.error("Dropping diagnostic, reported for the wrong file: {}, {}", loc, file);
             return false;
         }
         return true;

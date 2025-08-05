@@ -369,4 +369,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
         return ondemandSummaryConfig;
     }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        contributions.forEach(klc -> klc.contrib.cancelProgress(progressId));
+    }
 }

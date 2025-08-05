@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -87,13 +87,8 @@ public class FileFacts {
 
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
-        ISourceLocation resolved = null;
-        try {
-            resolved = Locations.toClientLocation(l);
-            if (resolved == null) {
-                resolved = l;
-            }
-        } catch (IOException e) {
+        ISourceLocation resolved = Locations.toClientLocation(l);
+        if (resolved == null) {
             resolved = l;
         }
         return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));

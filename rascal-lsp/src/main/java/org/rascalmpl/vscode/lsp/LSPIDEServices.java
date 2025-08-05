@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -91,19 +90,15 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void edit(ISourceLocation path) {
-        try {
-            ISourceLocation physical = Locations.toClientLocation(path);
-            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-            params.setTakeFocus(true);
+        ISourceLocation physical = Locations.toClientLocation(path);
+        ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
+        params.setTakeFocus(true);
 
-            if (physical.hasOffsetLength()) {
-                params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
-            }
-
-            languageClient.showDocument(params);
-        } catch (IOException e) {
-            logger.info("ignored edit of {}, because {}", path, e);
+        if (physical.hasOffsetLength()) {
+            params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
         }
+
+        languageClient.showDocument(params);
     }
 
     @Override
@@ -198,6 +193,10 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void warning(String message, ISourceLocation src) {
         monitor.warning(message, src);
+    }
+
+    public IRascalMonitor getMonitor() {
+        return monitor;
     }
 
 }

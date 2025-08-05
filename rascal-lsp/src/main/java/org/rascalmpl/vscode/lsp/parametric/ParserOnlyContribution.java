@@ -31,14 +31,13 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.interpreter.env.GlobalEnvironment;
-import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
@@ -46,6 +45,7 @@ import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -88,8 +88,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
-        GlobalEnvironment unusedHeap = new GlobalEnvironment();
-        Evaluator unusedEvaluator = new Evaluator(VF, Reader.nullReader(), new PrintWriter(Writer.nullWriter()), new PrintWriter(Writer.nullWriter()), new NullRascalMonitor(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
+        var unusedEvaluator = ShellEvaluatorFactory.getBasicEvaluator(Reader.nullReader(), new PrintWriter(Writer.nullWriter()), new PrintWriter(Writer.nullWriter()), new NullRascalMonitor(), "***unused***");
         // this is what we are after: a factory that can load back parsers.
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
         IConstructor reifiedType = makeReifiedType(spec, vf);
@@ -97,7 +96,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
         try {
             logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), VF.bool(false), vf.set());
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.integer(spec.getMaxAmbDepth()),
+                VF.bool(spec.getAllowRecovery()), VF.integer(spec.getMaxRecoveryAttempts()), VF.integer(spec.getMaxRecoveryTokens()), VF.bool(false), VF.bool(false), vf.set());
             logger.debug("Got parser: {}", parser);
             return Either.forLeft(parser);
         }
@@ -249,6 +249,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        // empty, since this contribution does not have any running tasks nor a monitor
     }
 
 }
