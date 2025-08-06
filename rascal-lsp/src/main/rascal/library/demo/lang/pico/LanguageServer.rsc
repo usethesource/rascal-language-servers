@@ -43,6 +43,10 @@ import DateTime;
 import IO;
 import String;
 
+import lang::box::\syntax::Box;
+extend lang::box::util::Tree2Box;
+import lang::box::util::Box2Text;
+
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
 }
@@ -68,15 +72,63 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
 };
 
 str picoFormattingService(Tree input, set[FormattingOption] opts) {
-     if (tabSize(int tabSize) <- opts) {
-        println("Warning; `tabSize` (<tabSize>) is ignored");
+    int tabSize = 4;
+    if (tabSize(int ts) <- opts) {
+        tabSize = ts;
     }
-    if (insertSpaces() <- opts) {
-        println("Warning; `insertSpaces` is ignored");
+    box = toBox(input);
+    box = visit (box) {
+        case i:I(_) => i[is=tabSize]
     }
-
-    return "<input>";
+    formatted = format(box);
+    if (insertSpaces() notin opts) {
+        str spaces = ("" | it + " " | _ <- [0..tabSize]);
+        // TODO Only do this at the start of the line. Dynamically-sized regex???
+        formatted = replaceAll(formatted, spaces, "\t");
+    }
+    return formatted;
 }
+
+Box toBox((Program) `begin <Declarations decls> <{Statement ";"}* body> end`, FormatOptions opts = formatOptions())
+    = V([
+        L("begin"),
+        I([
+            V([
+                toBox(decls, opts=opts),
+                toBox(body, opts=opts)
+            ], vs=1)
+        ]),
+        L("end")
+    ]);
+
+Box toBox((Declarations) `declare <{IdType ","}* decls> ;`, FormatOptions opts = formatOptions())
+    = V([
+        L("declare"),
+            A([
+                R([
+                    toBox(id, opts=opts),
+                    L(":"),
+                    H([toBox(tp, opts=opts), decl != decls[-1] ? L(",") : L(";")], hs=0)
+                ])
+                | decl:(IdType) `<Id id> : <Type tp>` <- decls
+            ])
+    ]);
+
+Box toBox(({Statement ";"}*) stmts, FormatOptions opts = formatOptions())
+    = V([
+        H([
+            toBox(stmt, opts=opts),
+            stmt != stmts[-1] ? L(";") : NULL()
+        ], hs=0)
+        | stmt <- stmts
+    ]);
+
+Box toBox((Statement) `while <Expression cond> do <{Statement ";"}* body> od`, FormatOptions opts = formatOptions())
+    = V([
+        HOV([L("while"), I([toBox(cond, opts=opts)]), L("do")]),
+        I([toBox(body, opts=opts)]),
+        L("od")
+    ]);
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
