@@ -33,6 +33,25 @@ str mostUsedNewline(str input, set[str] lineseps = newLineCharacters, str(set[st
     return tieBreaker(byCount[max(domain(byCount))]);
 }
 
+tuple[str indentation, str rest] splitIndentation(/^<indentation:\s*><rest:.*>/)
+    = <indentation, rest>;
+
+str(str) indentSpacesAsTabs(int tabSize) {
+    str spaces = ("" | it + " " | _ <- [0..tabSize]);
+    return str(str s) {
+        parts = splitIndentation(s);
+        return "<replaceAll(parts.indentation, spaces, "\t")><parts.rest>";
+    };
+}
+
+str(str) indentTabsAsSpaces(int tabSize) {
+    str spaces = ("" | it + " " | _ <- [0..tabSize]);
+    return str(str s) {
+        parts = splitIndentation(s);
+        return "<replaceAll(parts.indentation, "\t", spaces)><parts.rest>";
+    };
+}
+
 set[str] substrings(str input)
     = {input[i..i+l] | int i <- [0..size(input)], int l <- [1..size(input)], i + l <= size(input)};
 
