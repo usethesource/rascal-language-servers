@@ -45,25 +45,25 @@ test bool mostUsedNewlineTestTie()
 test bool mostUsedNewlineTestGreedy()
     = mostUsedNewline("\r\n\r\n\n") == "\r\n";
 
-str defaultInsertFinalNewline(str input, set[str] lineseps = newLineCharacters)
+str insertFinalNewline(str input, set[str] lineseps = newLineCharacters)
     = any(nl <- lineseps, endsWith(input, nl))
     ? input
     : input + mostUsedNewline(input)
     ;
 
-test bool defaultInsertFinalNewlineTestSimple()
-    = defaultInsertFinalNewline("a\nb")
+test bool insertFinalNewlineTestSimple()
+    = insertFinalNewline("a\nb")
     == "a\nb\n";
 
-test bool defaultInsertFinalNewlineTestNoop()
-    = defaultInsertFinalNewline("a\nb\n")
+test bool insertFinalNewlineTestNoop()
+    = insertFinalNewline("a\nb\n")
     == "a\nb\n";
 
-test bool defaultInsertFinalNewlineTestMixed()
-    = defaultInsertFinalNewline("a\nb\r\n")
+test bool insertFinalNewlineTestMixed()
+    = insertFinalNewline("a\nb\r\n")
     == "a\nb\r\n";
 
-str defaultTrimFinalNewlines(str input, set[str] lineseps = newLineCharacters) {
+str trimFinalNewline(str input, set[str] lineseps = newLineCharacters) {
     orderedSeps = sort(lineseps, bySize);
     while (nl <- orderedSeps, endsWith(input, nl)) {
         input = input[0..-size(nl)];
@@ -71,14 +71,14 @@ str defaultTrimFinalNewlines(str input, set[str] lineseps = newLineCharacters) {
     return input;
 }
 
-test bool defaultTrimFinalNewlinesTestSimple()
-    = defaultTrimFinalNewlines("a\n\n\n") == "a";
+test bool trimFinalNewlineTestSimple()
+    = trimFinalNewline("a\n\n\n") == "a";
 
-test bool defaultTrimFinalNewlinesTestEndOnly()
-    = defaultTrimFinalNewlines("a\n\n\nb\n\n") == "a\n\n\nb";
+test bool trimFinalNewlineTestEndOnly()
+    = trimFinalNewline("a\n\n\nb\n\n") == "a\n\n\nb";
 
-test bool defaultTrimFinalNewlinesTestWhiteSpace()
-    = defaultTrimFinalNewlines("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
+test bool trimFinalNewlineTestWhiteSpace()
+    = trimFinalNewline("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
 
 str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters) {
     orderedSeps = sort(lineseps, bySize);
@@ -106,12 +106,12 @@ str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters)
 test bool perLineTest()
     = perLine("a\nb\r\nc\n\r\n", str(str line) { return line + "x"; }) == "ax\nbx\r\ncx\nx\r\nx";
 
-str defaultTrimTrailingWhitespace(str input) {
+str trimTrailingWhitespace(str input) {
     str trimLineTrailingWs(/^<nonWhiteSpace:.*\S>\s*$/) = nonWhiteSpace;
     default str trimLineTrailingWs(/^\s*$/) = "";
 
     return perLine(input, trimLineTrailingWs);
 }
 
-test bool defaultTrimTrailingWhitespaceTest()
-    = defaultTrimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
+test bool trimTrailingWhitespaceTest()
+    = trimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
