@@ -34,6 +34,7 @@ The core functionality of this module is built upon these concepts:
 module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
+import util::Format;
 import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
@@ -81,11 +82,26 @@ str picoFormattingService(Tree input, set[FormattingOption] opts) {
         case i:I(_) => i[is=tabSize]
     }
     formatted = format(box);
+    formatLine = str(str s) { return s; };
     if (insertSpaces() notin opts) {
-        str spaces = ("" | it + " " | _ <- [0..tabSize]);
-        // TODO Only do this at the start of the line. Dynamically-sized regex???
-        formatted = replaceAll(formatted, spaces, "\t");
+        formatLine = formatLine o indentSpacesAsTabs(tabSize);
     }
+    if (trimTrailingWhitespace() notin opts) {
+        println("The Pico formatter does not support leaving trailing whitespace.");
+    }
+
+    // do line-based processing
+    formatted = perLine(formatted, formatLine);
+
+    // whole-file processing
+    if (trimFinalNewlines() notin opts &&
+        /.*<newlines:\n+>/ := "<input>") {
+        formatted = replaceLast(formatted, "\n", newlines);
+    }
+    if (insertFinalNewline() <- opts) {
+        formatted = insertFinalNewline(formatted);
+    }
+
     return formatted;
 }
 
