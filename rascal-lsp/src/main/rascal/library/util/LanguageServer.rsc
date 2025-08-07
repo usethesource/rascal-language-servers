@@ -43,12 +43,8 @@ import util::Reflective;
 import analysis::diff::edits::TextEdits;
 import Exception;
 import IO;
-import Map;
 import Message;
 import ParseTree;
-import Set;
-import String;
-import Type;
 
 @synopsis{Definition of a language server by its meta-data.}
 @description{
@@ -281,11 +277,7 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
-    | formatting    (Tree (str _input, loc _origin) parsingService,
-                     str(Tree _input, set[FormattingOption] _opts) formattingService,
-                     str(str) trimTrailingWhitespace = defaultTrimTrailingWhitespace,
-                     str(str) insertFinalNewline = defaultInsertFinalNewline,
-                     str(str) trimFinalNewlines = defaultTrimFinalNewlines)
+    | formatting    (str(Tree _input, set[FormattingOption] _opts) formattingService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
@@ -299,129 +291,11 @@ data FormattingOption
     | trimFinalNewlines()
     ;
 
-set[str] newLineCharacters = {
-    "\u000A", // LF
-    "\u000B", // VT
-    "\u000C", // FF
-    "\u000D", // CR
-    "\u000D\u000A", // CRLF
-    "\u0085", // NEL
-    "\u2028", // LS
-    "\u2029" // PS
-};
+private list[TextEdit] layoutDiff(Tree a, Tree b, bool copyComments = false)
+    = [replace(a@\loc, "<b>")];
 
-private bool bySize(str a, str b) = size(a) > size(b);
-
-str mostUsedNewline(str input, set[str] lineseps = newLineCharacters, str(set[str]) tieBreaker = getFirstFrom) {
-    linesepCounts = (nl: 0 | nl <- lineseps);
-    for (nl <- reverse(sort(lineseps, bySize))) {
-        int count = size(findAll(input, nl));
-        linesepCounts[nl] = count;
-        // subtract all occurrences of substrings that we counted before
-        for (str snl <- substrings(nl), linesepCounts[snl]?) {
-            linesepCounts[snl] = linesepCounts[snl] - count;
-        }
-
-    }
-    byCount = invert(linesepCounts);
-    return tieBreaker(byCount[max(domain(byCount))]);
-}
-
-set[str] substrings(str input)
-    = {input[i..i+l] | int i <- [0..size(input)], int l <- [1..size(input)], i + l <= size(input)};
-
-test bool mostUsedNewlineTestMixed()
-    = mostUsedNewline("\r\n\n\r\n\t\t\t\t") == "\r\n";
-
-test bool mostUsedNewlineTestTie()
-    = mostUsedNewline("\n\n\r\n\r\n") == "\n";
-
-test bool mostUsedNewlineTestGreedy()
-    = mostUsedNewline("\r\n\r\n\n") == "\r\n";
-
-str defaultInsertFinalNewline(str input, set[str] lineseps = newLineCharacters)
-    = any(nl <- lineseps, endsWith(input, nl))
-    ? input
-    : input + mostUsedNewline(input)
-    ;
-
-test bool defaultInsertFinalNewlineTestSimple()
-    = defaultInsertFinalNewline("a\nb")
-    == "a\nb\n";
-
-test bool defaultInsertFinalNewlineTestNoop()
-    = defaultInsertFinalNewline("a\nb\n")
-    == "a\nb\n";
-
-test bool defaultInsertFinalNewlineTestMixed()
-    = defaultInsertFinalNewline("a\nb\r\n")
-    == "a\nb\r\n";
-
-str defaultTrimFinalNewlines(str input, set[str] lineseps = newLineCharacters) {
-    orderedSeps = sort(lineseps, bySize);
-    while (nl <- orderedSeps, endsWith(input, nl)) {
-        input = input[0..-size(nl)];
-    }
-    return input;
-}
-
-test bool defaultTrimFinalNewlinesTestSimple()
-    = defaultTrimFinalNewlines("a\n\n\n") == "a";
-
-test bool defaultTrimFinalNewlinesTestEndOnly()
-    = defaultTrimFinalNewlines("a\n\n\nb\n\n") == "a\n\n\nb";
-
-test bool defaultTrimFinalNewlinesTestWhiteSpace()
-    = defaultTrimFinalNewlines("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
-
-str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters) {
-    orderedSeps = sort(lineseps, bySize);
-
-    str result = "";
-    int next = 0;
-    for (int i <- [0..size(input)]) {
-        // greedily match line separators (longest first)
-        if (i >= next, str nl <- orderedSeps, nl == input[i..i+size(nl)]) {
-            line = input[next..i];
-            result += lineFunc(line) + nl;
-            next = i + size(nl); // skip to the start of the next line
-        }
-    }
-
-    // last line
-    if (str nl <- orderedSeps, nl == input[-size(nl)..]) {
-        line = input[next..next+size(nl)];
-        result += lineFunc(line);
-    }
-
-    return result;
-}
-
-test bool perLineTest()
-    = perLine("a\nb\r\nc\n\r\n", str(str line) { return line + "x"; }) == "ax\nbx\r\ncx\nx\r\nx";
-
-str defaultTrimTrailingWhitespace(str input) {
-    str trimLineTrailingWs(/^<nonWhiteSpace:.*\S>\s*$/) = nonWhiteSpace;
-    default str trimLineTrailingWs(/^\s*$/) = "";
-
-    return perLine(input, trimLineTrailingWs);
-}
-
-test bool defaultTrimTrailingWhitespaceTest()
-    = defaultTrimTrailingWhitespace("a  \nb\t\n  c  \n") == "a\nb\n  c\n";
-
-list[TextEdit] layoutDiff(Tree a, Tree b, bool copyComments = false);
-
-list[TextEdit] formattingWrapper(Tree input, set[FormattingOption] opts, f:formatting(parser, formatter)) {
-    formatted = formatter(input, opts);
-    if (trimTrailingWhitespace() in opts) formatted = f.trimTrailingWhitespace(formatted);
-    if (trimFinalNewlines() in opts) formatted = f.trimFinalNewlines(formatted);
-    if (insertFinalNewline() in opts) formatted = f.insertFinalNewline(formatted);
-
-    // wrap complete formatted string in edit
-    // later, we should calculate more precise, local edits here, to not mess up the history stack in the editor
-    return layoutDiff(input, parser(formatted, input@\loc.top));
-}
+list[TextEdit] formatter(Tree input, set[FormattingOption] opts, str(Tree, set[FormattingOption]) format, Tree(str, loc) parse)
+    = layoutDiff(input, parse(format(input, opts), input@\loc.top), copyComments = true);
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
