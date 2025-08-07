@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -93,7 +94,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
     private final CompletableFuture<@Nullable IFunction> selectionRange;
-    private final CompletableFuture<@Nullable IConstructor> formatting;
+    private final CompletableFuture<@Nullable IFunction> formatting;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -151,7 +152,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
             this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
-            this.formatting = contributions.thenApply(contrib -> getContribution(contrib, LanguageContributions.FORMATTING));
+            this.formatting = getFunctionFor(contributions, LanguageContributions.FORMATTING);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -361,9 +362,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions) {
         debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions.size());
-        return InterruptibleFuture.flatten(formatting.thenApply(formattingContrib ->
-            runEvaluator(LanguageContributions.FORMATTING, eval, actualEval ->
-                (IList) actualEval.call(actualEval.getMonitor(), "util::LanguageServer", "formattingWrapper", input, formattingOptions, formattingContrib)
+        return InterruptibleFuture.flatten(formatting.thenCombine(parsing, Pair::of)
+            .thenApply(pair ->
+                runEvaluator(LanguageContributions.FORMATTING, eval, actualEval ->
+                (IList) actualEval.call(actualEval.getMonitor(), "util::LanguageServer", "formatter", input, formattingOptions, pair.getLeft(), pair.getRight())
             , VF.list(), exec, true, client)), exec);
     }
 
