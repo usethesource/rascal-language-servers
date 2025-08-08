@@ -40,6 +40,9 @@ public class RascalADTs {
         public static final String DOCUMENT_SYMBOL = "documentSymbol";
         public static final String CODE_LENS = "codeLens";
         public static final String INLAY_HINT = "inlayHint";
+        public static final String RENAME = "rename";
+        public static final String RENAME_SERVICE = "renameService";
+        public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
         public static final String EXECUTION = "execution";
         public static final String HOVER = "hover";
         public static final String DEFINITION = "definition";

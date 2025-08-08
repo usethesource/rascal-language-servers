@@ -39,6 +39,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
@@ -58,6 +59,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> documentSymbol = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeLens = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> inlayHint = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> execution = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> hover = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> definition = failedInitialization();
@@ -70,6 +73,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasDocumentSymbol = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeLens = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasExecution = failedInitialization();
     private volatile CompletableFuture<Boolean> hasHover = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDefinition = failedInitialization();
@@ -143,6 +147,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol);
         codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens);
         inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint);
+        rename = findFirstOrDefault(ILanguageContributions::hasRename);
+        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         execution = findFirstOrDefault(ILanguageContributions::hasExecution);
         hover = findFirstOrDefault(ILanguageContributions::hasHover);
         definition = findFirstOrDefault(ILanguageContributions::hasDefinition);
@@ -155,6 +161,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDocumentSymbol = anyTrue(ILanguageContributions::hasDocumentSymbol);
         hasCodeLens = anyTrue(ILanguageContributions::hasCodeLens);
         hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
+        hasRename = anyTrue(ILanguageContributions::hasRename);
         hasExecution = anyTrue(ILanguageContributions::hasExecution);
         hasHover = anyTrue(ILanguageContributions::hasHover);
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
@@ -271,6 +278,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        return flatten(prepareRename, c -> c.prepareRename(focus));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String name) {
+        return flatten(rename, c -> c.rename(focus, name));
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         return flatten(hover, c -> c.hover(focus));
     }
@@ -348,6 +365,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
         return hasInlayHint;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return hasRename;
     }
 
     @Override

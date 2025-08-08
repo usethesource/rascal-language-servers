@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -71,8 +72,17 @@ import org.eclipse.lsp4j.InlayHintKind;
 import org.eclipse.lsp4j.InlayHintParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.RenameFilesParams;
+import org.eclipse.lsp4j.RenameOptions;
+import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -84,8 +94,10 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -93,6 +105,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -104,6 +117,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
@@ -117,6 +131,7 @@ import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -192,6 +207,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
+        result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
 
         result.setFoldingRangeProvider(true);
@@ -310,6 +326,104 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
                 .collect(Collectors.toList())
             ), () -> null);
+    }
+
+
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
+            PrepareRenameParams params) {
+        System.err.println("prepareRename for: " + params.getTextDocument().getUri());
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+        final Position pos = params.getPosition();
+        return getFile(params.getTextDocument())
+            .getCurrentTreeAsync() // It is the responsibility of the language contribution to handle the case where the tree contains parse errors
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> computeRenameRange(contribs, pos.getLine(), pos.getCharacter(), tree))
+            .thenApply(loc -> Either3.forFirst(Locations.toRange(loc, columns)));
+    }
+
+    private CompletableFuture<ISourceLocation> computeRenameRange(final ILanguageContributions contribs, final int startLine,
+            final int startColumn, ITree tree) {
+        IList focus = TreeSearch.computeFocusList(tree, startLine+1, startColumn);
+        if (focus.isEmpty()) {
+            throw new ResponseErrorException(new ResponseError(-1, "No focus found at " + startLine + ":" + startColumn,
+                    TreeAdapter.getLocation(tree)));
+        }
+        return contribs.prepareRename(focus).get();
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
+        System.err.println("rename for: " + params.getTextDocument().getUri() + ", newName=" + params.getNewName());
+
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+        final Position pos = params.getPosition();
+        return getFile(params.getTextDocument())
+                .getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose(tree -> computeRename(contribs, pos.getLine(), pos.getCharacter(), params.getNewName(), tree));
+    }
+
+    private CompletableFuture<WorkspaceEdit> computeRename(final ILanguageContributions contribs, final int startLine,
+            final int startColumn, String newName, ITree tree) {
+        IList focus = TreeSearch.computeFocusList(tree, startLine+1, startColumn);
+        if (focus.isEmpty()) {
+            throw new ResponseErrorException(new ResponseError(-1, "No focus found at " + startLine + ":" + startColumn,
+                    TreeAdapter.getLocation(tree)));
+        }
+        return contribs.rename(focus, newName)
+                .thenApply(tuple -> {
+                    IList documentEdits = (IList) tuple.get(0);
+                    showMessages((ISet) tuple.get(1));
+                    return DocumentChanges.translateDocumentChanges(this, documentEdits);
+                })
+                .get();
+    }
+
+    private void showMessages(ISet messages) {
+        // If any message is an error, throw a ResponseErrorException
+        for (var msg : messages) {
+            var message = (IConstructor) msg;
+            if (message.getName().equals("error")) {
+                throw new ResponseErrorException(
+                    new ResponseError(ResponseErrorCode.RequestFailed, "Rename failed: " + ((IString) message.get("msg")).getValue(), null));
+            }
+        }
+
+        for (var msg : messages) {
+            client.showMessage(setMessageParams((IConstructor) msg));
+        }
+    }
+
+    private MessageParams setMessageParams(IConstructor message) {
+        var params = new MessageParams();
+        switch (message.getName()) {
+            case "warning": {
+                params.setType(MessageType.Warning);
+                break;
+            }
+            case "info": {
+                params.setType(MessageType.Info);
+                break;
+            }
+            default: params.setType(MessageType.Log);
+        }
+
+        var msgText = ((IString) message.get("msg")).getValue();
+        if (message.has("at")) {
+            var at = ((ISourceLocation) message.get("at")).getURI();
+            params.setMessage(String.format("%s (at %s)", msgText, at));
+        } else {
+            params.setMessage(msgText);
+        }
+
+        return params;
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+        // TODO Auto-generated method stub
+        IBaseTextDocumentService.super.didRenameFiles(params, workspaceFolders);
     }
 
     @Override

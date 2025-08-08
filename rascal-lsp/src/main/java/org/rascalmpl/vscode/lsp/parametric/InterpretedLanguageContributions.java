@@ -57,6 +57,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -82,6 +83,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> documentSymbol;
     private final CompletableFuture<@Nullable IFunction> codeLens;
     private final CompletableFuture<@Nullable IFunction> inlayHint;
+    private final CompletableFuture<@Nullable IFunction> prepareRename;
+    private final CompletableFuture<@Nullable IFunction> rename;
     private final CompletableFuture<@Nullable IFunction> execution;
     private final CompletableFuture<@Nullable IFunction> hover;
     private final CompletableFuture<@Nullable IFunction> definition;
@@ -94,6 +97,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasDocumentSymbol;
     private final CompletableFuture<Boolean> hasCodeLens;
     private final CompletableFuture<Boolean> hasInlayHint;
+    private final CompletableFuture<Boolean> hasRename;
     private final CompletableFuture<Boolean> hasExecution;
     private final CompletableFuture<Boolean> hasHover;
     private final CompletableFuture<Boolean> hasDefinition;
@@ -136,6 +140,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
             this.codeLens = getFunctionFor(contributions, LanguageContributions.CODE_LENS);
             this.inlayHint = getFunctionFor(contributions, LanguageContributions.INLAY_HINT);
+            this.rename = getRenameFunction(contributions);
+            this.prepareRename = getPrepareRenameFunction(contributions);
             this.execution = getFunctionFor(contributions, LanguageContributions.EXECUTION);
             this.hover = getFunctionFor(contributions, LanguageContributions.HOVER);
             this.definition = getFunctionFor(contributions, LanguageContributions.DEFINITION);
@@ -149,6 +155,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasDocumentSymbol = nonNull(this.documentSymbol);
             this.hasCodeLens = nonNull(this.codeLens);
             this.hasInlayHint = nonNull(this.inlayHint);
+            this.hasRename = nonNull(this.rename);
             this.hasExecution = nonNull(this.execution);
             this.hasHover = nonNull(this.hover);
             this.hasDefinition = nonNull(this.definition);
@@ -256,16 +263,32 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+    private static CompletableFuture<@Nullable IConstructor> getContribution(CompletableFuture<ISet> contributions, String cons) {
         return contributions.thenApply(conts -> {
             for (IValue elem : conts) {
                 IConstructor contrib = (IConstructor) elem;
                 if (cons.equals(contrib.getConstructorType().getName())) {
-                    return (IFunction) contrib.get(0);
+                    return contrib;
                 }
             }
             logger.debug("No {} defined", cons);
             return null;
+        });
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+        return getContribution(contributions, cons).thenApply(contribution -> (IFunction) contribution.get(0));
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getRenameFunction(CompletableFuture<ISet> contributions) {
+        return getContribution(contributions, LanguageContributions.RENAME).thenApply(contribution -> {
+            return (IFunction) contribution.get(LanguageContributions.RENAME_SERVICE);
+        });
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getPrepareRenameFunction(CompletableFuture<ISet> contributions) {
+        return getContribution(contributions, LanguageContributions.RENAME).thenApply(contribution -> {
+            return (IFunction) contribution.asWithKeywordParameters().getParameter(LanguageContributions.PREPARE_RENAME_SERVICE);
         });
     }
 
@@ -308,6 +331,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
         debug(LanguageContributions.INLAY_HINT, input != null ? TreeAdapter.getLocation(input) : null);
         return execFunction(LanguageContributions.INLAY_HINT, inlayHint, VF.list(), input);
+    }
+
+    @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        debug(LanguageContributions.PREPARE_RENAME_SERVICE, focus.get(0));
+        return execFunction(LanguageContributions.PREPARE_RENAME_SERVICE, prepareRename, URIUtil.unknownLocation(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String newName) {
+        debug(LanguageContributions.RENAME_SERVICE, newName, focus.get(0));
+        return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.list()), focus, VF.string(newName));
     }
 
     @Override
@@ -376,6 +411,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
         return hasInlayHint;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return hasRename;
     }
 
     @Override
