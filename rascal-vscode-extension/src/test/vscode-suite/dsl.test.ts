@@ -25,11 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { By, Key, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
+import { expect } from 'chai';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -209,6 +210,34 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         finally {
             await ide.revertOpenChanges();
         }
+    });
+
+    it("rename works", async() => {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(5, 6);
+
+        let renameSuccess = false;
+        let tries = 0;
+        while (!renameSuccess && tries < 5) {
+            try {
+                await bench.executeCommand("Rename Symbol");
+                const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
+                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, "z", Key.ENTER);
+                renameSuccess = true;
+            }
+            catch (e) {
+                console.log("Rename failed to succeed, lets try again");
+                await ide.screenshot(`DSL-failed-rename-round-${tries}`);
+                tries++;
+            }
+        }
+        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+
+        await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
+
+        const editorText = await editor.getText();
+        expect(editorText).to.contain("z : natural");
+        expect(editorText).to.contain("z := 2");
     });
 
 });
