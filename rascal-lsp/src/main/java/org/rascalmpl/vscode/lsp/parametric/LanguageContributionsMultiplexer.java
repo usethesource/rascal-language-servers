@@ -32,14 +32,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 
-import org.apache.commons.compress.harmony.unpack200.IcTuple;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -296,7 +294,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList oldToNew) {
-        return flatten(rename, c -> c.didRenameFiles(oldToNew));
+        return flatten(didRenameFiles, c -> c.didRenameFiles(oldToNew));
     }
 
     @Override
