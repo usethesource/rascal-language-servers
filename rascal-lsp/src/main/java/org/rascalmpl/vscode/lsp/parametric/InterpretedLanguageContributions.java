@@ -83,27 +83,29 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> documentSymbol;
     private final CompletableFuture<@Nullable IFunction> codeLens;
     private final CompletableFuture<@Nullable IFunction> inlayHint;
-    private final CompletableFuture<@Nullable IFunction> prepareRename;
-    private final CompletableFuture<@Nullable IFunction> rename;
     private final CompletableFuture<@Nullable IFunction> execution;
     private final CompletableFuture<@Nullable IFunction> hover;
     private final CompletableFuture<@Nullable IFunction> definition;
     private final CompletableFuture<@Nullable IFunction> references;
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
+    private final CompletableFuture<@Nullable IFunction> prepareRename;
+    private final CompletableFuture<@Nullable IFunction> rename;
+    private final CompletableFuture<@Nullable IFunction> didRenameFiles;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
     private final CompletableFuture<Boolean> hasDocumentSymbol;
     private final CompletableFuture<Boolean> hasCodeLens;
     private final CompletableFuture<Boolean> hasInlayHint;
-    private final CompletableFuture<Boolean> hasRename;
     private final CompletableFuture<Boolean> hasExecution;
     private final CompletableFuture<Boolean> hasHover;
     private final CompletableFuture<Boolean> hasDefinition;
     private final CompletableFuture<Boolean> hasReferences;
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
+    private final CompletableFuture<Boolean> hasRename;
+    private final CompletableFuture<Boolean> hasDidRenameFiles;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -140,14 +142,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
             this.codeLens = getFunctionFor(contributions, LanguageContributions.CODE_LENS);
             this.inlayHint = getFunctionFor(contributions, LanguageContributions.INLAY_HINT);
-            this.rename = getRenameFunction(contributions);
-            this.prepareRename = getPrepareRenameFunction(contributions);
             this.execution = getFunctionFor(contributions, LanguageContributions.EXECUTION);
             this.hover = getFunctionFor(contributions, LanguageContributions.HOVER);
             this.definition = getFunctionFor(contributions, LanguageContributions.DEFINITION);
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
+            this.prepareRename = getPrepareRenameFunction(contributions);
+            this.rename = getRenameFunction(contributions);
+            this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -155,13 +158,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasDocumentSymbol = nonNull(this.documentSymbol);
             this.hasCodeLens = nonNull(this.codeLens);
             this.hasInlayHint = nonNull(this.inlayHint);
-            this.hasRename = nonNull(this.rename);
             this.hasExecution = nonNull(this.execution);
             this.hasHover = nonNull(this.hover);
             this.hasDefinition = nonNull(this.definition);
             this.hasReferences = nonNull(this.references);
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
+            this.hasRename = nonNull(this.rename);
+            this.hasDidRenameFiles = nonNull(this.didRenameFiles);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -346,6 +350,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
+        debug(LanguageContributions.DID_RENAME_FILES, fileRenames);
+        return execFunction(LanguageContributions.DID_RENAME_FILES, didRenameFiles, VF.tuple(VF.list(), VF.list()), fileRenames);
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         debug(LanguageContributions.HOVER, focus.length());
         return execFunction(LanguageContributions.HOVER, hover, VF.set(), focus);
@@ -416,6 +426,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasRename() {
         return hasRename;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return hasDidRenameFiles;
     }
 
     @Override

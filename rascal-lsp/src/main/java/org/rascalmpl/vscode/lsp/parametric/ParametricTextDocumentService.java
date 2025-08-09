@@ -29,7 +29,9 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.io.IOException;
 import java.io.Reader;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
@@ -62,6 +65,7 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -136,10 +140,16 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactParseError;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+    private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
+
     private final ExecutorService ownExecuter;
 
     private final String dedicatedLanguageName;
@@ -158,6 +168,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
     private final @Nullable LanguageParameter dedicatedLanguage;
+
+    private final TypeStore typeStore = new TypeStore();
+    private final TypeFactory tf = TypeFactory.getInstance();
+    private final Type renamedConstructor = tf.constructor(typeStore,
+            tf.abstractDataType(typeStore, "DocumentEdit"), "renamed", tf.sourceLocationType(), "from",
+            tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
@@ -209,9 +225,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setInlayHintProvider(true);
 
         result.setFoldingRangeProvider(true);
-        result.setInlayHintProvider(true);
     }
 
     private String getRascalMetaCommandName() {
@@ -422,8 +438,53 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
-        // TODO Auto-generated method stub
-        IBaseTextDocumentService.super.didRenameFiles(params, workspaceFolders);
+        Map<ILanguageContributions, List<FileRename>> byContrib =  bundleRenamesByContribution(params.getFiles());
+        for (var entry : byContrib.entrySet()) {
+            ILanguageContributions contrib = entry.getKey();
+            List<FileRename> renames = entry.getValue();
+
+            IList renameDocumentEdits = renames.stream().map(rename -> fileRenameToDocumentEdit(rename)).collect(VF.listWriter());
+
+            contrib.didRenameFiles(renameDocumentEdits)
+                .thenAccept(res -> {
+                    var edits = (IList) res.get(0);
+                    var messages = (ISet) res.get(1);
+                    showMessages(messages);
+
+                    if (edits.size() == 0) {
+                        return;
+                    }
+
+                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(this, edits);
+                    client.applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
+                    if (!editResponse.isApplied()) {
+                        throw new RuntimeException("Applying changes after didRenameFiles failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+                    }
+                });
+                })
+                .get()
+                .exceptionally(e -> {
+                    logger.catching(Level.ERROR, e.getCause());
+                    client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
+                    return null; // Return of type `Void` is unused, but required
+                });
+        }
+    }
+
+    private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
+        Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
+        for (FileRename rename : allRenames) {
+            // TODO: Discuss what to do if old uri and new uri have different extensions
+            ILanguageContributions contrib = contributions(rename.getNewUri());
+            bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
+        }
+        return bundled;
+    }
+
+    private IConstructor fileRenameToDocumentEdit(FileRename rename) {
+        ISourceLocation from = Locations.toLoc(rename.getOldUri());
+        ISourceLocation to = Locations.toLoc(rename.getNewUri());
+        return VF.constructor(renamedConstructor, from, to);
     }
 
     @Override
@@ -633,7 +694,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         else {
             logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
-            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
+            return CompletableFuture.completedFuture(VF.list());
         }
     }
 

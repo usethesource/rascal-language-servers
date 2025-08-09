@@ -31,12 +31,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+
+import org.apache.commons.compress.harmony.unpack200.IcTuple;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -59,27 +62,29 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> documentSymbol = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeLens = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> inlayHint = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> execution = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> hover = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> definition = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDocumentSymbol = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeLens = failedInitialization();
     private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasExecution = failedInitialization();
     private volatile CompletableFuture<Boolean> hasHover = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDefinition = failedInitialization();
     private volatile CompletableFuture<Boolean> hasReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -147,26 +152,28 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol);
         codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens);
         inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        rename = findFirstOrDefault(ILanguageContributions::hasRename);
-        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         execution = findFirstOrDefault(ILanguageContributions::hasExecution);
         hover = findFirstOrDefault(ILanguageContributions::hasHover);
         definition = findFirstOrDefault(ILanguageContributions::hasDefinition);
         references = findFirstOrDefault(ILanguageContributions::hasReferences);
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
         codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
+        rename = findFirstOrDefault(ILanguageContributions::hasRename);
+        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
+        didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
         hasDocumentSymbol = anyTrue(ILanguageContributions::hasDocumentSymbol);
         hasCodeLens = anyTrue(ILanguageContributions::hasCodeLens);
         hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
-        hasRename = anyTrue(ILanguageContributions::hasRename);
         hasExecution = anyTrue(ILanguageContributions::hasExecution);
         hasHover = anyTrue(ILanguageContributions::hasHover);
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+        hasRename = anyTrue(ILanguageContributions::hasRename);
+        hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -288,6 +295,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList oldToNew) {
+        return flatten(rename, c -> c.didRenameFiles(oldToNew));
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         return flatten(hover, c -> c.hover(focus));
     }
@@ -370,6 +382,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasRename() {
         return hasRename;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return hasDidRenameFiles;
     }
 
     @Override

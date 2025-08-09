@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -163,6 +164,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
+        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()));
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
@@ -244,6 +250,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasRename() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
         return CompletableFuture.completedFuture(false);
     }
 

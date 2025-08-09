@@ -36,7 +36,6 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -54,15 +53,16 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IList> documentSymbol(ITree input);
     public InterruptibleFuture<IList> codeLens(ITree input);
     public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
-    public InterruptibleFuture<ITuple> rename(IList focus, String name);
     public InterruptibleFuture<@Nullable IValue> execution(String command);
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
-    public InterruptibleFuture<Void> didRenameFiles(IMap oldToNew);
+
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
+    public InterruptibleFuture<ITuple> rename(IList focus, String name);
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 
