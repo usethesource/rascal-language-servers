@@ -169,6 +169,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final @Nullable LanguageParameter dedicatedLanguage;
 
+    // Create "renamed" constructor of "DocumentEdit" so we can build a list of DocumentEdit objects for didRenameFiles
     private final TypeStore typeStore = new TypeStore();
     private final TypeFactory tf = TypeFactory.getInstance();
     private final Type renamedConstructor = tf.constructor(typeStore,
@@ -348,7 +349,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
             PrepareRenameParams params) {
-        System.err.println("prepareRename for: " + params.getTextDocument().getUri());
+        logger.trace("prepareRename for: {}", params.getTextDocument().getUri());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
         final Position pos = params.getPosition();
         return getFile(params.getTextDocument())
@@ -370,8 +371,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-        System.err.println("rename for: " + params.getTextDocument().getUri() + ", newName=" + params.getNewName());
-
+        logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
         final Position pos = params.getPosition();
         return getFile(params.getTextDocument())
@@ -458,7 +458,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(this, edits);
                     client.applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
                     if (!editResponse.isApplied()) {
-                        throw new RuntimeException("Applying changes after didRenameFiles failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+                        throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
+                            + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
                     }
                 });
                 })
