@@ -30,6 +30,7 @@ import { stat, unlink } from "fs/promises";
 import path = require("path");
 import { env } from "process";
 import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import * as os from 'os';
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -350,8 +351,52 @@ export class IDEOperations {
         await menuContainer.sendKeys(Key.RETURN);
     }
 
+    async moveFile(fromFile: string, toDir: string, bench: Workbench) {
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+
+        // Move the file
+        if (os.type() === "Darwin") {
+            // Context menus are not supported for macOS:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
+            //
+            // The following workaround triggers a move of `Lib.rsc` by cutting
+            // and pasting that file using keyboard input. It works under the
+            // assumption that `Lib.rsc` and `lib` are visible in the Explorer.
+            // If this assumption breaks in the future, then see the
+            // implementation of `DefaultTreeSection.findItem` for inspiration
+            // on how to scroll the Explorer down:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
+
+            // Find the div that contains the whole visible tree in the Explorer
+            const treeDiv = await workspace.findElement(By.className('monaco-list'));
+
+            // Cut
+            const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
+            await libFileInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'x', Key.COMMAND); // Only this div handles key events; not `libFileInTreeDiv`
+
+            // Paste
+            const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
+            await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
+        }
+
+        else {
+            // Context menus are supported for Windows and Linux
+            const libFileInTree = await this.driver.wait(async() => workspace.findItem(fromFile), Delays.normal, "Cannot find source file");
+            const libFolderInTree = await this.driver.wait(async() => workspace.findItem(toDir), Delays.normal, "Cannot find destination folder");
+            await (await libFileInTree!.openContextMenu()).select("Cut");
+            await (await libFolderInTree!.openContextMenu()).select("Paste");
+        }
+    }
+
+
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
         return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
+
     }
 
     statusContains(needle: string): () => Promise<boolean> {
