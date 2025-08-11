@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -99,6 +98,7 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
@@ -437,7 +437,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         Map<ILanguageContributions, List<FileRename>> byContrib =  bundleRenamesByContribution(params.getFiles());
         for (var entry : byContrib.entrySet()) {
             ILanguageContributions contrib = entry.getKey();

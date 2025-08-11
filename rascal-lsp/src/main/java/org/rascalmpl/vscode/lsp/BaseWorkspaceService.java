@@ -139,11 +139,10 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        CompletableFuture.supplyAsync(() -> workspaceFolders()
-                .stream()
-                .map(f -> Locations.toLoc(f.getUri()))
-                .collect(Collectors.toSet()), getExecuter())
-                .thenAccept(folders -> documentService.didRenameFiles(params, folders));
+        CompletableFuture.supplyAsync(() -> {
+            documentService.didRenameFiles(params, workspaceFolders());
+            return null; // Void return type requires a return.
+        });
     }
 
     @Override
