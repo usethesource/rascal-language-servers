@@ -73,6 +73,8 @@ import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.ReferenceParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -106,6 +108,7 @@ import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
+import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -193,6 +196,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setSelectionRangeProvider(true);
 
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
@@ -578,6 +582,30 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        logger.debug("Selection range: {} at {}", params.getTextDocument(), params.getPositions());
+        final ILanguageContributions contrib = contributions(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
+
+        return recoverExceptions(file.getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose(t -> {
+                    List<CompletableFuture<IList>> selectionFutures = params.getPositions().stream()
+                        .map(p -> Locations.toRascalPosition(params.getTextDocument(), p, columns))
+                        .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
+                        .map(focus -> contrib.selectionRange(focus).get())
+                        .collect(Collectors.toList());
+
+                    return CompletableFuture.allOf(selectionFutures.toArray(new CompletableFuture<?>[0]))
+                        .thenApply(v -> selectionFutures.stream().map(CompletableFuture::join).collect(Collectors.toList()))
+                        .thenApply(ranges -> ranges.stream()
+                            .map(range -> SelectionRanges.toSelectionRange(range, columns))
+                            .collect(Collectors.toList()));
+                }),
+            Collections::emptyList);
     }
 
     @Override
