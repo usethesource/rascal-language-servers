@@ -148,8 +148,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
-            this.prepareRename = getPrepareRenameFunction(contributions);
-            this.rename = getRenameFunction(contributions);
+            this.prepareRename = getFunctionFor(contributions, LanguageContributions.RENAME);
+            this.rename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
             this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
 
             // assign boolean properties once instead of wasting futures all the time
@@ -284,15 +284,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return getContribution(contributions, cons).thenApply(contribution -> (IFunction) contribution.get(0));
     }
 
-    private static CompletableFuture<@Nullable IFunction> getRenameFunction(CompletableFuture<ISet> contributions) {
-        return getContribution(contributions, LanguageContributions.RENAME).thenApply(contribution -> {
-            return (IFunction) contribution.get(LanguageContributions.RENAME_SERVICE);
-        });
-    }
-
-    private static CompletableFuture<@Nullable IFunction> getPrepareRenameFunction(CompletableFuture<ISet> contributions) {
-        return getContribution(contributions, LanguageContributions.RENAME).thenApply(contribution -> {
-            return (IFunction) contribution.asWithKeywordParameters().getParameter(LanguageContributions.PREPARE_RENAME_SERVICE);
+    private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
+        return getContribution(contributions, cons).thenApply(contribution -> {
+            return (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam);
         });
     }
 
@@ -339,13 +333,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        debug(LanguageContributions.PREPARE_RENAME_SERVICE, focus.get(0));
+        debug(LanguageContributions.PREPARE_RENAME_SERVICE, focus.isEmpty() ? "" : focus.get(0));
         return execFunction(LanguageContributions.PREPARE_RENAME_SERVICE, prepareRename, URIUtil.unknownLocation(), focus);
     }
 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String newName) {
-        debug(LanguageContributions.RENAME_SERVICE, newName, focus.get(0));
+        debug(LanguageContributions.RENAME_SERVICE, newName, focus.isEmpty() ? "" : focus.get(0));
         return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.list()), focus, VF.string(newName));
     }
 

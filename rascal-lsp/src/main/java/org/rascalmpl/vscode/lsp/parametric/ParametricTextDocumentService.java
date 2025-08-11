@@ -457,11 +457,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
                     WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(this, edits);
                     client.applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
-                    if (!editResponse.isApplied()) {
-                        throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
-                            + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
-                    }
-                });
+                        if (!editResponse.isApplied()) {
+                            throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
+                                + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
+                        }
+                    });
                 })
                 .get()
                 .exceptionally(e -> {
@@ -475,9 +475,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            ILanguageContributions contrib = contributions(rename.getNewUri());
-            bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
+            String language = registeredExtensions.get(extension(rename.getNewUri()));
+            if (language != null) {
+                ILanguageContributions contrib = contributions.get(language);
+                if (contrib != null) {
+                    bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
+                }
+            }
         }
+
         return bundled;
     }
 
@@ -552,7 +558,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return contributions(doc.getUri());
     }
 
-    private ILanguageContributions contributions(String doc) {
+    private ILanguageContributions contributions(String doc, boolean throwWhenNotFound) {
         String language = registeredExtensions.get(extension(doc));
         if (language != null) {
             ILanguageContributions contrib = contributions.get(language);
