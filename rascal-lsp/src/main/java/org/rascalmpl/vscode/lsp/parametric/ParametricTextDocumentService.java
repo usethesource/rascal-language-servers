@@ -475,7 +475,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            // TODO: Discuss what to do if old uri and new uri have different extensions
             ILanguageContributions contrib = contributions(rename.getNewUri());
             bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
         }
