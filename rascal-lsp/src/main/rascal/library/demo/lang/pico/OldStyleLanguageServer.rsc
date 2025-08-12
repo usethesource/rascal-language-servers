@@ -51,7 +51,9 @@ set[LanguageService] picoLanguageContributor(bool allowRecovery) = {
     executor(picoCommands),
     inlayHinter(picoHinter),
     definer(lookupDef),
-    actions(picoActions)
+    actions(picoActions),
+    rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
+    didRenameFiles(picoFileRenameService)
 };
 set[LanguageService] picoLanguageContributor() = picoLanguageContributor(false);
 set[LanguageService] picoLanguageContributorWithRecovery() = picoLanguageContributor(true);
@@ -169,6 +171,31 @@ value picoCommands(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
 }
+
+@synopsis{Prepares the rename service by checking if the id can be renamed}
+loc picoRenamePreparingService(Focus _:[Id id, *_])  = id.src;
+
+@synopsis{Renaming service implementation}
+default tuple[list[DocumentEdit], set[Message]] picoRenamingService(Focus focus, str newName) = <[changed(focus[0].src.top, [
+    replace(id.src, newName)
+    | cursor := focus[0]
+    , /Id id := focus[-1]
+    , id := cursor
+])], {}>;
+
+@synposis{Handle renames of files in the IDE.}
+tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] fileRenames) {
+    // Iterate over fileRenames
+
+    list[DocumentEdit] edits = [];
+    for (renamed(loc from, loc to) <- fileRenames) {
+        // Surely there is a better way to do this?
+        toBegin = to[offset=0][length=0][begin=<1,0>][end=<1,0>];
+        edits = edits + changed(to, [insertBefore(toBegin, "%% File moved from <from> to <to>\n", separator="")]);
+    }
+    return <edits, {info("<size(edits)> moves succeeded!", |unknown:///|)}>;
+}
+
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
