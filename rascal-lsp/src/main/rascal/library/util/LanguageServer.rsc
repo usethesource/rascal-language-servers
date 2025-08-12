@@ -494,7 +494,7 @@ data DocumentSymbol
         loc selection=range,
         str detail="",
         list[DocumentSymbol] children=[],
-        set[DocumentSymbol] tags = {}
+        set[DocumentSymbolTag] tags = {}
     );
 
 data DocumentSymbolKind
