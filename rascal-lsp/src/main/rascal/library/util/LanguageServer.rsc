@@ -493,7 +493,8 @@ data DocumentSymbol
         loc range,
         loc selection=range,
         str detail="",
-        list[DocumentSymbol] children=[]
+        list[DocumentSymbol] children=[],
+        set[DocumentSymbolTag] tags = {}
     );
 
 data DocumentSymbolKind
