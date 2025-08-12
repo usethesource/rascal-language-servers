@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { By, Key, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
@@ -216,22 +216,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(5, 6);
 
-        let renameSuccess = false;
-        let tries = 0;
-        while (!renameSuccess && tries < 5) {
-            try {
-                await bench.executeCommand("Rename Symbol");
-                const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
-                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, "z", Key.ENTER);
-                renameSuccess = true;
-            }
-            catch (e) {
-                console.log("Rename failed to succeed, lets try again");
-                await ide.screenshot(`DSL-failed-rename-round-${tries}`);
-                tries++;
-            }
-        }
-        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+        ide.renameSymbol(editor, bench, "z");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 

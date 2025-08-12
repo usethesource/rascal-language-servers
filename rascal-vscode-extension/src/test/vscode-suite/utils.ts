@@ -31,6 +31,7 @@ import path = require("path");
 import { env } from "process";
 import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import * as os from 'os';
+import { expect } from 'chai';
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -349,6 +350,25 @@ export class IDEOperations {
         // menu container works a bit strangely, it ask the focus to keep track of it,
         // and manages clicks and menus on the highest level (not per item).
         await menuContainer.sendKeys(Key.RETURN);
+    }
+
+    async renameSymbol(editor: TextEditor, bench: Workbench, newName: string) {
+        let renameSuccess = false;
+        let tries = 0;
+        while (!renameSuccess && tries < 5) {
+            try {
+                await bench.executeCommand("Rename Symbol");
+                const renameBox = await this.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
+                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, newName, Key.ENTER);
+                renameSuccess = true;
+            }
+            catch (e) {
+                console.log("Rename failed to succeed, lets try again");
+                await this.screenshot(`DSL-failed-rename-round-${tries}`);
+                tries++;
+            }
+        }
+        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
     }
 
     async moveFile(fromFile: string, toDir: string, bench: Workbench) {

@@ -148,8 +148,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
-            this.prepareRename = getFunctionFor(contributions, LanguageContributions.RENAME);
-            this.rename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
+            this.prepareRename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
+            this.rename = getFunctionFor(contributions, LanguageContributions.RENAME);
             this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
 
             // assign boolean properties once instead of wasting futures all the time

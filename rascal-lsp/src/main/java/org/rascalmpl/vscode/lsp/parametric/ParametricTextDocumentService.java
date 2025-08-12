@@ -356,7 +356,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .getCurrentTreeAsync() // It is the responsibility of the language contribution to handle the case where the tree contains parse errors
             .thenApply(Versioned::get)
             .thenCompose(tree -> computeRenameRange(contribs, pos.getLine(), pos.getCharacter(), tree))
-            .thenApply(loc -> Either3.forFirst(Locations.toRange(loc, columns)));
+            .thenApply(loc -> {
+                if (loc == null) {
+                    throw new ResponseErrorException(new ResponseError(-1, "Rename not possible", pos));
+                }
+                return Either3.forFirst(Locations.toRange(loc, columns));
+            });
     }
 
     private CompletableFuture<ISourceLocation> computeRenameRange(final ILanguageContributions contribs, final int startLine,
@@ -558,7 +563,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return contributions(doc.getUri());
     }
 
-    private ILanguageContributions contributions(String doc, boolean throwWhenNotFound) {
+    private ILanguageContributions contributions(String doc) {
         String language = registeredExtensions.get(extension(doc));
         if (language != null) {
             ILanguageContributions contrib = contributions.get(language);

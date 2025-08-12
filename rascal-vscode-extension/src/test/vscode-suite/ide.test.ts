@@ -28,7 +28,7 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
 
@@ -190,22 +190,7 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        let renameSuccess = false;
-        let tries = 0;
-        while (!renameSuccess && tries < 5) {
-            try {
-                await bench.executeCommand("Rename Symbol");
-                const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
-                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, "i", Key.ENTER);
-                renameSuccess = true;
-            }
-            catch (e) {
-                console.log("Rename failed to succeed, lets try again");
-                await ide.screenshot(`IDE-failed-rename-round-${tries}`);
-                tries++;
-            }
-        }
-        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+        ide.renameSymbol(editor, bench, "i");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 

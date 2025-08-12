@@ -38,6 +38,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
@@ -155,7 +156,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        throw new UnsupportedOperationException("ParserOnlyContribution does not support prepareRename");
+        return InterruptibleFuture.completedFuture(null);
     }
 
     @Override
