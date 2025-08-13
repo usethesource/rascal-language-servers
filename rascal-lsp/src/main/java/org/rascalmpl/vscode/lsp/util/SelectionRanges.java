@@ -29,11 +29,15 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SelectionRange;
+import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -88,5 +92,15 @@ public class SelectionRanges {
                 }
             }
         };
+    }
+
+    public static IList defaultImplementation(IList focus) {
+        return focus.stream()
+            .filter(Objects::nonNull)
+            .filter(ITree.class::isInstance)
+            .map(ITree.class::cast)
+            .map(TreeAdapter::getLocation)
+            .distinct()
+            .collect(IRascalValueFactory.getInstance().listWriter());
     }
 }
