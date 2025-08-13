@@ -592,19 +592,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose(t -> {
-                    List<CompletableFuture<IList>> selectionFutures = params.getPositions().stream()
-                        .map(p -> Locations.toRascalPosition(params.getTextDocument(), p, columns))
-                        .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
-                        .map(focus -> contrib.selectionRange(focus).get())
-                        .collect(Collectors.toList());
-
-                    return CompletableFuture.allOf(selectionFutures.toArray(new CompletableFuture<?>[0]))
-                        .thenApply(v -> selectionFutures.stream().map(CompletableFuture::join).collect(Collectors.toList()))
-                        .thenApply(ranges -> ranges.stream()
-                            .map(range -> SelectionRanges.toSelectionRange(range, columns))
-                            .collect(Collectors.toList()));
-                }),
+                .thenCompose(t -> params.getPositions().stream()
+                    .map(p -> Locations.toRascalPosition(params.getTextDocument(), p, columns))
+                    .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
+                    .map(focus -> contrib.selectionRange(focus).get())
+                    .map(rangeFut -> rangeFut.thenApply(range -> Collections.singletonList(SelectionRanges.toSelectionRange(range, columns)))) // produce singleton lists here to simplify reduction later
+                    .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
+                        l.addAll(r);
+                        return l;
+                    }))
+                    .orElse(CompletableFuture.completedFuture(Collections.emptyList()))),
             Collections::emptyList);
     }
 
