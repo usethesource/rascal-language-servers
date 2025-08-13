@@ -55,7 +55,7 @@
       },
       {
         "command": "rascalmpl.copySourceLocation",
-        "title": "Copy path as source location",
+        "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
       }
     ],
@@ -75,7 +75,8 @@
       ],
       "explorer/context": [
         {
-          "command": "rascalmpl.copySourceLocation"
+          "command": "rascalmpl.copySourceLocation",
+          "group": "6_copypath@21"
         }
       ]
     },
