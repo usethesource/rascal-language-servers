@@ -82,7 +82,7 @@ public class SelectionRanges {
             @Override
             public T next() {
                 try {
-                return list.get(current--);
+                    return list.get(current--);
                 } catch (IndexOutOfBoundsException e) {
                     throw new NoSuchElementException();
                 }
