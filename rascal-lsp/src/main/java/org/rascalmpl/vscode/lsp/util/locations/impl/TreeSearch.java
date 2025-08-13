@@ -135,11 +135,7 @@ public class TreeSearch {
             for (IValue child : children) {
                 ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
 
-                if (childLoc == null) {
-                    continue;
-                }
-
-                if (inside(childLoc, line, column)) {
+                if (childLoc != null && inside(childLoc, line, column)) {
                     boolean result = computeFocusList(focus, (ITree) child, line, column);
 
                     if (result) {
