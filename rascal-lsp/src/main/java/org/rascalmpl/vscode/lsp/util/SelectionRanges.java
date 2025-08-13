@@ -43,6 +43,12 @@ import io.usethesource.vallang.ISourceLocation;
 public class SelectionRanges {
     private SelectionRanges() { /* hide implicit constructor */ }
 
+    /**
+     * Folds a {@link IList} of {@link ISourceLocation}s into a single, nested {@link SelectionRange}.
+     * @param ranges The range hierarchy. Should be ordered child-before-parent, where any source location is contained by the next.
+     * @param columns The editor's column map.
+     * @return A range with optional parent ranges.
+     */
     public static @Nullable SelectionRange toSelectionRange(IList ranges, ColumnMaps columns) {
         return toSelectionRange(ranges.stream()
             .map(ISourceLocation.class::cast)
