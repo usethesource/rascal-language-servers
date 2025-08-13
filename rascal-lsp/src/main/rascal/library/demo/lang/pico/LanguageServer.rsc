@@ -190,7 +190,7 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
 }
 
 list[loc] picoSelectionRangeService(Focus focus)
-    = reverse(dup([t@\loc | t <- focus]));
+    = dup([t@\loc | t <- focus]);
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

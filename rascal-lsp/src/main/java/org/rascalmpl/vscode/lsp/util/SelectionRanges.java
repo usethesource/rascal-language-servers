@@ -26,7 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -50,15 +52,35 @@ public class SelectionRanges {
 
     /**
      * Folds a {@link List} of {@link Range}s into a single, nested {@link SelectionRange}.
-     * @param ranges The range hierarchy. Should be ordered parent-before-child, where any range contains the next one.
+     * @param ranges The range hierarchy. Should be ordered child-before-parent, where any range is contained by the next.
      * @return A range with optional parent ranges
      */
     public static @Nullable SelectionRange toSelectionRange(List<Range> ranges) {
-        // assumes parent-before-child ordering
+        // assumes child-before-parent ordering
         SelectionRange selectionRange = null;
-        for (var r : ranges) {
+        for (var r : reverse(ranges)) {
             selectionRange = new SelectionRange(r, selectionRange);
         }
         return selectionRange;
+    }
+
+    private static <T> Iterable<T> reverse(List<T> list) {
+        return () -> new Iterator<T>() {
+            int current = list.size() - 1;
+
+            @Override
+            public boolean hasNext() {
+                return current >= 0;
+            }
+
+            @Override
+            public T next() {
+                try {
+                return list.get(current--);
+                } catch (IndexOutOfBoundsException e) {
+                    throw new NoSuchElementException();
+                }
+            }
+        };
     }
 }
