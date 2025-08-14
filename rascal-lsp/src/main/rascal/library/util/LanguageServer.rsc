@@ -207,7 +207,7 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
-* The ((selectionRange)) service discovers selections around a cursor. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
+* The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
