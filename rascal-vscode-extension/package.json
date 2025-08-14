@@ -64,6 +64,10 @@
         {
           "command": "rascalmpl.startDebuggerForRepl",
           "when": "false"
+        },
+        {
+            "command": "rascalmpl.copySourceLocation",
+            "when": "false"
         }
       ],
       "view/item/context": [
