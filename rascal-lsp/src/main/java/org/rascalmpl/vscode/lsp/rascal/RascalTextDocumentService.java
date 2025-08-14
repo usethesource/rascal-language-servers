@@ -118,6 +118,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
+import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -529,30 +530,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> params.getPositions().stream()
                 .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
-                .map(p -> selectionRangeForPosition(tr, p))
+                .map(p -> TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter()))
+                .map(focus -> rascalServices.getSelectionsForFocus(focus))
+                .map(l -> SelectionRanges.toSelectionRange(l, columns))
                 .collect(Collectors.toList()));
-    }
-
-    private SelectionRange selectionRangeForPosition(ITree tr, Position pos) {
-        // Compute focus list for cursor position
-        var focus = TreeSearch.computeFocusList(tr, pos.getLine(), pos.getCharacter());
-        var ranges = focus
-            // Reverse, to prepare for folding later
-            .reverse()
-            .stream()
-            .map(ITree.class::cast)
-            .map(TreeAdapter::getLocation)
-            .map(l -> Locations.toRange(l, columns))
-            // Remove duplicate ranges
-            .distinct()
-            .collect(Collectors.toList());
-
-        // Fold into a single nested selection range
-        SelectionRange selectionRange = null;
-        for (var r : ranges) {
-            selectionRange = new SelectionRange(r, selectionRange);
-        }
-        return selectionRange;
     }
 
     @Override

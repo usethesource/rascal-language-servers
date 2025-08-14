@@ -370,6 +370,15 @@ public class RascalLanguageServices {
         });
     }
 
+    public IList getSelectionsForFocus(IList focus) {
+        return focus
+            .stream()
+            .map(ITree.class::cast)
+            .map(TreeAdapter::getLocation)
+            .distinct() // Remove duplicate ranges
+            .collect(VF.listWriter());
+    }
+
     public static final class CodeLensSuggestion {
         private final ISourceLocation line;
         private final String commandName;
