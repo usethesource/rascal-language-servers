@@ -268,9 +268,9 @@ data LanguageService
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
-    | callHierarchy (set[loc] (Focus _focus, Summary _s) callHierarchyService)
-    | incomingCalls (rel[loc toDef, loc call] (CallHierarchyItem _f, Tree _input, Summary _s) incomingCallsService)
-    | outgoingCalls (rel[loc fromDef, loc call] (CallHierarchyItem _f, Tree _input, Summary _s) outgoingCallsService)
+    | callHierarchy (
+        set[CallHierarchyItem] (Focus _focus) callableItem,
+        rel[loc item, loc call] (CallHierarchyItem _ci, Tree _input, CallDirection _dir) calculateCalls)
     ;
 
 data CallHierarchyItem
@@ -283,6 +283,11 @@ data CallHierarchyItem
         str detail = "", // e.g. function signature
         value \data = () // to share state between `prepareCallHierarchy` and `incomingCalls`/`outgoingCalls`
     );
+
+data CallDirection
+    = incoming()
+    | outgoing()
+    ;
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
@@ -493,7 +498,6 @@ data Summary = summary(loc src,
     rel[loc, str]     documentation = {},
     rel[loc, str]     hovers = documentation,
     rel[loc, loc]     definitions = {},
-    map[loc, tuple[str id, loc idLoc, DocumentSymbolKind kind, set[DocumentSymbolTag] tags]] definitionDetails = (),
     rel[loc, loc]     references = {},
     rel[loc, loc]     implementations = {}
 );
