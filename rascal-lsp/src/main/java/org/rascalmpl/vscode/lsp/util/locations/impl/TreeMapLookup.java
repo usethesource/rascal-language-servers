@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
 public class TreeMapLookup<T> implements IRangeMap<T> {
@@ -41,62 +42,31 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
     private final NavigableMap<Range, T> data = new TreeMap<>(TreeMapLookup::compareRanges);
 
     private static int compareRanges(Range a, Range b) {
-        Position aStart = a.getStart();
-        Position aEnd = a.getEnd();
-        Position bStart = b.getStart();
-        Position bEnd = b.getEnd();
-        if (aEnd.getLine() < bStart.getLine()) {
-            return -1;
+        if (a.equals(b)) {
+            return 0;
         }
-        if (aStart.getLine() > bEnd.getLine()) {
+        // check containment; strict since `a != b`
+        // parent is always larger than child
+        if (Ranges.containsRange(a, b)) {
             return 1;
         }
-        // some kind of containment, or just on the same line
-        if (aStart.getLine() == bStart.getLine()) {
-            // start at same line
-            if (aEnd.getLine() == bEnd.getLine()) {
-                // end at same line
-                if (aStart.getCharacter() == bStart.getCharacter()) {
-                    return Integer.compare(aEnd.getCharacter(), bEnd.getCharacter());
-                }
-                return Integer.compare(aStart.getCharacter(), bStart.getCharacter());
-            }
-            return Integer.compare(aEnd.getLine(), bEnd.getLine());
+        if (Ranges.containsRange(b, a)) {
+            return -1;
         }
-        return Integer.compare(aStart.getLine(), bStart.getLine());
-    }
 
-    private static boolean rangeContains(Range a, Range b) {
         Position aStart = a.getStart();
         Position aEnd = a.getEnd();
         Position bStart = b.getStart();
         Position bEnd = b.getEnd();
 
-        if (aStart.getLine() <= bStart.getLine()
-            && aEnd.getLine() >= bEnd.getLine()) {
-            if (aStart.getLine() == bStart.getLine()) {
-                if (aStart.getCharacter() > bStart.getCharacter()) {
-                    return false;
-                }
-            }
-            if (aEnd.getLine() == bEnd.getLine()) {
-                if (aEnd.getCharacter() < bEnd.getCharacter()) {
-                    return false;
-                }
-            }
-            return true;
+        if (aStart.getLine() != bStart.getLine()) {
+            return Integer.compare(bStart.getLine(), aStart.getLine());
         }
-        return false;
-    }
-
-    private @Nullable T contains(@Nullable Entry<Range, T> entry, Range from) {
-        if (entry != null) {
-            Range match = entry.getKey();
-            if (rangeContains(match, from)) {
-                return entry.getValue();
-            }
+        if (aEnd.getLine() != bEnd.getLine()) {
+            return Integer.compare(bEnd.getLine(), aEnd.getLine());
         }
-        return null;
+        // start characters cannot be equal since start/end lines are equal and neither range contains the other
+        return Integer.compare(bEnd.getCharacter(), aEnd.getCharacter());
     }
 
     @Override
@@ -104,15 +74,13 @@ public class TreeMapLookup<T> implements IRangeMap<T> {
         // since we allow for overlapping ranges, it might be that we have to
         // search all the way to the "bottom" of the tree to see if we are
         // contained in something larger than the closest key
-        var previousKeys = data.headMap(from, true).descendingMap();
-        for (var candidate : previousKeys.entrySet()) {
-            T result = contains(candidate, from);
-            if (result != null) {
-                return result;
-            }
-        }
-        // could be that it's at the start of the entry (so the entry it not in the head map)
-        return contains(data.ceilingEntry(from), from);
+        // if we could come up with a *valid* ordering such that `data.floorKey(from)` is always
+        // the smallest key containing `from` (or another key when none contain `from`), we could use `data.floorEntry` here instead of iterating
+        return data.tailMap(from, true).entrySet()
+            .stream()
+            .filter(e -> Ranges.containsRange(e.getKey(), from))
+            .map(Entry::getValue)
+            .findFirst().orElse(null);
     }
 
     @Override

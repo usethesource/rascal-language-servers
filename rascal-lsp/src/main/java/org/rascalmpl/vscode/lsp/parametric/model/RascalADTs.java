@@ -46,6 +46,7 @@ public class RascalADTs {
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
+        public static final String SELECTION_RANGE = "selectionRange";
 
         public static class Parameters {
             private Parameters() {}

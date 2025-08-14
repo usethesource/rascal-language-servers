@@ -43,7 +43,8 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
     children = [];
 
     top-down-break visit (m) {
-        case decl: (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
+        case amb(set[Tree] _): {/* stop here, and do not show this node not its children in the outline */;}
+        case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
             children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars, !hasParseErrors(v)];
 
         case decl: (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:

@@ -58,6 +58,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
+    public InterruptibleFuture<IList> selectionRange(IList focus);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 
@@ -72,6 +73,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasReferences();
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
+    public CompletableFuture<Boolean> hasSelectionRange();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
