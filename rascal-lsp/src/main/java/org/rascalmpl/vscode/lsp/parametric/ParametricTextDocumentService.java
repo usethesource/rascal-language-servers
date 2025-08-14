@@ -595,9 +595,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenCompose(t -> params.getPositions().stream()
                     .map(p -> Locations.toRascalPosition(params.getTextDocument(), p, columns))
                     .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
-                    .map(focus -> contrib.selectionRange(focus)
-                        .get()
-                        .thenApply(v -> v != null ? v : SelectionRanges.defaultImplementation(v)))
+                    .map(focus -> contrib.hasSelectionRange().thenCompose(hasDef -> hasDef.booleanValue()
+                        ? contrib.selectionRange(focus).get()
+                        : CompletableFuture.completedFuture(SelectionRanges.defaultImplementation(focus))))
                     .map(rangeFut -> rangeFut.thenApply(range -> Collections.singletonList(SelectionRanges.toSelectionRange(range, columns)))) // produce singleton lists here to simplify reduction later
                     .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
                         l.addAll(r);
