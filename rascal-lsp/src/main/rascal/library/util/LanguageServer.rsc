@@ -278,8 +278,8 @@ data LanguageService
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
     | callHierarchy (
-        set[CallHierarchyItem] (Focus _focus) callableItem,
-        rel[loc item, loc call] (CallHierarchyItem _ci, Tree _input, CallDirection _dir) calculateCalls)
+        list[CallHierarchyItem] (Focus _focus) callableItem,
+        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) calculateCalls)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
