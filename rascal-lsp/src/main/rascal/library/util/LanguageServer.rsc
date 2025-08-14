@@ -286,14 +286,14 @@ loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
 
 data CallHierarchyItem
-    = item(
+    = callItem(
         str name,
         DocumentSymbolKind kind,
-        loc src,
-        loc selection = src, // location of `name` typically needs to come from parse tree
-        set[DocumentSymbolTag] tags = {}, // as of now only `deprecated()`, probably unused often
-        str detail = "", // e.g. function signature
-        value \data = () // to share state between `prepareCallHierarchy` and `incomingCalls`/`outgoingCalls`
+        loc src,                            // location of the definition
+        loc selection,                      // location of the name of the definition
+        set[DocumentSymbolTag] tags = {},
+        str detail = "",                    // detailed description, e.g. the function signature
+        value \data = ()                    // shared state between `callHierarchy::callableItem` and `callHierarchy::calculateCalls`
     );
 
 data CallDirection
