@@ -28,7 +28,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { integer } from'vscode-languageclient';
+import { integer, URI } from'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
@@ -53,6 +53,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerTerminalCommand();
         this.registerMainRun();
         this.registerImportModule();
+        this.registerCopySourceLocationCommand();
         checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
@@ -101,6 +102,15 @@ export class RascalExtension implements vscode.Disposable {
                     return;
                 }
                 this.startTerminal(text.document.uri, `import ${moduleName};\n`);
+            })
+        );
+    }
+
+    private registerCopySourceLocationCommand() {
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand("rascalmpl.copySourceLocation", async (uri: URI) => {
+                const rascalUri = `|${decodeURIComponent(uri)}|`;
+                await vscode.env.clipboard.writeText(rascalUri);
             })
         );
     }
