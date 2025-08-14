@@ -269,8 +269,8 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | callHierarchy (
-        set[CallHierarchyItem] (Focus _focus) callableItem,
-        rel[loc item, loc call] (CallHierarchyItem _ci, Tree _input, CallDirection _dir) calculateCalls)
+        list[CallHierarchyItem] (Focus _focus) callableItem,
+        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) calculateCalls)
     ;
 
 data CallHierarchyItem
