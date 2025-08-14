@@ -89,9 +89,9 @@ public class TreeSearch {
      * Produces a list of trees that are "in focus" at given line and column offset (UTF-24).
      *
      * This log(filesize) algorithm quickly collects the trees along a spine from the
-     * root to the smallest lexical or context-free node. The list is returned in
-     * reverse order such that you can select the "most specific" tree by starting
-     * at the start of the list.
+     * root to the largest lexical or, if that does not exist, the smallest context-free node.
+     * The list is returned in reverse order such that you can select the "most specific" tree by
+     * starting at the start of the list.
      *
      * @param tree   parse tree
      * @param line   search term in lines (1-based)
@@ -135,11 +135,7 @@ public class TreeSearch {
             for (IValue child : children) {
                 ISourceLocation childLoc = TreeAdapter.getLocation((ITree) child);
 
-                if (childLoc == null) {
-                    continue;
-                }
-
-                if (inside(childLoc, line, column)) {
+                if (childLoc != null && inside(childLoc, line, column)) {
                     boolean result = computeFocusList(focus, (ITree) child, line, column);
 
                     if (result) {
