@@ -531,7 +531,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(tr -> params.getPositions().stream()
                 .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
                 .map(p -> TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter()))
-                .map(focus -> rascalServices.getSelectionsForFocus(focus))
+                .map(SelectionRanges::uniqueTreeLocations)
                 .map(l -> SelectionRanges.toSelectionRange(l, columns))
                 .collect(Collectors.toList()));
     }
