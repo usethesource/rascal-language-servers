@@ -91,8 +91,7 @@ public class ISourceLocationChanged {
     public ISourceLocationWatcher.ISourceLocationChanged translate() {
         return ISourceLocationWatcher.makeChange(
             getSourceLocation(),
-            ISourceLocationChangeType.translate(changeType),
-            ISourceLocationType.translate(type)
+            ISourceLocationChangeType.translate(changeType)
         );
     }
 

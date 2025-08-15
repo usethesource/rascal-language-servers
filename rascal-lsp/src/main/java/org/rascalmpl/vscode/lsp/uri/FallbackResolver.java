@@ -47,6 +47,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
@@ -265,14 +266,18 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
+    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
         getClient().addWatcher(root, watcher, getServer());
     }
 
     @Override
-    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
+    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
         getClient().removeWatcher(root, watcher, getServer());
+    }
 
+    @Override
+    public boolean supportsRecursiveWatch() {
+        return false;
     }
     
     public boolean isFileManaged(ISourceLocation file) {
@@ -318,5 +323,25 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
             }
         }
         throw new IOException("File is not managed by lsp");
+    }
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`size` not supported by fallback resolver");
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`isReadable` not supported by fallback resolver");
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`stat` not supported by fallback resolver");
+    }
+
+    @Override
+    public boolean isWritable(ISourceLocation uri) throws IOException {
+        throw new UnsupportedOperationException("`isWritable` not supported by fallback resolver");
     }
 }
