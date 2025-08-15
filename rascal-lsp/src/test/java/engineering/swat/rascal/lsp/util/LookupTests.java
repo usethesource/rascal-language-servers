@@ -31,6 +31,8 @@ import static org.junit.Assert.assertSame;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
+
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.junit.Test;
@@ -89,6 +91,7 @@ public class LookupTests {
     public void testSimpleLookupInside1() {
         TreeMapLookup<String> target = buildTreeLookup2();
         assertSame("hit", target.lookup(range(1,6, 1, 7)));
+        assertSame("hit", target.lookup(range(1,5, 1, 8)));
     }
 
     @Test
@@ -138,11 +141,42 @@ public class LookupTests {
     }
 
     @Test
+    public void testSingleLineTree() {
+        TreeMapLookup<String> target = new TreeMapLookup<>();
+        target.put(range(0, 1, 0, 10), "composite expression");
+        target.put(range(0, 1, 0, 4), "first half");
+        target.put(range(0, 1, 0, 2), "first quarter");
+        target.put(range(0, 2, 0, 4), "second quarter");
+        target.put(range(0, 6, 0, 10), "second half");
+        target.put(range(0, 6, 0, 8), "third quarter");
+        target.put(range(0, 8, 0, 10), "fourth quarter");
+        assertSame("composite expression", target.lookup(cursor(0, 5)));
+        assertSame("first quarter", target.lookup(cursor(0, 1)));
+        assertSame("second quarter", target.lookup(cursor(0, 4)));
+        assertSame("third quarter", target.lookup(cursor(0, 6)));
+        assertSame("fourth quarter", target.lookup(cursor(0, 10)));
+    }
+
+    @Test
+    public void testMultiLineTree() {
+        TreeMapLookup<String> target = new TreeMapLookup<>();
+        target.put(range(0, 1, 2, 10), "composite expression");
+        target.put(range(0, 1, 1, 4), "first half");
+        target.put(range(1, 6, 2, 10), "second half");
+        assertSame("composite expression", target.lookup(cursor(1, 5)));
+        assertSame("first half", target.lookup(cursor(0, 1)));
+        assertSame("first half", target.lookup(cursor(1, 4)));
+        assertSame("second half", target.lookup(cursor(1, 6)));
+        assertSame("second half", target.lookup(cursor(2, 10)));
+    }
+
+    @Test
     public void randomRanges() {
         TreeMapLookup<String> target = new TreeMapLookup<>();
         Map<Range, String> ranges = new HashMap<>();
         Random r = new Random();
-        for (int i = 0; i < 1000; i++) {
+        int tries = 1000;
+        for (int i = 0; i < tries; i++) {
             int startLine = r.nextInt(10);
             int startColumn = r.nextInt(10);
             int endLine = startLine + r.nextInt(3);
@@ -156,9 +190,11 @@ public class LookupTests {
             ranges.put(range(startLine, startColumn, endLine, endColumn), "" + i);
         }
         ranges.forEach(target::put);
-        for (var e: ranges.entrySet()) {
+        int i = 0;
+        for (var e : ranges.entrySet()) {
             var found = target.lookup(e.getKey());
-            assertSame("Entry " + e + "should be found", e.getValue(), found);
+            var foundKeys = ranges.entrySet().stream().filter(range -> range.getValue().equals(found)).collect(Collectors.toSet());
+            assertSame("Entry " + e + " should be found, but found " + foundKeys +" (attempt " + i++ + "/" + tries + ")", e.getValue(), found);
         }
     }
 

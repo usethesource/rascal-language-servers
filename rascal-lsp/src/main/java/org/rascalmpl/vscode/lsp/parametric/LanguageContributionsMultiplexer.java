@@ -64,6 +64,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -76,6 +77,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -149,6 +151,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         references = findFirstOrDefault(ILanguageContributions::hasReferences);
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
         codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
+        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -160,6 +163,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
+        hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -293,6 +298,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
         return flatten(codeAction, c -> c.codeAction(focus));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override
