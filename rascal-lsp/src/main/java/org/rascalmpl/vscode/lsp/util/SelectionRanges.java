@@ -94,8 +94,14 @@ public class SelectionRanges {
         };
     }
 
-    public static IList defaultImplementation(IList focus) {
-        return focus.stream()
+    /**
+     * Computes the locations of a list of trees.
+     * Removes duplicate locations and preserves ordering.
+     * @param trees A list of values. Any element that is not an {@link ITree} is ignored.
+     * @return A list of source locations.
+     */
+    public static IList uniqueTreeLocations(IList trees) {
+        return trees.stream()
             .filter(Objects::nonNull)
             .filter(ITree.class::isInstance)
             .map(ITree.class::cast)
