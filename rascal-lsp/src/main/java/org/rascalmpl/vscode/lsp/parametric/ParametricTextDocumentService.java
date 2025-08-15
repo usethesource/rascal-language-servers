@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,11 +59,13 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -85,9 +88,11 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -106,6 +111,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
@@ -120,11 +126,15 @@ import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
+import io.usethesource.vallang.ISetWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.exceptions.FactParseError;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
@@ -146,6 +156,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
     private final @Nullable LanguageParameter dedicatedLanguage;
+
+    private final IRascalValueFactory vf = IRascalValueFactory.getInstance();
+    private final TypeFactory tf = TypeFactory.getInstance();
+    private final TypeStore store = new TypeStore();
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
@@ -197,7 +211,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setSelectionRangeProvider(true);
-
+        result.setDocumentFormattingProvider(true);
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
@@ -513,6 +527,38 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("formatting: {}", params);
+
+        final ILanguageContributions contribs = contributions(params.getTextDocument());
+
+        // convert the `FormattingOptions` map to a `set[FormattingOption]`
+        ISet optSet = getFormattingOptions(params.getOptions());
+        // call the `formatting` implementation of the relevant language contribution
+        return getFile(params.getTextDocument())
+            .getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> contribs.formatting(tree, optSet).get())
+            // convert the document changes
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
+    }
+
+    private ISet getFormattingOptions(FormattingOptions options) {
+        var optionType = tf.abstractDataType(store, "FormattingOption");
+
+        ISetWriter opts = vf.setWriter();
+        for (Entry<String, Either3<String, Number, Boolean>> e : options.entrySet()) {
+            var opt = e.getValue().map(
+                s -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.stringType()), vf.string(s)),
+                n -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.integerType()), vf.integer(n.longValue())),
+                b -> vf.constructor(tf.constructor(store, optionType, e.getKey()))
+            );
+            opts.append(opt);
+        }
+        return opts.done();
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {

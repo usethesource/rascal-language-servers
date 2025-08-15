@@ -270,7 +270,22 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | formatting    (str(Tree _input, set[FormattingOption] _opts) formattingService)
     ;
+
+data FormattingOption
+    = tabSize(int)
+    | insertSpaces()
+    | trimTrailingWhitespace()
+    | insertFinalNewline()
+    | trimFinalNewlines()
+    ;
+
+private list[TextEdit] layoutDiff(Tree a, Tree b, bool copyComments = false)
+    = [replace(a@\loc, "<b>")];
+
+list[TextEdit] formatter(Tree input, set[FormattingOption] opts, str(Tree, set[FormattingOption]) format, Tree(str, loc) parse)
+    = layoutDiff(input, parse(format(input, opts), input@\loc.top), copyComments = true);
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}

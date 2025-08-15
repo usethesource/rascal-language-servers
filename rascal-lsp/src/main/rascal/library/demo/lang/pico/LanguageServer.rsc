@@ -34,11 +34,18 @@ The core functionality of this module is built upon these concepts:
 module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
+import util::Format;
 import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import IO;
+import String;
+
+import lang::box::\syntax::Box;
+extend lang::box::util::Tree2Box;
+import lang::box::util::Box2Text;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -58,8 +65,83 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    formatting(picoFormattingService)
 };
+
+str picoFormattingService(Tree input, set[FormattingOption] opts) {
+    int tabSize = 4;
+    if (tabSize(int ts) <- opts) {
+        tabSize = ts;
+    }
+    box = toBox(input);
+    box = visit (box) {
+        case i:I(_) => i[is=tabSize]
+    }
+    formatted = format(box);
+    formatLine = str(str s) { return s; };
+    if (insertSpaces() notin opts) {
+        formatLine = formatLine o indentSpacesAsTabs(tabSize);
+    }
+    if (trimTrailingWhitespace() notin opts) {
+        println("The Pico formatter does not support leaving trailing whitespace.");
+    }
+
+    // do line-based processing
+    formatted = perLine(formatted, formatLine);
+
+    // whole-file processing
+    if (trimFinalNewlines() notin opts &&
+        /.*<newlines:\n+>/ := "<input>") {
+        formatted = replaceLast(formatted, "\n", newlines);
+    }
+    if (insertFinalNewline() <- opts) {
+        formatted = insertFinalNewline(formatted);
+    }
+
+    return formatted;
+}
+
+Box toBox((Program) `begin <Declarations decls> <{Statement ";"}* body> end`, FormatOptions opts = formatOptions())
+    = V([
+        L("begin"),
+        I([
+            V([
+                toBox(decls, opts=opts),
+                toBox(body, opts=opts)
+            ], vs=1)
+        ]),
+        L("end")
+    ]);
+
+Box toBox((Declarations) `declare <{IdType ","}* decls> ;`, FormatOptions opts = formatOptions())
+    = V([
+        L("declare"),
+            A([
+                R([
+                    toBox(id, opts=opts),
+                    L(":"),
+                    H([toBox(tp, opts=opts), decl != decls[-1] ? L(",") : L(";")], hs=0)
+                ])
+                | decl:(IdType) `<Id id> : <Type tp>` <- decls
+            ])
+    ]);
+
+Box toBox(({Statement ";"}*) stmts, FormatOptions opts = formatOptions())
+    = V([
+        H([
+            toBox(stmt, opts=opts),
+            stmt != stmts[-1] ? L(";") : NULL()
+        ], hs=0)
+        | stmt <- stmts
+    ]);
+
+Box toBox((Statement) `while <Expression cond> do <{Statement ";"}* body> od`, FormatOptions opts = formatOptions())
+    = V([
+        HOV([L("while"), I([toBox(cond, opts=opts)]), L("do")]),
+        I([toBox(body, opts=opts)]),
+        L("od")
+    ]);
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);

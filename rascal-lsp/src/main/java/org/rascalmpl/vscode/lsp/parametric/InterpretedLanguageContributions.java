@@ -26,11 +26,15 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -52,6 +56,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -89,6 +94,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
     private final CompletableFuture<@Nullable IFunction> selectionRange;
+    private final CompletableFuture<@Nullable IFunction> formatting;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -102,6 +108,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
     private final CompletableFuture<Boolean> hasSelectionRange;
+    private final CompletableFuture<Boolean> hasFormatting;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -145,6 +152,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
             this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
+            this.formatting = getFunctionFor(contributions, LanguageContributions.FORMATTING);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -159,6 +167,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
             this.hasSelectionRange = nonNull(this.selectionRange);
+            this.hasFormatting = nonNull(this.formatting);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -350,6 +359,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
     }
 
+    @Override
+    public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions) {
+        debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions.size());
+        return InterruptibleFuture.flatten(formatting.thenCombine(parsing, Pair::of)
+            .thenApply(pair ->
+                runEvaluator(LanguageContributions.FORMATTING, eval, actualEval ->
+                (IList) actualEval.call(actualEval.getMonitor(), "util::LanguageServer", "formatter", input, formattingOptions, pair.getLeft(), pair.getRight())
+            , VF.list(), exec, true, client)), exec);
+    }
+
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
     }
@@ -406,6 +425,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
         return hasSelectionRange;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasFormatting() {
+        return hasFormatting;
     }
 
     @Override
