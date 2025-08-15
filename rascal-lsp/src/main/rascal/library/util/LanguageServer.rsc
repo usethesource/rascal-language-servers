@@ -158,7 +158,7 @@ alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
-Their names coincide exactly with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
+Their names coincide with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
 * The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
 All other other services are optional.
@@ -208,6 +208,9 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
+* The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
+    1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
+    2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -270,6 +273,25 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | callHierarchy (
+        list[CallHierarchyItem] (Focus _focus) callableItem,
+        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) calculateCalls)
+    ;
+
+data CallHierarchyItem
+    = callItem(
+        str name,
+        DocumentSymbolKind kind,
+        loc src,                            // location of the definition
+        loc selection,                      // location of the name of the definition
+        set[DocumentSymbolTag] tags = {},
+        str detail = "",                    // detailed description, e.g. the function signature
+        value \data = ()                    // shared state between `callHierarchy::callableItem` and `callHierarchy::calculateCalls`
+    );
+
+data CallDirection
+    = incoming()
+    | outgoing()
     ;
 
 @deprecated{Backward compatible with ((parsing)).}
