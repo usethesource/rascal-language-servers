@@ -159,7 +159,7 @@ alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
-Their names coincide exactly with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
+Their names coincide with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
 * The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
 All other other services are optional.
@@ -212,6 +212,9 @@ hover documentation, definition with uses, references to declarations, implement
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
+* The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
+    1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
+    2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
