@@ -277,25 +277,19 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
-    | formatting    (str(Tree _input, set[FormattingOption] _opts) formattingService)
+    | formatting    (list[TextEdit](Tree _input, FormattingOptions _opts) formattingService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
 
-data FormattingOption
-    = tabSize(int)
-    | insertSpaces()
-    | trimTrailingWhitespace()
-    | insertFinalNewline()
-    | trimFinalNewlines()
-    ;
-
-private list[TextEdit] layoutDiff(Tree a, Tree b, bool copyComments = false)
-    = [replace(a@\loc, "<b>")];
-
-list[TextEdit] formatter(Tree input, set[FormattingOption] opts, str(Tree, set[FormattingOption]) format, Tree(str, loc) parse)
-    = layoutDiff(input, parse(format(input, opts), input@\loc.top), copyComments = true);
+data FormattingOptions(
+        int tabSize = 4
+      , bool insertSpaces = true
+      , bool trimTrailingWhitespace = true
+      , bool insertFinalNewline = true
+      , bool trimFinalNewlines = true
+) = formattingOptions();
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
