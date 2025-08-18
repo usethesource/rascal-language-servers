@@ -99,28 +99,32 @@ test bool trimFinalNewlineTestEndOnly()
 test bool trimFinalNewlineTestWhiteSpace()
     = trimFinalNewline("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
 
-str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters) {
+list[tuple[str, str]] separateLines(str input, set[str] lineseps = newLineCharacters) {
     orderedSeps = sort(lineseps, bySize);
 
-    str result = "";
+    list[tuple[str, str]] lines = [];
     int next = 0;
     for (int i <- [0..size(input)]) {
         // greedily match line separators (longest first)
         if (i >= next, str nl <- orderedSeps, nl == input[i..i+size(nl)]) {
-            line = input[next..i];
-            result += lineFunc(line) + nl;
+            lines += <input[next..i], nl>;
             next = i + size(nl); // skip to the start of the next line
         }
     }
 
     // last line
     if (str nl <- orderedSeps, nl == input[-size(nl)..]) {
-        line = input[next..next+size(nl)];
-        result += lineFunc(line);
+        lines += <input[next..next+size(nl)], "">;
     }
 
-    return result;
+    return lines;
 }
+
+str mergeLines(list[tuple[str, str]] lines)
+    = ("" | it + line + sep | <line, sep> <- lines);
+
+str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters)
+    = mergeLines([<lineFunc(l), nl> | <l, nl> <- separateLines(input, lineseps=lineseps)]);
 
 test bool perLineTest()
     = perLine("a\nb\r\nc\n\r\n", str(str line) { return line + "x"; }) == "ax\nbx\r\ncx\nx\r\nx";
