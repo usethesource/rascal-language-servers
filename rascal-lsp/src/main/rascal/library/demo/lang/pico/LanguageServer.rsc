@@ -47,6 +47,7 @@ import String;
 import lang::box::\syntax::Box;
 extend lang::box::util::Tree2Box;
 import lang::box::util::Box2Text;
+import analysis::diff::edits::HiFiLayoutDiff;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -72,37 +73,46 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     formatting(picoFormattingService)
 };
 
-str picoFormattingService(Tree input, set[FormattingOption] opts) {
-    int tabSize = 4;
-    if (tabSize(int ts) <- opts) {
-        tabSize = ts;
-    }
+list[TextEdit] picoFormattingService(Tree input, FormattingOptions opts) {
+    // pico tree to box formatting representation
+    str original = "<input>";
+    print("[original]");
+    rprintln(original);
+
     box = toBox(input);
-    box = visit (box) {
-        case i:I(_) => i[is=tabSize]
-    }
+    box = visit (box) { case i:I(_) => i[is=opts.tabSize] };
+    // box to string
     formatted = format(box);
+
+    //// line-based modifications
+    // identity operator, to compose with other operators
     formatLine = str(str s) { return s; };
-    if (insertSpaces() notin opts) {
-        formatLine = formatLine o indentSpacesAsTabs(tabSize);
+    if (!opts.insertSpaces) {
+        // replace indentation spaces with tabs
+        formatLine = indentSpacesAsTabs(opts.tabSize) o formatLine;
     }
-    if (trimTrailingWhitespace() notin opts) {
-        println("The Pico formatter does not support leaving trailing whitespace.");
+    if (!opts.trimTrailingWhitespace) {
+        // restore trailing whitespace that was lost during tree->box->text, or find a way to not lose it
+        println("The Pico formatter does not support maintaining trailing whitespace.");
     }
 
     // do line-based processing
     formatted = perLine(formatted, formatLine);
 
     // whole-file processing
-    if (trimFinalNewlines() notin opts &&
-        /.*<newlines:\n+>/ := "<input>") {
-        formatted = replaceLast(formatted, "\n", newlines);
+    if (/^.*[^\n]<newlines:\n*>$/s := original) {
+        // replace original final newlines or remove the one introduced by ((format)) (`Box2Text`)
+        formatted = replaceLast(formatted, "\n", opts.trimFinalNewlines ? "" : newlines);
     }
-    if (insertFinalNewline() <- opts) {
+    if (opts.insertFinalNewline) {
+        // ensure presence of final newline
         formatted = insertFinalNewline(formatted);
     }
 
-    return formatted;
+    // computelayout differences as edits, and restore comments
+    edits = layoutDiff(input, parse(#start[Program], formatted));
+
+    return edits;
 }
 
 Box toBox((Program) `begin <Declarations decls> <{Statement ";"}* body> end`, FormatOptions opts = formatOptions())
