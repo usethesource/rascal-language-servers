@@ -190,7 +190,7 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
     list[DocumentEdit] edits = [];
     for (renamed(loc from, loc to) <- fileRenames) {
         // Surely there is a better way to do this?
-        toBegin = to[offset=0][length=0][begin=<1,0>][end=<1,0>];
+        toBegin = to(0, 0, <0,1>, <1,0>);
         edits = edits + changed(to, [insertBefore(toBegin, "%% File moved from <from> to <to>\n", separator="")]);
     }
     return <edits, {info("<size(edits)> moves succeeded!", |unknown:///|)}>;

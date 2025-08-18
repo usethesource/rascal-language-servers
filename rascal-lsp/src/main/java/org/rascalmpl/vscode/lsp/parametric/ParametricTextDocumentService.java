@@ -368,7 +368,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             final int startColumn, ITree tree) {
         IList focus = TreeSearch.computeFocusList(tree, startLine+1, startColumn);
         if (focus.isEmpty()) {
-            throw new ResponseErrorException(new ResponseError(-1, "No focus found at " + startLine + ":" + startColumn,
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "No focus found at " + startLine + ":" + startColumn,
                     TreeAdapter.getLocation(tree)));
         }
         return contribs.prepareRename(focus).get();
@@ -378,18 +378,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
-        final Position pos = params.getPosition();
+        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);;
         return getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> computeRename(contribs, pos.getLine(), pos.getCharacter(), params.getNewName(), tree));
+                .thenCompose(tree -> computeRename(contribs,
+                        rascalPos.getLine(), rascalPos.getCharacter(), params.getNewName(), tree));
     }
 
     private CompletableFuture<WorkspaceEdit> computeRename(final ILanguageContributions contribs, final int startLine,
             final int startColumn, String newName, ITree tree) {
-        IList focus = TreeSearch.computeFocusList(tree, startLine+1, startColumn);
+        IList focus = TreeSearch.computeFocusList(tree, startLine, startColumn);
         if (focus.isEmpty()) {
-            throw new ResponseErrorException(new ResponseError(-1, "No focus found at " + startLine + ":" + startColumn,
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "No focus found at " + startLine + ":" + startColumn,
                     TreeAdapter.getLocation(tree)));
         }
         return contribs.rename(focus, newName)
