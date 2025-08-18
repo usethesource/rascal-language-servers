@@ -5,7 +5,7 @@ import Map;
 import Set;
 import String;
 
-set[str] newLineCharacters = {
+list[str] newLineCharacters = [
     "\u000A", // LF
     "\u000B", // VT
     "\u000C", // FF
@@ -14,11 +14,16 @@ set[str] newLineCharacters = {
     "\u0085", // NEL
     "\u2028", // LS
     "\u2029" // PS
-};
+];
 
 private bool bySize(str a, str b) = size(a) < size(b);
+private bool(str, str) byIndex(list[str] indices) {
+    return bool(str a, str b) {
+        return indexOf(indices, a) < indexOf(indices, b);
+    };
+}
 
-str mostUsedNewline(str input, set[str] lineseps = newLineCharacters, str(set[str]) tieBreaker = getFirstFrom) {
+str mostUsedNewline(str input, list[str] lineseps = newLineCharacters, str(list[str]) tieBreaker = getFirstFrom) {
     linesepCounts = (nl: 0 | nl <- lineseps);
     for (nl <- sort(lineseps, bySize)) {
         int count = size(findAll(input, nl));
@@ -30,7 +35,7 @@ str mostUsedNewline(str input, set[str] lineseps = newLineCharacters, str(set[st
     }
 
     byCount = invert(linesepCounts);
-    return tieBreaker(byCount[max(domain(byCount))]);
+    return tieBreaker(sort(byCount[max(domain(byCount))], byIndex(lineseps)));
 }
 
 tuple[str indentation, str rest] splitIndentation(/^<indentation:\s*><rest:.*>/)
@@ -64,7 +69,7 @@ test bool mostUsedNewlineTestTie()
 test bool mostUsedNewlineTestGreedy()
     = mostUsedNewline("\r\n\r\n\n") == "\r\n";
 
-str insertFinalNewline(str input, set[str] lineseps = newLineCharacters)
+str insertFinalNewline(str input, list[str] lineseps = newLineCharacters)
     = any(nl <- lineseps, endsWith(input, nl))
     ? input
     : input + mostUsedNewline(input)
@@ -82,7 +87,7 @@ test bool insertFinalNewlineTestMixed()
     = insertFinalNewline("a\nb\r\n")
     == "a\nb\r\n";
 
-str trimFinalNewline(str input, set[str] lineseps = newLineCharacters) {
+str trimFinalNewline(str input, list[str] lineseps = newLineCharacters) {
     orderedSeps = reverse(sort(lineseps, bySize));
     while (nl <- orderedSeps, endsWith(input, nl)) {
         input = input[0..-size(nl)];
@@ -99,7 +104,7 @@ test bool trimFinalNewlineTestEndOnly()
 test bool trimFinalNewlineTestWhiteSpace()
     = trimFinalNewline("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
 
-list[tuple[str, str]] separateLines(str input, set[str] lineseps = newLineCharacters) {
+list[tuple[str, str]] separateLines(str input, list[str] lineseps = newLineCharacters) {
     orderedSeps = reverse(sort(lineseps, bySize));
 
     list[tuple[str, str]] lines = [];
@@ -123,7 +128,7 @@ list[tuple[str, str]] separateLines(str input, set[str] lineseps = newLineCharac
 str mergeLines(list[tuple[str, str]] lines)
     = ("" | it + line + sep | <line, sep> <- lines);
 
-str perLine(str input, str(str) lineFunc, set[str] lineseps = newLineCharacters)
+str perLine(str input, str(str) lineFunc, list[str] lineseps = newLineCharacters)
     = mergeLines([<lineFunc(l), nl> | <l, nl> <- separateLines(input, lineseps=lineseps)]);
 
 test bool perLineTest()
