@@ -285,9 +285,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
-        return getContribution(contributions, cons).thenApply(contribution -> {
-            return (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam);
-        });
+        return getContribution(contributions, cons).thenApply(contribution ->
+            (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam);
+        );
     }
 
     @Override
