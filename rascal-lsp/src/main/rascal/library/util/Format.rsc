@@ -16,19 +16,19 @@ set[str] newLineCharacters = {
     "\u2029" // PS
 };
 
-private bool bySize(str a, str b) = size(a) > size(b);
+private bool bySize(str a, str b) = size(a) < size(b);
 
 str mostUsedNewline(str input, set[str] lineseps = newLineCharacters, str(set[str]) tieBreaker = getFirstFrom) {
     linesepCounts = (nl: 0 | nl <- lineseps);
-    for (nl <- reverse(sort(lineseps, bySize))) {
+    for (nl <- sort(lineseps, bySize)) {
         int count = size(findAll(input, nl));
         linesepCounts[nl] = count;
         // subtract all occurrences of substrings that we counted before
         for (str snl <- substrings(nl), linesepCounts[snl]?) {
             linesepCounts[snl] = linesepCounts[snl] - count;
         }
-
     }
+
     byCount = invert(linesepCounts);
     return tieBreaker(byCount[max(domain(byCount))]);
 }
@@ -38,16 +38,16 @@ tuple[str indentation, str rest] splitIndentation(/^<indentation:\s*><rest:.*>/)
 
 str(str) indentSpacesAsTabs(int tabSize) {
     str spaces = ("" | it + " " | _ <- [0..tabSize]);
-    return str(str s) {
-        parts = splitIndentation(s);
+    return str(str line) {
+        parts = splitIndentation(line);
         return "<replaceAll(parts.indentation, spaces, "\t")><parts.rest>";
     };
 }
 
 str(str) indentTabsAsSpaces(int tabSize) {
     str spaces = ("" | it + " " | _ <- [0..tabSize]);
-    return str(str s) {
-        parts = splitIndentation(s);
+    return str(str line) {
+        parts = splitIndentation(line);
         return "<replaceAll(parts.indentation, "\t", spaces)><parts.rest>";
     };
 }
@@ -83,7 +83,7 @@ test bool insertFinalNewlineTestMixed()
     == "a\nb\r\n";
 
 str trimFinalNewline(str input, set[str] lineseps = newLineCharacters) {
-    orderedSeps = sort(lineseps, bySize);
+    orderedSeps = reverse(sort(lineseps, bySize));
     while (nl <- orderedSeps, endsWith(input, nl)) {
         input = input[0..-size(nl)];
     }
@@ -100,7 +100,7 @@ test bool trimFinalNewlineTestWhiteSpace()
     = trimFinalNewline("a\n\n\nb\n\n ") == "a\n\n\nb\n\n ";
 
 list[tuple[str, str]] separateLines(str input, set[str] lineseps = newLineCharacters) {
-    orderedSeps = sort(lineseps, bySize);
+    orderedSeps = reverse(sort(lineseps, bySize));
 
     list[tuple[str, str]] lines = [];
     int next = 0;
