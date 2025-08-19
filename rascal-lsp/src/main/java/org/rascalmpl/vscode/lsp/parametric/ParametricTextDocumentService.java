@@ -617,7 +617,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = files.get(loc);
         if (file == null) {
-            throw new ResponseErrorException(new ResponseError(-1, "Unknown file: " + loc, loc));
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, loc));
         }
         return file;
     }
