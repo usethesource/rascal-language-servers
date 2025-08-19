@@ -267,19 +267,19 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
-        getClient().addWatcher(root, watcher, getServer());
+        getClient().addWatcher(root, recursive, watcher, getServer());
     }
 
     @Override
     public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
-        getClient().removeWatcher(root, watcher, getServer());
+        getClient().removeWatcher(root, recursive, watcher, getServer());
     }
 
     @Override
     public boolean supportsRecursiveWatch() {
         return false;
     }
-    
+
     public boolean isFileManaged(ISourceLocation file) {
         for (var service : textDocumentServices) {
             if (service.isManagingFile(file)) {

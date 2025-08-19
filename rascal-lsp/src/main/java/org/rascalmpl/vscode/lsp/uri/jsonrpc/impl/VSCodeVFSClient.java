@@ -31,6 +31,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +39,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -48,13 +48,13 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
-
+import engineering.swat.watch.DaemonThreadPool;
 import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
     private static final Logger logger = LogManager.getLogger(VSCodeVFSClient.class);
 
-    private final Map<ISourceLocation, Watchers> watchers = new ConcurrentHashMap<>();
+    private final Map<WatchSubscriptionKey, Watchers> watchers = new ConcurrentHashMap<>();
     private final Map<String, Watchers> watchersById = new ConcurrentHashMap<>();
     private final Socket socket;
 
@@ -81,62 +81,81 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
     }
 
     @Override
-    public void addWatcher(ISourceLocation loc, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException {
+    public void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException {
         logger.trace("addWatcher: {}", loc);
-        var watch = watchers.get(loc);
-        if (watch == null) {
-            logger.trace("Fresh watch, setting up request to server");
-            watch = new Watchers();
+        try {
+            var watch = watchers.computeIfAbsent(new WatchSubscriptionKey(loc, recursive), k -> {
+                logger.trace("Fresh watch, setting up request to server");
+                var result = new Watchers();
+                result.addNewWatcher(callback);
+                watchersById.put(result.id, result);
+                server.watch(new WatchRequest(loc, recursive, result.id)).join();
+                return result;
+            });
             watch.addNewWatcher(callback);
-            watchers.put(loc, watch);
-            watchersById.put(watch.id, watch);
-            try {
-                server.watch(new WatchRequest(loc, watch.id)).join();
-                return;
-            } catch (CompletionException ce) {
-                logger.error("Error setting up watch", ce.getCause());
-                throw new IOException(ce.getCause());
-            }
+        } catch (CompletionException ce) {
+            logger.error("Error setting up watch", ce.getCause());
+            throw new IOException(ce.getCause());
         }
-        watch.addNewWatcher(callback);
     }
 
     @Override
-    public void removeWatcher(ISourceLocation loc,
+    public void removeWatcher(ISourceLocation loc, boolean recursive,
         Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback,
         VSCodeUriResolverServer server) throws IOException {
         logger.trace("removeWatcher: {}", loc);
-        var watch = watchers.get(loc);
-        if (watch != null) {
-            if (watch.removeWatcher(callback)) {
-                logger.trace("No other watchers registered, so unregistering at server");
-                watchers.remove(loc);
-                if (!watch.callbacks.isEmpty()) {
-                    logger.trace("Raced by another thread, canceling unregister");
-                    watchers.put(loc, watch);
-                    return;
-                }
-                watchersById.remove(watch.id);
-                try {
-                    server.unwatch(new WatchRequest(loc, watch.id)).join();
-                } catch (CompletionException ce) {
-                    logger.error("Error removing watch", ce.getCause());
-                    throw new IOException(ce.getCause());
-                }
+        var watchKey = new WatchSubscriptionKey(loc, recursive);
+        var watch = watchers.get(watchKey);
+        if (watch != null && watch.removeWatcher(callback)) {
+            logger.trace("No other watchers registered, so unregistering at server");
+            watchers.remove(watchKey);
+            if (!watch.callbacks.isEmpty()) {
+                logger.trace("Raced by another thread, canceling unregister");
+                watchers.put(watchKey, watch);
+                return;
+            }
+            watchersById.remove(watch.id);
+            try {
+                server.unwatch(new WatchRequest(loc, recursive, watch.id)).join();
+            } catch (CompletionException ce) {
+                logger.error("Error removing watch", ce.getCause());
+                throw new IOException(ce.getCause());
             }
         }
     }
 
+    private static class WatchSubscriptionKey {
+        private final ISourceLocation loc;
+        private final boolean recursive;
+        public WatchSubscriptionKey(ISourceLocation loc, boolean recursive) {
+            this.loc = loc;
+            this.recursive = recursive;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(loc, recursive);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj instanceof WatchSubscriptionKey)) {
+                WatchSubscriptionKey other = (WatchSubscriptionKey) obj;
+                return recursive == other.recursive
+                    && Objects.equals(loc, other.loc)
+                    ;
+            }
+            return false;
+        }
+
+    }
 
 
 
-    private static final ExecutorService exec = Executors.newCachedThreadPool(r -> {
-        SecurityManager s = System.getSecurityManager();
-        ThreadGroup group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
-        Thread t = new Thread(group, r, "FallbackResolver watcher thread-pool");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final ExecutorService exec = DaemonThreadPool.buildConstrainedCached("FallbackResolver watcher thread-pool", 0);
 
     /**
     * The watch api in rascal uses closures identity to keep track of watches.
