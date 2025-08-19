@@ -270,7 +270,7 @@ data LanguageService
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
-    | formatting    (list[TextEdit](Tree _input, FormattingOptions _opts) formattingService)
+    | formatting    (list[TextEdit](Tree _input, loc range, FormattingOptions _opts) formattingService)
     ;
 
 data FormattingOptions(

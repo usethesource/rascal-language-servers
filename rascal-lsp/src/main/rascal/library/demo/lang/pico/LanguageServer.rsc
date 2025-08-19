@@ -41,6 +41,7 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 import IO;
+import Location;
 import String;
 
 import lang::box::\syntax::Box;
@@ -70,14 +71,13 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     formatting(picoFormattingService)
 };
 
-list[TextEdit] picoFormattingService(Tree input, FormattingOptions opts) {
-    // pico tree to box formatting representation
+list[TextEdit] picoFormattingService(Tree input, loc range, FormattingOptions opts) {
     str original = "<input>";
-    print("[original]");
-    rprintln(original);
 
+    // pico tree to box formatting representation
     box = toBox(input);
     box = visit (box) { case i:I(_) => i[is=opts.tabSize] };
+
     // box to string
     formatted = format(box);
 
@@ -109,7 +109,8 @@ list[TextEdit] picoFormattingService(Tree input, FormattingOptions opts) {
     // computelayout differences as edits, and restore comments
     edits = layoutDiff(input, parse(#start[Program], formatted));
 
-    return edits;
+    // TODO Instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
+    return [e | e <- edits, isContainedIn(e.range, range)];
 }
 
 Box toBox((Program) `begin <Declarations decls> <{Statement ";"}* body> end`, FormatOptions opts = formatOptions())
