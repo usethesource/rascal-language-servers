@@ -64,6 +64,7 @@ import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
@@ -735,17 +736,32 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
-        logger.debug("formatting: {}", params);
+        logger.debug("Formatting: {}", params);
+        return format(params.getTextDocument(), null, params.getOptions());
+    }
 
-        final ILanguageContributions contribs = contributions(params.getTextDocument());
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
+        logger.debug("Formatting range: {}", params);
+        return format(params.getTextDocument(), params.getRange(), params.getOptions());
+    }
+
+    private CompletableFuture<List<? extends TextEdit>> format(TextDocumentIdentifier uri, @Nullable Range range, FormattingOptions options) {
+        final ILanguageContributions contribs = contributions(uri);
 
         // convert the `FormattingOptions` map to a `set[FormattingOption]`
-        ISet optSet = getFormattingOptions(params.getOptions());
+        ISet optSet = getFormattingOptions(options);
         // call the `formatting` implementation of the relevant language contribution
-        return getFile(params.getTextDocument())
+        return getFile(uri)
             .getCurrentTreeAsync()
             .thenApply(Versioned::get)
-            .thenCompose(tree -> contribs.formatting(tree, optSet).get())
+            .thenCompose(tree -> {
+                // range to Rascal loc
+                ISourceLocation loc = range == null
+                    ? TreeAdapter.getLocation(tree)
+                    : null; // TODO map Range to ISourceLocation
+                return contribs.formatting(tree, loc, optSet).get();
+            })
             // convert the document changes
             .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
     }
