@@ -59,6 +59,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService)
+    selectionRange(picoSelectionRangeService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -197,6 +198,9 @@ tuple[list[DocumentEdit], set[Message]] picoRenamingService(Focus focus, str new
     , /Id id := focus[-1]
     , id := cursor
 ])], {}>;
+
+list[loc] picoSelectionRangeService(Focus focus)
+    = dup([t@\loc | t <- focus]);
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
