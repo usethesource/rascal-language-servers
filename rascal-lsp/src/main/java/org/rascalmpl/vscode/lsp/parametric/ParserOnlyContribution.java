@@ -195,6 +195,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
@@ -256,6 +261,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
         return CompletableFuture.completedFuture(false);
     }
 

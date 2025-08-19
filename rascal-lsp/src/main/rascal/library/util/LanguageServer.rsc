@@ -211,6 +211,7 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
+* The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -275,6 +276,7 @@ data LanguageService
     | rename        (tuple[list[DocumentEdit], set[Message]] (Focus _focus, str newName) renameService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
+    | selectionRange(list[loc](Focus _focus) selectionRangeService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
@@ -503,7 +505,8 @@ data DocumentSymbol
         loc range,
         loc selection=range,
         str detail="",
-        list[DocumentSymbol] children=[]
+        list[DocumentSymbol] children=[],
+        set[DocumentSymbolTag] tags = {}
     );
 
 data DocumentSymbolKind

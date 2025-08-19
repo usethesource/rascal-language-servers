@@ -61,6 +61,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService)
+    selectionRange(picoSelectionRangeService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -222,6 +223,9 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
     }
     return <edits, {info("<size(edits)> moves succeeded!", |unknown:///|)}>;
 }
+
+list[loc] picoSelectionRangeService(Focus focus)
+    = dup([t@\loc | t <- focus]);
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

@@ -86,6 +86,8 @@ import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -124,6 +126,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
+import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -227,7 +230,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setInlayHintProvider(true);
-
+        result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
     }
 
@@ -657,7 +660,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>documentSymbol(DocumentSymbolParams params) {
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(DocumentSymbolParams params) {
         logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         final TextDocumentState file = getFile(params.getTextDocument());
@@ -765,6 +768,29 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        logger.debug("Selection range: {} at {}", params.getTextDocument(), params.getPositions());
+        final ILanguageContributions contrib = contributions(params.getTextDocument());
+        final TextDocumentState file = getFile(params.getTextDocument());
+
+        return recoverExceptions(file.getCurrentTreeAsync()
+                .thenApply(Versioned::get)
+                .thenCompose(t -> params.getPositions().stream()
+                    .map(p -> Locations.toRascalPosition(params.getTextDocument(), p, columns))
+                    .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
+                    .map(focus -> contrib.hasSelectionRange().thenCompose(hasDef -> hasDef.booleanValue()
+                        ? contrib.selectionRange(focus).get()
+                        : CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus))))
+                    .map(rangeFut -> rangeFut.thenApply(range -> Collections.singletonList(SelectionRanges.toSelectionRange(range, columns)))) // produce singleton lists here to simplify reduction later
+                    .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
+                        l.addAll(r);
+                        return l;
+                    }))
+                    .orElse(CompletableFuture.completedFuture(Collections.emptyList()))),
+            Collections::emptyList);
     }
 
     @Override

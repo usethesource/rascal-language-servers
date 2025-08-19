@@ -69,6 +69,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -83,6 +84,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
     private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -159,6 +161,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         rename = findFirstOrDefault(ILanguageContributions::hasRename);
         prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
+        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -172,6 +175,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
         hasRename = anyTrue(ILanguageContributions::hasRename);
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
+        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
+        hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -320,6 +325,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
         return flatten(codeAction, c -> c.codeAction(focus));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override

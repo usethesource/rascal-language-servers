@@ -92,6 +92,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> prepareRename;
     private final CompletableFuture<@Nullable IFunction> rename;
     private final CompletableFuture<@Nullable IFunction> didRenameFiles;
+    private final CompletableFuture<@Nullable IFunction> selectionRange;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -106,6 +107,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasCodeAction;
     private final CompletableFuture<Boolean> hasRename;
     private final CompletableFuture<Boolean> hasDidRenameFiles;
+    private final CompletableFuture<Boolean> hasSelectionRange;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -151,6 +153,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.prepareRename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
             this.rename = getFunctionFor(contributions, LanguageContributions.RENAME);
             this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
+            this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -166,6 +169,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasCodeAction = nonNull(this.codeAction);
             this.hasRename = nonNull(this.rename);
             this.hasDidRenameFiles = nonNull(this.didRenameFiles);
+            this.hasSelectionRange = nonNull(this.selectionRange);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -379,6 +383,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return execFunction(LanguageContributions.CODE_ACTION, codeAction, VF.list(), focus);
     }
 
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        debug(LanguageContributions.SELECTION_RANGE, focus.length());
+        return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
+    }
+
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
     }
@@ -440,6 +450,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
         return hasCodeAction;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
     }
 
     @Override

@@ -59,6 +59,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
+    public InterruptibleFuture<IList> selectionRange(IList focus);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
@@ -79,6 +80,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
     public CompletableFuture<Boolean> hasDidRenameFiles();
+    public CompletableFuture<Boolean> hasSelectionRange();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
