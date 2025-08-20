@@ -76,8 +76,10 @@ public class LogJsonConfiguration extends ConfigurationFactory {
         builder.add(builder
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
-            .addAttribute("immediateFlush", true)
-            .add(builder.newLayout("JsonTemplateLayout"))
+            .addAttribute("immediateFlush", true) // one json event per flush
+            .add(builder.newLayout("JsonTemplateLayout")
+                .addAttribute("maxStringLength", 4096) // never truncate JSON (which has max size 8192)
+                .addAttribute("stackTraceEnabled", false))
         );
 
         builder.add(builder

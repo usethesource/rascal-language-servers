@@ -50,6 +50,12 @@ class JsonLogMessage {
     readonly threadName: string;
     readonly loggerName: string;
 
+    private static readonly timestampKey = "@timestamp";
+    private static readonly loglevelKey = "log.level";
+    private static readonly messageKey = "message";
+    private static readonly threadNameKey = "process.thread.name";
+    private static readonly loggerNameKey = "log.logger";
+
     constructor(timestamp: Date, loglevel: LogLevel, message: string, threadName: string, loggerName: string) {
         this.timestamp = timestamp;
         this.loglevel = loglevel;
@@ -60,11 +66,11 @@ class JsonLogMessage {
 
     static parse(str: string): JsonLogMessage {
         const obj = JSON.parse(str);
-        const timestamp: Date = new Date(obj["@timestamp"]);
-        const loglevel: LogLevel = obj["log.level"];
-        const message: string = obj["message"];
-        const threadName: string = obj["process.thread.name"];
-        const loggerName: string = obj["log.logger"];
+        const timestamp: Date = new Date(obj[JsonLogMessage.timestampKey]);
+        const loglevel: LogLevel = obj[JsonLogMessage.loglevelKey];
+        const message: string = obj[JsonLogMessage.messageKey];
+        const threadName: string = obj[JsonLogMessage.threadNameKey];
+        const loggerName: string = obj[JsonLogMessage.loggerNameKey];
 
         if (!(timestamp && loglevel && message && threadName && loggerName)) {
             throw new Error(`Could not parse JSON:\n${str}`);
@@ -78,24 +84,10 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly title: string;
 
     private readonly nested: vscode.LogOutputChannel;
-    private readonly threadBuffers: Map<string, string>;
-
-    // https://logging.apache.org/log4j/2.x/manual/json-template-layout.html#plugin-attr-truncatedStringSuffix
-    private static readonly truncationSymbol = "…";
-    private static readonly truncationSymbolLength = this.truncationSymbol.length;
 
     constructor(name: string) {
         this.nested = vscode.window.createOutputChannel(name, {log: true});
         this.title = name;
-        this.threadBuffers = new Map();
-    }
-
-    private printBufferedMessage(json: JsonLogMessage): void {
-        // no timestamp or log level, since LogOutputChannel functions add those
-        const message = this.getAndResetBuffer(json.threadName);
-        // this.nested.appendLine(`Buffered message: ${message}`);
-        const log = `[${json.threadName}] ${json.loggerName} ${message}`;
-        this.printLogOutput(json.loglevel, log);
     }
 
     private printLogOutput(loglevel: LogLevel, message: string) {
@@ -122,38 +114,13 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
                 break;
             }
             default: {
-                this.nested.appendLine(`[NOT WRAPPED] ${loglevel} ${message}`);
+                this.nested.appendLine(`${loglevel} ${message}`);
             }
-        }
-    }
-
-    private getAndResetBuffer(threadName: string): string | undefined {
-        const buffer = this.threadBuffers.get(threadName);
-        this.threadBuffers.set(threadName, "");
-        return buffer;
-    }
-
-    private appendBuffer(threadName: string, suffix: string): string {
-        const curr = this.threadBuffers.get(threadName);
-        const appended = curr + suffix;
-        this.threadBuffers.set(threadName, appended);
-        // this.nested.appendLine(`Buffer of [${threadName}] now has size ${appended.length}`);
-        return appended;
-    }
-
-    private printJsonPayloads(payload: string): void {
-        // this.nested.appendLine(`Payload: ${payload}`);
-        const jsons = payload.trim().split("\n");
-        // let i = 1;
-        for (const json of jsons) {
-            // this.nested.appendLine(`Printing JSON ${i++}/${jsons.length}: ${json}`);
-            this.printPayload(json);
         }
     }
 
     private printPayload(payload: string): void {
         try {
-            // this.nested.appendLine(`Trying to print as JSON: ${payload}`);
             this.printJsonPayLoad(payload);
         } catch (e) {
             if (e instanceof SyntaxError) {
@@ -179,36 +146,19 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
         }
     }
 
-    private cleanMessage(message: string): [string, boolean] {
-        if (message.endsWith(JsonParserOutputChannel.truncationSymbol)) {
-            return [message.slice(0, -JsonParserOutputChannel.truncationSymbolLength), true];
-        }
-        return [message, false];
-    }
-
     private printJsonPayLoad(payload: string): void {
         const json: JsonLogMessage = JsonLogMessage.parse(payload);
-        if (!this.threadBuffers.has(json.threadName)) {
-            this.threadBuffers.set(json.threadName, "");
-        }
-
-        const [message, isTruncated] = this.cleanMessage(json.message);
-        if (isTruncated) {
-            this.appendBuffer(json.threadName, message);
-        } else {
-            this.appendBuffer(json.threadName, message);
-            this.printBufferedMessage(json);
-        }
+        // no timestamp or log level, since LogOutputChannel functions add those
+        const log = `[${json.threadName}] ${json.loggerName} ${json.message}`;
+        this.printLogOutput(json.loglevel, log);
     }
 
     append(payload: string): void {
-        // console.log(`append (${payload.length}): ${payload}`);
-        this.printJsonPayloads(payload);
+        this.printPayload(payload);
     }
 
     appendLine(payload: string): void {
-        // console.log(`appendLine (${payload.length}): ${payload}`);
-        this.printJsonPayloads(payload);
+        this.printPayload(payload);
     }
 
     show(preserveFocus?: unknown): void {
