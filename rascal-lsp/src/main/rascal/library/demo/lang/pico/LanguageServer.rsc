@@ -60,7 +60,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
-    didRenameFiles(picoFileRenameService)
+    didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService)
 };
 
