@@ -132,16 +132,25 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     private printNonJsonPayload(payload: string): void {
-        // try to find the log level
-        const matches = payload.trim().match(/^[^[]*\[(\w+) [^\]]*\]\s*(.*)$/si);
-        if (matches && matches.length >= 3) {
-            const logLevel = matches.at(1)!.toLocaleUpperCase() as LogLevel;
-            const message = matches.at(2)!;
-            this.printLogOutput(logLevel, message);
-        } else {
-            // we do not understand the structure of this log message; just print it as-is
-            this.nested.appendLine(payload);
+        // try to find the log level and message
+        const jsDefault = /^[^[]*\[(?<level>\w+) [^\]]*\]\s*(?<message>.*)$/si;
+        const log4jDefault = /^\s*[^\s]+\s+(?<thread>\w+)\s+(?<level>\w+)\s+(?<message>.*)$/si;
+
+        for (const pattern of [jsDefault, log4jDefault]) {
+            const matches = pattern.exec(payload);
+            if (matches?.groups && "level" in matches.groups && "message" in matches.groups) {
+                const logLevel = matches.groups["level"].toLocaleUpperCase() as LogLevel;
+                let message = matches.groups["message"];
+                if ("thread" in matches.groups) {
+                    message = `[${matches.groups["thread"]}] ${message}`;
+                }
+                this.printLogOutput(logLevel, message);
+                return;
+            }
         }
+
+        // we do not understand the structure of this log message; just print it as-is
+        this.nested.appendLine(payload);
     }
 
     private printJsonPayLoad(payload: string): void {
