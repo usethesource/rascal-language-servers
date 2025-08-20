@@ -72,10 +72,6 @@ class JsonLogMessage {
         const threadName: string = obj[JsonLogMessage.threadNameKey];
         const loggerName: string = obj[JsonLogMessage.loggerNameKey];
 
-        if (!(timestamp && loglevel && message && threadName && loggerName)) {
-            throw new Error(`Could not parse JSON:\n${str}`);
-        }
-
         return new JsonLogMessage(timestamp, loglevel, message, threadName, loggerName);
     }
 }
@@ -120,15 +116,17 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     private printPayload(payload: string): void {
-        try {
-            this.printJsonPayLoad(payload);
-        } catch (e) {
-            if (e instanceof SyntaxError) {
-                // this was not JSON at all
-                this.printNonJsonPayload(payload);
-            } else {
-                this.nested.appendLine(`Error while logging ${payload}: ${e}`);
-                throw e;
+        for (const line of payload.trim().split("\n")) {
+            try {
+                this.printJsonPayLoad(line);
+            } catch (e) {
+                if (e instanceof SyntaxError) {
+                    // this was not JSON at all
+                    this.printNonJsonPayload(line);
+                } else {
+                    this.nested.appendLine(`Error while logging ${line}: ${e}`);
+                    throw e;
+                }
             }
         }
     }
