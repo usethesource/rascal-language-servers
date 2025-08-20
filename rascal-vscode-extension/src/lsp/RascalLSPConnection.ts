@@ -95,30 +95,34 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
         const message = this.getAndResetBuffer(json.threadName);
         // this.nested.appendLine(`Buffered message: ${message}`);
         const log = `[${json.threadName}] ${json.loggerName} ${message}`;
-        switch (json.loglevel) {
+        this.printLogOutput(json.loglevel, log);
+    }
+
+    private printLogOutput(loglevel: LogLevel, message: string) {
+        switch (loglevel) {
             case LogLevel.fatal: // intentional fall-trough
             case LogLevel.error: {
-                this.nested.error(log);
+                this.nested.error(message);
                 break;
             }
             case LogLevel.warn: {
-                this.nested.warn(log);
+                this.nested.warn(message);
                 break;
             }
             case LogLevel.info: {
-                this.nested.info(log);
+                this.nested.info(message);
                 break;
             }
             case LogLevel.debug: {
-                this.nested.debug(log);
+                this.nested.debug(message);
                 break;
             }
             case LogLevel.trace: {
-                this.nested.trace(log);
+                this.nested.trace(message);
                 break;
             }
             default: {
-                this.nested.appendLine(`[NOT WRAPPED] ${json.loglevel} ${log}`);
+                this.nested.appendLine(`[NOT WRAPPED] ${loglevel} ${message}`);
             }
         }
     }
@@ -153,12 +157,25 @@ class JsonParserOutputChannel implements vscode.OutputChannel {
             this.printJsonPayLoad(payload);
         } catch (e) {
             if (e instanceof SyntaxError) {
-                // this was not JSON at all... fall back to default behaviour
-                this.nested.appendLine(payload);
+                // this was not JSON at all
+                this.printNonJsonPayload(payload);
             } else {
                 this.nested.appendLine(`Error while logging ${payload}: ${e}`);
                 throw e;
             }
+        }
+    }
+
+    private printNonJsonPayload(payload: string): void {
+        // try to find the log level
+        const matches = payload.trim().match(/^[^[]*\[(\w+) [^\]]*\]\s*(.*)$/si);
+        if (matches && matches.length >= 3) {
+            const logLevel = matches.at(1)!.toLocaleUpperCase() as LogLevel;
+            const message = matches.at(2)!;
+            this.printLogOutput(logLevel, message);
+        } else {
+            // we do not understand the structure of this log message; just print it as-is
+            this.nested.appendLine(payload);
         }
     }
 
