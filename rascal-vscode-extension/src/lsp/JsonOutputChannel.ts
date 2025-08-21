@@ -71,38 +71,42 @@ class JsonLogMessage {
 export class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly title: string;
 
-    private readonly nested: vscode.LogOutputChannel;
+    private readonly logChannel: vscode.LogOutputChannel;
 
     constructor(name: string) {
-        this.nested = vscode.window.createOutputChannel(name, {log: true});
+        this.logChannel = vscode.window.createOutputChannel(name, {log: true});
         this.title = name;
+    }
+
+    getLogChannel() {
+        return this.logChannel;
     }
 
     private printLogOutput(loglevel: LogLevel, message: string) {
         switch (loglevel) {
             case LogLevel.fatal: // intentional fall-trough
             case LogLevel.error: {
-                this.nested.error(message);
+                this.logChannel.error(message);
                 break;
             }
             case LogLevel.warn: {
-                this.nested.warn(message);
+                this.logChannel.warn(message);
                 break;
             }
             case LogLevel.info: {
-                this.nested.info(message);
+                this.logChannel.info(message);
                 break;
             }
             case LogLevel.debug: {
-                this.nested.debug(message);
+                this.logChannel.debug(message);
                 break;
             }
             case LogLevel.trace: {
-                this.nested.trace(message);
+                this.logChannel.trace(message);
                 break;
             }
             default: {
-                this.nested.appendLine(`${loglevel} ${message}`);
+                this.logChannel.appendLine(`${loglevel} ${message}`);
             }
         }
     }
@@ -116,7 +120,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
                     // this was not JSON at all
                     this.printNonJsonPayload(line);
                 } else {
-                    this.nested.appendLine(`Error while logging ${line}: ${e}`);
+                    this.logChannel.appendLine(`Error while logging ${line}: ${e}`);
                     throw e;
                 }
             }
@@ -125,24 +129,17 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
 
     private printNonJsonPayload(payload: string): void {
         // try to find the log level and message
-        const jsDefault = /^[^[]*\[(?<level>\w+) [^\]]*\]\s*(?<message>.*)$/si;
         const log4jDefault = /^\s*[^\s]+\s+(?<thread>\w+)\s+(?<level>\w+)\s+(?<message>.*)$/si;
 
-        for (const pattern of [jsDefault, log4jDefault]) {
-            const matches = pattern.exec(payload);
-            if (matches?.groups && "level" in matches.groups && "message" in matches.groups) {
-                const logLevel = matches.groups["level"].toLocaleUpperCase() as LogLevel;
-                let message = matches.groups["message"];
-                if ("thread" in matches.groups) {
-                    message = `[${matches.groups["thread"]}] ${message}`;
-                }
-                this.printLogOutput(logLevel, message);
-                return;
-            }
+        const matches = log4jDefault.exec(payload);
+        if (matches?.groups && "level" in matches.groups && "message" in matches.groups) {
+            const logLevel = matches.groups["level"].toLocaleUpperCase() as LogLevel;
+            const message = `[${matches.groups["thread"]}] ${matches.groups["message"]}`;
+            this.printLogOutput(logLevel, message);
+        } else {
+            // we do not understand the structure of this log message; just print it as-is
+            this.logChannel.appendLine(payload);
         }
-
-        // we do not understand the structure of this log message; just print it as-is
-        this.nested.appendLine(payload);
     }
 
     private printJsonPayLoad(payload: string): void {
@@ -161,18 +158,18 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     show(preserveFocus?: unknown): void {
-        this.nested.show(preserveFocus as boolean);
+        this.logChannel.show(preserveFocus as boolean);
     }
     replace(value: string): void {
-        this.nested.replace(value);
+        this.logChannel.replace(value);
     }
     clear(): void {
-        this.nested.clear();
+        this.logChannel.clear();
     }
     hide(): void {
-        this.nested.hide();
+        this.logChannel.hide();
     }
     dispose(): void {
-        this.nested.dispose();
+        this.logChannel.dispose();
     }
 }

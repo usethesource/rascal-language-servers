@@ -27,7 +27,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { RascalExtension } from './RascalExtension';
+import { extensionLog, RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
 

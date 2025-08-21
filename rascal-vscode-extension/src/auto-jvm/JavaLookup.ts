@@ -46,7 +46,7 @@ let lookupCompleted: Thenable<string> | undefined;
 
 const pexec = promisify(cp.exec);
 
-export async function getJavaExecutable(): Promise<string> {
+export async function getJavaExecutable(logger: vscode.LogOutputChannel): Promise<string> {
     if (lookupCompleted) {
         return lookupCompleted;
     }
@@ -72,7 +72,7 @@ export async function getJavaExecutable(): Promise<string> {
         // ignore success, this callback is only for failures
 
     }, e => {
-        console.log("Automatic download failed: ", e);
+        logger.error("Automatic download failed: ", e);
         lookupCompleted = undefined;
     });
     return lookupCompleted;

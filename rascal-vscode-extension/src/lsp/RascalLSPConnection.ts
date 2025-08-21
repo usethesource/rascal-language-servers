@@ -39,14 +39,15 @@ export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
     {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
+    const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger.getLogChannel())
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
-        outputChannel: new JsonParserOutputChannel(title)
+        outputChannel: logger
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
@@ -63,7 +64,7 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
+        new RascalFileSystemProvider(client, logger.getLogChannel()).tryRegisterSchemes(schemes);
     });
 
     return client;
@@ -122,7 +123,7 @@ interface BrowseParameter {
     viewColumn:integer;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg : string | undefined): Promise<ServerOptions> {
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogJsonConfiguration'
@@ -145,7 +146,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
         commandArgs.push(lspArg);
     }
     return {
-        command: await getJavaExecutable(),
+        command: await getJavaExecutable(logger),
         args: commandArgs
     };
 }

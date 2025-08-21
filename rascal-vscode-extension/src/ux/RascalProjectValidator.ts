@@ -29,6 +29,7 @@ import {posix} from 'path'; // posix path join is always correct, also on window
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { Diagnostic, DiagnosticSeverity, Position, Range, Uri } from 'vscode';
 import { MF_FILE, buildMFChildPath } from './RascalMFValidator';
+import { extensionLog } from '../RascalExtension';
 
 const FIRST_WORD = new Range(new Position(0,0), new Position(0,0));
 const EXPLAIN_PROBLEM = "this reduces Rascal's capabilities for typechecking or executing this module.";
@@ -61,7 +62,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                     const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
                     this.validate(document);
                 } catch (e) {
-                    console.log("Swallowing: ", e);
+                    extensionLog.debug("Swallowing: ", e);
                 }
             }
 
@@ -116,7 +117,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                         ));
                     }
                 } catch (ex) {
-                    console.log("Swallowing: ", ex);
+                    extensionLog.debug("Swallowing: ", ex);
                 }
             }
 
@@ -224,11 +225,11 @@ class RascalManifest {
                     libraries = value.split(',').map(s => s.trim());
                 }
             }
-            console.log(uris, libraries);
+            extensionLog.debug(`${uris} ${libraries}`);
             return new RascalManifest(uris, libraries);
         }
         catch (e) {
-            console.log("Could not parse rascal.mf", e);
+            extensionLog.error("Could not parse rascal.mf", e);
             return new RascalManifest([], []);
         }
     }
