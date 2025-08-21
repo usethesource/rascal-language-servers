@@ -91,6 +91,7 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
@@ -434,10 +435,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig)
+        Set<ISourceLocation> folders = workspaceFolders.stream()
+            .map(f -> Locations.toLoc(f.getUri()))
+            .collect(Collectors.toSet());
+
+        rascalServices.getModuleRenames(params.getFiles(), folders, facts::getPathConfig)
             .thenAccept(res -> {
                 var edits = (IList) res.get(0);
                 var messages = (ISet) res.get(1);

@@ -39,6 +39,7 @@ import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import DateTime;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -58,6 +59,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
     codeAction(picoCodeActionService),
+    rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
+    didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService)
 };
 
@@ -187,6 +190,38 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
     return ("result": true);
+}
+
+@synopsis{Prepares the rename service by checking if the id can be renamed}
+loc picoRenamePreparingService(Focus _:[Id id, *_]) {
+    if ("<id>" == "fixed") {
+        throw "Cannot rename id <id>";
+    }
+    return id.src;
+}
+
+@synopsis{Renaming service implementation, unhappy flow.}
+tuple[list[DocumentEdit], set[Message]] picoRenamingService(Focus focus, "error") = <[], {error("Test of error detection during renaming.", focus[0].src.top)}>;
+
+@synopsis{Renaming service implementation, happy flow.}
+default tuple[list[DocumentEdit], set[Message]] picoRenamingService(Focus focus, str newName) = <[changed(focus[0].src.top, [
+    replace(id.src, newName)
+    | cursor := focus[0]
+    , /Id id := focus[-1]
+    , id := cursor
+])], {}>;
+
+@synposis{Handle renames of files in the IDE.}
+tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] fileRenames) {
+    // Iterate over fileRenames
+
+    list[DocumentEdit] edits = [];
+    for (renamed(loc from, loc to) <- fileRenames) {
+        // Surely there is a better way to do this?
+        toBegin = to[offset=0][length=0][begin=<1,0>][end=<1,0>];
+        edits = edits + changed(to, [insertBefore(toBegin, "%% File moved from <from> to <to> at <now()>\n", separator="")]);
+    }
+    return <edits, {info("<size(edits)> moves succeeded!", |unknown:///|)}>;
 }
 
 list[loc] picoSelectionRangeService(Focus focus)
