@@ -60,11 +60,74 @@ public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
 
-    // Note: DiagnosticSeverity.Hint only highlightes a single character!
-    private static final DiagnosticSeverity ERROR_LOCATION_HIGHLIGHT = DiagnosticSeverity.Error;
-    private static final DiagnosticSeverity ERROR_TREE_HIGHLIGHT = null;
-    private static final DiagnosticSeverity PREFIX_HIGHLIGHT = null;
-    private static final DiagnosticSeverity SKIPPED_HIGHLIGHT = null;
+    /**
+     * You can use the following environment variables to control highlighting of recovered errors:
+     * - RASCAL_EDITOR_ERROR_LOCATION_HIGHLIGHT
+     * - RASCAL_EDITOR_ERROR_WHOLE_TREE_HIGHLIGHT
+     * - RASCAL_EDITOR_ERROR_PREFIX_HIGHLIGHT
+     * - RASCAL_EDITOR_ERROR_PREFIX_START_HIGHLIGHT
+     * - RASCAL_EDITOR_ERROR_SKIPPED_HIGHLIGHT
+     *
+     * Each of these variables can be set to one of the following values:
+     * - none
+     * - error
+     * - warning
+     * - info
+     * - hint
+     *
+     * Note that the "hint" severity only highlights a single character.
+     */
+    private static class ErrorHighlightConfig {
+        final DiagnosticSeverity errorLocationHighlight;
+        final DiagnosticSeverity errorWholeTreeHighlight;
+        final DiagnosticSeverity errorPrefixHighlight;
+        final DiagnosticSeverity errorPrefixStartHighlight;
+        final DiagnosticSeverity errorSkippedHighlight;
+
+        private DiagnosticSeverity initErrorHighlightSeverity(String name, DiagnosticSeverity defaultValue) {
+            String spec = System.getenv("RASCAL_EDITOR_ERROR_" + name + "_HIGHLIGHT");
+            if (spec != null) {
+                switch (spec.toUpperCase()) {
+                    case "ERROR":
+                        return DiagnosticSeverity.Error;
+                    case "WARNING":
+                        return DiagnosticSeverity.Warning;
+                    case "INFO":
+                        return DiagnosticSeverity.Information;
+                    case "HINT":
+                        return DiagnosticSeverity.Hint;
+                    case "NONE":
+                        return null;
+                }
+            }
+
+            return defaultValue;
+        }
+
+        // Configure error recovery highlighting using environment variables where available
+        ErrorHighlightConfig() {
+            errorLocationHighlight = initErrorHighlightSeverity("LOCATION", DiagnosticSeverity.Error);
+            errorWholeTreeHighlight = initErrorHighlightSeverity("WHOLE_TREE", null);
+            errorPrefixHighlight = initErrorHighlightSeverity("PREFIX", null);
+            errorPrefixStartHighlight = initErrorHighlightSeverity("PREFIX_START", null);
+            errorSkippedHighlight = initErrorHighlightSeverity("SKIPPED", null);
+
+            System.err.println("Rascal editor error highlighting configuration: " + this);
+        }
+
+        @Override
+        public String toString() {
+            return "ErrorHighlightConfig{" +
+                "errorLocationHighlight=" + errorLocationHighlight +
+                ", errorWholeTreeHighlight=" + errorWholeTreeHighlight +
+                ", errorPrefixHighlight=" + errorPrefixHighlight +
+                ", errorPrefixStartHighlight=" + errorPrefixStartHighlight +
+                ", errorSkippedHighlight=" + errorSkippedHighlight +
+                '}';
+        }
+    }
+
+    private static final ErrorHighlightConfig errorHighlightConfig = new ErrorHighlightConfig();
 
     static {
         severityMap = new HashMap<>();
@@ -106,36 +169,52 @@ public class Diagnostics {
         List<Template> diagnostics = new ArrayList<>();
 
         // Highlight selected parts of the error tree
-        if (ERROR_LOCATION_HIGHLIGHT != null) {
-            // Just the error location
+        if (errorHighlightConfig.errorLocationHighlight != null) {
+            // Highligth just the error location
             ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
                     skippedLoc.getOffset(), 1,
                     skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
                     skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
             diagnostics.add(cm -> new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
-                    ERROR_LOCATION_HIGHLIGHT, "parser"));
+                    errorHighlightConfig.errorLocationHighlight, "parser"));
         }
 
-        if (ERROR_TREE_HIGHLIGHT != null) {
-            // The whole error tree
-            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
+        if (errorHighlightConfig.errorWholeTreeHighlight != null) {
+            // Highlight the whole error tree
+            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error",
+                    errorHighlightConfig.errorWholeTreeHighlight, "parser"));
         }
 
-        if (PREFIX_HIGHLIGHT != null) {
-            // The recognized prefix
+        if (errorHighlightConfig.errorPrefixHighlight != null) {
+            // Highlight the whole recognized prefix
             int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
             if (prefixLength > 0) {
                 ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
                         errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
                         errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
                         errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
+                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix",
+                        errorHighlightConfig.errorPrefixHighlight, "parser"));
             }
         }
 
-        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
-            // The skipped part
-            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
+        if (errorHighlightConfig.errorPrefixStartHighlight != null) {
+            // Highlight just the start of the recognized prefix
+            int prefixLength = skippedLoc.getOffset() - errorTreeLoc.getOffset();
+            if (prefixLength > 0) {
+                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
+                        errorTreeLoc.getOffset(), 1,
+                        errorTreeLoc.getBeginLine(), errorTreeLoc.getBeginLine(),
+                        errorTreeLoc.getBeginColumn(), errorTreeLoc.getBeginColumn() + 1);
+                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Start of unrecognized construct",
+                        errorHighlightConfig.errorPrefixStartHighlight, "parser"));
+            }
+        }
+
+        if (errorHighlightConfig.errorSkippedHighlight != null && skippedLoc.getLength() > 0) {
+            // Highlight the skipped part
+            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped",
+                errorHighlightConfig.errorSkippedHighlight, "parser"));
         }
 
         return diagnostics;
