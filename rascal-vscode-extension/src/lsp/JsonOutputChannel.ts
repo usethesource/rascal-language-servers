@@ -35,37 +35,12 @@ enum LogLevel {
     trace = "TRACE",
 }
 
-class JsonLogMessage {
+interface LogMessage {
     readonly timestamp: Date;
-    readonly loglevel: LogLevel;
+    readonly level: LogLevel;
     readonly message: string;
     readonly threadName: string;
     readonly loggerName: string;
-
-    private static readonly timestampKey = "@timestamp";
-    private static readonly loglevelKey = "log.level";
-    private static readonly messageKey = "message";
-    private static readonly threadNameKey = "process.thread.name";
-    private static readonly loggerNameKey = "log.logger";
-
-    constructor(timestamp: Date, loglevel: LogLevel, message: string, threadName: string, loggerName: string) {
-        this.timestamp = timestamp;
-        this.loglevel = loglevel;
-        this.message = message;
-        this.threadName = threadName;
-        this.loggerName = loggerName;
-    }
-
-    static parse(str: string): JsonLogMessage {
-        const obj = JSON.parse(str);
-        const timestamp: Date = new Date(obj[JsonLogMessage.timestampKey]);
-        const loglevel: LogLevel = obj[JsonLogMessage.loglevelKey];
-        const message: string = obj[JsonLogMessage.messageKey];
-        const threadName: string = obj[JsonLogMessage.threadNameKey];
-        const loggerName: string = obj[JsonLogMessage.loggerNameKey];
-
-        return new JsonLogMessage(timestamp, loglevel, message, threadName, loggerName);
-    }
 }
 
 export class JsonParserOutputChannel implements vscode.OutputChannel {
@@ -143,10 +118,10 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     private printJsonPayLoad(payload: string): void {
-        const json: JsonLogMessage = JsonLogMessage.parse(payload);
+        const json = JSON.parse(payload) as LogMessage;
         // no timestamp or log level, since LogOutputChannel functions add those
         const log = `[${json.threadName}] ${json.loggerName} ${json.message}`;
-        this.printLogOutput(json.loglevel, log);
+        this.printLogOutput(json.level, log);
     }
 
     append(payload: string): void {
