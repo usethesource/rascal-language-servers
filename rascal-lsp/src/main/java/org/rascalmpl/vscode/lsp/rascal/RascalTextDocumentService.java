@@ -77,6 +77,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
 import org.eclipse.lsp4j.SemanticTokens;
 import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
@@ -89,6 +91,7 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
@@ -116,6 +119,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
+import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -190,6 +194,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
+        result.setSelectionRangeProvider(true);
     }
 
     @Override
@@ -430,10 +435,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        rascalServices.getModuleRenames(params.getFiles(), workspaceFolders, facts::getPathConfig)
+        Set<ISourceLocation> folders = workspaceFolders.stream()
+            .map(f -> Locations.toLoc(f.getUri()))
+            .collect(Collectors.toSet());
+
+        rascalServices.getModuleRenames(params.getFiles(), folders, facts::getPathConfig)
             .thenAccept(res -> {
                 var edits = (IList) res.get(0);
                 var messages = (ISet) res.get(1);
@@ -515,6 +524,21 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         logger.debug("semanticTokensRange: {}", params.getTextDocument());
         return getSemanticTokens(params.getTextDocument());
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        logger.debug("textDocument/selectionRange: {}", params);
+        TextDocumentState file = getFile(params.getTextDocument());
+        return file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
+            .thenApply(tr -> params.getPositions().stream()
+                .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
+                .map(p -> TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter()))
+                .map(SelectionRanges::uniqueTreeLocations)
+                .map(l -> SelectionRanges.toSelectionRange(l, columns))
+                .collect(Collectors.toList()));
     }
 
     @Override

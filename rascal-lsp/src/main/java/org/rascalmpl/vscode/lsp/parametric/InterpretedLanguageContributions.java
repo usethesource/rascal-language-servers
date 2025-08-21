@@ -57,6 +57,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -88,6 +89,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> references;
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
+    private final CompletableFuture<@Nullable IFunction> prepareRename;
+    private final CompletableFuture<@Nullable IFunction> rename;
+    private final CompletableFuture<@Nullable IFunction> didRenameFiles;
+    private final CompletableFuture<@Nullable IFunction> selectionRange;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -100,6 +105,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferences;
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
+    private final CompletableFuture<Boolean> hasRename;
+    private final CompletableFuture<Boolean> hasDidRenameFiles;
+    private final CompletableFuture<Boolean> hasSelectionRange;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -142,6 +150,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
+            this.prepareRename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
+            this.rename = getFunctionFor(contributions, LanguageContributions.RENAME);
+            this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
+            this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -155,6 +167,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferences = nonNull(this.references);
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
+            this.hasRename = nonNull(this.rename);
+            this.hasDidRenameFiles = nonNull(this.didRenameFiles);
+            this.hasSelectionRange = nonNull(this.selectionRange);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -256,17 +271,27 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+    private static CompletableFuture<@Nullable IConstructor> getContribution(CompletableFuture<ISet> contributions, String cons) {
         return contributions.thenApply(conts -> {
             for (IValue elem : conts) {
                 IConstructor contrib = (IConstructor) elem;
                 if (cons.equals(contrib.getConstructorType().getName())) {
-                    return (IFunction) contrib.get(0);
+                    return contrib;
                 }
             }
             logger.debug("No {} defined", cons);
             return null;
         });
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+        return getContribution(contributions, cons).thenApply(contribution -> (IFunction) contribution.get(0));
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
+        return getContribution(contributions, cons).thenApply(contribution ->
+            (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam)
+        );
     }
 
     @Override
@@ -311,6 +336,24 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        debug(LanguageContributions.PREPARE_RENAME_SERVICE, focus.isEmpty() ? "" : focus.get(0));
+        return execFunction(LanguageContributions.PREPARE_RENAME_SERVICE, prepareRename, URIUtil.unknownLocation(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String newName) {
+        debug(LanguageContributions.RENAME_SERVICE, newName, focus.isEmpty() ? "" : focus.get(0));
+        return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.list()), focus, VF.string(newName));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
+        debug(LanguageContributions.DID_RENAME_FILES, fileRenames);
+        return execFunction(LanguageContributions.DID_RENAME_FILES, didRenameFiles, VF.tuple(VF.list(), VF.list()), fileRenames);
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         debug(LanguageContributions.HOVER, focus.length());
         return execFunction(LanguageContributions.HOVER, hover, VF.set(), focus);
@@ -338,6 +381,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<IList> codeAction(IList focus) {
         debug(LanguageContributions.CODE_ACTION, focus.length());
         return execFunction(LanguageContributions.CODE_ACTION, codeAction, VF.list(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        debug(LanguageContributions.SELECTION_RANGE, focus.length());
+        return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
     }
 
     private void debug(String name, Object param) {
@@ -379,6 +428,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return hasRename;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return hasDidRenameFiles;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasCodeLens() {
         return hasCodeLens;
     }
@@ -391,6 +450,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
         return hasCodeAction;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
     }
 
     @Override

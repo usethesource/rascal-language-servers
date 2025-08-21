@@ -29,14 +29,14 @@ import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
+import * as path from 'path';
 import { Suite } from 'mocha';
+import { expect } from 'chai';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
     describe('DSL+recovery', function() { body.apply(this, [true]); });
 }
-
-
 
 parameterizedDescribe(function (errorRecovery: boolean) {
     let browser: VSBrowser;
@@ -52,7 +52,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
+        await repl.execute("import demo::lang::pico::LanguageServer;");
 
         // If Pico was registered before as part of another series of tests,
         // then it needs to be unregistered first (because error recovery
@@ -211,4 +211,44 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }
     });
 
+    it("rename works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(5, 6);
+
+        ide.renameSymbol(editor, bench, "z");
+
+        await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
+
+        const editorText = await editor.getText();
+        expect(editorText).to.contain("z : natural");
+        expect(editorText).to.contain("z := 2");
+    });
+
+    it("renaming files works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+        const fromFile = path.join(newDir, "testing.pico");
+        const toDir = path.join(newDir, "dest");
+        await fs.mkdir(toDir, {recursive: true});
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+
+        await fs.copyFile(TestWorkspace.picoFile, fromFile);
+
+        // Open the test file before moving it, so we have the editor ready to inspect afterwards
+        const testFile = await ide.openModule(fromFile);
+
+        await ide.moveFile("testing.pico", "dest", bench);
+
+        await driver.wait(async() => {
+            const text = await testFile.getText();
+            return text.indexOf("%% File moved from") !== -1;
+        }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
+
+        await fs.rm(newDir, {recursive: true, force: true});
+    });
 });

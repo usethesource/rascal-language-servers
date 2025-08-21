@@ -31,14 +31,23 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import com.google.gson.JsonPrimitive;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FileOperationFilter;
+import org.eclipse.lsp4j.FileOperationOptions;
+import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceFoldersOptions;
@@ -46,8 +55,11 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+    private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
+
     public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
@@ -72,13 +84,24 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
         var clientWorkspaceCap = clientCap.getWorkspace();
 
-        if (clientWorkspaceCap != null && Boolean.TRUE.equals(clientWorkspaceCap.getWorkspaceFolders())) {
-            var workspaceCap = new WorkspaceFoldersOptions();
-            workspaceCap.setSupported(true);
-            workspaceCap.setChangeNotifications(true);
-            capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
+        WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
+        if (clientWorkspaceCap != null) {
+            if (clientWorkspaceCap.getWorkspaceFolders()) {
+                var folderOptions = new WorkspaceFoldersOptions();
+                folderOptions.setSupported(true);
+                folderOptions.setChangeNotifications(true);
+                workspaceCapabilities.setWorkspaceFolders(folderOptions);
+            }
+
+            if (clientWorkspaceCap.getFileOperations().getDidRename()) {
+                var fileOperationCapabilities = new FileOperationsServerCapabilities();
+                fileOperationCapabilities.setDidRename(new FileOperationOptions(
+                    List.of(new FileOperationFilter(new FileOperationPattern("**")))));
+                workspaceCapabilities.setFileOperations(fileOperationCapabilities);
+            }
         }
 
+        capabilities.setWorkspace(workspaceCapabilities);
     }
 
     public List<WorkspaceFolder> workspaceFolders() {
@@ -110,6 +133,16 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         if (added != null) {
             workspaceFolders.addAll(added);
         }
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params) {
+        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+
+        CompletableFuture.supplyAsync(() -> {
+            documentService.didRenameFiles(params, workspaceFolders());
+            return null; // Void return type requires a return.
+        });
     }
 
     @Override

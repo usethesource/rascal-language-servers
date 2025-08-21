@@ -31,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -39,6 +40,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
@@ -64,6 +66,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -76,6 +82,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -149,6 +158,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         references = findFirstOrDefault(ILanguageContributions::hasReferences);
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
         codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
+        rename = findFirstOrDefault(ILanguageContributions::hasRename);
+        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
+        didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
+        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -160,6 +173,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+        hasRename = anyTrue(ILanguageContributions::hasRename);
+        hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
+        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
+        hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -271,6 +288,21 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        return flatten(prepareRename, c -> c.prepareRename(focus));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String name) {
+        return flatten(rename, c -> c.rename(focus, name));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList oldToNew) {
+        return flatten(didRenameFiles, c -> c.didRenameFiles(oldToNew));
+    }
+
+    @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
         return flatten(hover, c -> c.hover(focus));
     }
@@ -293,6 +325,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
         return flatten(codeAction, c -> c.codeAction(focus));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override
@@ -348,6 +390,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
         return hasInlayHint;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return hasRename;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return hasDidRenameFiles;
     }
 
     @Override
