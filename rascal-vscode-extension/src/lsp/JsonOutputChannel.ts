@@ -57,13 +57,13 @@ class LogMessage {
 }
 
 export class JsonParserOutputChannel implements vscode.OutputChannel {
-    readonly title: string;
+    readonly name: string;
 
     private readonly logChannel: vscode.LogOutputChannel;
 
     constructor(name: string) {
         this.logChannel = vscode.window.createOutputChannel(name, {log: true});
-        this.title = name;
+        this.name = name;
     }
 
     getLogChannel() {
