@@ -40,6 +40,8 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 import DateTime;
+import IO;
+import String;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,7 +63,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    completion(picoCompletionService, triggerCharacters = ["="])
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -226,6 +229,34 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
+
+list[CompletionSuggestion] picoCompletionService(Focus focus, loc _) {
+    str prefix = "<focus[0]>";
+    return [completion(variable(), "<var.id>", replace(focus[0].src, "<var.id>"), details="<var.t>")
+        | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
+}
+
+Statement getStat((Program)`begin <Declarations _> <Statement stat> end`) = stat;
+
+void testCompletion() {
+    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; v := 1 end");
+    Program top = prg.top;
+    body = top.body;
+    stat = getStat(top);
+    var = stat.var;
+
+    Tree t0 = prg;
+    Tree t1 = top;
+    Tree t2 = body;
+    Tree t3 = stat;
+    Tree t4 = var;
+
+    // Focus focus = [var, stat, body, top, prg]; gives type error, why?
+    Focus focus = [t4, t3, t2, t1, t0];
+
+    completions = picoCompletionService(focus, var.src);
+    println("completions: <completions>");
+}
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

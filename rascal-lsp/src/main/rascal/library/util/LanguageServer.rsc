@@ -279,6 +279,36 @@ data LanguageService
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
     ;
 
+@description{
+Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
+The completion service is called with the current cursor location and focus and should return a list of completion suggestions.
+ Points of discussion:
+* Is information about why a completion was triggered useful (invoked or by trigger character, re-trigger if we ever support it)?
+}
+data LanguageService
+    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus) completionService, list[str] triggerCharacters = []);
+
+@description{
+- We decided to drop "labelDetails", "documentation", "sortText", "filterText", "commitCharacter", "deprecated", and "preselect" fields from the LSP spec for now.
+- No template support as it is very LSP specific
+}
+data CompletionSuggestion = completion(
+    DocumentSymbolKind kind, // Typically used to show an appropriate icon next to the completion item
+    str label,
+    TextEdit completionEdit, // Must include the cursor location!
+
+    str details = "",
+    list[DocumentEdit] additionalChanges = [] // Any additional changes anywhere else in this document or any other document.
+);
+@note{
+    TextEdits from "additionalChanges" in the current document will be included in the result of the completion request,
+    other DocumentEdits will be applied using "applyDocumentsEdits".
+    Maybe we should split this into two fields?
+}
+@note{
+    DocumentEdit -> FileSystemChange? (not recognized by type checker)
+}
+
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
 
@@ -495,8 +525,6 @@ data Summary = summary(loc src,
     rel[loc, loc]     implementations = {}
 );
 
-data Completion = completion(str newText, str proposal=newText);
-
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
 data DocumentSymbol
     = symbol(
@@ -541,8 +569,6 @@ data DocumentSymbolKind
 data DocumentSymbolTag
     = \deprecated()
     ;
-
-data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
 @description{
