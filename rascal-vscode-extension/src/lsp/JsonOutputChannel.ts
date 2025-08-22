@@ -35,12 +35,25 @@ enum LogLevel {
     trace = "TRACE",
 }
 
-interface LogMessage {
-    readonly timestamp: Date;
-    readonly level: LogLevel;
-    readonly message: string;
-    readonly threadName: string;
-    readonly loggerName: string;
+class LogMessage {
+    constructor(
+        public readonly timestamp: Date,
+        public readonly level: LogLevel,
+        public readonly message: string,
+        public readonly threadName: string,
+        public readonly loggerName: string) {}
+
+    static cast(json: object): LogMessage | undefined {
+        if("timestamp" in json && typeof json.timestamp === "string"
+            && "level" in json && typeof json.level === "string"
+            && "message" in json && typeof json.message === "string"
+            && "threadName" in json && typeof json.threadName === "string"
+            && "loggerName" in json && typeof json.loggerName === "string") {
+            return json as LogMessage;
+        }
+
+        return undefined;
+    }
 }
 
 export class JsonParserOutputChannel implements vscode.OutputChannel {
@@ -89,7 +102,11 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     private printPayload(payload: string): void {
         for (const line of payload.trim().split("\n")) {
             try {
-                this.printJsonPayLoad(line);
+                const res = this.printJsonPayLoad(line);
+                if (res === undefined) {
+                    // it's JSON, but we don't understand the shape
+                    this.logChannel.appendLine(line);
+                }
             } catch (e) {
                 if (e instanceof SyntaxError) {
                     // this was not JSON at all
@@ -117,11 +134,15 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         }
     }
 
-    private printJsonPayLoad(payload: string): void {
-        const json = JSON.parse(payload) as LogMessage;
-        // no timestamp or log level, since LogOutputChannel functions add those
-        const log = `[${json.threadName}] ${json.loggerName} ${json.message}`;
-        this.printLogOutput(json.level, log);
+    private printJsonPayLoad(payload: string): LogMessage | undefined {
+        const json = JSON.parse(payload);
+        const log = LogMessage.cast(json);
+        if (log) {
+            // no timestamp or log level, since LogOutputChannel functions add those
+            this.printLogOutput(log.level, `[${log.threadName}] ${log.loggerName} ${log.message}`);
+            return log;
+        }
+        return undefined;
     }
 
     append(payload: string): void {
