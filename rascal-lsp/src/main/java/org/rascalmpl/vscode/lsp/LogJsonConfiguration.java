@@ -77,8 +77,7 @@ public class LogJsonConfiguration extends ConfigurationFactory {
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
             .add(builder.newLayout("JsonTemplateLayout")
-                .addAttribute("maxStringLength", 4096) // never truncate JSON (which has max size 8192)
-                .addAttribute("stackTraceEnabled", false)
+                .addAttribute("maxStringLength", 4096) // never truncate JSON (which has total max size of 8192)
                 .addAttribute("eventTemplateUri", "classpath:JsonLogTemplate.json")
             )
         );
