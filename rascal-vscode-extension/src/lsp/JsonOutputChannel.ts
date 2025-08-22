@@ -49,7 +49,7 @@ class LogMessage {
             && "message" in json && typeof json.message === "string"
             && "threadName" in json && typeof json.threadName === "string"
             && "loggerName" in json && typeof json.loggerName === "string") {
-            return json as LogMessage;
+            return new LogMessage(new Date(json.timestamp), json.level as LogLevel, json.message, json.threadName, json.loggerName);
         }
 
         return undefined;
@@ -119,15 +119,30 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         }
     }
 
+    private formatServerTime(date: Date | string): string {
+        if (typeof date === "string") {
+            date = new Date(date);
+        }
+        return date.toISOString();
+    }
+
+    private formatMessage(thread: string, originalTime: Date | string, message: string, loggerName?: string) {
+        const loggerPart = loggerName ? ` ${loggerName}` : "";
+        return `[${thread}](${this.formatServerTime(originalTime)})${loggerPart} ${message}`;
+    }
+
     private printNonJsonPayload(payload: string): void {
         // try to find the log level and message
-        const log4jDefault = /^\s*[^\s]+\s+(?<thread>\w+)\s+(?<level>\w+)\s+(?<message>.*)$/si;
+        const log4jDefault = /^\s*(?<timestamp>[^\s]+)\s+(?<thread>\w+)\s+(?<level>\w+)\s+(?<message>.*)$/si;
 
         const matches = log4jDefault.exec(payload);
-        if (matches?.groups && "level" in matches.groups && "message" in matches.groups) {
+        if (matches?.groups
+            && "thread" in matches.groups
+            && "level" in matches.groups
+            && "message" in matches.groups
+            && "timestamp" in matches.groups) {
             const logLevel = matches.groups["level"].toLocaleUpperCase() as LogLevel;
-            const message = `[${matches.groups["thread"]}] ${matches.groups["message"]}`;
-            this.printLogOutput(logLevel, message);
+            this.printLogOutput(logLevel, this.formatMessage(matches.groups["thread"], matches.groups["timestamp"], matches.groups["message"]));
         } else {
             // we do not understand the structure of this log message; just print it as-is
             this.logChannel.appendLine(payload);
@@ -139,7 +154,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         const log = LogMessage.cast(json);
         if (log) {
             // no timestamp or log level, since LogOutputChannel functions add those
-            this.printLogOutput(log.level, `[${log.threadName}] ${log.loggerName} ${log.message}`);
+            this.printLogOutput(log.level, this.formatMessage(log.threadName, log.timestamp, log.message, log.loggerName));
             return log;
         }
         return undefined;
