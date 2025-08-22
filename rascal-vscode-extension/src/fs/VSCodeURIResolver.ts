@@ -207,13 +207,13 @@ export class VSCodeUriResolverServer implements Disposable {
     constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
         this.server = createServer(newClient => {
             if (debug) {
-                logger.info("VFS: new connection: " + JSON.stringify(newClient));
+                this.logger.info("VFS: new connection: " + JSON.stringify(newClient));
             }
             newClient.setNoDelay(true);
-            this.handleNewClient(newClient, debug, logger);
+            this.handleNewClient(newClient, debug);
         });
-        this.server.on('error', logger.error);
-        this.server.listen(0, "localhost", () => logger.info("VFS: started listening on " + JSON.stringify(this.server.address())));
+        this.server.on('error', this.logger.error);
+        this.server.listen(0, "localhost", () => this.logger.info("VFS: started listening on " + JSON.stringify(this.server.address())));
     }
 
     ignoreSchemes(toIgnore: string[]) {
@@ -225,18 +225,18 @@ export class VSCodeUriResolverServer implements Disposable {
         this.activeClients.forEach(c => c.dispose());
     }
 
-    private handleNewClient(newClient: Socket, debug: boolean, logger: vscode.LogOutputChannel) {
+    private handleNewClient(newClient: Socket, debug: boolean) {
         const connection = rpc.createMessageConnection(newClient, newClient, {
-            log: (msg) => logger.trace(`VFS: ${msg}`),
-            error: (msg) => logger.error(`VFS: ${msg}`),
-            warn: (msg) => logger.warn(`VFS: ${msg}`),
-            info: (msg) => logger.info(`VFS: ${msg}`),
+            log: (msg) => this.logger.trace(`VFS: ${msg}`),
+            error: (msg) => this.logger.error(`VFS: ${msg}`),
+            warn: (msg) => this.logger.warn(`VFS: ${msg}`),
+            info: (msg) => this.logger.info(`VFS: ${msg}`),
         });
         newClient.on("error", e => {
-            logger.error(`VFS (socket): ${e}`);
+            this.logger.error(`VFS (socket): ${e}`);
         });
 
-        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes, logger);
+        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes, this.logger);
         this.activeClients.push(client);
 
         newClient.on('end', () => {
@@ -315,7 +315,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (debug) {
             connection.trace(rpc.Trace.Verbose, {
                 log: (a) => {
-                    logger.debug("[VFS]: " + a);
+                    this.logger.debug("[VFS]: " + a);
                 }
             });
         }
