@@ -128,7 +128,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
 
     private formatMessage(thread: string, originalTime: Date | string, message: string, loggerName?: string) {
         const loggerPart = loggerName ? ` ${loggerName}` : "";
-        return `[${thread}](${this.formatServerTime(originalTime)})${loggerPart} ${message}`;
+        return `[${thread}] (${this.formatServerTime(originalTime)})${loggerPart} ${message}`;
     }
 
     private printNonJsonPayload(payload: string): void {
