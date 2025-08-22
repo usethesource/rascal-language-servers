@@ -49,7 +49,7 @@ class LogMessage {
             && "message" in json && typeof json.message === "string"
             && "threadName" in json && typeof json.threadName === "string"
             && "loggerName" in json && typeof json.loggerName === "string") {
-            return new LogMessage(new Date(json.timestamp), json.level as LogLevel, json.message, json.threadName, json.loggerName);
+            return new LogMessage(new Date(json.timestamp), json.level.toUpperCase() as LogLevel, json.message, json.threadName, json.loggerName);
         }
 
         return undefined;
@@ -169,7 +169,11 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     show(preserveFocus?: unknown): void {
-        this.logChannel.show(preserveFocus as boolean);
+        if (preserveFocus === undefined) {
+            this.logChannel.show();
+        } else if (typeof preserveFocus === "boolean") {
+            this.logChannel.show(preserveFocus);
+        }
     }
     replace(value: string): void {
         this.logChannel.replace(value);
