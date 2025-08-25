@@ -26,15 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
-
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -399,13 +396,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions) {
-        debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions.size());
-        return InterruptibleFuture.flatten(formatting.thenCombine(parsing, Pair::of)
-            .thenApply(pair ->
-                runEvaluator(LanguageContributions.FORMATTING, eval, actualEval ->
-                (IList) actualEval.call(actualEval.getMonitor(), "util::LanguageServer", "formatter", input, formattingOptions, pair.getLeft(), pair.getRight())
-            , VF.list(), exec, true, client)), exec);
+    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions) {
+        debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions);
+        return execFunction(LanguageContributions.FORMATTING, formatting, VF.list(), input, loc, formattingOptions);
     }
 
     private void debug(String name, Object param) {

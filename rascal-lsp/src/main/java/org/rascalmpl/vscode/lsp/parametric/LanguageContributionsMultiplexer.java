@@ -342,8 +342,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> formatting(ITree input, ISet formattingOptions) {
-        return flatten(formatting, c -> c.formatting(input, formattingOptions));
+    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions) {
+        return flatten(formatting, c -> c.formatting(input, loc, formattingOptions));
     }
 
     @Override

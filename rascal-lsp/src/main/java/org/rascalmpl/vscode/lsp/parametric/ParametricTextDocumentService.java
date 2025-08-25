@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -146,7 +145,6 @@ import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
-import io.usethesource.vallang.ISetWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -243,6 +241,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setDocumentFormattingProvider(true);
+        result.setDocumentRangeFormattingProvider(true);
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
@@ -750,7 +749,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contribs = contributions(uri);
 
         // convert the `FormattingOptions` map to a `set[FormattingOption]`
-        ISet optSet = getFormattingOptions(options);
+        IConstructor optSet = getFormattingOptions(options);
+
         // call the `formatting` implementation of the relevant language contribution
         return getFile(uri)
             .getCurrentTreeAsync()
@@ -766,19 +766,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
     }
 
-    private ISet getFormattingOptions(FormattingOptions options) {
-        var optionType = tf.abstractDataType(typeStore, "FormattingOption");
-
-        ISetWriter opts = VF.setWriter();
-        for (Entry<String, Either3<String, Number, Boolean>> e : options.entrySet()) {
-            var opt = e.getValue().map(
-                s -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey(), tf.stringType()), VF.string(s)),
-                n -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey(), tf.integerType()), VF.integer(n.longValue())),
-                b -> VF.constructor(tf.constructor(typeStore, optionType, e.getKey()))
-            );
-            opts.append(opt);
-        }
-        return opts.done();
+    private IConstructor getFormattingOptions(FormattingOptions options) {
+        var optionsType = tf.abstractDataType(typeStore, "FormattingOptions");
+        var consType = tf.constructor(typeStore, optionsType, "formattingOptions");
+        var opts = Map.of(
+            "tabSize", VF.integer(options.getTabSize()),
+            "insertSpaces", VF.bool(options.isInsertSpaces()),
+            "trimTrailingWhitespace", VF.bool(options.isTrimTrailingWhitespace()),
+            "insertFinalNewline", VF.bool(options.isInsertFinalNewline()),
+            "trimFinalNewlines", VF.bool(options.isTrimFinalNewlines())
+        );
+        return VF.constructor(consType, new IValue[0], opts);
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
