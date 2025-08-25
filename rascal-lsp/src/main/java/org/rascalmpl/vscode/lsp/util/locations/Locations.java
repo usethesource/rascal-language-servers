@@ -35,6 +35,8 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -158,6 +160,22 @@ public class Locations {
         else {
             return new Range(new Position(0, 0), new Position(0,0));
         }
+    }
+
+    public static ISourceLocation toSourceLocation(TextDocumentState doc, Range lspRange, ColumnMaps columns) {
+        var loc = doc.getLocation();
+        var map = columns.get(loc);
+        var offsets = map.calculateInverseOffsetLength(lspRange.getStart().getLine(), lspRange.getStart().getCharacter(), lspRange.getEnd().getLine(), lspRange.getEnd().getCharacter());
+        var rascalBegin = toRascalPosition(loc, lspRange.getStart(), columns);
+        var rascalEnd = toRascalPosition(loc, lspRange.getEnd(), columns);
+        return IRascalValueFactory.getInstance().sourceLocation(loc,
+            offsets.getLeft(),
+            offsets.getRight(),
+            rascalBegin.getLine(),
+            rascalEnd.getLine(),
+            rascalBegin.getCharacter(),
+            rascalEnd.getCharacter()
+        );
     }
 
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
