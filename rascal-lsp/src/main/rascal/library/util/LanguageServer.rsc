@@ -281,33 +281,46 @@ data LanguageService
 
 @description{
 Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
-The completion service is called with the current cursor location and focus and should return a list of completion suggestions.
- Points of discussion:
-* Is information about why a completion was triggered useful (invoked or by trigger character, re-trigger if we ever support it)?
+The completion service is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
+ It should return a list of completion suggestions.
+
+We have choosen to support all features of the LSP CompletionItem except:
+* We use "DocumentSymbolKind" instead of introducing a new enum to represent CompletionKind. This is only used to show a tiny icon next to each completion alternative, and the few concept that differ can usually be mapped to some related or more general concept.
+* No support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+* We will only generate "TextEdit" items, not "InsertReplaceEdit", nor do we use "insertText", "insertTextFormat", or "insertTextMode."
+* No support for defaults in CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+* No support for "command".
 }
 data LanguageService
-    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus) completionService, list[str] triggerCharacters = []);
+    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] triggerCharacters = []);
 
-@description{
-- We decided to drop "labelDetails", "documentation", "sortText", "filterText", "commitCharacter", "deprecated", and "preselect" fields from the LSP spec for now.
-- No template support as it is very LSP specific
-}
+alias CompletionKind = DocumentSymbolKind;
+
+data CompletionTrigger = invoked() | character(); // Manual invocation or invocation by trigger character
+
 data CompletionSuggestion = completion(
-    DocumentSymbolKind kind, // Typically used to show an appropriate icon next to the completion item
+    CompletionKind kind, // Typically used to show an appropriate icon next to the completion item
     str label,
-    TextEdit completionEdit, // Must include the cursor location!
 
-    str details = "",
-    list[DocumentEdit] additionalChanges = [] // Any additional changes anywhere else in this document or any other document.
+    TextEdit completionEdit, // Must include the cursor location!
+    bool snippet = false, // If true, the replacement text in completionEdit is interpreted as a snippet
+
+    str labelDetail = "", // Shown directly after the completion item, can be used to show the signature of functions
+    str labelDescription = "", // Shown next to the label detail (justified to the right in VSCode), is typically used to show the return type or variable type of the completion.
+
+    str details = "", // Shown in the upper part of a popup window when more information about a completion is requested by the user.
+    str documentation = "", // Show in the lower part of the same popup window.
+
+    str sortText = "", // Used to sort completions (`label` is used if this field is left empty)
+    str filterText = "", // Used to filter completions (`label` is used if this field is left empty)
+
+    bool deprecated = false, // Marks this item as a deprecated item (usually using strikethrough and graying out)
+    bool preselect = false, // Preselect this item so the user only has to press "enter" to accept it
+
+    list[str] commitCharacters = [], // When one of these characters is typed, the completion is finalized, for instance ";"
+
+    list[TextEdit] additionalChanges = [] // Any additional changes anywhere else in this document, for instance for adding imports
 );
-@note{
-    TextEdits from "additionalChanges" in the current document will be included in the result of the completion request,
-    other DocumentEdits will be applied using "applyDocumentsEdits".
-    Maybe we should split this into two fields?
-}
-@note{
-    DocumentEdit -> FileSystemChange? (not recognized by type checker)
-}
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }

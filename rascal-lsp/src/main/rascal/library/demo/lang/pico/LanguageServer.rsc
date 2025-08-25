@@ -230,31 +230,16 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
-list[CompletionSuggestion] picoCompletionService(Focus focus, loc _) {
+list[CompletionSuggestion] picoCompletionService(loc _, Focus focus) {
     str prefix = "<focus[0]>";
     return [completion(variable(), "<var.id>", replace(focus[0].src, "<var.id>"), details="<var.t>")
         | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
 }
 
-Statement getStat((Program)`begin <Declarations _> <Statement stat> end`) = stat;
-
 void testCompletion() {
     start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; v := 1 end");
-    Program top = prg.top;
-    body = top.body;
-    stat = getStat(top);
-    var = stat.var;
-
-    Tree t0 = prg;
-    Tree t1 = top;
-    Tree t2 = body;
-    Tree t3 = stat;
-    Tree t4 = var;
-
-    // Focus focus = [var, stat, body, top, prg]; gives type error, why?
-    Focus focus = [t4, t3, t2, t1, t0];
-
-    completions = picoCompletionService(focus, var.src);
+    Focus focus = computeFocusList(prg, 1, 47); // after v
+    completions = picoCompletionService(focus[0].src(47, 0, <1,47>,<1,47>), focus);
     println("completions: <completions>");
 }
 
