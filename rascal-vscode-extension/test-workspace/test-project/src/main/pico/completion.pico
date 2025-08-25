@@ -1,0 +1,6 @@
+begin
+  declare
+     var1 : natural,
+     var2 : natural;
+     v := 1
+end
