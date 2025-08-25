@@ -56,6 +56,7 @@ import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.DefinitionParams;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
@@ -81,6 +82,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
@@ -294,6 +296,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         facts(params.getTextDocument()).close(Locations.toLoc(params.getTextDocument()));
     }
+
+    @Override
+    public void didDeleteFiles(DeleteFilesParams params) {
+        ownExecuter.submit(() -> {
+            // if a file is deleted, and we were tracking it, we remove our diagnostics
+            for (var f : params.getFiles()) {
+                if (registeredExtensions.containsKey(extension(f.getUri()))) {
+                    client.publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+                }
+            }
+        });
+    }
+
 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
         triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
