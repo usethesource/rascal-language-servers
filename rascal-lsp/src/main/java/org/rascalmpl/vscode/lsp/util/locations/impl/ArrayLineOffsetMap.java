@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.util.locations.impl;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 
 public class ArrayLineOffsetMap implements LineColumnOffsetMap {
@@ -75,6 +76,26 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
         return column - translateColumnForLine(wideColumnOffsetsInverse.get(lineIndex), column, isEnd);
     }
 
+    @Override
+    public Pair<Integer, Integer> translateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn, int offset, int length) {
+        int offsetOffset = 0;
+        int lengthOffset = 0;
+
+        for (int line = 0; line <= endLine; line++) {
+            int lineIndex = lines.search(line);
+            if (lineIndex < 0) {
+                // no wide characters on this line
+                continue;
+            }
+            var lineOffsets = wideColumnOffsetsInverse.get(lineIndex);
+            if (line < beginLine) {
+                offsetOffset += (translateColumnForLine(lineOffsets, beginColumn, false) - beginColumn);
+            }
+            lengthOffset += (translateColumnForLine(lineOffsets, endColumn, true) - endColumn);
+        }
+
+        return Pair.of(offset - offsetOffset, length - lengthOffset);
+    }
 
     @SuppressWarnings("java:S3776") // parsing tends to be complex
     public static LineColumnOffsetMap build(String contents) {
@@ -132,6 +153,11 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
         public int translateInverseColumn(int line, int column, boolean isEnd) {
             return column;
         }
+        @Override
+        public Pair<Integer, Integer> translateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn, int offset, int length) {
+            return Pair.of(offset, length);
+        }
+
     };
 
 

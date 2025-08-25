@@ -35,6 +35,8 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -158,6 +160,47 @@ public class Locations {
         else {
             return new Range(new Position(0, 0), new Position(0,0));
         }
+    }
+
+    public static ISourceLocation toSourceLocation(TextDocumentState doc, Range lspRange, ColumnMaps columns) {
+        var contents = doc.getCurrentContent().get();
+        int contentLength = contents.length();
+
+        int lspLine = 0;
+        int lspColumn = -1;
+        int lspOffset = -1;
+        int lspLength = -1;
+
+        for (int i = 0; lspLength == -1 && i < contentLength; i++) {
+            var c = contents.charAt(i);
+            if (c == '\n') {
+                // new line
+                lspLine += 1;
+                lspColumn = -1;
+                continue;
+            } else {
+                lspColumn += 1;
+            }
+
+            if (lspLine == lspRange.getStart().getLine() && lspColumn == lspRange.getStart().getCharacter()) {
+                lspOffset = i;
+            }
+            if (lspLine == lspRange.getEnd().getLine() && lspColumn == lspRange.getEnd().getCharacter()) {
+                lspLength = i - lspOffset;
+            }
+        }
+        if (lspLength == -1) {
+            // at end
+            lspLength = contentLength;
+        }
+
+        var loc = doc.getLocation();
+        var rascalBegin = toRascalPosition(loc, lspRange.getStart(), columns);
+        var rascalEnd = toRascalPosition(loc, lspRange.getEnd(), columns);
+
+        var map = columns.get(loc);
+        var offsets = map.translateInverseOffsetLength(rascalBegin.getLine(), rascalBegin.getCharacter(), rascalEnd.getLine(), rascalEnd.getCharacter(), lspOffset, lspLength);
+        return IRascalValueFactory.getInstance().sourceLocation(loc, offsets.getLeft(), offsets.getRight(), rascalBegin.getLine(), rascalEnd.getLine(), rascalBegin.getCharacter(), rascalEnd.getCharacter());
     }
 
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
