@@ -38,6 +38,6 @@ public interface VSCodeUriResolverClient {
     @JsonNotification("rascal/vfs/watcher/emitWatch")
     void emitWatch(ISourceLocationChanged event);
 
-    void addWatcher(ISourceLocation loc, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
-    void removeWatcher(ISourceLocation loc, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+    void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+    void removeWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
 }

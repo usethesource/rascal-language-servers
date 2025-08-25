@@ -119,6 +119,8 @@ export class RascalREPL {
             } catch (_ignored) {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
+                console.log('Terminal contents after failing to initialize REPL:');
+                console.log(await this.terminal.getText());
                 return false;
             }
         }
@@ -340,8 +342,7 @@ export class IDEOperations {
      * @param actionLabel
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
-        const inputarea = await editor.findElement(By.className('inputarea'));
-        await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
+        await VSBrowser.instance.driver.actions().keyDown(Key.CONTROL).sendKeys(".").keyUp(Key.CONTROL).perform();
 
         // finds an open menu with the right item in it (Change to a) and then select
         // the parent that handles UI events like click() and sendKeys()

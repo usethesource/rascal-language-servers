@@ -39,18 +39,15 @@ public class ISourceLocationChanged {
     private String location;
     @NonNull
     private ISourceLocationChangeType changeType;
-    @NonNull
-    private ISourceLocationType type;
 
 
     public ISourceLocationChanged() {
     }
 
-    public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType, @NonNull ISourceLocationType type) {
+    public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType) {
         this.watchId = watchId;
         this.location = location;
         this.changeType = changeType;
-        this.type = type;
     }
 
     public ISourceLocationChangeType getChangeType() {
@@ -61,9 +58,6 @@ public class ISourceLocationChanged {
     }
     public ISourceLocation getSourceLocation() {
         return Locations.toLoc(location);
-    }
-    public ISourceLocationType getType() {
-        return type;
     }
 
     public String getWatchId() {
@@ -77,7 +71,6 @@ public class ISourceLocationChanged {
             return Objects.equals(watchId, other.watchId)
                 && Objects.equals(location, other.location)
                 && Objects.equals(changeType, other.changeType)
-                && Objects.equals(type, other.type)
                 ;
         }
         return false;
@@ -85,21 +78,19 @@ public class ISourceLocationChanged {
 
     @Override
     public int hashCode() {
-        return Objects.hash(watchId, location, changeType, type);
+        return Objects.hash(watchId, location, changeType);
     }
 
     public ISourceLocationWatcher.ISourceLocationChanged translate() {
         return ISourceLocationWatcher.makeChange(
             getSourceLocation(),
-            ISourceLocationChangeType.translate(changeType),
-            ISourceLocationType.translate(type)
+            ISourceLocationChangeType.translate(changeType)
         );
     }
 
     @Override
     public String toString() {
-        return "ISourceLocationChanged [changeType=" + changeType + ", location=" + location + ", type=" + type
-            + ", watchId=" + watchId + "]";
+        return "ISourceLocationChanged [changeType=" + changeType + ", location=" + location + ", watchId=" + watchId + "]";
     }
 
 
