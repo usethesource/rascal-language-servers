@@ -283,44 +283,104 @@ data LanguageService
 Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
 The completion service is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
  It should return a list of completion suggestions.
+ The optional list of trigger characters can contain a list of extra characters that trigger completion.
+ These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). Might include "." for languages like Java to start field/method completion.
 
 We have choosen to support all features of the LSP CompletionItem except:
 * We use "DocumentSymbolKind" instead of introducing a new enum to represent CompletionKind. This is only used to show a tiny icon next to each completion alternative, and the few concept that differ can usually be mapped to some related or more general concept.
 * No support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
-* We will only generate "TextEdit" items, not "InsertReplaceEdit", nor do we use "insertText", "insertTextFormat", or "insertTextMode."
 * No support for defaults in CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 * No support for "command".
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 }
 data LanguageService
     = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] triggerCharacters = []);
 
+@description{
+    Represents a concrete completion proposal that the user can select. The following fields can be used:
+    * ((kind)) *required*: Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
+    * ((edit)) *required*: Specification of the edit that will occur if this completion proposal is accepted by the user.
+    * ((label)) *required*: The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
+    * ((labelDetail)): Shown directly after the label and can for instance be used to show the function parameters.
+    * ((labelDescription)): Shown after the label details. This is typically used to show information about the (return) type when a completions is a function or variable.
+    * ((details)): Text that is shown when the user asks for more information about a particular completion.
+    * ((documentation)): Text or markup that documents the construct that a completion will generate.
+    * ((sortText)): Used to sort the list of completions. If not set, completion suggestions will be sorted based on ((label)).
+    * ((filterText)): Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
+        if ((completionEdit)) starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
+        For example if the user starts completion like this: `pr|i` (where `|` represents the cursor) and you generate the completion edit to
+        replace the whole string `pri` with `print`, ((filterText)) should be set to `pr` or the completion will not show up in the list.
+        If you leave this blank, the correct filter text will be generated for you. If not, we assume you know what you are doing and use the
+        ((filterText)) you provide as-is.
+    * ((deprecated)): Set this to `true` to mark this completion suggestion as deprecated.
+    * ((commitCharacters)): When one of these characters is types, the completion suggestion is accepted and the the commit character is inserted after the inserted text.
+    * ((additionalChanges)): Any additional changes anywhere else in the document. This can for instance be used to add imports.
+}
+data CompletionSuggestion = completion(
+    CompletionKind kind,
+    CompletionEdit edit,
+
+    str label,
+    str labelDetail = "",
+    str labelDescription = "",
+
+    str details = "",
+    CompletionDocumentation documentation = none(),
+
+    str sortText = "",
+    str filterText = "",
+
+    bool deprecated = false,
+    bool preselect = false,
+
+    list[str] commitCharacters = [],
+
+    list[TextEdit] additionalChanges = []
+);
+
+@description{
+    Definition of a completion edit:
+    * ((startColumn)) *required*: The column where the completion edit operation will take place. Must be at or before the cursor position.
+    * ((insertEndColumn)) *required*: End column when the user choose completion by insertion  (for instance by pressing "Enter" in VSCode).
+    * ((replaceEndColumn)) *required*: End column when the user choose completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
+        Note: ((insertEndColumn)) must not be larger than ((replaceEndColumn)) and both must be at or to the right of the cursor position.
+    * ((newText)) *required*: The text that will be used to perform the completion. Depending on what kind of completion (insertion
+        or replacement) selected by the user, the original text from ((startColumn)) to either ((insertEndColumn)) or ((replaceEndColumn)) will
+        be replaced by ((newText)).
+    * ((snippet)): Can be set to true to indicate that the replacement text should be interpreted as a snippet.
+        Snippets can contain tabstops, placeholders, choices, and variables. For more information about snippets see the
+        [relevant section of the lsp specification on github](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
+        Note that it is the responsibility of the language developer that snippets as presented to the user are syntactically correct to
+        provide a decent user experience.
+}
+data CompletionEdit = completionEdit(
+    int startColumn,
+    int insertEndColumn,
+    int replaceEndColumn,
+    str newText,
+    bool snippet = false
+);
+
+@description{
+    The lsp ((CompletionKind)) and our ((DocumentSymbolKind)) describe largely the same concepts. As these are only used (in VSCode)
+    to display a tiny icon next to each completion item, the small differences remaining can be overcome by selecting a related
+    or more general concept.
+
+    TODO: List differences here.
+}
 alias CompletionKind = DocumentSymbolKind;
 
-data CompletionTrigger = invoked() | character(); // Manual invocation or invocation by trigger character
+@description{
+Manual invocation or invocation by trigger characters
+}
+data CompletionTrigger = invoked() | character();
 
-data CompletionSuggestion = completion(
-    CompletionKind kind, // Typically used to show an appropriate icon next to the completion item
-    str label,
+@description{
+    Used to provide either plain text or markup as documentaton for a completion suggestion, or indicate no documentation is provided.
+}
+data CompletionDocumentation = none() | text(str text) | markup(str markup);
 
-    TextEdit completionEdit, // Must include the cursor location!
-    bool snippet = false, // If true, the replacement text in completionEdit is interpreted as a snippet
-
-    str labelDetail = "", // Shown directly after the completion item, can be used to show the signature of functions
-    str labelDescription = "", // Shown next to the label detail (justified to the right in VSCode), is typically used to show the return type or variable type of the completion.
-
-    str details = "", // Shown in the upper part of a popup window when more information about a completion is requested by the user.
-    str documentation = "", // Show in the lower part of the same popup window.
-
-    str sortText = "", // Used to sort completions (`label` is used if this field is left empty)
-    str filterText = "", // Used to filter completions (`label` is used if this field is left empty)
-
-    bool deprecated = false, // Marks this item as a deprecated item (usually using strikethrough and graying out)
-    bool preselect = false, // Preselect this item so the user only has to press "enter" to accept it
-
-    list[str] commitCharacters = [], // When one of these characters is typed, the completion is finalized, for instance ";"
-
-    list[TextEdit] additionalChanges = [] // Any additional changes anywhere else in this document, for instance for adding imports
-);
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }

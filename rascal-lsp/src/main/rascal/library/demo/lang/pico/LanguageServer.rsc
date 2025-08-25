@@ -230,16 +230,27 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
-list[CompletionSuggestion] picoCompletionService(loc _, Focus focus) {
+CompletionSuggestion createVarCompletion(int cursorColumn, loc focus, IdType decl) {
+    str name = "<decl.id>";
+    CompletionEdit edit = completionEdit(
+        focus.begin.column,
+        cursorColumn,
+        focus.end.column,
+        name
+    );
+
+    return completion(variable(), edit, name, labelDetail="<decl.t>");
+}
+
+list[CompletionSuggestion] picoCompletionService(loc cursor, Focus focus, CompletionTrigger trigger) {
     str prefix = "<focus[0]>";
-    return [completion(variable(), "<var.id>", replace(focus[0].src, "<var.id>"), details="<var.t>")
-        | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
+    return [createVarCompletion(cursor.begin.column, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
 }
 
 void testCompletion() {
-    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; v := 1 end");
+    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; va := 1 end");
     Focus focus = computeFocusList(prg, 1, 47); // after v
-    completions = picoCompletionService(focus[0].src(47, 0, <1,47>,<1,47>), focus);
+    completions = picoCompletionService(focus[0].src(47, 0, <1,47>,<1,47>), focus, invoked());
     println("completions: <completions>");
 }
 
