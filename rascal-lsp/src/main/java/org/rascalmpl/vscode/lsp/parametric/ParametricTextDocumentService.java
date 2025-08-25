@@ -746,14 +746,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         IConstructor optSet = getFormattingOptions(options);
 
         // call the `formatting` implementation of the relevant language contribution
-        return getFile(uri)
+        var fileState = getFile(uri);
+        return fileState
             .getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenCompose(tree -> {
                 // range to Rascal loc
                 ISourceLocation loc = range == null
                     ? TreeAdapter.getLocation(tree)
-                    : null; // TODO map Range to ISourceLocation
+                    : Locations.toSourceLocation(fileState, range, columns);
                 return contribs.formatting(tree, loc, optSet).get();
             })
             // convert the document changes

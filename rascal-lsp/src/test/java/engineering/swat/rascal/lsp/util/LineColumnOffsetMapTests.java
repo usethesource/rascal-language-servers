@@ -28,6 +28,7 @@ package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.impl.ArrayLineOffsetMap;
@@ -58,8 +59,11 @@ public class LineColumnOffsetMapTests {
 
     @Test
     public void noUnicodeCharsInverse() {
-        LineColumnOffsetMap map = ArrayLineOffsetMap.build("1234\n1234");
+        LineColumnOffsetMap map = ArrayLineOffsetMap.build("1234\n1234\n\n  \n");
         assertEquals(2, map.translateInverseColumn(0, 2, false));
+        assertEquals(Pair.of(0, 2), map.calculateInverseOffsetLength(0, 0, 0, 2));
+        assertEquals(Pair.of(0, 9), map.calculateInverseOffsetLength(0, 0, 1, 4));
+        assertEquals(Pair.of(8, 6), map.calculateInverseOffsetLength(1, 3, 4, 0));
     }
 
     @Test
@@ -68,6 +72,9 @@ public class LineColumnOffsetMapTests {
         assertEquals(3, map.translateInverseColumn(0, 3, false));
         assertEquals(3, map.translateInverseColumn(0, 4, false));
         assertEquals(4, map.translateInverseColumn(0, 5, false));
+        assertEquals(Pair.of(2, 1), map.calculateInverseOffsetLength(0, 2, 0, 4));
+        assertEquals(Pair.of(3, 1), map.calculateInverseOffsetLength(0, 4, 0, 5));
+        assertEquals(Pair.of(0, 11), map.calculateInverseOffsetLength(0, 0, 1, 5));
     }
 
 
@@ -77,6 +84,8 @@ public class LineColumnOffsetMapTests {
         assertEquals(5, map.translateInverseColumn(0, 6, false));
         assertEquals(5, map.translateInverseColumn(0, 7, true));
         assertEquals(6, map.translateInverseColumn(0, 8, false));
+        assertEquals(Pair.of(2, 1), map.calculateInverseOffsetLength(0, 2, 0, 4));
+        assertEquals(Pair.of(2, 3), map.calculateInverseOffsetLength(0, 2, 0, 7));
     }
 
 }
