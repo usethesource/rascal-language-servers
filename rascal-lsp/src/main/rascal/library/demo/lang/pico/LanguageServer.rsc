@@ -40,6 +40,7 @@ import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import lang::pico::\syntax::Format;
 import DateTime;
 import IO;
 import Location;
@@ -76,86 +77,36 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
 
 list[TextEdit] picoFormattingService(Tree input, loc range, FormattingOptions opts) {
     str original = "<input>";
-
-    // pico tree to box formatting representation
     box = toBox(input);
-    box = visit (box) { case i:I(_) => i[is=opts.tabSize] };
-
-    // box to string
+    box = visit (box) { case i:I(_) => i[is=opts.tabSize] }
     formatted = format(box);
 
-    //// line-based modifications
-    // identity operator, to compose with other operators
-    formatLine = str(str s) { return s; };
-    if (!opts.insertSpaces) {
-        // replace indentation spaces with tabs
-        formatLine = indentSpacesAsTabs(opts.tabSize) o formatLine;
-    }
     if (!opts.trimTrailingWhitespace) {
         // restore trailing whitespace that was lost during tree->box->text, or find a way to not lose it
         println("The Pico formatter does not support maintaining trailing whitespace.");
     }
 
-    // do line-based processing
-    formatted = perLine(formatted, formatLine);
+    if (!opts.insertSpaces) {
+        // replace indentation spaces with tabs
+        formatted = perLine(formatted, indentSpacesAsTabs(opts.tabSize));
+    }
 
-    // whole-file processing
     if (/^.*[^\n]<newlines:\n*>$/s := original) {
         // replace original final newlines or remove the one introduced by ((format)) (`Box2Text`)
         formatted = replaceLast(formatted, "\n", opts.trimFinalNewlines ? "" : newlines);
     }
+
     if (opts.insertFinalNewline) {
         // ensure presence of final newline
         formatted = insertFinalNewline(formatted);
     }
 
-    // computelayout differences as edits, and restore comments
-    edits = layoutDiff(input, parse(#start[Program], formatted));
+    // compute layout differences as edits, and restore comments
+    edits = layoutDiff(input, parse(#start[Program], formatted, input@\loc.top));
 
-    // TODO Instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
+    // instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
     return [e | e <- edits, isContainedIn(e.range, range)];
 }
-
-Box toBox((Program) `begin <Declarations decls> <{Statement ";"}* body> end`, FormatOptions opts = formatOptions())
-    = V([
-        L("begin"),
-        I([
-            V([
-                toBox(decls, opts=opts),
-                toBox(body, opts=opts)
-            ], vs=1)
-        ]),
-        L("end")
-    ]);
-
-Box toBox((Declarations) `declare <{IdType ","}* decls> ;`, FormatOptions opts = formatOptions())
-    = V([
-        L("declare"),
-            A([
-                R([
-                    toBox(id, opts=opts),
-                    L(":"),
-                    H([toBox(tp, opts=opts), decl != decls[-1] ? L(",") : L(";")], hs=0)
-                ])
-                | decl:(IdType) `<Id id> : <Type tp>` <- decls
-            ])
-    ]);
-
-Box toBox(({Statement ";"}*) stmts, FormatOptions opts = formatOptions())
-    = V([
-        H([
-            toBox(stmt, opts=opts),
-            stmt != stmts[-1] ? L(";") : NULL()
-        ], hs=0)
-        | stmt <- stmts
-    ]);
-
-Box toBox((Statement) `while <Expression cond> do <{Statement ";"}* body> od`, FormatOptions opts = formatOptions())
-    = V([
-        HOV([L("while"), I([toBox(cond, opts=opts)]), L("do")]),
-        I([toBox(body, opts=opts)]),
-        L("od")
-    ]);
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
