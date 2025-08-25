@@ -28,6 +28,7 @@ import * as vscode from 'vscode';
 import { buildMFChildPath } from './RascalMFValidator';
 import {posix} from 'path'; // posix path join is always correct, also on windows
 import { BaseLanguageClient } from 'vscode-languageclient';
+import { extensionLog } from '../RascalExtension';
 
 export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibNode> {
     private changeEmitter = new vscode.EventEmitter<RascalLibNode | undefined>();
@@ -153,7 +154,9 @@ async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < Ra
             }
         }
     } catch (_not_resolved) {
-        console.log(_not_resolved);
+        if (_not_resolved) {
+            extensionLog.debug(JSON.stringify(_not_resolved));
+        }
         // swallow
     }
     return result;

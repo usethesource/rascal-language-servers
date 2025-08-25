@@ -39,7 +39,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
      *
      * @param client to use as a server for the file system provider methods
      */
-    constructor (client:BaseLanguageClient) {
+    constructor (client:BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         this.client = client;
 
         client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {
@@ -53,7 +53,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
         return this.client.sendRequest<R>(method, param ?? { uri: uri.toString()} )
             .catch((r: ResponseError) => {
                 if (r !== undefined) {
-                    this.client.debug("Got response error from the file system: ", r);
+                    this.logger.debug("Got response error from the file system: ", r);
                     switch (r.code) {
                         case -1: throw vscode.FileSystemError.FileExists(uri);
                         case -2: throw vscode.FileSystemError.FileIsADirectory(uri);
@@ -83,13 +83,13 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
             .forEach(s => {
                 try {
                     vscode.workspace.registerFileSystemProvider(s, this);
-                    this.client.debug(`Rascal VFS registered scheme: ${s}`);
+                    this.logger.debug(`Rascal VFS registered scheme: ${s}`);
                 } catch (error) {
                     if (isUnknownFileSystem(s)) {
-                        this.client.error(`Unable to register scheme: ${s}\n${error}`);
+                        this.logger.error(`Unable to register scheme: ${s}\n${error}`);
                     }
                     else {
-                        this.client.debug(`Rascal VFS lost the race to register scheme: ${s}, which in most cases is fine`);
+                        this.logger.debug(`Rascal VFS lost the race to register scheme: ${s}, which in most cases is fine`);
                     }
                 }
             });

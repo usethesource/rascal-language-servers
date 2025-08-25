@@ -38,6 +38,8 @@ import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
+export const extensionLog: vscode.LogOutputChannel = vscode.window.createOutputChannel("Rascal Extension", {log: true});
+
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
     private readonly dsls:ParameterizedLanguageServer;
@@ -45,7 +47,7 @@ export class RascalExtension implements vscode.Disposable {
 
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
-        this.vfsServer = new VSCodeUriResolverServer(!isDeploy);
+        this.vfsServer = new VSCodeUriResolverServer(!isDeploy, extensionLog);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
         this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, isDeploy);
@@ -124,7 +126,7 @@ export class RascalExtension implements vscode.Disposable {
             }, async (progress) => {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
-                console.log(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
+                extensionLog.debug(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
                 if (uri && !uri.path.endsWith(".rsc")) {
                     // do not try to figure out a rascal project path when the focus is not a rascal file
                     uri = undefined;
@@ -145,7 +147,7 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
-                    shellPath: await getJavaExecutable(),
+                    shellPath: await getJavaExecutable(extensionLog),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
@@ -192,7 +194,7 @@ export class RascalExtension implements vscode.Disposable {
                     return "no module";
                 }
                 default:
-                    console.log(`Unknown origin format: ${originFormat}`);
+                    extensionLog.warn(`Unknown origin format: ${originFormat}`);
             }
         }
         return 'no project or module';
