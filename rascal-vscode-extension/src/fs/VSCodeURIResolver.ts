@@ -52,6 +52,10 @@ interface ISourceLocationInput {
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResult>;
     isFile(req: ISourceLocationRequest): Promise<BooleanResult>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
+    size(req: ISourceLocationRequest): Promise<NumberResult>;
+    fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
+    isReadable(req: ISourceLocationRequest): Promise<BooleanResult>;
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResult>;
 }
 
 
@@ -68,6 +72,10 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<BooleanResult>("isDirectory", handler.isDirectory);
     req<BooleanResult>("isFile", handler.isFile);
     req<DirectoryListingResult>("list", handler.list);
+    req<NumberResult>("size", handler.size);
+    req<FileAttributesResult>("stat", handler.fileStat);
+    req<BooleanResult>("isReadable", handler.isReadable);
+    req<BooleanResult>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -157,8 +165,20 @@ export interface DirectoryListingResult extends IOResult {
     areDirectory?: boolean[]
 }
 
+export interface NumberResult extends IOResult {
+    result?: number;
+}
 
-
+export interface FileAttributesResult extends IOResult {
+    exists? : boolean;
+    type?: vscode.FileType;
+    ctime?: number;
+    mtime?: number;
+    size?: number;
+    permissions?: vscode.FilePermission;
+    isReadable?: boolean,
+    isWritable?: boolean;
+}
 
 export interface WriteFileRequest extends ISourceLocationRequest {
     content: string;
@@ -363,6 +383,41 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             };
         }
     }
+
+    async fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult> {
+        const fileInfo = await this.stat(req);
+        return {
+            errorCode: 0,
+            exists: (await this.exists(req)).result!,
+            type: fileInfo.type.valueOf(),
+            ctime: fileInfo.ctime,
+            mtime: fileInfo.mtime,
+            size: fileInfo.size,
+            permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0,
+            isWritable: (await this.isWritable(req)).result!
+        };
+    }
+
+    async isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        return {
+            errorCode: 0,
+            result: (await this.exists(req)).result!
+        };
+    }
+
+    private async isReadOnly(req: ISourceLocationRequest): Promise<boolean> {
+        const fileInfo = this.stat(req);
+        const permissions = (await fileInfo).permissions!;
+        return (permissions.valueOf() & vscode.FilePermission.Readonly) === 1;
+    }
+
+    async isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        return {
+            errorCode: 0,
+            result: this.fs.isWritableFileSystem(req.uri.substring(0, req.uri.indexOf(":")))! && !this.isReadOnly(req)
+        };
+    }
+
     private async stat(req: ISourceLocationRequest): Promise<vscode.FileStat> {
         const uri = toUri(req);
         if (this.rascalNativeSchemes.has(uri.scheme)) {
@@ -383,6 +438,17 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
     created(req: ISourceLocationRequest): Promise<TimestampResult> {
         return this.timeStampResult(req, f => f.ctime);
+    }
+
+    private async numberResult(req: ISourceLocationRequest, mapper: (s: vscode.FileStat) => number): Promise<NumberResult> {
+        return asyncCatcher(async () => <NumberResult>{
+            errorCode: 0,
+            result: mapper((await this.stat(req)))
+        });
+    }
+
+    size(req: ISourceLocationRequest): Promise<NumberResult> {
+        return this.numberResult(req, f => f.size);
     }
 
     private async boolResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResult> {

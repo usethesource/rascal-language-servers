@@ -27,11 +27,14 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
 import java.util.concurrent.CompletableFuture;
+
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.BooleanResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IntegerResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ReadFileResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.TimestampResult;
@@ -71,6 +74,26 @@ public interface VSCodeUriResolverServer {
 
     @JsonRequest("rascal/vfs/input/list")
     default CompletableFuture<DirectoryListingResult> list(ISourceLocationRequest req) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest("rascal/vfs/input/size")
+    default CompletableFuture<IntegerResult> size(ISourceLocationRequest req) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest("rascal/vfs/input/stat")
+    default CompletableFuture<FileAttributesResult> stat(ISourceLocationRequest req) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest("rascal/vfs/input/isReadable")
+    default CompletableFuture<BooleanResult> isReadable(ISourceLocationRequest req) {
+        throw new UnsupportedOperationException();
+    }
+
+    @JsonRequest("rascal/vfs/input/isWritable")
+    default CompletableFuture<BooleanResult> isWritable(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 

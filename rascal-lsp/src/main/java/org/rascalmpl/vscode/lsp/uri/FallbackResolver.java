@@ -327,21 +327,21 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long size(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`size` not supported by fallback resolver");
+        return call(s -> s.size(param(uri))).getResult();
     }
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`isReadable` not supported by fallback resolver");
+        return call(s -> s.isReadable(param(uri))).getResult();
     }
 
     @Override
     public FileAttributes stat(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`stat` not supported by fallback resolver");
+        return call(s -> s.stat(param(uri))).getFileAttributes();
     }
 
     @Override
     public boolean isWritable(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`isWritable` not supported by fallback resolver");
+        return call(s -> s.isWritable(param(uri))).getResult();
     }
 }
