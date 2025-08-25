@@ -38,6 +38,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
@@ -60,6 +61,10 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
 
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
+    public InterruptibleFuture<ITuple> rename(IList focus, String name);
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
+
     public CompletableFuture<IList> parseCodeActions(String command);
 
     public CompletableFuture<Boolean> hasAnalysis();
@@ -67,12 +72,14 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasDocumentSymbol();
     public CompletableFuture<Boolean> hasCodeLens();
     public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<Boolean> hasRename();
     public CompletableFuture<Boolean> hasExecution();
     public CompletableFuture<Boolean> hasHover();
     public CompletableFuture<Boolean> hasDefinition();
     public CompletableFuture<Boolean> hasReferences();
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
+    public CompletableFuture<Boolean> hasDidRenameFiles();
     public CompletableFuture<Boolean> hasSelectionRange();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
