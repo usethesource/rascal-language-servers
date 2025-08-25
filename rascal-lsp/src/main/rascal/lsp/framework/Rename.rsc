@@ -93,6 +93,21 @@ RenameResult rename(
         list[Tree] cursor
       , str newName
       , RenameConfig config) {
+    // get raw results
+    result = _rename(cursor, newName, config);
+    messages = result<1>;
+    if (messages != {} && any(m <- messages, m is error)) {
+        // in the case of an error, we make sure to clear the edits, since there is no guarantee what edits a partial rename computes
+        return <[], messages>;
+    }
+    return <sortDocEdits(result<0>), messages>;
+}
+
+// TODO: Merge modified behaviour w.r.t. errors to version in typepal as well
+private RenameResult _rename(
+        list[Tree] cursor
+      , str newName
+      , RenameConfig config) {
 
     /* Initially, we expect at least the following work
       - 1 unit of work to initialize the renaming
@@ -225,7 +240,7 @@ RenameResult rename(
     if (defs == {}) r.error(cursor[0].src, "No definitions found");
     if (errorReported()) {
         jobEnd(config.jobLabel, success=false);
-        return <sortDocEdits(docEdits), getMessages()>;
+        return <docEdits, getMessages()>;
     }
 
     jobStep(config.jobLabel, "Looking for files with occurrences of name under cursor", work = WORKSPACE_WORK);
@@ -252,7 +267,7 @@ RenameResult rename(
     }
     if (errorReported()) {
         jobEnd(config.jobLabel, success = false);
-        return <sortDocEdits(docEdits), getMessages()>;
+        return <docEdits, getMessages()>;
     }
 
     defFiles = {d.defined.top | d <- defs};
@@ -272,7 +287,7 @@ RenameResult rename(
 
     if (errorReported()) {
         jobEnd(config.jobLabel, success=false);
-        return <sortDocEdits(docEdits), getMessages()>;
+        return <docEdits, getMessages()>;
     }
 
     for (loc f <- maybeUseFiles) {
@@ -309,7 +324,7 @@ RenameResult rename(
     }
 
     jobEnd(config.jobLabel, success = !errorReported());
-    return <sortDocEdits(docEdits), convertedMessages>;
+    return <docEdits, convertedMessages>;
 }
 
 // Workaround to be able to pattern match on the emulated `src` field

@@ -27,11 +27,13 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.time.Duration;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -56,6 +58,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
 
     boolean isManagingFile(ISourceLocation file);
 
-    default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
+    void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);
+    void didDeleteFiles(DeleteFilesParams params);
     void cancelProgress(String progressId);
 }
