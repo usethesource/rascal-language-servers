@@ -268,10 +268,14 @@ describe('IDE', function () {
             await (await libFolderInTree!.openContextMenu()).select("Paste");
         }
 
+        console.log("File moved");
+
         await driver.wait(async() => {
             const text = await libFile.getText();
             return text.indexOf("module lib::Lib") !== -1;
         }, Delays.extremelySlow, "Module name should have changed to `lib::Lib`", Delays.normal);
+
+        console.log("libFile checked");
 
         const callFile = await ide.openModule(TestWorkspace.libCallFile);
         await driver.wait(async() => {
@@ -279,7 +283,11 @@ describe('IDE', function () {
             return text.indexOf("import lib::Lib") !== -1;
         }, Delays.extremelySlow, "Import should have changed to `lib::Lib`", Delays.normal);
 
+        console.log("libCallFile checked");
+
         await fs.rm(newDir, {recursive: true, force: true});
+
+        console.log("done");
     });
 
     it("code actions work", async() => {
