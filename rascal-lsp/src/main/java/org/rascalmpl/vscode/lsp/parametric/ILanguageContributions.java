@@ -60,7 +60,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
-    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, ISet formattingOptions);
+    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions);
 
     public CompletableFuture<IList> parseCodeActions(String command);
 

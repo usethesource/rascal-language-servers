@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -94,7 +93,6 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -129,8 +127,6 @@ import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.ISet;
-import io.usethesource.vallang.ISetWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
@@ -215,6 +211,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
         result.setSelectionRangeProvider(true);
         result.setDocumentFormattingProvider(true);
+        result.setDocumentRangeFormattingProvider(true);
         result.setFoldingRangeProvider(true);
         result.setInlayHintProvider(true);
     }
@@ -548,7 +545,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final ILanguageContributions contribs = contributions(uri);
 
         // convert the `FormattingOptions` map to a `set[FormattingOption]`
-        ISet optSet = getFormattingOptions(options);
+        IConstructor optSet = getFormattingOptions(options);
+
         // call the `formatting` implementation of the relevant language contribution
         return getFile(uri)
             .getCurrentTreeAsync()
@@ -564,19 +562,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
     }
 
-    private ISet getFormattingOptions(FormattingOptions options) {
-        var optionType = tf.abstractDataType(store, "FormattingOption");
-
-        ISetWriter opts = vf.setWriter();
-        for (Entry<String, Either3<String, Number, Boolean>> e : options.entrySet()) {
-            var opt = e.getValue().map(
-                s -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.stringType()), vf.string(s)),
-                n -> vf.constructor(tf.constructor(store, optionType, e.getKey(), tf.integerType()), vf.integer(n.longValue())),
-                b -> vf.constructor(tf.constructor(store, optionType, e.getKey()))
-            );
-            opts.append(opt);
-        }
-        return opts.done();
+    private IConstructor getFormattingOptions(FormattingOptions options) {
+        var optionsType = tf.abstractDataType(store, "FormattingOptions");
+        var consType = tf.constructor(store, optionsType, "formattingOptions");
+        var opts = Map.of(
+            "tabSize", vf.integer(options.getTabSize()),
+            "insertSpaces", vf.bool(options.isInsertSpaces()),
+            "trimTrailingWhitespace", vf.bool(options.isTrimTrailingWhitespace()),
+            "insertFinalNewline", vf.bool(options.isInsertFinalNewline()),
+            "trimFinalNewlines", vf.bool(options.isTrimFinalNewlines())
+        );
+        return vf.constructor(consType, new IValue[0], opts);
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
