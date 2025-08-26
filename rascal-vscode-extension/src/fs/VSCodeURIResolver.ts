@@ -54,8 +54,6 @@ interface ISourceLocationInput {
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
     size(req: ISourceLocationRequest): Promise<NumberResult>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
-    isReadable(req: ISourceLocationRequest): Promise<BooleanResult>;
-    isWritable(req: ISourceLocationRequest): Promise<BooleanResult>;
 }
 
 
@@ -74,8 +72,6 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<DirectoryListingResult>("list", handler.list);
     req<NumberResult>("size", handler.size);
     req<FileAttributesResult>("stat", handler.fileStat);
-    req<BooleanResult>("isReadable", handler.isReadable);
-    req<BooleanResult>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -176,8 +172,6 @@ export interface FileAttributesResult extends IOResult {
     mtime?: number;
     size?: number;
     permissions?: vscode.FilePermission;
-    isReadable?: boolean,
-    isWritable?: boolean;
 }
 
 export interface WriteFileRequest extends ISourceLocationRequest {
@@ -393,38 +387,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             ctime: fileInfo.ctime,
             mtime: fileInfo.mtime,
             size: fileInfo.size,
-            permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0,
-            isReadable: (await this.isReadable(req)).result!,
-            isWritable: (await this.isWritable(req)).result!
-        };
-    }
-
-    async isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
-        try {
-            await this.fs.readFile(toUri(req));
-            return {
-                errorCode: 0,
-                result: true
-            };
-        }
-        catch (e: unknown) {
-            return {
-                errorCode: 0,
-                result: false
-            };
-        }
-    }
-
-    private async isReadOnly(req: ISourceLocationRequest): Promise<boolean> {
-        const fileInfo = this.stat(req);
-        const permissions = (await fileInfo).permissions!;
-        return (permissions.valueOf() & vscode.FilePermission.Readonly) === 1;
-    }
-
-    async isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
-        return {
-            errorCode: 0,
-            result: this.fs.isWritableFileSystem(req.uri.substring(0, req.uri.indexOf(":")))! && !this.isReadOnly(req)
+            permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0
         };
     }
 

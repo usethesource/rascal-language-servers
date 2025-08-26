@@ -39,9 +39,8 @@ public class FileAttributesResult extends IOResult {
     private @Nullable Long mtime;
     private @Nullable Integer size;
     private @Nullable Integer permissions;
-    private @Nullable Boolean isWritable;
 
-    public FileAttributesResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean exists, @Nullable Integer type, @Nullable Long ctime, @Nullable Long mtime, @Nullable Integer size, @Nullable Integer permissions, @Nullable Boolean isWritable) {
+    public FileAttributesResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean exists, @Nullable Integer type, @Nullable Long ctime, @Nullable Long mtime, @Nullable Integer size, @Nullable Integer permissions) {
         super(errorCode, errorMessage);
         this.exists = exists;
         this.type = type;
@@ -49,13 +48,12 @@ public class FileAttributesResult extends IOResult {
         this.mtime = mtime;
         this.size = size;
         this.permissions = permissions;
-        this.isWritable = isWritable;
     }
 
     public FileAttributesResult() {}
 
     public FileAttributes getFileAttributes() {
-        return new FileAttributes(exists, (type & 1) == 1, ctime, mtime, (permissions & 1) == 1, isWritable, size);
+        return new FileAttributes(exists, (type & 1) == 1, ctime, mtime, true, (permissions & 1) == 0, size);
     }
 
     @Override
@@ -68,8 +66,7 @@ public class FileAttributesResult extends IOResult {
                 && Objects.equals(ctime, other.ctime)
                 && Objects.equals(mtime, other.mtime)
                 && Objects.equals(size, other.size)
-                && Objects.equals(permissions, other.permissions)
-                && Objects.equals(isWritable, other.isWritable);
+                && Objects.equals(permissions, other.permissions);
         }
         return false;
     }
@@ -84,13 +81,12 @@ public class FileAttributesResult extends IOResult {
         result = prime * result + ((mtime == null) ? 0 : mtime.hashCode());
         result = prime * result + ((size == null) ? 0 : size.hashCode());
         result = prime * result + ((permissions == null) ? 0 : permissions.hashCode());
-        result = prime * result + ((isWritable == null) ? 0 : isWritable.hashCode());
         return result;
     }
 
     @Override
     public String toString() {
-        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + " isWritable=" + isWritable + " io=" + super.toString() + "]";
+        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + " io=" + super.toString() + "]";
     }
 
 }

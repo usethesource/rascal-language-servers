@@ -332,7 +332,12 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isReadable(param(uri))).getResult();
+        try {
+            stat(uri);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     @Override
@@ -342,6 +347,6 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public boolean isWritable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isWritable(param(uri))).getResult();
+        return stat(uri).isWritable();
     }
 }

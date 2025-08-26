@@ -87,16 +87,6 @@ public interface VSCodeUriResolverServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/isReadable")
-    default CompletableFuture<BooleanResult> isReadable(ISourceLocationRequest req) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/vfs/input/isWritable")
-    default CompletableFuture<BooleanResult> isWritable(ISourceLocationRequest req) {
-        throw new UnsupportedOperationException();
-    }
-
     @JsonRequest("rascal/vfs/output/writeFile")
     default CompletableFuture<IOResult> writeFile(WriteFileRequest req) {
         throw new UnsupportedOperationException();
