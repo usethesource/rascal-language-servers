@@ -376,7 +376,7 @@ Manual invocation or invocation by trigger characters
 }
 data CompletionTrigger = invoked() | character();
 
-@description{
+@synopsis{
     Used to provide either plain text or markup as documentaton for a completion suggestion, or indicate no documentation is provided.
 }
 data CompletionDocumentation = none() | text(str text) | markup(str markup);
