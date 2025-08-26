@@ -104,17 +104,20 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public long size(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`size` not supported by LSPOpenFileResolver");
+        return getEditorState(uri).getCurrentContent().get().getBytes().length;
     }
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`isReadable` not supported by LSPOpenFileResolver");
+        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
     }
 
     @Override
     public FileAttributes stat(ISourceLocation uri) throws IOException {
-        throw new UnsupportedOperationException("`stat` not supported by LSPOpenFileResolver");
+        var exists = exists(uri);
+        var current = getEditorState(uri).getCurrentContent();
+        //TODO: can we do something smart for `created`?
+        return new FileAttributes(exists, exists, 0, current.getTimestamp(), true, true, current.get().getBytes().length);
     }
     
 }
