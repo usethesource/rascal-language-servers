@@ -116,8 +116,9 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     public FileAttributes stat(ISourceLocation uri) throws IOException {
         var exists = exists(uri);
         var current = getEditorState(uri).getCurrentContent();
-        //TODO: can we do something smart for `created`?
-        return new FileAttributes(exists, exists, 0, current.getTimestamp(), true, true, current.get().getBytes().length);
+        var timestamp = current.getTimestamp();
+        //We fix the creation timestamp to be equal to the last modified time
+        return new FileAttributes(exists, exists, timestamp, timestamp, true, true, current.get().getBytes().length);
     }
     
 }
