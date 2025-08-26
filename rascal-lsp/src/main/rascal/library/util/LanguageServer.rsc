@@ -365,11 +365,14 @@ data CompletionEdit = completionEdit(
 );
 
 @description{
-    The lsp ((CompletionKind)) and our ((DocumentSymbolKind)) describe largely the same concepts. As these are only used (in VSCode)
+    The lsp *CompletionItemKind* and our ((DocumentSymbolKind)) describe largely the same concepts. As these are only used (in VSCode)
     to display a tiny icon next to each completion item, the small differences remaining can be overcome by selecting a related
     or more general concept.
 
-    TODO: List differences here.
+    *CompletionItemKind* but not a ((DocumentSymbolKind)): `Text`, `Unit`, `Value`, `Keyword`, `Snippet`, `Color`, `Reference`, `Folder`, `EnumMember`.
+
+    ((DocumentSymbolKind)) but not a *CompletionItemKind*: `\namespace()`, `\package()`, `\string()`, `\number()`, `\boolean()`, `\array()`, `\object()`, `\key()`, `\null()`, `\enumMember()`.
+    Note that most of these can be mapped on the *CompletionItemKind* `Constant`.
 }
 alias CompletionKind = DocumentSymbolKind;
 
