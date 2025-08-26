@@ -371,7 +371,7 @@ data CompletionEdit = completionEdit(
 }
 alias CompletionKind = DocumentSymbolKind;
 
-@description{
+@synopsis{
 Manual invocation or invocation by trigger characters
 }
 data CompletionTrigger = invoked() | character();
