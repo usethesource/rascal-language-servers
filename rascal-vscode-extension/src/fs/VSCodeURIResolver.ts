@@ -54,6 +54,8 @@ interface ISourceLocationInput {
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
     size(req: ISourceLocationRequest): Promise<NumberResult>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
+    isReadable(req: ISourceLocationRequest): Promise<BooleanResult>;
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResult>;
 }
 
 
@@ -72,6 +74,8 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<DirectoryListingResult>("list", handler.list);
     req<NumberResult>("size", handler.size);
     req<FileAttributesResult>("stat", handler.fileStat);
+    req<BooleanResult>("isReadable", handler.isReadable);
+    req<BooleanResult>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -440,7 +444,22 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
+    isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        // if we can do a stat, we can read
+        return this.boolResult(req, f => true);
+    }
 
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        const writable = vscode.fs.isWritableFileSystem(req.uri.scheme);
+        if (writable === undefined) {
+            return buildIOError("Unsupported scheme: " + req.uri.scheme, 1);
+        }
+        if (!writable) {
+            // not a writable file system, so no need to
+            return asyncCatcher(async () => false);
+        }
+        return this.boolResult(req, f => (f.permissions & vscode.FilePermission.Readonly) == 0);
+    }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
         if (this.isRascalNative(req)) {
