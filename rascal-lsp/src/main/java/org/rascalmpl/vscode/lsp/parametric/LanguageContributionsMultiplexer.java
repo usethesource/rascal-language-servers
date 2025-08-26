@@ -36,8 +36,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -70,6 +72,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> prepareCallHierarchy = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> incomingOutgoingCalls = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -85,6 +89,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
     private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCallHierarchy = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -162,6 +167,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
         selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
+        prepareCallHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
+        incomingOutgoingCalls = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -177,6 +184,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
         hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
+        hasCallHierarchy = anyTrue(ILanguageContributions::hasCallHierarchy);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -338,6 +346,16 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return flatten(prepareCallHierarchy, c -> c.prepareCallHierarchy(focus));
+    }
+
+    @Override
+    public InterruptibleFuture<IRelation<IList>> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        return flatten(incomingOutgoingCalls, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasCodeAction() {
         return hasCodeAction;
     }
@@ -400,6 +418,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
         return hasDidRenameFiles;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return hasCallHierarchy;
     }
 
     @Override
