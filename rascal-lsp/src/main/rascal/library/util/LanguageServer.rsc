@@ -343,7 +343,7 @@ data CompletionSuggestion = completion(
     Definition of a completion edit:
     * *startColumn (required): The column where the completion edit operation will take place. Must be at or before the cursor position.
     * *insertEndColumn* (required): End column when the user chooses completion by insertion  (for instance by pressing "Enter" in VSCode).
-    * *replaceEndColumn* (required): End column when the user choose completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
+    * *replaceEndColumn* (required): End column when the user chooses completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
         Note: *insertEndColumn* must not be larger than *replaceEndColumn* and both must be at or to the right of the cursor position.
     * *newText* (required): The text that will be used to perform the completion. Depending on what kind of completion (insertion
         or replacement) selected by the user, the original text from *startColumn* to either *insertEndColumn* or *replaceEndColumn* will
