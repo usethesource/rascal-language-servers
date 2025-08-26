@@ -299,23 +299,23 @@ data LanguageService
 
 @description{
     Represents a concrete completion proposal that the user can select. The following fields can be used:
-    * ((kind)) *required*: Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
-    * ((edit)) *required*: Specification of the edit that will occur if this completion proposal is accepted by the user.
-    * ((label)) *required*: The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
-    * ((labelDetail)): Shown directly after the label and can for instance be used to show the function parameters.
-    * ((labelDescription)): Shown after the label details. This is typically used to show information about the (return) type when a completions is a function or variable.
-    * ((details)): Text that is shown when the user asks for more information about a particular completion.
-    * ((documentation)): Text or markup that documents the construct that a completion will generate.
-    * ((sortText)): Used to sort the list of completions. If not set, completion suggestions will be sorted based on ((label)).
-    * ((filterText)): Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
-        if ((completionEdit)) starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
+    * *kind* (required): Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
+    * *edit* (required): Specification of the edit that will occur if this completion proposal is accepted by the user.
+    * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
+    * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
+    * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completions is a function or variable.
+    * *details*: Text that is shown when the user asks for more information about a particular completion.
+    * *documentation*: Text or markup that documents the construct that a completion will generate.
+    * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
+    * *filterText*: Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
+        if *completionEdit* starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
         For example if the user starts completion like this: `pr|i` (where `|` represents the cursor) and you generate the completion edit to
-        replace the whole string `pri` with `print`, ((filterText)) should be set to `pr` or the completion will not show up in the list.
+        replace the whole string `pri` with `print`, *filterText* should be set to `pr` or the completion will not show up in the list.
         If you leave this blank, the correct filter text will be generated for you. If not, we assume you know what you are doing and use the
-        ((filterText)) you provide as-is.
-    * ((deprecated)): Set this to `true` to mark this completion suggestion as deprecated.
-    * ((commitCharacters)): When one of these characters is types, the completion suggestion is accepted and the the commit character is inserted after the inserted text.
-    * ((additionalChanges)): Any additional changes anywhere else in the document. This can for instance be used to add imports.
+        *filterText* you provide as-is.
+    * *deprecated*: Set this to `true` to mark this completion suggestion as deprecated.
+    * *commitCharacters*: When one of these characters is types, the completion suggestion is accepted and the the commit character is inserted after the inserted text.
+    * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
 }
 data CompletionSuggestion = completion(
     CompletionKind kind,
@@ -341,14 +341,14 @@ data CompletionSuggestion = completion(
 
 @description{
     Definition of a completion edit:
-    * ((startColumn)) *required*: The column where the completion edit operation will take place. Must be at or before the cursor position.
-    * ((insertEndColumn)) *required*: End column when the user choose completion by insertion  (for instance by pressing "Enter" in VSCode).
-    * ((replaceEndColumn)) *required*: End column when the user choose completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
-        Note: ((insertEndColumn)) must not be larger than ((replaceEndColumn)) and both must be at or to the right of the cursor position.
-    * ((newText)) *required*: The text that will be used to perform the completion. Depending on what kind of completion (insertion
-        or replacement) selected by the user, the original text from ((startColumn)) to either ((insertEndColumn)) or ((replaceEndColumn)) will
-        be replaced by ((newText)).
-    * ((snippet)): Can be set to true to indicate that the replacement text should be interpreted as a snippet.
+    * *startColumn (required): The column where the completion edit operation will take place. Must be at or before the cursor position.
+    * *insertEndColumn* (required): End column when the user choose completion by insertion  (for instance by pressing "Enter" in VSCode).
+    * *replaceEndColumn* (required): End column when the user choose completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
+        Note: *insertEndColumn* must not be larger than *replaceEndColumn* and both must be at or to the right of the cursor position.
+    * *newText* *required*: The text that will be used to perform the completion. Depending on what kind of completion (insertion
+        or replacement) selected by the user, the original text from *startColumn* to either *insertEndColumn* or *replaceEndColumn* will
+        be replaced by *newText*.
+    * *snippet*: Can be set to true to indicate that the replacement text should be interpreted as a snippet.
         Snippets can contain tabstops, placeholders, choices, and variables. For more information about snippets see the
         [relevant section of the lsp specification on github](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
         Note that it is the responsibility of the language developer that snippets as presented to the user are syntactically correct to
