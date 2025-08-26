@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -130,6 +131,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.util.CallHierarchy;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -246,6 +248,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
+        result.setCallHierarchyProvider(true);
     }
 
     private String getRascalMetaCommandName() {
@@ -414,7 +417,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
-        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);;
+        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);
         return getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
@@ -804,28 +807,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             ), Collections::emptyList);
     }
 
-
-
-    @Override
-    public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
-            CallHierarchyIncomingCallsParams params) {
-        // TODO Auto-generated method stub
-        return IBaseTextDocumentService.super.callHierarchyIncomingCalls(params);
-    }
-
-    @Override
-    public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
-            CallHierarchyOutgoingCallsParams params) {
-        // TODO Auto-generated method stub
-        return IBaseTextDocumentService.super.callHierarchyOutgoingCalls(params);
-    }
-
-    @Override
-    public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        // TODO Auto-generated method stub
-        return IBaseTextDocumentService.super.prepareCallHierarchy(params);
-    }
-
     @Override
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
         logger.debug("Selection range: {} at {}", params.getTextDocument(), params.getPositions());
@@ -848,6 +829,52 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     .orElse(CompletableFuture.completedFuture(Collections.emptyList()))),
             Collections::emptyList);
     }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
+        final var doc = params.getTextDocument();
+        final var contrib = contributions(doc);
+        final var file = getFile(doc);
+
+        return recoverExceptions(file.getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(t -> {
+                final var pos = Locations.toRascalPosition(doc, params.getPosition(), columns);
+                final var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
+                return contrib.prepareCallHierarchy(focus).get();
+            })
+            .thenApply(items -> items.stream()
+                .map(IConstructor.class::cast)
+                .map(ci -> CallHierarchy.toLSP(ci, columns))
+                .collect(Collectors.toList())), Collections::emptyList);
+    }
+
+    private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, IConstructor direction) {
+        final var contrib = contributions(source.getUri());
+        return contrib.incomingOutgoingCalls(CallHierarchy.toRascal(source, columns), direction)
+            .get()
+            .thenApply(callRel -> callRel.domain().stream()
+                .map(ci -> {
+                    List<Range> callSites = callRel.index(ci)
+                        .stream()
+                        .map(ISourceLocation.class::cast)
+                        .map(l -> Locations.toRange(l, columns))
+                        .collect(Collectors.toList());
+                    return constructor.apply(CallHierarchy.toLSP((IConstructor) ci, columns), callSites);
+                })
+                .collect(Collectors.toList()));
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(CallHierarchyIncomingCallsParams params) {
+        return recoverExceptions(incomingOutgoingCalls(CallHierarchyIncomingCall::new, params.getItem(), CallHierarchy.INCOMING),Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(CallHierarchyOutgoingCallsParams params) {
+        return recoverExceptions(incomingOutgoingCalls(CallHierarchyOutgoingCall::new, params.getItem(), CallHierarchy.OUTGOING),Collections::emptyList);
+    }
+
 
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {

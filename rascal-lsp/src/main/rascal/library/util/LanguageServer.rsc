@@ -281,8 +281,8 @@ data LanguageService
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
     | callHierarchy (
-        list[CallHierarchyItem] (Focus _focus) callableItem,
-        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) calculateCalls)
+        list[CallHierarchyItem] (Focus _focus) prepareService,
+        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
@@ -296,7 +296,7 @@ data CallHierarchyItem
         loc selection,                      // location of the name of the definition
         set[DocumentSymbolTag] tags = {},
         str detail = "",                    // detailed description, e.g. the function signature
-        value \data = ()                    // shared state between `callHierarchy::callableItem` and `callHierarchy::calculateCalls`
+        value \data = ()                    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
     );
 
 data CallDirection
