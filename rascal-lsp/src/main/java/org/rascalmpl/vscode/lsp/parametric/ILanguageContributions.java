@@ -34,8 +34,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -60,6 +62,8 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus);
+    public InterruptibleFuture<IRelation<IList>> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
@@ -81,6 +85,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasCodeAction();
     public CompletableFuture<Boolean> hasDidRenameFiles();
     public CompletableFuture<Boolean> hasSelectionRange();
+    public CompletableFuture<Boolean> hasCallHierarchy();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
