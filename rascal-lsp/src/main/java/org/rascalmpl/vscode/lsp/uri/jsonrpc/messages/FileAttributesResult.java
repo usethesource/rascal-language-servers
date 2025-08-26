@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import java.util.Objects;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.FileAttributes;
@@ -58,49 +60,18 @@ public class FileAttributesResult extends IOResult {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (!super.equals(obj))
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        FileAttributesResult other = (FileAttributesResult) obj;
-        if (exists == null) {
-            if (other.exists != null)
-                return false;
-        } else if (!exists.equals(other.exists))
-            return false;
-        if (type == null) {
-            if (other.type != null)
-                return false;
-        } else if (!type.equals(other.type))
-            return false;
-        if (ctime == null) {
-            if (other.ctime != null)
-                return false;
-        } else if (!ctime.equals(other.ctime))
-            return false;
-        if (mtime == null) {
-            if (other.mtime != null)
-                return false;
-        } else if (!mtime.equals(other.mtime))
-            return false;
-        if (size == null) {
-            if (other.size != null)
-                return false;
-        } else if (!size.equals(other.size))
-            return false;
-        if (permissions == null) {
-            if (other.permissions != null)
-                return false;
-        } else if (!permissions.equals(other.permissions))
-            return false;
-        if (isWritable == null) {
-            if (other.isWritable != null)
-                return false;
-        } else if (!isWritable.equals(other.isWritable))
-            return false;
-        return true;
+        if (obj instanceof FileAttributesResult) {
+            var other = (FileAttributesResult)obj;
+            return super.equals(obj)
+                && Objects.equals(exists, other.exists)
+                && Objects.equals(type, other.type)
+                && Objects.equals(ctime, other.ctime)
+                && Objects.equals(mtime, other.mtime)
+                && Objects.equals(size, other.size)
+                && Objects.equals(permissions, other.permissions)
+                && Objects.equals(isWritable, other.isWritable);
+        }
+        return false;
     }
 
     @Override
