@@ -303,7 +303,7 @@ data LanguageService
     * *edit* (required): Specification of the edit that will occur if this completion proposal is accepted by the user.
     * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
     * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
-    * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completions is a function or variable.
+    * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completion is a function or variable.
     * *details*: Text that is shown when the user asks for more information about a particular completion.
     * *documentation*: Text or markup that documents the construct that a completion will generate.
     * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
