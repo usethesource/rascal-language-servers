@@ -284,18 +284,17 @@ Definition of completion service. Kept separate from the LanguageService for now
 The completion service is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
  It should return a list of completion suggestions.
  The optional list of trigger characters can contain a list of extra characters that trigger completion.
- These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). Might include "." for languages like Java to start field/method completion.
+ These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
 
 We have choosen to support all features of the LSP CompletionItem except:
 * We use "DocumentSymbolKind" instead of introducing a new enum to represent CompletionKind. This is only used to show a tiny icon next to each completion alternative, and the few concept that differ can usually be mapped to some related or more general concept.
-* No support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
-* No support for defaults in CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
-* No support for "command".
+* To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+* Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 
 Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 }
 data LanguageService
-    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] triggerCharacters = []);
+    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
 
 @description{
     Represents a concrete completion proposal that the user can select. The following fields can be used:
@@ -316,6 +315,7 @@ data LanguageService
     * *deprecated*: Set this to `true` to mark this completion suggestion as deprecated.
     * *commitCharacters*: When one of these characters is types, the completion suggestion is accepted and the the commit character is inserted after the inserted text.
     * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
+    * *command*: Command executed after the completion edits are done. For instance, in some cases it might be practical to move the cursor after the edit.
 }
 data CompletionSuggestion = completion(
     CompletionKind kind,
@@ -336,7 +336,9 @@ data CompletionSuggestion = completion(
 
     list[str] commitCharacters = [],
 
-    list[TextEdit] additionalChanges = []
+    list[TextEdit] additionalChanges = [],
+
+    str command = ""
 );
 
 @description{

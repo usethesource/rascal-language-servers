@@ -230,12 +230,12 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
-CompletionSuggestion createVarCompletion(int cursorColumn, loc focus, IdType decl) {
+CompletionSuggestion createVarCompletion(int cursorColumn, loc selectedIdent, IdType decl) {
     str name = "<decl.id>";
     CompletionEdit edit = completionEdit(
-        focus.begin.column,
+        selectedIdent.begin.column,
         cursorColumn,
-        focus.end.column,
+        selectedIdent.end.column,
         name
     );
 
