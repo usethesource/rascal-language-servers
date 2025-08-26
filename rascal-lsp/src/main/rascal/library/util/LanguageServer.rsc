@@ -350,7 +350,7 @@ data CompletionSuggestion = completion(
         be replaced by *newText*.
     * *snippet*: Can be set to true to indicate that the replacement text should be interpreted as a snippet.
         Snippets can contain tabstops, placeholders, choices, and variables. For more information about snippets see the
-        [relevant section of the lsp specification on github](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
+        [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
         Note that it is the responsibility of the language developer that snippets as presented to the user are syntactically correct to
         provide a decent user experience.
 }
