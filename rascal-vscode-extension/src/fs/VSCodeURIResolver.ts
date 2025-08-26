@@ -394,15 +394,25 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             mtime: fileInfo.mtime,
             size: fileInfo.size,
             permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0,
+            isReadable: (await this.isReadable(req)).result!,
             isWritable: (await this.isWritable(req)).result!
         };
     }
 
     async isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
-        return {
-            errorCode: 0,
-            result: (await this.exists(req)).result!
-        };
+        try {
+            await this.fs.readFile(toUri(req));
+            return {
+                errorCode: 0,
+                result: true
+            };
+        }
+        catch (e: unknown) {
+            return {
+                errorCode: 0,
+                result: false
+            };
+        }
     }
 
     private async isReadOnly(req: ISourceLocationRequest): Promise<boolean> {
