@@ -456,7 +456,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             return buildIOError("Unsupported scheme: " + scheme, 1);
         }
         if (!writable) {
-            // not a writable file system, so no need to check uri
+            // not a writable file system, so no need to check the uri
             return asyncCatcher(async () => <BooleanResult>{
                 errorCode: 0,
                 result: false
