@@ -77,7 +77,11 @@ public class LogJsonConfiguration extends ConfigurationFactory {
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
             .add(builder.newLayout("JsonTemplateLayout")
-                .addAttribute("maxStringLength", 4096) // never truncate JSON (which has total max size of 8192)
+                /* The JSON template has a max length (buffer size) of 8192 by default:
+                   https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.encoderByteBufferSize
+                   If JSON documents are longer, the buffer will be flushed in between,
+                   and the JSON arrives truncated on the client side. To prevent his, we cap the max message length. */
+                .addAttribute("maxStringLength", 6000)
                 .addAttribute("eventTemplateUri", "classpath:JsonLogTemplate.json")
             )
         );
