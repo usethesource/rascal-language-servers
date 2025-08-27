@@ -42,12 +42,11 @@ import java.util.Objects;
 /*package*/ class StringByteUtils {
     private StringByteUtils() {}
 
-
     private static final int BUFFER_SIZE = 8 * 1024;
 
     private static int estimateBufferSize(String s, CharsetEncoder enc) {
         var size = s.length() * enc.averageBytesPerChar();
-        if (size > BUFFER_SIZE) {
+        if (size >= BUFFER_SIZE) {
             return BUFFER_SIZE;
         }
         else if (size < 16) {
@@ -65,7 +64,7 @@ import java.util.Objects;
         var enc = cs.newEncoder();
         var cb = CharBuffer.wrap(s);
         var bb = ByteBuffer.allocate(estimateBufferSize(s, enc));
-        bb.flip();
+        bb.limit(0); // mark the buffer as having no remaining bytes to start with
         return new InputStream() {
             private boolean checkAvailable() {
                 if (!bb.hasRemaining()) {
@@ -95,9 +94,6 @@ import java.util.Objects;
                     return -1;
                 }
                 Objects.checkFromIndexSize(off, len, b.length);
-                if (off < 0 || off + len > b.length) {
-                    throw new IllegalArgumentException("Incorrect off/len parameters: " + off + " & " + len);
-                }
                 int remaining = len;
                 while (remaining > 0 && checkAvailable()) {
                     int chunk = Math.min(remaining, bb.remaining());
@@ -138,6 +134,12 @@ import java.util.Objects;
     private static int bytesUTF8(String s) {
         return s.codePoints()
             .map((int c) -> {
+                // utf8 encodes:
+                // - first 7 bits in 1 byte
+                // - first 11bits in 2 bytes
+                // - first 16bits in 3 bytes
+                // - the rest (24bit) in 4 bytes
+                // so we just chop of bits untill we have no more bytes left
                 c >>>= 7;
                 if (c == 0) {
                     return 1;
