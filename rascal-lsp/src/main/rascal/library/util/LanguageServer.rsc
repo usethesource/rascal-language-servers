@@ -289,7 +289,7 @@ loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
 
 data CallHierarchyItem
-    = callItem(
+    = callHierarchyItem(
         str name,
         DocumentSymbolKind kind,
         loc src,                            // location of the definition
