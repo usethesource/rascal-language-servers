@@ -73,15 +73,7 @@ public class FileAttributesResult extends IOResult {
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = super.hashCode();
-        result = prime * result + ((exists == null) ? 0 : exists.hashCode());
-        result = prime * result + ((type == null) ? 0 : type.hashCode());
-        result = prime * result + ((ctime == null) ? 0 : ctime.hashCode());
-        result = prime * result + ((mtime == null) ? 0 : mtime.hashCode());
-        result = prime * result + ((size == null) ? 0 : size.hashCode());
-        result = prime * result + ((permissions == null) ? 0 : permissions.hashCode());
-        return result;
+        return Objects.hash(exists, type, ctime, mtime, size, permissions);
     }
 
     @Override
