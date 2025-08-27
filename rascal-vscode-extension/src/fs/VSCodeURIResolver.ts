@@ -446,19 +446,23 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
         // if we can do a stat, we can read
-        return this.boolResult(req, f => true);
+        return this.boolResult(req, _ => true);
     }
 
     isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
-        const writable = vscode.fs.isWritableFileSystem(req.uri.scheme);
+        const scheme = toUri(req).scheme;
+        const writable = this.fs.isWritableFileSystem(scheme);
         if (writable === undefined) {
-            return buildIOError("Unsupported scheme: " + req.uri.scheme, 1);
+            return buildIOError("Unsupported scheme: " + scheme, 1);
         }
         if (!writable) {
-            // not a writable file system, so no need to
-            return asyncCatcher(async () => false);
+            // not a writable file system, so no need to check uri
+            return asyncCatcher(async () => <BooleanResult>{
+                errorCode: 0,
+                result: false
+            });
         }
-        return this.boolResult(req, f => (f.permissions & vscode.FilePermission.Readonly) == 0);
+        return this.boolResult(req, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
