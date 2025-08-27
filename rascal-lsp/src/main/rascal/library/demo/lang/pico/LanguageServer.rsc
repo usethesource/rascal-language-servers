@@ -64,7 +64,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
-    completion(picoCompletionService, triggerCharacters = ["="])
+    completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
