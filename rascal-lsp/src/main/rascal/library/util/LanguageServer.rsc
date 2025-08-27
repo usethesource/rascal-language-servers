@@ -338,7 +338,7 @@ data CompletionSuggestion = completion(
 
     list[TextEdit] additionalChanges = [],
 
-    str command = ""
+    Command command = noop()
 );
 
 @description{
