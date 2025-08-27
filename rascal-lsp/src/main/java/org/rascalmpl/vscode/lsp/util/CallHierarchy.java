@@ -53,7 +53,7 @@ public class CallHierarchy {
     public static final IConstructor OUTGOING = VF.constructor(TF.constructor(store, directionAdt, "outgoing"));
 
     private static final Type callHierarchyItemAdt = TF.abstractDataType(store, "CallHierarchyItem");
-    private static final Type callHierarchyItemCons = TF.constructor(store, callHierarchyItemAdt, "callItem",
+    private static final Type callHierarchyItemCons = TF.constructor(store, callHierarchyItemAdt, "callHierarchyItem",
         TF.stringType(), DocumentSymbols.symbolKindAdt, TF.sourceLocationType(), TF.sourceLocationType());
 
     private static final String NAME = "name";
