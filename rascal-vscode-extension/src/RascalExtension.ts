@@ -38,16 +38,15 @@ import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
-export const extensionLog: vscode.LogOutputChannel = vscode.window.createOutputChannel("Rascal Extension", {log: true});
-
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeUriResolverServer;
     private readonly dsls:ParameterizedLanguageServer;
     private readonly rascal: RascalLanguageServer;
 
+    private readonly log: vscode.LogOutputChannel = vscode.window.createOutputChannel("Rascal Extension", {log: true});
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
-        this.vfsServer = new VSCodeUriResolverServer(!isDeploy, extensionLog);
+        this.vfsServer = new VSCodeUriResolverServer(!isDeploy, this.log);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
         this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, isDeploy);
@@ -58,7 +57,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerCopySourceLocationCommand();
         checkForJVMUpdate();
 
-        vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient));
+        vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
@@ -67,6 +66,7 @@ export class RascalExtension implements vscode.Disposable {
         this.vfsServer.dispose();
         this.dsls.dispose();
         this.rascal.dispose();
+        this.log.dispose();
     }
 
     externalLanguageRegistry() {
@@ -126,7 +126,7 @@ export class RascalExtension implements vscode.Disposable {
             }, async (progress) => {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
-                extensionLog.debug(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
+                this.log.debug(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
                 if (uri && !uri.path.endsWith(".rsc")) {
                     // do not try to figure out a rascal project path when the focus is not a rascal file
                     uri = undefined;
@@ -147,7 +147,7 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
-                    shellPath: await getJavaExecutable(extensionLog),
+                    shellPath: await getJavaExecutable(this.log),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
@@ -194,7 +194,7 @@ export class RascalExtension implements vscode.Disposable {
                     return "no module";
                 }
                 default:
-                    extensionLog.warn(`Unknown origin format: ${originFormat}`);
+                    this.log.warn(`Unknown origin format: ${originFormat}`);
             }
         }
         return 'no project or module';
