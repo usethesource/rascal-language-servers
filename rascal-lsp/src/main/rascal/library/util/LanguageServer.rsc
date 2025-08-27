@@ -297,9 +297,9 @@ Options that specify how to format contents of a file.
 data FormattingOptions(
         int tabSize = 4
       , bool insertSpaces = true
-      , bool trimTrailingWhitespace = true
-      , bool insertFinalNewline = true
-      , bool trimFinalNewlines = true
+      , bool trimTrailingWhitespace = false
+      , bool insertFinalNewline = false
+      , bool trimFinalNewlines = false
 ) = formattingOptions();
 
 @deprecated{Backward compatible with ((parsing)).}
