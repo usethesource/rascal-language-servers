@@ -104,7 +104,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public long size(ISourceLocation uri) throws IOException {
-        return getEditorState(uri).getCurrentContent().get().getBytes().length;
+        return getEditorState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16).length;
     }
 
     @Override
