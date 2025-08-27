@@ -139,7 +139,7 @@ import java.util.Objects;
                 // - first 11bits in 2 bytes
                 // - first 16bits in 3 bytes
                 // - the rest (24bit) in 4 bytes
-                // so we just chop of bits untill we have no more bytes left
+                // so we just chop of bits until we have no more bytes left
                 c >>>= 7;
                 if (c == 0) {
                     return 1;
