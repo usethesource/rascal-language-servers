@@ -164,13 +164,14 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         this.printPayload(payload);
     }
 
-    show(preserveFocus?: unknown): void {
-        if (preserveFocus === undefined) {
-            this.logChannel.show();
-        } else if (typeof preserveFocus === "boolean") {
+    show(columnOrPreserveFocus?: vscode.ViewColumn | boolean, preserveFocus?: boolean): void {
+        if (typeof columnOrPreserveFocus === "boolean" || columnOrPreserveFocus === undefined) {
+            this.logChannel.show(columnOrPreserveFocus);
+        } else {
             this.logChannel.show(preserveFocus);
         }
     }
+
     replace(value: string): void {
         this.logChannel.replace(value);
     }
