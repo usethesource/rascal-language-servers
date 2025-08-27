@@ -39,10 +39,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
@@ -69,10 +71,13 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
+    private final List<FileOperationPattern> interestedInFiles;
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
+
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationPattern> interestedInFiles) {
         this.documentService = documentService;
         this.ownExecuter = exec;
+        this.interestedInFiles = interestedInFiles;
     }
 
 
@@ -93,10 +98,21 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
                 workspaceCapabilities.setWorkspaceFolders(folderOptions);
             }
 
+            var fileOperationCapabilities = new FileOperationsServerCapabilities();
+            var whichFiles = new FileOperationOptions(interestedInFiles.stream()
+                .map(FileOperationFilter::new)
+                .collect(Collectors.toList())
+            );
+            boolean watchesSet = false;
             if (clientWorkspaceCap.getFileOperations().getDidRename()) {
-                var fileOperationCapabilities = new FileOperationsServerCapabilities();
-                fileOperationCapabilities.setDidRename(new FileOperationOptions(
-                    List.of(new FileOperationFilter(new FileOperationPattern("**")))));
+                fileOperationCapabilities.setDidRename(whichFiles);
+                watchesSet = true;
+            }
+            if (clientWorkspaceCap.getFileOperations().getDidDelete()) {
+                fileOperationCapabilities.setDidDelete(whichFiles);
+                watchesSet = true;
+            }
+            if (watchesSet) {
                 workspaceCapabilities.setFileOperations(fileOperationCapabilities);
             }
         }
@@ -139,9 +155,26 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        CompletableFuture.supplyAsync(() -> {
+        ownExecuter.submit(() -> {
             documentService.didRenameFiles(params, workspaceFolders());
-            return null; // Void return type requires a return.
+        });
+
+        ownExecuter.submit(() -> {
+            // cleanup the old files (we do not get a `didDelete` event)
+            var oldFiles = params.getFiles().stream()
+                .map(f -> f.getOldUri())
+                .map(FileDelete::new)
+                .collect(Collectors.toList());
+            documentService.didDeleteFiles(new DeleteFilesParams(oldFiles));
+        });
+    }
+
+    @Override
+    public void didDeleteFiles(DeleteFilesParams params) {
+        logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
+
+        ownExecuter.submit(() -> {
+            documentService.didDeleteFiles(params);
         });
     }
 
@@ -153,7 +186,7 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
             return documentService.executeCommand(languageName, command).thenApply(v -> v);
         }
 
-        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
+        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
     }
 
 

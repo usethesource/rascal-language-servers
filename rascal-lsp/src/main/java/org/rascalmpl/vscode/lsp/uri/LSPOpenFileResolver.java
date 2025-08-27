@@ -26,17 +26,17 @@
  */
 package org.rascalmpl.vscode.lsp.uri;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ISourceLocationInput;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
-
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import io.usethesource.vallang.ISourceLocation;
 
 public class LSPOpenFileResolver implements ISourceLocationInput {
@@ -47,7 +47,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public InputStream getInputStream(ISourceLocation uri) throws IOException {
-        return new ByteArrayInputStream(getEditorState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16));
+        return StringByteUtils.streamingBytes(getEditorState(uri).getCurrentContent().get(), StandardCharsets.UTF_16);
     }
 
     @Override
@@ -100,5 +100,35 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     public boolean supportsHost() {
         return false;
     }
-    
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        return size(getEditorState(uri).getCurrentContent());
+    }
+
+    private int size(Versioned<String> s) {
+        return StringByteUtils.byteCount(s.get(), StandardCharsets.UTF_16);
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        if (!exists(uri)) {
+            return new FileAttributes(false, false, -1, -1, false, false, 0);
+        }
+        var current = getEditorState(uri).getCurrentContent();
+        var modified = current.getTimestamp();
+        var isWritable = FallbackResolver.getInstance().isWritable(stripLspPrefix(uri));
+        return new FileAttributes(
+            true, true,
+            modified, modified, //We fix the creation timestamp to be equal to the last modified time
+            true, isWritable,
+            size(current)
+        );
+    }
+
 }

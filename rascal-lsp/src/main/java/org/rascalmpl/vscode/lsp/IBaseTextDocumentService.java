@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -57,6 +58,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
 
     boolean isManagingFile(ISourceLocation file);
 
-    default void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {}
+    void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);
+    void didDeleteFiles(DeleteFilesParams params);
     void cancelProgress(String progressId);
 }

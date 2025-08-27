@@ -35,15 +35,19 @@ public class WatchRequest extends ISourceLocationRequest {
     @NonNull
     private String watcher;
 
-    public WatchRequest(ISourceLocation loc, String watcher) {
+    private boolean recursive;
+
+    public WatchRequest(ISourceLocation loc, boolean recursive, String watcher) {
         super(loc);
+        this.recursive = recursive;
         this.watcher = watcher;
     }
 
     public WatchRequest() {}
 
-    public WatchRequest(String uri, String watcher) {
+    public WatchRequest(String uri, boolean recursive, String watcher) {
         super(uri);
+        this.recursive = recursive;
         this.watcher = watcher;
     }
 
@@ -51,18 +55,24 @@ public class WatchRequest extends ISourceLocationRequest {
         return watcher;
     }
 
+    public boolean isRecursive() {
+        return recursive;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof WatchRequest) {
-            return super.equals(obj)
-                && Objects.equals(watcher, ((WatchRequest)obj).watcher);
+            var other = (WatchRequest)obj;
+            return super.equals(other)
+                && other.recursive == recursive
+                && Objects.equals(watcher, other.watcher);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * watcher.hashCode();
+        return Objects.hash(super.hashCode(), watcher, recursive);
     }
 
 }
