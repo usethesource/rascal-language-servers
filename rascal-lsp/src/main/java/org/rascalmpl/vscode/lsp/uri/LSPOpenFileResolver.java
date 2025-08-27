@@ -117,8 +117,9 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         var exists = exists(uri);
         var current = getEditorState(uri).getCurrentContent();
         var timestamp = current.getTimestamp();
+        var isWritable = FallbackResolver.getInstance().isWritable(stripLspPrefix(uri));
         //We fix the creation timestamp to be equal to the last modified time
-        return new FileAttributes(exists, exists, timestamp, timestamp, true, true, current.get().getBytes().length);
+        return new FileAttributes(exists, exists, timestamp, timestamp, true, isWritable, current.get().getBytes().length);
     }
     
 }
