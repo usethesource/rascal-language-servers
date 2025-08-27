@@ -277,7 +277,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public boolean supportsRecursiveWatch() {
-        return false;
+        return true;
     }
 
     public boolean isFileManaged(ISourceLocation file) {
