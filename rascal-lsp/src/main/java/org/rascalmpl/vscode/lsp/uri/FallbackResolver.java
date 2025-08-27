@@ -47,6 +47,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
@@ -265,16 +266,20 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
-        getClient().addWatcher(root, watcher, getServer());
+    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
+        getClient().addWatcher(root, recursive, watcher, getServer());
     }
 
     @Override
-    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
-        getClient().removeWatcher(root, watcher, getServer());
-
+    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
+        getClient().removeWatcher(root, recursive, watcher, getServer());
     }
-    
+
+    @Override
+    public boolean supportsRecursiveWatch() {
+        return true;
+    }
+
     public boolean isFileManaged(ISourceLocation file) {
         for (var service : textDocumentServices) {
             if (service.isManagingFile(file)) {
@@ -319,4 +324,24 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         }
         throw new IOException("File is not managed by lsp");
     }
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        return call(s -> s.size(param(uri))).getResult();
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        return call(s -> s.isReadable(param(uri))).getResult();
+    }
+    @Override
+    public boolean isWritable(ISourceLocation uri) throws IOException {
+        return call(s -> s.isWritable(param(uri))).getResult();
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        return call(s -> s.stat(param(uri))).getFileAttributes();
+    }
+
 }

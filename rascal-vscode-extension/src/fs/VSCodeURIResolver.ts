@@ -52,6 +52,10 @@ interface ISourceLocationInput {
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResult>;
     isFile(req: ISourceLocationRequest): Promise<BooleanResult>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
+    size(req: ISourceLocationRequest): Promise<NumberResult>;
+    fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
+    isReadable(req: ISourceLocationRequest): Promise<BooleanResult>;
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResult>;
 }
 
 
@@ -68,6 +72,10 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<BooleanResult>("isDirectory", handler.isDirectory);
     req<BooleanResult>("isFile", handler.isFile);
     req<DirectoryListingResult>("list", handler.list);
+    req<NumberResult>("size", handler.size);
+    req<FileAttributesResult>("stat", handler.fileStat);
+    req<BooleanResult>("isReadable", handler.isReadable);
+    req<BooleanResult>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -157,8 +165,18 @@ export interface DirectoryListingResult extends IOResult {
     areDirectory?: boolean[]
 }
 
+export interface NumberResult extends IOResult {
+    result?: number;
+}
 
-
+export interface FileAttributesResult extends IOResult {
+    exists? : boolean;
+    type?: vscode.FileType;
+    ctime?: number;
+    mtime?: number;
+    size?: number;
+    permissions?: vscode.FilePermission;
+}
 
 export interface WriteFileRequest extends ISourceLocationRequest {
     content: string;
@@ -178,6 +196,7 @@ export interface WatchRequest extends ISourceLocationRequest {
      * as the watches are recursive
      */
     watcher: string;
+    recursive: boolean;
 }
 
 
@@ -187,16 +206,10 @@ export enum ISourceLocationChangeType {
     modified = 3
 }
 
-export enum ISourceLocationType {
-    file = 1,
-    directory = 2
-}
-
 export interface ISourceLocationChanged {
     watchId: string;
     location: ISourceLocation;
     changeType: ISourceLocationChangeType;
-    type: ISourceLocationType;
 }
 
 
@@ -368,6 +381,20 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             };
         }
     }
+
+    async fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult> {
+        const fileInfo = await this.stat(req);
+        return {
+            errorCode: 0,
+            exists: (await this.exists(req)).result!,
+            type: fileInfo.type.valueOf(),
+            ctime: fileInfo.ctime,
+            mtime: fileInfo.mtime,
+            size: fileInfo.size,
+            permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0
+        };
+    }
+
     private async stat(req: ISourceLocationRequest): Promise<vscode.FileStat> {
         const uri = toUri(req);
         if (this.rascalNativeSchemes.has(uri.scheme)) {
@@ -390,6 +417,17 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.timeStampResult(req, f => f.ctime);
     }
 
+    private async numberResult(req: ISourceLocationRequest, mapper: (s: vscode.FileStat) => number): Promise<NumberResult> {
+        return asyncCatcher(async () => <NumberResult>{
+            errorCode: 0,
+            result: mapper((await this.stat(req)))
+        });
+    }
+
+    size(req: ISourceLocationRequest): Promise<NumberResult> {
+        return this.numberResult(req, f => f.size);
+    }
+
     private async boolResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResult> {
         return asyncCatcher(async () => <BooleanResult>{
             errorCode: 0,
@@ -406,7 +444,26 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
+    isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        // if we can do a stat, we can read
+        return this.boolResult(req, _ => true);
+    }
 
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        const scheme = toUri(req).scheme;
+        const writable = this.fs.isWritableFileSystem(scheme);
+        if (writable === undefined) {
+            return buildIOError("Unsupported scheme: " + scheme, 1);
+        }
+        if (!writable) {
+            // not a writable file system, so no need to check the uri
+            return asyncCatcher(async () => <BooleanResult>{
+                errorCode: 0,
+                result: false
+            });
+        }
+        return this.boolResult(req, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
+    }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
         if (this.isRascalNative(req)) {
@@ -459,9 +516,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (this.isRascalNative(newWatch)) {
             return buildIOError("Cannot watch on a rascal uri: " + newWatch.uri);
         }
-        if (!this.activeWatches.has(newWatch.uri)) {
-            const watcher = new WatcherCallbacks(newWatch.uri, this.watchListener, newWatch.watcher);
-            this.activeWatches.set(newWatch.uri, watcher);
+        const watchKey = newWatch.uri + newWatch.recursive;
+        if (!this.activeWatches.has(watchKey)) {
+            const watcher = new WatcherCallbacks(newWatch.uri, newWatch.recursive, this.watchListener, newWatch.watcher);
+            this.activeWatches.set(watchKey, watcher);
             this.toClear.push(watcher);
             return Promise.resolve({ errorCode: 0 });
         }
@@ -477,9 +535,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (this.isRascalNative(removeWatch)) {
             return buildIOError("Cannot watch on a rascal uri: " + removeWatch.uri);
         }
-        const watcher = this.activeWatches.get(removeWatch.uri);
+        const watchKey = removeWatch.uri + removeWatch.recursive;
+        const watcher = this.activeWatches.get(watchKey);
         if (watcher) {
-            this.activeWatches.delete(removeWatch.uri);
+            this.activeWatches.delete(watchKey);
             watcher.dispose();
             const index = this.toClear.indexOf(watcher);
             if (index >= 0) {
@@ -510,11 +569,11 @@ class WatcherCallbacks implements Disposable {
     private readonly watchId: string;
     private readonly toClear: Disposable[] = [];
     private readonly watchListener: WatchEventReceiver;
-    constructor(uri: string, watchListener: WatchEventReceiver, watchId: string) {
+    constructor(uri: string, recursive: boolean, watchListener: WatchEventReceiver, watchId: string) {
         this.watchId = watchId;
         this.watchListener = watchListener;
         const newWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(toUri(uri), '**/*')
+            new vscode.RelativePattern(toUri(uri), recursive ? '**/*' : '*')
         );
         this.toClear.push(newWatcher);
         newWatcher.onDidCreate(e => this.sendWatchEvent(e, ISourceLocationChangeType.created), this.toClear);
@@ -527,36 +586,12 @@ class WatcherCallbacks implements Disposable {
         this.watchListener.emitWatch({
             watchId: this.watchId,
             changeType: changeType,
-            location: uri.toString(),
-            type: await determineType(uri, changeType)
+            location: uri.toString()
         });
     }
 
     dispose() {
         this.toClear.forEach(c => c.dispose());
         this.toClear.splice(0);
-    }
-}
-
-async function determineType(uri: vscode.Uri, changeType: ISourceLocationChangeType): Promise<ISourceLocationType> {
-    // vscode is not offering us information if the change was a directory of a file
-    // so we have to use some heuristics (or actually ask the FS) to find out
-    switch (changeType) {
-        case ISourceLocationChangeType.created:
-            if ((await vscode.workspace.fs.stat(uri)).type === vscode.FileType.Directory) {
-                return ISourceLocationType.directory;
-            } else {
-
-                return ISourceLocationType.file;
-            }
-        case ISourceLocationChangeType.modified:
-            // no modified events for directories according to documentation
-            return ISourceLocationType.file;
-        case ISourceLocationChangeType.deleted: {
-            // we have to guess, since we cannot ask anymore.
-            const filePart = uri.path.substring(uri.path.lastIndexOf('/'));
-            return filePart.lastIndexOf('.') > 0 ? ISourceLocationType.file : ISourceLocationType.directory;
-        }
-
     }
 }

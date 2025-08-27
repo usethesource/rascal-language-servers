@@ -206,10 +206,12 @@ public class TerminalIDEClient implements IDEServices {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
+    @Override
     public void startDebuggingSession(int serverPort){
         server.startDebuggingSession(serverPort);
     }
 
+    @Override
     public void registerDebugServerPort(int processID, int serverPort){
         server.registerDebugServerPort(processID, serverPort);
     }

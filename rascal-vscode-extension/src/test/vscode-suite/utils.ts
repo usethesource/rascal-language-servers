@@ -119,6 +119,8 @@ export class RascalREPL {
             } catch (_ignored) {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
+                console.log('Terminal contents after failing to initialize REPL:');
+                console.log(await this.terminal.getText());
                 return false;
             }
         }

@@ -33,6 +33,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ISourceLocationInput;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -99,6 +100,26 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     @Override
     public boolean supportsHost() {
         return false;
+    }
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        return getEditorState(uri).getCurrentContent().get().getBytes(StandardCharsets.UTF_16).length;
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        var exists = exists(uri);
+        var current = getEditorState(uri).getCurrentContent();
+        var timestamp = current.getTimestamp();
+        var isWritable = FallbackResolver.getInstance().isWritable(stripLspPrefix(uri));
+        //We fix the creation timestamp to be equal to the last modified time
+        return new FileAttributes(exists, exists, timestamp, timestamp, true, isWritable, current.get().getBytes().length);
     }
     
 }

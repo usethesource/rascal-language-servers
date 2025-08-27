@@ -24,36 +24,43 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.dap.variable;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.io.StandardTextWriter;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.interpreter.utils.LimitedResultWriter;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-import java.io.IOException;
-import java.io.Writer;
+public class NumberResult extends IOResult {
+    private @Nullable Integer result;
 
-public class RascalVariableUtils {
-
-    private static final int MAX_SIZE_STRING_NAME = 128;
-
-    // copied from Rascal Eclipse debug.core.model.RascalValue
-    public static String getDisplayString(IValue value) {
-        if(value == null) {
-            return "null";
-        }
-        Writer w = new LimitedResultWriter(MAX_SIZE_STRING_NAME);
-        try {
-            new StandardTextWriter(true, 2).write(value, w);
-            return w.toString();
-        } catch (LimitedResultWriter.IOLimitReachedException e) {
-            return w.toString();
-        } catch (IOException e) {
-            final Logger logger = LogManager.getLogger(RascalVariableUtils.class);
-            logger.error(e.getMessage(), e);
-            return "error during serialization...";
-        }
+    public NumberResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Integer result) {
+        super(errorCode, errorMessage);
+        this.result = result;
     }
+
+    public NumberResult() {}
+
+    public @Nullable Integer getResult() {
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof NumberResult) {
+            return super.equals(obj)
+                && Objects.equals(result, ((NumberResult)obj).result);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + 11 * (Objects.hashCode(result) + 1);
+    }
+
+    @Override
+    public String toString() {
+        return "NumberResult [result=" + result + " io=" + super.toString() + "]";
+    }
+
 }
