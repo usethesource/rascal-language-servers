@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.log;
 
 import java.net.URI;
 
@@ -38,49 +38,60 @@ import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilder;
 import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
 import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
 
-public class LogRedirectConfiguration extends ConfigurationFactory {
+public class LogJsonConfiguration extends ConfigurationFactory {
 
     @Override
-    public String[] getSupportedTypes() {
+    protected String[] getSupportedTypes() {
         return new String[] {"*"};
     }
 
+
+
     @Override
     public Configuration getConfiguration(LoggerContext loggerContext, String name, URI configLocation) {
-        return buildRedirectConfig();
+        return buildConfiguration();
     }
 
     @Override
     public Configuration getConfiguration(LoggerContext loggerContext, String name, URI configLocation,
-        ClassLoader loader) {
-        return buildRedirectConfig();
+            ClassLoader loader) {
+        return buildConfiguration();
     }
-
 
     @Override
     public Configuration getConfiguration(LoggerContext loggerContext, ConfigurationSource source) {
-        return buildRedirectConfig();
+        return buildConfiguration();
     }
 
-    private static Configuration buildRedirectConfig() {
+    private Configuration buildConfiguration() {
         Level targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
         if (targetLevel == null) {
             targetLevel = Level.INFO;
         }
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
-        builder.setConfigurationName("DefaultLogger");
+        builder.setConfigurationName("JsonLogger");
         builder.setStatusLevel(targetLevel);
 
         builder.add(builder
-            .newAppender("Console", "CONSOLE")
+            .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
-            .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d [%t] %p - %c %m%n")));
+            .add(builder.newLayout("JsonTemplateLayout")
+                /* The JSON template has a max length (buffer size) of 8192 by default:
+                   https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.encoderByteBufferSize
+                   If JSON documents are longer, the buffer will be flushed in between,
+                   and the JSON arrives truncated on the client side. To prevent his, we cap the max message length. */
+                .addAttribute("maxStringLength", 6000)
+                .addAttribute("eventTemplateUri", "classpath:JsonLogTemplate.json")
+            )
+        );
 
         builder.add(builder
             .newRootLogger(targetLevel)
-            .add(builder.newAppenderRef("Console")));
+            .add(builder.newAppenderRef("Console"))
+        );
 
         return builder.build();
     }
+
 }

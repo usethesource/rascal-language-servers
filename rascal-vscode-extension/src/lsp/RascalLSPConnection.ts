@@ -126,7 +126,7 @@ interface BrowseParameter {
 async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
-        '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogJsonConfiguration'
+        '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
         , '-Dlog4j2.level=DEBUG' // TODO Remove this minimum
         , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
