@@ -177,14 +177,14 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
-        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
-        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+    public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap thisFile, ColumnMaps otherFiles) {
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), thisFile), otherFiles);
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, Range range) {
+    public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
         result.setMessage(getMessageString(d));
@@ -195,7 +195,9 @@ public class Diagnostics {
             result.setRelatedInformation(
                 ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
-                .map(c -> new DiagnosticRelatedInformation(getMessageLocation(d), getMessageString(c)))
+                .map(c -> new DiagnosticRelatedInformation(
+                    Locations.toLSPLocation(getMessageLocation(d), otherFiles),
+                    getMessageString(c)))
                 .collect(Collectors.toList())
             );
         }
