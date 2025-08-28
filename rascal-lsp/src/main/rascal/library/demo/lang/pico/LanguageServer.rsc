@@ -40,7 +40,7 @@ import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
-import lang::pico::\syntax::Format;
+import lang::pico::format::Formatting;
 import DateTime;
 import IO;
 import Location;
