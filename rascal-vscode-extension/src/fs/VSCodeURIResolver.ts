@@ -217,16 +217,16 @@ export class VSCodeUriResolverServer implements Disposable {
     private readonly server: Server;
     private activeClients: ResolverClient[] = [];
     private rascalNativeSchemes: Set<string> = new Set();
-    constructor(debug: boolean) {
+    constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
         this.server = createServer(newClient => {
             if (debug) {
-                console.log("VFS: new connection: " + JSON.stringify(newClient));
+                this.logger.info("VFS: new connection: " + JSON.stringify(newClient));
             }
             newClient.setNoDelay(true);
             this.handleNewClient(newClient, debug);
         });
-        this.server.on('error', console.log);
-        this.server.listen(0, "localhost", () => console.log("VFS: started listening on " + JSON.stringify(this.server.address())));
+        this.server.on('error', this.logger.error);
+        this.server.listen(0, "localhost", () => this.logger.info("VFS: started listening on " + JSON.stringify(this.server.address())));
     }
 
     ignoreSchemes(toIgnore: string[]) {
@@ -239,23 +239,17 @@ export class VSCodeUriResolverServer implements Disposable {
     }
 
     private handleNewClient(newClient: Socket, debug: boolean) {
-        function makeLogger(prefix: string, onlyDebug: boolean): (m:string) => void {
-            if (onlyDebug && !debug) {
-                return (_s) => { return ; };
-            }
-            return (m) => console.log(prefix + ": " + m);
-        }
         const connection = rpc.createMessageConnection(newClient, newClient, {
-            log: makeLogger("VFS: [TRACE]", true),
-            error: makeLogger("VFS: [ERROR]", false),
-            warn: makeLogger("VFS: [WARN]", true),
-            info: makeLogger("VFS: [INFO]", true),
+            log: (msg) => this.logger.trace(`VFS: ${msg}`),
+            error: (msg) => this.logger.error(`VFS: ${msg}`),
+            warn: (msg) => this.logger.warn(`VFS: ${msg}`),
+            info: (msg) => this.logger.info(`VFS: ${msg}`),
         });
         newClient.on("error", e => {
-            console.log("VFS: [SOCKET-ERROR]: " + e);
+            this.logger.error(`VFS (socket): ${e}`);
         });
 
-        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes);
+        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes, this.logger);
         this.activeClients.push(client);
 
         newClient.on('end', () => {
@@ -327,14 +321,14 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly fs: vscode.FileSystem;
     private readonly rascalNativeSchemes: Set<string>;
     private toClear: Disposable[] = [];
-    constructor(connection: rpc.MessageConnection, debug: boolean, rascalNativeSchemes: Set<string>){
+    constructor(connection: rpc.MessageConnection, debug: boolean, rascalNativeSchemes: Set<string>, private readonly logger: vscode.LogOutputChannel){
         this.rascalNativeSchemes = rascalNativeSchemes;
         this.fs = vscode.workspace.fs;
         this.connection = connection;
         if (debug) {
             connection.trace(rpc.Trace.Verbose, {
                 log: (a) => {
-                    console.log("[VFS]: " + a);
+                    this.logger.debug("[VFS]: " + a);
                 }
             });
         }

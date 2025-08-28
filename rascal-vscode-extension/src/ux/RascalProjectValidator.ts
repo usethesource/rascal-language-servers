@@ -38,7 +38,7 @@ export class RascalProjectValidator implements vscode.Disposable {
     private readonly diagnostics: vscode.DiagnosticCollection;
     private readonly cachedSourcePaths: Map<string, Promise<RascalManifest>> = new Map();
 
-    constructor() {
+    constructor(private readonly log: vscode.LogOutputChannel) {
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
         this.toDispose.push(this.diagnostics);
         vscode.workspace.onDidOpenTextDocument(this.validate, this, this.toDispose);
@@ -61,7 +61,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                     const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
                     this.validate(document);
                 } catch (e) {
-                    console.log("Swallowing: ", e);
+                    this.log.debug("Swallowing: ", e);
                 }
             }
 
@@ -116,7 +116,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                         ));
                     }
                 } catch (ex) {
-                    console.log("Swallowing: ", ex);
+                    this.log.debug("Swallowing: ", ex);
                 }
             }
 
@@ -130,7 +130,7 @@ export class RascalProjectValidator implements vscode.Disposable {
         if (result !== undefined) {
             return result;
         }
-        result = RascalManifest.parse(mf);
+        result = RascalManifest.parse(mf, this.log);
         this.cachedSourcePaths.set(key, result);
         return result;
     }
@@ -205,7 +205,7 @@ class RascalManifest {
     }
 
     // TODO: at a later point, merge this with code in the RascalMF validator
-    public static async parse(mf: Uri): Promise<RascalManifest> {
+    public static async parse(mf: Uri, log: vscode.LogOutputChannel): Promise<RascalManifest> {
         try {
             const body = new TextDecoder("UTF8").decode(await vscode.workspace.fs.readFile(mf));
             const lines = body.split('\n');
@@ -224,11 +224,11 @@ class RascalManifest {
                     libraries = value.split(',').map(s => s.trim());
                 }
             }
-            console.log(uris, libraries);
+            log.debug(`${uris} ${libraries}`);
             return new RascalManifest(uris, libraries);
         }
         catch (e) {
-            console.log("Could not parse rascal.mf", e);
+            log.error("Could not parse rascal.mf", e);
             return new RascalManifest([], []);
         }
     }

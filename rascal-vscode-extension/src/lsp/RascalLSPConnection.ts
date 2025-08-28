@@ -24,29 +24,30 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as vscode from 'vscode';
 import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { getJavaExecutable } from '../auto-jvm/JavaLookup';
 import { RascalFileSystemProvider } from '../fs/RascalFileSystemProviders';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
-
-
+import { JsonParserOutputChannel } from './JsonOutputChannel';
 
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
     {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
+    const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger.getLogChannel())
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
+        outputChannel: logger
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
@@ -63,7 +64,7 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client).tryRegisterSchemes(schemes);
+        new RascalFileSystemProvider(client, logger.getLogChannel()).tryRegisterSchemes(schemes);
     });
 
     return client;
@@ -122,11 +123,11 @@ interface BrowseParameter {
     viewColumn:integer;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg : string | undefined): Promise<ServerOptions> {
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
-        '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.LogRedirectConfiguration'
-        , '-Dlog4j2.level=DEBUG'
+        '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
+        , '-Dlog4j2.level=DEBUG' // TODO Remove this minimum
         , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
@@ -145,7 +146,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
         commandArgs.push(lspArg);
     }
     return {
-        command: await getJavaExecutable(),
+        command: await getJavaExecutable(logger),
         args: commandArgs
     };
 }
