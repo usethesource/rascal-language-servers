@@ -1,12 +1,9 @@
-begin 
-    declare 
-    input   : natural,  
-    output  : natural,           
-    repnr   : natural,
-    rep     : natural;
- 
+begin
+    declare
+        input : natural, output : natural, repnr : natural, rep : natural
+    ;
     input := 6;
-    while input - 1 do 
+    while input - 1 do
         rep := output;
         repnr := input;
         while repnr - 1 do
