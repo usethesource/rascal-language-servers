@@ -144,7 +144,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerDiagnostics(IList messages) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService);
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, columns);
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             String uri = entry.getKey().getURI().toString();

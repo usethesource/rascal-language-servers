@@ -45,7 +45,6 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -190,13 +189,13 @@ public class Diagnostics {
         result.setMessage(getMessageString(d));
         result.setRange(range);
 
-        result.setRelatedInformation(null);
+
         if (d.asWithKeywordParameters().hasParameter("causes")) {
             result.setRelatedInformation(
                 ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
-                    Locations.toLSPLocation(getMessageLocation(d), otherFiles),
+                    Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
                     getMessageString(c)))
                 .collect(Collectors.toList())
             );
@@ -240,13 +239,13 @@ public class Diagnostics {
      * @param docService  needed to convert column positions
      * @return an ordered map of Diagnostics
      */
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, IBaseTextDocumentService docService) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, ColumnMaps cm) {
         Map<ISourceLocation, List<Diagnostic>> results = new HashMap<>();
 
         for (IValue elem : messages) {
             IConstructor message = (IConstructor) elem;
             ISourceLocation file = getMessageLocation(message).top();
-            Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
+            Diagnostic d = translateDiagnostic(message, cm.get(file), cm);
 
             List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
