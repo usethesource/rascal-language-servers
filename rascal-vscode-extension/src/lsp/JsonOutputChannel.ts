@@ -26,6 +26,10 @@
  */
 import * as vscode from 'vscode';
 
+/**
+ * Log levels that match log4j levels.
+ * https://logging.apache.org/log4j/2.x/manual/customloglevels.html
+ */
 enum LogLevel {
     fatal = "FATAL",
     error = "ERROR",
@@ -53,6 +57,23 @@ class LogMessage {
     }
 }
 
+/**
+ * A VSCode OutputChannel that parses JSON log messages and delegates them to the richer LogOutputChannel.
+ * This offers enhanced features, such as filtering by log level/thread, and better formatting.
+ *
+ * The expected JSON format is:
+ * {
+ *   "timestamp": "2024-06-10T12:34:56.789Z",
+ *   "level": "INFO",
+ *   "message": "This is a log message",
+ *   "threadName": "main",
+ *   "loggerName": "org.rascalmpl"
+ * }
+ * This format is compatible with log4j's JSONLayout as configured in
+ * org.rascalmpl.vscode.lsp.log.LogJsonConfiguration.
+ *
+ * Received messages that are not JSON or not in the expected format are printed as-is.
+ */
 export class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly name: string;
 
