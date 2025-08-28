@@ -120,7 +120,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     private printPayloads(payload: string): void {
         for (const line of payload.trim().split("\n")) {
             try {
-                const log = JSON.parse(payload);
+                const log = JSON.parse(line);
                 if (LogMessage.is(log)) {
                     // no timestamp or log level, since LogOutputChannel functions add those
                     this.printLogOutput(log.level, this.formatMessage(log.threadName, log.timestamp, log.message, log.loggerName));
