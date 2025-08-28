@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -186,8 +187,18 @@ public class Diagnostics {
     public static Diagnostic translateDiagnostic(IConstructor d, Range range) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
-        result.setMessage(((IString) d.get("msg")).getValue());
+        result.setMessage(getMessageString(d));
         result.setRange(range);
+
+        result.setRelatedInformation(null);
+        if (d.asWithKeywordParameters().hasParameter("causes")) {
+            result.setRelatedInformation(
+                ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
+                .map(IConstructor.class::cast)
+                .map(c -> new DiagnosticRelatedInformation(getMessageLocation(d), getMessageString(c)))
+                .collect(Collectors.toList())
+            );
+        }
 
         storeFixCommands(d, result);
         return result;
@@ -244,6 +255,10 @@ public class Diagnostics {
 
     private static ISourceLocation getMessageLocation(IConstructor message) {
         return Locations.toClientLocation(((ISourceLocation) message.get("at")));
+    }
+
+    private static String getMessageString(IConstructor msg) {
+        return ((IString) msg.get("msg")).getValue();
     }
 
     private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {
