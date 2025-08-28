@@ -127,7 +127,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
-        , '-Dlog4j2.level=TRACE'
+        , '-Dlog4j2.level=DEBUG' // TODO Remove this minimum
         , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
