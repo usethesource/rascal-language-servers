@@ -62,6 +62,10 @@ export class RascalExtension implements vscode.Disposable {
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
     }
 
+    logger(): vscode.LogOutputChannel {
+        return this.log;
+    }
+
     dispose() {
         this.vfsServer.dispose();
         this.dsls.dispose();

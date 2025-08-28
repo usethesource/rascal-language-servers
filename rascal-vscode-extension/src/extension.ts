@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     const extension = new RascalExtension(context, jars, icon, (deployMode || testDeployMode));
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
-    context.subscriptions.push(new RascalProjectValidator());
+    context.subscriptions.push(new RascalProjectValidator(extension.logger()));
     return extension.externalLanguageRegistry();
 }
 
