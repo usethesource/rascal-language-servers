@@ -47,7 +47,7 @@ class LogMessage {
         public readonly threadName: string,
         public readonly loggerName: string) {}
 
-    static isLogMessage(json: object): json is LogMessage {
+    static is(json: object): json is LogMessage {
         const log = json as LogMessage;
         return log.timestamp !== undefined
             && log.level !== undefined
@@ -121,7 +121,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         for (const line of payload.trim().split("\n")) {
             try {
                 const log = JSON.parse(payload);
-                if (LogMessage.isLogMessage(log)) {
+                if (LogMessage.is(log)) {
                     // no timestamp or log level, since LogOutputChannel functions add those
                     this.printLogOutput(log.level, this.formatMessage(log.threadName, log.timestamp, log.message, log.loggerName));
                 } else {
