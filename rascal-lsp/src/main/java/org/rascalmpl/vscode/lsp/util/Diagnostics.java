@@ -147,7 +147,7 @@ public class Diagnostics {
 
             related.add(related(cm, stuckLoc,
                "It is likely something is extra or missing here, or before this position. However, parsing can also have gone back here searching for a solution."));
-            related.add(related(cm, skippedLoc, "Parsing skipped this part to artificially complete a `" + nonterminal + "` and continue parsing. Something is missing or extra before the end of this part"));
+            related.add(related(cm, skippedLoc, "Parsing skipped this part to artificially complete a `" + nonterminal + "` and continue parsing. Something is missing or extra before the end of this part."));
             related.add(related(cm, prefixLoc, "This part of the `" + nonterminal + "` was still recognized until parsing got stuck."));
 
             // TODO: replace by ProductionAdapter calls once they are available with the new RC of Rascal
@@ -159,6 +159,8 @@ public class Diagnostics {
                 IList symbols = ProductionAdapter.getSymbols(prod);
                 IList prefix = symbols.sublist(0, dot);
                 IList postfix = symbols.sublist(dot, symbols.length());
+
+                related.add(related(cm, stuckLoc, "Experts: a `" + nonterminal + "` was the last but probably not the only grammar rule that was tried at this position."));
 
                 if (dot == 0) {
                     related.add(related(cm, stuckLoc, "Experts: no (start of) any alternative of `" + nonterminal + "` could be matched."));
