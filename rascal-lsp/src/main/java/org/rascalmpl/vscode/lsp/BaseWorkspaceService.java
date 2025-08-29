@@ -57,7 +57,6 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);

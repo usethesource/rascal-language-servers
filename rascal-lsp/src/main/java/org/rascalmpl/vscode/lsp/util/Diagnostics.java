@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -44,9 +45,7 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
@@ -176,18 +175,26 @@ public class Diagnostics {
     }
 
     public static Diagnostic translateDiagnostic(IConstructor d, ColumnMaps cm) {
-        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
+        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap cm) {
-        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm));
-    }
-
-    public static Diagnostic translateDiagnostic(IConstructor d, Range range) {
+    public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
-        result.setMessage(((IString) d.get("msg")).getValue());
+        result.setMessage(getMessageString(d));
         result.setRange(range);
+
+
+        if (d.asWithKeywordParameters().hasParameter("causes")) {
+            result.setRelatedInformation(
+                ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
+                .map(IConstructor.class::cast)
+                .map(c -> new DiagnosticRelatedInformation(
+                    Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
+                    getMessageString(c)))
+                .collect(Collectors.toList())
+            );
+        }
 
         storeFixCommands(d, result);
         return result;
@@ -227,13 +234,13 @@ public class Diagnostics {
      * @param docService  needed to convert column positions
      * @return an ordered map of Diagnostics
      */
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, IBaseTextDocumentService docService) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, ColumnMaps cm) {
         Map<ISourceLocation, List<Diagnostic>> results = new HashMap<>();
 
         for (IValue elem : messages) {
             IConstructor message = (IConstructor) elem;
             ISourceLocation file = getMessageLocation(message).top();
-            Diagnostic d = translateDiagnostic(message, docService.getColumnMap(file));
+            Diagnostic d = translateDiagnostic(message, cm);
 
             List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
@@ -244,6 +251,10 @@ public class Diagnostics {
 
     private static ISourceLocation getMessageLocation(IConstructor message) {
         return Locations.toClientLocation(((ISourceLocation) message.get("at")));
+    }
+
+    private static String getMessageString(IConstructor msg) {
+        return ((IString) msg.get("msg")).getValue();
     }
 
     private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {
