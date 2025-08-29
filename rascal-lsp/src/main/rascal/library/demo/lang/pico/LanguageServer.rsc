@@ -38,8 +38,16 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
 import DateTime;
+
+syntax IdType
+    = func: Type returnType Id id "(" {IdType ","}* params ")" "=" Expression body ";"
+    ;
+
+syntax Expression
+    = call: Id id "(" {Expression ","}* args ")"
+    ;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,7 +69,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    codeAction(picoCodeActionService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
