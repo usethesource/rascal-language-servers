@@ -46,7 +46,6 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
@@ -179,10 +178,6 @@ public class Diagnostics {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, LineColumnOffsetMap thisFile, ColumnMaps otherFiles) {
-        return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), thisFile), otherFiles);
-    }
-
     public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(severityMap.get(d.getName()));
@@ -245,7 +240,7 @@ public class Diagnostics {
         for (IValue elem : messages) {
             IConstructor message = (IConstructor) elem;
             ISourceLocation file = getMessageLocation(message).top();
-            Diagnostic d = translateDiagnostic(message, cm.get(file), cm);
+            Diagnostic d = translateDiagnostic(message, cm);
 
             List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
             lst.add(d);
