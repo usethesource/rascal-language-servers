@@ -37,12 +37,15 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.values.parsetrees.ProductionAdapter;
+import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -50,6 +53,7 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -98,53 +102,99 @@ public class Diagnostics {
         IValueFactory factory = ValueFactoryFactory.getValueFactory();
 
         IList args = TreeAdapter.getArgs(errorTree);
-        ITree skipped = (ITree) args.get(args.size()-1);
+        ITree skipped = (ITree) args.get(args.size() - 1);
 
-        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
+        // spans the error tree from the start and also surrounds the skipped part
+        ISourceLocation completeErrorTreeLoc = TreeAdapter.getLocation(errorTree);
+
+        // spans only the skipped part
         ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+
+        // points at where we had to start skipping. This is typically the same error
+        // location as if no error recovery was done.
+        ISourceLocation stuckLoc = factory.sourceLocation(
+            skippedLoc.top(),
+            skippedLoc.getOffset(),
+            1,
+            skippedLoc.getBeginLine(),
+            skippedLoc.getBeginLine(),
+            skippedLoc.getBeginColumn(),
+            skippedLoc.getBeginColumn() + 1);
+
+        // this spans the recognized prefix until the skipped part
+        ISourceLocation prefixLoc = factory.sourceLocation(
+                completeErrorTreeLoc.top(),
+                completeErrorTreeLoc.getOffset(),
+                skippedLoc.getOffset() - completeErrorTreeLoc.getOffset(),
+                completeErrorTreeLoc.getBeginLine(),
+                skippedLoc.getBeginLine(),
+                completeErrorTreeLoc.getBeginColumn(),
+                skippedLoc.getBeginColumn()
+        );
+
+        String nonterminal = SymbolAdapter.toString(TreeAdapter.getType(errorTree), false);
 
         List<Template> diagnostics = new ArrayList<>();
 
-        // Highlight selected parts of the error tree
-        if (ERROR_LOCATION_HIGHLIGHT != null) {
-            // Just the error location
-            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
-                    skippedLoc.getOffset(), 1,
-                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
-            diagnostics.add(cm -> new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
-                    ERROR_LOCATION_HIGHLIGHT, "parser"));
-        }
+        diagnostics.add(cm -> {
+            var d = new Diagnostic(
+                toRange(stuckLoc, cm),
+                "Parsing got stuck here",
+                DiagnosticSeverity.Error,
+                "parser");
 
-        if (ERROR_TREE_HIGHLIGHT != null) {
-            // The whole error tree
-            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
-        }
+            List<DiagnosticRelatedInformation> related = new ArrayList<>();
 
-        if (PREFIX_HIGHLIGHT != null) {
-            // The recognized prefix
-            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
-            if (prefixLength > 0) {
-                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
-                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
-                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
+            related.add(related(cm, stuckLoc,
+               "It is likely something is extra or missing here, or before this position. However, parsing can also have gone back here searching for a solution."));
+            related.add(related(cm, skippedLoc, "Parsing skipped this part to artificially complete a `" + nonterminal + "` and continue parsing. Something is missing or extra before the end of this part"));
+            related.add(related(cm, prefixLoc, "This part of the `" + nonterminal + "` was still recognized until parsing got stuck."));
+
+            // TODO: replace by ProductionAdapter calls once they are available with the new RC of Rascal
+            IConstructor errorProd = TreeAdapter.getProduction(errorTree);
+            int dot = ((IInteger) errorProd.get("dot")).intValue();
+            IConstructor prod = (IConstructor) errorProd.get("prod");
+
+            if (ProductionAdapter.isDefault(prod)) {
+                IList symbols = ProductionAdapter.getSymbols(prod);
+                IList prefix = symbols.sublist(0, dot);
+                IList postfix = symbols.sublist(dot, symbols.length());
+
+                if (dot == 0) {
+                    related.add(related(cm, stuckLoc, "Experts: no (start of) any alternative of `" + nonterminal + "` could be matched."));
+                }
+
+                related.add(related(cm, completeErrorTreeLoc,
+                    "Experts: the last grammar rule that was tried was `" + nonterminal + "` = "
+                        + prefix.stream()
+                        .map(IConstructor.class::cast)
+                        .map(x -> SymbolAdapter.toString(x, false))
+                        .collect(Collectors.joining(" "))
+                        + "•"
+                        + postfix.stream()
+                        .map(IConstructor.class::cast)
+                        .map(x -> SymbolAdapter.toString(x, false))
+                        .collect(Collectors.joining(" "))
+                ));
             }
-        }
 
-        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
-            // The skipped part
-            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
-        }
+            d.setRelatedInformation(related);
+
+            return d;
+        });
 
         return diagnostics;
+    }
+
+    private static DiagnosticRelatedInformation related(ColumnMaps cm, ISourceLocation loc, String message) {
+        return new DiagnosticRelatedInformation(Locations.toLSPLocation(loc, cm), message);
     }
 
     public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
         IList args = TreeAdapter.getArgs(errorTree);
         ITree skipped = (ITree) args.get(args.size()-1);
-        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
+        String nonterminal = SymbolAdapter.toString(TreeAdapter.getType(errorTree), false);
+        return new Diagnostic(toRange(skipped, cm), "Parsing skipped these characters to complete a " + nonterminal, DiagnosticSeverity.Error, "parser");
     }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
@@ -152,10 +202,10 @@ public class Diagnostics {
             IConstructor error = (IConstructor) e;
             if (error.getName().equals("ParseError")) {
                 ISourceLocation loc = (ISourceLocation) error.get(0);
-                return new Diagnostic(Locations.toRange(loc, cm), "parse error", DiagnosticSeverity.Error, "parser");
+                return new Diagnostic(Locations.toRange(loc, cm), "Parsing got stuck here.", DiagnosticSeverity.Error, "parser");
             }
             else {
-                return new Diagnostic(new Range(new Position(0, 0), new Position(0,0)), "Unknown error : " + e.toString());
+                return new Diagnostic(new Range(new Position(0, 0), new Position(0,0)), "Parsing failed due to an internal error: " + e.toString());
             }
         }
         else {
