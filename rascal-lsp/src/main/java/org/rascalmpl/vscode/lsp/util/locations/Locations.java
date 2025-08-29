@@ -162,8 +162,7 @@ public class Locations {
         }
     }
 
-    public static ISourceLocation toSourceLocation(TextDocumentState doc, Range lspRange, ColumnMaps columns) {
-        var loc = doc.getLocation();
+    public static ISourceLocation toSourceLocation(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
         var map = columns.get(loc);
         var offsets = map.calculateInverseOffsetLength(lspRange.getStart().getLine(), lspRange.getStart().getCharacter(), lspRange.getEnd().getLine(), lspRange.getEnd().getCharacter());
         var rascalBegin = toRascalPosition(loc, lspRange.getStart(), columns);
