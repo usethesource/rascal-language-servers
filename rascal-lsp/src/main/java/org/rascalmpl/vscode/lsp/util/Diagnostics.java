@@ -64,12 +64,6 @@ public class Diagnostics {
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
 
-    // Note: DiagnosticSeverity.Hint only highlightes a single character!
-    private static final DiagnosticSeverity ERROR_LOCATION_HIGHLIGHT = DiagnosticSeverity.Error;
-    private static final DiagnosticSeverity ERROR_TREE_HIGHLIGHT = null;
-    private static final DiagnosticSeverity PREFIX_HIGHLIGHT = null;
-    private static final DiagnosticSeverity SKIPPED_HIGHLIGHT = null;
-
     static {
         severityMap = new HashMap<>();
         severityMap.put("error", DiagnosticSeverity.Error);
@@ -95,7 +89,7 @@ public class Diagnostics {
     }
 
     public static Template generateParseErrorDiagnostic(ParseError e) {
-        return cm -> new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+        return cm -> new Diagnostic(toRange(e, cm), "Parsing got stuck.", DiagnosticSeverity.Error, "parser");
     }
 
     public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
@@ -167,7 +161,7 @@ public class Diagnostics {
                 }
 
                 related.add(related(cm, completeErrorTreeLoc,
-                    "Experts: the last grammar rule that was tried was `" + nonterminal + "` = "
+                    "Experts: the last grammar rule that was tried was `" + nonterminal + " = "
                         + prefix.stream()
                         .map(IConstructor.class::cast)
                         .map(x -> SymbolAdapter.toString(x, false))
@@ -177,6 +171,7 @@ public class Diagnostics {
                         .map(IConstructor.class::cast)
                         .map(x -> SymbolAdapter.toString(x, false))
                         .collect(Collectors.joining(" "))
+                        + "`"
                 ));
             }
 
