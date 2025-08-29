@@ -55,6 +55,7 @@ import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.interpreter.staticErrors.SyntaxError;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.parser.gtd.exception.ParseError;
@@ -189,6 +190,8 @@ public class RascalLanguageServices {
                 throw RuntimeExceptionFactory.io("Could not open " + t[0] + " for reading");
             } catch (ParseError pe) {
                 throw RuntimeExceptionFactory.parseError(pe.getLocation());
+            } catch (SyntaxError se) {
+                throw RuntimeExceptionFactory.parseError(se.getLocation());
             }
         });
     }
