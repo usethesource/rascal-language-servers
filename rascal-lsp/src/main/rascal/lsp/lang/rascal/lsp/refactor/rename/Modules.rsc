@@ -47,7 +47,7 @@ import util::FileSystem;
 import util::Reflective;
 import util::Util;
 
-tuple[type[Tree] as, str desc] asType(moduleId()) = <#QualifiedName, "module name">;
+tuple[type[Tree] as, str desc] asType(moduleId(), _) = <#QualifiedName, "module name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str defName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     set[loc] useFiles = {};

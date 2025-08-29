@@ -54,4 +54,4 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, function
 set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm) =
     {tm.definitions[d] | loc d <- (tm.defines<idRole, defined>)[functionId()], rascalMayOverloadSameName(cursorDefs.defined + d, tm.definitions)};
 
-tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;
+tuple[type[Tree] as, str desc] asType(functionId(), _) = <#Name, "function name">;
