@@ -87,8 +87,8 @@ public class CallHierarchy {
         return VF.constructor(callHierarchyItemCons, List.of(
             VF.string(ci.getName()),
             VF.constructor(TF.constructor(store, DocumentSymbols.symbolKindAdt, ci.getKind().name())),
-            null, // TODO Use generation code from https://github.com/usethesource/rascal-language-servers/pull/677
-            null  // TODO Use generation code from https://github.com/usethesource/rascal-language-servers/pull/677
+            Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
+            Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
         ).toArray(new IValue[0]), Map.of(
             TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
             DETAIL, VF.string(ci.getDetail()),
