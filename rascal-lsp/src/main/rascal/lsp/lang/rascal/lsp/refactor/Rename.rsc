@@ -117,9 +117,9 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
     }
 }
 
-void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
+void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, dt>, str name, Renamer r) {
     escName = normalizeEscaping(name);
-    <t, desc> = asType(role);
+    <t, desc> = asType(role, dt);
     if (tryParseAs(t, escName) is nothing) {
         r.error(at, "<escName> is not a valid <desc>");
     }
@@ -336,9 +336,9 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _,
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     escNewName = normalizeEscaping(newName);
-    for (role <- defs.idRole) {
+    for (<role, dt> <- defs<idRole, defInfo>) {
         hasError = false;
-        <t, desc> = asType(role);
+        <t, desc> = asType(role, dt);
         if (tryParseAs(t, escNewName) is nothing) {
             hasError = true;
             r.error(cursor[0], "\'<escNewName>\' is not a valid <desc>");

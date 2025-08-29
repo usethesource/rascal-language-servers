@@ -29,6 +29,14 @@ module lang::rascal::tests::rename::Constructors
 
 import lang::rascal::tests::rename::TestUtils;
 
+test bool constructorPascalName() = testRenameOccurrences({0}, "", decls ="
+    'data S = foo();
+", newName = "Foo");
+
+test bool constructorUnderscoreName() = testRenameOccurrences({0}, "", decls ="
+    'data S = foo();
+", newName = "_Foo");
+
 test bool extendedConstructor() = testRenameOccurrences({
     byText("Definer", "data Foo = foo(int i);", {0})
   , byText("Extender",
