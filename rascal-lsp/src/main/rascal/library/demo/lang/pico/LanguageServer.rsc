@@ -230,7 +230,7 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
-CompletionSuggestion createVarCompletion(int cursorColumn, loc selectedIdent, IdType decl) {
+CompletionItem createVarCompletion(int cursorColumn, loc selectedIdent, IdType decl) {
     str name = "<decl.id>";
     CompletionEdit edit = completionEdit(
         selectedIdent.begin.column,
@@ -239,10 +239,10 @@ CompletionSuggestion createVarCompletion(int cursorColumn, loc selectedIdent, Id
         name
     );
 
-    return completion(variable(), edit, name, labelDetail="<decl.t>");
+    return completionItem(variableCompletion(), edit, name, labelDetail="<decl.t>");
 }
 
-list[CompletionSuggestion] picoCompletionService(loc cursor, Focus focus, CompletionTrigger trigger) {
+list[CompletionItem] picoCompletionService(loc cursor, Focus focus, CompletionTrigger trigger) {
     str prefix = "<focus[0]>";
     return [createVarCompletion(cursor.begin.column, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
 }

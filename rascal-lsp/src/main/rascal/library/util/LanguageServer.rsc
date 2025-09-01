@@ -287,14 +287,13 @@ The completion service is called with the current cursor location, the focus, an
  These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
 
 We have choosen to support all features of the LSP CompletionItem except:
-* We use "DocumentSymbolKind" instead of introducing a new enum to represent CompletionKind. This is only used to show a tiny icon next to each completion alternative, and the few concept that differ can usually be mapped to some related or more general concept.
 * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
 * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 
 Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 }
 data LanguageService
-    = completion    (list[CompletionSuggestion] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
+    = completion(list[CompletionItem] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
 
 @description{
     Represents a concrete completion proposal that the user can select. The following fields can be used:
@@ -317,8 +316,8 @@ data LanguageService
     * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
     * *command*: Command executed after the completion edits are done. For instance, in some cases it might be practical to move the cursor after the edit.
 }
-data CompletionSuggestion = completion(
-    CompletionKind kind,
+data CompletionItem = completionItem(
+    CompletionItemKind kind,
     CompletionEdit edit,
 
     str label,
@@ -365,21 +364,40 @@ data CompletionEdit = completionEdit(
 );
 
 @description{
-    The lsp *CompletionItemKind* and our ((DocumentSymbolKind)) describe largely the same concepts. As these are only used (in VSCode)
-    to display a tiny icon next to each completion item, the small differences remaining can be overcome by selecting a related
-    or more general concept.
-
-    *CompletionItemKind* but not a ((DocumentSymbolKind)): `Text`, `Unit`, `Value`, `Keyword`, `Snippet`, `Color`, `Reference`, `Folder`, `EnumMember`.
-
-    ((DocumentSymbolKind)) but not a *CompletionItemKind*: `\namespace()`, `\package()`, `\string()`, `\number()`, `\boolean()`, `\array()`, `\object()`, `\key()`, `\null()`, `\enumMember()`.
-    Note that most of these can be mapped on the *CompletionItemKind* `Constant`.
+    Indication of the type of completion that is returned. In VSCode this is used mainly to display a small icon next to each completion item.
 }
-alias CompletionKind = DocumentSymbolKind;
+data CompletionItemKind
+    = textCompletion()
+	| methodCompletion()
+	| functionCompletion()
+	| constructorCompletion()
+	| fieldCompletion()
+	| variableCompletion()
+	| classCompletion()
+	| interfaceCompletion()
+	| moduleCompletion()
+	| propertyCompletion()
+	| unitCompletion()
+	| valueCompletion()
+	| enumCompletion()
+	| keywordCompletion()
+	| snippetCompletion()
+	| colorCompletion()
+	| fileCompletion()
+	| referenceCompletion()
+	| folderCompletion()
+	| enumMemberCompletion()
+	| constantCompletion()
+	| structCompletion()
+	| eventCompletion()
+	| operatorCompletion()
+	| typeParameterCompletion()
+;
 
 @synopsis{
 Manual invocation or invocation by trigger characters
 }
-data CompletionTrigger = invoked() | character();
+data CompletionTrigger = invoked() | character(str trigger);
 
 @synopsis{
     Used to provide either plain text or markup as documentaton for a completion suggestion, or indicate no documentation is provided.
