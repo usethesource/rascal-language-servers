@@ -289,7 +289,7 @@
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
-    "chai": "4.x",
+    "chai": "6.x",
     "esbuild": "0.25.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
