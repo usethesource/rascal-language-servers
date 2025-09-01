@@ -41,6 +41,7 @@ import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -61,6 +62,9 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
+    private static final String PARSER_DIAGNOSTICS_SOURCE = "parser";
+    private static final String PARSE_ERROR_MESSAGE = "Parser could not recognize this code.";
+
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
 
@@ -89,7 +93,7 @@ public class Diagnostics {
     }
 
     public static Template generateParseErrorDiagnostic(ParseError e) {
-        return cm -> new Diagnostic(toRange(e, cm), "Parsing got stuck.", DiagnosticSeverity.Error, "parser");
+        return cm -> new Diagnostic(toRange(e, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
     }
 
     public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
@@ -126,54 +130,20 @@ public class Diagnostics {
                 skippedLoc.getBeginColumn()
         );
 
-        String nonterminal = SymbolAdapter.toString(TreeAdapter.getType(errorTree), false);
-
         List<Template> diagnostics = new ArrayList<>();
 
         diagnostics.add(cm -> {
             var d = new Diagnostic(
                 toRange(stuckLoc, cm),
-                "Parsing got stuck here",
+                PARSE_ERROR_MESSAGE,
                 DiagnosticSeverity.Error,
-                "parser");
+                PARSER_DIAGNOSTICS_SOURCE);
 
             List<DiagnosticRelatedInformation> related = new ArrayList<>();
 
-            related.add(related(cm, stuckLoc,
-               "It is likely something is extra or missing here, or before this position. However, parsing can also have gone back here searching for a solution."));
-            related.add(related(cm, skippedLoc, "Parsing skipped this part to artificially complete a `" + nonterminal + "` and continue parsing. Something is missing or extra before the end of this part."));
-            related.add(related(cm, prefixLoc, "This part of the `" + nonterminal + "` was still recognized until parsing got stuck."));
-
-            // TODO: replace by ProductionAdapter calls once they are available with the new RC of Rascal
-            IConstructor errorProd = TreeAdapter.getProduction(errorTree);
-            int dot = ((IInteger) errorProd.get("dot")).intValue();
-            IConstructor prod = (IConstructor) errorProd.get("prod");
-
-            if (ProductionAdapter.isDefault(prod)) {
-                IList symbols = ProductionAdapter.getSymbols(prod);
-                IList prefix = symbols.sublist(0, dot);
-                IList postfix = symbols.sublist(dot, symbols.length());
-
-                related.add(related(cm, stuckLoc, "Experts: a `" + nonterminal + "` was the last but probably not the only grammar rule that was tried at this position."));
-
-                if (dot == 0) {
-                    related.add(related(cm, stuckLoc, "Experts: no (start of) any alternative of `" + nonterminal + "` could be matched."));
-                }
-
-                related.add(related(cm, completeErrorTreeLoc,
-                    "Experts: the last grammar rule that was tried was `" + nonterminal + " = "
-                        + prefix.stream()
-                        .map(IConstructor.class::cast)
-                        .map(x -> SymbolAdapter.toString(x, false))
-                        .collect(Collectors.joining(" "))
-                        + "•"
-                        + postfix.stream()
-                        .map(IConstructor.class::cast)
-                        .map(x -> SymbolAdapter.toString(x, false))
-                        .collect(Collectors.joining(" "))
-                        + "`"
-                ));
-            }
+            related.add(related(cm, stuckLoc, "It is likely something is extra or missing here, or around this position."));
+            related.add(related(cm, skippedLoc, "Parsing skipped this part to be able to continue parsing."));
+            related.add(related(cm, prefixLoc, "This part was still recognized."));
 
             d.setRelatedInformation(related);
 
@@ -187,27 +157,16 @@ public class Diagnostics {
         return new DiagnosticRelatedInformation(Locations.toLSPLocation(loc, cm), message);
     }
 
-    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
-        IList args = TreeAdapter.getArgs(errorTree);
-        ITree skipped = (ITree) args.get(args.size()-1);
-        String nonterminal = SymbolAdapter.toString(TreeAdapter.getType(errorTree), false);
-        return new Diagnostic(toRange(skipped, cm), "Parsing skipped these characters to complete a " + nonterminal, DiagnosticSeverity.Error, "parser");
-    }
-
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
             IConstructor error = (IConstructor) e;
-            if (error.getName().equals("ParseError")) {
+            if (error.getName().equals(RuntimeExceptionFactory.ParseError.getName())) {
                 ISourceLocation loc = (ISourceLocation) error.get(0);
-                return new Diagnostic(Locations.toRange(loc, cm), "Parsing got stuck here.", DiagnosticSeverity.Error, "parser");
-            }
-            else {
-                return new Diagnostic(new Range(new Position(0, 0), new Position(0,0)), "Parsing failed due to an internal error: " + e.toString());
+                return new Diagnostic(Locations.toRange(loc, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
             }
         }
-        else {
-            throw new IllegalArgumentException(e.toString());
-        }
+
+        throw new IllegalArgumentException(e.toString());
     }
 
     private static void storeFixCommands(IConstructor d, Diagnostic result) {
