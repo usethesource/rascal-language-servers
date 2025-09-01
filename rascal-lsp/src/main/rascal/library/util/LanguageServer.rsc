@@ -288,6 +288,17 @@ data LanguageService
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
 
+@synopsis{A node in a call hierarchy, either a caller or a callee.}
+@description{
+A ((CallHierarchyItem)) represents a single function, method, or procedure in the call hierarchy.
+* `name` is the name of the callable/calling entity.
+* `kind` is the ((DocumentSymbolKind)) of the callable/calling entity, e.g., function, method, constructor, etc.
+* `src` is the location of the definition of the callable/calling entity.
+* `selection` is the location of the name of the definition of the callable/calling entity, or another range within `src` to select when the hierarchy item is clicked.
+* `tags` are additional metadata tags for the item, e.g., `deprecated`.
+* `detail` has additional information about the callable/calling entity, e.g., the function signature.
+* `data` can be used to store state that is shared between the `prepareService` and `callsService`.
+}
 data CallHierarchyItem
     = callHierarchyItem(
         str name,
