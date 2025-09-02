@@ -640,13 +640,12 @@ and input are computed in-sync.
 * ((util::IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
 or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
 }
-data CodeAction
-    = action(
-        list[DocumentEdit] edits = [],
-        Command command          = noop(),
-        str title                = command.title,
-        CodeActionKind kind      = quickfix()
-    );
+data CodeAction(
+    list[DocumentEdit] edits = [],
+    Command command          = noop(),
+    str title                = command.title,
+    CodeActionKind kind      = quickfix())
+    = action();
 
 @synopsis{Kinds are used to prioritize menu options and choose relevant icons in the UI.}
 @description{
