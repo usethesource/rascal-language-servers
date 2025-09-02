@@ -422,10 +422,6 @@ public class SemanticTokenizer {
             }
 
             IConstructor prod = TreeAdapter.getProduction(tree);
-            if (category == null && ProductionAdapter.isSkipped(tree)) {
-                category = SemanticTokenTypes.Comment;
-            }
-
             if (category == null && ProductionAdapter.isDefault(prod)) {
                 category = ProductionAdapter.getCategory(prod);
             }

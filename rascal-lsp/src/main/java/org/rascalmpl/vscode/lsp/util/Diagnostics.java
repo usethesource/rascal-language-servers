@@ -39,14 +39,11 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.values.parsetrees.ProductionAdapter;
-import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
@@ -54,7 +51,6 @@ import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -63,7 +59,7 @@ import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
     private static final String PARSER_DIAGNOSTICS_SOURCE = "parser";
-    private static final String PARSE_ERROR_MESSAGE = "Parser could not recognize this code.";
+    private static final String PARSE_ERROR_MESSAGE = "The parser couldn't fully understand this code.";
 
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
@@ -142,8 +138,8 @@ public class Diagnostics {
             List<DiagnosticRelatedInformation> related = new ArrayList<>();
 
             related.add(related(cm, stuckLoc, "It is likely something is extra or missing here, or around this position."));
-            related.add(related(cm, skippedLoc, "Parsing skipped this part to be able to continue parsing."));
-            related.add(related(cm, prefixLoc, "This part was still recognized."));
+            related.add(related(cm, skippedLoc, "This part was skipped to recover and continue parsing."));
+            related.add(related(cm, prefixLoc, "This part was still partially recognized."));
 
             d.setRelatedInformation(related);
 
