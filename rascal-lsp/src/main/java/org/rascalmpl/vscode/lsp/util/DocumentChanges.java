@@ -101,7 +101,8 @@ public class DocumentChanges {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
-                var range = locationToRange(docService, (ISourceLocation) c.get("range"));
+                var loc = (ISourceLocation) c.get("range");
+                var range = Locations.toRange(loc, docService.getColumnMap(loc));
                 var replacement = ((IString) c.get("replacement")).getValue();
                 // Check annotation
                 var kw = c.asWithKeywordParameters();
@@ -123,11 +124,6 @@ public class DocumentChanges {
                 return new TextEdit(range, replacement);
             })
             .collect(Collectors.toList());
-    }
-
-    public static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
-        LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
-        return Locations.toRange(loc, columnMap);
     }
 
     private static String getFileURI(IConstructor edit, String label) {
