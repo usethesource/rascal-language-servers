@@ -61,7 +61,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
-    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions);
+    public InterruptibleFuture<IList> formatting(IList input, IConstructor formattingOptions);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);

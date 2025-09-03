@@ -114,6 +114,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -413,7 +414,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
-        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);;
+        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);
         return getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
@@ -736,34 +737,54 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         logger.debug("Formatting: {}", params);
-        return format(params.getTextDocument(), null, params.getOptions());
-    }
 
-    @Override
-    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
-        logger.debug("Formatting range: {}", params);
-        return format(params.getTextDocument(), params.getRange(), params.getOptions());
-    }
-
-    private CompletableFuture<List<? extends TextEdit>> format(TextDocumentIdentifier uri, @Nullable Range range, FormattingOptions options) {
+        TextDocumentIdentifier uri = params.getTextDocument();
         final ILanguageContributions contribs = contributions(uri);
-
-        // convert the `FormattingOptions` map to a `set[FormattingOption]`
-        IConstructor optSet = getFormattingOptions(options);
 
         // call the `formatting` implementation of the relevant language contribution
         return getFile(uri)
             .getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenCompose(tree -> {
-                // range to Rascal loc
-                ISourceLocation loc = range == null
-                    ? TreeAdapter.getLocation(tree)
-                    : null; // TODO map Range to ISourceLocation
-                return contribs.formatting(tree, loc, optSet).get();
+                final var opts = getFormattingOptions(params.getOptions());
+                return contribs.formatting(VF.list(tree), opts).get();
+            })
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
+        logger.debug("Formatting range: {}", params);
+
+        TextDocumentIdentifier uri = params.getTextDocument();
+        Range range = params.getRange();
+        final ILanguageContributions contribs = contributions(uri);
+
+        // call the `formatting` implementation of the relevant language contribution
+        var fileState = getFile(uri);
+        return fileState
+            .getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> {
+                // just a range
+                var start = Locations.toRascalPosition(uri, range.getStart(), columns);
+                var end = Locations.toRascalPosition(uri, range.getEnd(), columns);
+                // compute the focus list at the end of the range
+                var focus = TreeSearch.computeFocusList(tree, end.getLine(), end.getCharacter())
+                    .stream()
+                    .map(ITree.class::cast)
+                    // check for containment of the start of the range
+                    .filter(t -> Ranges.containsPosition(Locations.toRange(TreeAdapter.getLocation(t), columns), start))
+                    .collect(VF.listWriter());
+
+                var opts = getFormattingOptions(params.getOptions());
+                return contribs.formatting(focus, opts).get();
             })
             // convert the document changes
-            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of())
+                .stream()
+                .filter(e -> Ranges.containsRange(range, e.getRange()))
+                .collect(Collectors.toList()));
     }
 
     private IConstructor getFormattingOptions(FormattingOptions options) {

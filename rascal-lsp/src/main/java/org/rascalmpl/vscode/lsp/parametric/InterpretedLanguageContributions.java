@@ -396,9 +396,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions) {
-        debug(LanguageContributions.FORMATTING, input != null ? TreeAdapter.getLocation(input) : null, formattingOptions);
-        return execFunction(LanguageContributions.FORMATTING, formatting, VF.list(), input, loc, formattingOptions);
+    public InterruptibleFuture<IList> formatting(IList focus, IConstructor formattingOptions) {
+        debug(LanguageContributions.FORMATTING, focus.size(), formattingOptions);
+        return execFunction(LanguageContributions.FORMATTING, formatting, VF.list(), focus, formattingOptions);
     }
 
     private void debug(String name, Object param) {
