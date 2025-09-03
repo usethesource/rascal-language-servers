@@ -133,9 +133,13 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void applyDocumentsEdits(IList edits) {
-        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, edits)));
+        applyFileSystemEdits(edits);
     }
 
+    @Override
+    public void applyFileSystemEdits(IList edits) {
+        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, edits)));
+    }
 
     @Override
     public void registerLocations(IString scheme, IString auth, IMap map) {
@@ -144,7 +148,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerDiagnostics(IList messages) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService);
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             String uri = entry.getKey().getURI().toString();

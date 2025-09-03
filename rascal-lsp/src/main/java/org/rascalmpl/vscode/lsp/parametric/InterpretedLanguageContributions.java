@@ -350,7 +350,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
         debug(LanguageContributions.DID_RENAME_FILES, fileRenames);
-        return execFunction(LanguageContributions.DID_RENAME_FILES, didRenameFiles, VF.tuple(VF.list(), VF.list()), fileRenames);
+        return execFunction(LanguageContributions.DID_RENAME_FILES, didRenameFiles, VF.tuple(VF.list(), VF.set()), fileRenames);
     }
 
     @Override

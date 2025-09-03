@@ -28,6 +28,7 @@
         "eqeqeq": "warn",
         "no-throw-literal": "warn",
         "semi": "off",
-        "no-unused-vars": "off"
+        "no-unused-vars": "off",
+        "no-console": "error"
     }
 }

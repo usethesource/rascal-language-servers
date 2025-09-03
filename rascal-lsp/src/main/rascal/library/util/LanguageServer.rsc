@@ -99,7 +99,7 @@ in between is a spine of language constructs ((Library:ParseTree)) nodes between
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
 This means that:
-* every next element in the list is one of the children of the previous.
+* every next element in the list is (one of) the parents of the previous.
 * typically the list starts with a smallest tree and ends with the entire `start` tree.
 * singleton lists may occur in case the cursor is on a layout or literal element of the top production.
 * the `start[X]` tree is typically preceded by the `X` tree.
@@ -218,7 +218,7 @@ leaf all the way up to the root of the tree. This list helps to create functiona
 programmer.
 
 To start developing an LSP extension step-by-step:
-1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL)) to
+1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL-REPL)) to
 test it immediately. Create some example files for your language to play around with.
 2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((references)) and ((implementation))
 lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((builder)).
@@ -233,7 +233,7 @@ your own ((CodeAction))s and Commands
 @benefits{
 * You can create editor services thinking only of your programming language or domain-specific language constructs. All of the communication
 and (de)serialization and scheduling is taken care of.
-* It is always possible and useful to test your services manually in the ((REPL)). This is the preferred way of testing and debugging language services.
+* It is always possible and useful to test your services manually in the ((REPL-REPL)). This is the preferred way of testing and debugging language services.
 * Except for the ((parsing)) service, all services are independent of each other. If one fails, or is removed, the others still work.
 * Language services in general can be unit-tested easily by providing example parse trees and testing properties of their output. Write lots of test functions!
 * LanguageServices are editor-independent/IDE-independent via the LSP protocol. In principle they can work with any editor that implements LSP 3.17 or higher.
@@ -640,13 +640,12 @@ and input are computed in-sync.
 * ((util::IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
 or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
 }
-data CodeAction
-    = action(
-        list[DocumentEdit] edits = [],
-        Command command          = noop(),
-        str title                = command.title,
-        CodeActionKind kind      = quickfix()
-    );
+data CodeAction(
+    list[DocumentEdit] edits = [],
+    Command command          = noop(),
+    str title                = command.title,
+    CodeActionKind kind      = quickfix())
+    = action();
 
 @synopsis{Kinds are used to prioritize menu options and choose relevant icons in the UI.}
 @description{

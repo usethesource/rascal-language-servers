@@ -151,7 +151,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerDiagnostics(RegisterDiagnosticsParameters param) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService);
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             String uri = entry.getKey().getURI().toString();

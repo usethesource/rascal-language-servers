@@ -61,10 +61,14 @@ void renameDefinitionUnchecked(Define d: <_, _, _, lexicalId(), _, _>, loc _, st
 }
 
 // Non-terminals
-tuple[type[Tree] as, str desc] asType(nonterminalId()) = <#Nonterminal, "production name">;
+tuple[type[Tree] as, str desc] asType(nonterminalId(), _) = <#Nonterminal, "production name">;
 
 // Lexicals
-tuple[type[Tree] as, str desc] asType(lexicalId()) = <#Nonterminal, "production name">;
+tuple[type[Tree] as, str desc] asType(lexicalId(), _) = <#Nonterminal, "production name">;
+
+// Grammar constructors
+tuple[type[Tree] as, str desc] asType(constructorId(), defType(acons(aadt(_, _, syntaxRole), _, _))) = <#NonterminalLabel, "grammar constructor name">
+    when !syntaxRole is dataSyntax;
 
 TModel augmentExceptProductions(Tree tr, TModel tm, TModel(loc) tmodelForLoc) {
     top-down-break visit (tr) {

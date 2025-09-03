@@ -174,11 +174,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final @Nullable LanguageParameter dedicatedLanguage;
 
-    // Create "renamed" constructor of "DocumentEdit" so we can build a list of DocumentEdit objects for didRenameFiles
+    // Create "renamed" constructor of "FileSystemChange" so we can build a list of DocumentEdit objects for didRenameFiles
     private final TypeStore typeStore = new TypeStore();
     private final TypeFactory tf = TypeFactory.getInstance();
     private final Type renamedConstructor = tf.constructor(typeStore,
-            tf.abstractDataType(typeStore, "DocumentEdit"), "renamed", tf.sourceLocationType(), "from",
+            tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
@@ -197,6 +197,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             this.dedicatedLanguage = dedicatedLanguage;
         }
         FallbackResolver.getInstance().registerTextDocumentService(this);
+    }
+
+    @Override
+    public ColumnMaps getColumnMaps() {
+        return columns;
     }
 
     @Override

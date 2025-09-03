@@ -160,6 +160,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
+    public ColumnMaps getColumnMaps() {
+        return columns;
+    }
+
+    @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
         return columns.get(file);
     }
