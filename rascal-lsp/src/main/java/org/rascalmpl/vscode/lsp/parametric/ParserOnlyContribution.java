@@ -190,7 +190,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> formatting(ITree input, ISourceLocation loc, IConstructor formattingOptions) {
+    public InterruptibleFuture<IList> formatting(IList focus, IConstructor formattingOptions) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 

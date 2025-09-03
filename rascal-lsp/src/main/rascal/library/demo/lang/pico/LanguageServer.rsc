@@ -75,9 +75,9 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     formatting(picoFormattingService)
 };
 
-list[TextEdit] picoFormattingService(Tree input, loc range, FormattingOptions opts) {
-    str original = "<input>";
-    box = toBox(input);
+list[TextEdit] picoFormattingService(Focus input, FormattingOptions opts) {
+    str original = "<input[-1]>";
+    box = toBox(input[-1]);
     box = visit (box) { case i:I(_) => i[is=opts.tabSize] }
     formatted = format(box);
 
@@ -102,10 +102,13 @@ list[TextEdit] picoFormattingService(Tree input, loc range, FormattingOptions op
     }
 
     // compute layout differences as edits, and restore comments
-    edits = layoutDiff(input, parse(#start[Program], formatted, input@\loc.top));
+    edits = layoutDiff(input[-1], parse(#start[Program], formatted, input[-1]@\loc.top));
 
     // instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
-    return [e | e <- edits, isContainedIn(e.range, range)];
+    loc range = input[0]@\loc;
+    filteredEdits = [e | e <- edits, isContainedIn(e.range, range)];
+
+    return filteredEdits;
 }
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);

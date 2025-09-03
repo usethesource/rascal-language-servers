@@ -278,7 +278,7 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
-    | formatting    (list[TextEdit](Tree _input, loc range, FormattingOptions _opts) formattingService)
+    | formatting    (list[TextEdit](Focus _focus, FormattingOptions _opts) formattingService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
