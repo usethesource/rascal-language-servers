@@ -91,20 +91,23 @@ public class Diagnostics {
     }
 
     public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
-        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+        final IValueFactory factory = ValueFactoryFactory.getValueFactory();
 
-        IList args = TreeAdapter.getArgs(errorTree);
-        ITree skipped = (ITree) args.get(args.size() - 1);
+        final IList args = TreeAdapter.getArgs(errorTree);
+        final ITree skipped = (ITree) args.get(args.size() - 1);
 
         // spans the error tree from the start and also surrounds the skipped part
-        ISourceLocation completeErrorTreeLoc = TreeAdapter.getLocation(errorTree);
+        final ISourceLocation completeErrorTreeLoc = TreeAdapter.getLocation(errorTree);
+
+        final ISourceLocation exactErrorLocation = (ISourceLocation) errorTree.asWithKeywordParameters().getParameter("parseError");
 
         // spans only the skipped part
-        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+        final ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
 
-        // points at where we had to start skipping. This is typically the same error
-        // location as if no error recovery was done.
-        ISourceLocation stuckLoc = factory.sourceLocation(
+        // points at where we had to start skipping. This is typically close to error
+        // location as if no error recovery was done, but not exactly due to a little bit of backtracking
+        // at the leaves of the parsing stack.
+        final ISourceLocation stuckLoc = factory.sourceLocation(
             skippedLoc.top(),
             skippedLoc.getOffset(),
             1,
@@ -114,7 +117,7 @@ public class Diagnostics {
             skippedLoc.getBeginColumn() + 1);
 
         // this spans the recognized prefix until the skipped part
-        ISourceLocation prefixLoc = factory.sourceLocation(
+        final ISourceLocation prefixLoc = factory.sourceLocation(
                 completeErrorTreeLoc.top(),
                 completeErrorTreeLoc.getOffset(),
                 skippedLoc.getOffset() - completeErrorTreeLoc.getOffset(),
@@ -124,16 +127,17 @@ public class Diagnostics {
                 skippedLoc.getBeginColumn()
         );
 
-        List<Template> diagnostics = new ArrayList<>();
+        final List<Template> diagnostics = new ArrayList<>();
 
         diagnostics.add(cm -> {
-            var d = new Diagnostic(
-                toRange(stuckLoc, cm),
+            final var d = new Diagnostic(
+                // stuckloc is here for backward compatibility (before parseError was registered on an error tree)
+                toRange(exactErrorLocation != null ? exactErrorLocation : stuckLoc, cm),
                 PARSE_ERROR_MESSAGE,
                 DiagnosticSeverity.Error,
                 PARSER_DIAGNOSTICS_SOURCE);
 
-            List<DiagnosticRelatedInformation> related = new ArrayList<>();
+            final List<DiagnosticRelatedInformation> related = new ArrayList<>();
 
             related.add(related(cm, stuckLoc, "It is likely something is extra or missing here, or around this position."));
             related.add(related(cm, skippedLoc, "This part was skipped to recover and continue parsing."));
