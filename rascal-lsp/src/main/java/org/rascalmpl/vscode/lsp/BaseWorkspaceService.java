@@ -105,7 +105,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
         WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
         if (clientWorkspaceCap != null) {
-            if (clientWorkspaceCap.getWorkspaceFolders()) {
+            if (clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
                 var folderOptions = new WorkspaceFoldersOptions();
                 folderOptions.setSupported(true);
                 folderOptions.setChangeNotifications(true);
@@ -118,11 +118,11 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 .collect(Collectors.toList())
             );
             boolean watchesSet = false;
-            if (clientWorkspaceCap.getFileOperations().getDidRename()) {
+            if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
                 fileOperationCapabilities.setDidRename(whichFiles);
                 watchesSet = true;
             }
-            if (clientWorkspaceCap.getFileOperations().getDidDelete()) {
+            if (clientWorkspaceCap.getFileOperations().getDidDelete().booleanValue()) {
                 fileOperationCapabilities.setDidDelete(whichFiles);
                 watchesSet = true;
             }
