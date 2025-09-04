@@ -89,7 +89,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, !hasParseErrors(var)]
+      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, var.id?]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
