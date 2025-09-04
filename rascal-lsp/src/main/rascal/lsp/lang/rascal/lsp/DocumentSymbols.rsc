@@ -45,7 +45,7 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
     top-down-break visit (m) {
         case amb(set[Tree] _): {/* stop here, and do not show this node not its children in the outline */;}
         case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
-            children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars, !hasParseErrors(v)];
+            children += [symbol(clean("<v.name>"), variable(), v@\loc, detail="variable <t> <v>") | v <- vars, v.name?];
 
         case decl: (Declaration) `<Tags _> <Visibility _> anno <Type t> <Type ot>@<Name name>;`:
             if (!hasParseErrors(decl)) {
@@ -79,7 +79,7 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
         }
 
         case FunctionDeclaration func :
-            if (!hasParseErrors(func)) {
+            if (func.signature? && !hasParseErrors(func.signature)) {
                 children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature)@\loc, detail="<func.signature.\type>")];
             }
 
