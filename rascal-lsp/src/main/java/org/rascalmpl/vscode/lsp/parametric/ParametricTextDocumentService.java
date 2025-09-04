@@ -71,6 +71,7 @@ import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.InlayHint;
 import org.eclipse.lsp4j.InlayHintKind;
 import org.eclipse.lsp4j.InlayHintParams;
@@ -263,6 +264,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             // if there was one scheduled, we now start it up, since the connection has been made
             this.registerLanguage(dedicatedLanguage);
         }
+    }
+
+    @Override
+    public void initialized(InitializedParams params) {
+        // reserved for future use
+        // e.g. dynamic registration of capabilities
     }
 
     // LSP interface methods

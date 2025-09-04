@@ -65,6 +65,7 @@ import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
@@ -216,6 +217,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         this.rascalServices = new RascalLanguageServices(this, workspaceService, (IBaseLanguageClient) client, ownExecuter);
         this.facts = new FileFacts(ownExecuter, rascalServices, columns);
         facts.setClient(client);
+    }
+
+    @Override
+    public void initialized(InitializedParams params) {
+        // reserved for future use
+        // e.g. dynamic registration of capabilities
     }
 
     // LSP interface methods
