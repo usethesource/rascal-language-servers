@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -51,6 +52,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
+    void initialized(InitializedParams params);
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
     CompletableFuture<IValue> executeCommand(String languageName, String command);
