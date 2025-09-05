@@ -201,12 +201,12 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
         await lens!.click();
 
-        await sleep(1000);
-        await ide.screenshot('show-message-works');
+        // await sleep(1000);
+        // await ide.screenshot('show-message-works');
 
         await driver.wait(async () => {
-            await sleep(1000);
-            await ide.screenshot('show-message-works-while-waiting');
+            // await sleep(1000);
+            // await ide.screenshot('show-message-works-while-waiting');
             const notifications = await bench.getNotifications();
             console.log(`${notifications.length} notifications...`);
             for (const notification of notifications) {
