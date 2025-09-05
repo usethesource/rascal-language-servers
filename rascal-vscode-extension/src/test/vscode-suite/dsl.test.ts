@@ -204,7 +204,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             const notifications = await new Workbench().getNotifications();
             for (const notification of notifications) {
                 const message = await notification.getMessage();
-                console.log(message);
                 if (message.startsWith("Info message")) {
                     return true;
                 }
