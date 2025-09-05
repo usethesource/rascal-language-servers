@@ -110,6 +110,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
@@ -391,36 +392,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private void showMessages(ISet messages) {
         for (var msg : messages) {
-            client.showMessage(setMessageParams((IConstructor) msg));
+            client.showMessage(LSPIDEServices.toMessageParams((IConstructor) msg));
         }
-    }
-
-    private MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "error": {
-                params.setType(MessageType.Error);
-                break;
-            }
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = ((ISourceLocation) message.get("at")).getURI();
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-        return params;
     }
 
     @Override

@@ -37,6 +37,8 @@ import java.util.Map.Entry;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -75,6 +77,34 @@ public class LSPIDEServices implements IDEServices {
         this.docService = docService;
         this.logger = logger;
         this.monitor = monitor;
+    }
+
+    public static MessageParams toMessageParams(IConstructor message) {
+        var params = new MessageParams();
+        switch (message.getName()) {
+            case "error": {
+                params.setType(MessageType.Error);
+                break;
+            }
+            case "warning": {
+                params.setType(MessageType.Warning);
+                break;
+            }
+            case "info": {
+                params.setType(MessageType.Info);
+                break;
+            }
+            default: params.setType(MessageType.Log);
+        }
+
+        var msgText = ((IString) message.get("msg")).getValue();
+        if (message.has("at")) {
+            var at = ((ISourceLocation) message.get("at")).getURI();
+            params.setMessage(String.format("%s (at %s)", msgText, at));
+        } else {
+            params.setMessage(msgText);
+        }
+        return params;
     }
 
     @Override
