@@ -220,60 +220,60 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.verySlow, "The info message should be shown after clicking the lens");
     });
 
-    // it("quick fix works", async function() {
-    //     if (errorRecovery) { this.skip(); }
-    //     const editor = await ide.openModule(TestWorkspace.picoFile);
-    //     await editor.setTextAtLine(9, "  az := 2;");
-    //     await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
-    //     await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
+    it("quick fix works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(9, "  az := 2;");
+        await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
-    //     try {
-    //         await ide.triggerFirstCodeAction(editor, 'Change to a');
-    //         await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
-    //     }
-    //     finally {
-    //         await ide.revertOpenChanges();
-    //     }
-    // });
+        try {
+            await ide.triggerFirstCodeAction(editor, 'Change to a');
+            await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    });
 
-    // it("rename works", async function() {
-    //     if (errorRecovery) { this.skip(); }
-    //     const editor = await ide.openModule(TestWorkspace.picoFile);
-    //     await editor.moveCursor(5, 6);
+    it("rename works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(5, 6);
 
-    //     ide.renameSymbol(editor, bench, "z");
+        ide.renameSymbol(editor, bench, "z");
 
-    //     await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
+        await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
-    //     const editorText = await editor.getText();
-    //     expect(editorText).to.contain("z : natural");
-    //     expect(editorText).to.contain("z := 2");
-    // });
+        const editorText = await editor.getText();
+        expect(editorText).to.contain("z : natural");
+        expect(editorText).to.contain("z := 2");
+    });
 
-    // it("renaming files works", async function() {
-    //     if (errorRecovery) { this.skip(); }
-    //     const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
-    //     const fromFile = path.join(newDir, "testing.pico");
-    //     const toDir = path.join(newDir, "dest");
-    //     await fs.mkdir(toDir, {recursive: true});
+    it("renaming files works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+        const fromFile = path.join(newDir, "testing.pico");
+        const toDir = path.join(newDir, "dest");
+        await fs.mkdir(toDir, {recursive: true});
 
-    //     const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-    //     await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
-    //     const workspace = await explorer.getContent().getSection("test (Workspace)");
-    //     await workspace.expand();
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
 
-    //     await fs.copyFile(TestWorkspace.picoFile, fromFile);
+        await fs.copyFile(TestWorkspace.picoFile, fromFile);
 
-    //     // Open the test file before moving it, so we have the editor ready to inspect afterwards
-    //     const testFile = await ide.openModule(fromFile);
+        // Open the test file before moving it, so we have the editor ready to inspect afterwards
+        const testFile = await ide.openModule(fromFile);
 
-    //     await ide.moveFile("testing.pico", "dest", bench);
+        await ide.moveFile("testing.pico", "dest", bench);
 
-    //     await driver.wait(async() => {
-    //         const text = await testFile.getText();
-    //         return text.indexOf("%% File moved from") !== -1;
-    //     }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
+        await driver.wait(async() => {
+            const text = await testFile.getText();
+            return text.indexOf("%% File moved from") !== -1;
+        }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
-    //     await fs.rm(newDir, {recursive: true, force: true});
-    // });
+        await fs.rm(newDir, {recursive: true, force: true});
+    });
 });
