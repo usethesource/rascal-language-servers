@@ -195,7 +195,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
-    it.only("show message works", async function() {
+    it("show message works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
@@ -205,6 +205,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.screenshot('show-message-works');
 
         await driver.wait(async () => {
+            await sleep(1000);
+            await ide.screenshot('show-message-works-while-waiting');
             const notifications = await new Workbench().getNotifications();
             for (const notification of notifications) {
                 const message = await notification.getMessage();
