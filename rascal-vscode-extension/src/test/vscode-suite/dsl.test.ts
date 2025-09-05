@@ -195,7 +195,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
-    it.only("show message works", async function() {
+    it("show message works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
