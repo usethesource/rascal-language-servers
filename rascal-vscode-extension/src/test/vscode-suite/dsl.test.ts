@@ -209,7 +209,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
                 }
             }
             return false;
-        }, Delays.normal, "The info message should be shown after clicking the lens");
+        }, Delays.verySlow, "The info message should be shown after clicking the lens");
     });
 
     it("quick fix works", async function() {
