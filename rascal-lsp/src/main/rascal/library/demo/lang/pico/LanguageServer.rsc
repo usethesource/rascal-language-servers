@@ -197,8 +197,9 @@ value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved
 }
 
 @synopsis{Command handler to show an info message}
-void picoExecutionService(showInfoMessage(start[Program] program)) {
+value picoExecutionService(showInfoMessage(start[Program] program)) {
     showMessage(info("Info message", program.src));
+    return ("result": true);
 }
 
 @synopsis{Prepares the rename service by checking if the id can be renamed}
