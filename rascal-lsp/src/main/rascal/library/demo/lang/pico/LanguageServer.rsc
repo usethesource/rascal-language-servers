@@ -159,11 +159,15 @@ default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
+  | showInfoMessage(start[Program] program)
   ;
 
 @synopsis{Adds an example lense to the entire program.}
 lrel[loc,Command] picoCodeLenseService(start[Program] input)
-    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
+    = [
+        <input@\loc, renameAtoB(input, title="Rename variables a to b.")>,
+        <input@\loc, showInfoMessage(input, title="Show info message.")>
+    ];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoInlayHintService(start[Program] input) {
@@ -189,6 +193,12 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
     applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
+    return ("result": true);
+}
+
+@synopsis{Command handler to show an info message}
+value picoExecutionService(showInfoMessage(start[Program] program)) {
+    showMessage(info("Info message", program.src));
     return ("result": true);
 }
 
