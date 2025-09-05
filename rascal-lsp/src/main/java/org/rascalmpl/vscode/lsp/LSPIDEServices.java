@@ -79,6 +79,11 @@ public class LSPIDEServices implements IDEServices {
         this.monitor = monitor;
     }
 
+    @Override
+    public void showMessage(IConstructor message) {
+        languageClient.showMessage(toMessageParams(message));
+    }
+
     public static MessageParams toMessageParams(IConstructor message) {
         var params = new MessageParams();
         switch (message.getName()) {
