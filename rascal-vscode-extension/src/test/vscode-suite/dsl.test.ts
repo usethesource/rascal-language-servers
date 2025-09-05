@@ -200,22 +200,11 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
         await lens!.click();
-
-        // await sleep(1000);
-        // await ide.screenshot('show-message-works');
-
         await driver.wait(async () => {
-            // await sleep(1000);
-            // await ide.screenshot('show-message-works-while-waiting');
-
             const notificationCenter = await new Workbench().openNotificationsCenter();
             const notifications = await notificationCenter.getNotifications(NotificationType.Info);
-            // const notifications = await new Workbench().getNotifications();
-
-            // console.log(`${notifications.length} notifications...`);
             for (const notification of notifications) {
                 const message = await notification.getMessage();
-                // console.log(` - Message: ${message}`);
                 if (message.startsWith("Info message")) {
                     await notificationCenter.clearAllNotifications();
                     return true;
