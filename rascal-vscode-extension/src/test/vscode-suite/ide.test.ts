@@ -151,9 +151,10 @@ describe('IDE', function () {
 
         await editor.selectText("&T", 1);
         await bench.executeCommand("Go to Definition");
-        const jumpLoc = await editor.getCoordinates();
-
-        expect(jumpLoc).to.deep.equal(defLoc);
+        await driver.wait(async () => {
+            const jumpLoc = await editor.getCoordinates();
+            return defLoc[0] == jumpLoc[0] && defLoc[1] == jumpLoc[1];
+        }, Delays.slow, "We should jump to the right position");
     });
 
     it("go to definition works across projects", async () => {
