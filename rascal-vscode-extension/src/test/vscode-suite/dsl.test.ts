@@ -35,7 +35,7 @@ import { expect } from 'chai';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
-    // describe('DSL+recovery', function() { body.apply(this, [true]); });
+    describe('DSL+recovery', function() { body.apply(this, [true]); });
 }
 
 parameterizedDescribe(function (errorRecovery: boolean) {
