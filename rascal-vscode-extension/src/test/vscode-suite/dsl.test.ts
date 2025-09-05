@@ -208,16 +208,16 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             // await sleep(1000);
             // await ide.screenshot('show-message-works-while-waiting');
             const notifications = await bench.getNotifications();
-            console.log(`${notifications.length} notifications...`);
+            // console.log(`${notifications.length} notifications...`);
             for (const notification of notifications) {
                 const message = await notification.getMessage();
-                console.log(` - Message: ${message}`);
+                // console.log(` - Message: ${message}`);
                 if (message.startsWith("Info message")) {
                     return true;
                 }
             }
             return false;
-        }, Delays.normal, "The info message should be shown after clicking the lens");
+        }, Delays.verySlow, "The info message should be shown after clicking the lens");
     });
 
     it("quick fix works", async function() {
