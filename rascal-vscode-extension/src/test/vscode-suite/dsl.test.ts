@@ -207,7 +207,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => {
             await sleep(1000);
             await ide.screenshot('show-message-works-while-waiting');
-            const notifications = await new Workbench().getNotifications();
+            const notifications = await bench.getNotifications();
             console.log(`${notifications.length} notifications...`);
             for (const notification of notifications) {
                 const message = await notification.getMessage();
@@ -217,7 +217,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
                 }
             }
             return false;
-        }, Delays.verySlow, "The info message should be shown after clicking the lens");
+        }, Delays.normal, "The info message should be shown after clicking the lens");
     });
 
     it("quick fix works", async function() {
