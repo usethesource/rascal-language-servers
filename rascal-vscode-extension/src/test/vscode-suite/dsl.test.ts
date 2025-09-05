@@ -195,6 +195,24 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
+    it.only("show message works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
+        await lens!.click();
+        await driver.wait(async () => {
+            const notifications = await new Workbench().getNotifications();
+            for (const notification of notifications) {
+                const message = await notification.getMessage();
+                console.log(message);
+                if (message.startsWith("Info message")) {
+                    return true;
+                }
+            }
+            return false;
+        }, Delays.normal, "The info message should be shown after clicking the lens");
+    });
+
     it("quick fix works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
