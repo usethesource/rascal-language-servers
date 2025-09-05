@@ -134,7 +134,6 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
