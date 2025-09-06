@@ -281,8 +281,11 @@ data LanguageService
 
 @description{
 Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
-The completion service is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
+`completionService`` is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
  It should return a list of completion suggestions.
+ - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+ - If an empty list is returned, an empty list of completions is presented to the user.
+ - When `completionService` throws an exception no completion popup is shown.
  The optional list of trigger characters can contain a list of extra characters that trigger completion.
  These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
 
@@ -365,34 +368,9 @@ data CompletionEdit = completionEdit(
 
 @description{
     Indication of the type of completion that is returned. In VSCode this is used mainly to display a small icon next to each completion item.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): namespace, package, string, number, boolean, array, object, key, null.
 }
-data CompletionItemKind
-    = textCompletion()
-	| methodCompletion()
-	| functionCompletion()
-	| constructorCompletion()
-	| fieldCompletion()
-	| variableCompletion()
-	| classCompletion()
-	| interfaceCompletion()
-	| moduleCompletion()
-	| propertyCompletion()
-	| unitCompletion()
-	| valueCompletion()
-	| enumCompletion()
-	| keywordCompletion()
-	| snippetCompletion()
-	| colorCompletion()
-	| fileCompletion()
-	| referenceCompletion()
-	| folderCompletion()
-	| enumMemberCompletion()
-	| constantCompletion()
-	| structCompletion()
-	| eventCompletion()
-	| operatorCompletion()
-	| typeParameterCompletion()
-;
+alias CompletionItemKind = DocumentSymbolKind;
 
 @synopsis{
 Manual invocation or invocation by trigger characters
@@ -622,6 +600,9 @@ data Summary = summary(loc src,
 );
 
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
+@description{
+    Invalid values for kind are: text, unit, value, keyword, snippet, color, reference, folder. These can only be used as ((CompletionItemKind))
+}
 data DocumentSymbol
     = symbol(
         str name,
@@ -633,6 +614,9 @@ data DocumentSymbol
         set[DocumentSymbolTag] tags = {}
     );
 
+@description{
+    List of types that can be used for DocumentSymbol and CompletionItem.
+}
 data DocumentSymbolKind
 	= \file()
 	| \module()
@@ -660,7 +644,44 @@ data DocumentSymbolKind
 	| \event()
 	| \operator()
 	| \typeParameter()
+    | \text()
+    | \unit()
+    | \value()
+    | \keyword()
+    | \snippet()
+    | \color()
+    | \reference()
+    | \folder()
     ;
+
+/*
+
+        = textCompletion()
+	| methodCompletion()
+	| functionCompletion()
+	| constructorCompletion()
+	| fieldCompletion()
+	| variableCompletion()
+	| classCompletion()
+	| interfaceCompletion()
+	| moduleCompletion()
+	| propertyCompletion()
+	| unitCompletion()
+	| valueCompletion()
+	| enumCompletion()
+	| keywordCompletion()
+	| snippetCompletion()
+	| colorCompletion()
+	| fileCompletion()
+	| referenceCompletion()
+	| folderCompletion()
+	| enumMemberCompletion()
+	| constantCompletion()
+	| structCompletion()
+	| eventCompletion()
+	| operatorCompletion()
+	| typeParameterCompletion()
+*/
 
 data DocumentSymbolTag
     = \deprecated()
