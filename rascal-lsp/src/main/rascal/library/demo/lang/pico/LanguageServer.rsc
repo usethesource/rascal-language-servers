@@ -239,7 +239,7 @@ CompletionItem createVarCompletion(int cursorColumn, loc selectedIdent, IdType d
         name
     );
 
-    return completionItem(variableCompletion(), edit, name, labelDetail="<decl.t>");
+    return completionItem(\variable(), edit, name, labelDetail="<decl.t>");
 }
 
 list[CompletionItem] picoCompletionService(loc cursor, Focus focus, CompletionTrigger trigger) {
