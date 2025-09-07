@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { NotificationType, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
@@ -201,10 +201,12 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
         await lens!.click();
         await driver.wait(async () => {
-            const notifications = await new Workbench().getNotifications();
+            const notificationCenter = await new Workbench().openNotificationsCenter();
+            const notifications = await notificationCenter.getNotifications(NotificationType.Info);
             for (const notification of notifications) {
                 const message = await notification.getMessage();
                 if (message.startsWith("Info message")) {
+                    await notificationCenter.clearAllNotifications();
                     return true;
                 }
             }
