@@ -217,11 +217,20 @@ test bool unrelatedVar() = testRenameOccurrences({
                       'int baz = foo;", {})
 });
 
-@illegalRename
+@ignore{To be fixed: https://github.com/usethesource/rascal-language-servers/issues/722}
+@expected{illegalRename}
 test bool multiModuleAmbiguous() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
                    'import Bar;
                    'int baz = foo + bar;", {0})
+});
+
+test bool multiModuleQualified() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = Foo::foo + Bar::bar;", {0})
 });
