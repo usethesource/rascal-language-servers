@@ -102,7 +102,7 @@ public class TreeSearch {
     }
 
     /**
-     * Produces a list of trees that are "in focus" at given line and column offset (UTF-24).
+     * Produces a list of trees that are "in focus" at given line and column offset (UTF-32).
      *
      * This log(filesize) algorithm quickly collects the trees along a spine from the
      * root to the largest lexical or, if that does not exist, the smallest context-free node.
