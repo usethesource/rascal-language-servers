@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.util.locations.impl;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -39,6 +41,9 @@ import io.usethesource.vallang.IValue;
  * Utilities for finding sub-trees based on UTF-32 line/column indexing.
  */
 public class TreeSearch {
+
+    private static final Logger logger = LogManager.getLogger(TreeSearch.class);
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private TreeSearch() {}
 
@@ -85,6 +90,17 @@ public class TreeSearch {
         return true;
     }
 
+    private static boolean rightOf(ISourceLocation loc, int line, int column) {
+        if (!loc.hasLineColumn()) {
+            return false;
+        }
+
+        if (line > loc.getEndLine()) {
+            return true;
+        }
+        return line == loc.getEndLine() && column > loc.getEndColumn();
+    }
+
     /**
      * Produces a list of trees that are "in focus" at given line and column offset (UTF-24).
      *
@@ -99,7 +115,7 @@ public class TreeSearch {
      * @return list of tree that are around the given line/column position, ordered from child to parent.
      */
     public static IList computeFocusList(ITree tree, int line, int column) {
-        var lw = IRascalValueFactory.getInstance().listWriter();
+        var lw = VF.listWriter();
         computeFocusList(lw, tree, line, column);
         return lw.done();
     }
@@ -156,5 +172,62 @@ public class TreeSearch {
 
         // cycles and characters do not have locations
         return false;
+    }
+
+    public static IList computeFocusList(ITree tree, int startLine, int startColumn, int endLine, int endColumn) {
+        // Compute the focus for both the start end end positions.
+        // These foci give us information about the structure of the selection.
+        final var startList = computeFocusList(tree, startLine, startColumn);
+        final var endList = computeFocusList(tree, endLine, endColumn);
+
+        final var commonSuffix = startList.intersect(endList);
+        if (commonSuffix.equals(startList) || commonSuffix.equals(endList)) {
+            // We do not have enough information to extend the focus
+            return commonSuffix;
+        }
+        // The range spans multiple subtrees. The easy way out is not to focus farther down than
+        // their smallest common subtree (i.e. `commonSuffix`) - let's see if we can do any better.
+        if (TreeAdapter.isList((ITree) commonSuffix.get(0))) {
+            return computeListRangeFocus(commonSuffix, startLine, startColumn, endLine, endColumn);
+        }
+
+        return commonSuffix;
+    }
+
+    private static IList computeListRangeFocus(final IList commonSuffix, int startLine, int startColumn, int endLine, int endColumn) {
+        final var parent = (ITree) commonSuffix.get(0);
+        logger.trace("Computing focus list for {} at range [{}:{}, {}:{}]", TreeAdapter.getType(parent), startLine, startColumn, endLine, endColumn);
+        final var elements = TreeAdapter.getListASTArgs(parent);
+        final int nElements = elements.length();
+
+        logger.trace("Smallest common tree is a {} with {} elements", TreeAdapter.getType(parent), nElements);
+        if (inside(TreeAdapter.getLocation((ITree) elements.get(0)), startLine, startColumn) &&
+            inside(TreeAdapter.getLocation((ITree) elements.get(nElements - 1)), endLine, endColumn)) {
+            // The whole list is selected
+            return commonSuffix;
+        }
+
+        // Find the elements in the list that are (partially) selected.
+        final var selected = elements.stream()
+            .map(ITree.class::cast)
+            .dropWhile(t -> !inside(TreeAdapter.getLocation(t), startLine, startColumn))
+            .takeWhile(t -> rightOf(TreeAdapter.getLocation(t), endLine, endColumn))
+            .collect(VF.listWriter());
+        final int nSelected = selected.length();
+
+        logger.trace("Range covers {} (of {}) elements in the parent list", nSelected, nElements);
+        final var firstSelected = TreeAdapter.getLocation((ITree) selected.get(0));
+        final var lastSelected = TreeAdapter.getLocation((ITree) selected.get(nSelected - 1));
+
+        final int totalLength = lastSelected.getOffset() - firstSelected.getOffset() + lastSelected.getLength();
+        final var selectionLoc = VF.sourceLocation(firstSelected, firstSelected.getOffset(), totalLength,
+            firstSelected.getBeginLine(), lastSelected.getEndLine(), firstSelected.getBeginColumn(), lastSelected.getEndColumn());
+        final var artificialParent = TreeAdapter.setLocation(VF.appl(TreeAdapter.getProduction(parent), selected), selectionLoc);
+
+        // Build new focus list
+        var lw = VF.listWriter();
+        lw.append(artificialParent);
+        lw.appendAll(commonSuffix);
+        return lw.done();
     }
 }

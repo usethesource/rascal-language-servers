@@ -770,12 +770,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var start = Locations.toRascalPosition(uri, range.getStart(), columns);
                 var end = Locations.toRascalPosition(uri, range.getEnd(), columns);
                 // compute the focus list at the end of the range
-                var focus = TreeSearch.computeFocusList(tree, end.getLine(), end.getCharacter())
-                    .stream()
-                    .map(ITree.class::cast)
-                    // check for containment of the start of the range
-                    .filter(t -> Ranges.containsPosition(Locations.toRange(TreeAdapter.getLocation(t), columns), start))
-                    .collect(VF.listWriter());
+                var focus = TreeSearch.computeFocusList(tree, start.getLine(), start.getCharacter(), end.getLine(), end.getCharacter());
 
                 var opts = getFormattingOptions(params.getOptions());
                 return contribs.formatting(focus, opts).get();
