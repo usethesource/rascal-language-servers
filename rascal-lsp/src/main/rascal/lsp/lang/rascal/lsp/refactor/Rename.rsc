@@ -72,7 +72,9 @@ import util::Reflective;
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
     reachable = rascalGetReflexiveModulePaths(tm).to;
-    newNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
+    usedModules = {d.top | loc d <- tm.useDef<1>};
+    usedModels = (m: tm | loc m <- usedModules, TModel tm := r.getConfig().tmodelForLoc(m)) + (tr.src.top: tm);
+    newNameDefs = {nD | TModel tm <- range(usedModels), Define nD:<_, newName, _, _, _, _> <- tm.defines};
     curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
     maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
 
@@ -85,11 +87,19 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
         set[loc] curUses = defUse[c.defined];
         set[loc] newUses = defUse[n.defined];
 
-        // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
         for (loc cU <- curUses
-           , isContainedInScope(cU, n.scope, tm)
-           , isContainedInScope(n.scope, c.scope, tm)) {
-            r.msg(error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>."));
+           , isContainedInScope(cU, n.scope, tm)) {
+            // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
+            if (isContainedInScope(n.scope, c.scope, tm)) {
+                r.msg(error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>."));
+            }
+
+            if (loc nU <- newUses, isContainedInScope(nU, c.scope, tm) &&
+                // qualified name check
+                // TODO Consider qualified names everywhere across the checks in this function
+                (n.defined.top != c.defined.top ==> (nU.length == size(n.id) && cU.length == size(c.id)))) {
+                r.msg(error(cU, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)"));
+            }
         }
 
         // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
