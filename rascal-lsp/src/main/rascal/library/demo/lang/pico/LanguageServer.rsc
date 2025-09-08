@@ -89,7 +89,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, !hasParseErrors(var)]
+      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, var.id?]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
@@ -109,7 +109,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, !hasParseErrors(var)};
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, var.id?};
 
     // uses of identifiers
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
