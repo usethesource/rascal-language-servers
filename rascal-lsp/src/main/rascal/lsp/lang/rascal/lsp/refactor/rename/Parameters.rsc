@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Parameters
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 extend lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Fields;
 

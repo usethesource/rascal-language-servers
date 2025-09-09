@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Grammars
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::Rename;
 
 import lang::rascal::lsp::refactor::rename::Common;
