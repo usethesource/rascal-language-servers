@@ -164,15 +164,17 @@ public class Locations {
 
     public static ISourceLocation setRange(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
         var map = columns.get(loc);
-        var offsets = map.calculateInverseOffsetLength(lspRange.getStart().getLine(), lspRange.getStart().getCharacter(), lspRange.getEnd().getLine(), lspRange.getEnd().getCharacter());
-        var rascalBegin = toRascalPosition(loc, lspRange.getStart(), columns);
-        var rascalEnd = toRascalPosition(loc, lspRange.getEnd(), columns);
+        final var lspStart = lspRange.getStart();
+        final var lspEnd = lspRange.getEnd();
+        final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
+        final var rascalStart = toRascalPosition(loc, lspStart, columns);
+        final var rascalEnd = toRascalPosition(loc, lspEnd, columns);
         return IRascalValueFactory.getInstance().sourceLocation(loc,
-            offsets.getLeft(),
-            offsets.getRight(),
-            rascalBegin.getLine(),
+            offsetLength.getLeft(),
+            offsetLength.getRight(),
+            rascalStart.getLine(),
             rascalEnd.getLine(),
-            rascalBegin.getCharacter(),
+            rascalStart.getCharacter(),
             rascalEnd.getCharacter()
         );
     }
