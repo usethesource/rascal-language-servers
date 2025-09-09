@@ -79,9 +79,9 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-    private boolean hasConfigurationCapability = false;
-    private boolean hasDynamicChangeConfigurationCapability = false;
-    private final @MonotonicNonNull ConfigurationParams configParams;
+    private volatile boolean hasConfigurationCapability = false;
+    private volatile boolean hasDynamicChangeConfigurationCapability = false;
+    private final ConfigurationParams configParams;
 
     private final List<FileOperationPattern> interestedInFiles;
 
@@ -151,10 +151,11 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     void initialized() {
         if (!hasDynamicChangeConfigurationCapability) {
             logger.warn("Client does not support listening to configuration changes");
+            fetchAndUpdateSettings();
             return;
         }
 
-        client.registerCapability(new RegistrationParams(Collections.singletonList(new Registration("someIdThatMightNeedToChange", "workspace/didChangeConfiguration"))))
+        client.registerCapability(new RegistrationParams(Collections.singletonList(new Registration("eeb6e382-a39c-44fe-9c10-a95c1a56fdd0", "workspace/didChangeConfiguration"))))
             .thenAccept(v -> {
                 logger.debug("Registered for configuration change events from client");
                 fetchAndUpdateSettings(); // get initial settings
@@ -167,7 +168,8 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-        // params.getSettings() is useless; we need to query and update all settings instead
+        // params.getSettings() is useless, since it does not tell *which* settings have changed.
+        // Instead, we need to query and update all settings instead
         logger.debug("workspace/didChangeConfiguration: {}", params);
         fetchAndUpdateSettings();
     }

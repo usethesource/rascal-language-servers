@@ -70,6 +70,7 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
         builder.setConfigurationName("DefaultLogger");
+        builder.setStatusLevel(targetLevel);
 
         builder.add(builder
             .newAppender("Console", "CONSOLE")

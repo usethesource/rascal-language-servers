@@ -71,6 +71,7 @@ public class LogJsonConfiguration extends ConfigurationFactory {
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
         builder.setConfigurationName("JsonLogger");
+        builder.setStatusLevel(targetLevel);
 
         builder.add(builder
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
