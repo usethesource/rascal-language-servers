@@ -33,19 +33,8 @@ import org.apache.commons.lang3.tuple.Pair;
  *
  * vallang uses UTF-32-bit codepoints, while lsp uses UTF-16, so in cases where a codepoint wouldn't fit inside 16bit char, it takes up two chars. Implementations of this class translate these efficiently.
  */
-public abstract class LineColumnOffsetMap {
-    public abstract int translateColumn(int line, int column, boolean isEnd);
-    public abstract int translateInverseColumn(int line, int column, boolean isEnd);
-
-    protected abstract int getLineStartOffset(int line);
-
-    public Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn) {
-        if (beginLine > endLine || (beginLine == endLine && beginColumn > endColumn)) {
-            throw new IllegalArgumentException(String.format("Begin position must be before end position [(%d,%d), (%d,%d)]", beginLine, beginColumn, endLine, endColumn));
-        }
-        int startOffset = getLineStartOffset(beginLine) + translateInverseColumn(beginLine, beginColumn, false);
-        int endOffset = getLineStartOffset(endLine) + translateInverseColumn(endLine, endColumn, true);
-
-        return Pair.of(startOffset, endOffset - startOffset);
-    }
+public interface LineColumnOffsetMap {
+    int translateColumn(int line, int column, boolean isEnd);
+    int translateInverseColumn(int line, int column, boolean isEnd);
+    Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn);
 }

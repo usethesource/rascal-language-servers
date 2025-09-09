@@ -29,9 +29,10 @@ package org.rascalmpl.vscode.lsp.util.locations.impl;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 
-public class ArrayLineOffsetMap extends LineColumnOffsetMap {
+public class ArrayLineOffsetMap implements LineColumnOffsetMap {
     private final IntArray lines;
     private final ArrayList<IntArray> wideColumnOffsets;
     private final ArrayList<IntArray> wideColumnOffsetsInverse;
@@ -78,8 +79,14 @@ public class ArrayLineOffsetMap extends LineColumnOffsetMap {
     }
 
     @Override
-    protected int getLineStartOffset(int line) {
-        return lineStartOffsets.get(line);
+    public Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn) {
+        if (beginLine > endLine || (beginLine == endLine && beginColumn > endColumn)) {
+            throw new IllegalArgumentException(String.format("Begin position must be before end position [(%d,%d), (%d,%d)]", beginLine, beginColumn, endLine, endColumn));
+        }
+        int startOffset = lineStartOffsets.get(beginLine) + translateInverseColumn(beginLine, beginColumn, false);
+        int endOffset = lineStartOffsets.get(endLine) + translateInverseColumn(endLine, endColumn, true);
+
+        return Pair.of(startOffset, endOffset - startOffset);
     }
 
     @SuppressWarnings("java:S3776") // parsing tends to be complex
@@ -126,30 +133,8 @@ public class ArrayLineOffsetMap extends LineColumnOffsetMap {
             linesMap.add(currentLine.build());
             inverseLinesMap.add(currentLine.buildInverse());
         }
-        if (linesMap.isEmpty()) {
-            return noSurrogateMap(lineStartOffsets.build());
-        }
         return new ArrayLineOffsetMap(linesWithSurrogate.build(), linesMap, inverseLinesMap, lineStartOffsets.build());
     }
-
-    private static LineColumnOffsetMap noSurrogateMap(IntArray lineStartOffsets) {
-        return new LineColumnOffsetMap(){
-            @Override
-            public int translateColumn(int line, int column, boolean atEnd) {
-                return column;
-            }
-            @Override
-            public int translateInverseColumn(int line, int column, boolean isEnd) {
-                return column;
-            }
-            @Override
-            protected int getLineStartOffset(int line) {
-                return lineStartOffsets.get(line);
-            }
-
-        };
-    }
-
 
     private static class GrowingIntArray {
         private int[] data = new int[0];
