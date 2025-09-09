@@ -195,7 +195,7 @@ public class TextDocumentState {
                     new Range(new Position(0,0), new Position(0,1)),
                     "Parsing failed: " + excp.getMessage(),
                     DiagnosticSeverity.Error,
-                    "Rascal Parser");
+                    "parser");
                 diagnostics.add(columns -> diagnostic);
             }
 

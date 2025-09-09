@@ -32,7 +32,7 @@ import lang::rascal::tests::rename::TestUtils;
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "some::path::to::Bar"),
     byText("Main", "
         'import some::path::to::Foo;
@@ -45,7 +45,7 @@ test bool deepModule() = testRenameOccurrences({
 test bool shadowedModuleWithVar() = testRenameOccurrences({
     byText("Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "Bar"),
     byText("shadow::Foo", "", {}),
     byText("Main", "
@@ -72,7 +72,7 @@ test bool shadowedModuleWithFunc() = testRenameOccurrences({
 test bool singleModule() = testRenameOccurrences({
     byText("util::Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "util::Bar"),
     byText("Main", "
         'import util::Foo;

@@ -39,8 +39,8 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -56,14 +56,11 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class Diagnostics {
+    private static final String PARSER_DIAGNOSTICS_SOURCE = "parser";
+    private static final String PARSE_ERROR_MESSAGE = "The parser couldn't fully understand this code.";
+
     private static final Logger logger = LogManager.getLogger(Diagnostics.class);
     private static final Map<String, DiagnosticSeverity> severityMap;
-
-    // Note: DiagnosticSeverity.Hint only highlightes a single character!
-    private static final DiagnosticSeverity ERROR_LOCATION_HIGHLIGHT = DiagnosticSeverity.Error;
-    private static final DiagnosticSeverity ERROR_TREE_HIGHLIGHT = null;
-    private static final DiagnosticSeverity PREFIX_HIGHLIGHT = null;
-    private static final DiagnosticSeverity SKIPPED_HIGHLIGHT = null;
 
     static {
         severityMap = new HashMap<>();
@@ -90,76 +87,84 @@ public class Diagnostics {
     }
 
     public static Template generateParseErrorDiagnostic(ParseError e) {
-        return cm -> new Diagnostic(toRange(e, cm), e.getMessage(), DiagnosticSeverity.Error, "parser");
+        return cm -> new Diagnostic(toRange(e, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
     }
 
     public static List<Template> generateParseErrorDiagnostics(ITree errorTree) {
-        IValueFactory factory = ValueFactoryFactory.getValueFactory();
+        final IValueFactory factory = ValueFactoryFactory.getValueFactory();
 
-        IList args = TreeAdapter.getArgs(errorTree);
-        ITree skipped = (ITree) args.get(args.size()-1);
+        final IList args = TreeAdapter.getArgs(errorTree);
+        final ITree skipped = (ITree) args.get(args.size() - 1);
 
-        ISourceLocation errorTreeLoc = TreeAdapter.getLocation(errorTree);
-        ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
+        // spans the error tree from the start and also surrounds the skipped part
+        final ISourceLocation completeErrorTreeLoc = TreeAdapter.getLocation(errorTree);
 
-        List<Template> diagnostics = new ArrayList<>();
+        final ISourceLocation exactErrorLocation = (ISourceLocation) errorTree.asWithKeywordParameters().getParameter("parseError");
 
-        // Highlight selected parts of the error tree
-        if (ERROR_LOCATION_HIGHLIGHT != null) {
-            // Just the error location
-            ISourceLocation errorLoc = factory.sourceLocation(skippedLoc,
-                    skippedLoc.getOffset(), 1,
-                    skippedLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                    skippedLoc.getBeginColumn(), skippedLoc.getBeginColumn() + 1);
-            diagnostics.add(cm -> new Diagnostic(toRange(errorLoc, cm), "Recovered parse error location",
-                    ERROR_LOCATION_HIGHLIGHT, "parser"));
-        }
+        // spans only the skipped part
+        final ISourceLocation skippedLoc = TreeAdapter.getLocation(skipped);
 
-        if (ERROR_TREE_HIGHLIGHT != null) {
-            // The whole error tree
-            diagnostics.add(cm -> new Diagnostic(toRange(errorTreeLoc, cm), "Recovered parse error", ERROR_TREE_HIGHLIGHT, "parser"));
-        }
+        // points at where we had to start skipping. This is typically close to error
+        // location as if no error recovery was done, but not exactly due to a little bit of backtracking
+        // at the leaves of the parsing stack.
+        final ISourceLocation stuckLoc = factory.sourceLocation(
+            skippedLoc.top(),
+            skippedLoc.getOffset(),
+            1,
+            skippedLoc.getBeginLine(),
+            skippedLoc.getBeginLine(),
+            skippedLoc.getBeginColumn(),
+            skippedLoc.getBeginColumn() + 1);
 
-        if (PREFIX_HIGHLIGHT != null) {
-            // The recognized prefix
-            int prefixLength = skippedLoc.getOffset()-errorTreeLoc.getOffset();
-            if (prefixLength > 0) {
-                ISourceLocation prefixLoc = factory.sourceLocation(errorTreeLoc,
-                        errorTreeLoc.getOffset(), skippedLoc.getOffset()-errorTreeLoc.getOffset(),
-                        errorTreeLoc.getBeginLine(), skippedLoc.getBeginLine(),
-                        errorTreeLoc.getBeginColumn(), skippedLoc.getBeginColumn());
-                diagnostics.add(cm -> new Diagnostic(toRange(prefixLoc, cm), "Recovered parse error prefix", PREFIX_HIGHLIGHT, "parser"));
-            }
-        }
+        // this spans the recognized prefix until the skipped part
+        final ISourceLocation prefixLoc = factory.sourceLocation(
+                completeErrorTreeLoc.top(),
+                completeErrorTreeLoc.getOffset(),
+                skippedLoc.getOffset() - completeErrorTreeLoc.getOffset(),
+                completeErrorTreeLoc.getBeginLine(),
+                skippedLoc.getBeginLine(),
+                completeErrorTreeLoc.getBeginColumn(),
+                skippedLoc.getBeginColumn()
+        );
 
-        if (SKIPPED_HIGHLIGHT != null && skippedLoc.getLength() > 0) {
-            // The skipped part
-            diagnostics.add(cm -> new Diagnostic(toRange(skippedLoc, cm), "Recovered parse error skipped", SKIPPED_HIGHLIGHT, "parser"));
-        }
+        final List<Template> diagnostics = new ArrayList<>();
+
+        diagnostics.add(cm -> {
+            final var d = new Diagnostic(
+                // stuckloc is here for backward compatibility (before parseError was registered on an error tree)
+                toRange(exactErrorLocation != null ? exactErrorLocation : stuckLoc, cm),
+                PARSE_ERROR_MESSAGE,
+                DiagnosticSeverity.Error,
+                PARSER_DIAGNOSTICS_SOURCE);
+
+            final List<DiagnosticRelatedInformation> related = new ArrayList<>();
+
+            related.add(related(cm, stuckLoc, "It is likely something is extra or missing here, or around this position."));
+            related.add(related(cm, skippedLoc, "This part was skipped to recover and continue parsing."));
+            related.add(related(cm, prefixLoc, "This part was still partially recognized."));
+
+            d.setRelatedInformation(related);
+
+            return d;
+        });
 
         return diagnostics;
     }
 
-    public static Diagnostic translateErrorRecoveryDiagnostic(ITree errorTree, ColumnMaps cm) {
-        IList args = TreeAdapter.getArgs(errorTree);
-        ITree skipped = (ITree) args.get(args.size()-1);
-        return new Diagnostic(toRange(skipped, cm), "Parse error (recoverable)", DiagnosticSeverity.Error, "parser");
+    private static DiagnosticRelatedInformation related(ColumnMaps cm, ISourceLocation loc, String message) {
+        return new DiagnosticRelatedInformation(Locations.toLSPLocation(loc, cm), message);
     }
 
     public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
         if (e instanceof IConstructor) {
             IConstructor error = (IConstructor) e;
-            if (error.getName().equals("ParseError")) {
+            if (error.getName().equals(RuntimeExceptionFactory.ParseError.getName())) {
                 ISourceLocation loc = (ISourceLocation) error.get(0);
-                return new Diagnostic(Locations.toRange(loc, cm), "parse error", DiagnosticSeverity.Error, "parser");
-            }
-            else {
-                return new Diagnostic(new Range(new Position(0, 0), new Position(0,0)), "Unknown error : " + e.toString());
+                return new Diagnostic(Locations.toRange(loc, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
             }
         }
-        else {
-            throw new IllegalArgumentException(e.toString());
-        }
+
+        throw new IllegalArgumentException(e.toString());
     }
 
     private static void storeFixCommands(IConstructor d, Diagnostic result) {

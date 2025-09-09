@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Common
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 
 import analysis::typepal::TModel;
 import lang::rascal::\syntax::Rascal;
@@ -298,7 +298,7 @@ default tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Def
         return <curFiles, curFiles, newFiles>;
     }
 
-    r.error(cursor[0], "Cannot find occurrences for defs with multiple names.");
+    r.msg(error(cursor[0], "Cannot find occurrences for defs with multiple names."));
     return <{}, {}, {}>;
 }
 
