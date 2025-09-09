@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -35,6 +36,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -158,6 +160,23 @@ public class Locations {
         else {
             return new Range(new Position(0, 0), new Position(0,0));
         }
+    }
+
+    public static ISourceLocation setRange(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
+        var map = columns.get(loc);
+        final var lspStart = lspRange.getStart();
+        final var lspEnd = lspRange.getEnd();
+        final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
+        final var rascalStart = toRascalPosition(loc, lspStart, columns);
+        final var rascalEnd = toRascalPosition(loc, lspEnd, columns);
+        return IRascalValueFactory.getInstance().sourceLocation(loc,
+            offsetLength.getLeft(),
+            offsetLength.getRight(),
+            rascalStart.getLine(),
+            rascalEnd.getLine(),
+            rascalStart.getCharacter(),
+            rascalEnd.getCharacter()
+        );
     }
 
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
