@@ -47,7 +47,15 @@ export async function activateLanguageClient(
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
-        outputChannel: logger
+        outputChannel: logger,
+        middleware: {
+            workspace: {
+                configuration: async (params, _token, _next) => {
+                    return params.items.flatMap(_item =>
+                        vscode.workspace.getConfiguration(_item.section, _item.scopeUri ? vscode.Uri.parse(_item.scopeUri, true) : undefined));
+                },
+            },
+        },
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
@@ -127,7 +135,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
-        , '-Dlog4j2.level=DEBUG' // TODO Remove this minimum
+        , '-Dlog4j2.level=DEBUG'
         , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath

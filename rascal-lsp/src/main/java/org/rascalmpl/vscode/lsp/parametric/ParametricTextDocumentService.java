@@ -265,6 +265,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
+    @Override
+    public void initialized() {
+        // reserved for future use
+        // e.g. dynamic registration of capabilities
+    }
+
     // LSP interface methods
 
     @Override

@@ -29,23 +29,14 @@ package org.rascalmpl.vscode.lsp.rascal;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.FileOperationPattern;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
-    private @MonotonicNonNull LanguageClient client;
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(exec, documentService, List.of(new FileOperationPattern("**/*.rsc")));
-    }
-
-    @Override
-    public void connect(LanguageClient client) {
-        super.connect(client);
-        this.client = client;
     }
 
 }

@@ -218,6 +218,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         facts.setClient(client);
     }
 
+    @Override
+    public void initialized() {
+        // reserved for future use
+        // e.g. dynamic registration of capabilities
+    }
+
     // LSP interface methods
 
     @Override

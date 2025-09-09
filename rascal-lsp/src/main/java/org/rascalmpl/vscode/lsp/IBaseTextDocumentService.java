@@ -51,6 +51,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
+    void initialized();
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
     CompletableFuture<IValue> executeCommand(String languageName, String command);
