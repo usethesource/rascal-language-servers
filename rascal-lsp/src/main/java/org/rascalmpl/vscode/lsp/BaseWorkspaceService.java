@@ -52,7 +52,6 @@ import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.RenameFilesParams;
@@ -149,7 +148,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
      * After the client has been initialized, register dynamic capabilities.
      */
     @SuppressWarnings("java:S1172")
-    void initialized(InitializedParams params) {
+    void initialized() {
         if (!hasDynamicChangeConfigurationCapability) {
             logger.warn("Client does not support listening to configuration changes");
             return;

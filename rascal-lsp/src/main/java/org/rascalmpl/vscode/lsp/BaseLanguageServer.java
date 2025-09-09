@@ -329,10 +329,11 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
+        @SuppressWarnings("unused") // InitializedParams is an empty interface
         public void initialized(InitializedParams params) {
             logger.debug("LSP connection initialized");
-            lspWorkspaceService.initialized(params);
-            lspDocumentService.initialized(params);
+            lspWorkspaceService.initialized();
+            lspDocumentService.initialized();
         }
 
         @Override
