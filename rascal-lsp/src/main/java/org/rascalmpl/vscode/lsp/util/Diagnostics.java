@@ -266,12 +266,12 @@ public class Diagnostics {
         ISourceLocation loc = getMessageLocation(d);
 
         if (loc == null || loc.getScheme().equals("unknown")) {
-            logger.error("Dropping diagnostic due to incorrect location on message: {}", d);
+            logger.trace("Dropping diagnostic due to incorrect location on message: {}", d);
             return false;
         }
 
         if (!loc.top().equals(file.top())) {
-            logger.error("Dropping diagnostic, reported for the wrong file: {}, {}", loc, file);
+            logger.trace("Dropping diagnostic, reported for the wrong file: {}, message: {}", file, d);
             return false;
         }
         return true;
