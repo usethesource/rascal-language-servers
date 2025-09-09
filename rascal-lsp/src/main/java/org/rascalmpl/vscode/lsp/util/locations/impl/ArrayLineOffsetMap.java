@@ -195,6 +195,9 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
          * @return >= 0 in case of exact match, below 0 is the insert point
          */
         public int search(int key) {
+            if (length == 0) {
+                return -1;
+            }
             if (length <= 8) {
                 // small array, just linear search
                 for (int i = 0; i < length; i++) {
