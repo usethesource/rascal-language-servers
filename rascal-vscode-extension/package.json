@@ -181,19 +181,31 @@
         "language": "rascalmpl",
         "scopeName": "source.rascalmpl",
         "path": "./syntaxes/rascal.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
+        "unbalancedBracketScopes": [
+            "punctuation.definition.section.replacement.rascal",
+            "keyword.operator.associativity.rascal",
+            "keyword.operator.arithmetic.rascal",
+            "keyword.operator.lookaround.rascal",
+            "keyword.operator.comparison.rascal",
+            "punctuation.definition.type.rascal",
+            "keyword.operator.rascal",
+            "constant.character.escape.rascal"
+        ]
       },
       {
         "language": "parametric-rascalmpl",
         "scopeName": "source.parametric-rascalmpl",
         "path": "./syntaxes/parametric.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
+        "unbalancedBracketScopes": [
+            "punctuation.definition.section.replacement.rascal",
+            "keyword.operator.associativity.rascal",
+            "keyword.operator.arithmetic.rascal",
+            "keyword.operator.lookaround.rascal",
+            "keyword.operator.comparison.rascal",
+            "punctuation.definition.type.rascal",
+            "keyword.operator.rascal",
+            "constant.character.escape.rascal"
+        ]
       }
     ],
     "semanticTokenScopes": [
