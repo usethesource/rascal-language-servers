@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Modules
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;
@@ -65,7 +65,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
         loc oldLoc = getModuleLocation(modName, r.getConfig().getPathConfig(d.top));
         loc newLoc = getModuleLocation(newModName, r.getConfig().getPathConfig(d.top));
         if (oldLoc != newLoc) {
-            r.error(d, "Cannot rename, since module \'<newModName>\' already exists at <newLoc>");
+            r.msg(error(d, "Cannot rename, since module \'<newModName>\' already exists at <newLoc>"));
             return <{}, {}, {}>;
         }
     } catch _: {;}
@@ -110,7 +110,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 }
 
 bool isUnsupportedCursor(list[Tree] _:[*_, QualifiedName _, i:Import _, _, Header _, *_], Renamer r) {
-    r.error(i.src, "External imports are deprecated; renaming is not supported.");
+    r.msg(error(i.src, "External imports are deprecated; renaming is not supported."));
     return true;
 }
 
@@ -125,7 +125,7 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
         // Rename the file
         r.documentEdit(renamed(moduleFile, srcDir + makeFileName(forceUnescapeNames(newName))));
     } else {
-        r.error(moduleFile, "Cannot rename <currentName>, since it is not defined in this project.");
+        r.msg(error(moduleFile, "Cannot rename <currentName>, since it is not defined in this project."));
     }
 }
 

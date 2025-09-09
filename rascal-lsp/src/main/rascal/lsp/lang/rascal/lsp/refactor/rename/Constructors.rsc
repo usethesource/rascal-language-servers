@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Constructors
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Functions;
 
@@ -45,7 +45,7 @@ import Location;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] defs:{<_, _, _, constructorId(), _, _>, *_}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if (size(defs.id) > 1) {
-        r.error(cursor[0], "Cannot find files for constructor definitions with multiple names (<defs.id>)");
+        r.msg(error(cursor[0], "Cannot find files for constructor definitions with multiple names (<defs.id>)"));
         return <{}, {}, {}>;
     }
     <curFiles, newFiles> = filterFiles(getSourceFiles(r), "<cursor[0]>", newName, getTree);
@@ -61,7 +61,7 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, construc
 set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr, TModel tm, Renamer r) {
     if (otherRoles:{_, *_} := cursorDefs.idRole - {constructorId(), functionId()}) {
         for (<role, d> <- (cursorDefs<idRole, idRole, defined>)[otherRoles]) {
-            r.error(d, "Cannot find constructor definitions that overload definition of <role>");
+            r.msg(error(d, "Cannot find constructor definitions that overload definition of <role>"));
         }
         return {};
     }
