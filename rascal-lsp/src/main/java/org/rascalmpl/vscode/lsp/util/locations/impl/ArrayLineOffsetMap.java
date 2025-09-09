@@ -134,12 +134,12 @@ public class ArrayLineOffsetMap implements LineColumnOffsetMap {
             inverseLinesMap.add(currentLine.buildInverse());
         }
         if (linesMap.isEmpty()) {
-            return NO_SURROGATE_MAP(lineStartOffsets.build());
+            return noSurrogateMap(lineStartOffsets.build());
         }
         return new ArrayLineOffsetMap(linesWithSurrogate.build(), linesMap, inverseLinesMap, lineStartOffsets.build());
     }
 
-    private static LineColumnOffsetMap NO_SURROGATE_MAP(IntArray lineStartOffsets) {
+    private static LineColumnOffsetMap noSurrogateMap(IntArray lineStartOffsets) {
         return new LineColumnOffsetMap(){
             @Override
             public int translateColumn(int line, int column, boolean atEnd) {
