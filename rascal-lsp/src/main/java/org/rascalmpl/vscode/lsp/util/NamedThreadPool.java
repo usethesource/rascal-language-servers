@@ -27,49 +27,19 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NamedThreadPool {
     private NamedThreadPool() {}
 
-
-    private static int calculateMaxThreadPools(int min, int max) {
-        int threads = Runtime.getRuntime().availableProcessors();
-        if (threads > max) {
-            return max;
-        }
-        if (threads < min) {
-            return min;
-        }
-        return threads;
-    }
-
     public static ExecutorService cached(String name) {
-        return cached(name, calculateMaxThreadPools(4, 16));
-    }
-    public static ExecutorService cached(String name, int maxThread) {
-        return cached(name, maxThread, false);
+        return Executors.newCachedThreadPool(factory(name, false));
     }
 
     public static ExecutorService cachedDaemon(String name) {
-        return cachedDaemon(name, calculateMaxThreadPools(4, 8));
-    }
-
-    public static ExecutorService cachedDaemon(String name, int maxThread) {
-        return cached(name, maxThread, true);
-    }
-
-    private static ExecutorService cached(String name, int maxThreads, boolean daemon) {
-        if (maxThreads < 4) {
-            throw new IllegalArgumentException("Max threads should be at least 4");
-        }
-        var result = new ThreadPoolExecutor(maxThreads, maxThreads, 2, TimeUnit.MINUTES, new LinkedBlockingQueue<>(), factory(name, daemon));
-        result.allowCoreThreadTimeOut(true);
-        return result;
+        return Executors.newCachedThreadPool(factory(name, true));
     }
 
     private static ThreadFactory factory(String name, boolean daemon) {
