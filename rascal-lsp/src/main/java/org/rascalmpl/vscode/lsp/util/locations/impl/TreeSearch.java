@@ -197,7 +197,7 @@ public class TreeSearch {
     private static IList computeListRangeFocus(final IList commonSuffix, int startLine, int startColumn, int endLine, int endColumn) {
         final var parent = (ITree) commonSuffix.get(0);
         logger.trace("Computing focus list for {} at range [{}:{}, {}:{}]", TreeAdapter.getType(parent), startLine, startColumn, endLine, endColumn);
-        final var elements = TreeAdapter.getListASTArgs(parent);
+        final var elements = TreeAdapter.getArgs(parent);
         final int nElements = elements.length();
 
         logger.trace("Smallest common tree is a {} with {} elements", TreeAdapter.getType(parent), nElements);
