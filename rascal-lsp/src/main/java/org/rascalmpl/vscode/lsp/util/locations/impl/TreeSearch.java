@@ -225,9 +225,6 @@ public class TreeSearch {
         final var artificialParent = TreeAdapter.setLocation(VF.appl(TreeAdapter.getProduction(parent), selected), selectionLoc);
 
         // Build new focus list
-        var lw = VF.listWriter();
-        lw.append(artificialParent);
-        lw.appendAll(commonSuffix);
-        return lw.done();
+        return commonSuffix.insert(artificialParent);
     }
 }
