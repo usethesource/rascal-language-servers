@@ -64,7 +64,7 @@ import io.usethesource.vallang.IValueFactory;
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IDEServicesThread.class);
-    static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs", 4);
+    static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
     @JsonRequest("rascal/filesystem/resolveLocation")
     default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {

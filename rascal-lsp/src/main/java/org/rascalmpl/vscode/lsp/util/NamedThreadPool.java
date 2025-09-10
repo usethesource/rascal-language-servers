@@ -36,8 +36,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class NamedThreadPool {
     private NamedThreadPool() {}
 
+    public static ExecutorService cached(String name) {
+        return cached(name, Math.min(16, Runtime.getRuntime().availableProcessors()));
+    }
     public static ExecutorService cached(String name, int maxThread) {
         return cached(name, maxThread, false);
+    }
+
+    public static ExecutorService cachedDaemon(String name) {
+        return cachedDaemon(name, Math.min(8, Runtime.getRuntime().availableProcessors()));
     }
 
     public static ExecutorService cachedDaemon(String name, int maxThread) {

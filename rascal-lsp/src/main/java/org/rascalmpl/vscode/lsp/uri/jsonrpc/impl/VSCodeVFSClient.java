@@ -155,7 +155,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
 
 
 
-    private static final ExecutorService exec = NamedThreadPool.cachedDaemon("FallbackResolver-watcher", 4);
+    private static final ExecutorService exec = NamedThreadPool.cachedDaemon("FallbackResolver-watcher", 8);
 
     /**
     * The watch api in rascal uses closures identity to keep track of watches.
