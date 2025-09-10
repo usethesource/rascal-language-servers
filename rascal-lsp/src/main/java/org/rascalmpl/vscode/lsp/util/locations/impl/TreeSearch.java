@@ -90,15 +90,15 @@ public class TreeSearch {
         return true;
     }
 
-    private static boolean rightOf(ISourceLocation loc, int line, int column) {
+    private static boolean rightOfBegin(ISourceLocation loc, int line, int column) {
         if (!loc.hasLineColumn()) {
             return false;
         }
 
-        if (line > loc.getEndLine()) {
+        if (line > loc.getBeginLine()) {
             return true;
         }
-        return line == loc.getEndLine() && column > loc.getEndColumn();
+        return line == loc.getBeginLine() && column > loc.getBeginColumn();
     }
 
     /**
@@ -211,7 +211,7 @@ public class TreeSearch {
         final var selected = elements.stream()
             .map(ITree.class::cast)
             .dropWhile(t -> !inside(TreeAdapter.getLocation(t), startLine, startColumn))
-            .takeWhile(t -> rightOf(TreeAdapter.getLocation(t), endLine, endColumn))
+            .takeWhile(t -> rightOfBegin(TreeAdapter.getLocation(t), endLine, endColumn))
             .collect(VF.listWriter());
         final int nSelected = selected.length();
 
