@@ -839,7 +839,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var location = lang.getPrecompiledParser().getParserLocation();
                 if (URIResolverRegistry.getInstance().exists(location)) {
                     logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
-                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getPrecompiledParser()));
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getPrecompiledParser(), ownExecuter));
                 }
                 else {
                     logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());

@@ -24,22 +24,43 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.rascal;
+package org.rascalmpl.vscode.lsp.util;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+public class NamedThreadPool {
+    private NamedThreadPool() {}
 
-public class RascalLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        try {
-            startLanguageServer(NamedThreadPool.cached("rascal", 8), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
-        }
-        catch (Throwable e) {
-            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal(e.getMessage(), e);
-        }
+    public static ExecutorService cached(String name, int maxThread) {
+        return cached(name, maxThread, false);
     }
+
+    public static ExecutorService cachedDaemon(String name, int maxThread) {
+        return cached(name, maxThread, true);
+    }
+
+    private static ExecutorService cached(String name, int maxThreads, boolean daemon) {
+        if (maxThreads <= 0) {
+            throw new IllegalArgumentException("Max threads should be higher than 0");
+        }
+        var result = new ThreadPoolExecutor(maxThreads, maxThreads, 2, TimeUnit.MINUTES, new LinkedBlockingQueue<>(), factory(name, daemon));
+        result.allowCoreThreadTimeOut(true);
+        return result;
+    }
+
+    private static ThreadFactory factory(String name, boolean daemon) {
+        AtomicInteger counter = new AtomicInteger(0);
+        ThreadGroup group = new ThreadGroup(name);
+        return r -> {
+            var t = new Thread(group, r, name + "-" + counter.incrementAndGet());
+            t.setDaemon(daemon);
+            return t;
+        };
+    }
+
 }

@@ -118,19 +118,20 @@ public abstract class BaseLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server)
+    private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server, ExecutorService threadPool)
         throws IOException {
         client.setTcpNoDelay(true);
-        return constructLSPClient(client.getInputStream(), client.getOutputStream(), server);
+        return constructLSPClient(client.getInputStream(), client.getOutputStream(), server, threadPool);
     }
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server) {
+    private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server, ExecutorService threadPool) {
         Launcher<IBaseLanguageClient> clientLauncher = new Launcher.Builder<IBaseLanguageClient>()
             .setLocalService(server)
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
             .configureGson(BaseLanguageServer::configureGson)
+            .setExecutorService(threadPool)
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
@@ -169,7 +170,7 @@ public abstract class BaseLanguageServer {
             var docService = docServiceProvider.apply(threadPool);
             var wsService = workspaceServiceProvider.apply(threadPool, docService);
             docService.pair(wsService);
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), docService, wsService)));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), threadPool, docService, wsService), threadPool));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
@@ -178,7 +179,7 @@ public abstract class BaseLanguageServer {
                     var docService = docServiceProvider.apply(threadPool);
                     var wsService = workspaceServiceProvider.apply(threadPool, docService);
                     docService.pair(wsService);
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, docService, wsService)));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, threadPool, docService, wsService), threadPool));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server", e);
@@ -223,10 +224,12 @@ public abstract class BaseLanguageServer {
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
+        private final ExecutorService executor;
         private IDEServicesConfiguration ideServicesConfiguration;
 
-        private ActualLanguageServer(Runnable onExit, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
+            this.executor = executor;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = lspWorkspaceService;
         }
@@ -264,7 +267,7 @@ public abstract class BaseLanguageServer {
                     logger.catching(e);
                     throw new CompletionException(e);
                 }
-            });
+            }, executor);
         }
 
         private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode, AtomicBoolean isRascal) throws IOException {
@@ -304,42 +307,47 @@ public abstract class BaseLanguageServer {
                     logger.catching(e);
                     throw new CompletionException(e);
                 }
-            });
+            }, executor);
         }
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang));
+            return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang));
+            return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
         }
 
         @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-            logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
-            logger.debug("LSP client capabilities: {}", params.getCapabilities());
-            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
-            lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
-            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
-            logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-
-            return CompletableFuture.completedFuture(initializeResult);
+            return CompletableFuture.supplyAsync(() -> {
+                logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
+                logger.debug("LSP client capabilities: {}", params.getCapabilities());
+                final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
+                lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+                lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
+                logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+                return initializeResult;
+            }, executor);
         }
 
         @Override
         @SuppressWarnings("unused") // InitializedParams is an empty interface
         public void initialized(InitializedParams params) {
-            logger.debug("LSP connection initialized");
-            lspWorkspaceService.initialized();
-            lspDocumentService.initialized();
+            executor.submit(() -> {
+                logger.debug("LSP connection initialized");
+                lspWorkspaceService.initialized();
+                lspDocumentService.initialized();
+            });
         }
 
         @Override
         public CompletableFuture<Object> shutdown() {
-            lspDocumentService.shutdown();
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.supplyAsync(() -> {
+                lspDocumentService.shutdown();
+                return null;
+            }, executor);
         }
 
         @Override
