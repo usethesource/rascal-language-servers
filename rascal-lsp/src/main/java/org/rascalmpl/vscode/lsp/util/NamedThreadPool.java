@@ -36,15 +36,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class NamedThreadPool {
     private NamedThreadPool() {}
 
+
+    private static int calculateMaxThreadPools(int min, int max) {
+        int threads = Runtime.getRuntime().availableProcessors();
+        if (threads > max) {
+            return max;
+        }
+        if (threads < min) {
+            return min;
+        }
+        return threads;
+    }
+
     public static ExecutorService cached(String name) {
-        return cached(name, Math.min(16, Runtime.getRuntime().availableProcessors()));
+        return cached(name, calculateMaxThreadPools(4, 16));
     }
     public static ExecutorService cached(String name, int maxThread) {
         return cached(name, maxThread, false);
     }
 
     public static ExecutorService cachedDaemon(String name) {
-        return cachedDaemon(name, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        return cachedDaemon(name, calculateMaxThreadPools(4, 8));
     }
 
     public static ExecutorService cachedDaemon(String name, int maxThread) {
@@ -52,8 +64,8 @@ public class NamedThreadPool {
     }
 
     private static ExecutorService cached(String name, int maxThreads, boolean daemon) {
-        if (maxThreads <= 0) {
-            throw new IllegalArgumentException("Max threads should be higher than 0");
+        if (maxThreads < 4) {
+            throw new IllegalArgumentException("Max threads should be at least 4");
         }
         var result = new ThreadPoolExecutor(maxThreads, maxThreads, 2, TimeUnit.MINUTES, new LinkedBlockingQueue<>(), factory(name, daemon));
         result.allowCoreThreadTimeOut(true);
