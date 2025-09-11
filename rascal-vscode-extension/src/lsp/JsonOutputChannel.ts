@@ -25,6 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as vscode from 'vscode';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 /**
  * Log levels that match log4j levels.
@@ -37,6 +38,7 @@ enum LogLevel {
     info = "INFO",
     debug = "DEBUG",
     trace = "TRACE",
+    off = "OFF",
 }
 
 class LogMessage {
@@ -78,10 +80,44 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly name: string;
 
     private readonly logChannel: vscode.LogOutputChannel;
+    private client: LanguageClient;
+
+    private readonly disposables: Array<vscode.Disposable> = [];
 
     constructor(name: string) {
         this.logChannel = vscode.window.createOutputChannel(name, {log: true});
+        this.disposables.push(this.logChannel);
+
+        this.logChannel.onDidChangeLogLevel(this.didChangeLogLevel, this, this.disposables);
+
         this.name = name;
+    }
+
+    setClient(client: LanguageClient) {
+        this.client = client;
+
+        // Initialize log level
+        this.didChangeLogLevel(this.logChannel.logLevel);
+    }
+
+    private didChangeLogLevel(level: vscode.LogLevel) {
+        const newLevel = JsonParserOutputChannel.vscodeToServerLevel(level);
+        if (!this.client) {
+            this.logChannel.error(`Minimum log level ${newLevel} not send to server, since the client is not initialized yet. This could lead to lost logs. Please try changing the log level again.`);
+            return;
+        }
+        this.client.sendNotification("rascal/logLevel", newLevel);
+    }
+
+    private static vscodeToServerLevel(level: vscode.LogLevel): LogLevel {
+        switch (level) {
+            case vscode.LogLevel.Off: return LogLevel.off;
+            case vscode.LogLevel.Trace: return LogLevel.trace;
+            case vscode.LogLevel.Debug: return LogLevel.debug;
+            case vscode.LogLevel.Info: return LogLevel.info;
+            case vscode.LogLevel.Warning: return LogLevel.warn;
+            case vscode.LogLevel.Error: return LogLevel.error;
+        }
     }
 
     getLogChannel() {
@@ -175,6 +211,6 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         this.logChannel.hide();
     }
     dispose(): void {
-        this.logChannel.dispose();
+        vscode.Disposable.from(...this.disposables).dispose();
     }
 }
