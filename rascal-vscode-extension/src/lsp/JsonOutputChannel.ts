@@ -25,18 +25,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as vscode from 'vscode';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 /**
  * Log levels that match log4j levels.
  * https://logging.apache.org/log4j/2.x/manual/customloglevels.html
+ * Note: same order as {@link vscode.LogLevel}, so we can convert easily.
  */
 enum LogLevel {
-    fatal = "FATAL",
-    error = "ERROR",
-    warn = "WARN",
-    info = "INFO",
-    debug = "DEBUG",
+    off = "OFF",
     trace = "TRACE",
+    debug = "DEBUG",
+    info = "INFO",
+    warn = "WARN",
+    error = "ERROR",
+    fatal = "FATAL",
 }
 
 class LogMessage {
@@ -78,10 +81,34 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly name: string;
 
     private readonly logChannel: vscode.LogOutputChannel;
+    private client?: LanguageClient = undefined;
+
+    private readonly disposables: Array<vscode.Disposable> = [];
 
     constructor(name: string) {
         this.logChannel = vscode.window.createOutputChannel(name, {log: true});
+        this.disposables.push(this.logChannel);
+
+        this.logChannel.onDidChangeLogLevel(this.didChangeLogLevel, this, this.disposables);
+
         this.name = name;
+    }
+
+    setClient(client: LanguageClient) {
+        this.client = client;
+
+        // Initialize log level
+        this.didChangeLogLevel(this.logChannel.logLevel);
+    }
+
+    private didChangeLogLevel(level: vscode.LogLevel) {
+        // since vscode.LogLevel is a subset of LogLevel, and the same order, we can convert easily
+        const newLevel = Object.values(LogLevel)[level];
+        if (!this.client) {
+            // Do nothing for now. this::setClient will take care of this once the client is available.
+            return;
+        }
+        this.client.sendNotification("rascal/logLevel", newLevel);
     }
 
     getLogChannel() {
@@ -175,6 +202,6 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         this.logChannel.hide();
     }
     dispose(): void {
-        this.logChannel.dispose();
+        vscode.Disposable.from(...this.disposables).dispose();
     }
 }

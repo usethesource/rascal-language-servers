@@ -33,15 +33,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
-import org.eclipse.lsp4j.ConfigurationItem;
-import org.eclipse.lsp4j.ConfigurationParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
@@ -52,8 +48,6 @@ import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.Registration;
-import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -63,7 +57,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
-import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
@@ -79,10 +72,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-    private volatile boolean hasConfigurationCapability = false;
-    private volatile boolean hasDynamicChangeConfigurationCapability = false;
-    private final ConfigurationParams configParams;
-
     private final List<FileOperationPattern> interestedInFiles;
 
 
@@ -90,9 +79,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         this.documentService = documentService;
         this.ownExecuter = exec;
         this.interestedInFiles = interestedInFiles;
-        this.configParams = buildConfigurationParams();
     }
-
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
         this.workspaceFolders.clear();
@@ -128,8 +115,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             if (watchesSet) {
                 workspaceCapabilities.setFileOperations(fileOperationCapabilities);
             }
-            hasConfigurationCapability = clientWorkspaceCap.getConfiguration().booleanValue();
-            hasDynamicChangeConfigurationCapability = clientWorkspaceCap.getDidChangeConfiguration().getDynamicRegistration().booleanValue();
         }
 
         capabilities.setWorkspace(workspaceCapabilities);
@@ -149,65 +134,17 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
      */
     @SuppressWarnings("java:S1172")
     void initialized() {
-        if (!hasDynamicChangeConfigurationCapability) {
-            logger.warn("Client does not support listening to configuration changes");
-            fetchAndUpdateSettings();
-            return;
-        }
-
-        client.registerCapability(new RegistrationParams(Collections.singletonList(new Registration("eeb6e382-a39c-44fe-9c10-a95c1a56fdd0", "workspace/didChangeConfiguration"))))
-            .thenAccept(v -> {
-                logger.debug("Registered for configuration change events from client");
-                fetchAndUpdateSettings(); // get initial settings
-            })
-            .exceptionally(e -> {
-                logger.catching(e);
-                return null;
-            });
+        // not in use
     }
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-        // params.getSettings() is useless, since it does not tell *which* settings have changed.
-        // Instead, we need to query and update all settings instead
-        logger.debug("workspace/didChangeConfiguration: {}", params);
-        fetchAndUpdateSettings();
+        // not in use
     }
 
     @Override
     public void didChangeWatchedFiles(DidChangeWatchedFilesParams params) {
         // todo: use in the future
-    }
-
-    private void updateConfigurations(List<Object> items) {
-        for (var item : items) {
-            if (!(item instanceof JsonObject)) {
-                throw new IllegalArgumentException("Expected JsonObject in configuration array, got: " + item);
-            }
-
-            JsonObject settings = (JsonObject) item;
-            if (settings.has("extension")) {
-                final var extension = settings.get("extension").getAsJsonObject();
-                if (extension.has("minLogLevel")) {
-                    final var minLogLevel = extension.get("minLogLevel").getAsString();
-                    Configurator.setRootLevel(Level.toLevel(minLogLevel, Level.DEBUG));
-                }
-            }
-        }
-    }
-
-    private void fetchAndUpdateSettings() {
-        if (!hasConfigurationCapability) {
-            logger.error("Client does not support workspace/configuration; cannot update settings");
-            return;
-        }
-
-        client.configuration(configParams)
-            .thenAccept(this::updateConfigurations)
-            .exceptionally(e -> {
-                logger.error("Error updating configuration from client", e);
-                return null; // Void
-            });
     }
 
     @Override
@@ -258,14 +195,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         }
 
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
-    }
-
-    private ConfigurationParams buildConfigurationParams() {
-        ConfigurationParams params = new ConfigurationParams();
-        var config = new ConfigurationItem();
-        config.setSection("rascal");
-        params.setItems(Collections.singletonList(config));
-        return params;
     }
 
     protected final ExecutorService getExecuter() {

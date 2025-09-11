@@ -258,12 +258,6 @@
           "default": "Project root",
           "enum": ["Project root", "Module (qualified)", "Module (unqualified)"],
           "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
-        },
-        "rascal.extension.minLogLevel": {
-          "type": "string",
-          "default": "DEBUG",
-          "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
-          "markdownDescription": "Specifies the minimum log level for the extension's logging"
         }
       }
     }

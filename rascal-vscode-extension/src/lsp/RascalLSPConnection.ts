@@ -48,19 +48,12 @@ export async function activateLanguageClient(
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
-        middleware: {
-            workspace: {
-                configuration: async (params, _token, _next) => {
-                    return params.items.flatMap(_item =>
-                        vscode.workspace.getConfiguration(_item.section, _item.scopeUri ? vscode.Uri.parse(_item.scopeUri, true) : undefined));
-                },
-            },
-        },
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
 
     await client.start();
+    logger.setClient(client);
     client.sendNotification("rascal/vfs/register", {
         port: vfsServer.port
     });

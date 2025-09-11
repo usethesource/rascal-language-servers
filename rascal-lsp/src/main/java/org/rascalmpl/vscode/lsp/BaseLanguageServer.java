@@ -45,8 +45,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
@@ -392,6 +394,12 @@ public abstract class BaseLanguageServer {
         @Override
         public void cancelProgress(WorkDoneProgressCancelParams params) {
             lspDocumentService.cancelProgress(params.getToken().getLeft());
+        }
+
+        @Override
+        public void setMinimumLogLevel(String level) {
+            final var l = Level.toLevel(level, Level.DEBUG); // fall back to debug when the string cannot be mapped
+            Configurator.setRootLevel(l);
         }
     }
 }

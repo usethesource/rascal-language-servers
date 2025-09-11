@@ -63,4 +63,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
 
     @JsonNotification("rascal/vfs/register")
     void registerVFS(VFSRegister registration);
+
+    @JsonNotification("rascal/logLevel")
+    void setMinimumLogLevel(String level);
 }
