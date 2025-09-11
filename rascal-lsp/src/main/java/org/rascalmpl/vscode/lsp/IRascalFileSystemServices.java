@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -55,14 +56,15 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
 
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IDEServicesThread.class);
+    static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
     @JsonRequest("rascal/filesystem/resolveLocation")
     default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {
@@ -81,7 +83,7 @@ public interface IRascalFileSystemServices {
                 IRascalFileSystemServices__logger.warn("Could not resolve location {}", loc, e);
                 return loc;
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/watch")
@@ -100,7 +102,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
@@ -161,7 +163,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/readDirectory")
@@ -177,7 +179,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/createDirectory")
@@ -188,7 +190,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/readFile")
@@ -218,7 +220,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/writeFile")
@@ -249,7 +251,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/delete")
@@ -261,7 +263,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException e) {
                 throw new CompletionException(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/rename")
@@ -274,7 +276,7 @@ public interface IRascalFileSystemServices {
             } catch (IOException | URISyntaxException e) {
                 throw new CompletionException(e);
             }
-        });
+        }, executor);
     }
 
     @JsonRequest("rascal/filesystem/schemes")

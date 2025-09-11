@@ -633,7 +633,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
-        return CompletableFuture.<IList>supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn))
+        return CompletableFuture.<IList>supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn), ownExecuter)
             .thenCompose(focus -> focus.isEmpty()
                 ? CompletableFuture.completedFuture(focus /* an empty list */)
                 : rascalServices.codeActions(focus, pcfg).get());

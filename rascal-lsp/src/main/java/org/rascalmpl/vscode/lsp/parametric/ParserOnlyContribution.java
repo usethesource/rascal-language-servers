@@ -31,7 +31,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -62,9 +62,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
     private final CompletableFuture<Boolean> specialCaseHighlighting;
+    private final ExecutorService ownExecutor;
 
-    public ParserOnlyContribution(String name, ParserSpecification spec) {
+    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService ownExecutor) {
         this.name = name;
+        this.ownExecutor = ownExecutor;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
@@ -84,7 +86,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
             return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
         }
 
-        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
+        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc), ownExecutor);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {

@@ -24,22 +24,32 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.rascal;
+package org.rascalmpl.vscode.lsp.util;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+public class NamedThreadPool {
+    private NamedThreadPool() {}
 
-public class RascalLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        try {
-            startLanguageServer(NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
-        }
-        catch (Throwable e) {
-            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal(e.getMessage(), e);
-        }
+    public static ExecutorService cached(String name) {
+        return Executors.newCachedThreadPool(factory(name, false));
     }
+
+    public static ExecutorService cachedDaemon(String name) {
+        return Executors.newCachedThreadPool(factory(name, true));
+    }
+
+    private static ThreadFactory factory(String name, boolean daemon) {
+        AtomicInteger counter = new AtomicInteger(0);
+        ThreadGroup group = new ThreadGroup(name);
+        return r -> {
+            var t = new Thread(group, r, name + "-" + counter.incrementAndGet());
+            t.setDaemon(daemon);
+            return t;
+        };
+    }
+
 }

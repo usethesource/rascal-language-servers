@@ -37,18 +37,18 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.ISourceLocationWatcher;
+import org.rascalmpl.vscode.lsp.IRascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
-import engineering.swat.watch.DaemonThreadPool;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
@@ -155,7 +155,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
 
 
 
-    private static final ExecutorService exec = DaemonThreadPool.buildConstrainedCached("FallbackResolver watcher thread-pool", 4);
+    private static final ExecutorService exec = NamedThreadPool.cachedDaemon("FallbackResolver-watcher");
 
     /**
     * The watch api in rascal uses closures identity to keep track of watches.
@@ -213,7 +213,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
                 .setLocalService(newClient)
                 .setInput(socket.getInputStream())
                 .setOutput(socket.getOutputStream())
-                .setExecutorService(Executors.newCachedThreadPool())
+                .setExecutorService(IRascalFileSystemServices.executor)
                 .create();
 
             clientLauncher.startListening();
