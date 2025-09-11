@@ -105,7 +105,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         // since vscode.LogLevel is a subset of LogLevel, and the same order, we can convert easily
         const newLevel = Object.values(LogLevel)[level];
         if (!this.client) {
-            this.logChannel.error(`Minimum log level ${newLevel} not send to server, since the client is not initialized yet. This could lead to lost logs. Please try changing the log level again.`);
+            // Do nothing for now. this::setClient will take care of this once the client is available.
             return;
         }
         this.client.sendNotification("rascal/logLevel", newLevel);
