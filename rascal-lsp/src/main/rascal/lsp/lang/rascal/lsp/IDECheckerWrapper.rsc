@@ -104,7 +104,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
 
     step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return {*msgs};
+    return filterModuleMessages(msgs, workspaceFolders);
 }, totalWork=3);
 
 private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
@@ -156,4 +156,9 @@ loc inferProjectRoot(loc member) {
     }
 
     return current;
+}
+
+set[ModuleMessages] filterModuleMessages(list[ModuleMessages] original, set[loc] workspaceFolders) {
+    properMessages = {<m.at, m> | program(_, messages) <- original, m <- messages, inWorkspace(workspaceFolders, m.at)};
+    return { program(l, properMessages[l]) | l <- properMessages<0> };
 }
