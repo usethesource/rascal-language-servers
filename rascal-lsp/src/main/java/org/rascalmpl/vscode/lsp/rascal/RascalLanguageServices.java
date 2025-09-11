@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
-
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
@@ -43,7 +42,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -75,9 +73,9 @@ import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
@@ -147,24 +145,14 @@ public class RascalLanguageServices {
         }
     }
 
-    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFolder(ISourceLocation folder, PathConfig pcfg,
-        Executor exec) {
-        return runEvaluator("Rascal checkAll", compilerEvaluator,
-            e -> {
-                var config = e.call("getRascalCoreCompilerConfig", pcfg.asConstructor());
-                return translateCheckResults((ISet) e.call("checkAll", folder, config));
-            },
-            Collections.emptyMap(), exec, false, client);
-    }
-
-    private static Map<ISourceLocation, ISet> translateCheckResults(ISet messages) {
+    private static Map<ISourceLocation, ISet> translateCheckResults(IMap messages) {
         logger.trace("Translating messages: {}", messages);
         return messages.stream()
-            .filter(IConstructor.class::isInstance)
-            .map(IConstructor.class::cast)
+            .map(ITuple.class::cast)
             .collect(Collectors.toMap(
-                c -> (ISourceLocation) c.get("src"),
-                c -> (ISet) c.get("messages")));
+                c -> (ISourceLocation) c.get(0),
+                c -> (ISet) c.get(1)
+            ));
     }
 
     IFunction makePathConfigGetter(Evaluator e) {
@@ -202,14 +190,8 @@ public class RascalLanguageServices {
         var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
 
         return runEvaluator("Rascal check", compilerEvaluator,
-            e -> translateCheckResults((ISet) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
-            buildEmptyResult(VF.list(file)), exec, false, client);
-    }
-
-    private Map<ISourceLocation, ISet> buildEmptyResult(IList files) {
-        return files.stream()
-            .map(ISourceLocation.class::cast)
-            .collect(Collectors.toMap(k -> k, k -> VF.set()));
+            e -> translateCheckResults((IMap) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
+            Map.of(file, VF.set()), exec, false, client);
     }
 
     private ISourceLocation getFileLoc(ITree moduleTree) {

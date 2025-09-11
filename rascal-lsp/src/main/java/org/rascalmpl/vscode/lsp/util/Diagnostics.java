@@ -28,12 +28,12 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
@@ -50,6 +50,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -224,34 +225,30 @@ public class Diagnostics {
         return Locations.toRange(loc, cm);
     }
 
-    public static List<Diagnostic> translateDiagnostics(ISourceLocation file, ICollection<?> messages, ColumnMaps cm) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(Map<ISourceLocation, ISet> messagesPerModule, ColumnMaps cm) {
+        return messagesPerModule.entrySet().stream()
+            .filter(kv -> isValidLocation(kv.getKey(), kv.getValue()))
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                kv -> translateDiagnostics(kv.getValue(), cm)
+            ));
+    }
+
+    private static List<Diagnostic> translateDiagnostics(ICollection<?> messages, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
-            .filter(d -> Diagnostics.hasValidLocation(d, file))
             .map(d -> translateDiagnostic(d, cm))
             .collect(Collectors.toList());
     }
 
-    /**
-     * Indexes all messages per file and translates them to LSP Diagnostic representation
-     * @param messages    as in the `Message` standard library module
-     * @param docService  needed to convert column positions
-     * @return an ordered map of Diagnostics
-     */
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, ColumnMaps cm) {
-        Map<ISourceLocation, List<Diagnostic>> results = new HashMap<>();
-
-        for (IValue elem : messages) {
-            IConstructor message = (IConstructor) elem;
-            ISourceLocation file = getMessageLocation(message).top();
-            Diagnostic d = translateDiagnostic(message, cm);
-
-            List<Diagnostic> lst = results.computeIfAbsent(file, l -> new LinkedList<>());
-            lst.add(d);
-        }
-
-        return results;
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, ColumnMaps cm) {
+        return messages.stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .filter(Diagnostics::hasValidLocation)
+            .map(d -> Pair.of(getMessageLocation(d), translateDiagnostic(d, cm)))
+            .collect(Collectors.groupingBy(Pair::getLeft, Collectors.mapping(Pair::getRight, Collectors.toList())));
     }
 
     private static ISourceLocation getMessageLocation(IConstructor message) {
@@ -262,18 +259,25 @@ public class Diagnostics {
         return ((IString) msg.get("msg")).getValue();
     }
 
-    private static boolean hasValidLocation(IConstructor d, ISourceLocation file) {
-        ISourceLocation loc = getMessageLocation(d);
+    private static boolean hasValidLocation(IConstructor d) {
+        return isValidLocation(getMessageLocation(d), d);
+    }
 
+    private static boolean isValidLocation( ISourceLocation loc, IValue m) {
         if (loc == null || loc.getScheme().equals("unknown")) {
-            logger.trace("Dropping diagnostic due to incorrect location on message: {}", d);
+            logger.trace("Dropping diagnostic due to incorrect location on message: {}", m);
             return false;
         }
-
-        if (!loc.top().equals(file.top())) {
-            logger.trace("Dropping diagnostic, reported for the wrong file: {}, message: {}", file, d);
-            return false;
+        if (loc.getPath().endsWith(".rsc")) {
+            return true;
         }
-        return true;
+        if (loc.getPath().endsWith("/RASCAL.MF")) {
+            return true;
+        }
+        if (loc.getPath().endsWith("/pom.xml")) {
+            return true;
+        }
+        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", m);
+        return false;
     }
 }
