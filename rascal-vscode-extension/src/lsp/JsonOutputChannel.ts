@@ -81,7 +81,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     readonly name: string;
 
     private readonly logChannel: vscode.LogOutputChannel;
-    private client: LanguageClient;
+    private client?: LanguageClient = undefined;
 
     private readonly disposables: Array<vscode.Disposable> = [];
 
