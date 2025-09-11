@@ -25,6 +25,9 @@
     "type": "git",
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
+  "sponsor": {
+    "url": "https://github.com/sponsors/usethesource/"
+  },
   "dependencies": {
     "tar": "7.x",
     "vscode-languageclient": "9.x",
