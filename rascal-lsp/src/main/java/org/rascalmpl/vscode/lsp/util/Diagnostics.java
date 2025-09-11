@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -258,7 +257,7 @@ public class Diagnostics {
         if (loc.getPath().endsWith("/pom.xml")) {
             return true;
         }
-        logger.error("Filtering diagnostic as its an unsupported file to report diagnostics on: {}", d);
+        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", d);
         return false;
     }
 }
