@@ -455,7 +455,7 @@ async function assureDebugLevelLoggingIsEnabled() {
     if (alreadySetup) {
         return;
     }
-    alreadySetup = true; // to avoid doing this twice (and in parallel)
+    alreadySetup = true; // to avoid doing this twice/parallel
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
@@ -463,7 +463,8 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export async function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
