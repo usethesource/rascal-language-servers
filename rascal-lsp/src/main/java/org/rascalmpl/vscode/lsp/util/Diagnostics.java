@@ -50,6 +50,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -224,6 +225,23 @@ public class Diagnostics {
         return Locations.toRange(loc, cm);
     }
 
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(Map<ISourceLocation, ISet> messagesPerModule, ColumnMaps cm) {
+        return messagesPerModule.entrySet().stream()
+            .filter(kv -> isValidLocation(kv.getKey(), kv.getValue()))
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                kv -> translateDiagnostics(kv.getValue(), cm)
+            ));
+    }
+
+    private static List<Diagnostic> translateDiagnostics(ICollection<?> messages, ColumnMaps cm) {
+        return messages.stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .map(d -> translateDiagnostic(d, cm))
+            .collect(Collectors.toList());
+    }
+
     public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
@@ -242,10 +260,12 @@ public class Diagnostics {
     }
 
     private static boolean hasValidLocation(IConstructor d) {
-        ISourceLocation loc = getMessageLocation(d);
+        return isValidLocation(getMessageLocation(d), d);
+    }
 
+    private static boolean isValidLocation( ISourceLocation loc, IValue m) {
         if (loc == null || loc.getScheme().equals("unknown")) {
-            logger.trace("Dropping diagnostic due to incorrect location on message: {}", d);
+            logger.trace("Dropping diagnostic due to incorrect location on message: {}", m);
             return false;
         }
         if (loc.getPath().endsWith(".rsc")) {
@@ -257,7 +277,7 @@ public class Diagnostics {
         if (loc.getPath().endsWith("/pom.xml")) {
             return true;
         }
-        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", d);
+        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", m);
         return false;
     }
 }

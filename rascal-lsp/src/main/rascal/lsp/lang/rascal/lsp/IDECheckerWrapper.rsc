@@ -50,8 +50,8 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-set[Message] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
-    = job("Rascal check", set[Message](void(str, int) step) {
+map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
+    = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
@@ -86,7 +86,7 @@ set[Message] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file)
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        return {program(l, {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)})};
+        return (l : {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)});
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
@@ -104,7 +104,7 @@ set[Message] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file)
 
     step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return { m | program(_, messages) <- msgs, m <- messages, inWorkspace(workspaceFolders, m.at)};
+    return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
 private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
@@ -156,4 +156,13 @@ loc inferProjectRoot(loc member) {
     }
 
     return current;
+}
+
+map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
+    set[Message] empty = {};
+    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
+    for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
+        result[m.at.top]?empty += {m};
+    }
+    return result;
 }
