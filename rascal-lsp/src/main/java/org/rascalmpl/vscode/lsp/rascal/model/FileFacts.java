@@ -152,7 +152,11 @@ public class FileFacts {
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
                 rascal.compileFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(messages -> Diagnostics.translateMessages(messages, cm))
+                    .thenApply(m -> {
+                        Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
+                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(l, msgs, cm)));
+                        return result;
+                    })
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 

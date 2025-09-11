@@ -50,8 +50,8 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-set[Message] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
-    = job("Rascal check", set[Message](void(str, int) step) {
+set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
+    = job("Rascal check", set[ModuleMessages](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
@@ -104,7 +104,7 @@ set[Message] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file)
 
     step("Checking module <l>", 1);
     msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return { m | program(_, messages) <- msgs, m <- messages, inWorkspace(workspaceFolders, m.at)};
+    return {*msgs};
 }, totalWork=3);
 
 private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
