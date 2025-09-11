@@ -30,15 +30,16 @@ import { LanguageClient } from 'vscode-languageclient/node';
 /**
  * Log levels that match log4j levels.
  * https://logging.apache.org/log4j/2.x/manual/customloglevels.html
+ * Note: same order as {@link vscode.LogLevel}, so we can convert easily.
  */
 enum LogLevel {
-    fatal = "FATAL",
-    error = "ERROR",
-    warn = "WARN",
-    info = "INFO",
-    debug = "DEBUG",
-    trace = "TRACE",
     off = "OFF",
+    trace = "TRACE",
+    debug = "DEBUG",
+    info = "INFO",
+    warn = "WARN",
+    error = "ERROR",
+    fatal = "FATAL",
 }
 
 class LogMessage {
@@ -101,23 +102,13 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     private didChangeLogLevel(level: vscode.LogLevel) {
-        const newLevel = JsonParserOutputChannel.vscodeToServerLevel(level);
+        // since vscode.LogLevel is a subset of LogLevel, and the same order, we can convert easily
+        const newLevel = Object.values(LogLevel)[level];
         if (!this.client) {
             this.logChannel.error(`Minimum log level ${newLevel} not send to server, since the client is not initialized yet. This could lead to lost logs. Please try changing the log level again.`);
             return;
         }
         this.client.sendNotification("rascal/logLevel", newLevel);
-    }
-
-    private static vscodeToServerLevel(level: vscode.LogLevel): LogLevel {
-        switch (level) {
-            case vscode.LogLevel.Off: return LogLevel.off;
-            case vscode.LogLevel.Trace: return LogLevel.trace;
-            case vscode.LogLevel.Debug: return LogLevel.debug;
-            case vscode.LogLevel.Info: return LogLevel.info;
-            case vscode.LogLevel.Warning: return LogLevel.warn;
-            case vscode.LogLevel.Error: return LogLevel.error;
-        }
     }
 
     getLogChannel() {
