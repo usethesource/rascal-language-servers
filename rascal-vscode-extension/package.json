@@ -25,6 +25,9 @@
     "type": "git",
     "url": "https://github.com/usethesource/rascal-language-servers"
   },
+  "bugs": {
+    "url": "https://github.com/usethesource/rascal-language-servers/issues"
+  },
   "sponsor": {
     "url": "https://github.com/sponsors/usethesource/"
   },
