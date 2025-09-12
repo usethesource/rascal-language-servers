@@ -41,10 +41,10 @@ module util::LanguageServer
 
 import util::Reflective;
 import analysis::diff::edits::TextEdits;
-import IO;
-import ParseTree;
-import Message;
 import Exception;
+import IO;
+import Message;
+import ParseTree;
 
 @synopsis{Definition of a language server by its meta-data.}
 @description{
@@ -212,6 +212,7 @@ hover documentation, definition with uses, references to declarations, implement
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
+* The ((formatting)) service determines what edits to do to format (part of) a file. The `range` parameter determines what part of the file to format. For whole-file formatting, `_tree.top == range`. ((FormattingOptions)) influence how formatting treats whitespace.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -277,10 +278,29 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | formatting    (list[TextEdit](Focus _focus, FormattingOptions _opts) formattingService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
+
+@synopsis{Options for formatting of programs.}
+@description{
+Options that specify how to format contents of a file.
+* `insertSpaces`; if `true`, use spaces for indentation; if `false`, use tabs.
+* `tabSize`; if `insertSpaces == true`, use this amount of spaces for a single level of indentation.
+* `trimTrailingWhiteSpace`; if `true`, remove any whitespace (except newlines) from ends of formatted lines.
+* `insertFinalNewline`; if `true`, and the file does not end with a new line, add one.
+* `trimFinalNewlines`; if `true`, and the file ends in one or more new lines, remove them.
+  Note: formatting with `insertFinalNewline && trimFinalNewlines` is expected to return a file that ends in a single newline.
+}
+data FormattingOptions(
+        int tabSize = 4
+      , bool insertSpaces = true
+      , bool trimTrailingWhitespace = false
+      , bool insertFinalNewline = false
+      , bool trimFinalNewlines = false
+) = formattingOptions();
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}

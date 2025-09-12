@@ -34,12 +34,22 @@ The core functionality of this module is built upon these concepts:
 module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
+import util::Format;
 import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
+import lang::pico::format::Formatting;
 import DateTime;
+import IO;
+import Location;
+import String;
+
+import lang::box::\syntax::Box;
+extend lang::box::util::Tree2Box;
+import lang::box::util::Box2Text;
+import analysis::diff::edits::HiFiLayoutDiff;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,8 +71,45 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    formatting(picoFormattingService)
 };
+
+list[TextEdit] picoFormattingService(Focus input, FormattingOptions opts) {
+    str original = "<input[-1]>";
+    box = toBox(input[-1]);
+    box = visit (box) { case i:I(_) => i[is=opts.tabSize] }
+    formatted = format(box);
+
+    if (!opts.trimTrailingWhitespace) {
+        // restore trailing whitespace that was lost during tree->box->text, or find a way to not lose it
+        println("The Pico formatter does not support maintaining trailing whitespace.");
+    }
+
+    if (!opts.insertSpaces) {
+        // replace indentation spaces with tabs
+        formatted = perLine(formatted, indentSpacesAsTabs(opts.tabSize));
+    }
+
+    if (/^.*[^\n]<newlines:\n*>$/s := original) {
+        // replace original final newlines or remove the one introduced by ((format)) (`Box2Text`)
+        formatted = replaceLast(formatted, "\n", opts.trimFinalNewlines ? "" : newlines);
+    }
+
+    if (opts.insertFinalNewline) {
+        // ensure presence of final newline
+        formatted = insertFinalNewline(formatted);
+    }
+
+    // compute layout differences as edits, and restore comments
+    edits = layoutDiff(input[-1], parse(#start[Program], formatted, input[-1]@\loc.top));
+
+    // instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
+    loc range = input[0]@\loc;
+    filteredEdits = [e | e <- edits, isContainedIn(e.range, range)];
+
+    return filteredEdits;
+}
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
 set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
