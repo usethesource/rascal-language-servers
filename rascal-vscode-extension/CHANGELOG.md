@@ -9,11 +9,11 @@ We only list significant changes, for a full changelog [please review the commit
 * Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors. For your own DSLs error recovery is opt-in; your code might have to be updated to deal with these trees with skipped parts.
 * Rascal code that reads or writes to files open in the editor is now redirected to the editor contents instead of the state on disk (this aligns with the LSP specification).
 * DSLs can also contribute their own rename refactoring using the `LanguageService::rename` contribution.
-* Type checker can now work correctly with multi-project workspaces. Users do not have to trigger the typechecker in "higher-up" projects by hand anymore.
+* Type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
 * Long-running jobs (such as the type checker) can now be interrupted.
 * Rascal has better selection ranges support such that you can grow/shrink your selection based on the Rascal syntax.
 * DSLs can also contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
-* We have migrated to [LogOutputChannels](https://code.visualstudio.com/updates/v1_72#_log-output-channel) such that user scan combine, filter, and configure Rascal's output channels.
+* We have migrated to [LogOutputChannels](https://code.visualstudio.com/updates/v1_72#_log-output-channel) such that users can combine, filter, and configure Rascal's output channels.
 
 ### Improved features
 
@@ -21,26 +21,26 @@ We only list significant changes, for a full changelog [please review the commit
 * The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster.
 * Document symbols are more robust (used in Outline and when quickly navigating between symbols in the editor).
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
-* Hover & go to definition are more accurate due to bugfixes in internal datastructures.
+* Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
 * Improved documentation of `LanguageService`.
 
 ### Rascal 0.41.0 highlights
 
-* A completly new REPL with:
+* A completely new REPL implementation with:
   * multi-line editing
   * better completion support
   * parse error highlighting
-  * many more
-* `Require-Libraries` from `RASCAL.MF` is not used anymore, `pom.xml` is the only place where you define dependencies.
+  * much more
+* `Require-Libraries` from `RASCAL.MF` is not used anymore. Instead, `pom.xml` is the only place where you define dependencies.
 * We no longer call Maven, but have our own implementation to extract information from `pom.xml`. This has resulted in faster REPL starts and better error messages.
-* The `lib` scheme is gone, replaced by either the `project` or `mvn` scheme. Please open an issue if you need help migrating.
+* The `lib` scheme is gone: it has been replaced by either the `project` or `mvn` scheme. Please open an issue if you need help migrating.
 * `IO` has new features, such as `isReadable` and `isWritable`, and the `watch` feature has better support for macOS.
 * Various performance improvements.
 * `Message` has an optional `causes` field that can be used to report extra locations to VS Code.
 
 ### Extension developers
 
-* We've moved to node 20. VS Code has switched since 1.90, and the node 18 support of some of our dependencies has been deprecated for a while. This will mean having to upgrade your own extension as well.
+* We've moved to Node 20. VS Code has switched since 1.90, and the Node 18 support of some of our dependencies has been deprecated for a while. This will mean having to upgrade your own extension as well.
 
 ### 0.12.2
 
