@@ -227,6 +227,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
+        await assureDebugLevelLoggingIsEnabled();
     }
 
     async cleanup() {
@@ -446,6 +447,20 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
     await outputView.selectChannel(`${channel} Language Server`);
     return outputView;
+}
+
+let alreadySetup = false;
+
+async function assureDebugLevelLoggingIsEnabled() {
+    if (alreadySetup) {
+        return;
+    }
+    alreadySetup = true; // to avoid doing this twice/parallel
+    const prompt = await new Workbench().openCommandPrompt();
+    await prompt.setText(">workbench.action.setLogLevel");
+    await prompt.confirm();
+    await prompt.setText("Debug");
+    await prompt.confirm();
 }
 
 export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
