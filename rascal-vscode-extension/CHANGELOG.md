@@ -4,16 +4,21 @@ We only list significant changes, for a full changelog [please review the commit
 
 ## 0.13.0
 
-### New Features
+### New Features for Rascal Developers
 
-* Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors. For your own DSLs error recovery is opt-in; your code might have to be updated to deal with these trees with skipped parts.
+* Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors.
 * Rascal code that reads or writes to files open in the editor is now redirected to the editor contents instead of the state on disk (this aligns with the LSP specification).
-* DSLs can also contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * Type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
 * Long-running jobs (such as the type checker) can now be interrupted.
 * Rascal has better selection ranges support such that you can grow/shrink your selection based on the Rascal syntax.
-* DSLs can also contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
 * We have migrated to [LogOutputChannels](https://code.visualstudio.com/updates/v1_72#_log-output-channel) such that users can combine, filter, and configure Rascal's output channels.
+
+### New Features for DSL Developers
+
+* DSLs error recovery support is opt-in (parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambigious parts.
+* DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
+* DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
+
 
 ### Improved features
 
