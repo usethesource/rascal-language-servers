@@ -105,7 +105,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     it("have highlighting and parse errors", async function () {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.hasSyntaxHighlighting(editor);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);

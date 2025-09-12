@@ -110,7 +110,7 @@ describe('IDE', function () {
 
     it("has syntax highlighting and parsing errors", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await ide.hasSyntaxHighlighting(editor);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
     });
