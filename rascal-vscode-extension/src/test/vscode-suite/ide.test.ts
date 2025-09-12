@@ -153,7 +153,7 @@ describe('IDE', function () {
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
             const jumpLoc = await editor.getCoordinates();
-            return defLoc[0] == jumpLoc[0] && defLoc[1] == jumpLoc[1];
+            return defLoc[0] === jumpLoc[0] && defLoc[1] === jumpLoc[1];
         }, Delays.slow, "We should jump to the right position");
     });
 
