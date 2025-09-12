@@ -15,7 +15,7 @@ We only list significant changes, for a full changelog [please review the commit
 
 ### New Features for DSL Developers
 
-* DSLs error recovery support is opt-in (parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambigious parts.
+* Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambiguous parts.
 * DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
 
