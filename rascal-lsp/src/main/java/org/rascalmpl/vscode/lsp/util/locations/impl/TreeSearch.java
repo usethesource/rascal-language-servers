@@ -101,6 +101,17 @@ public class TreeSearch {
         return line == loc.getBeginLine() && column > loc.getBeginColumn();
     }
 
+    private static boolean rightOfEnd(ISourceLocation loc, int line, int column) {
+        if (!loc.hasLineColumn()) {
+            return false;
+        }
+
+        if (line > loc.getEndLine()) {
+            return true;
+        }
+        return line == loc.getEndLine() && column > loc.getEndColumn();
+    }
+
     /**
      * Produces a list of trees that are "in focus" at given line and column offset (UTF-32).
      *
@@ -180,14 +191,16 @@ public class TreeSearch {
         final var startList = computeFocusList(tree, startLine, startColumn);
         final var endList = computeFocusList(tree, endLine, endColumn);
 
+        logger.trace("Focus at range start: {}", startList.length());
+        logger.trace("Focus at range end: {}", endList.length());
+
         final var commonSuffix = startList.intersect(endList);
-        if (commonSuffix.equals(startList) || commonSuffix.equals(endList)) {
-            // We do not have enough information to extend the focus
-            return commonSuffix;
-        }
+
+        logger.trace("Common focus suffix length: {}", commonSuffix.length());
         // The range spans multiple subtrees. The easy way out is not to focus farther down than
         // their smallest common subtree (i.e. `commonSuffix`) - let's see if we can do any better.
         if (TreeAdapter.isList((ITree) commonSuffix.get(0))) {
+            logger.trace("Focus range spans a (partial) list: {}", TreeAdapter.getType((ITree) commonSuffix.get(0)));
             return computeListRangeFocus(commonSuffix, startLine, startColumn, endLine, endColumn);
         }
 
@@ -210,9 +223,22 @@ public class TreeSearch {
         // Find the elements in the list that are (partially) selected.
         final var selected = elements.stream()
             .map(ITree.class::cast)
-            .dropWhile(t -> !inside(TreeAdapter.getLocation(t), startLine, startColumn))
-            .takeWhile(t -> rightOfBegin(TreeAdapter.getLocation(t), endLine, endColumn))
+            .dropWhile(t -> {
+                final var l = TreeAdapter.getLocation(t);
+                // only include layout if the element before it is selected as well
+                return TreeAdapter.isLayout(t)
+                    ? rightOfBegin(l, startLine, startColumn)
+                    : rightOfEnd(l, startLine, startColumn);
+            })
+            .takeWhile(t -> {
+                final var l = TreeAdapter.getLocation(t);
+                // only include layout if the element after it is selected as well
+                return TreeAdapter.isLayout(t)
+                    ? rightOfEnd(l, endLine, endColumn)
+                    : rightOfBegin(l, endLine, endColumn);
+            })
             .collect(VF.listWriter());
+
         final int nSelected = selected.length();
 
         logger.trace("Range covers {} (of {}) elements in the parent list", nSelected, nElements);

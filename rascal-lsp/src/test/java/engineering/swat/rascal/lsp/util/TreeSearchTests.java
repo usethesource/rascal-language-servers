@@ -27,6 +27,7 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch.computeFocusList;
 
@@ -69,25 +70,56 @@ public class TreeSearchTests {
     }
 
     @Test
+    public void focusStartsWithLexical() {
+        final var focus = computeFocusList(tree, 8, 13);
+        final var first = (ITree) focus.get(0);
+        assertTrue(TreeAdapter.isLexical(first));
+    }
+
+    @Test
     public void focusEndsWithModule() {
         final var focus = computeFocusList(tree, 6, 4);
-        final var last = focus.get(focus.length() - 1);
+        final var last = (ITree) focus.get(focus.length() - 1);
         assertEquals(tree, last);
     }
 
     @Test
-    public void listPartialRange() {
-        final var focus = computeFocusList(tree, 4, 8, 6, 8);
+    public void listRangePartial() {
+        final var focus = computeFocusList(tree, 5, 8, 6, 8);
         final var selection = (ITree) focus.get(0);
         final var originalList = (ITree) focus.get(1);
 
-        assertListLength(selection, 3);
-        assertListLength(originalList, 4);
+        assertValidListWithLength(selection, 2);
+        assertValidListWithLength(originalList, 4);
     }
 
+    @Test
+    public void listRangeStartsWithWhitespace() {
+        final var focus = computeFocusList(tree, 7, 0, 8, 15);
+        final var selection = (ITree) focus.get(0);
+        final var originalList = (ITree) focus.get(1);
 
-    private static void assertListLength(final ITree list, int length) {
+        assertValidListWithLength(selection, 1);
+        assertValidListWithLength(originalList, 4);
+    }
+
+    @Test
+    public void listRangeEndsWithWhitespace() {
+        final var focus = computeFocusList(tree, 4, 3, 7, 0);
+        final var selection = (ITree) focus.get(0);
+        final var originalList = (ITree) focus.get(1);
+
+        assertValidListWithLength(selection, 3);
+        assertValidListWithLength(originalList, 4);
+    }
+
+    private static void assertValidListWithLength(final ITree list, int length) {
         assertTrue(String.format("Not a list: %s", TreeAdapter.getType(list)), TreeAdapter.isList(list));
         assertEquals(TreeAdapter.yield(list), length, TreeAdapter.getListASTArgs(list).size());
+
+        // assert no layout padding
+        final var args = TreeAdapter.getArgs(list);
+        assertFalse("List tree malformed: starts with layout", TreeAdapter.isLayout((ITree) args.get(0)));
+        assertFalse("List tree malformed: ends with layout", TreeAdapter.isLayout((ITree) args.get(args.length() - 1)));
     }
 }
