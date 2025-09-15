@@ -69,6 +69,8 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
+private bool isQualifiedUse(loc use, Define def) = size(def.id) != use.length;
+
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
     reachable = rascalGetReflexiveModulePaths(tm).to;
@@ -90,22 +92,26 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
         for (loc cU <- curUses
            , isContainedInScope(cU, n.scope, tm)) {
             // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
-            if (isContainedInScope(n.scope, c.scope, tm)) {
+            if (isContainedInScope(n.scope, c.scope, tm)
+              , moduleVariableId() := c.idRole ==> !isQualifiedUse(cU, c)) {
                 r.msg(error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>."));
             }
 
-            if (loc nU <- newUses, isContainedInScope(nU, c.scope, tm) &&
-                // qualified name check
-                // TODO Consider qualified names everywhere across the checks in this function
-                (n.defined.top != c.defined.top ==> (nU.length == size(n.id) && cU.length == size(c.id)))) {
-                r.msg(error(cU, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)"));
+            // Is `newName` already resolvable from a scope where `oldName` is currently declared?
+            // Double declarations of module variables are only a problem if a use is ambiguous
+            if ({moduleVariableId()} := {c.idRole, n.idRole}) {
+                for (loc nU <- newUses, isContainedInScope(nU, c.scope, tm)
+                  , n.defined.top != c.defined.top ==> !(isQualifiedUse(nU, n) && isQualifiedUse(cU, c))) {
+                    r.msg(error(cU, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)."));
+                }
             }
         }
 
         // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
         for (isContainedInScope(c.scope, n.scope, tm)
            , loc nU <- newUses
-           , isContainedInScope(nU, c.scope, tm)) {
+           , isContainedInScope(nU, c.scope, tm)
+           , moduleVariableId() := n.idRole ==> !isQualifiedUse(nU, n)) {
             r.msg(error(c.defined, "Renaming this to \'<newName>\' would change the program semantics; it would shadow the declaration of <nU>."));
         }
 
@@ -115,7 +121,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
             if (c.scope in reachable || isContainedInScope(c.defined, n.scope, tm) || isContainedInScope(n.defined, c.scope, tm)) {
                 r.msg(error(c.defined, "Renaming this to \'<newName>\' would overload an existing definition at <n.defined>."));
             }
-        } else if (isContainedInScope(c.defined, n.scope, tm)) {
+        } else if (isContainedInScope(c.defined, n.scope, tm) && {moduleVariableId(), _} !:= {c.idRole, n.idRole}) {
             // Double declaration
             r.msg(error(c.defined, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)."));
         }

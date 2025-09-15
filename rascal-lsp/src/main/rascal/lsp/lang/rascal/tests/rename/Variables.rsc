@@ -40,8 +40,29 @@ test bool shadowVariableInInnerScope() = testRenameOccurrences({0}, "
     'int foo = 8;
     '{
     '   int bar = 9;
+    '   qux = bar;
     '}
 ");
+
+test bool shadowVariableFromImports1() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}),
+    byText("Main", "
+        'import Foo;
+        'void main() {
+        '   int bar = 0;
+        '   x = Foo::foo + bar;
+        '}", {0})
+});
+
+test bool shadowVariableFromImports2() = testRenameOccurrences({
+    byText("Bar", "int bar = 8;", {}),
+    byText("Main", "
+        'import Bar;
+        'void main() {
+        '   int foo = 0;
+        '   x = foo + Bar::bar;
+        '}", {0, 1})
+});
 
 test bool parameterShadowsVariable() = testRenameOccurrences({0}, "
     'int foo = 8;
@@ -158,6 +179,15 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
     'void bar() {}
 ");
 
+test bool doubleVariableAndFunctionDeclarationQualified() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}),
+    byText("Bar", "void bar() {}", {}),
+    byText("Main", "
+        'import Foo;
+        'import Bar;
+        'int qux = Foo::foo;", {0})
+});
+
 // Although this is fine statically, it will cause runtime errors when `bar` is called
 // > A value of type int is not something you can call like a function, a constructor or a closure.
 @expected{illegalRename}
@@ -165,6 +195,17 @@ test bool doubleFunctionAndVariableDeclaration() = testRename("
     'void bar() {}
     'foo = 8;
 ");
+
+test bool doubleFunctionAndVariableDeclarationQualified() = testRenameOccurrences({
+    byText("Bar", "int bar = 8;", {}),
+    byText("Foo", "void foo() {}", {0}),
+    byText("Main", "
+        'import Foo;
+        'import Bar;
+        'void main() {
+        '   Foo::foo();
+        '}", {0})
+});
 
 @expected{illegalRename}
 test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
