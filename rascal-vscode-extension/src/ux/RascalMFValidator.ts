@@ -99,7 +99,8 @@ export class RascalMFValidator implements vscode.Disposable {
                 const diagnostics: vscode.Diagnostic[] = [];
                 checkMissingLastLine(mfBody, diagnostics);
                 checkIncorrectProjectName(mfBody, diagnostics);
-                checkCommonTypo(mfBody, diagnostics);
+                checkPickySeparator(mfBody, diagnostics);
+                checkDeprecatedFeatures(mfBody, diagnostics);
                 this.diagnostics.set(file, diagnostics);
             }
         }
@@ -112,7 +113,7 @@ export class RascalMFValidator implements vscode.Disposable {
 enum FixKind {
     addNewLine = 1,
     fixProjectName,
-    requireLibrariesTypo,
+    missingSpaceAfterSeparator,
     removeInvalidCharsProjectName
 
 }
@@ -165,22 +166,29 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
     }
 }
 
-const commonTypos = new Set<string>(['required-libraries', 'require-library', 'required-library']);
-
-function checkCommonTypo(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+function checkPickySeparator(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
     for (let l = 0; l < mfBody.lineCount; l++) {
         const line = mfBody.lineAt(l);
         const [key, value] = line.text.split(":");
-        if (key && value) {
-            if (commonTypos.has(key.trim().toLocaleLowerCase())) {
-                const originalLabel = value;
-                const diag = new vscode.Diagnostic(
-                    new vscode.Range(l, 0, l, originalLabel.length),
-                    `"${originalLabel} was not recognized. Did you mean Require-Libraries?`
-                );
-                diag.code = FixKind.requireLibrariesTypo;
-                diagnostics.push(diag);
-            }
+        if (key && value && value.trim() !== "" && !value.startsWith(" ")) {
+            const diag = new vscode.Diagnostic(
+                new vscode.Range(line.lineNumber, key.length, line.lineNumber, key.length + 2),
+                "A space should always follow a :"
+            );
+            diag.code = FixKind.missingSpaceAfterSeparator;
+            diagnostics.push(diag);
+        }
+    }
+}
+
+function checkDeprecatedFeatures(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+    for (let l = 0; l < mfBody.lineCount; l++) {
+        const line = mfBody.lineAt(l);
+        const [key, value] = line.text.split(":");
+        if (key && value && key === "Require-Libraries" && value.trim() !== "") {
+            diagnostics.push(new vscode.Diagnostic(line.range,
+                "Require-Libraries are not supported anymore, please make sure your dependencies are listed in the pom.xml of the project and remove this line."
+            ));
         }
     }
 
@@ -223,12 +231,12 @@ class FixMFErrors implements vscode.CodeActionProvider {
                     result.push(fixedProjectName);
                     break;
                 }
-                case FixKind.requireLibrariesTypo: {
-                    const typo = new vscode.CodeAction("Fix typo", vscode.CodeActionKind.QuickFix);
+                case FixKind.missingSpaceAfterSeparator: {
+                    const typo = new vscode.CodeAction("Add space after :", vscode.CodeActionKind.QuickFix);
                     typo.diagnostics = [diag];
                     typo.isPreferred = true;
                     typo.edit = new vscode.WorkspaceEdit();
-                    typo.edit.replace(document.uri, diag.range, "Require-Libraries");
+                    typo.edit.insert(document.uri, new vscode.Position(diag.range.start.line, diag.range.start.character + 1), " ");
                     result.push(typo);
                     break;
                 }
