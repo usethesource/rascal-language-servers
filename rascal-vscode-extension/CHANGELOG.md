@@ -23,7 +23,7 @@ We only list significant changes, for a full changelog [please review the commit
 ### Improved features
 
 * Reimplemented rename using a new framework (available in TypePal). It is faster, has better error messages, now also tracks file renames, and supports many more edge cases.
-* The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster.
+* The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster. Note that while the typechecker has become stricter the interpreter will still run your code as before.
 * Document symbols are more robust (used in Outline and when quickly navigating between symbols in the editor).
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
 * Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
