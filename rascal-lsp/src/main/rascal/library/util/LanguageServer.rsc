@@ -307,7 +307,7 @@ data CallHierarchyItem
         loc selection,                      // location of the name of the definition
         set[DocumentSymbolTag] tags = {},
         str detail = "",                    // detailed description, e.g. the function signature
-        value \data = ()                    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
+        value \data = ()    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
     );
 
 data CallDirection

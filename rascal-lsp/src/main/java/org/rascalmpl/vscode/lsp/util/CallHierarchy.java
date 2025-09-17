@@ -26,13 +26,21 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.lsp4j.CallHierarchyItem;
+import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
+import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
@@ -45,7 +53,7 @@ import io.usethesource.vallang.type.TypeStore;
 public class CallHierarchy {
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final TypeFactory TF = TypeFactory.getInstance();
-    private static final TypeStore store = new TypeStore();
+    private static final TypeStore store = new TypeStore(DocumentSymbols.getStore());
 
     private static final Type directionAdt = TF.abstractDataType(store, "CallDirection");
 
@@ -54,7 +62,7 @@ public class CallHierarchy {
 
     private static final Type callHierarchyItemAdt = TF.abstractDataType(store, "CallHierarchyItem");
     private static final Type callHierarchyItemCons = TF.constructor(store, callHierarchyItemAdt, "callHierarchyItem",
-        TF.stringType(), DocumentSymbols.symbolKindAdt, TF.sourceLocationType(), TF.sourceLocationType());
+        TF.stringType(), DocumentSymbols.getSymbolKindType(), TF.sourceLocationType(), TF.sourceLocationType());
 
     private static final String NAME = "name";
     private static final String KIND = "kind";
@@ -66,6 +74,8 @@ public class CallHierarchy {
 
     private CallHierarchy() { /* hide constructor */}
 
+    static IConstructor lastCallItem = null;
+
     public static CallHierarchyItem toLSP(IConstructor cons, ColumnMaps columns) {
         var name = cons.get(NAME).toString();
         var kind = DocumentSymbols.symbolKindToLSP((IConstructor) cons.get(KIND));
@@ -76,23 +86,50 @@ public class CallHierarchy {
 
         var ci = new CallHierarchyItem(name, kind, def.top().getURI().toString(), definitionRange, selectionRange);
         var kws = cons.asWithKeywordParameters();
-        ci.setTags(DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(TAGS)));
-        ci.setDetail(kws.getParameter(DETAIL).toString());
-        ci.setData(kws.getParameter(DATA));
+        ci.setTags(kws.hasParameter(TAGS)
+            ? DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(TAGS))
+            : Collections.emptyList());
+        ci.setDetail(kws.hasParameter(DETAIL)
+            ? kws.getParameter(DETAIL).toString()
+            : "");
+        ci.setData(kws.hasParameter(DATA)
+            ? kws.getParameter(DATA)
+            : VF.tuple());
+
+        lastCallItem = cons;
 
         return ci;
     }
 
     public static IConstructor toRascal(CallHierarchyItem ci, ColumnMaps columns) {
-        return VF.constructor(callHierarchyItemCons, List.of(
+        JsonValueReader reader = new JsonValueReader(VF, store, new NullRascalMonitor(), null);
+        IValue data;
+        try {
+            data = reader.read(new JsonReader(new StringReader(ci.getData().toString())), TF.valueType());
+        } catch (IOException e) {
+            data = VF.tuple();
+        }
+        if (data == null) data = VF.tuple();
+
+        final var cons = VF.constructor(callHierarchyItemCons,
             VF.string(ci.getName()),
-            VF.constructor(TF.constructor(store, DocumentSymbols.symbolKindAdt, ci.getKind().name())),
+            DocumentSymbols.symbolKindToRascal(ci.getKind()),
             Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
             Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
-        ).toArray(new IValue[0]), Map.of(
+        );
+
+        final var consWithArgs = cons.asWithKeywordParameters().setParameters(Map.of(
             TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
             DETAIL, VF.string(ci.getDetail()),
-            DATA, (IValue) ci.getData()
+            DATA, data
         ));
+
+        if (consWithArgs.equals(lastCallItem)) {
+            System.out.println("Conversion succeeded for " + consWithArgs.get(NAME));
+        } else {
+            System.out.println("Conversion not equal...");
+        }
+
+        return consWithArgs;
     }
 }

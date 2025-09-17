@@ -180,9 +180,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasRename = anyTrue(ILanguageContributions::hasRename);
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
-        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
         hasCallHierarchy = anyTrue(ILanguageContributions::hasCallHierarchy);
 
