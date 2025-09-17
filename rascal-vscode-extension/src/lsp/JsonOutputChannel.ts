@@ -81,8 +81,9 @@ class LogMessage {
  *
  * Received messages that are not JSON or not in the expected format are printed as-is.
  */
-export class JsonParserOutputChannel implements vscode.OutputChannel {
+export class JsonParserOutputChannel implements vscode.LogOutputChannel {
     readonly name: string;
+    readonly logLevel: vscode.LogLevel;
 
     private readonly logChannel: vscode.LogOutputChannel;
     private client?: LanguageClient = undefined;
@@ -90,12 +91,12 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     private readonly disposables: Array<vscode.Disposable> = [];
 
     constructor(name: string) {
+        this.name = name;
         this.logChannel = vscode.window.createOutputChannel(name, {log: true});
+        this.logLevel = this.logChannel.logLevel;
         this.disposables.push(this.logChannel);
 
         this.logChannel.onDidChangeLogLevel(this.didChangeLogLevel, this, this.disposables);
-
-        this.name = name;
     }
 
     setClient(client: LanguageClient) {
@@ -113,10 +114,6 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
             return;
         }
         this.client.sendNotification("rascal/logLevel", newLevel);
-    }
-
-    getLogChannel() {
-        return this.logChannel;
     }
 
     private printLogOutput(loglevel: LogLevel, message: string) {
@@ -191,7 +188,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     appendLine(payload: string): void {
-        this.printPayloads(payload);
+        this.logChannel.appendLine(payload);
     }
 
     show(columnOrPreserveFocus?: vscode.ViewColumn | boolean, preserveFocus?: boolean): void {
@@ -205,13 +202,40 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     replace(value: string): void {
         this.logChannel.replace(value);
     }
+
     clear(): void {
         this.logChannel.clear();
     }
+
     hide(): void {
         this.logChannel.hide();
     }
+
     dispose(): void {
         vscode.Disposable.from(...this.disposables).dispose();
+    }
+
+    onDidChangeLogLevel(listener: (e: vscode.LogLevel) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable {
+        return this.logChannel.onDidChangeLogLevel(listener, thisArgs, disposables);
+    }
+
+    trace(message: string, ...args: unknown[]): void {
+        this.logChannel.trace(message, args);
+    }
+
+    debug(message: string, ...args: unknown[]): void {
+        this.logChannel.debug(message, args);
+    }
+
+    info(message: string, ...args: unknown[]): void {
+        this.logChannel.info(message, args);
+    }
+
+    warn(message: string, ...args: unknown[]): void {
+        this.logChannel.warn(message, args);
+    }
+
+    error(error: string | Error, ...args: unknown[]): void {
+        this.logChannel.error(error, args);
     }
 }

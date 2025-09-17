@@ -41,7 +41,7 @@ export async function activateLanguageClient(
     : Promise<LanguageClient> {
     const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger.getLogChannel())
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -65,7 +65,7 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client, logger.getLogChannel()).tryRegisterSchemes(schemes);
+        new RascalFileSystemProvider(client, logger).tryRegisterSchemes(schemes);
     });
 
     return client;
