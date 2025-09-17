@@ -48,13 +48,14 @@ class LogMessage {
         public readonly level: LogLevel,
         public readonly message: string,
         public readonly threadName: string,
-        public readonly loggerName: string) {}
+        public readonly loggerName: string,
+        public readonly exception: string) {}
 
     static is(json: object): json is LogMessage {
         const log = json as LogMessage;
         return log.timestamp !== undefined
             && log.level !== undefined
-            && log.message !== undefined
+            && (log.message !== undefined || log.exception !== undefined)
             && log.threadName !== undefined
             && log.loggerName !== undefined;
     }
@@ -70,7 +71,10 @@ class LogMessage {
  *   "level": "INFO",
  *   "message": "This is a log message",
  *   "threadName": "main",
- *   "loggerName": "org.rascalmpl"
+ *   "loggerName": "org.rascalmpl",
+ *   "exception": "CompletionException: Parse error
+        at ...
+        at ..."
  * }
  * This format is compatible with log4j's JSONLayout as configured in
  * org.rascalmpl.vscode.lsp.log.LogJsonConfiguration.
@@ -150,7 +154,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
                 const log = JSON.parse(line);
                 if (LogMessage.is(log)) {
                     // no timestamp or log level, since LogOutputChannel functions add those
-                    this.printLogOutput(log.level, this.formatMessage(log.threadName, log.timestamp, log.message, log.loggerName));
+                    this.printLogOutput(log.level, this.formatMessage(log));
                 } else {
                     // JSON, but not in the expected format
                     this.logChannel.error(`Unexpected JSON log format: ${line}`);
@@ -171,9 +175,15 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         return date.getTime();
     }
 
-    private formatMessage(thread: string, originalTime: Date | string, message: string, loggerName?: string) {
-        const loggerPart = loggerName ? ` ${loggerName}` : "";
-        return `[${thread}] ${loggerPart} ${message} (@${this.formatServerTime(originalTime)} ms)`;
+    private formatException(log: LogMessage): string {
+        if (!log.exception || log.exception === "") {
+            return "";
+        }
+        return log.exception;
+    }
+
+    private formatMessage(log: LogMessage) {
+        return `[${log.threadName}] ${log.loggerName} ${log.message} ${this.formatException(log)}(@${this.formatServerTime(log.timestamp)} ms)`;
     }
 
     append(payload: string): void {
