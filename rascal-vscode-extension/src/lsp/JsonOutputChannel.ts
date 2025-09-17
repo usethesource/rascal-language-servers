@@ -172,21 +172,16 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
         return date.getTime();
     }
 
-    private formatException(log: LogMessage): string {
-        if (!log.exception || log.exception === "") {
-            return "";
-        }
-        return log.exception;
-    }
-
     private formatMessage(log: LogMessage) {
-        return `[${log.threadName}] ${log.loggerName} ${log.message} ${this.formatException(log)}(@${this.formatServerTime(log.timestamp)} ms)`;
+        return `[${log.threadName}] ${log.loggerName} ${log.message} ${log.exception ? log.exception : ""}(@${this.formatServerTime(log.timestamp)} ms)`;
     }
 
+    // This is called from the server side, a.k.a. with JSON payloads (possibly multiple, one per line)
     append(payload: string): void {
         this.printPayloads(payload);
     }
 
+    // This is called from the client with straight info messages
     appendLine(payload: string): void {
         this.logChannel.appendLine(payload);
     }
