@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -606,7 +607,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private static String extension(String file) {
+    private static String extension(String doc) {
+        String file = URI.create(doc).getPath();
         int index = file.lastIndexOf(".");
         if (index != -1) {
             return file.substring(index + 1);
