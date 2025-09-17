@@ -63,12 +63,15 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -101,6 +104,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -111,6 +115,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -237,6 +242,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
         result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setDocumentFormattingProvider(true);
+        result.setDocumentRangeFormattingProvider(true);
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
@@ -408,7 +415,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         final ILanguageContributions contribs = contributions(params.getTextDocument());
-        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);;
+        final Position rascalPos = Locations.toRascalPosition(params.getTextDocument(), params.getPosition(), columns);
         return getFile(params.getTextDocument())
                 .getCurrentTreeAsync()
                 .thenApply(Versioned::get)
@@ -727,6 +734,67 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("Formatting: {}", params);
+
+        TextDocumentIdentifier uri = params.getTextDocument();
+        final ILanguageContributions contribs = contributions(uri);
+
+        // call the `formatting` implementation of the relevant language contribution
+        return getFile(uri)
+            .getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> {
+                final var opts = getFormattingOptions(params.getOptions());
+                return contribs.formatting(VF.list(tree), opts).get();
+            })
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of()));
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
+        logger.debug("Formatting range: {}", params);
+
+        TextDocumentIdentifier uri = params.getTextDocument();
+        Range range = params.getRange();
+        final ILanguageContributions contribs = contributions(uri);
+
+        // call the `formatting` implementation of the relevant language contribution
+        var fileState = getFile(uri);
+        return fileState
+            .getCurrentTreeAsync()
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> {
+                // just a range
+                var start = Locations.toRascalPosition(uri, range.getStart(), columns);
+                var end = Locations.toRascalPosition(uri, range.getEnd(), columns);
+                // compute the focus list at the end of the range
+                var focus = TreeSearch.computeFocusList(tree, start.getLine(), start.getCharacter(), end.getLine(), end.getCharacter());
+
+                var opts = getFormattingOptions(params.getOptions());
+                return contribs.formatting(focus, opts).get();
+            })
+            // convert the document changes
+            .thenApply(l -> DocumentChanges.translateTextEdits(this, l, Map.of())
+                .stream()
+                .filter(e -> Ranges.containsRange(range, e.getRange()))
+                .collect(Collectors.toList()));
+    }
+
+    private IConstructor getFormattingOptions(FormattingOptions options) {
+        var optionsType = tf.abstractDataType(typeStore, "FormattingOptions");
+        var consType = tf.constructor(typeStore, optionsType, "formattingOptions");
+        var opts = Map.of(
+            "tabSize", VF.integer(options.getTabSize()),
+            "insertSpaces", VF.bool(options.isInsertSpaces()),
+            "trimTrailingWhitespace", VF.bool(options.isTrimTrailingWhitespace()),
+            "insertFinalNewline", VF.bool(options.isInsertFinalNewline()),
+            "trimFinalNewlines", VF.bool(options.isTrimFinalNewlines())
+        );
+        return VF.constructor(consType, new IValue[0], opts);
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {

@@ -153,6 +153,12 @@
             <version>3.5.3</version>
           </dependency>
         </dependencies>
+        <configuration>
+          <systemPropertyVariables>
+            <forkMode>always</forkMode>
+            <log4j2.configurationFactory>org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration</log4j2.configurationFactory>
+          </systemPropertyVariables>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.rascalmpl</groupId>

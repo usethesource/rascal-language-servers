@@ -190,6 +190,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> formatting(IList focus, IConstructor formattingOptions) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasFormatting() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
     }
