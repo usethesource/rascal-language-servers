@@ -181,21 +181,12 @@ export class RascalExtension implements vscode.Disposable {
                     return "no project";
                 }
                 case 'Module (qualified)': {
-                    const name = startCommand.match(this.qualifiedName);
-                    if (name && name[1]) {
-                        if (name[0] !== '') {
-                            return name[0] + "::" + name[1];
-                        }
-                        return name[1];
-                    }
-                    return "no module";
+                    const [_, qualifiers, name] = startCommand.match(this.qualifiedName) ?? [];
+                    return name ? `${qualifiers ?? ''}${name}` : 'no module';
                 }
                 case 'Module (unqualified)': {
-                    const name = startCommand.match(this.qualifiedName);
-                    if (name && name[1]) {
-                        return name[1];
-                    }
-                    return "no module";
+                    const [_1, _2, name] = startCommand.match(this.qualifiedName) ?? [];
+                    return name ?? "no module";
                 }
                 default:
                     this.log.warn(`Unknown origin format: ${originFormat}`);
@@ -208,7 +199,7 @@ export class RascalExtension implements vscode.Disposable {
         const name1 = '(?:[A-Z_a-z][0-9A-Z_a-z]*)';
         const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
         const name = `(?:${name1}|${name2})`;
-        const qualifiedName = `(?:(?:${name}::)*(${name}))`;
+        const qualifiedName = `((?:${name}::)*)(${name})`;
         return new RegExp(`^import ${qualifiedName};`);
     })(); // Build the regex only once
 
