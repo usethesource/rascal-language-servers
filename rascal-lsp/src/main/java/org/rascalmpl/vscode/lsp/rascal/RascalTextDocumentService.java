@@ -379,7 +379,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenCompose(tr -> {
@@ -391,7 +391,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(t -> {
                 showMessages((ISet) t.get(1));
                 return DocumentChanges.translateDocumentChanges(this, (IList) t.get(0));
-            }), () -> null);
+            });
     }
 
     private void showMessages(ISet messages) {
