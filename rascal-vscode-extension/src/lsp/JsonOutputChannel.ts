@@ -83,7 +83,7 @@ class LogMessage {
  */
 export class JsonParserOutputChannel implements vscode.LogOutputChannel {
     readonly name: string;
-    readonly logLevel: vscode.LogLevel;
+    logLevel: vscode.LogLevel;
 
     private readonly logChannel: vscode.LogOutputChannel;
     private client?: LanguageClient = undefined;
@@ -107,6 +107,7 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
     }
 
     private didChangeLogLevel(level: vscode.LogLevel) {
+        this.logLevel = level;
         // since vscode.LogLevel is a subset of LogLevel, and the same order, we can convert easily
         const newLevel = Object.values(LogLevel)[level];
         if (!this.client) {
