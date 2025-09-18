@@ -27,7 +27,8 @@ We only list significant changes, for a full changelog [please review the commit
 * Document symbols are more robust (used in Outline and when quickly navigating between symbols in the editor).
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
 * Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
-* Improved documentation of `LanguageService`.
+* Improved documentation of `util::LanguageService`.
+* Git diff and other virtual documents are better supported for DSLs
 
 ### Rascal 0.41.0 highlights
 
