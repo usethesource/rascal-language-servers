@@ -43,13 +43,13 @@ enum LogLevel {
 }
 
 class LogMessage {
-    constructor(
+    private constructor(
         public readonly timestamp: Date,
         public readonly level: LogLevel,
-        public readonly message: string,
         public readonly threadName: string,
         public readonly loggerName: string,
-        public readonly exception: string) {}
+        public readonly message?: string,
+        public readonly exception?: string) {}
 
     static is(json: object): json is LogMessage {
         const log = json as LogMessage;
