@@ -83,7 +83,7 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     list[ModuleMessages] checkBefore = checkAll(root, ccfg);
 
     // Back-up sources
-    loc backupLoc = |memory://tests/backup|;
+    loc backupLoc = |memory:///tests/backup|;
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
@@ -125,7 +125,7 @@ bool testProject(set[TestModule] modules, str testName, bool(set[TestModule] mod
         testDir = cover([m.file.parent | m <- modules, m is byLoc]).parent;
     } else {
         // If none of the modules refers to an existing file, clear the test directory before writing files.
-        testDir = |memory://tests/rename/<testName>|;
+        testDir = |memory:///tests/rename/<testName>|;
         remove(testDir);
     }
 
@@ -314,7 +314,7 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     '}";
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
-    loc testDir = |memory://tests/rename/<moduleName>|;
+    loc testDir = |memory:///tests/rename/<moduleName>|;
     remove(testDir);
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
