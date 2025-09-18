@@ -188,6 +188,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
+        logger.debug("workspace/executeCommand: {}", params);
         if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
             String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
             String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();

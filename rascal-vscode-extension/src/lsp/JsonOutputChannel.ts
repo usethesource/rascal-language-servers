@@ -43,18 +43,19 @@ enum LogLevel {
 }
 
 class LogMessage {
-    constructor(
+    private constructor(
         public readonly timestamp: Date,
         public readonly level: LogLevel,
-        public readonly message: string,
         public readonly threadName: string,
-        public readonly loggerName: string) {}
+        public readonly loggerName: string,
+        public readonly message?: string,
+        public readonly exception?: string) {}
 
     static is(json: object): json is LogMessage {
         const log = json as LogMessage;
         return log.timestamp !== undefined
             && log.level !== undefined
-            && log.message !== undefined
+            && (log.message !== undefined || log.exception !== undefined)
             && log.threadName !== undefined
             && log.loggerName !== undefined;
     }
@@ -70,15 +71,19 @@ class LogMessage {
  *   "level": "INFO",
  *   "message": "This is a log message",
  *   "threadName": "main",
- *   "loggerName": "org.rascalmpl"
+ *   "loggerName": "org.rascalmpl",
+ *   "exception": "CompletionException: Parse error
+        at ...
+        at ..."
  * }
  * This format is compatible with log4j's JSONLayout as configured in
  * org.rascalmpl.vscode.lsp.log.LogJsonConfiguration.
  *
  * Received messages that are not JSON or not in the expected format are printed as-is.
  */
-export class JsonParserOutputChannel implements vscode.OutputChannel {
+export class JsonParserOutputChannel implements vscode.LogOutputChannel {
     readonly name: string;
+    logLevel: vscode.LogLevel;
 
     private readonly logChannel: vscode.LogOutputChannel;
     private client?: LanguageClient = undefined;
@@ -86,12 +91,12 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     private readonly disposables: Array<vscode.Disposable> = [];
 
     constructor(name: string) {
+        this.name = name;
         this.logChannel = vscode.window.createOutputChannel(name, {log: true});
+        this.logLevel = this.logChannel.logLevel;
         this.disposables.push(this.logChannel);
 
         this.logChannel.onDidChangeLogLevel(this.didChangeLogLevel, this, this.disposables);
-
-        this.name = name;
     }
 
     setClient(client: LanguageClient) {
@@ -102,6 +107,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     }
 
     private didChangeLogLevel(level: vscode.LogLevel) {
+        this.logLevel = level;
         // since vscode.LogLevel is a subset of LogLevel, and the same order, we can convert easily
         const newLevel = Object.values(LogLevel)[level];
         if (!this.client) {
@@ -109,10 +115,6 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
             return;
         }
         this.client.sendNotification("rascal/logLevel", newLevel);
-    }
-
-    getLogChannel() {
-        return this.logChannel;
     }
 
     private printLogOutput(loglevel: LogLevel, message: string) {
@@ -150,7 +152,7 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
                 const log = JSON.parse(line);
                 if (LogMessage.is(log)) {
                     // no timestamp or log level, since LogOutputChannel functions add those
-                    this.printLogOutput(log.level, this.formatMessage(log.threadName, log.timestamp, log.message, log.loggerName));
+                    this.printLogOutput(log.level, this.formatMessage(log));
                 } else {
                     // JSON, but not in the expected format
                     this.logChannel.error(`Unexpected JSON log format: ${line}`);
@@ -171,17 +173,18 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
         return date.getTime();
     }
 
-    private formatMessage(thread: string, originalTime: Date | string, message: string, loggerName?: string) {
-        const loggerPart = loggerName ? ` ${loggerName}` : "";
-        return `[${thread}] ${loggerPart} ${message} (@${this.formatServerTime(originalTime)} ms)`;
+    private formatMessage(log: LogMessage) {
+        return `[${log.threadName}] ${log.loggerName} ${log.message} ${log.exception ? log.exception : ""}(@${this.formatServerTime(log.timestamp)} ms)`;
     }
 
+    // This is called from the server side, a.k.a. with JSON payloads (possibly multiple, one per line)
     append(payload: string): void {
         this.printPayloads(payload);
     }
 
+    // This is called from the client with straight info messages
     appendLine(payload: string): void {
-        this.printPayloads(payload);
+        this.logChannel.appendLine(payload);
     }
 
     show(columnOrPreserveFocus?: vscode.ViewColumn | boolean, preserveFocus?: boolean): void {
@@ -195,13 +198,40 @@ export class JsonParserOutputChannel implements vscode.OutputChannel {
     replace(value: string): void {
         this.logChannel.replace(value);
     }
+
     clear(): void {
         this.logChannel.clear();
     }
+
     hide(): void {
         this.logChannel.hide();
     }
+
     dispose(): void {
         vscode.Disposable.from(...this.disposables).dispose();
+    }
+
+    onDidChangeLogLevel(listener: (e: vscode.LogLevel) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable {
+        return this.logChannel.onDidChangeLogLevel(listener, thisArgs, disposables);
+    }
+
+    trace(message: string, ...args: unknown[]): void {
+        this.logChannel.trace(message, args);
+    }
+
+    debug(message: string, ...args: unknown[]): void {
+        this.logChannel.debug(message, args);
+    }
+
+    info(message: string, ...args: unknown[]): void {
+        this.logChannel.info(message, args);
+    }
+
+    warn(message: string, ...args: unknown[]): void {
+        this.logChannel.warn(message, args);
+    }
+
+    error(error: string | Error, ...args: unknown[]): void {
+        this.logChannel.error(error, args);
     }
 }
