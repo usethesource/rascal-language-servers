@@ -585,7 +585,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
-            .thenApply(s -> s.collect(Collectors.toList())), Collections::emptyList)
+            .thenApply(s -> s.collect(Collectors.toList())), () -> null)
             ;
     }
 
