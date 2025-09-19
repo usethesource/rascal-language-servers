@@ -83,7 +83,7 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     list[ModuleMessages] checkBefore = checkAll(root, ccfg);
 
     // Back-up sources
-    loc backupLoc = |memory://tests/backup|;
+    loc backupLoc = |memory:///tests/backup|;
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
@@ -118,76 +118,82 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
     return true;
 }
 
+bool testProject(set[TestModule] modules, str testName, bool(set[TestModule] mods, loc testDir, PathConfig pcfg) doCheck) {
+    loc testDir = |unknown:///|;
+    bool moduleExistsOnDisk = any(mmm <- modules, mmm is byLoc);
+    if (moduleExistsOnDisk){
+        testDir = cover([m.file.parent | m <- modules, m is byLoc]).parent;
+    } else {
+        // If none of the modules refers to an existing file, clear the test directory before writing files.
+        testDir = |memory:///tests/rename/<testName>|;
+        remove(testDir);
+    }
+
+    pcfg = getTestPathConfig(testDir);
+    modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+
+    for (m <- modulesByLocation) {
+        try {
+            parse(#start[Module], m.file);
+        } catch ParseError(l): {
+            throw "Parse error in test module <m.file>: <l>";
+        }
+    }
+
+    // Do the actual work here
+    bool result = doCheck(modulesByLocation, testDir, pcfg);
+
+    if (!moduleExistsOnDisk) {
+        remove(testDir);
+    }
+
+    return result;
+}
+
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
-
-    bool moduleExistsOnDisk = any(mmm <- modules, mmm is byLoc);
     for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
-        loc testDir = |unknown:///|;
-        if (moduleExistsOnDisk){
-            testDir = cover([m.file.parent | m <- modules, m is byLoc]).parent;
-        } else {
-            // If none of the modules refers to an existing file, clear the test directory before writing files.
-            str testName = "Test_<mm.name>_<cursorOcc>";
-            testDir = |memory://tests/rename/<testName>|;
-            remove(testDir);
-        }
+        success = success && testProject(modules, "Test_<mm.name>_<cursorOcc>", bool(set[TestModule] modulesByLocation, loc testDir, PathConfig pcfg) {
+            <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
 
-        pcfg = getTestPathConfig(testDir);
-        modulesByLocation = {mByLoc | m <- modules, mByLoc := (m is byLoc ? m : byLoc(m.name, storeTestModule(testDir, m.name, m.body), m.nameOccs, newName = m.newName, skipCursors = m.skipCursors))};
+            println("Renaming \'<oldName>\' from <focus[0].src>");
+            <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
 
-        for (m <- modulesByLocation) {
-            try {
-                parse(#start[Module], m.file);
-            } catch ParseError(l): {
-                throw "Parse error in test module <m.file>: <l>";
+            throwMessagesIfError(msgs);
+
+            renamesPerModule = (
+                beforeRename: afterRename
+                | renamed(oldLoc, newLoc) <- edits
+                , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
+                , afterRename := safeRelativeModuleName(newLoc, pcfg)
+            );
+
+            replacesPerModule = toMap({
+                <name, occ>
+                | changed(file, changes) <- edits
+                , name := safeRelativeModuleName(file, pcfg)
+                , locs := {c.range | c <- changes}
+                , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
+            });
+
+            editsPerModule = (
+                name : <occs, nameAfterRename>
+                | srcDir <- pcfg.srcs
+                , file <- find(srcDir, "rsc")
+                , name := safeRelativeModuleName(file, pcfg)
+                , occs := replacesPerModule[name] ? {}
+                , nameAfterRename := renamesPerModule[name] ? name
+            );
+
+            expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
+
+            if (expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <focus[0].src> failed:")) {
+                verifyTypeCorrectRenaming(testDir, edits, pcfg);
+                return true;
             }
-        }
 
-        <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
-
-        println("Renaming \'<oldName>\' from <focus[0].src>");
-        <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
-
-        throwMessagesIfError(msgs);
-
-        renamesPerModule = (
-            beforeRename: afterRename
-            | renamed(oldLoc, newLoc) <- edits
-            , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
-            , afterRename := safeRelativeModuleName(newLoc, pcfg)
-        );
-
-        replacesPerModule = toMap({
-            <name, occ>
-            | changed(file, changes) <- edits
-            , name := safeRelativeModuleName(file, pcfg)
-            , locs := {c.range | c <- changes}
-            , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
+            return false;
         });
-
-        editsPerModule = (
-            name : <occs, nameAfterRename>
-            | srcDir <- pcfg.srcs
-            , file <- find(srcDir, "rsc")
-            , name := safeRelativeModuleName(file, pcfg)
-            , occs := replacesPerModule[name] ? {}
-            , nameAfterRename := renamesPerModule[name] ? name
-        );
-
-        expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
-
-        if (!expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <focus[0].src> failed:")) {
-            success = false;
-        }
-
-        if (success) {
-            verifyTypeCorrectRenaming(testDir, edits, pcfg);
-        }
-
-        if (!moduleExistsOnDisk) {
-            remove(testDir);
-        }
     }
 
     return success;
@@ -308,7 +314,7 @@ private tuple[Edits, set[int]] getEditsAndModule(str stmtsStr, int cursorAtOldNa
     '}";
 
     // Write the file to disk (and clean up later) to easily emulate typical editor behaviour
-    loc testDir = |memory://tests/rename/<moduleName>|;
+    loc testDir = |memory:///tests/rename/<moduleName>|;
     remove(testDir);
     loc moduleFileName = testDir + "rascal" + "<moduleName>.rsc";
     writeFile(moduleFileName, moduleStr);
