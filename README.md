@@ -1,3 +1,5 @@
+Hi
+
 # Rascal - Language Servers
 
 This project encapsulates both the Language Server Protocol (LSP) implementation
