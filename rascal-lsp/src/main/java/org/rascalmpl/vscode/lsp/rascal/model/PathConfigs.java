@@ -184,7 +184,13 @@ public class PathConfigs {
          * Over-approximation of outdated TPLs, which serves to clean the workspace after an update.
          * @param pcfg The new path config of the project.
          */
-        private static void cleanOutdatedTPLs(PathConfig pcfg, long newestConfig) {
+        private void cleanOutdatedTPLs(PathConfig pcfg, long newestConfig) {
+            final var prevPcfg = currentPathConfigs.get(pcfg.getProjectRoot());
+            if (pcfg.equals(prevPcfg)) {
+                // path config did not change; no need to clean TPLs
+                return;
+            }
+
             URIResolverRegistry reg = URIResolverRegistry.getInstance();
             walk(pcfg.getBin()).forEach(f -> {
                 final var p = Paths.get(f.getURI());
