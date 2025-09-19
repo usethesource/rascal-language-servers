@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -200,6 +201,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IRelation<IList>> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        return InterruptibleFuture.completedFuture(VF.list().asRelation());
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
@@ -266,6 +277,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
         return CompletableFuture.completedFuture(false);
     }
 
