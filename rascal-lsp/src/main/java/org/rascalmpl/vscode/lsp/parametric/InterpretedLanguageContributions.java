@@ -285,12 +285,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
-        return getContribution(contributions, cons).thenApply(contribution -> (IFunction) contribution.get(0));
+        return getContribution(contributions, cons).thenApply(contribution -> contribution != null ? (IFunction) contribution.get(0) : null);
     }
 
     private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
         return getContribution(contributions, cons).thenApply(contribution ->
-            (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam)
+            contribution != null ? (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam) : null
         );
     }
 
