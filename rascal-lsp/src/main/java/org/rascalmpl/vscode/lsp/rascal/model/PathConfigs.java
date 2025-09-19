@@ -28,22 +28,31 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.commons.io.file.PathUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -74,9 +83,21 @@ public class PathConfigs {
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
             }
-            registerMavenWatches(reg, projectRoot);
+            final var configs = registerMavenWatches(reg, projectRoot);
+            configs.add(manifest);
 
-            var result = actualBuild(projectRoot);
+            final long newestConfig = configs.stream()
+                .mapToLong(uri -> {
+                    try {
+                        return reg.lastModified(uri);
+                    } catch (final IOException e) {
+                        return Long.MAX_VALUE;
+                    }
+                })
+                .min()
+                .getAsLong(); // safe, since the set has at least one element
+
+            var result = updater.actualBuild(projectRoot, newestConfig);
             logger.debug("new pcfg: {}", result);
             return result;
         }
@@ -128,8 +149,9 @@ public class PathConfigs {
                         // right before we calculate the path config,
                         // we clear it from the list, as the path config calculation
                         // can take some time
-                        changedRoots.remove(root);
-                        currentPathConfigs.replace(root, actualBuild(root));
+                        final var changed = changedRoots.remove(root);
+                        // pass the last modified time stamp that we just removed
+                        currentPathConfigs.replace(root, actualBuild(root, changed));
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;
@@ -137,19 +159,63 @@ public class PathConfigs {
             }
         }
 
+        private static Stream<ISourceLocation> walk(ISourceLocation root) {
+            URIResolverRegistry reg = URIResolverRegistry.getInstance();
+            if (reg.isDirectory(root)) {
+                try {
+                    return Stream.of(reg.list(root)).flatMap(PathConfigUpdater::walk);
+                } catch (IOException e) {
+                    logger.warn("Cannot list entries", e);
+                    return Stream.empty();
+                }
+            }
+
+            // file
+            return Stream.of(root);
+        }
+
+        private PathConfig actualBuild(ISourceLocation projectRoot, @Nullable Long newestConfig) {
+            final var newPcfg = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            cleanOutdatedTPLs(newPcfg, newestConfig);
+            return newPcfg;
+        }
+
+        /**
+         * Over-approximation of outdated TPLs, which serves to clean the workspace after an update.
+         * @param pcfg The new path config of the project.
+         */
+        private static void cleanOutdatedTPLs(PathConfig pcfg, long newestConfig) {
+            URIResolverRegistry reg = URIResolverRegistry.getInstance();
+            walk(pcfg.getBin()).forEach(f -> {
+                final var p = Paths.get(f.getURI());
+                try {
+                    if ("tpl".equals(PathUtils.getExtension(p)) && reg.lastModified(f) < newestConfig) {
+                        logger.debug("Deleting outdated TPL {}", f);
+                        reg.remove(f, false);
+                    }
+                } catch (IOException e) {
+                    logger.warn("Cannot access TPL file", e);
+                }
+            });
+        }
+
     }
 
-    private void registerMavenWatches(URIResolverRegistry reg, ISourceLocation projectRoot) throws IOException {
+    private Set<ISourceLocation> registerMavenWatches(URIResolverRegistry reg, ISourceLocation projectRoot) throws IOException {
+        final Set<ISourceLocation> poms = new HashSet<>();
         var mainPom = URIUtil.getChildLocation(projectRoot, "pom.xml");
         if (reg.exists(mainPom)) {
             updater.watchFile(projectRoot, mainPom);
+            poms.add(mainPom);
             if (hasParentSection(reg, mainPom)) {
                 var parentPom = URIUtil.getChildLocation(URIUtil.getParentLocation(projectRoot), "pom.xml");
                 if (!mainPom.equals(parentPom) && reg.exists(parentPom)) {
                     updater.watchFile(projectRoot, parentPom);
+                    poms.add(parentPom);
                 }
             }
         }
+        return poms;
     }
 
     private static final Pattern detectParent = Pattern.compile("<\\s*parent\\s*>");
@@ -168,13 +234,6 @@ public class PathConfigs {
             return false;
         }
     }
-
-    private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
-    }
-
-
-
 
     private static ISourceLocation inferProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;
