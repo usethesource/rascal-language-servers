@@ -132,7 +132,7 @@ jobs:
 
   build:
     needs: [ui-test, normal-tests]
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || 'development' }}
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
