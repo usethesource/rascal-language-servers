@@ -186,7 +186,7 @@ public class PathConfigs {
          */
         private void cleanOutdatedTPLs(PathConfig pcfg, long newestConfig) {
             final var prevPcfg = currentPathConfigs.get(pcfg.getProjectRoot());
-            if (pcfg.equals(prevPcfg)) {
+            if (prevPcfg != null && pcfg.asConstructor().equals(prevPcfg.asConstructor())) {
                 // path config did not change; no need to clean TPLs
                 return;
             }
