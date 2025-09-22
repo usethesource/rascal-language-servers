@@ -28,7 +28,9 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +38,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -120,9 +121,15 @@ public class PathConfigs {
             if (!isAlive() && !isInterrupted()) {
                 start();
             }
-            URIResolverRegistry.getInstance().watch(sourceFile, false, ignored ->
-                changedRoots.put(projectRoot, System.nanoTime())
-            );
+            reg.watch(sourceFile, false, ignored -> {
+                long lastModified = Long.MIN_VALUE;
+                try {
+                    lastModified = reg.lastModified(sourceFile);
+                } catch (IOException e) {
+                    logger.debug("Cannot get last modified time of {}", sourceFile);
+                }
+                changedRoots.put(projectRoot, lastModified);
+            });
         }
 
         private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
@@ -138,7 +145,7 @@ public class PathConfigs {
                 }
 
                 List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
-                    .filter(e -> System.nanoTime() - e.getValue() >= UPDATE_DELAY)
+                    .filter(e -> FileTime.from(Instant.now()).to(TimeUnit.NANOSECONDS) - e.getValue() >= UPDATE_DELAY)
                     .map(Entry::getKey)
                     .collect(Collectors.toList());
 
