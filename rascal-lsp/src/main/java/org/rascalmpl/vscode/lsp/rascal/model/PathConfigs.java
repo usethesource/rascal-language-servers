@@ -80,18 +80,18 @@ public class PathConfigs {
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
             }
-            final var configs = registerMavenWatches(reg, projectRoot);
-            configs.add(manifest);
+            var configSources = registerMavenWatches(reg, projectRoot);
+            configSources.add(manifest);
 
-            final long newestConfig = configs.stream()
+            long newestConfig = configSources.stream()
                 .mapToLong(uri -> {
                     try {
                         return reg.lastModified(uri);
                     } catch (final IOException e) {
-                        return Long.MAX_VALUE;
+                        return Long.MIN_VALUE;
                     }
                 })
-                .min()
+                .max()
                 .getAsLong(); // safe, since the set has at least one element
 
             var result = updater.actualBuild(projectRoot, newestConfig);
