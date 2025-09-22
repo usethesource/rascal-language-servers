@@ -298,8 +298,9 @@ Note: Depending on the capabilities of the client, we will generate "InsertRepla
 data LanguageService
     = completion(list[CompletionItem] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
 
+@synopsis{Represents a concrete completion proposal that the user can select.}
 @description{
-    Represents a concrete completion proposal that the user can select. The following fields can be used:
+The following fields can be used:
     * *kind* (required): Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
     * *edit* (required): Specification of the edit that will occur if this completion proposal is accepted by the user.
     * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
@@ -343,8 +344,8 @@ data CompletionItem = completionItem(
     Command command = noop()
 );
 
+@synopsis{Definition of a completion edit}
 @description{
-    Definition of a completion edit:
     * *startColumn (required): The column where the completion edit operation will take place. Must be at or before the cursor position.
     * *insertEndColumn* (required): End column when the user chooses completion by insertion  (for instance by pressing "Enter" in VSCode).
     * *replaceEndColumn* (required): End column when the user chooses completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
@@ -366,8 +367,9 @@ data CompletionEdit = completionEdit(
     bool snippet = false
 );
 
+@synopsis{What kind of completion item is returned.}
 @description{
-    Indication of the type of completion that is returned. In VSCode this is used mainly to display a small icon next to each completion item.
+    In VSCode this is used mainly to display a small icon next to each completion item.
     The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): namespace, package, string, number, boolean, array, object, key, null.
 }
 alias CompletionItemKind = DocumentSymbolKind;
