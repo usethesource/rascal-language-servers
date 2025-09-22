@@ -315,7 +315,7 @@ data LanguageService
         If you leave this blank, the correct filter text will be generated for you. If not, we assume you know what you are doing and use the
         *filterText* you provide as-is.
     * *deprecated*: Set this to `true` to mark this completion suggestion as deprecated.
-    * *commitCharacters*: When one of these characters is types, the completion suggestion is accepted and the the commit character is inserted after the inserted text.
+    * *commitCharacters*: When one of these characters is typed, the completion suggestion is accepted and the character is inserted after the completed text.
     * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
     * *command*: Command executed after the completion edits are done. For instance, in some cases it might be practical to move the cursor after the edit.
 }
