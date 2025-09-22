@@ -345,6 +345,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
+        columns.clear(file.getLocation());
         return file;
     }
 
