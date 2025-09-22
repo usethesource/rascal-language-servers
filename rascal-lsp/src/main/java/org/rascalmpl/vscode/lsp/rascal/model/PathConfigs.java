@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -37,14 +36,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import org.apache.commons.io.file.PathUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -108,6 +105,7 @@ public class PathConfigs {
 
     private static class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+        private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
             super("Path Config updater");
@@ -159,50 +157,43 @@ public class PathConfigs {
             }
         }
 
-        private static Stream<ISourceLocation> walk(ISourceLocation root) {
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            if (reg.isDirectory(root)) {
+        private PathConfig actualBuild(ISourceLocation projectRoot, long newestConfig) {
+            final var newPcfg = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            final var prevPcfg = currentPathConfigs.get(newPcfg.getProjectRoot());
+            // Did the path config change?
+            if (prevPcfg == null || newPcfg.asConstructor().equals(prevPcfg.asConstructor())) {
                 try {
-                    return Stream.of(reg.list(root)).flatMap(PathConfigUpdater::walk);
+                    cleanOutdatedTPLs(newPcfg.getBin(), newestConfig);
                 } catch (IOException e) {
-                    logger.warn("Cannot list entries", e);
-                    return Stream.empty();
+                    logger.debug("Cannot clean outdated TPLs in {}. The directory might have been removed in the meantime.", newPcfg.getBin());
                 }
             }
-
-            // file
-            return Stream.of(root);
-        }
-
-        private PathConfig actualBuild(ISourceLocation projectRoot, @Nullable Long newestConfig) {
-            final var newPcfg = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
-            cleanOutdatedTPLs(newPcfg, newestConfig);
             return newPcfg;
         }
 
         /**
          * Over-approximation of outdated TPLs, which serves to clean the workspace after an update.
-         * @param pcfg The new path config of the project.
+         * @param newPcfg The new path config of the project.
+         * @throws IOException When listing the entries of the directory fails, e.g. the directory does not exist or the URI scheme is unsupported.
          */
-        private void cleanOutdatedTPLs(PathConfig pcfg, long newestConfig) {
-            final var prevPcfg = currentPathConfigs.get(pcfg.getProjectRoot());
-            if (prevPcfg != null && pcfg.asConstructor().equals(prevPcfg.asConstructor())) {
-                // path config did not change; no need to clean TPLs
+        private void cleanOutdatedTPLs(ISourceLocation dir, long olderThan) throws IOException {
+            if (!reg.isDirectory(dir)) {
                 return;
             }
-
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
-            walk(pcfg.getBin()).forEach(f -> {
-                final var p = Paths.get(f.getURI());
-                try {
-                    if ("tpl".equals(PathUtils.getExtension(p)) && reg.lastModified(f) < newestConfig) {
-                        logger.debug("Deleting outdated TPL {}", f);
-                        reg.remove(f, false);
+            for (var l : reg.list(dir)) {
+                if (reg.isDirectory(dir)) {
+                    cleanOutdatedTPLs(l, olderThan);
+                } else {
+                    try {
+                        if (reg.isFile(l) && "tpl".equals(URIUtil.getExtension(l)) && reg.lastModified(l) < olderThan) {
+                            logger.debug("Deleting outdated TPL {}", l);
+                            reg.remove(l, false);
+                        }
+                    } catch (IOException e) {
+                        logger.debug("Cannot get last modified time or remove TPL at {}", l);
                     }
-                } catch (IOException e) {
-                    logger.warn("Cannot access TPL file", e);
                 }
-            });
+            }
         }
 
     }
