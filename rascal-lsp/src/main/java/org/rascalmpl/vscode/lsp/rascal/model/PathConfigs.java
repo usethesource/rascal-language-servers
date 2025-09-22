@@ -168,7 +168,7 @@ public class PathConfigs {
             final var newPcfg = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
             final var prevPcfg = currentPathConfigs.get(newPcfg.getProjectRoot());
             // Did the path config change?
-            if (prevPcfg == null || newPcfg.asConstructor().equals(prevPcfg.asConstructor())) {
+            if (newPcfg.equals(prevPcfg)) {
                 try {
                     cleanOutdatedTPLs(newPcfg.getBin(), newestConfig);
                 } catch (IOException e) {
