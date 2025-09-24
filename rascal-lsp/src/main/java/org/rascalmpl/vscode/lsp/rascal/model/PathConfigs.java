@@ -189,7 +189,7 @@ public class PathConfigs {
                 } else {
                     try {
                         if (reg.isFile(l) && "tpl".equals(URIUtil.getExtension(l)) && safeLastModified(l) < olderThan) {
-                            logger.debug("Deleting outdated TPL {}", l);
+                            logger.trace("Deleting outdated TPL {}", l);
                             reg.remove(l, false);
                         }
                     } catch (IOException e) {
