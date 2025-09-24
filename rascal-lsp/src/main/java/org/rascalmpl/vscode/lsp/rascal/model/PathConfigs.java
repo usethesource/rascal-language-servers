@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -98,8 +99,8 @@ public class PathConfigs {
                 .max()
                 .getAsLong(); // safe, since the set has at least one element
 
-            var result = updater.actualBuild(projectRoot, newestConfig);
-            logger.debug("new pcfg: {}", result);
+            var result = updater.actualBuild(projectRoot, newestConfig, null);
+            logger.debug("New path config: {}", result);
             return result;
         }
         catch (IOException e) {
@@ -152,7 +153,7 @@ public class PathConfigs {
                         // can take some time
                         final var changed = changedRoots.remove(root);
                         // pass the last modified time stamp that we just removed
-                        currentPathConfigs.replace(root, actualBuild(root, changed));
+                        currentPathConfigs.compute(root, (k, prevPcfg) -> actualBuild(k, changed, prevPcfg));
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;
@@ -160,9 +161,8 @@ public class PathConfigs {
             }
         }
 
-        private PathConfig actualBuild(ISourceLocation projectRoot, long newestConfig) {
+        private PathConfig actualBuild(ISourceLocation projectRoot, long newestConfig, @Nullable PathConfig prevPcfg) {
             final var newPcfg = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
-            final var prevPcfg = currentPathConfigs.get(newPcfg.getProjectRoot());
             // Did the path config change?
             if (newPcfg.equals(prevPcfg)) {
                 try {
