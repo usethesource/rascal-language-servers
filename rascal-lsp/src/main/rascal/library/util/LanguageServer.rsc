@@ -307,7 +307,7 @@ The following fields can be used:
     * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
     * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completion is a function or variable.
     * *details*: Text that is shown when the user asks for more information about a particular completion.
-    * *documentation*: Text or markup that documents the construct that a completion will generate.
+    * *documentation*: Markup that documents the construct that a completion will generate.
     * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
     * *filterText*: Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
         if *completionEdit* starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
@@ -329,7 +329,7 @@ data CompletionItem = completionItem(
     str labelDescription = "",
 
     str details = "",
-    CompletionDocumentation documentation = none(),
+    str documentation = "",
 
     str sortText = "",
     str filterText = "",
@@ -378,12 +378,6 @@ alias CompletionItemKind = DocumentSymbolKind;
 Manual invocation or invocation by trigger characters
 }
 data CompletionTrigger = invoked() | character(str trigger);
-
-@synopsis{
-    Used to provide either plain text or markup as documentaton for a completion suggestion, or indicate no documentation is provided.
-}
-data CompletionDocumentation = none() | text(str text) | markup(str markup);
-
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
@@ -655,35 +649,6 @@ data DocumentSymbolKind
     | \reference()
     | \folder()
     ;
-
-/*
-
-        = textCompletion()
-	| methodCompletion()
-	| functionCompletion()
-	| constructorCompletion()
-	| fieldCompletion()
-	| variableCompletion()
-	| classCompletion()
-	| interfaceCompletion()
-	| moduleCompletion()
-	| propertyCompletion()
-	| unitCompletion()
-	| valueCompletion()
-	| enumCompletion()
-	| keywordCompletion()
-	| snippetCompletion()
-	| colorCompletion()
-	| fileCompletion()
-	| referenceCompletion()
-	| folderCompletion()
-	| enumMemberCompletion()
-	| constantCompletion()
-	| structCompletion()
-	| eventCompletion()
-	| operatorCompletion()
-	| typeParameterCompletion()
-*/
 
 data DocumentSymbolTag
     = \deprecated()
