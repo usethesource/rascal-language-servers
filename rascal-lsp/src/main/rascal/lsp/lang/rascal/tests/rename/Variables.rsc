@@ -303,6 +303,24 @@ test bool multiModuleAmbiguousOtherEscaped() = testRenameOccurrences({
                    'int baz = foo + \\bar;", {0})
 });
 
+@expected{illegalRename}
+test bool multiModuleAmbiguousCursorKeywordName() = testRenameOccurrences({
+    byText("Foo", "public int \\if = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = \\if + bar;", {0})
+}, oldName = "\\if");
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousOtherKeywordName() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int \\if = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + \\if;", {0})
+}, newName = "\\if");
+
 test bool multiModuleQualified() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),

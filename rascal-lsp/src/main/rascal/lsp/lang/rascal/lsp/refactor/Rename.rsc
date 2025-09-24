@@ -73,10 +73,11 @@ private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id
 
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
+    unescNewName = forceUnescapeNames(newName);
     reachable = rascalGetReflexiveModulePaths(tm).to;
     usedModules = {d.top | loc d <- tm.useDef<1>};
     usedModels = (m: tm | loc m <- usedModules, TModel tm := r.getConfig().tmodelForLoc(m)) + (tr.src.top: tm);
-    newNameDefs = {nD | TModel tm <- range(usedModels), Define nD:<_, newName, _, _, _, _> <- tm.defines};
+    newNameDefs = {nD | TModel tm <- range(usedModels), Define nD:<_, unescNewName, _, _, _, _> <- tm.defines};
     curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
     maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
 
