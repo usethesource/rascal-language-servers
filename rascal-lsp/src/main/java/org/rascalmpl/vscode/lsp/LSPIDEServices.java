@@ -92,7 +92,7 @@ public class LSPIDEServices implements IDEServices {
     public void edit(ISourceLocation path) {
         ISourceLocation physical = Locations.toClientLocation(path);
         ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-        params.setTakeFocus(true);
+        params.setTakeFocus(false);
 
         if (physical.hasOffsetLength()) {
             params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
