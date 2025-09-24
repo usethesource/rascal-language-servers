@@ -281,7 +281,7 @@ data LanguageService
 
 @description{
 Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
-`completionService`` is called with the current cursor location, the focus, and the how the user triggered completion (explicit invocation or by typing a trigger character).
+`completionService`` is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
  It should return a list of completion suggestions.
  - If a non-empty list is returned the user is asked to select one of the completion suggestions.
  - If an empty list is returned, an empty list of completions is presented to the user.
@@ -296,7 +296,7 @@ We have choosen to support all features of the LSP CompletionItem except:
 Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 }
 data LanguageService
-    = completion(list[CompletionItem] (loc cursor, Focus _focus, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
+    = completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
 
 @synopsis{Represents a concrete completion proposal that the user can select.}
 @description{

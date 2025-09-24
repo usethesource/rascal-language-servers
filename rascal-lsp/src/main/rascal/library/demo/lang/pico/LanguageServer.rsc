@@ -242,15 +242,15 @@ CompletionItem createVarCompletion(int cursorColumn, loc selectedIdent, IdType d
     return completionItem(\variable(), edit, name, labelDetail="<decl.t>");
 }
 
-list[CompletionItem] picoCompletionService(loc cursor, Focus focus, CompletionTrigger trigger) {
-    str prefix = "<focus[0]>";
-    return [createVarCompletion(cursor.begin.column, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger _) {
+    str prefix = "<focus[0]>"[..cursorOffset];
+    return [createVarCompletion(focus[0].src.begin.column + cursorOffset, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
 }
 
 void testCompletion() {
     start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; va := 1 end");
     Focus focus = computeFocusList(prg, 1, 47); // after v
-    completions = picoCompletionService(focus[0].src(47, 0, <1,47>,<1,47>), focus, invoked());
+    completions = picoCompletionService(focus, 2, invoked());
     println("completions: <completions>");
 }
 
