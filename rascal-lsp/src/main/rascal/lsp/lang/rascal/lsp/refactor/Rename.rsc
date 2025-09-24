@@ -69,7 +69,7 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
-private bool isQualifiedUse(loc use, Define def) = size(def.id) != use.length;
+private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id) != use.length;
 
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
@@ -93,7 +93,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
            , isContainedInScope(cU, n.scope, tm)) {
             // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
             if (isContainedInScope(n.scope, c.scope, tm)
-              , moduleVariableId() := c.idRole ==> !isQualifiedUse(cU, c)) {
+              , !isQualifiedUse(cU, c)) {
                 r.msg(error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>."));
             }
 
@@ -101,7 +101,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
             // Double declarations of module variables are only a problem if a use is ambiguous
             if ({moduleVariableId()} := {c.idRole, n.idRole}) {
                 for (loc nU <- newUses, isContainedInScope(nU, c.scope, tm)
-                  , n.defined.top != c.defined.top ==> !(isQualifiedUse(nU, n) && isQualifiedUse(cU, c))) {
+                  , n.defined.top == c.defined.top || !(isQualifiedUse(nU, n) && isQualifiedUse(cU, c))) {
                     r.msg(error(cU, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)."));
                 }
             }
@@ -111,7 +111,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
         for (isContainedInScope(c.scope, n.scope, tm)
            , loc nU <- newUses
            , isContainedInScope(nU, c.scope, tm)
-           , moduleVariableId() := n.idRole ==> !isQualifiedUse(nU, n)) {
+           , !isQualifiedUse(nU, n)) {
             r.msg(error(c.defined, "Renaming this to \'<newName>\' would change the program semantics; it would shadow the declaration of <nU>."));
         }
 
