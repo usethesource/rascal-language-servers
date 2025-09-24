@@ -286,7 +286,16 @@ test bool multiModuleAmbiguousCursorQualified() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool multiModuleAmbiguousUnqualifiedEscaped() = testRenameOccurrences({
+test bool multiModuleAmbiguousCursorEscaped() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = \\foo + bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousOtherEscaped() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
