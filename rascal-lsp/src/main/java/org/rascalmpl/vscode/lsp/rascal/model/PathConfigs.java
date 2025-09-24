@@ -59,6 +59,7 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
@@ -73,10 +74,18 @@ public class PathConfigs {
 
     }
 
+    private static long safeLastModified(ISourceLocation uri) {
+        try {
+            return reg.lastModified(uri);
+        } catch (IOException e) {
+            logger.debug("Cannot get last modified time of {}", uri, e);
+            return Long.MAX_VALUE;
+        }
+    }
+
     private PathConfig buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building pcfg from: {}", projectRoot);
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
@@ -85,13 +94,7 @@ public class PathConfigs {
             configSources.add(manifest);
 
             long newestConfig = configSources.stream()
-                .mapToLong(uri -> {
-                    try {
-                        return reg.lastModified(uri);
-                    } catch (final IOException e) {
-                        return Long.MIN_VALUE;
-                    }
-                })
+                .mapToLong(PathConfigs::safeLastModified)
                 .max()
                 .getAsLong(); // safe, since the set has at least one element
 
@@ -106,7 +109,6 @@ public class PathConfigs {
 
     private static class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
-        private final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
             super("Path Config updater");
@@ -121,15 +123,9 @@ public class PathConfigs {
             if (!isAlive() && !isInterrupted()) {
                 start();
             }
-            reg.watch(sourceFile, false, ignored -> {
-                long lastModified = Long.MIN_VALUE;
-                try {
-                    lastModified = reg.lastModified(sourceFile);
-                } catch (IOException e) {
-                    logger.debug("Cannot get last modified time of {}", sourceFile);
-                }
-                changedRoots.put(projectRoot, lastModified);
-            });
+            reg.watch(sourceFile, false, ignored ->
+                changedRoots.put(projectRoot, safeLastModified(sourceFile))
+            );
         }
 
         private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
@@ -192,12 +188,12 @@ public class PathConfigs {
                     cleanOutdatedTPLs(l, olderThan);
                 } else {
                     try {
-                        if (reg.isFile(l) && "tpl".equals(URIUtil.getExtension(l)) && reg.lastModified(l) < olderThan) {
+                        if (reg.isFile(l) && "tpl".equals(URIUtil.getExtension(l)) && safeLastModified(l) < olderThan) {
                             logger.debug("Deleting outdated TPL {}", l);
                             reg.remove(l, false);
                         }
                     } catch (IOException e) {
-                        logger.debug("Cannot get last modified time or remove TPL at {}", l);
+                        logger.debug("Cannot remove TPL at {}", l, e);
                     }
                 }
             }
