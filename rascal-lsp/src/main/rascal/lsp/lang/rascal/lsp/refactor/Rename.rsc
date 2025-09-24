@@ -314,7 +314,6 @@ private set[Define] tryGetCursorDefinitions(list[Tree] cursor, TModel(loc) getMo
             visit (c) {
                 case Name tr: if (isDefNameInFocus(tr)) return cursorDefs;
                 case QualifiedName tr: {
-                    if (tr.names[0].src == tr.src) fail; // skip unqualified names
                     if (isDefNameInFocus(tr)) return cursorDefs;
                 }
                 case Nonterminal tr: if (isDefNameInFocus(tr)) return cursorDefs;

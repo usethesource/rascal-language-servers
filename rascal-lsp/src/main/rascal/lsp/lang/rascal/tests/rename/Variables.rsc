@@ -259,7 +259,7 @@ test bool unrelatedVar() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool multiModuleAmbiguous1() = testRenameOccurrences({
+test bool multiModuleAmbiguousUnqualified() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
@@ -268,7 +268,7 @@ test bool multiModuleAmbiguous1() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool multiModuleAmbiguous2() = testRenameOccurrences({
+test bool multiModuleAmbiguousOtherQualified() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
@@ -277,12 +277,21 @@ test bool multiModuleAmbiguous2() = testRenameOccurrences({
 });
 
 @expected{illegalRename}
-test bool multiModuleAmbiguous3() = testRenameOccurrences({
+test bool multiModuleAmbiguousCursorQualified() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
                    'import Bar;
                    'int baz = Foo::foo + bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousUnqualifiedEscaped() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + \\bar;", {0})
 });
 
 test bool multiModuleQualified() = testRenameOccurrences({
