@@ -71,13 +71,20 @@ export async function activateLanguageClient(
     return client;
 }
 
+const contentPanels: Map<string, vscode.WebviewPanel> = new Map();
+
 async function showContentPanel(url: string, title:string, viewColumn:integer): Promise<void> {
     // dispose of old panel in case it existed
     const externalURL = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString();
-    const allOpenTabs = vscode.window.tabGroups.all.flatMap(tg => tg.tabs);
-    const tabsForThisPanel = allOpenTabs.filter(t => t.input instanceof vscode.TabInputWebview && t.label === externalURL);
+    const id = title;
+    const existingPanel = contentPanels.get(id);
 
-    await vscode.window.tabGroups.close(tabsForThisPanel);
+    if (existingPanel) {
+        // reuse the tab, but reload the content
+        existingPanel.reveal(viewColumn, true);
+        loadURLintoPanel(existingPanel, externalURL);
+        return;
+    }
 
     const panel = vscode.window.createWebviewPanel(
         "text/html",
@@ -92,6 +99,9 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     );
 
     loadURLintoPanel(panel, externalURL);
+
+    panel.onDidDispose(() => contentPanels.delete(id));
+    contentPanels.set(id, panel);
 }
 
 
@@ -120,7 +130,7 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
 interface BrowseParameter {
     uri: string;
     mimetype: string;
-    title:string;
+    title: string;
     viewColumn:integer;
 }
 
