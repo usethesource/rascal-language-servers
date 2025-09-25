@@ -95,6 +95,7 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
         },
         {
             enableScripts: true,
+            retainContextWhenHidden: true, /* otherwise the whole page reloads every time we loose focus */
         }
     );
 
