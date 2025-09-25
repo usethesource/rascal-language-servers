@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -171,7 +172,7 @@ public class TextDocumentState {
                 });
         }
 
-        private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
+        private List<Diagnostics.Template> toDiagnosticsList(@Nullable ITree tree, @Nullable Throwable excp) {
             List<Diagnostics.Template> diagnostics = new ArrayList<>();
 
             if (excp != null) {
