@@ -536,7 +536,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
         return recoverExceptions(file.getCurrentTreeAsync()
-                .thenApply(Versioned::get)
+                .thenApply(t -> t == null ? null : t.get())
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
