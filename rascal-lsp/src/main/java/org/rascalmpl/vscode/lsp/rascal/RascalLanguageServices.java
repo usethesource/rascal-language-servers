@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
@@ -41,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -72,6 +74,7 @@ import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
