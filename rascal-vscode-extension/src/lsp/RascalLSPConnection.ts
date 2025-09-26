@@ -57,8 +57,14 @@ export async function activateLanguageClient(
     client.sendNotification("rascal/vfs/register", {
         port: vfsServer.port
     });
+
     client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
         showContentPanel(bp.uri, bp.title, bp.viewColumn);
+    });
+
+
+    client.onNotification("rascal/editDocument", (e:EditorParameter) => {
+        openEditor(e.uri, e.range, e.viewColumn)
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
@@ -105,6 +111,27 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     contentPanels.set(id, panel);
 }
 
+async function openEditor(uriString: string, range:vscode.Range, viewColumn: integer) {
+        const uri = vscode.Uri.parse(uriString);
+
+        const doc = await vscode.workspace.openTextDocument(uri);
+
+        // Show it in an editor
+        const editor = await vscode.window.showTextDocument(doc, {
+             // make sure it's not a preview, otherwise it will dissappear with the next focus change:
+            preview: false,
+            // put it where we want: if another editor is open for the same URI _and_ the same viewColumn, that one will be reused:
+            viewColumn: viewColumn,
+            // will let this editor take focus:
+            preserveFocus: false,
+            // don't use the `selection` field here because we can not control scrolling behavior from that with editors which are already open
+        });
+
+        // set the primary selection and move it into view (but don't scroll unless necessary)
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+
 
 function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
     panel.webview.html = `
@@ -122,7 +149,7 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
                 sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads allow-top-navigation"
                 style="display: block; margin: 0px; overflow: hidden; position: absolute; width: 100%; height: 100%; visibility: visible;"
             >
-            Loading ${url}...
+            Loading ${url} at ${new Date().toLocaleTimeString()}
             </iframe>
             </body>
             </html>`;
@@ -134,6 +161,13 @@ interface BrowseParameter {
     title: string;
     viewColumn:integer;
 }
+
+interface EditorParameter {
+    uri: string;
+    viewColumn: integer;
+    range: vscode.Range;
+}
+
 
 async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);

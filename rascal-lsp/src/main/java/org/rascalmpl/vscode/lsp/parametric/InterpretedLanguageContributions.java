@@ -124,7 +124,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         this.exec = exec;
 
         try {
-            var pcfg = new PathConfig().parse(lang.getPathConfig());
+            var pcfg = PathConfig.parse(lang.getPathConfig());
             pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
             monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
