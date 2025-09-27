@@ -36,22 +36,14 @@ import java.util.function.BiFunction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.library.util.ParseErrorRecovery;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.Diagnostics.Template;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IConstructor;
 
 /**
  * TextDocumentState encapsulates the current contents of every open file editor,
@@ -63,6 +55,7 @@ import io.usethesource.vallang.IConstructor;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    @SuppressWarnings("unused")
     private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
     private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
