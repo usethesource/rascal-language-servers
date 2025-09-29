@@ -128,7 +128,9 @@ void checkOutdatedPathConfig(PathConfig pcfg) {
     if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
         // We do not know the previous path config, or it changed
         // Be safe and remove TPLs
-        removeAllTPLs(pcfg);
+        for (loc f <- find(pcfg.bin, "tpl")) {
+            remove(f);
+        }
         writeBinaryValueFile(pcfgFile, pcfg);
     }
 }
@@ -137,13 +139,6 @@ bool tplInputsChanged(PathConfig old, PathConfig new)
     = old.srcs != new.srcs
     || old.libs != new.libs
     ;
-
-void removeAllTPLs(PathConfig pcfg) {
-    for (loc f <- find(pcfg.bin, "tpl")) {
-        println("Removing <f>");
-        remove(f);
-    }
-}
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
