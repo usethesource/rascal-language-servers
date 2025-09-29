@@ -493,7 +493,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText(), timestamp));
+            l -> new TextDocumentState(rascalServices::parseSourceFile, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
