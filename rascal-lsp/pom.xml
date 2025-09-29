@@ -180,6 +180,11 @@
             <goals>
               <goal>package</goal>
             </goals>
+            <configuration>
+              <srcs>
+                <src>${project.basedir}/src/main/rascal/library</src>
+              </srcs>
+            </configuration>
           </execution>
           <execution>
             <id>default-tutor</id>
