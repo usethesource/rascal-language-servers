@@ -31,6 +31,7 @@ import List;
 import Relation;
 import Set;
 import String;
+import ValueIO;
 import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
@@ -97,13 +98,17 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
             step3("Checked module in `<project.file>`", 1);
-            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
+            pcfg = getPathConfig(project);
+            checkOutdatedPathConfig(pcfg);
+            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(pcfg));
         }
         return true;
     }, totalWork=size(upstreamDependencies));
 
     step("Checking module <l>", 1);
-    msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
+    pcfg = getPathConfig(initialProject);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check([l], rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
@@ -113,6 +118,30 @@ private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
         return true;
     } catch PathNotFound(_):  {
         return false;
+    }
+}
+
+loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
+
+void checkOutdatedPathConfig(PathConfig pcfg) {
+    pcfgFile = pathConfigFile(pcfg);
+    if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
+        // We do not know the previous path config, or it changed
+        // Be safe and remove TPLs
+        removeAllTPLs(pcfg);
+        writeBinaryValueFile(pcfgFile, pcfg);
+    }
+}
+
+bool tplInputsChanged(PathConfig old, PathConfig new)
+    = old.srcs != new.srcs
+    || old.libs != new.libs
+    ;
+
+void removeAllTPLs(PathConfig pcfg) {
+    for (loc f <- find(pcfg.bin, "tpl")) {
+        println("Removing <f>");
+        remove(f);
     }
 }
 
