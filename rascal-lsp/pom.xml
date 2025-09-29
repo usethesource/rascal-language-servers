@@ -63,7 +63,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC67-SNAPSHOT</version>
+      <version>0.41.0-RC67</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
