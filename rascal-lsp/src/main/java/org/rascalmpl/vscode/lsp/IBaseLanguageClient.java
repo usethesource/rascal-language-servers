@@ -43,7 +43,7 @@ public interface IBaseLanguageClient extends LanguageClient {
     void receiveUnregisterLanguage(LanguageParameter lang);
 
     @JsonNotification("rascal/editDocument")
-	void editDocument(EditorParameter params);
+    void editDocument(EditorParameter params);
 
     /**
      * Notification sent to the vscode client to start a debugging session on the given debug adapter port
