@@ -125,13 +125,22 @@ loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
 
 void checkOutdatedPathConfig(PathConfig pcfg) {
     pcfgFile = pathConfigFile(pcfg);
-    if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
-        // We do not know the previous path config, or it changed
-        // Be safe and remove TPLs
-        for (loc f <- find(pcfg.bin, "tpl")) {
-            remove(f);
+    jobWarning("Checking path config", pcfgFile);
+    try {
+        if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
+            // We do not know the previous path config, or it changed
+            // Be safe and remove TPLs
+            for (loc f <- find(pcfg.bin, "tpl")) {
+                try {
+                    remove(f);
+                } catch IO(_): {
+                    jobWarning("Cannot remove TPL", f);
+                }
+            }
+            writeBinaryValueFile(pcfgFile, pcfg);
         }
-        writeBinaryValueFile(pcfgFile, pcfg);
+    } catch IO(str msg): {
+        jobWarning(msg, pcfg.bin);
     }
 }
 
