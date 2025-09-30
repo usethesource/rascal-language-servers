@@ -243,30 +243,10 @@ public PathConfig getTestPathConfig(loc testDir) {
     );
 }
 
-PathConfig getRascalCorePathConfig(loc rascalCoreProject) {
-   return pathConfig(
-        srcs = [rascalCoreProject + "src/org/rascalmpl/core/library"],
-        bin = rascalCoreProject + "target/test-classes",
-        libs = [|mvn://org.rascalmpl--typepal--0.15.1/|, calculateRascalLib()]
-    );
-}
-
 PathConfig resolveLocations(PathConfig pcfg) {
     return visit(pcfg) {
         case loc l => resolveLocation(l)
     };
-}
-
-PathConfig getPathConfig(loc project) {
-    println("Getting path config for <project.file> (<project>)");
-
-    if (project.file == "rascal-core") {
-        pcfg = getRascalCorePathConfig(|home:///swat/projects/Rascal/rascal-core|);
-        return pcfg;
-    }
-
-    pcfg = getProjectPathConfig(project);
-    return pcfg;
 }
 
 void throwMessagesIfError(set[Message] msgs) {
