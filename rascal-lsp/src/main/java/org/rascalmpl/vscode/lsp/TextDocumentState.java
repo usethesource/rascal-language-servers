@@ -33,6 +33,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
@@ -54,6 +56,8 @@ import io.usethesource.vallang.IValue;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    @SuppressWarnings("unused")
+    private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
     private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;

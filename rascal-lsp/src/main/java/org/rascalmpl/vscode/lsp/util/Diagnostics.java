@@ -220,10 +220,6 @@ public class Diagnostics {
         return result;
     }
 
-    private static Range toRange(ITree t, ColumnMaps cm) {
-        return toRange(TreeAdapter.getLocation(t), cm);
-    }
-
     private static Range toRange(ParseError pe, ColumnMaps cm) {
         return toRange(pe.getLocation(), cm);
     }

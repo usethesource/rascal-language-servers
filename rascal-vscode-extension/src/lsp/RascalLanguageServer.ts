@@ -33,7 +33,6 @@ import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedL
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 
-
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
@@ -76,6 +75,5 @@ export class RascalLanguageServer implements vscode.Disposable {
     dispose() {
         this.rascalClient.then(c => c.dispose());
     }
-
 }
 
