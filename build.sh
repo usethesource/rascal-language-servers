@@ -18,6 +18,8 @@ done
 
 rm -f rascal-lsp/target/*.jar
 
+(cd rascal-lsp && mvn -B checkstyle:checkstyle  checkstyle:check )
 (cd rascal-lsp && mvn $clean package -Drascal.monitor.batch $extra_flags )
+(cd rascal-vscode-extension && npm run lint )
 (cd rascal-vscode-extension && npm run lsp4j:package )
 
