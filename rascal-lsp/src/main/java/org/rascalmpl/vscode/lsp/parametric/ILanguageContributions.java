@@ -52,7 +52,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IList> documentSymbol(ITree input);
     public InterruptibleFuture<IList> codeLens(ITree input);
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
+    public InterruptibleFuture<IList> inlayHint(ITree input);
     public InterruptibleFuture<@Nullable IValue> execution(String command);
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
