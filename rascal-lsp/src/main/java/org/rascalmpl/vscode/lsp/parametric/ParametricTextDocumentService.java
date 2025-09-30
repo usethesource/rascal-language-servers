@@ -314,7 +314,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ownExecuter.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
-                if (registeredExtensions.containsKey(extension(f.getUri()))) {
+                if (registeredExtensions.containsKey(extension(URI.create(f.getUri())))) {
                     client.publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
                 }
             }
@@ -512,7 +512,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            String language = registeredExtensions.get(extension(rename.getNewUri()));
+            String language = registeredExtensions.get(extension(URI.create(rename.getNewUri())));
             if (language != null) {
                 ILanguageContributions contrib = contributions.get(language);
                 if (contrib != null) {
@@ -588,14 +588,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ILanguageContributions contributions(TextDocumentIdentifier doc) {
-        return contributions(doc.getUri());
+        return contributions(URI.create(doc.getUri()));
     }
 
     private ILanguageContributions contributions(TextDocumentItem doc) {
-        return contributions(doc.getUri());
+        return contributions(URI.create(doc.getUri()));
     }
 
-    private ILanguageContributions contributions(String doc) {
+    private ILanguageContributions contributions(URI doc) {
         String language = registeredExtensions.get(extension(doc));
         if (language != null) {
             ILanguageContributions contrib = contributions.get(language);
@@ -608,8 +608,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
     }
 
-    private static String extension(String doc) {
-        String file = URI.create(doc).getPath();
+    private static String extension(URI doc) {
+        String file = doc.getPath();
         int index = file.lastIndexOf(".");
         if (index != -1) {
             return file.substring(index + 1);
@@ -618,14 +618,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(TextDocumentIdentifier doc) {
-        return facts(doc.getUri());
+        return facts(URI.create(doc.getUri()));
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        return facts(doc.getPath());
+        return facts(doc.getURI());
     }
 
-    private ParametricFileFacts facts(String doc) {
+    private ParametricFileFacts facts(URI doc) {
         String language = registeredExtensions.get(extension(doc));
         if (language != null) {
             ParametricFileFacts fact = facts.get(language);
