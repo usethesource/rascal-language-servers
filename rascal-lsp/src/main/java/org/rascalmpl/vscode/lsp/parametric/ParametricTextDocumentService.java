@@ -606,12 +606,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private static String extension(ISourceLocation doc) {
-        String file = doc.getPath();
-        int index = file.lastIndexOf(".");
-        if (index != -1) {
-            return file.substring(index + 1);
-        }
-        return "";
+        return URIUtil.getExtension(doc);
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
