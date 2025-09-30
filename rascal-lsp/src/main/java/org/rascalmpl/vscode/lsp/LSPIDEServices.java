@@ -38,12 +38,13 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -89,16 +90,15 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void edit(ISourceLocation path) {
+    public void edit(ISourceLocation path, int viewColumn) {
         ISourceLocation physical = Locations.toClientLocation(path);
-        ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-        params.setTakeFocus(true);
 
+        Range range = null;
         if (physical.hasOffsetLength()) {
-            params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
+            range = Locations.toRange(physical, docService.getColumnMap(physical));
         }
 
-        languageClient.showDocument(params);
+        languageClient.editDocument(new EditorParameter(path.getURI().toASCIIString(), range, viewColumn));
     }
 
     @Override

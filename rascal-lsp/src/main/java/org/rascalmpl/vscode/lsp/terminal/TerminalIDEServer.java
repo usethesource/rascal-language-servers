@@ -38,8 +38,6 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.uri.LogicalMapResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -79,9 +77,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<ShowDocumentResult> edit(ShowDocumentParams edit) {
+    public CompletableFuture<Void> edit(EditorParameter edit) {
         logger.trace("edit({})", edit);
-        return languageClient.showDocument(edit);
+        return CompletableFuture.runAsync(() -> languageClient.editDocument(edit));
     }
 
     @Override

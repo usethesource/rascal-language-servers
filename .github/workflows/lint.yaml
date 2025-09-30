@@ -69,6 +69,7 @@ jobs:
           eslint_dir: ./rascal-vscode-extension
           eslint_args: "src"
           eslint_extensions: ts
+          continue_on_error: false
 
   checkstyle:
     name: checkstyle 

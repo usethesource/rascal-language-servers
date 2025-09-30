@@ -84,9 +84,17 @@ public class Locations {
      * Mapping them from the LSP standard to the Rascal standard.
      */
     public static Range toRascalRange(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
+        return toRascalRange(toLoc(doc), range, columns);
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Range toRascalRange(ISourceLocation loc, Range range, ColumnMaps columns) {
         return new Range(
-            toRascalPosition(doc, range.getStart(), columns),
-            toRascalPosition(doc, range.getEnd(), columns)
+            toRascalPosition(loc, range.getStart(), columns),
+            toRascalPosition(loc, range.getEnd(), columns)
         );
     }
 

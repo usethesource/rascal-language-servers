@@ -28,30 +28,23 @@ package org.rascalmpl.vscode.lsp;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
-import org.rascalmpl.exceptions.Throw;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.Diagnostics.Template;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IConstructor;
 
 /**
  * TextDocumentState encapsulates the current contents of every open file editor,
@@ -63,6 +56,7 @@ import io.usethesource.vallang.IConstructor;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    @SuppressWarnings("unused")
     private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
     private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
@@ -182,7 +176,7 @@ public class TextDocumentState {
                 });
         }
 
-        private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
+        private List<Diagnostics.Template> toDiagnosticsList(@Nullable ITree tree, @Nullable Throwable excp) {
             List<Diagnostics.Template> diagnostics = new ArrayList<>();
 
             if (excp != null) {
