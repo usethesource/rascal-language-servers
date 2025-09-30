@@ -535,9 +535,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.trace("inlayHint for: {}", params.getTextDocument().getUri());
         final TextDocumentState file = getFile(params.getTextDocument());
         final ILanguageContributions contrib = contributions(params.getTextDocument());
-        return recoverExceptions(
-                recoverExceptions(file.getCurrentTreeAsync(), file::getLastTreeWithoutErrors)
-                .thenApply(Versioned::get)
+        return recoverExceptions(file.getCurrentTreeAsync()
+                .thenApply(t -> t == null ? null : t.get())
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
