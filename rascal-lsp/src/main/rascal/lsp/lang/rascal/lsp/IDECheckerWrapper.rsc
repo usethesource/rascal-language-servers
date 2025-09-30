@@ -125,7 +125,6 @@ loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
 
 void checkOutdatedPathConfig(PathConfig pcfg) {
     pcfgFile = pathConfigFile(pcfg);
-    jobWarning("Checking path config", pcfgFile);
     try {
         if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
             // We do not know the previous path config, or it changed
