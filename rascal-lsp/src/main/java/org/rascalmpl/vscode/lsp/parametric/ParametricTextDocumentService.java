@@ -541,9 +541,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
         TextDocumentState file = getFile(loc);
         ILanguageContributions contrib = contributions(loc);
-        return recoverExceptions(
-                recoverExceptions(file.getCurrentTreeAsync(), file::getLastTreeWithoutErrors)
-                .thenApply(Versioned::get)
+        return recoverExceptions(file.getCurrentTreeAsync()
+                .thenApply(t -> t == null ? null : t.get())
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
