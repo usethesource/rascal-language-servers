@@ -63,7 +63,7 @@ public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
 
-    private final AtomicReference<@MonotonicNonNull Versioned<Update>> current;
+    private final AtomicReference<Versioned<Update>> current;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
     private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
 
