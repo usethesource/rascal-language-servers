@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 
-import { BaseLanguageClient, integer } from 'vscode-languageclient';
+import { BaseLanguageClient } from 'vscode-languageclient';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
