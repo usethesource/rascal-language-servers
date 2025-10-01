@@ -838,7 +838,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var contrib = contributions(doc);
         final var file = getFile(doc);
 
-        return /*recoverExceptions(*/file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenCompose(t -> {
                 final var pos = Locations.toRascalPosition(doc, params.getPosition(), columns);
@@ -851,7 +851,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                         .map(IConstructor.class::cast)
                         .map(ci -> ch.toLSP(ci, columns))
                         .collect(Collectors.toList());
-            }))/*, Collections::emptyList)*/;
+            })), Collections::emptyList);
     }
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
