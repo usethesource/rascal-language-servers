@@ -307,8 +307,10 @@ data CallHierarchyItem
         loc selection,                      // location of the name of the definition
         set[DocumentSymbolTag] tags = {},
         str detail = "",                    // detailed description, e.g. the function signature
-        value \data = ()                    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
+        CallHierarchyData \data = none()    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
     );
+
+data CallHierarchyData = none();
 
 data CallDirection
     = incoming()

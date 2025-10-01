@@ -33,20 +33,20 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
-import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import com.google.gson.JsonObject;
-import com.google.gson.stream.JsonReader;
+import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.io.StandardTextReader;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
@@ -66,6 +66,7 @@ public class CallHierarchy {
     private final IConstructor outgoing;
 
     private final Type callHierarchyItemCons;
+    private @Nullable Type callHierarchyDataAdt;
 
     private static final String NAME = "name";
     private static final String KIND = "kind";
@@ -76,12 +77,14 @@ public class CallHierarchy {
     private static final String DATA = "data";
     private final TypeStore store;
 
+
     public CallHierarchy(TypeStore store) {
         this.store = store;
         Type directionAdt = store.lookupAbstractDataType("CallDirection");
         this.incoming = VF.constructor(store.lookupConstructor(directionAdt, "incoming", TF.tupleEmpty()));
         this.outgoing = VF.constructor(store.lookupConstructor(directionAdt, "outgoing", TF.tupleEmpty()));
         this.callHierarchyItemCons = store.lookupConstructor(store.lookupAbstractDataType("CallHierarchyItem"), "callHierarchyItem").iterator().next(); // first and only
+        this.callHierarchyDataAdt = store.lookupAbstractDataType("CallHierarchyData");
     }
 
     public IConstructor direction(Direction dir) {
@@ -109,25 +112,25 @@ public class CallHierarchy {
             ci.setDetail(kws.getParameter(DETAIL).toString());
         }
         if (kws.hasParameter(DATA)) {
-            ci.setData(kws.getParameter(DATA));
+            ci.setData(serializeData((IConstructor) kws.getParameter(DATA)));
         }
 
         return ci;
     }
 
-    public IConstructor toRascal(CallHierarchyItem ci, ColumnMaps columns) {
-        JsonValueReader reader = new JsonValueReader(VF, store, new NullRascalMonitor(), null);
-        final var dataString = ((JsonObject) ci.getData()).toString();
-        IValue data = null;
+    private String serializeData(IConstructor data) {
+        return data.toString();
+    }
+
+    private IConstructor deserializeData(Object data) {
         try {
-            data = reader.read(new JsonReader(new StringReader(dataString)), TF.valueType());
-        } catch (IOException e) {
-            data = VF.tuple();
+            return (IConstructor) new StandardTextReader().read(VF, store, callHierarchyDataAdt, new StringReader(((JsonPrimitive) data).getAsString()));
+        } catch (FactTypeUseException | IOException e) {
+            throw new IllegalArgumentException("The call hierarchy item data could not be parsed", e);
         }
-        if (data == null) data = VF.tuple();
+    }
 
-        logger.debug("data: {}", data);
-
+    public IConstructor toRascal(CallHierarchyItem ci, ColumnMaps columns) {
         return VF.constructor(callHierarchyItemCons, List.of(
             VF.string(ci.getName()),
             DocumentSymbols.symbolKindToRascal(ci.getKind()),
@@ -136,7 +139,7 @@ public class CallHierarchy {
         ).toArray(new IValue[0]), Map.of(
             TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
             DETAIL, VF.string(ci.getDetail()),
-            DATA, data
+            DATA, deserializeData(ci.getData())
         ));
     }
 }
