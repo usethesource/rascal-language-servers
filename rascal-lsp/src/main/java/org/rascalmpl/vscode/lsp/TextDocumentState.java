@@ -152,7 +152,7 @@ public class TextDocumentState {
 
         return result.handle((t, e) -> {
             if (t == null) {
-                throw new RuntimeException("We've never seen a parse tree without errors for: " + getLocation());
+                throw new IllegalStateException("No previous parse tree without errors for: " + getLocation());
             }
             return t;
         });
