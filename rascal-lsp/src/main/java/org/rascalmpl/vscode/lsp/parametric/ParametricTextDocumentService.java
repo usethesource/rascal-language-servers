@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -165,6 +165,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     private final Map<ISourceLocation, TextDocumentState> files;
+    private final Map<ISourceLocation, Pair<TextDocumentItem, Long>> unregisteredFiles = new HashMap<>();
     private final ColumnMaps columns;
 
     /** extension to language */
@@ -280,6 +281,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
+        if (file == null) {
+            return;
+        }
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
@@ -288,7 +292,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        var state = updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        if (state == null) {
+            return;
+        }
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -304,11 +311,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        if (files.remove(loc) == null) {
+        if (files.remove(loc) != null) {
+            facts(loc).close(loc);
+        } else if (unregisteredFiles.remove(loc) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + loc, params));
         }
-        facts(loc).close(loc);
     }
 
     @Override
@@ -343,9 +351,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
+    private @Nullable TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(Locations.toLoc(doc));
         logger.trace("New contents for {}", doc);
+        if (file == null) {
+            return null;
+        }
         columns.clear(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
         return file;
@@ -592,17 +603,23 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return l.get(l.size() - 1);
     }
 
-    private ILanguageContributions contributions(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ILanguageContributions contrib = contributions.get(language);
+    private String language(ISourceLocation loc) {
+        var ext = extension(loc);
+        var language = registeredExtensions.get(ext);
+        if (language == null) {
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", ext, loc));
+        }
+        return language;
+    }
 
-            if (contrib != null) {
-                return contrib;
-            }
+    private ILanguageContributions contributions(ISourceLocation doc) {
+        ILanguageContributions contrib = contributions.get(language(doc));
+
+        if (contrib == null) {
+            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
         }
 
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+        return contrib;
     }
 
     private static String extension(ISourceLocation doc) {
@@ -610,20 +627,26 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ParametricFileFacts fact = facts.get(language);
-            if (fact != null) {
-                return fact;
-            }
+        ParametricFileFacts fact = facts.get(language(doc));
+
+        if (fact == null) {
+            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
         }
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+
+        return fact;
     }
 
-    private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp)
-        );
+    private @Nullable TextDocumentState open(TextDocumentItem doc, long timestamp) {
+        var loc = Locations.toLoc(doc);
+        try {
+            return files.computeIfAbsent(loc, l ->
+                new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
+        } catch (UnsupportedOperationException e) {
+            // Language not (yet) supported; postpone state computation
+            // Let's remember this file so later, if someone registers the language for this, we can recover
+            unregisteredFiles.putIfAbsent(loc, Pair.of(doc, timestamp));
+            return null;
+        }
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
@@ -840,6 +863,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
+
+        for (var extension: lang.getExtensions()) {
+            // If we opened any files with this extension before, now associate them with contributions
+            for (var f : unregisteredFiles.keySet()) {
+                if (extension(f).equals(extension)) {
+                    var opened = unregisteredFiles.remove(f);
+                    var doc = opened.getLeft();
+                    var file = new TextDocumentState(contributions(f)::parsing, f, doc.getVersion(), doc.getText(), opened.getRight());
+                    files.put(f, file);
+                    // Update open editor
+                    triggerAnalyzer(doc, NORMAL_DEBOUNCE);
+                    handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+                }
+            }
+        }
 
         fact.reloadContributions();
         if (client != null) {
