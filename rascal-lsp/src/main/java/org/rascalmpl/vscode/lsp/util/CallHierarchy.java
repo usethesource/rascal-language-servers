@@ -31,8 +31,6 @@ import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -52,8 +50,6 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class CallHierarchy {
-    private static final Logger logger = LogManager.getLogger(CallHierarchy.class);
-
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final TypeFactory TF = TypeFactory.getInstance();
 
@@ -66,7 +62,7 @@ public class CallHierarchy {
     private final IConstructor outgoing;
 
     private final Type callHierarchyItemCons;
-    private @Nullable Type callHierarchyDataAdt;
+    private final @Nullable Type callHierarchyDataAdt;
 
     private static final String NAME = "name";
     private static final String KIND = "kind";
