@@ -353,7 +353,7 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
 
-        public @MonotonicNonNull ParserSpecification getPrecompiledParser() {
+        public @Nullable ParserSpecification getPrecompiledParser() {
             return precompiledParser;
         }
 
