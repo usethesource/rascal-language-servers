@@ -63,7 +63,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC66</version>
+      <version>0.41.0-RC67</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -158,6 +158,15 @@
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
         <version>0.30.0-RC25</version>
+        <configuration>
+            <errorsAsWarnings>false</errorsAsWarnings>
+            <bin>${project.build.outputDirectory}</bin>
+            <srcs>
+                <src>${project.basedir}/src/main/rascal/library</src>
+            </srcs>
+            <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
+            <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
+        </configuration>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -166,13 +175,6 @@
             <goals>
               <goal>compile</goal>
             </goals>
-            <configuration>
-                <errorsAsWarnings>false</errorsAsWarnings>
-                <bin>${project.build.outputDirectory}</bin>
-                <srcs>
-                    <src>${project.basedir}/src/main/rascal/library</src>
-                </srcs>
-            </configuration>
           </execution>
           <execution>
             <id>default-package</id>
@@ -187,18 +189,6 @@
             <goals>
               <goal>tutor</goal>
             </goals>
-            <configuration>
-              <bin>${project.build.outputDirectory}</bin>
-              <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
-              <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
-              <srcs>
-                <src>${project.basedir}/src/main/rascal</src>
-              </srcs>
-              <ignores>
-                  <ignore>${project.basedir}/src/main/rascal/lang/rascal</ignore>
-                  <ignore>${project.basedir}/src/main/rascal/framework</ignore>
-              </ignores>
-            </configuration>
           </execution>
         </executions>
       </plugin>

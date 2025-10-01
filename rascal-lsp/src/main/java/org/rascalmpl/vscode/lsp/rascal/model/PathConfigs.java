@@ -28,7 +28,9 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -36,14 +38,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -52,6 +57,7 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
@@ -66,18 +72,26 @@ public class PathConfigs {
 
     }
 
+    private static long safeLastModified(ISourceLocation uri) {
+        try {
+            return reg.lastModified(uri);
+        } catch (IOException e) {
+            logger.debug("Cannot get last modified time of {}", uri, e);
+            return Long.MAX_VALUE;
+        }
+    }
+
     private PathConfig buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building pcfg from: {}", projectRoot);
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
             }
             registerMavenWatches(reg, projectRoot);
 
-            var result = actualBuild(projectRoot);
-            logger.debug("new pcfg: {}", result);
+            var result = updater.actualBuild(projectRoot);
+            logger.debug("New path config: {}", result);
             return result;
         }
         catch (IOException e) {
@@ -101,8 +115,8 @@ public class PathConfigs {
             if (!isAlive() && !isInterrupted()) {
                 start();
             }
-            URIResolverRegistry.getInstance().watch(sourceFile, false, ignored ->
-                changedRoots.put(projectRoot, System.nanoTime())
+            reg.watch(sourceFile, false, ignored ->
+                changedRoots.put(projectRoot, safeLastModified(sourceFile))
             );
         }
 
@@ -119,7 +133,7 @@ public class PathConfigs {
                 }
 
                 List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
-                    .filter(e -> System.nanoTime() - e.getValue() >= UPDATE_DELAY)
+                    .filter(e -> FileTime.from(Instant.now()).to(TimeUnit.NANOSECONDS) - e.getValue() >= UPDATE_DELAY)
                     .map(Entry::getKey)
                     .collect(Collectors.toList());
 
@@ -135,6 +149,10 @@ public class PathConfigs {
                     logger.error("Unexpected error while building PathConfigs", e) ;
                 }
             }
+        }
+
+        private PathConfig actualBuild(ISourceLocation projectRoot) {
+            return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
         }
 
     }
@@ -168,13 +186,6 @@ public class PathConfigs {
             return false;
         }
     }
-
-    private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
-    }
-
-
-
 
     private static ISourceLocation inferProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;

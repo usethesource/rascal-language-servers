@@ -194,7 +194,7 @@ public class EvaluatorUtil {
 
     private enum ErrorHandlingOption {
         // The order in which these values are declared is the order in which they will appear in the VS Code tooltip
-        REPORT_ON_GITHUB("Report on GitHub"),
+        REPORT_ON_GITHUB("Report on Rascal GitHub"),
         COPY_STACK_TRACE("Copy stack trace to clipboard"),
         IGNORE("Ignore");
 
