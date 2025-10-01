@@ -57,6 +57,8 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
+    private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
@@ -64,7 +66,12 @@ public class PathConfigs {
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
+    private final PathConfigDiagnostics diagnostics;
 
+
+    public PathConfigs(PathConfigDiagnostics diagnostics) {
+        this.diagnostics = diagnostics;
+    }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
         ISourceLocation projectRoot = translatedRoots.get(forFile);
@@ -99,7 +106,7 @@ public class PathConfigs {
         }
     }
 
-    private static class PathConfigUpdater extends Thread {
+    private class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
@@ -119,8 +126,6 @@ public class PathConfigs {
                 changedRoots.put(projectRoot, safeLastModified(sourceFile))
             );
         }
-
-        private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
 
         @Override
         public void run() {
@@ -143,7 +148,9 @@ public class PathConfigs {
                         // we clear it from the list, as the path config calculation
                         // can take some time
                         changedRoots.remove(root);
-                        currentPathConfigs.replace(root, actualBuild(root));
+                        var pathConfig = actualBuild(root);
+                        currentPathConfigs.replace(root, pathConfig);
+                        diagnostics.update(root, pathConfig.getMessages());
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;

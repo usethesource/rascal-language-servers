@@ -61,15 +61,12 @@ public class FileFacts {
     private final ColumnMaps cm;
     private final PathConfigs confs;
 
-    public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
+    public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
-        this.cm = cm;
-        this.confs = new PathConfigs();
-    }
-
-    public void setClient(LanguageClient client) {
         this.client = client;
+        this.cm = cm;
+        this.confs = new PathConfigs(new PathConfigDiagnostics(client, cm));
     }
 
     public void invalidate(ISourceLocation file) {
