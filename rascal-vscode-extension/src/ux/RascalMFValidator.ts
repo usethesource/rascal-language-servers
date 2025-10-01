@@ -187,7 +187,7 @@ function checkDeprecatedFeatures(mfBody: vscode.TextDocument, diagnostics: vscod
         const [key, value] = line.text.split(":");
         if (key && value && key === "Require-Libraries" && value.trim() !== "") {
             diagnostics.push(new vscode.Diagnostic(line.range,
-                "The 'Require-Libraries' option is not supported anymor. Please make sure your dependencies are listed in the pom.xml of the project and remove this line."
+                "The 'Require-Libraries' option is not supported anymore. Please make sure your dependencies are listed in the pom.xml of the project and remove this line."
             ));
         }
     }

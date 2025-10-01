@@ -38,7 +38,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -127,7 +126,6 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -272,6 +270,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         TextDocumentState file = getFile(doc);
         logger.trace("New contents for {}", doc);
+        columns.clear(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
         return file;
     }
@@ -309,9 +308,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         documentSymbol(DocumentSymbolParams params) {
         logger.debug("textDocument/documentSymbol: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getLastTreeAsync(true)
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? (file.getLastTree().get()) : t))
             .thenCompose(tr -> rascalServices.getDocumentSymbols(tr).get())
             .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
             );
@@ -357,9 +355,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("textDocument/prepareRename: {} at {}", params.getTextDocument(), params.getPosition());
         TextDocumentState file = getFile(params.getTextDocument());
 
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync(false)
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> {
                 Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
                 IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
@@ -379,9 +376,14 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        return file.getCurrentTreeAsync()
+        return file.getCurrentTreeAsync(false)
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
+            .handle((t, e) -> {
+                if (e != null) {
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "We cannot rename in a file with parse errors.", null));
+                }
+                return t;
+            })
             .thenCompose(tr -> {
                 Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
@@ -446,7 +448,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges))
+        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges))
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             );
@@ -492,7 +494,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return documents.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState((loc, input) -> rascalServices.parseSourceFile(loc, input), l, doc.getVersion(), doc.getText(), timestamp));
+            l -> new TextDocumentState(rascalServices::parseSourceFile, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
@@ -513,7 +515,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var specialCaseHighlighting = CompletableFuture.completedFuture(false);
-        return recoverExceptions(getFile(doc).getCurrentTreeAsync()
+        return recoverExceptions(getFile(doc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter), SemanticTokens::new)
             .whenComplete((r, e) ->
@@ -544,9 +546,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
         logger.debug("textDocument/selectionRange: {}", params);
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
-            .handle((t, r) -> (t == null ? file.getLastTreeWithoutErrors().get() : t))
             .thenApply(tr -> params.getPositions().stream()
                 .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
                 .map(p -> TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter()))
@@ -568,19 +569,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         TextDocumentState f = getFile(params.getTextDocument());
-        return recoverExceptions(f.getCurrentTreeAsync()
-            .handle((r, e) -> {
-                // fallback to tree if a parsing error occurred.
-                if (r == null) {
-                    r = f.getLastTreeWithoutErrors();
-                }
-                if (r == null) {
-                    throw new RuntimeException(e);
-                }
-                return r;
-            })
-            // Replace with the last tree without errors, might be the same as `tree` if the parse succeeded without any error recovery
-            .thenApply(tree -> f.getLastTreeWithoutErrors())
+        return recoverExceptions(f.getLastTreeAsync(false)
             .thenApply(Versioned::get)
             .thenApplyAsync(rascalServices::locateCodeLenses, ownExecuter)
             .thenApply(List::stream)
@@ -607,7 +596,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
             getFile(params.getTextDocument())
-                .getCurrentTreeAsync()
+                .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, facts.getPathConfig(loc)))
                 .thenApply(IList::stream)

@@ -249,8 +249,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
-        return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
-            .getValue();
+        return (ISet) eval.call(eval.getMonitor(), lang.getMainFunction());
     }
 
     @Override
