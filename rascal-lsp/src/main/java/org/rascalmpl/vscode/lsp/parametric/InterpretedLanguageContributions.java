@@ -563,4 +563,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public void cancelProgress(String progressId) {
         monitor.cancelProgress(progressId);
     }
+
+    @Override
+    public CompletableFuture<TypeStore> getStore() {
+        return store;
+    }
 }

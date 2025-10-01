@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
@@ -55,8 +56,8 @@ public class DocumentSymbols {
     private static final TypeFactory TF = TypeFactory.getInstance();
     private static final TypeStore store = new TypeStore();
 
-    public static final Type symbolKindAdt = TF.abstractDataType(store, "DocumentSymbolKind");
-    public static final Type symbolTagAdt = TF.abstractDataType(store, "DocumentSymbolTag");
+    private static final Type symbolKindAdt = TF.abstractDataType(store, "DocumentSymbolKind");
+    private static final Type symbolTagAdt = TF.abstractDataType(store, "DocumentSymbolTag");
 
     // hide constructor for static class
     private DocumentSymbols() {}
@@ -114,7 +115,14 @@ public class DocumentSymbols {
         return SymbolKind.valueOf(capitalize(kind.getName()));
     }
 
-    public static List<SymbolTag> symbolTagsToLSP(ISet tags) {
+    public static IConstructor symbolKindToRascal(SymbolKind kind) {
+        return VF.constructor(TF.constructor(store, symbolKindAdt, kind.name().toLowerCase()));
+    }
+
+    public static List<SymbolTag> symbolTagsToLSP(@Nullable ISet tags) {
+        if (tags == null) {
+            return Collections.emptyList();
+        }
         return tags.stream()
             .map(IConstructor.class::cast)
             .map(IConstructor::getName)
@@ -123,9 +131,20 @@ public class DocumentSymbols {
             .collect(Collectors.toList());
     }
 
-    public static ISet symbolTagsToRascal(List<SymbolTag> tags) {
+    public static ISet symbolTagsToRascal(@Nullable List<SymbolTag> tags) {
+        if (tags == null) {
+            return VF.set();
+        }
         return tags.stream()
             .map(t -> VF.constructor(TF.constructor(store, symbolTagAdt, t.name().toLowerCase())))
             .collect(VF.setWriter());
+    }
+
+    public static Type getSymbolKindType() {
+        return symbolKindAdt;
+    }
+
+    public static TypeStore getStore() {
+        return store;
     }
 }

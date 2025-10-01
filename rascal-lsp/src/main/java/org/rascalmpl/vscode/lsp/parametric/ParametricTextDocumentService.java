@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -137,6 +138,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -836,43 +838,50 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         final var contrib = contributions(doc);
         final var file = getFile(doc);
 
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return /*recoverExceptions(*/file.getCurrentTreeAsync()
             .thenApply(Versioned::get)
             .thenCompose(t -> {
                 final var pos = Locations.toRascalPosition(doc, params.getPosition(), columns);
                 final var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
                 return contrib.prepareCallHierarchy(focus).get();
             })
-            .thenApply(items -> items.stream()
-                .map(IConstructor.class::cast)
-                .map(ci -> CallHierarchy.toLSP(ci, columns))
-                .collect(Collectors.toList())), Collections::emptyList);
+            .thenCompose(items -> contrib.getStore().thenApply(store -> {
+                    var ch = new CallHierarchy(store);
+                    return items.stream()
+                        .map(IConstructor.class::cast)
+                        .map(ci -> ch.toLSP(ci, columns))
+                        .collect(Collectors.toList());
+            }))/*, Collections::emptyList)*/;
     }
 
-    private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, IConstructor direction) {
+    private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
         final var contrib = contributions(source.getUri());
-        return contrib.incomingOutgoingCalls(CallHierarchy.toRascal(source, columns), direction)
-            .get()
-            .thenApply(callRel -> callRel.domain().stream()
-                .map(ci -> {
-                    List<Range> callSites = callRel.index(ci)
-                        .stream()
-                        .map(ISourceLocation.class::cast)
-                        .map(l -> Locations.toRange(l, columns))
-                        .collect(Collectors.toList());
-                    return constructor.apply(CallHierarchy.toLSP((IConstructor) ci, columns), callSites);
-                })
-                .collect(Collectors.toList()));
+        return contrib.getStore().thenCompose(store -> {
+            var ch = new CallHierarchy(store);
+            return contrib.incomingOutgoingCalls(ch.toRascal(source, columns), ch.direction(direction))
+                .get()
+                .thenApply(callRel -> callRel.asContainer().stream()
+                    .map(ITuple.class::cast)
+                    .collect(Collectors.toMap(
+                        t -> ch.toLSP((IConstructor) t.get(0), columns),
+                        t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
+                        Lists::union,
+                        LinkedHashMap::new
+                    )))
+                .thenApply(map -> map.entrySet().stream()
+                    .map(e -> constructor.apply(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+        });
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(CallHierarchyIncomingCallsParams params) {
-        return recoverExceptions(incomingOutgoingCalls(CallHierarchyIncomingCall::new, params.getItem(), CallHierarchy.INCOMING),Collections::emptyList);
+        return recoverExceptions(incomingOutgoingCalls(CallHierarchyIncomingCall::new, params.getItem(), CallHierarchy.Direction.INCOMING), Collections::emptyList);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(CallHierarchyOutgoingCallsParams params) {
-        return recoverExceptions(incomingOutgoingCalls(CallHierarchyOutgoingCall::new, params.getItem(), CallHierarchy.OUTGOING),Collections::emptyList);
+        return recoverExceptions(incomingOutgoingCalls(CallHierarchyOutgoingCall::new, params.getItem(), CallHierarchy.Direction.OUTGOING), Collections::emptyList);
     }
 
 

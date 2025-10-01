@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -44,6 +45,7 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.TypeStore;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
@@ -448,5 +450,13 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public void cancelProgress(String progressId) {
         contributions.forEach(klc -> klc.contrib.cancelProgress(progressId));
+    }
+
+    public CompletableFuture<TypeStore> getStore() {
+        for (var c : contributions) {
+            return c.contrib.getStore();
+        }
+
+        return CompletableFuture.failedFuture(new NotImplementedException());
     }
 }

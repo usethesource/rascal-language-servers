@@ -93,6 +93,8 @@ public interface ILanguageContributions {
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig();
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig();
 
+    public CompletableFuture<TypeStore> getStore();
+
     public static class SummaryConfig {
         public final boolean providesHovers;
         public final boolean providesDefinitions;
