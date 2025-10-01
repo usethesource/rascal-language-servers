@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 
-import org.apache.commons.lang3.NotImplementedException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -452,10 +451,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     public CompletableFuture<TypeStore> getStore() {
-        for (var c : contributions) {
-            return c.contrib.getStore();
-        }
-
-        return CompletableFuture.failedFuture(new NotImplementedException());
+        return execution.thenApply(c -> c.getStore()).thenCompose(Function.identity());
     }
 }
