@@ -34,6 +34,7 @@ import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
@@ -108,7 +109,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         }
 
         @Override
-        public boolean equals(Object obj) {
+        public boolean equals(@Nullable Object obj) {
             if (obj instanceof KeyedLanguageContribution) {
                 return this.key.equals(((KeyedLanguageContribution)obj).key);
             }
@@ -283,7 +284,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
         return flatten(inlayHint, c -> c.inlayHint(input));
     }
 

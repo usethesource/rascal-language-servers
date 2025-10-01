@@ -92,8 +92,8 @@ import io.usethesource.vallang.type.TypeStore;
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
-    private static final @Nullable PrintStream capturedOut;
-    private static final @Nullable InputStream capturedIn;
+    private static final PrintStream capturedOut;
+    private static final InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
@@ -107,8 +107,8 @@ public abstract class BaseLanguageServer {
             System.setOut(new PrintStream(System.err, false)); // wrap stderr with a non flushing stream as that is how std.out normally works
         }
         else {
-            capturedIn = null;
-            capturedOut = null;
+            capturedIn = InputStream.nullInputStream();
+            capturedOut = new PrintStream(OutputStream.nullOutputStream());
         }
         System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
         // Do not overwrite existing settings (e.g. passed by the extension)
@@ -190,7 +190,11 @@ public abstract class BaseLanguageServer {
     }
 
     private static String getVersion() {
-        try (InputStream prop = ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
+        try (InputStream prop =  ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
+            if (prop == null) {
+                logger.error("Could not find project.properties file");
+                return "unknown";
+            }
             Properties properties = new Properties();
             properties.load(prop);
             return properties.getProperty("rascal.lsp.version", "unknown") + " at "
@@ -365,11 +369,6 @@ public abstract class BaseLanguageServer {
         @Override
         public BaseWorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
-        }
-
-        @Override
-        public NotebookDocumentService getNotebookDocumentService() {
-            return null; // can be removed after lsp4j v0.16.0 is released (https://github.com/eclipse/lsp4j/issues/658)
         }
 
         @Override

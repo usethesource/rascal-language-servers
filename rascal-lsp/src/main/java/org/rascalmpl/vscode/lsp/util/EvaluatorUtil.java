@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -82,7 +81,6 @@ import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -218,7 +216,11 @@ public class EvaluatorUtil {
         }
 
         public static ErrorHandlingOption valueOfLabel(String label) {
-            return BY_LABEL.get(label);
+            var result = BY_LABEL.get(label);
+            if (result == null) {
+                throw new IllegalArgumentException(label + " is not a handling option");
+            }
+            return result;
         }
     }
 

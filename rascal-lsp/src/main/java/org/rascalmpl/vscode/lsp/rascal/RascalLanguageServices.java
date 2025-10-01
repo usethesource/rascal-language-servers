@@ -196,7 +196,7 @@ public class RascalLanguageServices {
             Map.of(file, VF.set()), exec, false, client);
     }
 
-    private ISourceLocation getFileLoc(ITree moduleTree) {
+    private @Nullable ISourceLocation getFileLoc(ITree moduleTree) {
         try {
             if (TreeAdapter.isTop(moduleTree)) {
                 moduleTree = TreeAdapter.getStartTop(moduleTree);
@@ -315,8 +315,11 @@ public class RascalLanguageServices {
     public CompletableFuture<IList> parseCodeActions(String command) {
         return actionStore.thenApply(commandStore -> {
             try {
-                var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+                var codeActionADT = commandStore.lookupAbstractDataType("CodeAction");
+                if (codeActionADT == null) {
+                    throw new IllegalStateException("Type store is missing CodeAction ADT");
+                }
+                return (IList) new StandardTextReader().read(VF, commandStore, TypeFactory.getInstance().listType(codeActionADT), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
@@ -348,7 +351,11 @@ public class RascalLanguageServices {
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return actionStore.thenApply(commandStore -> {
             try {
-                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+                var commandADT = commandStore.lookupAbstractDataType("Command");
+                if (commandADT == null) {
+                    throw new IllegalStateException("Type store is missing Command ADT");
+                }
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandADT, new StringReader(command));
             }
             catch (FactTypeUseException | IOException e) {
                 logger.catching(e);

@@ -42,6 +42,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
@@ -346,7 +347,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 // Return name location
                 return (ITree) focusList.get(0);
             }
-            default: return null;
+            default: throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "No qualified name under cursor", null));
         }
     }
 
@@ -480,8 +481,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 });
             })
             .exceptionally(e -> {
-                logger.catching(Level.ERROR, e.getCause());
-                client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
+                var cause = e.getCause();
+                logger.catching(Level.ERROR, cause);
+                String message = "unkown error";
+                if (cause != null && cause.getMessage() != null) {
+                    message= cause.getMessage();
+                }
+                client.showMessage(new MessageParams(MessageType.Error, message));
                 return null; // Return of type `Void` is unused, but required
             });
     }
@@ -630,6 +636,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private static <T, S extends T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<S> defaultValue) {
         return future
                 .exceptionally(e -> {
+                    if (e instanceof ResponseErrorException) {
+                        throw (ResponseErrorException)e;
+                    }
                     logger.error("Operation failed with", e);
                     return defaultValue.get();
                 });

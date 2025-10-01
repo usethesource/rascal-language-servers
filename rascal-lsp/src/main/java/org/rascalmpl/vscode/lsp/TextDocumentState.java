@@ -107,7 +107,7 @@ public class TextDocumentState {
         return current.get().get();
     }
 
-    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
+    public @Nullable Versioned<ITree> getLastTreeWithoutErrors() {
         return lastWithoutErrors.get();
     }
 
@@ -169,8 +169,8 @@ public class TextDocumentState {
         private final int version;
         private final String content;
         private final long timestamp;
-        private final CompletableFuture<@Nullable Versioned<ITree>> treeAsync;
-        private final CompletableFuture<@Nullable Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
+        private final CompletableFuture<Versioned<ITree>> treeAsync;
+        private final CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
 
         public Update(int version, String content, long timestamp) {
             this.version = version;
