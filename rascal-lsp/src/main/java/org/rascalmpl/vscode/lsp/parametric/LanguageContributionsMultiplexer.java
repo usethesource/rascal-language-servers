@@ -40,7 +40,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -353,7 +352,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IRelation<IList>> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
         return flatten(incomingOutgoingCalls, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
     }
 

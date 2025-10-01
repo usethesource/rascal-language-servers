@@ -860,7 +860,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             var ch = new CallHierarchy(store);
             return contrib.incomingOutgoingCalls(ch.toRascal(source, columns), ch.direction(direction))
                 .get()
-                .thenApply(callRel -> callRel.asContainer().stream()
+                .thenApply(callRel -> callRel.stream()
                     .map(ITuple.class::cast)
                     .collect(Collectors.toMap(
                         t -> ch.toLSP((IConstructor) t.get(0), columns),

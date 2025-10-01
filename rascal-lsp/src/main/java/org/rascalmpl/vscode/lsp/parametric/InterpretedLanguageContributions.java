@@ -57,7 +57,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IRelation;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -409,9 +408,9 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IRelation<IList>> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
         debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
-        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list().asRelation(), hierarchyItem, direction);
+        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
     }
 
     private void debug(String name, Object param) {
