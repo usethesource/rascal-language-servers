@@ -392,7 +392,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenCompose(tree -> computeRenameRange(contribs, pos.getLine(), pos.getCharacter(), tree))
             .thenApply(loc -> {
-                if (loc == null) {
+                if (loc.equals(URIUtil.unknownLocation())) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Rename not possible", pos));
                 }
                 return Either3.forFirst(Locations.toRange(loc, columns));
