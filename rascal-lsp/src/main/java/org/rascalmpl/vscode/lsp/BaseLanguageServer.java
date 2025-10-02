@@ -44,12 +44,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
@@ -60,7 +58,6 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.services.NotebookDocumentService;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
@@ -75,12 +72,10 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -189,20 +184,22 @@ public abstract class BaseLanguageServer {
         }
     }
 
+    private static final String DEFAULT_VERSION = "unknown";
+
     private static String getVersion() {
         try (InputStream prop =  ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
             if (prop == null) {
                 logger.error("Could not find project.properties file");
-                return "unknown";
+                return DEFAULT_VERSION;
             }
             Properties properties = new Properties();
             properties.load(prop);
-            return properties.getProperty("rascal.lsp.version", "unknown") + " at "
-                + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
+            return properties.getProperty("rascal.lsp.version", DEFAULT_VERSION) + " at "
+                + properties.getProperty("rascal.lsp.build.timestamp",DEFAULT_VERSION);
         }
         catch (IOException e) {
             logger.debug("Cannot find lsp version", e);
-            return "unknown";
+            return DEFAULT_VERSION;
         }
     }
 
