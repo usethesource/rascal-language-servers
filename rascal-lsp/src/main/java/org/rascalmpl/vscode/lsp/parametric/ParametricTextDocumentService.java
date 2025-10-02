@@ -37,12 +37,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -154,6 +154,7 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+    private static final CompletableFuture<ITree> EMPTY_PARSER = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().character(0));
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
@@ -165,7 +166,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     private final Map<ISourceLocation, TextDocumentState> files;
-    private final Map<ISourceLocation, Pair<TextDocumentItem, Long>> unregisteredFiles = new HashMap<>();
     private final ColumnMaps columns;
 
     /** extension to language */
@@ -281,9 +281,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        if (file == null) {
-            return;
-        }
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
@@ -301,21 +298,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Did Save file: {}", params.getTextDocument());
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the builder on save (if a builder exists)
-        if (isOpenAndRegistered(Locations.toLoc(params.getTextDocument()))) {
-            triggerBuilder(params.getTextDocument());
-        }
+        triggerBuilder(params.getTextDocument());
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        if (files.remove(loc) != null) {
-            facts(loc).close(loc);
-        } else if (unregisteredFiles.remove(loc) == null) {
+        if (files.remove(loc) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
                 "Unknown file: " + loc, params));
         }
+        facts(loc).close(loc);
     }
 
     @Override
@@ -336,11 +330,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        logger.trace("Triggering analyzer for {}", doc.getUri());
         var location = Locations.toLoc(doc);
+        triggerAnalyzer(location, doc.getVersion(), delay);
+    }
+
+    private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
+        logger.trace("Triggering analyzer for {}", location);
         var fileFacts = facts(location);
         fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), doc.getVersion(), delay);
+        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -353,16 +351,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         logger.trace("New contents for {}", doc);
-        var loc = Locations.toLoc(doc);
-        if (!isOpenAndRegistered(loc)) {
-            var current = unregisteredFiles.get(loc);
-            var file = current.getLeft();
-            file.setText(newContents);
-            file.setVersion(doc.getVersion());
-            current.setValue(timestamp);
-            return;
-        }
-        TextDocumentState file = getFile(loc);
+        TextDocumentState file = getFile(Locations.toLoc(doc));
         columns.clear(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
     }
@@ -382,9 +371,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
         logger.trace("codeLens for: {}", params.getTextDocument().getUri());
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
         TextDocumentState file = getFile(loc);
         ILanguageContributions contrib = contributions(loc);
 
@@ -404,9 +390,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             PrepareRenameParams params) {
         logger.trace("prepareRename for: {}", params.getTextDocument().getUri());
         ISourceLocation location = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(location)) {
-            return CompletableFuture.completedFuture(null); // intentional `null` - invalid rename
-        }
         ILanguageContributions contribs = contributions(location);
         Position pos = params.getPosition();
         return getFile(location)
@@ -435,9 +418,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(null); // intentional `null` - invalid rename
-        }
         ILanguageContributions contribs = contributions(loc);
         Position rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
         return getFile(loc)
@@ -564,9 +544,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
         logger.trace("inlayHint for: {}", params.getTextDocument().getUri());
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
         TextDocumentState file = getFile(loc);
         ILanguageContributions contrib = contributions(loc);
         return recoverExceptions(file.getLastTreeAsync(false)
@@ -657,29 +634,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return fact;
     }
 
-    private @Nullable TextDocumentState open(TextDocumentItem doc, long timestamp) {
+    private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         var loc = Locations.toLoc(doc);
-        if (isLanguageRegistered(loc)) {
-            return files.computeIfAbsent(loc, l ->
-                new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
-        } else {
-            // Language not (yet) supported; postpone state computation
-            // Let's remember this file so later, if someone registers the language for this, we can recover
-            unregisteredFiles.putIfAbsent(loc, Pair.of(doc, timestamp));
-            return null;
-        }
-    }
+        BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser
+            = isLanguageRegistered(loc)
+            ? contributions(loc)::parsing
+            // Language not yet supported; register an empty parser
+            : (l, s) -> EMPTY_PARSER;
 
-    private boolean isOpenAndRegistered(ISourceLocation loc) {
-        if (files.containsKey(loc)) {
-            return true;
-        }
-        if (unregisteredFiles.containsKey(loc)) {
-            return false;
-        }
-
-        // This is unexpected; we somehow did not keep track of this file since opening it.
-        throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, loc));
+        return files.computeIfAbsent(loc,
+            l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
@@ -696,9 +660,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var loc = Locations.toLoc(doc);
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(new SemanticTokens());
-        }
         var specialCaseHighlighting = contributions(loc).specialCaseHighlighting();
         return recoverExceptions(getFile(loc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
@@ -733,9 +694,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         ISourceLocation location = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(location)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
         TextDocumentState file = getFile(location);
         ILanguageContributions contrib = contributions(location);
         return recoverExceptions(file.getCurrentTreeAsync(true)
@@ -751,10 +709,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("codeAction: {}", params);
 
         var location = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(location)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
-
         final ILanguageContributions contribs = contributions(location);
 
         var range = Locations.toRascalRange(location, params.getRange(), columns);
@@ -793,9 +747,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         var loc = Locations.toLoc(doc);
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
         return getFile(loc)
             .getCurrentTreeAsync(true)
             .thenApply(tree -> facts(loc).lookupInSummaries(lookup, loc, tree, cursor))
@@ -845,11 +796,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("Folding range: {}", params.getTextDocument());
-        var loc = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
-        TextDocumentState file = getFile(loc);
+        TextDocumentState file = getFile(Locations.toLoc(params.getTextDocument()));
         return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
@@ -860,9 +807,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
         logger.debug("Selection range: {} at {}", params.getTextDocument(), params.getPositions());
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
-        if (!isOpenAndRegistered(loc)) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
@@ -919,15 +863,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         for (var extension: lang.getExtensions()) {
             // If we opened any files with this extension before, now associate them with contributions
-            for (var f : unregisteredFiles.keySet()) {
-                if (extension(f).equals(extension)) {
-                    var opened = unregisteredFiles.remove(f);
-                    var doc = opened.getLeft();
-                    var file = new TextDocumentState(contributions(f)::parsing, f, doc.getVersion(), doc.getText(), opened.getRight());
-                    files.put(f, file);
+            for (var e : files.entrySet()) {
+                var f = e.getKey();
+                var state = e.getValue();
+                if (extension(e.getKey()).equals(extension)) {
+                    logger.debug("Open file of language {}: {}", lang.getName(), f);
+                    var current = state.getCurrentContent();
+                    state = files.replace(f, new TextDocumentState(contributions(f)::parsing, state.getLocation(), current.version(), current.get(), current.getTimestamp()));
                     // Update open editor
-                    triggerAnalyzer(doc, NORMAL_DEBOUNCE);
-                    handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+                    triggerAnalyzer(f, current.version(), NORMAL_DEBOUNCE);
+                    handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
                 }
             }
         }
