@@ -69,6 +69,10 @@ public class FileFacts {
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
     }
 
+    public void projectRemoved(ISourceLocation projectLocation) {
+        confs.expungePathConfig(projectLocation);
+    }
+
     public void invalidate(ISourceLocation file) {
         getFile(file).invalidate();
     }

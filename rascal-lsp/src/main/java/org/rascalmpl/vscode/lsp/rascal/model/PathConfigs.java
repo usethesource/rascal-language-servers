@@ -77,6 +77,12 @@ public class PathConfigs {
         this.executor = executor;
     }
 
+    public void expungePathConfig(ISourceLocation project) {
+        var projectRoot = inferProjectRoot(project);
+        // TODO: remove file watches and active messages from updater
+        currentPathConfigs.remove(projectRoot);
+    }
+
     public PathConfig lookupConfig(ISourceLocation forFile) {
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);

@@ -103,6 +103,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -563,6 +564,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
+    }
+
+    @Override
+    public void projectAdded(String name, String uri) {
+    }
+
+    @Override
+    public void projectRemoved(String name, String uri) {
+        facts.projectRemoved(URIUtil.assumeCorrectLocation(uri));
     }
 
     @Override

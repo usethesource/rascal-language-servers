@@ -152,10 +152,17 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         var removed = params.getEvent().getRemoved();
         if (removed != null) {
             workspaceFolders.removeAll(removed);
+            for (WorkspaceFolder folder : removed) {
+                documentService.projectRemoved(folder.getName(), folder.getUri());
+            }
         }
+
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
+            for (WorkspaceFolder folder : added) {
+                documentService.projectAdded(folder.getName(), folder.getUri());
+            }
         }
     }
 
