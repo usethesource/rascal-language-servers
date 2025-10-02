@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -154,7 +155,6 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
-    private static final CompletableFuture<ITree> EMPTY_PARSER = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().character(0));
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
@@ -183,6 +183,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final Type renamedConstructor = tf.constructor(typeStore,
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
+
+    private static final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> EMPTY_PARSER = (l, s) -> CompletableFuture.supplyAsync(() -> {
+        logger.debug("DUMMY_PARSER on {}", l);
+        return IRascalValueFactory.getInstance().character(0);
+    });
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
@@ -640,7 +645,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             = isLanguageRegistered(loc)
             ? contributions(loc)::parsing
             // Language not yet supported; register an empty parser
-            : (l, s) -> EMPTY_PARSER;
+            : EMPTY_PARSER;
 
         return files.computeIfAbsent(loc,
             l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
@@ -861,25 +866,23 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
 
-        for (var extension: lang.getExtensions()) {
-            // If we opened any files with this extension before, now associate them with contributions
-            for (var e : files.entrySet()) {
-                var f = e.getKey();
-                var state = e.getValue();
-                if (extension(e.getKey()).equals(extension)) {
-                    logger.debug("Open file of language {}: {}", lang.getName(), f);
-                    var current = state.getCurrentContent();
-                    state = files.replace(f, new TextDocumentState(contributions(f)::parsing, state.getLocation(), current.version(), current.get(), current.getTimestamp()));
-                    // Update open editor
-                    triggerAnalyzer(f, current.version(), NORMAL_DEBOUNCE);
-                    handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
-                }
-            }
-        }
-
         fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
+        }
+
+        // If we opened any files with this extension before, now associate them with contributions
+        var extensions = Arrays.asList(lang.getExtensions());
+        for (var e : files.entrySet()) {
+            var f = e.getKey();
+            var state = e.getValue();
+            if (extensions.contains(extension(e.getKey()))) {
+                logger.debug("Open file of language {}: {}", lang.getName(), f);
+                files.get(f).resetParser(contributions(f));
+                // Update open editor
+                triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
+                handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+            }
         }
     }
 
