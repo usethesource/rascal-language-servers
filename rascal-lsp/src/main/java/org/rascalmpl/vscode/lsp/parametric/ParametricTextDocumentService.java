@@ -392,7 +392,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenCompose(tree -> computeRenameRange(contribs, pos.getLine(), pos.getCharacter(), tree))
             .thenApply(loc -> {
-                if (loc == null) {
+                if (loc.equals(URIUtil.unknownLocation())) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Rename not possible", pos));
                 }
                 return Either3.forFirst(Locations.toRange(loc, columns));
@@ -507,8 +507,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 })
                 .get()
                 .exceptionally(e -> {
-                    logger.catching(Level.ERROR, e.getCause());
-                    client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
+                    var cause = e.getCause();
+                    logger.catching(Level.ERROR, cause);
+                    var message = "unknown error";
+                    if (cause != null && cause.getMessage() != null) {
+                        message = cause.getMessage();
+                    }
+                    client.showMessage(new MessageParams(MessageType.Error, message));
                     return null; // Return of type `Void` is unused, but required
                 });
         }
@@ -777,7 +782,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(Locations.toLoc(params.getTextDocument()));
-        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
@@ -822,15 +827,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             new ParametricFileFacts(ownExecuter, columns, multiplexer)
         );
 
-        if (lang.getPrecompiledParser() != null) {
+        var parserConfig = lang.getPrecompiledParser();
+        if (parserConfig != null) {
             try {
-                var location = lang.getPrecompiledParser().getParserLocation();
+                var location = parserConfig.getParserLocation();
                 if (URIResolverRegistry.getInstance().exists(location)) {
-                    logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
-                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getPrecompiledParser(), ownExecuter));
+                    logger.debug("Got precompiled definition: {}", parserConfig);
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), parserConfig, ownExecuter));
                 }
                 else {
-                    logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
+                    logger.error("Defined precompiled parser ({}) does not exist", parserConfig);
                 }
             }
             catch (FactParseError e) {
@@ -855,13 +861,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
-            if (!contributions.get(lang.getName()).removeContributor(buildContributionKey(lang))) {
+            var contrib = contributions.get(lang.getName());
+            if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {
                 logger.error("unregisterLanguage cleared everything, so removing all");
                 // ok, so it was a clear after all
                 removeAll = true;
             }
             else {
-                facts.get(lang.getName()).reloadContributions();
+                var fact = facts.get(lang.getName());
+                if (fact != null) {
+                    fact.reloadContributions();
+                }
             }
         }
         if (removeAll) {
@@ -877,7 +887,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
+    public CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
@@ -895,7 +905,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public TextDocumentState getDocumentState(ISourceLocation file) {
+    public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
         return files.get(file.top());
     }
 

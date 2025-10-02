@@ -341,9 +341,9 @@ public interface IRascalFileSystemServices {
 
     public static class SourceLocation {
         private final String uri;
-        private final int[] offsetLength;
-        private final int[] beginLineColumn;
-        private final int[] endLineColumn;
+        private final int @Nullable[]  offsetLength;
+        private final int @Nullable[] beginLineColumn;
+        private final int @Nullable[] endLineColumn;
 
         public static SourceLocation fromRascalLocation(ISourceLocation loc) {
             if (loc.hasOffsetLength()) {
@@ -409,26 +409,44 @@ public interface IRascalFileSystemServices {
         }
 
         public int getOffset() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no offset");
+            }
             return offsetLength[0];
         }
 
         public int getLength() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no length");
+            }
             return offsetLength[1];
         }
 
         public int getBeginLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[0];
         }
 
         public int getBeginColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[1];
         }
 
         public int getEndLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[0];
         }
 
         public int getEndColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[1];
         }
     }
@@ -620,8 +638,8 @@ public interface IRascalFileSystemServices {
             return new ResponseError(-6, "Unavailable", data);
         }
 
-        private static ResponseError generic(String message, Object data) {
-            return new ResponseError(-99, message, data);
+        private static ResponseError generic(@Nullable String message, Object data) {
+            return new ResponseError(-99, message == null ? "no error message was provided" : message, data);
         }
 
         public static ResponseErrorException notADirectory(Object data) {

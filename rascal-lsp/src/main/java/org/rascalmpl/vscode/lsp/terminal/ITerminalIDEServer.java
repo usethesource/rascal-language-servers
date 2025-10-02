@@ -235,15 +235,15 @@ public interface ITerminalIDEServer {
     public static class EditorParameter {
         private String uri;
         private int viewColumn;
-        private Range range;
+        private @Nullable Range range;
 
-        public EditorParameter(String uri, Range range, int viewColumn) {
+        public EditorParameter(String uri, @Nullable Range range, int viewColumn) {
             this.uri = uri;
             this.range = range;
             this.viewColumn = viewColumn;
         }
 
-        public Range getRange() {
+        public @Nullable Range getRange() {
             return range;
         }
 
