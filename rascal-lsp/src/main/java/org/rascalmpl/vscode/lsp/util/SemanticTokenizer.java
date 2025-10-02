@@ -496,11 +496,11 @@ public class SemanticTokenizer {
     // (i.e., semantic token types). These categories should eventually be
     // incorporated directly in the grammar. Additional background:
     // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
-    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {}
+    private interface CategoryPatch extends BiFunction<IConstructor, @Nullable String, @Nullable String> {}
 
     private static class DefaultCategoryPatch implements CategoryPatch {
         @Override
-        public String apply(IConstructor prod, String defaultCategory) {
+        public @Nullable String apply(IConstructor prod, @Nullable String defaultCategory) {
             return defaultCategory;
         }
     }
@@ -516,7 +516,7 @@ public class SemanticTokenizer {
 
         @SuppressWarnings("java:S131") // Switches without defaults are intended in this method
         @Override
-        public String apply(IConstructor prod, String defaultCategory) {
+        public @Nullable String apply(IConstructor prod, @Nullable String defaultCategory) {
 
             // Check the caches
             var category = doPatch.getIfPresent(prod);
