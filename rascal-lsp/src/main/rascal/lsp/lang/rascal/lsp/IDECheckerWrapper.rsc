@@ -100,7 +100,10 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             step3("Checked module in `<project.file>`", 1);
             pcfg = getPathConfig(project);
             checkOutdatedPathConfig(pcfg);
-            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(pcfg));
+            modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
+            if (modulesToCheck != []) {
+                msgs += check(modulesToCheck, rascalCompilerConfig(pcfg));
+            }
         }
         return true;
     }, totalWork=size(upstreamDependencies));
@@ -108,7 +111,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     step("Checking module <l>", 1);
     pcfg = getPathConfig(initialProject);
     checkOutdatedPathConfig(pcfg);
-    msgs += check([l], rascalCompilerConfig(pcfg));
+    msgs += check(calculateOutdated(modulesPerProject[initialProject] + l, pcfg), rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
@@ -119,6 +122,15 @@ private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
     } catch PathNotFound(_):  {
         return false;
     }
+}
+
+private list[loc] calculateOutdated(set[loc] modules, PathConfig pcfg) = [ m | m <- modules, tplExpired(m, pcfg)];
+
+private LanguageFileConfig rascalLFC = fileConfig();
+
+private bool tplExpired(loc m, PathConfig pcfg) {
+    tpl = binFile(srcsModule(m, pcfg, rascalLFC), pcfg, rascalLFC);
+    return !exists(tpl) || lastModified(m) >= lastModified(tpl);
 }
 
 loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
@@ -143,10 +155,7 @@ void checkOutdatedPathConfig(PathConfig pcfg) {
     }
 }
 
-bool tplInputsChanged(PathConfig old, PathConfig new)
-    = old.srcs != new.srcs
-    || old.libs != new.libs
-    ;
+bool tplInputsChanged(PathConfig old, PathConfig new) = old[messages=[]] != new[messages=[]];
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
