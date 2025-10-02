@@ -31,6 +31,7 @@ import List;
 import Relation;
 import Set;
 import String;
+import ValueIO;
 import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
@@ -97,13 +98,20 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
             step3("Checked module in `<project.file>`", 1);
-            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
+            pcfg = getPathConfig(project);
+            checkOutdatedPathConfig(pcfg);
+            modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
+            if (modulesToCheck != []) {
+                msgs += check(modulesToCheck, rascalCompilerConfig(pcfg));
+            }
         }
         return true;
     }, totalWork=size(upstreamDependencies));
 
     step("Checking module <l>", 1);
-    msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
+    pcfg = getPathConfig(initialProject);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check(calculateOutdated(modulesPerProject[initialProject] + l, pcfg), rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
@@ -115,6 +123,39 @@ private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
         return false;
     }
 }
+
+private list[loc] calculateOutdated(set[loc] modules, PathConfig pcfg) = [ m | m <- modules, tplExpired(m, pcfg)];
+
+private LanguageFileConfig rascalLFC = fileConfig();
+
+private bool tplExpired(loc m, PathConfig pcfg) {
+    tpl = binFile(srcsModule(m, pcfg, rascalLFC), pcfg, rascalLFC);
+    return !exists(tpl) || lastModified(m) >= lastModified(tpl);
+}
+
+loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
+
+void checkOutdatedPathConfig(PathConfig pcfg) {
+    pcfgFile = pathConfigFile(pcfg);
+    try {
+        if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
+            // We do not know the previous path config, or it changed
+            // Be safe and remove TPLs
+            for (loc f <- find(pcfg.bin, "tpl")) {
+                try {
+                    remove(f);
+                } catch IO(_): {
+                    jobWarning("Cannot remove TPL", f);
+                }
+            }
+            writeBinaryValueFile(pcfgFile, pcfg);
+        }
+    } catch IO(str msg): {
+        jobWarning(msg, pcfg.bin);
+    }
+}
+
+bool tplInputsChanged(PathConfig old, PathConfig new) = old[messages=[]] != new[messages=[]];
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);

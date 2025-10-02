@@ -31,18 +31,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NotDirectoryException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Set;
-import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
-
+import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -195,28 +195,9 @@ public interface IRascalFileSystemServices {
 
     @JsonRequest("rascal/filesystem/readFile")
     default CompletableFuture<LocationContent> readFile(URIParameter uri) {
-        final int BUFFER_SIZE = 3 * 1024; // has to be divisibly by 3
-
         return CompletableFuture.supplyAsync(() -> {
-            try (InputStream source = reg.getInputStream(uri.getLocation())) {
-                // there is no streaming base64 encoder, but we also do not want to have the
-                // whole file in memory
-                // just to base64 encode it. So we stream it in chunks that will not cause
-                // padding characters in
-                // base 64
-                Encoder encoder = Base64.getEncoder();
-                StringBuilder result = new StringBuilder();
-                byte[] buffer = new byte[BUFFER_SIZE];
-                int read;
-                while ((read = source.read(buffer, 0, BUFFER_SIZE)) == BUFFER_SIZE) {
-                    result.append(encoder.encodeToString(buffer));
-                }
-                if (read > 0) {
-                    // last part needs to be a truncated part of the buffer
-                    buffer = Arrays.copyOf(buffer, read);
-                    result.append(encoder.encodeToString(buffer));
-                }
-                return new LocationContent(result.toString());
+            try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
+                return new LocationContent(new String(source.readAllBytes(), StandardCharsets.US_ASCII));
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
@@ -360,9 +341,9 @@ public interface IRascalFileSystemServices {
 
     public static class SourceLocation {
         private final String uri;
-        private final int[] offsetLength;
-        private final int[] beginLineColumn;
-        private final int[] endLineColumn;
+        private final int @Nullable[]  offsetLength;
+        private final int @Nullable[] beginLineColumn;
+        private final int @Nullable[] endLineColumn;
 
         public static SourceLocation fromRascalLocation(ISourceLocation loc) {
             if (loc.hasOffsetLength()) {
@@ -428,26 +409,44 @@ public interface IRascalFileSystemServices {
         }
 
         public int getOffset() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no offset");
+            }
             return offsetLength[0];
         }
 
         public int getLength() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no length");
+            }
             return offsetLength[1];
         }
 
         public int getBeginLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[0];
         }
 
         public int getBeginColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[1];
         }
 
         public int getEndLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[0];
         }
 
         public int getEndColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[1];
         }
     }
@@ -639,8 +638,8 @@ public interface IRascalFileSystemServices {
             return new ResponseError(-6, "Unavailable", data);
         }
 
-        private static ResponseError generic(String message, Object data) {
-            return new ResponseError(-99, message, data);
+        private static ResponseError generic(@Nullable String message, Object data) {
+            return new ResponseError(-99, message == null ? "no error message was provided" : message, data);
         }
 
         public static ResponseErrorException notADirectory(Object data) {

@@ -32,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
@@ -130,8 +132,8 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     }
 
-    private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
-    private final Map<String, InterruptibleFuture<? extends Object>> activeFutures = new ConcurrentHashMap<>();
+    private final ThreadLocal<@Nullable LSPProgressBar> activeProgress = new ThreadLocal<>();
+    private final Map<String, InterruptibleFuture<? extends @NonNull Object>> activeFutures = new ConcurrentHashMap<>();
 
     /**
      * Register a running {@link InterruptibleFuture}, so it can be interrupted later.
@@ -139,7 +141,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
      * @param name The task name, equal to the one used for {@link jobStarted}.
      * @param future The future doing the work.
      */
-    public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
+    public void registerActiveFuture(String name, InterruptibleFuture<? extends @NonNull Object> future) {
         activeFutures.put(generateProgressId(name), future);
     }
 

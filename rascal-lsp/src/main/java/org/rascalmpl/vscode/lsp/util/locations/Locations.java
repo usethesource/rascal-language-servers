@@ -84,9 +84,17 @@ public class Locations {
      * Mapping them from the LSP standard to the Rascal standard.
      */
     public static Range toRascalRange(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
+        return toRascalRange(toLoc(doc), range, columns);
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Range toRascalRange(ISourceLocation loc, Range range, ColumnMaps columns) {
         return new Range(
-            toRascalPosition(doc, range.getStart(), columns),
-            toRascalPosition(doc, range.getEnd(), columns)
+            toRascalPosition(loc, range.getStart(), columns),
+            toRascalPosition(loc, range.getEnd(), columns)
         );
     }
 
@@ -114,7 +122,7 @@ public class Locations {
         try {
             return URIUtil.createFromURI(uri);
         } catch (UnsupportedOperationException e) {
-            if (e.getMessage().contains("Opaque URI schemes are not supported")) {
+            if (e.getMessage() != null && e.getMessage().contains("Opaque URI schemes are not supported")) {
                 int colonPos = uri.indexOf(':');
                 try {
                     return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos));

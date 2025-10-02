@@ -124,7 +124,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         this.exec = exec;
 
         try {
-            var pcfg = new PathConfig().parse(lang.getPathConfig());
+            var pcfg = PathConfig.parse(lang.getPathConfig());
             pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
             monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
@@ -138,7 +138,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
 
-            this.parsing = getFunctionFor(contributions, LanguageContributions.PARSING);
+            this.parsing = requireFunction(contributions, LanguageContributions.PARSING);
             this.analysis = getFunctionFor(contributions, LanguageContributions.ANALYSIS);
             this.build = getFunctionFor(contributions, LanguageContributions.BUILD);
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
@@ -248,8 +248,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public CompletableFuture<IList> parseCodeActions(String command) {
         return store.thenApply(commandStore -> {
             try {
-                var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+                var codeActionADT = commandStore.lookupAbstractDataType("CodeAction");
+                if (codeActionADT == null) {
+                    throw new IllegalArgumentException("CodeAction is not defined in environment");
+                }
+                return (IList) new StandardTextReader().read(VF, commandStore, TypeFactory.getInstance().listType(codeActionADT), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
@@ -262,7 +265,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
-                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+                var commandADT = commandStore.lookupAbstractDataType("Command");
+                if (commandADT == null) {
+                    throw new IllegalArgumentException("Command is not defined in environment");
+                }
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandADT, new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
                 throw new IllegalArgumentException("The command could not be parsed", e);
@@ -280,6 +287,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             }
             logger.debug("No {} defined", cons);
             return null;
+        });
+    }
+
+    private static CompletableFuture<IFunction> requireFunction(CompletableFuture<ISet> contributions, String cons) {
+        return getContribution(contributions, cons).thenApply(con -> {
+            if (con == null) {
+                throw new IllegalStateException("Missing required contribution: "+ cons);
+            }
+            return (IFunction)con.get(0);
         });
     }
 
@@ -329,8 +345,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        debug(LanguageContributions.INLAY_HINT, input != null ? TreeAdapter.getLocation(input) : null);
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
+        debug(LanguageContributions.INLAY_HINT, TreeAdapter.getLocation(input));
         return execFunction(LanguageContributions.INLAY_HINT, inlayHint, VF.list(), input);
     }
 

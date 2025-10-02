@@ -198,9 +198,17 @@ public class Diagnostics {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
+    private static DiagnosticSeverity translateSeverity(IConstructor d) {
+        var result = severityMap.get(d.getName());
+        if (result == null) {
+            throw new IllegalArgumentException(d.getName() + " is not a valid severity");
+        }
+        return result;
+    }
+
     public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
-        result.setSeverity(severityMap.get(d.getName()));
+        result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
         result.setRange(range);
 
@@ -218,10 +226,6 @@ public class Diagnostics {
 
         storeFixCommands(d, result);
         return result;
-    }
-
-    private static Range toRange(ITree t, ColumnMaps cm) {
-        return toRange(TreeAdapter.getLocation(t), cm);
     }
 
     private static Range toRange(ParseError pe, ColumnMaps cm) {
