@@ -153,7 +153,7 @@ export class RascalExtension implements vscode.Disposable {
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
                     shellArgs: this.buildShellArgs(compilationPath, serverConfig),
-                    isTransient: false, // right now we don't support transient terminals yet
+                    isTransient: true, // right now we don't support persistent terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
 
