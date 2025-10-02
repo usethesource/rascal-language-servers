@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,11 +67,14 @@ public class PathConfigs {
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
+
+    private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
 
 
-    public PathConfigs(PathConfigDiagnostics diagnostics) {
+    public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
         this.diagnostics = diagnostics;
+        this.executor = executor;
     }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
@@ -150,7 +154,7 @@ public class PathConfigs {
                         changedRoots.remove(root);
                         var pathConfig = actualBuild(root);
                         currentPathConfigs.replace(root, pathConfig);
-                        diagnostics.update(root, pathConfig.getMessages());
+
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;
@@ -159,7 +163,10 @@ public class PathConfigs {
         }
 
         private PathConfig actualBuild(ISourceLocation projectRoot) {
-            return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            // Publish diagnostics in a background thread
+            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
+            return pathConfig;
         }
 
     }

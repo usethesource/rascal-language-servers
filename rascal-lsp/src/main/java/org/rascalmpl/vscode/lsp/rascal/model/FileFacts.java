@@ -66,7 +66,7 @@ public class FileFacts {
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
     }
 
     public void invalidate(ISourceLocation file) {
