@@ -35,7 +35,6 @@ import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
@@ -56,20 +55,21 @@ public class FileFacts {
     private static final Logger logger = LogManager.getLogger(FileFacts.class);
     private final Executor exec;
     private final RascalLanguageServices rascal;
-    private volatile @MonotonicNonNull LanguageClient client;
+    private final LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
 
-    public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
+    public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
+        this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs();
+        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
     }
 
-    public void setClient(LanguageClient client) {
-        this.client = client;
+    public void projectRemoved(ISourceLocation projectLocation) {
+        confs.expungePathConfig(projectLocation);
     }
 
     public void invalidate(ISourceLocation file) {

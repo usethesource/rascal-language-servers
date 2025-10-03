@@ -100,7 +100,6 @@ export class RascalMFValidator implements vscode.Disposable {
                 checkMissingLastLine(mfBody, diagnostics);
                 checkIncorrectProjectName(mfBody, diagnostics);
                 checkPickySeparator(mfBody, diagnostics);
-                checkDeprecatedFeatures(mfBody, diagnostics);
                 this.diagnostics.set(file, diagnostics);
             }
         }
@@ -144,13 +143,6 @@ function checkIncorrectProjectName(mfBody: vscode.TextDocument, diagnostics: vsc
                 l, offset,
                 l, offset + prName.length
             );
-            const expectedName = calculateProjectName(mfBody.uri);
-            if (prName !== expectedName) {
-                const diag = new vscode.Diagnostic(targetRange,
-                    `Can not handle project names that are not equal to the directory name (${expectedName})`, vscode.DiagnosticSeverity.Error);
-                diag.code = FixKind.fixProjectName;
-                diagnostics.push(diag);
-            }
             if (INVALID_PROJECT_NAME.test(prName)) {
                 const diag = new vscode.Diagnostic(targetRange,
                     "Can not handle project name (" + prName + ") that is not all lowercase, digits, or dashes, i.e. in " + INVALID_PROJECT_NAME, vscode.DiagnosticSeverity.Error);
@@ -179,19 +171,6 @@ function checkPickySeparator(mfBody: vscode.TextDocument, diagnostics: vscode.Di
             diagnostics.push(diag);
         }
     }
-}
-
-function checkDeprecatedFeatures(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
-    for (let l = 0; l < mfBody.lineCount; l++) {
-        const line = mfBody.lineAt(l);
-        const [key, value] = line.text.split(":");
-        if (key && value && key === "Require-Libraries" && value.trim() !== "") {
-            diagnostics.push(new vscode.Diagnostic(line.range,
-                "The 'Require-Libraries' option is not supported anymore. Please make sure your dependencies are listed in the pom.xml of the project and remove this line."
-            ));
-        }
-    }
-
 }
 
 export function buildMFChildPath(uri: vscode.Uri) {

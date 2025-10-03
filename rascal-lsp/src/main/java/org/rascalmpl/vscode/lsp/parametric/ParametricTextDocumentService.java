@@ -887,6 +887,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
+    public void projectAdded(String name, ISourceLocation projectRoot) {
+    }
+
+    @Override
+    public void projectRemoved(String name, ISourceLocation projectRoot) {
+    }
+
+    @Override
     public CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
 
