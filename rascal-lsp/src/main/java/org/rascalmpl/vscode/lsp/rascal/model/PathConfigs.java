@@ -31,11 +31,11 @@ import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -85,7 +85,7 @@ public class PathConfigs {
         try {
             updater.unregisterProject(project);
         } catch (IOException e) {
-            logger.warn("Unregistration of meta files for project " + project + " failed.");
+            logger.warn("Unregistration of meta files for project " + project + " failed.", e);
         }
         currentPathConfigs.remove(projectRoot);
     }
@@ -123,8 +123,8 @@ public class PathConfigs {
     }
 
     private static class WatchRegistration {
-        ISourceLocation file;
-        Consumer<ISourceLocationChanged> callback;
+        final ISourceLocation file;
+        final Consumer<ISourceLocationChanged> callback;
 
         WatchRegistration(ISourceLocation file, Consumer<ISourceLocationChanged> callback) {
             this.file = file;
@@ -135,7 +135,6 @@ public class PathConfigs {
     private class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
         private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
-
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
             super("Path Config updater");
@@ -158,18 +157,16 @@ public class PathConfigs {
                 changedRoots.put(projectRoot, safeLastModified(sourceFile));
             reg.watch(sourceFile, false, callback);
 
-            projectWatches.compute(projectRoot, (project, watchList) -> {
-                if (watchList == null) {
-                    watchList = new ArrayList<>();
-                }
-                watchList.add(new WatchRegistration(sourceFile, callback));
-                return watchList;
-            });
+            var watchList = projectWatches.computeIfAbsent(projectRoot, (root) -> new CopyOnWriteArrayList<>());
+            watchList.add(new WatchRegistration(sourceFile, callback));
         }
 
         public void unregisterProject(ISourceLocation projectRoot) throws IOException {
-            for (WatchRegistration registration : projectWatches.remove(projectRoot)) {
-                reg.unwatch(registration.file, false, registration.callback);
+            List<WatchRegistration> registrations = projectWatches.remove(projectRoot);
+            if (registrations != null) {
+                for (WatchRegistration registration : registrations) {
+                    reg.unwatch(registration.file, false, registration.callback);
+                }
             }
             diagnostics.clearDiagnostics(projectRoot);
         }
@@ -265,7 +262,4 @@ public class PathConfigs {
 
         return current;
     }
-
-
-
 }

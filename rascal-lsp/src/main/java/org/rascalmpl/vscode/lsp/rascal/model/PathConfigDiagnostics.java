@@ -54,7 +54,11 @@ import io.usethesource.vallang.ISourceLocation;
 /*package*/ class PathConfigDiagnostics {
     private final LanguageClient client;
     private final ColumnMaps cm;
-    private final Map<ISourceLocation, Map<ISourceLocation, List<Diagnostic>>> publishedProjectDiagsPerFile = new HashMap<>();
+
+    // For each file, keep track of the list of diagnostics per project.
+    private final Map<ISourceLocation, Map<ISourceLocation, List<Diagnostic>>> projectDiagsPerFile = new HashMap<>();
+
+    // For each project, keep track of the set of files that currently have diagnostics for that project
     private final Map<ISourceLocation, Set<ISourceLocation>> filesWithDiagsPerProject = new HashMap<>();
 
     /*package*/ PathConfigDiagnostics(LanguageClient client, ColumnMaps cm) {
@@ -63,54 +67,75 @@ import io.usethesource.vallang.ISourceLocation;
     }
 
     public void publishDiagnostics(ISourceLocation project, IList messages) {
+        Set<ISourceLocation> filesToRepublish = new HashSet<>();
+
         // Gather messages per file
-        Map<ISourceLocation, List<Diagnostic>> diagnosticsPerFile = Diagnostics.translateMessages(messages, cm);
+        Map<ISourceLocation, List<Diagnostic>> diagnostics = Diagnostics.translateMessages(messages, cm);
 
-        // Publish diagnostics, but only for files for which diagnostics have changed
-        for (var entry : diagnosticsPerFile.entrySet()) {
-            ISourceLocation file = entry.getKey().top();
-            List<Diagnostic> newDiagnostics = entry.getValue();
+        // Do the actual manipulation of the internal datastructures in a synchronized block
+        // so their coherence is guaranteed.
+        synchronized(this) {
+            // Publish diagnostics, but only for files for which diagnostics have changed
+            for (var entry : diagnostics.entrySet()) {
+                ISourceLocation file = entry.getKey().top();
+                List<Diagnostic> newDiagnostics = entry.getValue();
 
-            Map<ISourceLocation, List<Diagnostic>> fileDiagsPerProject = publishedProjectDiagsPerFile.computeIfAbsent(file, (f) -> new LinkedHashMap<>());
-            @Nullable List<Diagnostic> publishedDiags = fileDiagsPerProject.get(file);
+                Map<ISourceLocation, List<Diagnostic>> diagsPerProject = projectDiagsPerFile.computeIfAbsent(file, (f) -> new LinkedHashMap<>());
+                @Nullable List<Diagnostic> publishedDiags = diagsPerProject.get(project);
 
-            // Only publish diagnostics for a file if the diagnostics for that file have changed in the current project
-            if (!newDiagnostics.equals(publishedDiags)) {
-                // The diagnostics for this file related to the current project have changed.
-                // We need to re-publish all diagnostics for this file (including the ones from other projects)
-                fileDiagsPerProject.put(project, newDiagnostics);
-                publishFileDiagnostics(file);
+                // Only publish diagnostics for a file if the diagnostics for that file have changed in the current project
+                if (!newDiagnostics.equals(publishedDiags)) {
+                    // The diagnostics for this file related to the current project have changed.
+                    // We need to re-publish all diagnostics for this file (including the ones from other projects)
+                    diagsPerProject.put(project, newDiagnostics);
+                    filesToRepublish.add(file);
+                }
             }
+
+            // Now we have published the diagnostics of all files that occur in the list of new messages
+            // Time to remove diagnostics from files that our project previously published diagnostics for but no longer have diagnostics
+            Set<ISourceLocation> newFiles = diagnostics.keySet().stream().map(file -> file.top()).collect(Collectors.toSet());
+            Set<ISourceLocation> filesWithoutDiags = new HashSet<>(filesWithDiagsPerProject.getOrDefault(project, Collections.emptySet()));
+            filesWithoutDiags.removeAll(newFiles);
+
+            for (ISourceLocation file : filesWithoutDiags) {
+                // File no longer has diagnostics associated with it in our project
+                projectDiagsPerFile.get(file).remove(project);
+                filesToRepublish.add(file);
+            }
+            filesWithDiagsPerProject.put(project, newFiles);
         }
 
-        // Now we have published the diagnostics of all files that occur in the list of new messages
-        // Time to remove diagnostics from files that our project previously published diagnostics for but no longer have diagnostics
-        Set<ISourceLocation> newFiles = diagnosticsPerFile.keySet().stream().map(file -> file.top()).collect(Collectors.toSet());
-        Set<ISourceLocation> filesWithoutDiags = new HashSet<>(filesWithDiagsPerProject.getOrDefault(project, Collections.emptySet()));
-        filesWithoutDiags.removeAll(newFiles);
-
-        for (ISourceLocation file : filesWithoutDiags) {
-            publishedProjectDiagsPerFile.get(file).remove(project); // File no longer has diagnostics associated with it in our project
-            publishFileDiagnostics(file);
-        }
-        filesWithDiagsPerProject.put(project, newFiles);
+        publishFileDiagnostics(filesToRepublish);
     }
 
     public void clearDiagnostics(ISourceLocation project) {
-        Set<ISourceLocation> affectedFiles = filesWithDiagsPerProject.remove(project);
-        if (affectedFiles != null) {
+        Set<ISourceLocation> affectedFiles;
+
+        synchronized (this) {
+            affectedFiles = filesWithDiagsPerProject.remove(project);
+            if (affectedFiles == null) {
+                return;
+            }
+
             for (ISourceLocation file : affectedFiles) {
-                publishedProjectDiagsPerFile.get(file).remove(project);
-                publishFileDiagnostics(file);
+                projectDiagsPerFile.get(file).remove(project);
             }
         }
+
+        publishFileDiagnostics(affectedFiles);
     }
 
-    private void publishFileDiagnostics(ISourceLocation file) {
-        List<Diagnostic> fileDiagnostics = new ArrayList<>();
-        for (List<Diagnostic> diags :  publishedProjectDiagsPerFile.getOrDefault(file, Collections.emptyMap()).values()) {
-            fileDiagnostics.addAll(diags);
+    private void publishFileDiagnostics(Set<ISourceLocation> files) {
+        for (ISourceLocation file : files) {
+            List<Diagnostic> fileDiagnostics = new ArrayList<>();
+            synchronized (this) {
+                // Iterate over all files and gather the diagnostics for all projects that have diagnostics for this file
+                for (List<Diagnostic> diags :  projectDiagsPerFile.getOrDefault(file, Collections.emptyMap()).values()) {
+                    fileDiagnostics.addAll(diags);
+                }
+            }
+            client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), fileDiagnostics));
         }
-        client.publishDiagnostics(new PublishDiagnosticsParams(file.getURI().toString(), fileDiagnostics));
     }
 }

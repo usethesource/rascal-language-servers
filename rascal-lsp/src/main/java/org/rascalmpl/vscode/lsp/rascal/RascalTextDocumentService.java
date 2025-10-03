@@ -572,12 +572,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public void projectAdded(String name, String uri) {
+    public void projectAdded(String name, ISourceLocation projectRoot) {
     }
 
     @Override
-    public void projectRemoved(String name, String uri) {
-        facts.projectRemoved(URIUtil.assumeCorrectLocation(uri));
+    public void projectRemoved(String name, ISourceLocation projectRoot) {
+        facts.projectRemoved(projectRoot);
     }
 
     @Override

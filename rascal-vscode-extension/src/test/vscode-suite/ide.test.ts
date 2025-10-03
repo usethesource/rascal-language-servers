@@ -31,7 +31,7 @@ import * as path from 'path';
 import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
+const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
 
 describe('IDE', function () {
     let browser: VSBrowser;

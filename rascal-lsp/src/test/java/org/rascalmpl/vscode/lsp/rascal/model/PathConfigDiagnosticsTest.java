@@ -37,7 +37,6 @@ import org.junit.Test;
 import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 
@@ -48,6 +47,7 @@ import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 
@@ -57,7 +57,7 @@ public class PathConfigDiagnosticsTest {
     private static final String PROJECT_A = "project-a";
     private static final String PROJECT_B = "project-b";
     private static final String POM_A = "project-a/pom.xml";
-    private static final String POM_B = "project-b/pom.xml";
+    private static final String POM_B = "project-a/pom.xml";
 
     private static final String MSG1 = "Hello World 1!";
     private static final String MSG2 = "Hello World 2!";
@@ -77,7 +77,7 @@ public class PathConfigDiagnosticsTest {
         projectB = resourceLocation(PROJECT_B);
 
         pomAUrl = resourceLocation(POM_A).getURI().toString();
-        pomBUrl = resourceLocation(POM_B).getURI().toString();
+        pomBUrl = resourceLocation(POM_A).getURI().toString();
     }
 
     @Before
@@ -87,17 +87,17 @@ public class PathConfigDiagnosticsTest {
         sut = new PathConfigDiagnostics(mockedClient, columnMaps);
     }
 
-    private String resourceUrl(String res) {
+    private URI resourceUri(String res) {
         ClassLoader classLoader = getClass().getClassLoader();
-        return classLoader.getResource(res).toString();
-    }
-
-    private ISourceLocation resourceLocation(String res) {
         try {
-            return URIUtil.createFromURI(resourceUrl(res));
+            return classLoader.getResource(res).toURI();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private ISourceLocation resourceLocation(String res) {
+        return VF.sourceLocation(resourceUri(res));
     }
 
     private ISourceLocation resourceLocation(String res, int line, int col) {
@@ -166,6 +166,23 @@ public class PathConfigDiagnosticsTest {
         reset(mockedClient);
         sut.clearDiagnostics(projectA);
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(4, 7, MSG2)));
+    }
+
+    @Test
+    public void testDontPublishUnchangedDiags() {
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        reset(mockedClient);
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        verify(mockedClient, never()).publishDiagnostics(any());
+    }
+
+    @Test
+    public void testMultiFileDiags() {
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG2, 5, 7)));
+        reset(mockedClient);
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG1, 5, 7)));
+        verify(mockedClient).publishDiagnostics(params(pomBUrl, diag(4, 7, MSG1)));
     }
 
 }

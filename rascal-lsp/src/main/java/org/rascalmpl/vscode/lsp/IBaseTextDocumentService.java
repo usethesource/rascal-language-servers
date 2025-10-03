@@ -55,8 +55,8 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
 
-    void projectAdded(String name, String uri);
-    void projectRemoved(String name, String uri);
+    void projectAdded(String name, ISourceLocation projectRoot);
+    void projectRemoved(String name, ISourceLocation projectRoot);
 
     CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);

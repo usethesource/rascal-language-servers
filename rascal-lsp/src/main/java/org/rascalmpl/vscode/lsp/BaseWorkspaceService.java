@@ -56,6 +56,7 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.uri.URIUtil;
 
 import com.google.gson.JsonPrimitive;
 
@@ -153,7 +154,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                documentService.projectRemoved(folder.getName(), folder.getUri());
+                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
             }
         }
 
@@ -161,7 +162,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (added != null) {
             workspaceFolders.addAll(added);
             for (WorkspaceFolder folder : added) {
-                documentService.projectAdded(folder.getName(), folder.getUri());
+                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
             }
         }
     }
