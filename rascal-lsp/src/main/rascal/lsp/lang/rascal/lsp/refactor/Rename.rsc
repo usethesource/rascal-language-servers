@@ -263,7 +263,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
             tm = augmentFieldUses(tr, tm, getModel);
             tm = augmentFormalUses(tr, tm, getModel);
             tm = augmentTypeParams(tr, tm);
-        } catch _: {
+        } catch value e: {
             println("Suppressed error during TModel augmentation: <e>");
         }
         return tm;
