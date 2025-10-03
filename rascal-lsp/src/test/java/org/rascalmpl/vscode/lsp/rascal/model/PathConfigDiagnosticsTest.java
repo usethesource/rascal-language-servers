@@ -128,9 +128,17 @@ public class PathConfigDiagnosticsTest {
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1), diag(4, 7, MSG2)));
 
         reset(mockedClient);
-        System.err.println("BEFORE CALL");
         sut.publishDiagnostics(projectA, VF.list());
-        System.out.println(mockingDetails(mockedClient).getInvocations());
+        verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(4, 7, MSG2)));
+    }
+
+    @Test
+    public void testClearDiagnostics() {
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)));
+
+        reset(mockedClient);
+        sut.clearDiagnostics(projectA);
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(4, 7, MSG2)));
     }
 

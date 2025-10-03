@@ -31,12 +31,14 @@ import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -44,6 +46,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
@@ -79,14 +82,17 @@ public class PathConfigs {
 
     public void expungePathConfig(ISourceLocation project) {
         var projectRoot = inferProjectRoot(project);
-        // TODO: remove file watches and active messages from updater
+        try {
+            updater.unregisterProject(project);
+        } catch (IOException e) {
+            logger.warn("Unregistration of meta files for project " + project + " failed.");
+        }
         currentPathConfigs.remove(projectRoot);
     }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
-
     }
 
     private static long safeLastModified(ISourceLocation uri) {
@@ -116,25 +122,56 @@ public class PathConfigs {
         }
     }
 
+    private static class WatchRegistration {
+        ISourceLocation file;
+        Consumer<ISourceLocationChanged> callback;
+
+        WatchRegistration(ISourceLocation file, Consumer<ISourceLocationChanged> callback) {
+            this.file = file;
+            this.callback = callback;
+        }
+    }
+
     private class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+        private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
+
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
             super("Path Config updater");
             setDaemon(true);
             this.currentPathConfigs = currentPathConfigs;
+            projectWatches = new ConcurrentHashMap<>();
         }
 
         // we detect changes to roots, and keep track of the last changed time
         // the thread will clear them if the time is longer than the timeout
         private final Map<ISourceLocation, Long> changedRoots = new ConcurrentHashMap<>();
+
+        // Watch a single file. We keep track of the watch registrations so we can unwatch
+        // these files when the project is closed.
         public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
             if (!isAlive() && !isInterrupted()) {
                 start();
             }
-            reg.watch(sourceFile, false, ignored ->
-                changedRoots.put(projectRoot, safeLastModified(sourceFile))
-            );
+            Consumer<ISourceLocationChanged> callback = ignored ->
+                changedRoots.put(projectRoot, safeLastModified(sourceFile));
+            reg.watch(sourceFile, false, callback);
+
+            projectWatches.compute(projectRoot, (project, watchList) -> {
+                if (watchList == null) {
+                    watchList = new ArrayList<>();
+                }
+                watchList.add(new WatchRegistration(sourceFile, callback));
+                return watchList;
+            });
+        }
+
+        public void unregisterProject(ISourceLocation projectRoot) throws IOException {
+            for (WatchRegistration registration : projectWatches.remove(projectRoot)) {
+                reg.unwatch(registration.file, false, registration.callback);
+            }
+            diagnostics.clearDiagnostics(projectRoot);
         }
 
         @Override
@@ -160,7 +197,6 @@ public class PathConfigs {
                         changedRoots.remove(root);
                         var pathConfig = actualBuild(root);
                         currentPathConfigs.replace(root, pathConfig);
-
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;

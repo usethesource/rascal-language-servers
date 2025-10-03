@@ -91,6 +91,16 @@ import io.usethesource.vallang.ISourceLocation;
         filesWithDiagsPerProject.put(project, newFiles);
     }
 
+    public void clearDiagnostics(ISourceLocation project) {
+        Set<ISourceLocation> affectedFiles = filesWithDiagsPerProject.remove(project);
+        if (affectedFiles != null) {
+            for (ISourceLocation file : affectedFiles) {
+                publishedProjectDiagsPerFile.get(file).remove(project);
+                publishFileDiagnostics(file);
+            }
+        }
+    }
+
     private void publishFileDiagnostics(ISourceLocation file) {
         List<Diagnostic> fileDiagnostics = new ArrayList<>();
         for (List<Diagnostic> diags :  publishedProjectDiagsPerFile.getOrDefault(file, Collections.emptyMap()).values()) {
