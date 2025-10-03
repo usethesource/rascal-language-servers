@@ -28,9 +28,8 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
 
@@ -251,5 +250,15 @@ describe('IDE', function () {
 
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+    });
+
+    it("errors in manifest detected", async() => {
+        const editor = await ide.openModule(TestWorkspace.manifest);
+        await editor.setTextAtLine(2, "Project-Name: foobar");
+        await editor.save();
+        const element = await ide.hasErrorSquiggly(editor);
+        await editor.setTextAtLine(2, "Project-Name: test-project");
+        await editor.save();
+        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
     });
 });
