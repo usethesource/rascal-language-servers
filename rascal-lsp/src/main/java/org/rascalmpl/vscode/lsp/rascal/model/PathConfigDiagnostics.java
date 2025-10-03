@@ -46,6 +46,11 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
+/*
+ * This class updates VSCode diagnostics based on PathConfig messages.
+ * Messages are tracked by project and by file. So changes in one project will not affect
+ * messages genrated by other projects, even if files with messages belong to multiple projects.
+ */
 /*package*/ class PathConfigDiagnostics {
     private final LanguageClient client;
     private final ColumnMaps cm;
