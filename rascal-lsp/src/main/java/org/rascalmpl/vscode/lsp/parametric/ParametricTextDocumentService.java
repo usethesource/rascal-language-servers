@@ -332,7 +332,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var location = Locations.toLoc(doc);
         var fileFacts = facts(location);
         fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(), doc.getVersion(), delay);
+        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), doc.getVersion(), delay);
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -340,7 +340,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var location = Locations.toLoc(doc);
         var fileFacts = facts(location);
         fileFacts.invalidateBuilder(location);
-        fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync());
+        fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
     }
 
     private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
@@ -369,7 +369,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         TextDocumentState file = getFile(loc);
         ILanguageContributions contrib = contributions(loc);
 
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenApply(contrib::codeLens)
             .thenCompose(InterruptibleFuture::get)
@@ -388,11 +388,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions(location);
         Position pos = params.getPosition();
         return getFile(location)
-            .getCurrentTreeAsync() // It is the responsibility of the language contribution to handle the case where the tree contains parse errors
+            .getCurrentTreeAsync(true) // It is the responsibility of the language contribution to handle the case where the tree contains parse errors
             .thenApply(Versioned::get)
             .thenCompose(tree -> computeRenameRange(contribs, pos.getLine(), pos.getCharacter(), tree))
             .thenApply(loc -> {
-                if (loc == null) {
+                if (loc.equals(URIUtil.unknownLocation())) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Rename not possible", pos));
                 }
                 return Either3.forFirst(Locations.toRange(loc, columns));
@@ -416,7 +416,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contribs = contributions(loc);
         Position rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
         return getFile(loc)
-                .getCurrentTreeAsync()
+                .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeRename(contribs,
                         rascalPos.getLine(), rascalPos.getCharacter(), params.getNewName(), tree));
@@ -507,8 +507,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 })
                 .get()
                 .exceptionally(e -> {
-                    logger.catching(Level.ERROR, e.getCause());
-                    client.showMessage(new MessageParams(MessageType.Error, e.getCause().getMessage()));
+                    var cause = e.getCause();
+                    logger.catching(Level.ERROR, cause);
+                    var message = "unknown error";
+                    if (cause != null && cause.getMessage() != null) {
+                        message = cause.getMessage();
+                    }
+                    client.showMessage(new MessageParams(MessageType.Error, message));
                     return null; // Return of type `Void` is unused, but required
                 });
         }
@@ -541,8 +546,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ISourceLocation loc = Locations.toLoc(params.getTextDocument());
         TextDocumentState file = getFile(loc);
         ILanguageContributions contrib = contributions(loc);
-        return recoverExceptions(file.getCurrentTreeAsync()
-                .thenApply(t -> t == null ? null : t.get())
+        return recoverExceptions(file.getLastTreeAsync(false)
+                .thenApply(Versioned::get)
                 .thenApply(contrib::inlayHint)
                 .thenCompose(InterruptibleFuture::get)
                 .thenApply(s -> s.stream()
@@ -641,7 +646,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var loc = Locations.toLoc(doc);
         var specialCaseHighlighting = contributions(loc).specialCaseHighlighting();
-        return recoverExceptions(getFile(loc).getCurrentTreeAsync()
+        return recoverExceptions(getFile(loc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter)
                 .whenComplete((r, e) ->
@@ -676,7 +681,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ISourceLocation location = Locations.toLoc(params.getTextDocument());
         TextDocumentState file = getFile(location);
         ILanguageContributions contrib = contributions(location);
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenApply(contrib::documentSymbol)
             .thenCompose(InterruptibleFuture::get)
@@ -702,7 +707,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
             getFile(location)
-                .getCurrentTreeAsync()
+                .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
                 .thenApply(IList::stream)
@@ -728,7 +733,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private <T> CompletableFuture<List<T>> lookup(SummaryLookup<T> lookup, TextDocumentIdentifier doc, Position cursor) {
         var loc = Locations.toLoc(doc);
         return getFile(loc)
-            .getCurrentTreeAsync()
+            .getCurrentTreeAsync(true)
             .thenApply(tree -> facts(loc).lookupInSummaries(lookup, loc, tree, cursor))
             .thenCompose(Function.identity());
     }
@@ -777,7 +782,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("Folding range: {}", params.getTextDocument());
         TextDocumentState file = getFile(Locations.toLoc(params.getTextDocument()));
-        return recoverExceptions(file.getCurrentTreeAsync().thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges)
+        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             ), Collections::emptyList);
@@ -790,7 +795,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
-        return recoverExceptions(file.getCurrentTreeAsync()
+        return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> params.getPositions().stream()
                     .map(p -> Locations.toRascalPosition(loc, p, columns))
@@ -822,15 +827,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             new ParametricFileFacts(ownExecuter, columns, multiplexer)
         );
 
-        if (lang.getPrecompiledParser() != null) {
+        var parserConfig = lang.getPrecompiledParser();
+        if (parserConfig != null) {
             try {
-                var location = lang.getPrecompiledParser().getParserLocation();
+                var location = parserConfig.getParserLocation();
                 if (URIResolverRegistry.getInstance().exists(location)) {
-                    logger.debug("Got precompiled definition: {}", lang.getPrecompiledParser());
-                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), lang.getPrecompiledParser(), ownExecuter));
+                    logger.debug("Got precompiled definition: {}", parserConfig);
+                    multiplexer.addContributor(buildContributionKey(lang) + "$parser", new ParserOnlyContribution(lang.getName(), parserConfig, ownExecuter));
                 }
                 else {
-                    logger.error("Defined precompiled parser ({}) does not exist", lang.getPrecompiledParser());
+                    logger.error("Defined precompiled parser ({}) does not exist", parserConfig);
                 }
             }
             catch (FactParseError e) {
@@ -855,13 +861,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
-            if (!contributions.get(lang.getName()).removeContributor(buildContributionKey(lang))) {
+            var contrib = contributions.get(lang.getName());
+            if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {
                 logger.error("unregisterLanguage cleared everything, so removing all");
                 // ok, so it was a clear after all
                 removeAll = true;
             }
             else {
-                facts.get(lang.getName()).reloadContributions();
+                var fact = facts.get(lang.getName());
+                if (fact != null) {
+                    fact.reloadContributions();
+                }
             }
         }
         if (removeAll) {
@@ -885,7 +895,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
+    public CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
@@ -903,7 +913,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public TextDocumentState getDocumentState(ISourceLocation file) {
+    public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
         return files.get(file.top());
     }
 
