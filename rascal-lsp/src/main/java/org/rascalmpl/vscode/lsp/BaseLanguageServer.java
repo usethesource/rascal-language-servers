@@ -41,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.logging.log4j.Level;
@@ -59,13 +58,10 @@ import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -246,47 +242,6 @@ public abstract class BaseLanguageServer {
             throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
-        private static String[] classLoaderFiles(IList source) {
-            return source.stream()
-                .map(ISourceLocation.class::cast)
-                .filter(e -> e.getScheme().equals("file"))
-                .map(e -> e.getPath())
-                .toArray(String[]::new);
-        }
-
-        @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    if (projectFolder.getUri() == null) {
-                        return classLoaderFiles(IRascalValueFactory.getInstance().list(PathConfig.resolveCurrentRascalRuntimeJar()));
-                    }
-
-                    var isRascal = new AtomicBoolean();
-                    PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.INTERPRETER, isRascal);
-                    return classLoaderFiles(isRascal.get() ? pcfg.getLibs() : pcfg.getLibsAndTarget());
-                }
-                catch (IOException | URISyntaxException e) {
-                    logger.catching(e);
-                    throw new CompletionException(e);
-                }
-            }, executor);
-        }
-
-        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode, AtomicBoolean isRascal) throws IOException {
-            if (!reg.isDirectory(path)) {
-                path = URIUtil.getParentLocation(path);
-            }
-
-            isRascal.set(false);
-
-            ISourceLocation projectDir = PathConfig.inferProjectRoot(path);
-            if (projectDir == null) {
-                throw new IOException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
-            }
-            isRascal.set(new RascalManifest().getProjectName(projectDir).equals("rascal"));
-            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode, true);
-        }
 
         private static URI[] toURIArray(IList src) {
             return src.stream()
