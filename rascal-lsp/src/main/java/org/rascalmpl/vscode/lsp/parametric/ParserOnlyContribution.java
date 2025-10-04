@@ -32,6 +32,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -55,6 +56,7 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.type.TypeStore;
 
 public class ParserOnlyContribution implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
@@ -201,6 +203,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
@@ -271,6 +283,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
         return specialCaseHighlighting;
     }
@@ -293,6 +310,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public void cancelProgress(String progressId) {
         // empty, since this contribution does not have any running tasks nor a monitor
+    }
+
+    @Override
+    public CompletableFuture<TypeStore> getStore() {
+        return CompletableFuture.completedFuture(new TypeStore());
     }
 
 }
