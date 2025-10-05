@@ -49,7 +49,7 @@ import io.usethesource.vallang.ISourceLocation;
 /*
  * This class updates VSCode diagnostics based on PathConfig messages.
  * Messages are tracked by project and by file. So changes in one project will not affect
- * messages genrated by other projects, even if files with messages belong to multiple projects.
+ * messages genrated by other projects, even if files have messages belonging to different projects.
  */
 /*package*/ class PathConfigDiagnostics {
     private final LanguageClient client;
