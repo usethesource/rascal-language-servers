@@ -317,7 +317,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ownExecuter.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
-                if (registeredExtensions.containsKey(extension(URIUtil.assumeCorrectLocation(f.getUri())))) {
+                if (isLanguageRegistered(URIUtil.assumeCorrectLocation(f.getUri()))) {
                     client.publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
                 }
             }
@@ -524,8 +524,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            String language = registeredExtensions.get(extension(URIUtil.assumeCorrectLocation(rename.getNewUri())));
-            if (language != null) {
+            var l = URIUtil.assumeCorrectLocation(rename.getNewUri());
+            if (isLanguageRegistered(l)) {
+                var language = language(l);
                 ILanguageContributions contrib = contributions.get(language);
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
