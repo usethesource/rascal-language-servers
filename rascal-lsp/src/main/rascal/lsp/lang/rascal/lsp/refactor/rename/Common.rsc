@@ -118,8 +118,7 @@ bool(Tree) singleNameFilter(str name) {
             case (Nonterminal) `<Nonterminal n>`: if (n := nt1 || n := ent1) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: if (n := ntl1 || n := entl1) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src != n.src // skip unqualified names
-                    && size(asNames(n)) == qnSize // check for same length
+                if (size(asNames(n)) == qnSize // check for same length
                     && (qn1 := n || qnStr := normalizeEscaping("<n>"))) return true;
             }
         }
@@ -178,14 +177,12 @@ tuple[bool, bool](Tree) twoNameFilter(str name1, str name2) {
                 }
             }
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src != n.src) { // skip unqualified names
-                    if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
-                        if (has2) return <true, true>;
-                        has1 = true;
-                    } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
-                        if (has1) return <true, true>;
-                        has2 = true;
-                    }
+                if (!has1 && qn1 := n || qn1 := [QualifiedName] normalizeEscaping("<n>")) {
+                    if (has2) return <true, true>;
+                    has1 = true;
+                } else if (!has2 && qn2 := n || qn2 := [QualifiedName] normalizeEscaping("<n>")) {
+                    if (has1) return <true, true>;
+                    has2 = true;
                 }
             }
         }
@@ -207,8 +204,7 @@ bool(Tree) anyNameFilter(set[str] names) {
             case (Nonterminal) `<Nonterminal n>`: for (n <- escNonterminals) return true;
             case (NonterminalLabel) `<NonterminalLabel n>`: for (n <- escNonterminalLabels) return true;
             case (QualifiedName) `<QualifiedName n>`: {
-                if (n.names[0].src != n.src // skip unqualified names
-                  , qn <- qualifiedNames
+                if (qn <- qualifiedNames
                   , qn := n || qn := [QualifiedName] normalizeEscaping("<n>"))
                     return true;
             }

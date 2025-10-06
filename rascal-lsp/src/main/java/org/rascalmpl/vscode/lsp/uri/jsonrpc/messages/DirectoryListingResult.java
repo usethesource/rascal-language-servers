@@ -32,8 +32,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class DirectoryListingResult extends IOResult {
 
-    private @Nullable String[] entries;
-    private @Nullable boolean[] areDirectory;
+    private  String @Nullable[] entries;
+    private boolean @Nullable[] areDirectory;
 
     public DirectoryListingResult(int errorCode, @Nullable String errorMessage, @Nullable String[] entries, @Nullable boolean[] areDirectory) {
         super(errorCode, errorMessage);
@@ -43,11 +43,11 @@ public class DirectoryListingResult extends IOResult {
 
     public DirectoryListingResult() {}
 
-    public String[] getEntries() {
+    public String @Nullable[] getEntries() {
         return entries;
     }
 
-    public boolean[] getAreDirectory() {
+    public boolean @Nullable[] getAreDirectory() {
         return areDirectory;
     }
 
