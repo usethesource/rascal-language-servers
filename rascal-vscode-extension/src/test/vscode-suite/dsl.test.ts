@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { NotificationType, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
 
 import * as fs from 'fs/promises';
@@ -200,6 +200,25 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
         await lens!.click();
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
+    });
+
+    it("show message works", async function() {
+        if (errorRecovery) { this.skip(); }
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const lens = await driver.wait(() => editor.getCodeLens("Show info message."), Delays.verySlow, "'Show info message' lens should be available");
+        await lens!.click();
+        await driver.wait(async () => {
+            const notificationCenter = await new Workbench().openNotificationsCenter();
+            const notifications = await notificationCenter.getNotifications(NotificationType.Info);
+            for (const notification of notifications) {
+                const message = await notification.getMessage();
+                if (message.startsWith("Info message")) {
+                    await notificationCenter.clearAllNotifications();
+                    return true;
+                }
+            }
+            return false;
+        }, Delays.verySlow, "The info message should be shown after clicking the lens");
     });
 
     it("quick fix works", async function() {
