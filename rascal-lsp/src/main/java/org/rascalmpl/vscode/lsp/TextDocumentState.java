@@ -40,7 +40,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 
@@ -82,8 +81,9 @@ public class TextDocumentState {
         this.last = new AtomicReference<>();
     }
 
-    public void resetParser(ILanguageContributions contribs) {
-        this.parser = contribs::parsing;
+    public void setParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser) {
+        this.parser = parser;
+        this.unpackCurrent().parse();
     }
 
     public ISourceLocation getLocation() {

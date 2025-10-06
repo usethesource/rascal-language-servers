@@ -184,11 +184,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
-    private static final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> EMPTY_PARSER = (l, s) -> CompletableFuture.supplyAsync(() -> {
-        logger.debug("DUMMY_PARSER on {}", l);
-        return IRascalValueFactory.getInstance().character(0);
-    });
-
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -342,8 +337,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
         logger.trace("Triggering analyzer for {}", location);
         var fileFacts = facts(location);
-        fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+        if (isLanguageRegistered(location)) {
+            fileFacts.invalidateAnalyzer(location);
+            fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+        }
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -644,8 +641,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser
             = isLanguageRegistered(loc)
             ? contributions(loc)::parsing
-            // Language not yet supported; register an empty parser
-            : EMPTY_PARSER;
+            // Language not (yet) registered; plug in an incomplete parse future
+            : (l, s) -> new CompletableFuture<>();
 
         return files.computeIfAbsent(loc,
             l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
@@ -877,8 +874,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             var f = e.getKey();
             var state = e.getValue();
             if (extensions.contains(extension(e.getKey()))) {
-                logger.debug("Open file of language {}: {}", lang.getName(), f);
-                files.get(f).resetParser(contributions(f));
+                logger.trace("Open file of language {} - updating state: {}", lang.getName(), f);
+                state.setParser(contributions(f)::parsing);
                 // Update open editor
                 triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
                 handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
