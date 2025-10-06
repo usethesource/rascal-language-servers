@@ -60,7 +60,7 @@ public class TextDocumentState {
     private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
     private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
-    private BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
+    private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
 
     private final AtomicReference<Versioned<Update>> current;
@@ -79,11 +79,6 @@ public class TextDocumentState {
         this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
-    }
-
-    public void setParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser) {
-        this.parser = parser;
-        this.unpackCurrent().parse();
     }
 
     public ISourceLocation getLocation() {
