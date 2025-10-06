@@ -147,8 +147,10 @@ public class PathConfigs {
         // the thread will clear them if the time is longer than the timeout
         private final Map<ISourceLocation, Long> changedRoots = new ConcurrentHashMap<>();
 
-        // Watch a single file. We keep track of the watch registrations so we can unwatch
-        // these files when the project is closed.
+        /**
+         *  Watch a single file. We keep track of the watch registrations so we can unwatch
+         * these files when the project is closed.
+         */
         public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
             if (!isAlive() && !isInterrupted()) {
                 start();
@@ -192,8 +194,7 @@ public class PathConfigs {
                         // we clear it from the list, as the path config calculation
                         // can take some time
                         changedRoots.remove(root);
-                        var pathConfig = actualBuild(root);
-                        currentPathConfigs.replace(root, pathConfig);
+                        currentPathConfigs.replace(root, actualBuild(root));
                     }
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;

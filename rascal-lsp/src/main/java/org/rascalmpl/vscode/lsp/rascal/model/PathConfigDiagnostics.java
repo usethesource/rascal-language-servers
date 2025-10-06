@@ -67,10 +67,12 @@ import io.usethesource.vallang.ISourceLocation;
     }
 
     public void publishDiagnostics(ISourceLocation project, IList messages) {
-        Set<ISourceLocation> filesToRepublish = new HashSet<>();
-
         // Gather messages per file
-        Map<ISourceLocation, List<Diagnostic>> diagnostics = Diagnostics.translateMessages(messages, cm);
+        publishDiagnostics(project, Diagnostics.translateMessages(messages, cm));
+    }
+
+    private void publishDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics) {
+        Set<ISourceLocation> filesToRepublish = new HashSet<>();
 
         // Do the actual manipulation of the internal datastructures in a synchronized block
         // so their coherence is guaranteed.
@@ -94,7 +96,7 @@ import io.usethesource.vallang.ISourceLocation;
 
             // Now we have published the diagnostics of all files that occur in the list of new messages
             // Time to remove diagnostics from files that our project previously published diagnostics for but no longer have diagnostics
-            Set<ISourceLocation> newFiles = diagnostics.keySet().stream().map(file -> file.top()).collect(Collectors.toSet());
+            Set<ISourceLocation> newFiles = diagnostics.keySet().stream().map(ISourceLocation::top).collect(Collectors.toSet());
             Set<ISourceLocation> filesWithoutDiags = new HashSet<>(filesWithDiagsPerProject.getOrDefault(project, Collections.emptySet()));
             filesWithoutDiags.removeAll(newFiles);
 
@@ -110,20 +112,7 @@ import io.usethesource.vallang.ISourceLocation;
     }
 
     public void clearDiagnostics(ISourceLocation project) {
-        Set<ISourceLocation> affectedFiles;
-
-        synchronized (this) {
-            affectedFiles = filesWithDiagsPerProject.remove(project);
-            if (affectedFiles == null) {
-                return;
-            }
-
-            for (ISourceLocation file : affectedFiles) {
-                projectDiagsPerFile.get(file).remove(project);
-            }
-        }
-
-        publishFileDiagnostics(affectedFiles);
+        publishDiagnostics(project, Collections.emptyMap());
     }
 
     private void publishFileDiagnostics(Set<ISourceLocation> files) {
