@@ -44,3 +44,34 @@ public class VersionedTextDocumentIdentifier extends TextDocumentIdentifier {
   public VersionedTextDocumentIdentifier(final String uri, final @Nullable Integer version) {
   }
 }
+
+
+package org.eclipse.lsp4j;
+
+import java.util.List;
+import org.eclipse.lsp4j.jsonrpc.util.Preconditions;
+import org.eclipse.lsp4j.jsonrpc.util.ToStringBuilder;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DocumentSymbol {
+
+  public DocumentSymbol(final String name, final SymbolKind kind, final Range range, final Range selectionRange, final @Nullable String detail) {
+  }
+
+  public DocumentSymbol(final String name, final SymbolKind kind, final Range range, final Range selectionRange, final @Nullable String detail, final @Nullable List<DocumentSymbol> children) {
+  }
+}
+
+
+package org.eclipse.lsp4j.services;
+
+
+import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.services.*;
+import org.checkerframework.checker.nullness.qual.*;
+
+@JsonSegment("textDocument")
+public interface TextDocumentService {
+	@JsonRequest
+	default CompletableFuture<@Nullable Hover> hover(HoverParams params) { }
+}

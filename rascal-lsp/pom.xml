@@ -438,6 +438,7 @@
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                 <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                 <arg>-Astubs=src/main/checkerframework</arg>
+                <arg>-AstubWarnIfNotFound</arg>
                 <arg>-AsuppressWarnings=initialization</arg>
                 <arg>-Xmaxerrs</arg>
                 <arg>1000</arg>
