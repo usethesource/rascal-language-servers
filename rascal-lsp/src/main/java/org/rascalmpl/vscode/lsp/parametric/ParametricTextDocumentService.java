@@ -28,9 +28,9 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -316,7 +317,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ownExecuter.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
-                if (registeredExtensions.containsKey(extension(URIUtil.assumeCorrectLocation(f.getUri())))) {
+                if (isLanguageRegistered(URIUtil.assumeCorrectLocation(f.getUri()))) {
                     client.publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
                 }
             }
@@ -327,12 +328,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
         triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
     }
+
     private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        logger.trace("Triggering analyzer for {}", doc.getUri());
         var location = Locations.toLoc(doc);
+        triggerAnalyzer(location, doc.getVersion(), delay);
+    }
+
+    private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
+        logger.trace("Triggering analyzer for {}", location);
         var fileFacts = facts(location);
-        fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), doc.getVersion(), delay);
+        if (isLanguageRegistered(location)) {
+            fileFacts.invalidateAnalyzer(location);
+            fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+        }
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -343,12 +351,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
-        TextDocumentState file = getFile(Locations.toLoc(doc));
+    private void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         logger.trace("New contents for {}", doc);
+        TextDocumentState file = getFile(Locations.toLoc(doc));
         columns.clear(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
-        return file;
     }
 
     private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
@@ -522,8 +529,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            String language = registeredExtensions.get(extension(URIUtil.assumeCorrectLocation(rename.getNewUri())));
-            if (language != null) {
+            var l = URIUtil.assumeCorrectLocation(rename.getNewUri());
+            if (isLanguageRegistered(l)) {
+                var language = language(l);
                 ILanguageContributions contrib = contributions.get(language);
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
@@ -597,17 +605,27 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return l.get(l.size() - 1);
     }
 
-    private ILanguageContributions contributions(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ILanguageContributions contrib = contributions.get(language);
+    private boolean isLanguageRegistered(ISourceLocation loc) {
+        return registeredExtensions.containsKey(extension(loc));
+    }
 
-            if (contrib != null) {
-                return contrib;
-            }
+    private String language(ISourceLocation loc) {
+        var ext = extension(loc);
+        var language = registeredExtensions.get(ext);
+        if (language == null) {
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", ext, loc));
+        }
+        return language;
+    }
+
+    private ILanguageContributions contributions(ISourceLocation doc) {
+        ILanguageContributions contrib = contributions.get(language(doc));
+
+        if (contrib == null) {
+            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
         }
 
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+        return contrib;
     }
 
     private static String extension(ISourceLocation doc) {
@@ -615,20 +633,25 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ParametricFileFacts fact = facts.get(language);
-            if (fact != null) {
-                return fact;
-            }
+        ParametricFileFacts fact = facts.get(language(doc));
+
+        if (fact == null) {
+            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
         }
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+
+        return fact;
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp)
-        );
+        var loc = Locations.toLoc(doc);
+        BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser
+            = isLanguageRegistered(loc)
+            ? contributions(loc)::parsing
+            // Language not (yet) registered; plug in an incomplete parse future
+            : (l, s) -> new CompletableFuture<>();
+
+        return files.computeIfAbsent(loc,
+            l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
@@ -850,6 +873,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fact.reloadContributions();
         if (client != null) {
             fact.setClient(client);
+        }
+
+        // If we opened any files with this extension before, now associate them with contributions
+        var extensions = Arrays.asList(lang.getExtensions());
+        for (var e : files.entrySet()) {
+            var f = e.getKey();
+            var state = e.getValue();
+            if (extensions.contains(extension(f))) {
+                logger.trace("Open file of language {} - updating state: {}", lang.getName(), f);
+                var c = state.getCurrentContent();
+                state = files.replace(f, new TextDocumentState(contributions(f)::parsing, f, c.version(), state.getCurrentContent().get(), state.getLastModified()));
+                // Update open editor
+                triggerAnalyzer(f, c.version(), NORMAL_DEBOUNCE);
+                handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+            }
         }
     }
 
