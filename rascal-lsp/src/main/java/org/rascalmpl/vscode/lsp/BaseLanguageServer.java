@@ -304,7 +304,7 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<Object> shutdown() {
             return CompletableFuture.supplyAsync(() -> {
                 lspDocumentService.shutdown();
-                return null;
+                return true;
             }, executor);
         }
 

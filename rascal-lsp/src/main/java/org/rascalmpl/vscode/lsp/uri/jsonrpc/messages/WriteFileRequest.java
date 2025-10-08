@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -60,7 +61,7 @@ public class WriteFileRequest extends ISourceLocationRequest {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof WriteFileRequest) {
             var other = (WriteFileRequest)obj;
             return super.equals(obj)
