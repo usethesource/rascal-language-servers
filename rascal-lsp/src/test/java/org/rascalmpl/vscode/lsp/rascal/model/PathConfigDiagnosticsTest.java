@@ -81,7 +81,7 @@ public class PathConfigDiagnosticsTest {
     }
 
     @Before
-    public void before() throws URISyntaxException {
+    public void before() {
         mockedClient = mock(LanguageClient.class);
         columnMaps = new ColumnMaps(this::getContents);
         sut = new PathConfigDiagnostics(mockedClient, columnMaps);

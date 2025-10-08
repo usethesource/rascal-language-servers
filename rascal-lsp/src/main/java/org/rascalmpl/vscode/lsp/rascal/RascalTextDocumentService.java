@@ -102,7 +102,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -573,6 +572,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
+        // No need to do anything
     }
 
     @Override

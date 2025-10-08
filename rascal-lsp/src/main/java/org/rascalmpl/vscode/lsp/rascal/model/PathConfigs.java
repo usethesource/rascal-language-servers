@@ -85,7 +85,7 @@ public class PathConfigs {
         try {
             updater.unregisterProject(project);
         } catch (IOException e) {
-            logger.warn("Unregistration of meta files for project " + project + " failed.", e);
+            logger.warn("Unregistration of meta files for project {} failed.", project, e);
         }
         currentPathConfigs.remove(projectRoot);
     }
@@ -159,7 +159,7 @@ public class PathConfigs {
                 changedRoots.put(projectRoot, safeLastModified(sourceFile));
             reg.watch(sourceFile, false, callback);
 
-            var watchList = projectWatches.computeIfAbsent(projectRoot, (root) -> new CopyOnWriteArrayList<>());
+            var watchList = projectWatches.computeIfAbsent(projectRoot, root -> new CopyOnWriteArrayList<>());
             watchList.add(new WatchRegistration(sourceFile, callback));
         }
 

@@ -95,7 +95,7 @@ import io.usethesource.vallang.ISourceLocation;
 
     // Update the diagnostics of a single file. Add any files that need republishing to the `filesToRepublish` set
     private void updateFileDiagnostics(ISourceLocation project, ISourceLocation file, List<Diagnostic> diagnostics, Set<ISourceLocation> filesToRepublish) {
-        Map<ISourceLocation, List<Diagnostic>> publishedDiagsPerProject = perFileProjectDiagnostics.computeIfAbsent(file, (f) -> new LinkedHashMap<>());
+        Map<ISourceLocation, List<Diagnostic>> publishedDiagsPerProject = perFileProjectDiagnostics.computeIfAbsent(file, f -> new LinkedHashMap<>());
         List<Diagnostic> publishedForOurProject = publishedDiagsPerProject.get(project);
         if (publishedForOurProject == null || !publishedForOurProject.equals(diagnostics)) {
             publishedDiagsPerProject.put(project, diagnostics);

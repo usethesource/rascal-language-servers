@@ -888,10 +888,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
+        // No need to do anything
     }
 
     @Override
     public void projectRemoved(String name, ISourceLocation projectRoot) {
+        // No need to do anything
     }
 
     @Override
