@@ -49,26 +49,26 @@ public class SelectionRanges {
 
     /**
      * Folds a {@link IList} of {@link ISourceLocation}s into a single, nested {@link SelectionRange}.
-     * @param ranges The range hierarchy. Should be ordered child-before-parent, where any source location is contained by the next.
-     * @param columns The editor's column map.
-     * @return A range with optional parent ranges.
-     */
-    public static SelectionRange toSelectionRange(IList ranges, ColumnMaps columns) {
-        return toSelectionRange(ranges.stream()
-            .map(ISourceLocation.class::cast)
-            .map(l -> Locations.toRange(l, columns))
-            .collect(Collectors.toList()));
-    }
-
-    /**
-     * Folds a {@link IList} of {@link ISourceLocation}s into a single, nested {@link SelectionRange}.
      * @param origin The cursor position associated with this selection range.
      * @param ranges The range hierarchy. Should be ordered child-before-parent, where any source location is contained by the next.
      * @param columns The editor's column map.
      * @return A range with optional parent ranges, or an empty range when {@link ranges} is empty.
+     * @throws IllegalArgumentException when the list of ranges contains anything else than source locations
      */
     public static SelectionRange toSelectionRange(Position origin, IList ranges, ColumnMaps columns) {
-        return ranges.isEmpty() ? empty(origin) : toSelectionRange(ranges, columns);
+        if (ranges.isEmpty()) {
+            return empty(origin);
+        }
+
+        try {
+            var lspRanges = ranges.stream()
+                .map(ISourceLocation.class::cast)
+                .map(l -> Locations.toRange(l, columns))
+                .collect(Collectors.toList());
+            return toSelectionRange(origin, lspRanges);
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("List of selection ranges should only contain source locations", e);
+        }
     }
 
     /**
@@ -76,14 +76,14 @@ public class SelectionRanges {
      * @param ranges The range hierarchy. Should be ordered child-before-parent, where any range is contained by the next.
      * @return A range with optional parent ranges
      */
-    public static SelectionRange toSelectionRange(List<Range> ranges) {
+    public static SelectionRange toSelectionRange(Position origin, List<Range> ranges) {
         if (ranges.isEmpty()) {
-            throw new IllegalArgumentException("Cannot convert empty list of ranges to selection range");
+            return empty(origin);
         }
 
         // assumes child-before-parent ordering
         var reversed = reverse(ranges).iterator();
-        SelectionRange selectionRange = new SelectionRange(reversed.next(), null);
+        var selectionRange = new SelectionRange(reversed.next(), null);
         while (reversed.hasNext()) {
             selectionRange = new SelectionRange(reversed.next(), selectionRange);
         }
