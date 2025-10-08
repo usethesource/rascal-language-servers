@@ -28,16 +28,12 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -78,9 +74,10 @@ import io.usethesource.vallang.ISourceLocation;
         }
     }
 
+    // Update diagnostics for a set of files in a single project. Gather files that need republishing because their
+    // diagnostics have changed. This can include files outside the set because diagnostics may have to be removed.
     private synchronized List<PublishDiagnosticsParams> updateDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics) {
-        // Assume all files that currently have diagnostics for our project need to be republished unless proven otherwise
-        List<ISourceLocation> filesToRepublish = new ArrayList<>();
+        Set<ISourceLocation> filesToRepublish = new HashSet<>();
         for (var entry : diagnostics.entrySet()) {
             ISourceLocation file = entry.getKey().top();
             List<Diagnostic> newDiagnostics = entry.getValue();
@@ -96,8 +93,8 @@ import io.usethesource.vallang.ISourceLocation;
         return gatherPublishList(filesToRepublish);
     }
 
-    // Update the diagnostics of a single file. Return `true` if the diagnostics have changed, false otherwise
-    private void updateFileDiagnostics(ISourceLocation project, ISourceLocation file, List<Diagnostic> diagnostics, List<ISourceLocation> filesToRepublish) {
+    // Update the diagnostics of a single file. Add any files that need republishing to the `filesToRepublish` set
+    private void updateFileDiagnostics(ISourceLocation project, ISourceLocation file, List<Diagnostic> diagnostics, Set<ISourceLocation> filesToRepublish) {
         Map<ISourceLocation, List<Diagnostic>> publishedDiagsPerProject = perFileProjectDiagnostics.computeIfAbsent(file, (f) -> new LinkedHashMap<>());
         List<Diagnostic> publishedForOurProject = publishedDiagsPerProject.get(project);
         if (publishedForOurProject == null || !publishedForOurProject.equals(diagnostics)) {
@@ -106,7 +103,7 @@ import io.usethesource.vallang.ISourceLocation;
         }
     }
 
-    private void cleanFilesWithoutDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics, List<ISourceLocation> filesToRepublish) {
+    private void cleanFilesWithoutDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics, Set<ISourceLocation> filesToRepublish) {
         // Build the set of project files from the diagnostic source locations so we can quickly check if a file has new diagnostics
         Set<ISourceLocation> diagnosticFiles = new HashSet<>();
         for (ISourceLocation loc : diagnostics.keySet()) {
@@ -129,7 +126,7 @@ import io.usethesource.vallang.ISourceLocation;
         });
     }
 
-    private List<PublishDiagnosticsParams> gatherPublishList(List<ISourceLocation> filesToRepublish) {
+    private List<PublishDiagnosticsParams> gatherPublishList(Set<ISourceLocation> filesToRepublish) {
         List<PublishDiagnosticsParams> publishList = new ArrayList<>(filesToRepublish.size());
         for (ISourceLocation file : filesToRepublish) {
             List<Diagnostic> fileDiagnostics = new ArrayList<>();
