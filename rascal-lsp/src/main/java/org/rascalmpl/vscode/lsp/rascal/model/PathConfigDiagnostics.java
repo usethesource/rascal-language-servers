@@ -78,7 +78,7 @@ import io.usethesource.vallang.ISourceLocation;
         }
     }
 
-    synchronized private List<PublishDiagnosticsParams> updateDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics) {
+    private synchronized List<PublishDiagnosticsParams> updateDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics) {
         // Assume all files that currently have diagnostics for our project need to be republished unless proven otherwise
         List<ISourceLocation> filesToRepublish = new ArrayList<>();
         for (var entry : diagnostics.entrySet()) {
