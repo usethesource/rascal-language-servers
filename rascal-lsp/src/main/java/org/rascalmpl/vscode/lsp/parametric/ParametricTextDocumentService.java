@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -804,22 +805,34 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(t -> params.getPositions().stream()
-                    .map(p -> Locations.toRascalPosition(loc, p, columns))
-                    .map(p -> {
-                        var focus = TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter());
-                        return computeSelection
-                            .thenCompose(compute -> compute.apply(focus))
-                            // wrap in singleton lists to simplify reduction
-                            .thenApply(selection -> Collections.singletonList(SelectionRanges.toSelectionRange(p, selection, columns)));
-                    })
-                    .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
-                        l.addAll(r);
-                        return l;
-                    }))
-                    // safe, since params.getPositions() cannot be empty
-                    .get()),
+                .thenCompose(t -> {
+                    var perPosition = params.getPositions().stream()
+                        .map(p -> Locations.toRascalPosition(loc, p, columns))
+                        .map(p -> {
+                            var focus = TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter());
+                            return computeSelection
+                                .thenCompose(compute -> compute.apply(focus))
+                                .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns));
+                        })
+                        .collect(Collectors.toUnmodifiableList());
+                    return combineAll(perPosition);
+                }),
             Collections::emptyList);
+    }
+
+    public <T> CompletableFuture<List<T>> combineAll(List<CompletableFuture<T>> futs) {
+        return futs.stream()
+            // wrap in lists to simplify reduction
+            .map(f -> f.thenApply(t -> {
+                List<T> l = new LinkedList<>();
+                l.add(t);
+                return l;
+            }))
+            .reduce((f1, f2) -> f1.thenCombine(f2, (t1, t2) -> {
+                t1.addAll(t2);
+                return t1;
+            }))
+            .orElse(CompletableFuture.completedFuture(Collections.emptyList()));
     }
 
     @Override
