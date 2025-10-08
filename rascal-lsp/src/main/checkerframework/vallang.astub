@@ -1,11 +1,13 @@
 package io.usethesource.vallang;
 
-import io.usethesource.vallang.type.*;
-import io.usethesource.vallang.*;
-import java.util.Iterator;
-import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.*;
 
-public interface ICollection<T extends ICollection<T>> extends IValue, Iterable<T extends @NonNull IValue> {
-  Stream<T extends @NonNull IValue> stream();
+public interface IWithKeywordParameters<T extends IValue> {
+
+  @Nullable
+  IValue getParameter(String label);
+
+  //@EnsuresKeyForIf(result=true, expression="label", map="this")
+  @EnsuresNonNullIf(expression="getParameter(#1)", result=true)
+  boolean hasParameter(String label);
 }
