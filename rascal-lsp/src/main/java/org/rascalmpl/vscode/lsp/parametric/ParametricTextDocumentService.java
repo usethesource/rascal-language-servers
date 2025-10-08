@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -795,20 +794,31 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
+        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.hasSelectionRange().thenApply(hasDef -> {
+            if (!hasDef.booleanValue()) {
+                logger.debug("Selection range not implemented; falling back to default implementation ({})", params.getTextDocument());
+                return focus -> CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus));
+            }
+            return focus -> contrib.selectionRange(focus).get();
+        });
+
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> params.getPositions().stream()
                     .map(p -> Locations.toRascalPosition(loc, p, columns))
-                    .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
-                    .map(focus -> contrib.hasSelectionRange().thenCompose(hasDef -> hasDef.booleanValue()
-                        ? contrib.selectionRange(focus).get()
-                        : CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus))))
-                    .map(rangeFut -> rangeFut.thenApply(range -> Collections.singletonList(SelectionRanges.toSelectionRange(range, columns)))) // produce singleton lists here to simplify reduction later
+                    .map(p -> {
+                        var focus = TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter());
+                        return computeSelection
+                            .thenCompose(compute -> compute.apply(focus))
+                            // wrap in singleton lists to simplify reduction
+                            .thenApply(selection -> Collections.singletonList(SelectionRanges.toSelectionRange(p, selection, columns)));
+                    })
                     .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
                         l.addAll(r);
                         return l;
                     }))
-                    .orElse(CompletableFuture.completedFuture(Collections.emptyList()))),
+                    // safe, since params.getPositions() cannot be empty
+                    .get()),
             Collections::emptyList);
     }
 

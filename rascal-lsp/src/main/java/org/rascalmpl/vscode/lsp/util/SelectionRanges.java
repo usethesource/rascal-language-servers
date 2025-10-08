@@ -32,7 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SelectionRange;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -53,7 +53,7 @@ public class SelectionRanges {
      * @param columns The editor's column map.
      * @return A range with optional parent ranges.
      */
-    public static @Nullable SelectionRange toSelectionRange(IList ranges, ColumnMaps columns) {
+    public static SelectionRange toSelectionRange(IList ranges, ColumnMaps columns) {
         return toSelectionRange(ranges.stream()
             .map(ISourceLocation.class::cast)
             .map(l -> Locations.toRange(l, columns))
@@ -61,15 +61,31 @@ public class SelectionRanges {
     }
 
     /**
+     * Folds a {@link IList} of {@link ISourceLocation}s into a single, nested {@link SelectionRange}.
+     * @param origin The cursor position associated with this selection range.
+     * @param ranges The range hierarchy. Should be ordered child-before-parent, where any source location is contained by the next.
+     * @param columns The editor's column map.
+     * @return A range with optional parent ranges, or an empty range when {@link ranges} is empty.
+     */
+    public static SelectionRange toSelectionRange(Position origin, IList ranges, ColumnMaps columns) {
+        return ranges.isEmpty() ? empty(origin) : toSelectionRange(ranges, columns);
+    }
+
+    /**
      * Folds a {@link List} of {@link Range}s into a single, nested {@link SelectionRange}.
      * @param ranges The range hierarchy. Should be ordered child-before-parent, where any range is contained by the next.
      * @return A range with optional parent ranges
      */
-    public static @Nullable SelectionRange toSelectionRange(List<Range> ranges) {
+    public static SelectionRange toSelectionRange(List<Range> ranges) {
+        if (ranges.isEmpty()) {
+            throw new IllegalArgumentException("Cannot convert empty list of ranges to selection range");
+        }
+
         // assumes child-before-parent ordering
-        SelectionRange selectionRange = null;
-        for (var r : reverse(ranges)) {
-            selectionRange = new SelectionRange(r, selectionRange);
+        var reversed = reverse(ranges).iterator();
+        SelectionRange selectionRange = new SelectionRange(reversed.next(), null);
+        while (reversed.hasNext()) {
+            selectionRange = new SelectionRange(reversed.next(), selectionRange);
         }
         return selectionRange;
     }
@@ -108,5 +124,9 @@ public class SelectionRanges {
             .map(TreeAdapter::getLocation)
             .distinct()
             .collect(IRascalValueFactory.getInstance().listWriter());
+    }
+
+    public static SelectionRange empty(Position p) {
+        return new SelectionRange(new Range(p, p), null);
     }
 }
