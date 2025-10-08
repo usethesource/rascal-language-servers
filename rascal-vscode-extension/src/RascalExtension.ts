@@ -146,13 +146,11 @@ export class RascalExtension implements vscode.Disposable {
                 }
                 progress.report({increment: 20, message: "Requesting IDE configuration"});
                 const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-                progress.report({increment: 25, message: "Calculating project class path"});
-                const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
                 progress.report({increment: 25, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
-                    shellArgs: this.buildShellArgs(compilationPath, serverConfig),
+                    shellArgs: this.buildShellArgs(serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
@@ -248,7 +246,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
+    private buildShellArgs(ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -258,7 +256,7 @@ export class RascalExtension implements vscode.Disposable {
         }
         shellArgs.push(
             '-cp'
-            , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+            , this.buildTerminalJVMPath()
         );
         if (!this.isDeploy) {
             // for development mode we always start the terminal with debuging ready to go
