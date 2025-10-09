@@ -122,7 +122,14 @@ public class CompletableFutureUtils {
         return result;
     }
 
-    private static <T> List<T> concat(Collection<T> l, Collection<T> r) {
+    private static <T> List<T> concat(List<T> l, List<T> r) {
+        if (r.isEmpty()) {
+            return l;
+        }
+        if (l.isEmpty()) {
+            return r;
+        }
+
         var ls = new LinkedList<>(l);
         ls.addAll(r);
         return ls;
