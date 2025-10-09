@@ -36,21 +36,17 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.rascalmpl.values.IRascalValueFactory;
-
-import io.usethesource.vallang.IList;
-
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
     /**
-     * Combines a {@link List} of futures as a single future that produces a list.
+     * Reduces a {@link List} of {@link CompletableFuture} to a single future that produces a list.
      * @param <T> The type of the values that the futures yield.
-     * @param futures The futures to combine.
-     * @return A future that yields a list of the results of the combined futures.
+     * @param futures The futures to reduce.
+     * @return A future that yields a list of the results of the reduced futures.
      */
-    public static <T> CompletableFuture<List<T>> combineAll(List<CompletableFuture<T>> futures) {
-        return combineAll(futures,
+    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures) {
+        return reduce(futures,
             LinkedList::new,
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
@@ -58,13 +54,13 @@ public class CompletableFutureUtils {
     }
 
     /**
-     * Combines a {@link Stream} of futures as a single future that produces a {@link Collection}.
+     * Reduces a {@link Stream} of {@link CompletableFuture} to a single future that produces a {@link Collection}.
      * @param <T> The type of the values that the futures yield.
-     * @param futures The futures to combine.
-     * @return A future that yields a collection of the results of the combined futures.
+     * @param futures The futures to reduce.
+     * @return A future that yields a collection of the results of the reduced futures.
      */
-    public static <T> CompletableFuture<List<T>> combineAll(Stream<CompletableFuture<T>> futures) {
-        return combineAll(futures,
+    public static <T> CompletableFuture<List<T>> reduce(Stream<CompletableFuture<T>> futures) {
+        return reduce(futures,
             LinkedList::new,
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
@@ -72,29 +68,33 @@ public class CompletableFutureUtils {
     }
 
     /**
-     * Flattens a {@link Stream} of futures that produces values of type {@link IList} as a single future that produces an {@link IList}.
-     * @param futures The futures of which to combine the result lists.
-     * @return A future that yields a list of all the elements in the lists from the combined futures.
+     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
+     * @param <I> The type of the result of the futures.
+     * @param futures The futures of which to reduce the result lists.
+     * @param identity The identity function of {@link I}.
+     * @param concat A function that merges two values of {@link I}.
+     * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */
-    public static CompletableFuture<IList> flattenAll(Stream<CompletableFuture<IList>> futures) {
-        return combineAll(futures,
-            IRascalValueFactory.getInstance()::list,
+    public static <I extends Iterable<?>> CompletableFuture<? extends I> flatten(Stream<CompletableFuture<I>> futures, Supplier<I> identity, BinaryOperator<I> concat) {
+        return reduce(futures,
+            identity,
             Function.identity(),
-            IList::concat
+            concat
         );
     }
 
     /**
-     * Combines a {@link Stream} of {@link CompletableFuture} into a single future that yields a {@link C}.
+     * Reduces a {@link Stream} of {@link CompletableFuture} into a single future that yields a {@link C}.
      * @param <I> The type of the results of the input futures.
-     * @param <C> The type of the result of the combined future.
-     * @param futures A {@link Stream} of futures to combine.
+     * @param <C> The type of the result of the reduced future.
+     * @param futures A {@link Stream} of futures to reduce.
      * @param identity The identity function of {@link C}.
      * @param wrap A function that converts an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
-     * @return A single future that, if it completes, yields the combined result.
+     * @return A single future that, if it completes, yields the reduced result.
+     *
      */
-    public static <I, C> CompletableFuture<C> combineAll(Stream<CompletableFuture<I>> futures,
+    public static <I, C> CompletableFuture<C> reduce(Stream<CompletableFuture<I>> futures,
             Supplier<C> identity, Function<I, C> wrap, BinaryOperator<C> concat) {
         return futures
                 .map(t -> t.thenApply(wrap))
@@ -103,16 +103,16 @@ public class CompletableFutureUtils {
     }
 
     /**
-     * Combines a {@link Iterable} of {@link CompletableFuture} into a single future that yields a {@link C}.
+     * Reduces a {@link Iterable} of {@link CompletableFuture} into a single future that yields a {@link C}.
      * @param <I> The type of the results of the input futures.
-     * @param <C> The type of the result of the combined future.
-     * @param futures An {@link Iterable} of futures to combine.
+     * @param <C> The type of the result of the reduced future.
+     * @param futures An {@link Iterable} of futures to reduce.
      * @param identity The identity function of {@link C}.
      * @param wrap A function that converts an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
-     * @return A single future that, if it completes, yields the combined result.
+     * @return A single future that, if it completes, yields the reduced result.
      */
-    public static <I, C> CompletableFuture<C> combineAll(Iterable<CompletableFuture<I>> futures,
+    public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
             Supplier<C> identity, Function<I, C> wrap, BinaryOperator<C> concat) {
         CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
         for (var fut : futures) {

@@ -819,7 +819,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(t -> CompletableFutureUtils.combineAll(params.getPositions().stream()
+                .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
                     .map(p -> Locations.toRascalPosition(loc, p, columns))
                     .map(p -> computeSelection
                         .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
