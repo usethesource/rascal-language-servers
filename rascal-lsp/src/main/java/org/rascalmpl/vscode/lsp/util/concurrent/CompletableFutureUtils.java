@@ -89,15 +89,15 @@ public class CompletableFutureUtils {
      * @param <C> The type of the result of the reduced future.
      * @param futures A {@link Stream} of futures to reduce.
      * @param identity The identity function of {@link C}.
-     * @param wrap A function that converts an {@link I} to a {@link C}.
+     * @param map A function that maps an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
      * @return A single future that, if it completes, yields the reduced result.
      *
      */
     public static <I, C> CompletableFuture<C> reduce(Stream<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> wrap, BinaryOperator<C> concat) {
+            Supplier<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
         return futures
-                .map(t -> t.thenApply(wrap))
+                .map(t -> t.thenApply(map))
                 .reduce(CompletableFuture.completedFuture(identity.get()),
                         (lf, rf) -> lf.thenCombine(rf, concat));
     }
@@ -108,15 +108,15 @@ public class CompletableFutureUtils {
      * @param <C> The type of the result of the reduced future.
      * @param futures An {@link Iterable} of futures to reduce.
      * @param identity The identity function of {@link C}.
-     * @param wrap A function that converts an {@link I} to a {@link C}.
+     * @param map A function that maps an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> wrap, BinaryOperator<C> concat) {
+            Supplier<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
         CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
         for (var fut : futures) {
-            result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, wrap.apply(t)));
+            result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
         }
 
         return result;

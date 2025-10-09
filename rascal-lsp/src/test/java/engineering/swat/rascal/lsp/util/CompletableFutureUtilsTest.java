@@ -77,6 +77,21 @@ public class CompletableFutureUtilsTest {
     }
 
     @Test
+    public void reduceAndSum() throws InterruptedException, ExecutionException {
+        var listFutList = List.of(
+            CompletableFuture.completedFuture(List.of(1, 2)),
+            CompletableFuture.completedFuture(List.of(3, 4))
+        );
+
+        CompletableFuture<Integer> reduced = reduce(listFutList,
+            () -> 0,
+            l -> l.stream().reduce(Integer::sum).orElse(0),
+            Integer::sum
+        );
+        assertEquals(10, reduced.get().intValue());
+    }
+
+    @Test
     public void reduceAndAddList() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> reduced = reduce(futList, () -> 0, Function.identity(), this::addInts);
         assertEquals(6, reduced.get().intValue());
