@@ -648,7 +648,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             = isLanguageRegistered(loc)
             ? contributions(loc)::parsing
             // Language not (yet) registered; plug in an incomplete parse future
-            : (l, s) -> new CompletableFuture<>();
+            : (l, s) -> CompletableFuture.failedFuture(new IllegalStateException("No parser for " + loc));
 
         return files.computeIfAbsent(loc,
             l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
