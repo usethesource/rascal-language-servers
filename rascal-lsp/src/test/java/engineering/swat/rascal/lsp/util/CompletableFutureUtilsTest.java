@@ -93,13 +93,13 @@ public class CompletableFutureUtilsTest {
 
     @Test
     public void reduceAndAddList() throws InterruptedException, ExecutionException {
-        CompletableFuture<Integer> reduced = reduce(futList, () -> 0, Function.identity(), this::addInts);
+        CompletableFuture<Integer> reduced = reduce(futList, () -> 0, Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
     }
 
     @Test
     public void reduceAndAddStream() throws InterruptedException, ExecutionException {
-        CompletableFuture<Integer> reduced = reduce(futList.stream(), () -> 0, Function.identity(), this::addInts);
+        CompletableFuture<Integer> reduced = reduce(futList.stream(), () -> 0, Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
     }
 
@@ -117,9 +117,5 @@ public class CompletableFutureUtilsTest {
         var s = new HashSet<>(l);
         s.addAll(r);
         return s;
-    }
-
-    private Integer addInts(Integer l, Integer r) {
-        return l + r;
     }
 }
