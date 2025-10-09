@@ -34,9 +34,10 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
-    <log4j2.version>2.25.1</log4j2.version>
+    <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+    <log4j2.version>2.25.2</log4j2.version>
     <lsp4j.version>0.24.0</lsp4j.version>
+    <mockito.version>5.20.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -108,6 +109,12 @@
       <artifactId>org.eclipse.lsp4j.debug</artifactId>
       <version>${lsp4j.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
     <resources>
@@ -131,7 +138,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.0</version>
+        <version>3.14.1</version>
         <configuration>
           <release>11</release>
           <showWarnings>true</showWarnings>
@@ -150,7 +157,7 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -195,7 +202,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>3.9.0</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -224,7 +231,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.6.1</version>
         <dependencies>
           <dependency> <!-- correctly shade multiple log4j2 depencneis -->
               <groupId>org.apache.logging.log4j</groupId>
@@ -326,7 +333,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.6.2</version>
         <executions>
           <execution>
             <id>enforce-maven</id>

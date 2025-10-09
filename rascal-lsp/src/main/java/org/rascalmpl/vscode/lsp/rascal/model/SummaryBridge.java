@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
@@ -114,7 +114,7 @@ public class SummaryBridge {
         return result;
     }
 
-    private static <T> IRangeMap<T> translateMap(IMap binaryMap, ISourceLocation self, Function<IValue, T> valueMapper, ColumnMaps cm) {
+    private static <T extends @NonNull Object> IRangeMap<T> translateMap(IMap binaryMap, ISourceLocation self, Function<IValue, T> valueMapper, ColumnMaps cm) {
         TreeMapLookup<T> result = new TreeMapLookup<>();
         binaryMap.entryIterator().forEachRemaining(e -> {
             var fromLoc = (ISourceLocation)e.getKey();
