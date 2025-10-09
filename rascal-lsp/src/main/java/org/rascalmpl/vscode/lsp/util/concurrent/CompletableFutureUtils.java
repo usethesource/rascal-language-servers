@@ -51,7 +51,7 @@ public class CompletableFutureUtils {
      */
     public static <T> CompletableFuture<List<T>> combineAll(List<CompletableFuture<T>> futures) {
         return combineAll(futures,
-            LinkedList::new, // fast concatenation
+            LinkedList::new,
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
@@ -64,7 +64,11 @@ public class CompletableFutureUtils {
      * @return A future that yields a collection of the results of the combined futures.
      */
     public static <T> CompletableFuture<List<T>> combineAll(Stream<CompletableFuture<T>> futures) {
-        return combineAll(futures, LinkedList::new, Collections::singletonList, CompletableFutureUtils::concat);
+        return combineAll(futures,
+            LinkedList::new,
+            Collections::singletonList, // unmodifiable, but never added to
+            CompletableFutureUtils::concat
+        );
     }
 
     /**
@@ -86,7 +90,7 @@ public class CompletableFutureUtils {
      * @param <C> The type of the result of the combined future.
      * @param futures A {@link Stream} of futures to combine.
      * @param identity The identity function of {@link C}.
-     * @param wrap A function that converts an {@link I} to an {@link C}.
+     * @param wrap A function that converts an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
      * @return A single future that, if it completes, yields the combined result.
      */
@@ -98,6 +102,16 @@ public class CompletableFutureUtils {
                         (lf, rf) -> lf.thenCombine(rf, concat));
     }
 
+    /**
+     * Combines a {@link Iterable} of {@link CompletableFuture} into a single future that yields a {@link C}.
+     * @param <I> The type of the results of the input futures.
+     * @param <C> The type of the result of the combined future.
+     * @param futures An {@link Iterable} of futures to combine.
+     * @param identity The identity function of {@link C}.
+     * @param wrap A function that converts an {@link I} to a {@link C}.
+     * @param concat A function that merges two values of {@link C}.
+     * @return A single future that, if it completes, yields the combined result.
+     */
     public static <I, C> CompletableFuture<C> combineAll(Iterable<CompletableFuture<I>> futures,
             Supplier<C> identity, Function<I, C> wrap, BinaryOperator<C> concat) {
         CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
