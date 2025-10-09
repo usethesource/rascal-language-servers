@@ -27,6 +27,7 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
 import java.util.Arrays;
@@ -41,6 +42,9 @@ import java.util.function.Function;
 import org.apache.commons.compress.utils.Sets;
 import org.junit.Before;
 import org.junit.Test;
+import org.rascalmpl.values.IRascalValueFactory;
+
+import io.usethesource.vallang.IList;
 
 public class CompletableFutureUtilsTest {
     private List<CompletableFuture<Integer>> futList;
@@ -82,6 +86,16 @@ public class CompletableFutureUtilsTest {
     public void reduceAndAddStream() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> reduced = reduce(futList.stream(), () -> 0, Function.identity(), this::addInts);
         assertEquals(6, reduced.get().intValue());
+    }
+
+    @Test
+    public void flattenRascalList() throws InterruptedException, ExecutionException {
+        var VF = IRascalValueFactory.getInstance();
+        var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3));
+        var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
+
+        CompletableFuture<IList> reduced = flatten(outer.stream(), () -> VF.list(), IList::concat);
+        assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
     private <T> Set<T> setUnion(Set<T> l, Set<T> r) {
