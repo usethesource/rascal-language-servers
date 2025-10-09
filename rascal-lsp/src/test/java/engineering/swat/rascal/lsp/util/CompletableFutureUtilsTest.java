@@ -49,6 +49,8 @@ import io.usethesource.vallang.IList;
 public class CompletableFutureUtilsTest {
     private List<CompletableFuture<Integer>> futList;
 
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+
     @Before
     public void setUp() {
         futList = new LinkedList<>();
@@ -105,11 +107,10 @@ public class CompletableFutureUtilsTest {
 
     @Test
     public void flattenRascalList() throws InterruptedException, ExecutionException {
-        var VF = IRascalValueFactory.getInstance();
         var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3));
         var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
 
-        CompletableFuture<IList> reduced = flatten(outer.stream(), () -> VF.list(), IList::concat);
+        CompletableFuture<IList> reduced = flatten(outer.stream(), VF::list, IList::concat);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
