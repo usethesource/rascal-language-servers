@@ -22,3 +22,20 @@ import org.checkerframework.checker.nullness.qual.*;
 public class AccessibleObject implements AnnotatedElement {
   public final boolean canAccess(@Nullable Object obj) { }
 }
+
+
+package java.lang;
+
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.GenericDeclaration;
+import java.lang.reflect.Type;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public final class Class<T> implements java.io.Serializable,
+                              GenericDeclaration,
+                              Type,
+                              AnnotatedElement {
+  public @NonNull ClassLoader getClassLoader() {
+  }
+}
