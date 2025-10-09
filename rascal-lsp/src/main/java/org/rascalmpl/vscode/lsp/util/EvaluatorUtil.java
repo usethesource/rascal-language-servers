@@ -55,6 +55,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
@@ -89,14 +90,14 @@ import io.usethesource.vallang.io.StandardTextWriter;
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean isParametric, LanguageClient client) {
+    public static <T> InterruptibleFuture<@PolyNull T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, @PolyNull T> call, @PolyNull T interruptedResult, Executor exec, boolean isParametric, LanguageClient client) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
-        AtomicReference<InterruptibleFuture<T>> future = new AtomicReference<>();
+        AtomicReference<InterruptibleFuture<@PolyNull T>> future = new AtomicReference<>();
 
-        future.set(new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
+        future.set(new InterruptibleFuture<>(eval.<@PolyNull T>thenApplyAsync(actualEval -> {
             try {
-                InterruptibleFuture<T> self;
+                InterruptibleFuture<@PolyNull T> self;
                 while ((self = future.get()) == null) {
                     // yield until our value has been set
                     Thread.yield();
@@ -116,16 +117,16 @@ public class EvaluatorUtil {
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
-                            return defaultResult;
+                            return interruptedResult;
                         }
-                        T result = call.apply(actualEval);
+                        var result = call.apply(actualEval);
                         jobSuccess = true;
                         return result;
                     } catch (InterruptException e) {
                         // Since the interrupt is not caught by try-catch in Rascal, any jobs started from Rascal with the same name as this task will be 'nested', and might lead to stale progress bars.
                         // Here, we remove all (nested) jobs.
                         actualEval.endAllJobs();
-                        return defaultResult;
+                        return interruptedResult;
                     } finally {
                         actualEval.jobEnd(task, jobSuccess);
                         if (monitor instanceof RascalLSPMonitor) {

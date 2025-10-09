@@ -374,8 +374,13 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
             return result == null ? null : result
                 .thenApplyAsync(Lazy::get, exec)
-                .thenApply(l -> l.lookup(new Range(cursor, cursor)))
-                .thenApply(r -> r == null ? Collections.emptyList() : r);
+                .thenApply(l -> {
+                    var r = l.lookup(new Range(cursor, cursor));
+                    if (r == null) {
+                        return Collections.emptyList();
+                    }
+                    return r;
+                });
         }
     }
 }

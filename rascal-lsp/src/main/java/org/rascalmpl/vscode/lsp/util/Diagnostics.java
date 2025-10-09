@@ -188,9 +188,10 @@ public class Diagnostics {
         // messages back to us, in which we can find these commands and send
         // them right back in response to the codeActions request.
 
-        if (d.asWithKeywordParameters().hasParameter("fixes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("fixes")) {
             // setData is meant exactly for this!
-            result.setData(d.asWithKeywordParameters().getParameter("fixes").toString());
+            result.setData(dKW.getParameter("fixes").toString());
         }
     }
 
@@ -213,9 +214,10 @@ public class Diagnostics {
         result.setRange(range);
 
 
-        if (d.asWithKeywordParameters().hasParameter("causes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("causes")) {
             result.setRelatedInformation(
-                ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
+                ((IList) dKW.getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
                     Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
