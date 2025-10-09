@@ -49,7 +49,7 @@ public class TimestampResult extends IOResult {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof TimestampResult) {
             return super.equals(obj)
                 && Objects.equals(timestamp, ((TimestampResult)obj).timestamp);

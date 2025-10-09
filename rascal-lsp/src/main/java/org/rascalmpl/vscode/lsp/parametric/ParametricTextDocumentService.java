@@ -41,7 +41,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -138,7 +137,6 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
-
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -252,9 +250,23 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return BaseWorkspaceService.RASCAL_META_COMMAND;
     }
 
+    private BaseWorkspaceService availableWorkspaceService() {
+        if (workspaceService == null) {
+            throw new IllegalStateException("Workspace Service has not been paired");
+        }
+        return workspaceService;
+    }
+
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
         this.workspaceService = workspaceService;
+    }
+
+    private LanguageClient availableClient() {
+        if (client == null) {
+            throw new IllegalStateException("Language Client has not been connected yet");
+        }
+        return client;
     }
 
     @Override
@@ -317,7 +329,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
                 if (registeredExtensions.containsKey(extension(URIUtil.assumeCorrectLocation(f.getUri())))) {
-                    client.publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+                    availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
                 }
             }
         });
@@ -432,13 +444,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return contribs.rename(focus, newName)
                 .thenApply(tuple -> {
                     IList documentEdits = (IList) tuple.get(0);
-                    showMessages((ISet) tuple.get(1));
+                    showMessages(availableClient(), (ISet) tuple.get(1));
                     return DocumentChanges.translateDocumentChanges(this, documentEdits);
                 })
                 .get();
     }
 
-    private void showMessages(ISet messages) {
+    private static void showMessages(LanguageClient client, ISet messages) {
         // If any message is an error, throw a ResponseErrorException
         for (var msg : messages) {
             var message = (IConstructor) msg;
@@ -453,7 +465,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    private MessageParams setMessageParams(IConstructor message) {
+    private static MessageParams setMessageParams(IConstructor message) {
         var params = new MessageParams();
         switch (message.getName()) {
             case "warning": {
@@ -491,7 +503,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenAccept(res -> {
                     var edits = (IList) res.get(0);
                     var messages = (ISet) res.get(1);
-                    showMessages(messages);
+                    var client = availableClient();
+                    showMessages(client, messages);
 
                     if (edits.size() == 0) {
                         return;
@@ -513,7 +526,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     if (cause != null && cause.getMessage() != null) {
                         message = cause.getMessage();
                     }
-                    client.showMessage(new MessageParams(MessageType.Error, message));
+                    availableClient().showMessage(new MessageParams(MessageType.Error, message));
                     return null; // Return of type `Void` is unused, but required
                 });
         }
@@ -571,11 +584,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var loc =(ISourceLocation) t.get("position");
         var label = ((IString) t.get("label")).getValue();
         var kind = (IConstructor) t.get("kind");
-        var toolTip = (IString)t.asWithKeywordParameters().getParameter("toolTip");
-        var atEnd = (IBool)t.asWithKeywordParameters().getParameter("atEnd");
+        var tKW = t.asWithKeywordParameters();
+        var toolTip = (IString)tKW.getParameter("toolTip");
+        var atEnd = tKW.hasParameter("atEnd") && ((IBool)tKW.getParameter("atEnd")).getValue();
 
         // translate to lsp
-        var result = new InlayHint(Locations.toPosition(loc, columns, atEnd.getValue()), Either.forLeft(label.trim()));
+        var result = new InlayHint(Locations.toPosition(loc, columns, atEnd), Either.forLeft(label.trim()));
         result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
         result.setPaddingLeft(label.startsWith(" "));
         result.setPaddingRight(label.endsWith(" "));
@@ -770,7 +784,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<Hover> hover(HoverParams params) {
+    public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::hovers, params.getTextDocument(), params.getPosition())
@@ -852,13 +866,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             }
         }
 
+        var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
-            new InterpretedLanguageContributions(lang, this, workspaceService, (IBaseLanguageClient) client, ownExecuter));
+            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, ownExecuter));
 
         fact.reloadContributions();
-        if (client != null) {
-            fact.setClient(client);
-        }
+        fact.setClient(clientCopy);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
@@ -905,7 +918,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
-    public CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command) {
+    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
 
         if (contribs != null) {
@@ -913,7 +926,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         else {
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName));
         }
     }
 

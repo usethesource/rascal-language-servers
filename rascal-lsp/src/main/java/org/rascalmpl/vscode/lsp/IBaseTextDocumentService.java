@@ -58,7 +58,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void projectAdded(String name, ISourceLocation projectRoot);
     void projectRemoved(String name, ISourceLocation projectRoot);
 
-    CompletableFuture<@Nullable IValue> executeCommand(String languageName, String command);
+    CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();
     @Nullable TextDocumentState getDocumentState(ISourceLocation file);

@@ -35,7 +35,7 @@ public class DirectoryListingResult extends IOResult {
     private  String @Nullable[] entries;
     private boolean @Nullable[] areDirectory;
 
-    public DirectoryListingResult(int errorCode, @Nullable String errorMessage, @Nullable String[] entries, @Nullable boolean[] areDirectory) {
+    public DirectoryListingResult(int errorCode, @Nullable String errorMessage,  String @Nullable[] entries, boolean @Nullable[] areDirectory) {
         super(errorCode, errorMessage);
         this.entries = entries;
         this.areDirectory = areDirectory;
@@ -52,7 +52,7 @@ public class DirectoryListingResult extends IOResult {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof DirectoryListingResult) {
             return super.equals(obj)
                 && Objects.deepEquals(entries, ((DirectoryListingResult)obj).entries)

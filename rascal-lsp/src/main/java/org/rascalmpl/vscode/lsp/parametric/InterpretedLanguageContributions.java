@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -503,7 +504,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
 
@@ -514,13 +515,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 if (func == null) {
                     logger.warn("Command is being executed without a registered command executor; for language {}", name);
                     throw new IllegalStateException("No command executor registered for " + name);
+
                 }
 
-                return EvaluatorUtil.<@Nullable IValue>runEvaluator(
+                return EvaluatorUtil.runEvaluator(
                     "executeCommand",
                     eval,
                     ev -> func.call(cons),
-                    null,
+                    VF.bool(false),
                     exec,
                     true,
                     client
@@ -529,7 +531,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         ), exec);
     }
 
-    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+    private <T extends @NonNull Object> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         if (target == null) {
             return InterruptibleFuture.completedFuture(defaultResult);
         }

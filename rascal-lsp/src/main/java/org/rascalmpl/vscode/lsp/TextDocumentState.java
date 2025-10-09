@@ -32,17 +32,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -64,8 +61,8 @@ public class TextDocumentState {
     private final ISourceLocation location;
 
     private final AtomicReference<Versioned<Update>> current;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
+    private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
+    private final AtomicReference<@Nullable Versioned<ITree>> last;
 
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
@@ -138,7 +135,7 @@ public class TextDocumentState {
      */
     public CompletableFuture<Versioned<ITree>> getLastTreeAsync(boolean allowRecoveredErrors) {
         var result = getCurrentTreeAsync()
-            .handle((t, e) -> {
+            .<@Nullable Versioned<ITree>>handle((t, e) -> {
                 if (t == null) {
                     return last.get();
                 }
@@ -224,7 +221,7 @@ public class TextDocumentState {
             List<Diagnostics.Template> diagnostics = new ArrayList<>();
 
             if (excp != null) {
-                if (excp instanceof CompletionException) {
+                if (excp instanceof CompletionException && excp.getCause() != null) {
                     excp = excp.getCause();
                 }
 

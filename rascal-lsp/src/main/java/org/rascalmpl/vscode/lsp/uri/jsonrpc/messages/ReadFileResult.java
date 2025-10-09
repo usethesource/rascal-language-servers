@@ -41,12 +41,12 @@ public class ReadFileResult extends IOResult {
 
     public ReadFileResult() {}
 
-    public String getContents() {
+    public @Nullable String getContents() {
         return contents;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof ReadFileResult) {
             return super.equals(obj)
                 && Objects.equals(contents, ((ReadFileResult)obj).contents);
