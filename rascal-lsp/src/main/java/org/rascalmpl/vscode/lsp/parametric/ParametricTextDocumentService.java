@@ -131,6 +131,7 @@ import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
@@ -808,20 +809,22 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
+        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.hasSelectionRange().thenApply(hasDef -> {
+            if (!hasDef.booleanValue()) {
+                logger.debug("Selection range not implemented; falling back to default implementation ({})", params.getTextDocument());
+                return focus -> CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus));
+            }
+            return focus -> contrib.selectionRange(focus).get();
+        });
+
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(t -> params.getPositions().stream()
+                .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
                     .map(p -> Locations.toRascalPosition(loc, p, columns))
-                    .map(p -> TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter()))
-                    .map(focus -> contrib.hasSelectionRange().thenCompose(hasDef -> hasDef.booleanValue()
-                        ? contrib.selectionRange(focus).get()
-                        : CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus))))
-                    .map(rangeFut -> rangeFut.thenApply(range -> Collections.singletonList(SelectionRanges.toSelectionRange(range, columns)))) // produce singleton lists here to simplify reduction later
-                    .reduce((lf, rf) -> lf.thenCombine(rf, (l, r) -> {
-                        l.addAll(r);
-                        return l;
-                    }))
-                    .orElse(CompletableFuture.completedFuture(Collections.emptyList()))),
+                    .map(p -> computeSelection
+                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
+                        .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
+                    .collect(Collectors.toUnmodifiableList()))),
             Collections::emptyList);
     }
 

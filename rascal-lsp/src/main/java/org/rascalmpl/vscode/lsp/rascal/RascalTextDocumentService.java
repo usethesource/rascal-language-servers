@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -127,6 +128,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -586,9 +588,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .thenApply(Versioned::get)
             .thenApply(tr -> params.getPositions().stream()
                 .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
-                .map(p -> TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter()))
-                .map(SelectionRanges::uniqueTreeLocations)
-                .map(l -> SelectionRanges.toSelectionRange(l, columns))
+                .map(p -> {
+                    var focus = TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter());
+                    var locs = SelectionRanges.uniqueTreeLocations(focus);
+                    return SelectionRanges.toSelectionRange(p, locs, columns);
+                })
                 .collect(Collectors.toList())));
     }
 
