@@ -229,7 +229,7 @@ TModel getConditionallyAugmentedTModel(loc l, set[Define] defs, set[AugmentCompo
     : r.getConfig().tmodelForLoc(l);
 
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], (), (), (), (), pathConfig(), tconfig());
+    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], {}, (), (), (), (), pathConfig(), tconfig());
 
     TModel tmodelForTree(Tree tr) = tmodelForLoc(tr.src.top);
 
@@ -263,7 +263,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
             tm = augmentFieldUses(tr, tm, getModel);
             tm = augmentFormalUses(tr, tm, getModel);
             tm = augmentTypeParams(tr, tm);
-        } catch _: {
+        } catch value e: {
             println("Suppressed error during TModel augmentation: <e>");
         }
         return tm;
