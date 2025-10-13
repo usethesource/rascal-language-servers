@@ -248,4 +248,9 @@ public class TextDocumentState {
     public long getLastModified() {
         return unpackCurrent().getTimestamp();
     }
+
+    public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
+        var c = getCurrentContent();
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified());
+    }
 }

@@ -888,16 +888,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var extensions = Arrays.asList(lang.getExtensions());
         for (var e : files.entrySet()) {
             var f = e.getKey();
-            var state = e.getValue();
             if (extensions.contains(extension(f))) {
-                logger.trace("Open file of language {} - updating state: {}", lang.getName(), f);
-                var c = state.getCurrentContent();
-                state = files.replace(f, new TextDocumentState(contributions(f)::parsing, f, c.version(), state.getCurrentContent().get(), state.getLastModified()));
-                // Update open editor
-                triggerAnalyzer(f, c.version(), NORMAL_DEBOUNCE);
-                handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+                updateFileState(lang, f, e.getValue());
             }
         }
+    }
+
+    private void updateFileState(LanguageParameter lang, ISourceLocation f, TextDocumentState state) {
+        logger.trace("File of language {} - updating state: {}", lang.getName(), f);
+        state = files.replace(f, state.changeParser(contributions(f)::parsing));
+        // Update open editor
+        handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
