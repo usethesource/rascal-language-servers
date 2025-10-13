@@ -61,7 +61,6 @@ import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.library.lang.json.internal.JsonValueReader;
 import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
@@ -219,7 +218,6 @@ public abstract class BaseLanguageServer {
     }
     private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
-        private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
