@@ -40,6 +40,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
@@ -97,7 +98,7 @@ public class CallHierarchy {
     }
 
     public CallHierarchyItem toLSP(IConstructor cons, ColumnMaps columns) {
-        var name = cons.get(NAME).toString();
+        var name = ((IString) cons.get(NAME)).getValue();
         var kind = DocumentSymbols.symbolKindToLSP((IConstructor) cons.get(KIND));
         var def = (ISourceLocation) cons.get(DEFINITION);
         var definitionRange = Locations.toRange(def, columns);
@@ -110,7 +111,7 @@ public class CallHierarchy {
             ci.setTags(DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(TAGS)));
         }
         if (kws.hasParameter(DETAIL)) {
-            ci.setDetail(kws.getParameter(DETAIL).toString());
+            ci.setDetail(((IString) kws.getParameter(DETAIL)).getValue());
         }
         if (kws.hasParameter(DATA)) {
             ci.setData(serializeData((IConstructor) kws.getParameter(DATA)));
