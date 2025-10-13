@@ -26,18 +26,16 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import com.google.gson.JsonPrimitive;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
-import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISet;
@@ -63,6 +61,7 @@ public class CallHierarchy {
 
     private final Type callHierarchyItemCons;
     private final @Nullable Type callHierarchyDataAdt;
+    private final @Nullable Type callHierarchyDataCons;
 
     private static final String NAME = "name";
     private static final String KIND = "kind";
@@ -81,6 +80,7 @@ public class CallHierarchy {
         this.outgoing = VF.constructor(store.lookupConstructor(directionAdt, "outgoing", TF.tupleEmpty()));
         this.callHierarchyItemCons = store.lookupConstructor(store.lookupAbstractDataType("CallHierarchyItem"), "callHierarchyItem").iterator().next(); // first and only
         this.callHierarchyDataAdt = store.lookupAbstractDataType("CallHierarchyData");
+        this.callHierarchyDataCons = store.lookupConstructor(callHierarchyDataAdt, "none").iterator().next();
     }
 
     public static IConstructor direction(TypeStore store, CallHierarchy.Direction direction) {
@@ -123,7 +123,10 @@ public class CallHierarchy {
         return data.toString();
     }
 
-    private IConstructor deserializeData(Object data) {
+    private IConstructor deserializeData(@Nullable Object data) {
+        if (data == null) {
+            return VF.constructor(callHierarchyDataCons);
+        }
         try {
             return (IConstructor) new StandardTextReader().read(VF, store, callHierarchyDataAdt, new StringReader(((JsonPrimitive) data).getAsString()));
         } catch (FactTypeUseException | IOException e) {
