@@ -132,13 +132,6 @@ test bool arityOverload() = testRenameOccurrences({0, 1, 2, 3, 4, 5}, "x = conca
     'str concat(str s1, str s2, str s3) = s1 + concat(s2, s3);
 ", oldName = "concat", newName = "foo");
 
-/* disabling for now
-test bool overloadClash() = testRenameOccurrences({0}, "", decls = "
-    'int foo = 0;
-    'int foo(int x) = x when x \< 2;
-");
-*/
-
 test bool crossModuleOverload() = testRenameOccurrences({
     byText("Str", "
         'str concat(str s) = s;
