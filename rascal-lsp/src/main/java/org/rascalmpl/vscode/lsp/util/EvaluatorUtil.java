@@ -128,7 +128,9 @@ public class EvaluatorUtil {
                         actualEval.endAllJobs();
                         return interruptedResult;
                     } finally {
-                        actualEval.jobEnd(task, jobSuccess);
+                        if (jobSuccess) {
+                            actualEval.jobEnd(task, jobSuccess);
+                        }
                         if (monitor instanceof RascalLSPMonitor) {
                             ((RascalLSPMonitor) monitor).unregisterActiveFuture(task);
                         }

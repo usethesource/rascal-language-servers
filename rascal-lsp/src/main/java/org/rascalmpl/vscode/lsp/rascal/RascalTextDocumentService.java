@@ -552,10 +552,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
-        var specialCaseHighlighting = CompletableFuture.completedFuture(false);
         return recoverExceptions(getFile(doc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, ownExecuter), SemanticTokens::new)
+                .thenApply(t -> tokenizer.semanticTokensFull(t, false)), SemanticTokens::new)
             .whenComplete((r, e) ->
                 logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size())
             );
