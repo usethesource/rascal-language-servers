@@ -349,11 +349,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        logger.trace("Triggering analyzer for {}", location);
         if (isLanguageRegistered(location)) {
+            logger.trace("Triggering analyzer for {}", location);
             var fileFacts = facts(location);
             fileFacts.invalidateAnalyzer(location);
             fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+        } else {
+            logger.trace("Not triggering analyzer, since no language is registered for {}", location);
         }
     }
 
