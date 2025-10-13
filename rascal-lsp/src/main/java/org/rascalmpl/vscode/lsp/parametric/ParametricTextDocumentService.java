@@ -35,15 +35,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -626,23 +625,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return registeredExtensions.containsKey(extension(loc));
     }
 
+    private Optional<String> safeLanguage(ISourceLocation loc) {
+        return Optional.ofNullable(registeredExtensions.get(extension(loc)));
+    }
+
     private String language(ISourceLocation loc) {
-        var ext = extension(loc);
-        var language = registeredExtensions.get(ext);
-        if (language == null) {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", ext, loc));
-        }
-        return language;
+        return safeLanguage(loc).orElseThrow(() ->
+            new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", extension(loc), loc))
+        );
     }
 
     private ILanguageContributions contributions(ISourceLocation doc) {
-        ILanguageContributions contrib = contributions.get(language(doc));
-
-        if (contrib == null) {
-            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
-        }
-
-        return contrib;
+        return safeLanguage(doc).flatMap(lang -> {
+            ILanguageContributions contrib = contributions.get(lang);
+            return Optional.ofNullable(contrib);
+        }).orElse(new NoContributions(ownExecuter));
     }
 
     private static String extension(ISourceLocation doc) {
@@ -661,14 +658,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         var loc = Locations.toLoc(doc);
-        BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser
-            = isLanguageRegistered(loc)
-            ? contributions(loc)::parsing
-            // Language not (yet) registered; plug in an incomplete parse future
-            : (l, s) -> CompletableFuture.failedFuture(new IllegalStateException("No parser for " + loc));
-
         return files.computeIfAbsent(loc,
-            l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp));
+            l -> new TextDocumentState(contributions(loc)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
