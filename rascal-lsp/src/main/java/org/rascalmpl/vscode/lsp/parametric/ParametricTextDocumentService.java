@@ -849,10 +849,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
-        for (var extension: lang.getExtensions()) {
-            this.registeredExtensions.put(extension, lang.getName());
-        }
-
         var multiplexer = contributions.computeIfAbsent(lang.getName(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
         );
@@ -883,6 +879,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
+
+        for (var extension: lang.getExtensions()) {
+            this.registeredExtensions.put(extension, lang.getName());
+        }
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
