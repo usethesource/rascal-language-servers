@@ -111,7 +111,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     step("Checking module <l>", 1);
     pcfg = getPathConfig(initialProject);
     checkOutdatedPathConfig(pcfg);
-    msgs += check(calculateOutdated(modulesPerProject[initialProject] + l, pcfg), rascalCompilerConfig(pcfg));
+    msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
