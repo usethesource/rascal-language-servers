@@ -31,7 +31,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
-
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -113,7 +112,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         }
 
         @Override
-        public boolean equals(Object obj) {
+        public boolean equals(@Nullable Object obj) {
             if (obj instanceof KeyedLanguageContribution) {
                 return this.key.equals(((KeyedLanguageContribution)obj).key);
             }
@@ -281,7 +280,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         return flatten(execution, c -> c.execution(command));
     }
 
@@ -291,7 +290,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
         return flatten(inlayHint, c -> c.inlayHint(input));
     }
 

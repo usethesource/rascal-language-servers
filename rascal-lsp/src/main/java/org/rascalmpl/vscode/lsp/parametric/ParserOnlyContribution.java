@@ -39,6 +39,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
@@ -84,11 +85,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        if (loadingParserError != null || parser == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
-        }
-
-        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc), ownExecutor);
+        return CompletableFuture.supplyAsync(() -> {
+            if (loadingParserError != null || parser == null) {
+                throw new IllegalStateException("Parser function did not load", loadingParserError);
+            }
+            return parser.call(VF.string(input), loc);
+        }, ownExecutor);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
@@ -142,7 +144,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
@@ -152,13 +154,13 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return InterruptibleFuture.completedFuture(null);
+        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation());
     }
 
     @Override

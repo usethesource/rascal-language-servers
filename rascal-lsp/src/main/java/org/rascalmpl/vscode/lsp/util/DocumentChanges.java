@@ -109,7 +109,8 @@ public class DocumentChanges {
                     var anno = (IConstructor) kw.getParameter("annotation");
                     var label = ((IString) anno.get("label")).getValue();
                     var description = ((IString) anno.get("description")).getValue();
-                    var needsConfirmation = ((IBool) anno.asWithKeywordParameters().getParameter("needsConfirmation")).getValue();
+                    var annoKW = anno.asWithKeywordParameters();
+                    var needsConfirmation = annoKW.hasParameter("needsConfirmation") && ((IBool) annoKW.getParameter("needsConfirmation")).getValue();
                     var annoKey = String.format("%s_%s_%b", label, description, needsConfirmation);
 
                     if (!changeAnnotations.containsKey(annoKey)) {

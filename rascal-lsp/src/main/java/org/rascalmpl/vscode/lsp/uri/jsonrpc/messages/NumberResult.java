@@ -45,7 +45,7 @@ public class NumberResult extends IOResult {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof NumberResult) {
             return super.equals(obj)
                 && Objects.equals(result, ((NumberResult)obj).result);

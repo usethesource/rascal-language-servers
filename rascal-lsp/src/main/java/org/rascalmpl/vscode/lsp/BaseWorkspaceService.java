@@ -32,7 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -56,7 +55,7 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-
+import org.rascalmpl.uri.URIUtil;
 import com.google.gson.JsonPrimitive;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
@@ -152,10 +151,17 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         var removed = params.getEvent().getRemoved();
         if (removed != null) {
             workspaceFolders.removeAll(removed);
+            for (WorkspaceFolder folder : removed) {
+                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
+
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
+            for (WorkspaceFolder folder : added) {
+                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
     }
 

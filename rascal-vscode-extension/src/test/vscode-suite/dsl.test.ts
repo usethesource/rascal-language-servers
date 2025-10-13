@@ -104,8 +104,15 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     it("have highlighting and parse errors", async function () {
+        await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        const isPicoLoading = ide.statusContains("Pico");
+        // we might miss this event, but we wait for it to show up
+        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
+        // now wait for the Pico parser generator to disappear
+        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
+        console.log("We got syntax highlighting");
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);
@@ -117,7 +124,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         } finally {
             await ide.revertOpenChanges();
         }
-    });
+    }).retries(2);
 
     it("have highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);

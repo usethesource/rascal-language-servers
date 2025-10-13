@@ -32,10 +32,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class DirectoryListingResult extends IOResult {
 
-    private @Nullable String[] entries;
-    private @Nullable boolean[] areDirectory;
+    private  String @Nullable[] entries;
+    private boolean @Nullable[] areDirectory;
 
-    public DirectoryListingResult(int errorCode, @Nullable String errorMessage, @Nullable String[] entries, @Nullable boolean[] areDirectory) {
+    public DirectoryListingResult(int errorCode, @Nullable String errorMessage,  String @Nullable[] entries, boolean @Nullable[] areDirectory) {
         super(errorCode, errorMessage);
         this.entries = entries;
         this.areDirectory = areDirectory;
@@ -43,16 +43,16 @@ public class DirectoryListingResult extends IOResult {
 
     public DirectoryListingResult() {}
 
-    public String[] getEntries() {
+    public String @Nullable[] getEntries() {
         return entries;
     }
 
-    public boolean[] getAreDirectory() {
+    public boolean @Nullable[] getAreDirectory() {
         return areDirectory;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof DirectoryListingResult) {
             return super.equals(obj)
                 && Objects.deepEquals(entries, ((DirectoryListingResult)obj).entries)

@@ -188,9 +188,10 @@ public class Diagnostics {
         // messages back to us, in which we can find these commands and send
         // them right back in response to the codeActions request.
 
-        if (d.asWithKeywordParameters().hasParameter("fixes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("fixes")) {
             // setData is meant exactly for this!
-            result.setData(d.asWithKeywordParameters().getParameter("fixes").toString());
+            result.setData(dKW.getParameter("fixes").toString());
         }
     }
 
@@ -198,19 +199,28 @@ public class Diagnostics {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
+    private static DiagnosticSeverity translateSeverity(IConstructor d) {
+        var result = severityMap.get(d.getName());
+        if (result == null) {
+            throw new IllegalArgumentException(d.getName() + " is not a valid severity");
+        }
+        return result;
+    }
+
     public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
-        result.setSeverity(severityMap.get(d.getName()));
+        result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
         result.setRange(range);
 
 
-        if (d.asWithKeywordParameters().hasParameter("causes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("causes")) {
             result.setRelatedInformation(
-                ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
+                ((IList) dKW.getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
-                    Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
+                    Locations.toLSPLocation(getMessageLocation(c), otherFiles),
                     getMessageString(c)))
                 .collect(Collectors.toList())
             );

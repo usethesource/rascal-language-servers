@@ -308,13 +308,19 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             return get(implementations, cursor);
         }
 
+        private void interruptNullable(@Nullable InterruptibleFuture<?> future) {
+            if (future != null) {
+                future.interrupt();
+            }
+        }
+
         @Override
         public void invalidate() {
             super.invalidate();
-            hovers.interrupt();
-            definitions.interrupt();
-            references.interrupt();
-            implementations.interrupt();
+            interruptNullable(hovers);
+            interruptNullable(definitions);
+            interruptNullable(references);
+            interruptNullable(implementations);
         }
 
         private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
@@ -368,8 +374,13 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
             return result == null ? null : result
                 .thenApplyAsync(Lazy::get, exec)
-                .thenApply(l -> l.lookup(new Range(cursor, cursor)))
-                .thenApply(r -> r == null ? Collections.emptyList() : r);
+                .thenApply(l -> {
+                    var r = l.lookup(new Range(cursor, cursor));
+                    if (r == null) {
+                        return Collections.emptyList();
+                    }
+                    return r;
+                });
         }
     }
 }
