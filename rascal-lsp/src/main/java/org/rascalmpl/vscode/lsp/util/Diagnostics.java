@@ -220,7 +220,7 @@ public class Diagnostics {
                 ((IList) dKW.getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
-                    Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
+                    Locations.toLSPLocation(getMessageLocation(c), otherFiles),
                     getMessageString(c)))
                 .collect(Collectors.toList())
             );
