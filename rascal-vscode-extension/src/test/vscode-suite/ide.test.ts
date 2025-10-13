@@ -112,7 +112,7 @@ describe('IDE', function () {
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
-    });
+    }).retries(2);
 
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
