@@ -850,35 +850,42 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenCompose(t -> {
                 final var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
                 final var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
-                return contrib.prepareCallHierarchy(focus).get();
-            })
-            .thenCompose(items -> contrib.getStore().thenApply(store -> {
-                    var ch = new CallHierarchy(store);
-                    return items.stream()
-                        .map(IConstructor.class::cast)
-                        .map(ci -> ch.toLSP(ci, columns))
-                        .collect(Collectors.toList());
-            })), Collections::emptyList);
+                return contrib.prepareCallHierarchy(focus)
+                    .get()
+                    .thenApply(p -> {
+                        var items = p.getLeft();
+                        var store = p.getRight();
+                        var ch = new CallHierarchy(store);
+                        return items.stream()
+                            .map(IConstructor.class::cast)
+                            .map(ci -> ch.toLSP(ci, columns))
+                            .collect(Collectors.toList());
+                    });
+            }), Collections::emptyList);
     }
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
         final var contrib = contributions(Locations.toLoc(source.getUri()));
-        return contrib.getStore().thenCompose(store -> {
-            var ch = new CallHierarchy(store);
-            return contrib.incomingOutgoingCalls(ch.toRascal(source, columns), ch.direction(direction))
-                .get()
-                .thenApply(callRel -> callRel.stream()
-                    .map(ITuple.class::cast)
-                    .collect(Collectors.toMap(
-                        t -> ch.toLSP((IConstructor) t.get(0), columns),
-                        t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
-                        Lists::union,
-                        LinkedHashMap::new
-                    )))
+        return contrib.incomingOutgoingCalls(
+                    store -> CallHierarchy.toRascal(store, source, columns),
+                    store -> CallHierarchy.direction(store, direction)
+                ).get()
+                .thenApply(res -> {
+                    var callRel = res.getLeft();
+                    var store = res.getRight();
+                    var ch = new CallHierarchy(store);
+                    return callRel.stream()
+                        .map(ITuple.class::cast)
+                        .collect(Collectors.toMap(
+                            t -> ch.toLSP((IConstructor) t.get(0), columns),
+                            t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
+                            Lists::union,
+                            LinkedHashMap::new
+                        ));
+                })
                 .thenApply(map -> map.entrySet().stream()
                     .map(e -> constructor.apply(e.getKey(), e.getValue()))
                     .collect(Collectors.toList()));
-        });
     }
 
     @Override

@@ -83,6 +83,11 @@ public class CallHierarchy {
         this.callHierarchyDataAdt = store.lookupAbstractDataType("CallHierarchyData");
     }
 
+    public static IConstructor direction(TypeStore store, CallHierarchy.Direction direction) {
+        var ch = new CallHierarchy(store);
+        return ch.direction(direction);
+    }
+
     public IConstructor direction(Direction dir) {
         switch (dir) {
             case INCOMING: return this.incoming;
@@ -124,6 +129,11 @@ public class CallHierarchy {
         } catch (FactTypeUseException | IOException e) {
             throw new IllegalArgumentException("The call hierarchy item data could not be parsed", e);
         }
+    }
+
+    public static IConstructor toRascal(TypeStore store, CallHierarchyItem source, ColumnMaps columns) {
+        var ch = new CallHierarchy(store);
+        return ch.toRascal(source, columns);
     }
 
     public IConstructor toRascal(CallHierarchyItem ci, ColumnMaps columns) {

@@ -32,7 +32,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-
+import java.util.function.Function;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -204,13 +205,13 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list());
+    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(Pair.of(VF.list(), new TypeStore()));
     }
 
     @Override
-    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        return InterruptibleFuture.completedFuture(VF.list());
+    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> hierarchyItem, Function<TypeStore, IConstructor> direction) {
+        return InterruptibleFuture.completedFuture(Pair.of(VF.list(), new TypeStore()));
     }
 
     @Override
@@ -311,11 +312,6 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public void cancelProgress(String progressId) {
         // empty, since this contribution does not have any running tasks nor a monitor
-    }
-
-    @Override
-    public CompletableFuture<TypeStore> getStore() {
-        return CompletableFuture.completedFuture(new TypeStore());
     }
 
 }

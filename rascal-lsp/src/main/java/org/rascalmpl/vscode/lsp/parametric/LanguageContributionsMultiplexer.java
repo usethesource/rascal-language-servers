@@ -31,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -345,12 +346,12 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
         return flatten(prepareCallHierarchy, c -> c.prepareCallHierarchy(focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> hierarchyItem, Function<TypeStore, IConstructor> direction) {
         return flatten(incomingOutgoingCalls, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
     }
 
@@ -449,7 +450,4 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         contributions.forEach(klc -> klc.contrib.cancelProgress(progressId));
     }
 
-    public CompletableFuture<TypeStore> getStore() {
-        return execution.thenApply(c -> c.getStore()).thenCompose(Function.identity());
-    }
 }

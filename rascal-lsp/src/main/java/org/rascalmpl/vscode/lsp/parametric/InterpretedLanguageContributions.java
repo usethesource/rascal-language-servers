@@ -31,11 +31,12 @@ import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-
+import java.util.function.Function;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -418,15 +419,23 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
         debug(LanguageContributions.CALL_HIERARCHY, "prepare", focus.length());
-        return execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus);
+        return withStore(execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
-        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
+    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> computeHierarchyItem, Function<TypeStore, IConstructor> computeDirection) {
+        return withStore(InterruptibleFuture.flatten(store.thenApply(store -> {
+            var hierarchyItem = computeHierarchyItem.apply(store);
+            var direction = computeDirection.apply(store);
+            debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
+            return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
+        }), exec));
+    }
+
+    private <V> InterruptibleFuture<Pair<V, TypeStore>> withStore(InterruptibleFuture<V> contrib) {
+        return contrib.thenCombineAsync(store, Pair::of, exec);
     }
 
     private void debug(String name, Object param) {
@@ -578,10 +587,5 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public void cancelProgress(String progressId) {
         monitor.cancelProgress(progressId);
-    }
-
-    @Override
-    public CompletableFuture<TypeStore> getStore() {
-        return store;
     }
 }
