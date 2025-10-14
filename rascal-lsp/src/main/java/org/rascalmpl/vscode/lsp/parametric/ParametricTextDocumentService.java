@@ -638,10 +638,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ILanguageContributions contributions(ISourceLocation doc) {
-        return safeLanguage(doc).flatMap(lang -> {
-            ILanguageContributions contrib = contributions.get(lang);
-            return Optional.ofNullable(contrib);
-        }).orElse(new NoContributions());
+        return safeLanguage(doc)
+            .map(contributions::get)
+            .map(ILanguageContributions.class::cast)
+            .flatMap(Optional::ofNullable)
+            .orElseGet(NoContributions::new);
     }
 
     private static String extension(ISourceLocation doc) {
