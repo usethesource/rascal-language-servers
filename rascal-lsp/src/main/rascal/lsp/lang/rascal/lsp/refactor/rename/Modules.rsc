@@ -44,6 +44,7 @@ import Set;
 import String;
 
 import util::FileSystem;
+import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
@@ -192,7 +193,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
         if(new.extension == "rsc") {
             // Moved a single Rascal module
             try {
-                return {<safeRelativeModuleName(old, oldPcfg), safeRelativeModuleName(new, newPcfg), newPcfg>};
+                return {<srcsModule(old, oldPcfg, fileConfig()), srcsModule(new, newPcfg, fileConfig()), newPcfg>};
             } catch PathNotFound(loc f): {
                 msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
                 return {};
@@ -215,7 +216,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
        , loc relFilePath := relativize(new, newFile)
        , loc oldFile := old + relFilePath.path) {
         try {
-            moves += <safeRelativeModuleName(oldFile, oldPcfg), safeRelativeModuleName(newFile, newPcfg), newPcfg>;
+            moves += <srcsModule(oldFile, oldPcfg, fileConfig()), srcsModule(newFile, newPcfg, fileConfig()), newPcfg>;
         } catch PathNotFound(loc f): {
             msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
         }
@@ -228,9 +229,8 @@ tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc
     set[Message] messages = {};
     void registerMessage(Message msg) { messages += msg; }
     lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = [
-        rename
+        *getQualifiedNameChanges(oldLoc, newLoc, getPathConfig, registerMessage)
         | <oldLoc, newLoc> <- renames
-        , tuple[str, str, PathConfig] rename <- getQualifiedNameChanges(oldLoc, newLoc, getPathConfig, registerMessage)
     ];
 
     list[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;

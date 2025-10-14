@@ -52,6 +52,7 @@ import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Monitor;
+import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
@@ -164,14 +165,14 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
             renamesPerModule = (
                 beforeRename: afterRename
                 | renamed(oldLoc, newLoc) <- edits
-                , beforeRename := safeRelativeModuleName(oldLoc, pcfg)
-                , afterRename := safeRelativeModuleName(newLoc, pcfg)
+                , beforeRename := srcsModule(oldLoc, pcfg, fileConfig())
+                , afterRename := srcsModule(newLoc, pcfg, fileConfig())
             );
 
             replacesPerModule = toMap({
                 <name, occ>
                 | changed(file, changes) <- edits
-                , name := safeRelativeModuleName(file, pcfg)
+                , name := srcsModule(file, pcfg, fileConfig())
                 , locs := {c.range | c <- changes}
                 , occ <- locsToOccs(parseModuleWithSpaces(file), oldName, locs)
             });
@@ -180,12 +181,12 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
                 name : <occs, nameAfterRename>
                 | srcDir <- pcfg.srcs
                 , file <- find(srcDir, "rsc")
-                , name := safeRelativeModuleName(file, pcfg)
+                , name := srcsModule(file, pcfg, fileConfig())
                 , occs := replacesPerModule[name] ? {}
                 , nameAfterRename := renamesPerModule[name] ? name
             );
 
-            expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := safeRelativeModuleName(m.file, pcfg));
+            expectedEditsPerModule = (name: <m.nameOccs, m.newName> | m <- modulesByLocation, name := srcsModule(m.file, pcfg, fileConfig()));
 
             if (expectEq(expectedEditsPerModule, editsPerModule, epilogue = "Rename from cursor <focus[0].src> failed:")) {
                 verifyTypeCorrectRenaming(testDir, edits, pcfg);
