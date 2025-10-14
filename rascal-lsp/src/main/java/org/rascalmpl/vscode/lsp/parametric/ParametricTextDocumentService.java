@@ -355,7 +355,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             fileFacts.invalidateAnalyzer(location);
             fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
         } else {
-            logger.trace("Not triggering analyzer, since no language is registered for {}", location);
+            logger.debug("Not triggering analyzer, since no language is registered for {}", location);
         }
     }
 
