@@ -198,10 +198,10 @@ public class TextDocumentState {
         private void parse() {
             parser.apply(location, content)
                 .whenComplete((t, e) -> {
-                    if (e != null && e instanceof CompletionException && e.getCause() != null) {
+                    if (e instanceof CompletionException && e.getCause() != null) {
                         e = e.getCause();
                     }
-                    if (e != null && e instanceof NoContributions.NoContributionException) {
+                    if (e instanceof NoContributions.NoContributionException) {
                         return;
                     }
                     var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable

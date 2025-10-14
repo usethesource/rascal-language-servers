@@ -71,7 +71,7 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        logger.debug("Missing parsing contribution: " + loc);
+        logger.debug("Missing parsing contribution: {}", loc);
         return fail("parsing");
     }
 
@@ -247,6 +247,6 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public void cancelProgress(String progressId) {
-        logger.trace("Cancelling progress " + progressId + " not supported on dummy contributions.");
+        logger.trace("Cancelling progress {} not supported on dummy contributions.", progressId);
     }
 }
