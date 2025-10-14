@@ -641,7 +641,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return safeLanguage(doc).flatMap(lang -> {
             ILanguageContributions contrib = contributions.get(lang);
             return Optional.ofNullable(contrib);
-        }).orElse(new NoContributions(ownExecuter));
+        }).orElse(new NoContributions());
     }
 
     private static String extension(ISourceLocation doc) {
@@ -898,7 +898,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f, TextDocumentState state) {
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
-        state = files.replace(f, state.changeParser(contributions(f)::parsing));
+        state = files.put(f, state.changeParser(contributions(f)::parsing));
         // Update open editor
         handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
         triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);

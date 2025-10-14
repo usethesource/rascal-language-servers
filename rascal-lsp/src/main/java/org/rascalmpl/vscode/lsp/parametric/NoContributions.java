@@ -26,10 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,9 +44,7 @@ public class NoContributions implements ILanguageContributions {
 
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
 
-    private final Duration delay = Duration.ofSeconds(10);
     private final CompletableFuture<Boolean> falseFut = CompletableFuture.completedFuture(false);
-    private Executor exec;
 
     public class NoContributionException extends NotImplementedException {
         private NoContributionException(String message) {
@@ -57,113 +52,103 @@ public class NoContributions implements ILanguageContributions {
         }
     }
 
-    public NoContributions(Executor exec) {
-        this.exec = exec;
+    private <T> InterruptibleFuture<T> failInterruptible(String contribution) {
+        return new InterruptibleFuture<>(fail(contribution), () -> {});
     }
 
-    private <T extends IValue> CompletableFuture<T> delayed(T t) {
-        var delayedExec = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-        return CompletableFuture.supplyAsync(() -> t, delayedExec);
-    }
-
-    private <T> InterruptibleFuture<T> delayedInterruptibleFailure(String contribution) {
-        return new InterruptibleFuture<>(delayedFailure(contribution), () -> {});
-    }
-
-    private <T> CompletableFuture<T> delayedFailure(String contribution) {
-        var delayedExec = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-        return CompletableFuture.supplyAsync(() -> { throw new NoContributionException("Ignoring missing contribution " + contribution); }, delayedExec);
+    private <T> CompletableFuture<T> fail(String contribution) {
+        return CompletableFuture.failedFuture(new NoContributionException("Ignoring missing contribution " + contribution));
     }
 
     @Override
     public String getName() {
-        return "Silent contributions";
+        return "Empty contributions";
     }
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        logger.debug("No contrib: parse");
-        return delayedFailure("parsing");
+        logger.debug("Missing parsing contribution: " + loc);
+        return fail("parsing");
     }
 
     @Override
     public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
-        return delayedInterruptibleFailure("analysis");
+        return failInterruptible("analysis");
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        return delayedInterruptibleFailure("build");
+        return failInterruptible("build");
     }
 
     @Override
     public InterruptibleFuture<IList> documentSymbol(ITree input) {
-        return delayedInterruptibleFailure("documentSymbol");
+        return failInterruptible("documentSymbol");
     }
 
     @Override
     public InterruptibleFuture<IList> codeLens(ITree input) {
-        return delayedInterruptibleFailure("codeLens");
+        return failInterruptible("codeLens");
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
-        return delayedInterruptibleFailure("inlayHint");
+        return failInterruptible("inlayHint");
     }
 
     @Override
     public InterruptibleFuture<IValue> execution(String command) {
-        return delayedInterruptibleFailure("execution");
+        return failInterruptible("execution");
     }
 
     @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
-        return delayedInterruptibleFailure("hover");
+        return failInterruptible("hover");
     }
 
     @Override
     public InterruptibleFuture<ISet> definition(IList focus) {
-        return delayedInterruptibleFailure("definition");
+        return failInterruptible("definition");
     }
 
     @Override
     public InterruptibleFuture<ISet> references(IList focus) {
-        return delayedInterruptibleFailure("references");
+        return failInterruptible("references");
     }
 
     @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
-        return delayedInterruptibleFailure("implementation");
+        return failInterruptible("implementation");
     }
 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
-        return delayedInterruptibleFailure("codeLens");
+        return failInterruptible("codeLens");
     }
 
     @Override
     public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return delayedInterruptibleFailure("selectionRange");
+        return failInterruptible("selectionRange");
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return delayedInterruptibleFailure("prepareRename");
+        return failInterruptible("prepareRename");
     }
 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String name) {
-        return delayedInterruptibleFailure("rename");
+        return failInterruptible("rename");
     }
 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
-        return delayedInterruptibleFailure("didRenameFiles");
+        return failInterruptible("didRenameFiles");
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
-        return delayedFailure("parseCodeActions");
+        return fail("parseCodeActions");
     }
 
     @Override
@@ -243,17 +228,17 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-        return delayedFailure("getAnalyzerSummaryConfig");
+        return fail("getAnalyzerSummaryConfig");
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-        return delayedFailure("getBuilderSummaryConfig");
+        return fail("getBuilderSummaryConfig");
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-        return delayedFailure("getOndemandSummaryConfig");
+        return fail("getOndemandSummaryConfig");
     }
 
     @Override
