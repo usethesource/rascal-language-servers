@@ -40,6 +40,10 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 
+/**
+ * An implementation of {@link ILanguageContributions} that has no contributions.
+ * It is intended to be used as a placeholder for files which do not have any contributions registered.
+ */
 public class NoContributions implements ILanguageContributions {
 
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
