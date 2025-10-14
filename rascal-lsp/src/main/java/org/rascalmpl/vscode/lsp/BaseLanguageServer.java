@@ -174,7 +174,7 @@ public abstract class BaseLanguageServer {
                     startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, threadPool, docService, wsService), threadPool));
                 }
             } catch (IOException e) {
-                logger.fatal("Failure to start TCP server", e);
+                logger.fatal("Failure to start TCP server on port {}", portNumber, e);
             }
         }
     }
