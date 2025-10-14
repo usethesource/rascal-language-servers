@@ -191,7 +191,8 @@ public class RascalLanguageServices {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
         var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
 
-        return runEvaluator("Rascal check", compilerEvaluator,
+        var shortModuleName = URIUtil.getLocationName(URIUtil.removeExtension(file));
+        return runEvaluator("Rascal check (" + shortModuleName +")", compilerEvaluator,
             e -> translateCheckResults((IMap) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(file, VF.set()), exec, false, client);
     }

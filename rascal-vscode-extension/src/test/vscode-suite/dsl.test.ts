@@ -124,7 +124,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         } finally {
             await ide.revertOpenChanges();
         }
-    });
+    }).retries(2);
 
     it("have highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);

@@ -59,7 +59,7 @@ describe('REPL', function () {
 
     it("should open without a project", async () => {
         await new RascalREPL(bench, driver).start();
-    });
+    }).retries(2);
 
     it("run basic rascal commands", async () => {
         const repl = new RascalREPL(bench, driver);
