@@ -241,7 +241,8 @@ tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc
         if (!any(PathConfig changedProj <- projectWithRenamedModule, isReachable(changedProj, wsFolderPcfg))) return {};
 
         return {changed(file, changes)
-            | loc file <- find(wsFolder, "rsc")
+            | loc srcFolder <- wsFolderPcfg.srcs
+            , loc file <- find(srcFolder, "rsc")
             , changes:[_, *_] := getChanges(file, wsFolderPcfg, qualifiedNameChanges, registerMessage)
         };
     });
