@@ -49,11 +49,16 @@ public class NoContributions implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
     private static final CompletableFuture<Boolean> FALSE = CompletableFuture.completedFuture(false);
 
+    private String name;
 
     public class NoContributionException extends NotImplementedException {
         private NoContributionException(String message) {
             super(message);
         }
+    }
+
+    public NoContributions(String name) {
+        this.name = name;
     }
 
     private <T> InterruptibleFuture<T> failInterruptible(String contribution) {
@@ -66,7 +71,7 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public String getName() {
-        return "Empty contributions";
+        return String.format("Empty contributions for '%s'", name);
     }
 
     @Override

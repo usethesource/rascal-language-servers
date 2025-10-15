@@ -642,7 +642,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .map(contributions::get)
             .map(ILanguageContributions.class::cast)
             .flatMap(Optional::ofNullable)
-            .orElseGet(NoContributions::new);
+            .orElseGet(() -> new NoContributions(extension(doc)));
     }
 
     private static String extension(ISourceLocation doc) {
