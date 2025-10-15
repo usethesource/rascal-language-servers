@@ -51,7 +51,7 @@ public class NoContributions implements ILanguageContributions {
 
     private String name;
 
-    public class NoContributionException extends NotImplementedException {
+    public class NoContributionException extends RuntimeException {
         private NoContributionException(String message) {
             super(message);
         }

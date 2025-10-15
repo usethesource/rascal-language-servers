@@ -320,8 +320,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         if (files.remove(loc) == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-                "Unknown file: " + loc, params));
+            throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
     }
@@ -653,7 +652,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ParametricFileFacts fact = facts.get(language(doc));
 
         if (fact == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + doc, doc));
+            throw new ResponseErrorException(unknownFileError(doc, doc));
         }
 
         return fact;
@@ -668,7 +667,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = files.get(loc);
         if (file == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, loc));
+            throw new ResponseErrorException(unknownFileError(loc, loc));
         }
         return file;
     }
@@ -980,5 +979,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void cancelProgress(String progressId) {
         contributions.values().forEach(plex ->
             plex.cancelProgress(progressId));
+    }
+
+    private ResponseError unknownFileError(ISourceLocation loc, Object data) {
+        return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
     }
 }
