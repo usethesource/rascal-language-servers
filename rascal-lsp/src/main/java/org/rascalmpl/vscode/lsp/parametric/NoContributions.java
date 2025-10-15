@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -53,20 +52,12 @@ public class NoContributions implements ILanguageContributions {
 
     public class NoContributionException extends RuntimeException {
         private NoContributionException(String message) {
-            super(message);
+            super("Missing contribution: " + message);
         }
     }
 
     public NoContributions(String name) {
         this.name = name;
-    }
-
-    private <T> InterruptibleFuture<T> failInterruptible(String contribution) {
-        return new InterruptibleFuture<>(fail(contribution), () -> {});
-    }
-
-    private <T> CompletableFuture<T> fail(String contribution) {
-        return CompletableFuture.failedFuture(new NoContributionException("Ignoring missing contribution " + contribution));
     }
 
     @Override
@@ -76,87 +67,87 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        return fail("parsing");
+        throw new NoContributionException("parsing");
     }
 
     @Override
     public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
-        return failInterruptible("analysis");
+        throw new NoContributionException("analysis");
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        return failInterruptible("build");
+        throw new NoContributionException("build");
     }
 
     @Override
     public InterruptibleFuture<IList> documentSymbol(ITree input) {
-        return failInterruptible("documentSymbol");
+        throw new NoContributionException("documentSymbol");
     }
 
     @Override
     public InterruptibleFuture<IList> codeLens(ITree input) {
-        return failInterruptible("codeLens");
+        throw new NoContributionException("codeLens");
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
-        return failInterruptible("inlayHint");
+        throw new NoContributionException("inlayHint");
     }
 
     @Override
     public InterruptibleFuture<IValue> execution(String command) {
-        return failInterruptible("execution");
+        throw new NoContributionException("execution");
     }
 
     @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
-        return failInterruptible("hover");
+        throw new NoContributionException("hover");
     }
 
     @Override
     public InterruptibleFuture<ISet> definition(IList focus) {
-        return failInterruptible("definition");
+        throw new NoContributionException("definition");
     }
 
     @Override
     public InterruptibleFuture<ISet> references(IList focus) {
-        return failInterruptible("references");
+        throw new NoContributionException("references");
     }
 
     @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
-        return failInterruptible("implementation");
+        throw new NoContributionException("implementation");
     }
 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
-        return failInterruptible("codeLens");
+        throw new NoContributionException("codeLens");
     }
 
     @Override
     public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return failInterruptible("selectionRange");
+        throw new NoContributionException("selectionRange");
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return failInterruptible("prepareRename");
+        throw new NoContributionException("prepareRename");
     }
 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String name) {
-        return failInterruptible("rename");
+        throw new NoContributionException("rename");
     }
 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
-        return failInterruptible("didRenameFiles");
+        throw new NoContributionException("didRenameFiles");
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
-        return fail("parseCodeActions");
+        throw new NoContributionException("parseCodeActions");
     }
 
     @Override
@@ -236,17 +227,17 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-        return fail("getAnalyzerSummaryConfig");
+        throw new NoContributionException("getAnalyzerSummaryConfig");
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-        return fail("getBuilderSummaryConfig");
+        throw new NoContributionException("getBuilderSummaryConfig");
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-        return fail("getOndemandSummaryConfig");
+        throw new NoContributionException("getOndemandSummaryConfig");
     }
 
     @Override

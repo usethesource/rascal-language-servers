@@ -38,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.parametric.NoContributions;
+import org.rascalmpl.vscode.lsp.parametric.NoContributions.NoContributionException;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import io.usethesource.vallang.ISourceLocation;
@@ -196,32 +196,33 @@ public class TextDocumentState {
         }
 
         private void parse() {
-            parser.apply(location, content)
-                .whenComplete((t, e) -> {
-                    if (e instanceof CompletionException && e.getCause() != null) {
-                        e = e.getCause();
-                    }
-                    if (e instanceof NoContributions.NoContributionException) {
-                        return;
-                    }
-                    var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
-
-                    // Complete future to get the tree
-                    if (t == null) {
-                        treeAsync.completeExceptionally(e);
-                    } else {
-                        var tree = new Versioned<>(version, t, timestamp);
-                        Versioned.replaceIfNewer(last, tree);
-                        if (diagnosticsList.isEmpty()) {
-                            Versioned.replaceIfNewer(lastWithoutErrors, tree);
+            try {
+                parser.apply(location, content)
+                    .whenComplete((t, e) -> {
+                        if (e instanceof CompletionException && e.getCause() != null) {
+                            e = e.getCause();
                         }
-                        treeAsync.complete(tree);
-                    }
+                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
 
-                    // Complete future to get diagnostics
-                    var diagnostics = new Versioned<>(version, diagnosticsList);
-                    diagnosticsAsync.complete(diagnostics);
-                });
+                        // Complete future to get the tree
+                        if (t == null) {
+                            treeAsync.completeExceptionally(e);
+                        } else {
+                            var tree = new Versioned<>(version, t, timestamp);
+                            Versioned.replaceIfNewer(last, tree);
+                            if (diagnosticsList.isEmpty()) {
+                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                            }
+                            treeAsync.complete(tree);
+                        }
+
+                        // Complete future to get diagnostics
+                        var diagnostics = new Versioned<>(version, diagnosticsList);
+                        diagnosticsAsync.complete(diagnostics);
+                    });
+            } catch (NoContributionException e) {
+                logger.debug("Ignoring missing parser for {}", location, e);
+            }
         }
 
         private List<Diagnostics.Template> toDiagnosticsList(@Nullable ITree tree, @Nullable Throwable excp) {
