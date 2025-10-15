@@ -889,22 +889,25 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
-        for (var e : files.entrySet()) {
-            var f = e.getKey();
+        for (var f : files.keySet()) {
             if (extensions.contains(extension(f))) {
-                updateFileState(lang, f, e.getValue());
+                updateFileState(lang, f);
             }
         }
     }
 
-    private void updateFileState(LanguageParameter lang, ISourceLocation f, TextDocumentState state) {
+    private void updateFileState(LanguageParameter lang, ISourceLocation f) {
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
-        var newState = state.changeParser(contributions(f)::parsing);
-        if (files.replace(f, state, newState)) {
-            // Update open editor
-            handleParsingErrors(newState, newState.getCurrentDiagnosticsAsync());
-            triggerAnalyzer(f, newState.getCurrentContent().version(), NORMAL_DEBOUNCE);
+        // Since we cannot know what happened to this file before we were called, we need to be careful about races.
+        // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
+        var state = files.computeIfPresent(f, (loc, currentState) -> currentState.changeParser(contributions(loc)::parsing));
+        if (state == null) {
+            logger.debug("Updating the parser of {} failed, since it was closed.", f);
+            return;
         }
+        // Update open editor
+        handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
