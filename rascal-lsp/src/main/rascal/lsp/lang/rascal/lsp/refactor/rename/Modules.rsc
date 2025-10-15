@@ -193,7 +193,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
         if(new.extension == "rsc") {
             // Moved a single Rascal module
             try {
-                return {<srcsModule(old, oldPcfg, fileConfig()), srcsModule(new, newPcfg, fileConfig()), newPcfg>};
+                return {<normalizeEscaping(srcsModule(old, oldPcfg, fileConfig())), normalizeEscaping(srcsModule(new, newPcfg, fileConfig())), newPcfg>};
             } catch PathNotFound(loc f): {
                 msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
                 return {};
@@ -216,7 +216,7 @@ set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathC
        , loc relFilePath := relativize(new, newFile)
        , loc oldFile := old + relFilePath.path) {
         try {
-            moves += <srcsModule(oldFile, oldPcfg, fileConfig()), srcsModule(newFile, newPcfg, fileConfig()), newPcfg>;
+            moves += <normalizeEscaping(srcsModule(oldFile, oldPcfg, fileConfig())), normalizeEscaping(srcsModule(newFile, newPcfg, fileConfig())), newPcfg>;
         } catch PathNotFound(loc f): {
             msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
         }
