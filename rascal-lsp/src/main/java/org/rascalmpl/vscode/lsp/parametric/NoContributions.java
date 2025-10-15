@@ -161,72 +161,72 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasAnalysis() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasBuild() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeLens() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasRename() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecution() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasHover() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasDefinition() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasReferences() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasImplementation() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
-        return FALSE;
+        throw new NotImplementedException("No `has...` on empty contributions.");
     }
 
     @Override
