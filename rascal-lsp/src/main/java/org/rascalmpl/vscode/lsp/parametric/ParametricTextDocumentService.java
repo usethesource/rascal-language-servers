@@ -653,7 +653,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ParametricFileFacts fact = facts.get(language(doc));
 
         if (fact == null) {
-            throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + doc, doc));
         }
 
         return fact;

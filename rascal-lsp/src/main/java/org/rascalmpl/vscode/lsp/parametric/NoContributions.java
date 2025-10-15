@@ -47,8 +47,8 @@ import io.usethesource.vallang.IValue;
 public class NoContributions implements ILanguageContributions {
 
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
+    private static final CompletableFuture<Boolean> FALSE = CompletableFuture.completedFuture(false);
 
-    private final CompletableFuture<Boolean> falseFut = CompletableFuture.completedFuture(false);
 
     public class NoContributionException extends NotImplementedException {
         private NoContributionException(String message) {
@@ -71,7 +71,6 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        logger.debug("Missing parsing contribution: {}", loc);
         return fail("parsing");
     }
 
@@ -157,77 +156,77 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasAnalysis() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasBuild() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeLens() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasRename() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecution() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasHover() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDefinition() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasReferences() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasImplementation() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
-        return falseFut;
+        return FALSE;
     }
 
     @Override
