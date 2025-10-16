@@ -32,6 +32,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -55,6 +57,7 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.type.TypeStore;
 
 public class ParserOnlyContribution implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
@@ -202,6 +205,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(Pair.of(VF.list(), new TypeStore()));
+    }
+
+    @Override
+    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> hierarchyItem, Function<TypeStore, IConstructor> direction) {
+        return InterruptibleFuture.completedFuture(Pair.of(VF.list(), new TypeStore()));
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
@@ -268,6 +281,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
         return CompletableFuture.completedFuture(false);
     }
 
