@@ -14,7 +14,7 @@ on:
       - '**'
 
 env:
-  MAVEN_OPTS: '-Xmx4G -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true  -Drascal.compile.skip -Drascal.tutor.skip -Drascal.package.skip'
+  MAVEN_OPTS: '-Xmx4G -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true  -Drascal.compile.skip -Drascal.tutor.skip -Drascal.package.skip'
 
 permissions:
   checks: write
@@ -45,7 +45,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -f ./rascal-lsp/pom.xml -Pcoverage verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers 
+        run: mvn -B -f ./rascal-lsp/pom.xml -Pcoverage verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers 
 
   eslint:
     name: eslint
@@ -87,7 +87,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: Run checkstyle and print errors
-        run: mvn checkstyle:checkstyle checkstyle:check
+        run: mvn -B checkstyle:checkstyle checkstyle:check
         working-directory: ./rascal-lsp
       - name: Report build results
         uses: gmazzo/publish-report-annotations@v1 # target latest major
@@ -140,7 +140,7 @@ jobs:
 
       - if: ${{ matrix.language == 'java' }}
         name: Build java 
-        run: mvn compile
+        run: mvn -B compile
         working-directory: rascal-lsp/
 
       - name: Perform CodeQL Analysis
