@@ -57,14 +57,11 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-
 import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver {
@@ -100,14 +97,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         return result;
     }
 
-    private static <T extends IOResult> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
+    private static <T> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
         try {
-            var waitingForServer = target.apply(getServer());
-            var result = waitingForServer.get(5, TimeUnit.MINUTES);
-            if (result.getErrorCode() != 0) {
-                throw new IOException("" + result.getErrorCode() + ": " + result.getErrorMessage());
-            }
-            return result;
+            return target.apply(getServer()).get(5, TimeUnit.MINUTES);
         }
         catch (TimeoutException te) {
             throw new IOException("VSCode took too long to reply, interruption to avoid deadlocks");
