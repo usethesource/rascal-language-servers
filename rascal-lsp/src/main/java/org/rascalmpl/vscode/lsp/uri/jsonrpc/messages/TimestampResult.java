@@ -29,17 +29,16 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public class TimestampResult extends IOResult {
-    private @Nullable Long timestamp;
+public class TimestampResult {
+    private Long timestamp;
 
-    public TimestampResult(int errorCode, @Nullable String errorMessage, @Nullable Long timestamp) {
-        super(errorCode, errorMessage);
+    public TimestampResult(Long timestamp) {
         this.timestamp = timestamp;
     }
 
     public TimestampResult() {}
 
-    public @Nullable Long getTimestamp() {
+    public Long getTimestamp() {
         return timestamp;
     }
 
