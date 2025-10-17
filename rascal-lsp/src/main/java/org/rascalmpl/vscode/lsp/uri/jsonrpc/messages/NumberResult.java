@@ -28,19 +28,17 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class NumberResult extends IOResult {
-    private @Nullable Integer result;
+public class NumberResult {
+    private Integer result;
 
-    public NumberResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Integer result) {
-        super(errorCode, errorMessage);
+    public NumberResult(Integer result) {
         this.result = result;
     }
 
     public NumberResult() {}
 
-    public @Nullable Integer getResult() {
+    public Integer getResult() {
         return result;
     }
 

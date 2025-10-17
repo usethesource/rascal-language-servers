@@ -30,18 +30,17 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class ReadFileResult extends IOResult {
+public class ReadFileResult {
 
-    private @Nullable String contents;
+    private String contents;
 
-    public ReadFileResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable String contents) {
-        super(errorCode, errorMessage);
+    public ReadFileResult(String contents) {
         this.contents = contents;
     }
 
     public ReadFileResult() {}
 
-    public @Nullable String getContents() {
+    public String getContents() {
         return contents;
     }
 

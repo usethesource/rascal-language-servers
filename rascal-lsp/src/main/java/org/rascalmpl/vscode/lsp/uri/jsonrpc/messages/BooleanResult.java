@@ -30,17 +30,16 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class BooleanResult extends IOResult {
-    private @Nullable Boolean result;
+public class BooleanResult {
+    private Boolean result;
 
-    public BooleanResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean result) {
-        super(errorCode, errorMessage);
+    public BooleanResult(@NonNull int errorCode, String errorMessage, Boolean result) {
         this.result = result;
     }
 
     public BooleanResult() {}
 
-    public @Nullable Boolean getResult() {
+    public Boolean getResult() {
         return result;
     }
 
