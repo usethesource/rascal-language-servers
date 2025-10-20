@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -166,12 +167,16 @@ public class RascalLanguageServices {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getLastTreeWithoutErrors();
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
                 if (tree != null) {
                     return tree.get();
                 }
             } catch (ResponseErrorException e1) {
                 // File is not open in the IDE
+            } catch (InterruptedException e1) {
+                // Thread was interrupted
+            } catch (ExecutionException e1) {
+                // Parse threw an exception
             }
             // Parse the source file
             try (var reader = URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation)) {
