@@ -54,6 +54,10 @@ import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionOptions;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -124,6 +128,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
+import org.rascalmpl.vscode.lsp.util.Completion;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
@@ -239,6 +244,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
+        result.setCompletionProvider(new CompletionOptions(false, null));
     }
 
     private String getRascalMetaCommandName() {
@@ -826,6 +832,34 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                         .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
                     .collect(Collectors.toUnmodifiableList()))),
             Collections::emptyList);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
+        logger.debug("Completion: {} at {} with {}", params.getTextDocument(), params.getPosition(), params.getContext());
+
+        var loc = Locations.toLoc(params.getTextDocument());
+        var contrib = contributions(loc);
+        var file = getFile(loc);
+
+        final TypeStore store; // TODO Get store from contribs
+        final String lastCharacter; // TODO Get the last character before the cursor
+        final var tcs = contrib.completionTriggerCharacters(); // TODO Do something with this; set in server capabilites?
+
+        var completion = new Completion(store);
+
+        return recoverExceptions(file.getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(t -> {
+                var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
+                var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
+                var cursorOffset = columns.get(loc).calculateInverseOffset(pos.getLine(), pos.getCharacter());
+                var trigger = completion.triggerKindToRascal(params.getContext().getTriggerKind(), lastCharacter);
+                var completionItems = contrib.completion(focus, VF.integer(cursorOffset), trigger);
+                return completionItems.get();
+            })
+            .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName()))
+            .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override

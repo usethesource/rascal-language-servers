@@ -36,5 +36,6 @@ import org.apache.commons.lang3.tuple.Pair;
 public interface LineColumnOffsetMap {
     int translateColumn(int line, int column, boolean isEnd);
     int translateInverseColumn(int line, int column, boolean isEnd);
+    int calculateInverseOffset(int line, int column);
     Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn);
 }

@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -202,6 +203,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        return CompletableFuture.completedFuture(VF.list());
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasHover() {
         return CompletableFuture.completedFuture(false);
     }
@@ -268,6 +279,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCompletion() {
         return CompletableFuture.completedFuture(false);
     }
 

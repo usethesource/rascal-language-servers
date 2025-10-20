@@ -36,6 +36,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -69,6 +70,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> completion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -84,6 +86,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
     private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCompletion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -327,13 +330,18 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return hasSelectionRange;
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return flatten(selectionRange, c -> c.selectionRange(focus));
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        return completion.thenCompose(c -> c.completionTriggerCharacters());
     }
 
     @Override
@@ -392,6 +400,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasRename() {
         return hasRename;
     }
@@ -399,6 +412,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
         return hasDidRenameFiles;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCompletion() {
+        return hasCompletion;
     }
 
     @Override
