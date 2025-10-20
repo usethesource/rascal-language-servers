@@ -659,9 +659,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        var loc = Locations.toLoc(doc);
-        return files.computeIfAbsent(loc,
-            l -> new TextDocumentState(contributions(loc)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
+        return files.computeIfAbsent(Locations.toLoc(doc),
+            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
