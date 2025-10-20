@@ -80,7 +80,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                     try {
                         ml = locateRascalModule(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders);
                         if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
-                            if (printlnExp("Transitive dependency <ml> has parse error(s): ", hasParseErrors(mlpt))) {
+                            if (hasParseErrors(mlpt)) {
                                 return {<l, error("Cannot typecheck this module, since <modName> has parse error(s) (<tree.src.top>).", openFileHeader.src)>};
                             }
                             checkForImports += mlpt;
