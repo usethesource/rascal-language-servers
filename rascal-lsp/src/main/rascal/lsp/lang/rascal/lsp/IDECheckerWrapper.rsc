@@ -31,6 +31,7 @@ import List;
 import Relation;
 import Set;
 import String;
+import ValueIO;
 import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
@@ -50,8 +51,8 @@ import lang::rascalcore::check::ModuleLocations;
     source locations can occur in the `libs` entry of the PathConfig of a project. Note that for `lib`
     locations, the type checker uses `tpl` files that are packaged with libraries.
 }
-set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
-    = job("Rascal check", set[ModuleMessages](void(str, int) step) {
+map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
+    = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
     checkForImports = [getParseTree(l)];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
@@ -86,7 +87,7 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        return {program(l, {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)})};
+        return (l : {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)});
     }
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
@@ -97,14 +98,21 @@ set[ModuleMessages] checkFile(loc l, set[loc] workspaceFolders, start[Module](lo
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
             step3("Checked module in `<project.file>`", 1);
-            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
+            pcfg = getPathConfig(project);
+            checkOutdatedPathConfig(pcfg);
+            modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
+            if (modulesToCheck != []) {
+                msgs += check(modulesToCheck, rascalCompilerConfig(pcfg));
+            }
         }
         return true;
     }, totalWork=size(upstreamDependencies));
 
     step("Checking module <l>", 1);
-    msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
-    return {*msgs};
+    pcfg = getPathConfig(initialProject);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
+    return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
 private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
@@ -115,6 +123,39 @@ private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
         return false;
     }
 }
+
+private list[loc] calculateOutdated(set[loc] modules, PathConfig pcfg) = [ m | m <- modules, tplExpired(m, pcfg)];
+
+private LanguageFileConfig rascalLFC = fileConfig();
+
+private bool tplExpired(loc m, PathConfig pcfg) {
+    tpl = binFile(srcsModule(m, pcfg, rascalLFC), pcfg, rascalLFC);
+    return !exists(tpl) || lastModified(m) >= lastModified(tpl);
+}
+
+loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
+
+void checkOutdatedPathConfig(PathConfig pcfg) {
+    pcfgFile = pathConfigFile(pcfg);
+    try {
+        if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
+            // We do not know the previous path config, or it changed
+            // Be safe and remove TPLs
+            for (loc f <- find(pcfg.bin, "tpl")) {
+                try {
+                    remove(f);
+                } catch IO(_): {
+                    jobWarning("Cannot remove TPL", f);
+                }
+            }
+            writeBinaryValueFile(pcfgFile, pcfg);
+        }
+    } catch IO(str msg): {
+        jobWarning(msg, pcfg.bin);
+    }
+}
+
+bool tplInputsChanged(PathConfig old, PathConfig new) = old[messages=[]] != new[messages=[]];
 
 loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
@@ -156,4 +197,13 @@ loc inferProjectRoot(loc member) {
     }
 
     return current;
+}
+
+map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
+    set[Message] empty = {};
+    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
+    for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
+        result[m.at.top]?empty += {m};
+    }
+    return result;
 }

@@ -51,11 +51,6 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/supplyProjectCompilationClasspath")
-    default CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
-        throw new UnsupportedOperationException();
-    }
-
     @JsonRequest("rascal/supplyPathConfig")
     default CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
         throw new UnsupportedOperationException();
@@ -63,4 +58,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
 
     @JsonNotification("rascal/vfs/register")
     void registerVFS(VFSRegister registration);
+
+    @JsonNotification("rascal/logLevel")
+    void setMinimumLogLevel(String level);
 }

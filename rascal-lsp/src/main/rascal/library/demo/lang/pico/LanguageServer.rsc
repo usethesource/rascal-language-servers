@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @description{
 The core functionality of this module is built upon these concepts:
 * ((registerLanguage)) for enabling your language services for a given file extension _in the current IDE_.
-* ((Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
+* ((LanguageServer-Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
 * A ((LanguageService)) is a specific feature for an IDE. Each service comes with one Rascal function that implements it.
 }
 module demo::lang::pico::LanguageServer
@@ -51,7 +51,7 @@ private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
 @description{
 Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
-with the ((Language)) definition later.
+with the ((LanguageServer-Language)) definition later.
 }
 set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
@@ -92,7 +92,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, !hasParseErrors(var)]
+      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, var.id?]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
@@ -112,7 +112,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, !hasParseErrors(var)};
+    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, var.id?};
 
     // uses of identifiers
     rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};

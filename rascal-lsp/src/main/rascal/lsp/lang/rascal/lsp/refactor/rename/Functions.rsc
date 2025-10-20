@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Functions
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Constructors;
 
@@ -41,7 +41,7 @@ bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs:{<_, _, _, fu
     bool unsupported = false;
     for (d <- cursorDefs, d.defInfo.atype is afunc, "java" in d.defInfo.modifiers) {
         unsupported = true;
-        r.error(d.defined, "Unsupported: renaming a function implemented in Java.");
+        r.msg(error(d.defined, "Unsupported: renaming a function implemented in Java."));
     }
     return unsupported;
 }
@@ -54,4 +54,4 @@ set[Define] findAdditionalDefinitions(set[Define] cursorDefs:{<_, _, _, function
 set[Define] findAdditionalFunctionDefinitions(set[Define] cursorDefs, TModel tm) =
     {tm.definitions[d] | loc d <- (tm.defines<idRole, defined>)[functionId()], rascalMayOverloadSameName(cursorDefs.defined + d, tm.definitions)};
 
-tuple[type[Tree] as, str desc] asType(functionId()) = <#Name, "function name">;
+tuple[type[Tree] as, str desc] asType(functionId(), _) = <#Name, "function name">;

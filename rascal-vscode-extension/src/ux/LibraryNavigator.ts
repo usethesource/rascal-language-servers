@@ -33,7 +33,7 @@ export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibN
     private changeEmitter = new vscode.EventEmitter<RascalLibNode | undefined>();
     readonly onDidChangeTreeData = this.changeEmitter.event;
 
-    constructor(private readonly rascalClient: Promise<BaseLanguageClient>) {
+    constructor(private readonly rascalClient: Promise<BaseLanguageClient>, private readonly log: vscode.LogOutputChannel) {
         vscode.workspace.onDidChangeWorkspaceFolders(_e => {
             this.changeEmitter.fire(undefined);
         });
@@ -44,7 +44,7 @@ export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibN
     }
     getChildren(element?: RascalLibNode | undefined): vscode.ProviderResult<RascalLibNode[]> {
         if (element === undefined) {
-            return getRascalProjects(this.rascalClient);
+            return getRascalProjects(this.rascalClient, this.log);
         }
         return element.getChildren();
     }
@@ -55,9 +55,12 @@ export class RascalLibraryProvider implements vscode.TreeDataProvider<RascalLibN
 }
 
 abstract class RascalLibNode extends vscode.TreeItem {
-    constructor(resourceUriOrLabel: vscode.Uri | string, collapsibleState: vscode.TreeItemCollapsibleState | undefined, readonly parent: RascalLibNode | undefined) {
+    constructor(resourceUriOrLabel: vscode.Uri | string, collapsibleState: vscode.TreeItemCollapsibleState | undefined, readonly parent: RascalLibNode | undefined, readonly log?: vscode.LogOutputChannel) {
         /* overloaded constructors are strange in typescript */
         super(<never>resourceUriOrLabel, collapsibleState);
+        if (parent) {
+            this.log = parent.log;
+        }
     }
 
     abstract getChildren(): vscode.ProviderResult<RascalLibNode[]>;
@@ -69,8 +72,8 @@ enum PathConfigMode {
     compiler = 1
 }
 class RascalProjectRoot extends RascalLibNode {
-    constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<BaseLanguageClient>) {
-        super(name, vscode.TreeItemCollapsibleState.Collapsed, undefined);
+    constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<BaseLanguageClient>, override readonly log: vscode.LogOutputChannel) {
+        super(name, vscode.TreeItemCollapsibleState.Collapsed, undefined, log);
         this.id = `$project__${name}`;
         this.iconPath = new vscode.ThemeIcon("outline-view-icon");
     }
@@ -136,11 +139,11 @@ class RascalLibraryRoot extends RascalLibNode {
             // we want to be able to jump into the jar, so let's change it to a rascal uri
             loc = loc.with({scheme: 'jar+file', path: loc.path + "!/"});
         }
-        return getChildren(loc, this);
+        return getChildren(loc, this, this.parent!.log!);
     }
 }
 
-async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < RascalLibNode[] > {
+async function getChildren(loc: vscode.Uri, parent: RascalLibNode, log: vscode.LogOutputChannel): Promise < RascalLibNode[] > {
     const result: RascalLibNode[] = [];
     try {
         const children = await vscode.workspace.fs.readDirectory(loc);
@@ -153,7 +156,9 @@ async function getChildren(loc: vscode.Uri, parent: RascalLibNode): Promise < Ra
             }
         }
     } catch (_not_resolved) {
-        console.log(_not_resolved);
+        if (_not_resolved) {
+            log.debug(JSON.stringify(_not_resolved));
+        }
         // swallow
     }
     return result;
@@ -170,7 +175,7 @@ class RascalFSDirEntry extends RascalLibNode {
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        return getChildren(this.resourceUri!, this);
+        return getChildren(this.resourceUri!, this, this.parent!.log!);
     }
 }
 
@@ -185,13 +190,13 @@ class RascalFSFileEntry extends RascalLibNode {
     }
 }
 
-async function getRascalProjects(rascalClient: Promise<BaseLanguageClient>): Promise<RascalLibNode[]> {
+async function getRascalProjects(rascalClient: Promise<BaseLanguageClient>, log: vscode.LogOutputChannel): Promise<RascalLibNode[]> {
     const result: RascalLibNode[] = [];
     for (const wf of vscode.workspace.workspaceFolders || []) {
         try {
             await vscode.workspace.fs.stat(buildMFChildPath(wf.uri));
             const projectName = posix.basename(wf.uri.path);
-            result.push(new RascalProjectRoot(projectName, wf.uri, rascalClient));
+            result.push(new RascalProjectRoot(projectName, wf.uri, rascalClient, log));
         }
         catch (_missingFile) {
             // ignore

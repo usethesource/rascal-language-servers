@@ -63,7 +63,7 @@ test bool multiModuleData() = testRenameOccurrences({
     byText("values::Bool", "
             'data Bool = t() | f();
             '
-            'Bool and(Bool l, Bool r) = r is t ? l : f;
+            'Bool and(Bool l, Bool r) = r is t ? l : f();
             '"
             , {1, 2, 3, 4})
     , byText("Main", "import values::Bool;

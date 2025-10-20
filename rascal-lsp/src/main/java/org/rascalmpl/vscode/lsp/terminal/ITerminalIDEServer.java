@@ -38,8 +38,7 @@ import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.ShowDocumentResult;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -67,7 +66,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonRequest
-    default CompletableFuture<ShowDocumentResult> edit(ShowDocumentParams edit)  {
+    default CompletableFuture<Void> edit(EditorParameter edit)  {
         throw new UnsupportedOperationException();
     }
 
@@ -233,6 +232,30 @@ public interface ITerminalIDEServer {
         }
     }
 
+    public static class EditorParameter {
+        private String uri;
+        private int viewColumn;
+        private @Nullable Range range;
+
+        public EditorParameter(String uri, @Nullable Range range, int viewColumn) {
+            this.uri = uri;
+            this.range = range;
+            this.viewColumn = viewColumn;
+        }
+
+        public @Nullable Range getRange() {
+            return range;
+        }
+
+        public String getUri() {
+            return uri;
+        }
+
+        public int getViewColumn() {
+            return viewColumn;
+        }
+    }
+
     public static class BrowseParameter {
         private String uri;
         private String title;
@@ -330,7 +353,7 @@ public interface ITerminalIDEServer {
             return mainModule;
         }
 
-        public @MonotonicNonNull ParserSpecification getPrecompiledParser() {
+        public @Nullable ParserSpecification getPrecompiledParser() {
             return precompiledParser;
         }
 

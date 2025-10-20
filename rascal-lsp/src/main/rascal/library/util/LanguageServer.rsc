@@ -99,7 +99,7 @@ in between is a spine of language constructs ((Library:ParseTree)) nodes between
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
 This means that:
-* every next element in the list is one of the children of the previous.
+* every next element in the list is (one of) the parents of the previous.
 * typically the list starts with a smallest tree and ends with the entire `start` tree.
 * singleton lists may occur in case the cursor is on a layout or literal element of the top production.
 * the `start[X]` tree is typically preceded by the `X` tree.
@@ -750,13 +750,12 @@ and input are computed in-sync.
 * ((util::IDEServices::applyDocumentsEdits)) and `edits` when pointing to other files than the current one, may
 or may not work on the current editor contents. If you want to be safe it's best to only edit the current file.
 }
-data CodeAction
-    = action(
-        list[DocumentEdit] edits = [],
-        Command command          = noop(),
-        str title                = command.title,
-        CodeActionKind kind      = quickfix()
-    );
+data CodeAction(
+    list[DocumentEdit] edits = [],
+    Command command          = noop(),
+    str title                = command.title,
+    CodeActionKind kind      = quickfix())
+    = action();
 
 @synopsis{Kinds are used to prioritize menu options and choose relevant icons in the UI.}
 @description{

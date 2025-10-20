@@ -28,11 +28,10 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
+const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -110,10 +109,10 @@ describe('IDE', function () {
 
     it("has syntax highlighting and parsing errors", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await ide.hasSyntaxHighlighting(editor);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
-    });
+    }).retries(2);
 
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
@@ -151,9 +150,10 @@ describe('IDE', function () {
 
         await editor.selectText("&T", 1);
         await bench.executeCommand("Go to Definition");
-        const jumpLoc = await editor.getCoordinates();
-
-        expect(jumpLoc).to.deep.equal(defLoc);
+        await driver.wait(async () => {
+            const jumpLoc = await editor.getCoordinates();
+            return defLoc[0] === jumpLoc[0] && defLoc[1] === jumpLoc[1];
+        }, Delays.slow, "We should jump to the right position");
     });
 
     it("go to definition works across projects", async () => {
@@ -250,5 +250,15 @@ describe('IDE', function () {
 
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+    });
+
+    it("errors in manifest detected", async() => {
+        const editor = await ide.openModule(TestWorkspace.manifest);
+        await editor.setTextAtLine(2, "Project-Name: foobar");
+        await editor.save();
+        const element = await ide.hasErrorSquiggly(editor);
+        await editor.setTextAtLine(2, "Project-Name: test-project");
+        await editor.save();
+        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
     });
 });

@@ -91,6 +91,15 @@ decls = "
     '  ;
 ");
 
+@expected{illegalRename}
+test bool exceptedConstructorInvalidName() = testRename("",
+decls = "
+    'syntax S
+    '  = foo: \"foo\" S s
+    '  | single: S s!foo
+    '  ;
+", newName = "Foo");
+
 test bool exceptConstructorDifferentNonterminal() = testRenameOccurrences({0, 1, 2}, "",
 decls = "
     'syntax S
@@ -159,11 +168,26 @@ test bool nonterminalInvalidName() = testRename("", decls ="
 ", oldName = "Foo", newName = "foo");
 
 @expected{illegalRename}
-test bool constructorInvalidName() = testRename("", decls ="
-    'syntax S
-    '   = foo: \"foo\"
-    '   ;
+test bool grammarConstructorPascalName() = testRenameOccurrences({0}, "", decls ="
+    'syntax S = foo: \"foo\";
 ", newName = "Foo");
+
+@expected{illegalRename}
+test bool grammarConstructorUnderscoreName() = testRenameOccurrences({0}, "", decls ="
+    'syntax S = foo: \"foo\";
+", newName = "_Foo");
+
+@expected{illegalRename}
+test bool labelPascalName() = testRename("", decls ="
+    'syntax S = s: \"s\";
+    'syntax T = \"withS\" S foo;
+", newName = "Foo");
+
+@expected{illegalRename}
+test bool labelUnderscoreName() = testRename("", decls ="
+    'syntax S = s: \"s\";
+    'syntax T = \"withS\" S foo;
+", newName = "_foo");
 
 @expected{illegalRename}
 test bool constructorFieldInvalidName() = testRename("", decls ="

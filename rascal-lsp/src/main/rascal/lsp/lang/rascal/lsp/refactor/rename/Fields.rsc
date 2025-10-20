@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Fields
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascalcore::check::ATypeBase;
@@ -143,10 +143,10 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
 }
 
 // Positional fields
-tuple[type[Tree] as, str desc] asType(fieldId()) = <#NonterminalLabel, "field name">;
+tuple[type[Tree] as, str desc] asType(fieldId(), _) = <#NonterminalLabel, "field name">;
 
 // Keyword fields
-tuple[type[Tree] as, str desc] asType(keywordFieldId()) = <#Name, "keyword field name">;
+tuple[type[Tree] as, str desc] asType(keywordFieldId(), _) = <#Name, "keyword field name">;
 
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_], Renamer _) = (n1 := n2);
 
@@ -155,7 +155,7 @@ bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expressi
     if (just(AType lhsType) := getFact(tm, e.src), builtinFields[lhsType]?) {
         for (fieldName <- domain(builtinFields[lhsType])) {
             if (n1 := [Name] fieldName, n2 := n1) {
-                r.error(n1, "Cannot rename builtin field \'<fieldName>\'");
+                r.msg(error(n1, "Cannot rename builtin field \'<fieldName>\'"));
                 return true;
             }
         }

@@ -26,20 +26,20 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
-import java.util.concurrent.Executors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         try {
-            startLanguageServer(Executors.newCachedThreadPool(), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
+            startLanguageServer(NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal(e.getMessage(), e);
+            logger.fatal("Starting the server failed", e);
         }
     }
 }

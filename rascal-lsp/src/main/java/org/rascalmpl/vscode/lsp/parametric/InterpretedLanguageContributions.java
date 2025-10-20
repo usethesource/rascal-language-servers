@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -124,7 +125,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         this.exec = exec;
 
         try {
-            var pcfg = new PathConfig().parse(lang.getPathConfig());
+            var pcfg = PathConfig.parse(lang.getPathConfig());
             pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
             monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
@@ -138,7 +139,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
 
-            this.parsing = getFunctionFor(contributions, LanguageContributions.PARSING);
+            this.parsing = requireFunction(contributions, LanguageContributions.PARSING);
             this.analysis = getFunctionFor(contributions, LanguageContributions.ANALYSIS);
             this.build = getFunctionFor(contributions, LanguageContributions.BUILD);
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
@@ -241,16 +242,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
-        return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
-            .getValue();
+        return (ISet) eval.call(eval.getMonitor(), lang.getMainFunction());
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
         return store.thenApply(commandStore -> {
             try {
-                var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+                var codeActionADT = commandStore.lookupAbstractDataType("CodeAction");
+                if (codeActionADT == null) {
+                    throw new IllegalArgumentException("CodeAction is not defined in environment");
+                }
+                return (IList) new StandardTextReader().read(VF, commandStore, TypeFactory.getInstance().listType(codeActionADT), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
@@ -263,7 +266,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
-                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+                var commandADT = commandStore.lookupAbstractDataType("Command");
+                if (commandADT == null) {
+                    throw new IllegalArgumentException("Command is not defined in environment");
+                }
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandADT, new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
                 throw new IllegalArgumentException("The command could not be parsed", e);
@@ -284,13 +291,22 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
+    private static CompletableFuture<IFunction> requireFunction(CompletableFuture<ISet> contributions, String cons) {
+        return getContribution(contributions, cons).thenApply(con -> {
+            if (con == null) {
+                throw new IllegalStateException("Missing required contribution: "+ cons);
+            }
+            return (IFunction)con.get(0);
+        });
+    }
+
     private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
-        return getContribution(contributions, cons).thenApply(contribution -> (IFunction) contribution.get(0));
+        return getContribution(contributions, cons).thenApply(contribution -> contribution != null ? (IFunction) contribution.get(0) : null);
     }
 
     private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
         return getContribution(contributions, cons).thenApply(contribution ->
-            (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam)
+            contribution != null ? (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam) : null
         );
     }
 
@@ -330,8 +346,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        debug(LanguageContributions.INLAY_HINT, input != null ? TreeAdapter.getLocation(input) : null);
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
+        debug(LanguageContributions.INLAY_HINT, TreeAdapter.getLocation(input));
         return execFunction(LanguageContributions.INLAY_HINT, inlayHint, VF.list(), input);
     }
 
@@ -488,7 +504,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
 
@@ -499,13 +515,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 if (func == null) {
                     logger.warn("Command is being executed without a registered command executor; for language {}", name);
                     throw new IllegalStateException("No command executor registered for " + name);
+
                 }
 
-                return EvaluatorUtil.<@Nullable IValue>runEvaluator(
+                return EvaluatorUtil.runEvaluator(
                     "executeCommand",
                     eval,
                     ev -> func.call(cons),
-                    null,
+                    VF.bool(false),
                     exec,
                     true,
                     client
@@ -514,7 +531,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         ), exec);
     }
 
-    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+    private <T extends @NonNull Object> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         if (target == null) {
             return InterruptibleFuture.completedFuture(defaultResult);
         }

@@ -32,11 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
-import com.google.gson.JsonPrimitive;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -57,10 +55,13 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.uri.URIUtil;
+import com.google.gson.JsonPrimitive;
 
-public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
+
+    private @MonotonicNonNull LanguageClient client;
 
     public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
@@ -70,7 +71,6 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-
     private final List<FileOperationPattern> interestedInFiles;
 
 
@@ -79,7 +79,6 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         this.ownExecuter = exec;
         this.interestedInFiles = interestedInFiles;
     }
-
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
         this.workspaceFolders.clear();
@@ -91,7 +90,7 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
         WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
         if (clientWorkspaceCap != null) {
-            if (clientWorkspaceCap.getWorkspaceFolders()) {
+            if (clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
                 var folderOptions = new WorkspaceFoldersOptions();
                 folderOptions.setSupported(true);
                 folderOptions.setChangeNotifications(true);
@@ -104,11 +103,11 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
                 .collect(Collectors.toList())
             );
             boolean watchesSet = false;
-            if (clientWorkspaceCap.getFileOperations().getDidRename()) {
+            if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
                 fileOperationCapabilities.setDidRename(whichFiles);
                 watchesSet = true;
             }
-            if (clientWorkspaceCap.getFileOperations().getDidDelete()) {
+            if (clientWorkspaceCap.getFileOperations().getDidDelete().booleanValue()) {
                 fileOperationCapabilities.setDidDelete(whichFiles);
                 watchesSet = true;
             }
@@ -126,12 +125,20 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public void connect(LanguageClient client) {
-        // reserved for the future
+        this.client = client;
+    }
+
+    /**
+     * After the client has been initialized, register dynamic capabilities.
+     */
+    @SuppressWarnings("java:S1172")
+    void initialized() {
+        // not in use
     }
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-        // not used yet
+        // not in use
     }
 
     @Override
@@ -144,10 +151,17 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         var removed = params.getEvent().getRemoved();
         if (removed != null) {
             workspaceFolders.removeAll(removed);
+            for (WorkspaceFolder folder : removed) {
+                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
+
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
+            for (WorkspaceFolder folder : added) {
+                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
     }
 
@@ -180,6 +194,7 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
+        logger.debug("workspace/executeCommand: {}", params);
         if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
             String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
             String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
@@ -188,7 +203,6 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
     }
-
 
     protected final ExecutorService getExecuter() {
         return ownExecuter;

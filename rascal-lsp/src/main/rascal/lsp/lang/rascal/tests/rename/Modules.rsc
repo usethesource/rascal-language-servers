@@ -27,12 +27,18 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::tests::rename::Modules
 
+import IO;
+import List;
+import Set;
+
+import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
+import lang::rascalcore::check::Checker;
 
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "some::path::to::Bar"),
     byText("Main", "
         'import some::path::to::Foo;
@@ -45,7 +51,7 @@ test bool deepModule() = testRenameOccurrences({
 test bool shadowedModuleWithVar() = testRenameOccurrences({
     byText("Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "Bar"),
     byText("shadow::Foo", "", {}),
     byText("Main", "
@@ -72,7 +78,7 @@ test bool shadowedModuleWithFunc() = testRenameOccurrences({
 test bool singleModule() = testRenameOccurrences({
     byText("util::Foo", "
         'data Bool = t() | f();
-        'Bool and(Bool l, Bool r) = r is t ? l : f;
+        'Bool and(Bool l, Bool r) = r is t ? l : f();
         ", {0}, newName = "util::Bar"),
     byText("Main", "
         'import util::Foo;
@@ -157,3 +163,53 @@ test bool moduleExists() = testRenameOccurrences({
     byText("Foo", "", {0}),
     byText("foo::Foo", "", {})
 }, oldName = "Foo", newName = "foo::Foo");
+
+test bool moduleRenameProducesEdits()
+    = testProject({byText("Foo", "", {})},
+        "moduleRenameProducesEdits",
+        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
+            loc oldLoc = foo.file;
+            loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.path>/nested/<oldLoc.file>|;
+
+            // VS Code moves first, and informs us afterwards
+            move(foo.file, newLoc);
+
+            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+            throwMessagesIfError(msgs);
+            return [changed(newLoc, [replace(_, "nested::Foo")])] := edits;
+        }
+    );
+
+@expected{illegalRename}
+test bool moduleRenameWithoutExtension()
+    = testProject({byText("Foo", "", {})},
+        "moduleRenameWithoutExtension",
+        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
+            loc oldLoc = foo.file;
+            loc newLoc = |<oldLoc.scheme>:///<oldLoc.path[..-4]>|; // remove .rsc extension
+
+            // VS Code moves first, and informs us afterwards
+            move(foo.file, newLoc);
+
+            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+            throwMessagesIfError(msgs);
+            return [] := edits;
+        }
+    );
+
+@expected{illegalRename}
+test bool moduleRenameOutsideSources()
+    = testProject({byText("Foo", "", {})},
+        "moduleRenameOutsideSources",
+        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
+            loc oldLoc = foo.file;
+            loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.parent.path>/<oldLoc.file>|;
+
+            // VS Code moves first, and informs us afterwards
+            move(foo.file, newLoc);
+
+            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+            throwMessagesIfError(msgs);
+            return false;
+        }
+    );

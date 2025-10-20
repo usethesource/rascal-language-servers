@@ -40,8 +40,29 @@ test bool shadowVariableInInnerScope() = testRenameOccurrences({0}, "
     'int foo = 8;
     '{
     '   int bar = 9;
+    '   qux = bar;
     '}
 ");
+
+test bool shadowVariableFromImports1() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}),
+    byText("Main", "
+        'import Foo;
+        'void main() {
+        '   int bar = 0;
+        '   x = Foo::foo + bar;
+        '}", {0})
+});
+
+test bool shadowVariableFromImports2() = testRenameOccurrences({
+    byText("Bar", "int bar = 8;", {}),
+    byText("Main", "
+        'import Bar;
+        'void main() {
+        '   int foo = 0;
+        '   x = foo + Bar::bar;
+        '}", {0, 1})
+});
 
 test bool parameterShadowsVariable() = testRenameOccurrences({0}, "
     'int foo = 8;
@@ -158,6 +179,15 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
     'void bar() {}
 ");
 
+test bool doubleVariableAndFunctionDeclarationQualified() = testRenameOccurrences({
+    byText("Foo", "int foo = 8;", {0}),
+    byText("Bar", "void bar() {}", {}),
+    byText("Main", "
+        'import Foo;
+        'import Bar;
+        'int qux = Foo::foo;", {0})
+});
+
 // Although this is fine statically, it will cause runtime errors when `bar` is called
 // > A value of type int is not something you can call like a function, a constructor or a closure.
 @expected{illegalRename}
@@ -165,6 +195,17 @@ test bool doubleFunctionAndVariableDeclaration() = testRename("
     'void bar() {}
     'foo = 8;
 ");
+
+test bool doubleFunctionAndVariableDeclarationQualified() = testRenameOccurrences({
+    byText("Bar", "int bar = 8;", {}),
+    byText("Foo", "void foo() {}", {0}),
+    byText("Main", "
+        'import Foo;
+        'import Bar;
+        'void main() {
+        '   Foo::foo();
+        '}", {0})
+});
 
 @expected{illegalRename}
 test bool doubleFunctionAndNestedVariableDeclaration() = testRename("
@@ -217,11 +258,73 @@ test bool unrelatedVar() = testRenameOccurrences({
                       'int baz = foo;", {})
 });
 
-@illegalRename
-test bool multiModuleAmbiguous() = testRenameOccurrences({
+@expected{illegalRename}
+test bool multiModuleAmbiguousUnqualified() = testRenameOccurrences({
     byText("Foo", "public int foo = 1;", {0}),
     byText("Bar", "public int bar = 2;", {}),
     byText("Main", "import Foo;
                    'import Bar;
                    'int baz = foo + bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousOtherQualified() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + Bar::bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousCursorQualified() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = Foo::foo + bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousCursorEscaped() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = \\foo + bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousOtherEscaped() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + \\bar;", {0})
+});
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousCursorKeywordName() = testRenameOccurrences({
+    byText("Foo", "public int \\if = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = \\if + bar;", {0})
+}, oldName = "\\if");
+
+@expected{illegalRename}
+test bool multiModuleAmbiguousOtherKeywordName() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int \\if = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = foo + \\if;", {0})
+}, newName = "\\if");
+
+test bool multiModuleQualified() = testRenameOccurrences({
+    byText("Foo", "public int foo = 1;", {0}),
+    byText("Bar", "public int bar = 2;", {}),
+    byText("Main", "import Foo;
+                   'import Bar;
+                   'int baz = Foo::foo + Bar::bar;", {0})
 });

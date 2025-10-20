@@ -70,11 +70,6 @@ bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
                                   && l.authority == prefix.authority
                                   && startsWith(l.path, endsWith(prefix.path, "/") ? prefix.path : prefix.path + "/");
 
-str safeRelativeModuleName(loc path, PathConfig pcfg) {
-    l = relativize(pcfg.srcs, path);
-    return replaceAll(l[extension=""].path[1..], "/", "::");
-}
-
 @synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
 }

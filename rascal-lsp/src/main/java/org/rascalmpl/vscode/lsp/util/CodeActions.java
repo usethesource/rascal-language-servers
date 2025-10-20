@@ -45,6 +45,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import com.google.gson.JsonPrimitive;
 
@@ -70,9 +71,7 @@ public class CodeActions {
      * @return              a future stream of parsed and type-checked Rascal CodeAction terms.
      */
     public static CompletableFuture<Stream<IValue>> extractActionsFromDiagnostics(CodeActionParams params, Function<String, CompletableFuture<IList>> actionParser) {
-        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
-
-        return params.getContext().getDiagnostics()
+        var actions = params.getContext().getDiagnostics()
             .stream()
             .map(Diagnostic::getData)
             .filter(Objects::nonNull)
@@ -80,9 +79,10 @@ public class CodeActions {
             .map(JsonPrimitive.class::cast)
             .map(JsonPrimitive::getAsString)
             // this is the "magic" resurrection of command terms from the JSON data field
-            .map(actionParser)
-            // this serializes the stream of futures and accumulates their results as a flat list again
-            .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+            .map(actionParser);
+
+        return CompletableFutureUtils
+            .flatten(actions, IRascalValueFactory.getInstance()::list, IList::concat)
             .thenApply(IList::stream);
     }
 

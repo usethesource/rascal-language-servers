@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::refactor::rename::Types
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
@@ -49,7 +49,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 
 public tuple[set[loc], set[loc], set[loc]] findDataLikeOccurrenceFilesUnchecked(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     if (size(defs.id) > 1) {
-        r.error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)");
+        r.msg(error(cursor[0], "Cannot find files for ADT definitions with multiple names (<defs.id>)"));
         return <{}, {}, {}>;
     }
 
@@ -86,10 +86,10 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm
     };
 }
 
-tuple[type[Tree] as, str desc] asType(aliasId()) = <#Name, "type name">;
-tuple[type[Tree] as, str desc] asType(annoId()) = <#Name, "annotation name">;
-tuple[type[Tree] as, str desc] asType(dataId()) = <#Name, "ADT name">;
-tuple[type[Tree] as, str desc] asType(typeVarId()) = <#Name, "type variable name">;
+tuple[type[Tree] as, str desc] asType(aliasId(), _) = <#Name, "type name">;
+tuple[type[Tree] as, str desc] asType(annoId(), _) = <#Name, "annotation name">;
+tuple[type[Tree] as, str desc] asType(dataId(), _) = <#Name, "ADT name">;
+tuple[type[Tree] as, str desc] asType(typeVarId(), _) = <#Name, "type variable name">;
 
 alias Environment = tuple[TModel tm, map[str, loc] defs];
 

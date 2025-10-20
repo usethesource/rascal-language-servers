@@ -61,7 +61,7 @@ import lang::rascal::lsp::refactor::rename::Parameters;
 import lang::rascal::lsp::refactor::rename::Types;
 import lang::rascal::lsp::refactor::rename::Variables;
 
-extend framework::Rename;
+extend analysis::typepal::refactor::Rename;
 import util::Util;
 
 import util::FileSystem;
@@ -69,10 +69,15 @@ import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
+private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id) != use.length;
+
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
     defUse = invert(tm.useDef);
+    unescNewName = forceUnescapeNames(newName);
     reachable = rascalGetReflexiveModulePaths(tm).to;
-    newNameDefs = {nD | Define nD:<_, newName, _, _, _, _> <- tm.defines};
+    usedModules = {d.top | loc d <- tm.useDef<1>};
+    usedModels = (m: tm | loc m <- usedModules, TModel tm := r.getConfig().tmodelForLoc(m)) + (tr.src.top: tm);
+    newNameDefs = {nD | TModel tm <- range(usedModels), Define nD:<_, unescNewName, _, _, _, _> <- tm.defines};
     curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
     maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
 
@@ -85,43 +90,55 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
         set[loc] curUses = defUse[c.defined];
         set[loc] newUses = defUse[n.defined];
 
-        // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
         for (loc cU <- curUses
-           , isContainedInScope(cU, n.scope, tm)
-           , isContainedInScope(n.scope, c.scope, tm)) {
-            r.error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>.");
+           , isContainedInScope(cU, n.scope, tm)) {
+            // Will this rename hide a used definition of `oldName` behind an existing definition of `newName` (shadowing)?
+            if (isContainedInScope(n.scope, c.scope, tm)
+              , !isQualifiedUse(cU, c)) {
+                r.msg(error(cU, "Renaming this to \'<newName>\' would change the program semantics; its original definition would be shadowed by <n.defined>."));
+            }
+
+            // Is `newName` already resolvable from a scope where `oldName` is currently declared?
+            // Double declarations of module variables are only a problem if a use is ambiguous
+            if ({moduleVariableId()} := {c.idRole, n.idRole}) {
+                for (loc nU <- newUses, isContainedInScope(nU, c.scope, tm)
+                  , n.defined.top == c.defined.top || !(isQualifiedUse(nU, n) && isQualifiedUse(cU, c))) {
+                    r.msg(error(cU, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)."));
+                }
+            }
         }
 
         // Will this rename hide a used definition of `newName` behind a definition of `oldName` (shadowing)?
         for (isContainedInScope(c.scope, n.scope, tm)
            , loc nU <- newUses
-           , isContainedInScope(nU, c.scope, tm)) {
-            r.error(c.defined, "Renaming this to \'<newName>\' would change the program semantics; it would shadow the declaration of <nU>.");
+           , isContainedInScope(nU, c.scope, tm)
+           , !isQualifiedUse(nU, n)) {
+            r.msg(error(c.defined, "Renaming this to \'<newName>\' would change the program semantics; it would shadow the declaration of <nU>."));
         }
 
         // Is `newName` already resolvable from a scope where `oldName` is currently declared?
         if (rascalMayOverload({c.defined, n.defined}, curAndNewDefinitions)) {
             // Overloading
             if (c.scope in reachable || isContainedInScope(c.defined, n.scope, tm) || isContainedInScope(n.defined, c.scope, tm)) {
-                r.error(c.defined, "Renaming this to \'<newName>\' would overload an existing definition at <n.defined>.");
+                r.msg(error(c.defined, "Renaming this to \'<newName>\' would overload an existing definition at <n.defined>."));
             }
-        } else if (isContainedInScope(c.defined, n.scope, tm)) {
+        } else if (isContainedInScope(c.defined, n.scope, tm) && {moduleVariableId(), _} !:= {c.idRole, n.idRole}) {
             // Double declaration
-            r.error(c.defined, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>).");
+            r.msg(error(c.defined, "Renaming this to \'<newName>\' would cause a double declaration (with <n.defined>)."));
         }
 
         // Will this rename turn an implicit declaration of `newName` into a use of a current declaration?
         if (isImplicitDef(n) && isContainedInScope(n.defined, c.scope, tm)) {
-            r.error(c.defined, "Renaming this declaration to \'<newName>\' would change the program semantics; this implicit declaration would become a use: <n.defined>.");
+            r.msg(error(c.defined, "Renaming this declaration to \'<newName>\' would change the program semantics; this implicit declaration would become a use: <n.defined>."));
         }
     }
 }
 
-void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, _>, str name, Renamer r) {
+void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, dt>, str name, Renamer r) {
     escName = normalizeEscaping(name);
-    <t, desc> = asType(role);
+    <t, desc> = asType(role, dt);
     if (tryParseAs(t, escName) is nothing) {
-        r.error(at, "<escName> is not a valid <desc>");
+        r.msg(error(at, "<escName> is not a valid <desc>"));
     }
 }
 
@@ -129,7 +146,7 @@ void rascalCheckDefinitionOutsideWorkspace(Define d, Renamer r) {
     f = d.defined.top;
     pcfg = r.getConfig().getPathConfig(f);
     if (!any(srcFolder <- pcfg.srcs, isPrefixOf(srcFolder, f))) {
-        r.error(d.defined, "Since this definition is not in the sources of open projects, it cannot be renamed.");
+        r.msg(error(d.defined, "Since this definition is not in the sources of open projects, it cannot be renamed."));
     }
 }
 
@@ -212,7 +229,7 @@ TModel getConditionallyAugmentedTModel(loc l, set[Define] defs, set[AugmentCompo
     : r.getConfig().tmodelForLoc(l);
 
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], (), (), (), (), pathConfig(), tconfig());
+    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], {}, (), (), (), (), pathConfig(), tconfig());
 
     TModel tmodelForTree(Tree tr) = tmodelForLoc(tr.src.top);
 
@@ -246,7 +263,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
             tm = augmentFieldUses(tr, tm, getModel);
             tm = augmentFormalUses(tr, tm, getModel);
             tm = augmentTypeParams(tr, tm);
-        } catch _: {
+        } catch value e: {
             println("Suppressed error during TModel augmentation: <e>");
         }
         return tm;
@@ -298,7 +315,6 @@ private set[Define] tryGetCursorDefinitions(list[Tree] cursor, TModel(loc) getMo
             visit (c) {
                 case Name tr: if (isDefNameInFocus(tr)) return cursorDefs;
                 case QualifiedName tr: {
-                    if (tr.names[0].src == tr.src) fail; // skip unqualified names
                     if (isDefNameInFocus(tr)) return cursorDefs;
                 }
                 case Nonterminal tr: if (isDefNameInFocus(tr)) return cursorDefs;
@@ -327,7 +343,7 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _,
     }
 
     if ({} := cursorDefs) {
-        r.error(cursorLoc, "Could not find definition to rename.");
+        r.msg(error(cursorLoc, "Could not find definition to rename."));
     } else if (isUnsupportedCursor(cursor, cursorDefs, tm, r)) {
         return {};
     }
@@ -336,12 +352,12 @@ set[Define] getCursorDefinitions(list[Tree] cursor, Tree(loc) _, TModel(Tree) _,
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     escNewName = normalizeEscaping(newName);
-    for (role <- defs.idRole) {
+    for (<role, dt> <- defs<idRole, defInfo>) {
         hasError = false;
-        <t, desc> = asType(role);
+        <t, desc> = asType(role, dt);
         if (tryParseAs(t, escNewName) is nothing) {
             hasError = true;
-            r.error(cursor[0], "\'<escNewName>\' is not a valid <desc>");
+            r.msg(error(cursor[0], "\'<escNewName>\' is not a valid <desc>"));
         }
 
         if (hasError) return <{}, {}, {}>;
@@ -373,7 +389,7 @@ private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
         return trim(l, removePrefix = l.length - size(id));
     }
 
-    r.error(l, "Cannot perform rename - definitions for this use have multiple names.");
+    r.msg(error(l, "Cannot perform rename - definitions for this use have multiple names."));
     return l;
 }
 

@@ -1,0 +1,27 @@
+{
+    "timestamp": {
+        "$resolver": "timestamp"
+    },
+    "level": {
+        "$resolver": "level",
+        "field": "name"
+    },
+    "loggerName": {
+        "$resolver": "logger",
+        "field": "name"
+    },
+    "threadName": {
+        "$resolver": "thread",
+        "field": "name"
+    },
+    "message": {
+        "$resolver": "message"
+    },
+    "exception": {
+        "$resolver": "exception",
+        "field": "stackTrace",
+        "stackTrace": {
+          "stringified": true
+        }
+    }
+}

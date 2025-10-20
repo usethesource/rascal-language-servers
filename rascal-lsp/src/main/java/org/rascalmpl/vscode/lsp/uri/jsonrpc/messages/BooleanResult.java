@@ -45,7 +45,7 @@ public class BooleanResult extends IOResult {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof BooleanResult) {
             return super.equals(obj)
                 && Objects.equals(result, ((BooleanResult)obj).result);

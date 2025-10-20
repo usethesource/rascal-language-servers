@@ -31,7 +31,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -49,7 +49,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
@@ -64,9 +63,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
     private final CompletableFuture<Boolean> specialCaseHighlighting;
+    private final ExecutorService ownExecutor;
 
-    public ParserOnlyContribution(String name, ParserSpecification spec) {
+    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService ownExecutor) {
         this.name = name;
+        this.ownExecutor = ownExecutor;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
@@ -82,11 +83,12 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        if (loadingParserError != null || parser == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
-        }
-
-        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
+        return CompletableFuture.supplyAsync(() -> {
+            if (loadingParserError != null || parser == null) {
+                throw new IllegalStateException("Parser function did not load", loadingParserError);
+            }
+            return parser.call(VF.string(input), loc);
+        }, ownExecutor);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
@@ -140,7 +142,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
@@ -150,13 +152,13 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return InterruptibleFuture.completedFuture(null);
+        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation());
     }
 
     @Override
