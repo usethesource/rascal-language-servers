@@ -171,12 +171,11 @@ public class RascalLanguageServices {
                 if (tree != null) {
                     return tree.get();
                 }
-            } catch (ResponseErrorException e1) {
-                // File is not open in the IDE
+            } catch (ResponseErrorException | ExecutionException e1) {
+                // File is not open in the IDE | Parse threw an exception
+                // In either case, fall through and try a direct parse
             } catch (InterruptedException e1) {
-                // Thread was interrupted
-            } catch (ExecutionException e1) {
-                // Parse threw an exception
+                Thread.currentThread().interrupt();
             }
             // Parse the source file
             try (var reader = URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation)) {
