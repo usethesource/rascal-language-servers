@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.logging.log4j.LogManager;
@@ -222,6 +223,7 @@ public class TextDocumentState {
                     });
             } catch (NoContributionException e) {
                 logger.debug("Ignoring missing parser for {}", location, e);
+                treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
             }
         }
 
