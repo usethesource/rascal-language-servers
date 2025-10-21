@@ -40,8 +40,6 @@ import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionItemLabelDetails;
 import org.eclipse.lsp4j.CompletionItemTag;
 import org.eclipse.lsp4j.InsertReplaceEdit;
-import org.eclipse.lsp4j.MarkupContent;
-import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -57,6 +55,8 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class Completion {
+    private static final String KIND = "kind";
+    private static final String EDIT = "edit";
     private static final String LABEL = "label";
     private static final String LABEL_DETAIL = "labelDetail";
     private static final String LABEL_DESCRIPTION = "labelDescription";
@@ -92,6 +92,8 @@ public class Completion {
             .map(IConstructor.class::cast)
             .map(c -> {
                 var ci = new CompletionItem();
+                ci.setKind(itemKindToLSP((IConstructor) c.get(KIND)));
+                ci.setTextEdit(editToLSP((IConstructor) c.get(EDIT)));
                 ci.setLabel(((IString) c.get(LABEL)).getValue());
 
                 var details = new CompletionItemLabelDetails();
@@ -124,6 +126,22 @@ public class Completion {
                 return ci;
             })
             .collect(Collectors.toList());
+    }
+
+    private Either<TextEdit, InsertReplaceEdit> editToLSP(final TypeStore store, IConstructor iConstructor) {
+        var completionEditAdt = Objects.requireNonNull(
+            store.lookupAbstractDataType("CompletionEdit"),
+            "No `data CompletionEdit` defined in environment.");
+        var completionEditCons = Objects.requireNonNull(
+            store.lookupConstructor(completionEditAdt, "completionEdit", TF.tupleType(TF.integerType(), TF.integerType(), TF.integerType(), TF.stringType())),
+            "No constructor `data CompletionEdit = completionEdit(int, int, int, str)` defined in environment.");
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'editToLSP'");
+    }
+
+    private CompletionItemKind itemKindToLSP(IConstructor iConstructor) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'itemKindToLSP'");
     }
 
     private String getKwParamString(IConstructor c, String label) {
