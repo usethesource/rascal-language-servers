@@ -28,11 +28,13 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CompletionContext;
 import org.eclipse.lsp4j.CompletionItem;
@@ -40,16 +42,21 @@ import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionItemLabelDetails;
 import org.eclipse.lsp4j.CompletionItemTag;
 import org.eclipse.lsp4j.InsertReplaceEdit;
+import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MarkupKind;
+import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextDocumentEdit;
-import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -57,6 +64,9 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
 public class Completion {
+
+    private static final Logger logger = LogManager.getLogger(Completion.class);
+
     private static final String KIND = "kind";
     private static final String EDIT = "edit";
     private static final String LABEL = "label";
@@ -73,6 +83,7 @@ public class Completion {
     private static final String COMMAND = "command";
 
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final TypeFactory TF = TypeFactory.getInstance();
 
     private final IConstructor invoked;
     private final Function<IString, IConstructor> character;
@@ -82,20 +93,22 @@ public class Completion {
     public Completion() {
         this.store = new TypeStore();
 
-        final var TF = TypeFactory.getInstance();
-
         final var completionTriggerAdt = TF.abstractDataType(store, "CompletionTrigger");
         this.invoked = VF.constructor(TF.constructor(store, completionTriggerAdt, "invoked"));
         this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, "character", TF.tupleType(TF.stringType())), c);
     }
 
-    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String dedicatedLanguageName, String languageName) {
+    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, TypeStore store, IList items, String dedicatedLanguageName, String languageName, int editLine, LineColumnOffsetMap offsets) {
         return items.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
                 var ci = new CompletionItem();
                 ci.setKind(itemKindToLSP((IConstructor) c.get(KIND)));
-                ci.setTextEdit(editToLSP((IConstructor) c.get(EDIT)));
+
+                var edit = editToLSP(store, (IConstructor) c.get(EDIT), editLine, offsets);
+                ci.setTextEdit(Either.forRight(edit.getLeft()));
+                ci.setInsertTextFormat(edit.getRight() ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
+
                 ci.setLabel(((IString) c.get(LABEL)).getValue());
 
                 var details = new CompletionItemLabelDetails();
@@ -130,20 +143,45 @@ public class Completion {
             .collect(Collectors.toList());
     }
 
-    private Either<TextEdit, InsertReplaceEdit> editToLSP(final TypeStore store, IConstructor iConstructor) {
-        var completionEditAdt = Objects.requireNonNull(
-            store.lookupAbstractDataType("CompletionEdit"),
-            "No `data CompletionEdit` defined in environment.");
-        var completionEditCons = Objects.requireNonNull(
-            store.lookupConstructor(completionEditAdt, "completionEdit", TF.tupleType(TF.integerType(), TF.integerType(), TF.integerType(), TF.stringType())),
-            "No constructor `data CompletionEdit = completionEdit(int, int, int, str)` defined in environment.");
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'editToLSP'");
+    private Pair<InsertReplaceEdit, Boolean> editToLSP(TypeStore store, IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
+        // var completionEditAdt = Objects.requireNonNull(
+        //     store.lookupAbstractDataType("CompletionEdit"),
+        //     "No `data CompletionEdit` defined in environment.");
+        // var completionEditCons = Objects.requireNonNull(
+        //     store.lookupConstructor(completionEditAdt, "completionEdit", TF.tupleType(TF.integerType(), TF.integerType(), TF.integerType(), TF.stringType())),
+        //     "No constructor `data CompletionEdit = completionEdit(int, int, int, str)` defined in environment.");
+
+        var text = ((IString) edit.get("newText")).getValue();
+        var startColumn = ((IInteger) edit.get("startColumn")).intValue();
+        var insertEndColumn = ((IInteger) edit.get("insertEndColumn")).intValue();
+        var replaceEndColumn = ((IInteger) edit.get("replaceEndColumn")).intValue();
+
+        var insertRange = rascalToLspRange(currentLine, startColumn, insertEndColumn, offsets);
+        var replaceRange = rascalToLspRange(currentLine, startColumn, replaceEndColumn, offsets);
+
+        return Pair.of(new InsertReplaceEdit(text, insertRange, replaceRange), Boolean.valueOf(isSnippet(edit)));
     }
 
-    private CompletionItemKind itemKindToLSP(IConstructor iConstructor) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'itemKindToLSP'");
+    private Range rascalToLspRange(int line, int startCol, int endCol, LineColumnOffsetMap offsets) {
+        return new Range(
+            Locations.toPosition(new Position(line, startCol), offsets, false),
+            Locations.toPosition(new Position(line, endCol), offsets, true)
+        );
+    }
+
+    private boolean isSnippet(IConstructor edit) {
+        return edit.asWithKeywordParameters().hasParameter("snippet")
+            && ((IBool) edit.asWithKeywordParameters().getParameter("snippet")).getValue();
+    }
+
+    private CompletionItemKind itemKindToLSP(IConstructor kind) {
+        var docSymKind = DocumentSymbols.kindToLSP(kind);
+        try {
+            return CompletionItemKind.valueOf(docSymKind.name());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Completion has item kind {}, but only values from DocumentSymbolKind are supported.", docSymKind.name());
+            return CompletionItemKind.Text;
+        }
     }
 
     private String getKwParamString(IConstructor c, String label) {

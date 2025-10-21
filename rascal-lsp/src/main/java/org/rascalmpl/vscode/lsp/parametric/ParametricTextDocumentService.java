@@ -850,6 +850,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var file = getFile(loc);
 
         var completion = new Completion();
+        final TypeStore store;
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
@@ -859,9 +860,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var cursorOffset = columns.get(loc).calculateInverseOffset(pos.getLine(), pos.getCharacter());
                 var trigger = completion.triggerKindToRascal(params.getContext());
                 var completionItems = contrib.completion(focus, VF.integer(cursorOffset), trigger);
-                return completionItems.get();
+                return completionItems.get()
+                    .thenApply(ci -> completion.toLSP((IBaseTextDocumentService) this, store, ci, dedicatedLanguageName, contrib.getName(), params.getPosition().getLine(), columns.get(loc)));
             })
-            .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName()))
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
 

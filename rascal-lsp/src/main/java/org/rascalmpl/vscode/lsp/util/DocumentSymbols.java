@@ -83,8 +83,7 @@ public class DocumentSymbols {
                 .collect(Collectors.toList())
             : Collections.emptyList();
 
-        String kindName = ((IConstructor) symbol.get("kind")).getName();
-        SymbolKind kind = SymbolKind.valueOf(capitalize(kindName));
+        SymbolKind kind = kindToLSP((IConstructor) symbol.get("kind"));
         String symbolName = ((IString) symbol.get("name")).getValue();
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
         Range selection = kwp.hasParameter("selection")
@@ -104,5 +103,9 @@ public class DocumentSymbols {
         var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
         lspSymbol.setTags(tags); // since 3.16
         return lspSymbol;
+    }
+
+    static SymbolKind kindToLSP(IConstructor kind) {
+        return SymbolKind.valueOf(capitalize(kind.getName()));
     }
 }
