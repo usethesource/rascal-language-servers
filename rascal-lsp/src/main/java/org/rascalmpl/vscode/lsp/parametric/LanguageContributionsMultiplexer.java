@@ -31,10 +31,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.Completion;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
@@ -45,6 +50,8 @@ import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
+
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private final ExecutorService ownExecuter;
     private final String name;
@@ -70,7 +77,6 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> completion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -179,6 +185,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
         hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
+        hasCompletion = anyTrue(ILanguageContributions::hasCompletion);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -336,12 +343,20 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
-        return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
+        return InterruptibleFuture.flatten(contributions.stream()
+            .map(klc -> klc.contrib)
+            .map(c ->   InterruptibleFuture.flatten(Completion.isTriggered(trigger, c.completionTriggerCharacters()).thenApply(b -> b
+                ? c.completion(focus, cursorOffset, trigger)
+                : InterruptibleFuture.completedFuture(VF.list())), ownExecuter)
+            )
+            .collect(Collectors.toList()), ownExecuter);
     }
 
     @Override
     public CompletableFuture<IList> completionTriggerCharacters() {
-        return completion.thenCompose(c -> c.completionTriggerCharacters());
+        return CompletableFutureUtils.flatten(contributions.stream()
+            .map(klc -> klc.contrib)
+            .map(ILanguageContributions::completionTriggerCharacters));
     }
 
     @Override

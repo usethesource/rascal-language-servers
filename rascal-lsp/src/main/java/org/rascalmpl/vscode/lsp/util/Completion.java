@@ -28,14 +28,23 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CompletionContext;
 import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionItemLabelDetails;
 import org.eclipse.lsp4j.CompletionItemTag;
-import org.eclipse.lsp4j.CompletionTriggerKind;
+import org.eclipse.lsp4j.InsertReplaceEdit;
+import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.TextDocumentEdit;
+import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
@@ -61,17 +70,21 @@ public class Completion {
     private static final String ADDITIONAL_CHANGES = "additionalChanges";
     private static final String COMMAND = "command";
 
-    private final IConstructor invoked;
-    private final Function<IString, IConstructor> character;
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
-    public Completion(TypeStore store) {
-        final var TF = TypeFactory.getInstance();
-        final var completionTriggerAdt = store.lookupAbstractDataType("CompletionTrigger");
+    private final IConstructor invoked;
+    private final Function<IString, IConstructor> character;
 
-        this.invoked = VF.constructor(store.lookupConstructor(completionTriggerAdt, "invoked", TF.tupleEmpty()));
-        this.character = c ->
-            VF.constructor(store.lookupConstructor(completionTriggerAdt, "character", TF.tupleType(TF.stringType())), c);
+    private TypeStore store;
+
+    public Completion() {
+        this.store = new TypeStore();
+
+        final var TF = TypeFactory.getInstance();
+
+        final var completionTriggerAdt = TF.abstractDataType(store, "CompletionTrigger");
+        this.invoked = VF.constructor(TF.constructor(store, completionTriggerAdt, "invoked"));
+        this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, "character", TF.tupleType(TF.stringType())), c);
     }
 
     public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String dedicatedLanguageName, String languageName) {
@@ -140,11 +153,34 @@ public class Completion {
         throw new IllegalArgumentException(String.format("Constructor has no keyword argument '%s' of type `bool`", label));
     }
 
-    public IConstructor triggerKindToRascal(CompletionTriggerKind kind, String lastCharacter) {
-        switch (kind) {
-            case Invoked: return invoked;
-            case TriggerCharacter: return character.apply(VF.string(lastCharacter));
-            default: throw new IllegalArgumentException("Unsupported completion trigger kind: " + kind);
+    public IConstructor triggerKindToRascal(@Nullable CompletionContext context) {
+        if (context == null) {
+            return invoked;
         }
+
+        switch (context.getTriggerKind()) {
+            case Invoked: return invoked;
+            case TriggerCharacter: {
+                var triggerChar = context.getTriggerCharacter();
+                if (triggerChar == null) {
+                    throw new IllegalArgumentException("No character given for completion trigger.");
+                }
+                return character.apply(VF.string(triggerChar));
+            }
+            default: throw new IllegalArgumentException("Unsupported completion trigger kind: " + context.getTriggerKind());
+        }
+    }
+
+    public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars) {
+        if (kind.getName() == "invoked") {
+            return CompletableFuture.completedFuture(true);
+        }
+
+        if (kind.getName() == "character" && kind.has("trigger")) {
+            var trigger = kind.get("trigger");
+            return triggerChars.thenApply(chars -> chars.contains(trigger));
+        }
+
+        return CompletableFuture.completedFuture(false);
     }
 }

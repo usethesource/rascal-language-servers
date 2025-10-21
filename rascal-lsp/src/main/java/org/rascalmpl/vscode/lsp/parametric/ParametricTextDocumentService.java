@@ -842,11 +842,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var contrib = contributions(loc);
         var file = getFile(loc);
 
-        final TypeStore store; // TODO Get store from contribs
-        final String lastCharacter; // TODO Get the last character before the cursor
-        final var tcs = contrib.completionTriggerCharacters(); // TODO Do something with this; set in server capabilites?
-
-        var completion = new Completion(store);
+        var completion = new Completion();
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
@@ -854,7 +850,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
                 var cursorOffset = columns.get(loc).calculateInverseOffset(pos.getLine(), pos.getCharacter());
-                var trigger = completion.triggerKindToRascal(params.getContext().getTriggerKind(), lastCharacter);
+                var trigger = completion.triggerKindToRascal(params.getContext());
                 var completionItems = contrib.completion(focus, VF.integer(cursorOffset), trigger);
                 return completionItems.get();
             })
