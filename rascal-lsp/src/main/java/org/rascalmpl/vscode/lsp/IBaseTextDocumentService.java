@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -47,7 +48,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     static final Duration NO_DEBOUNCE = Duration.ZERO;
     static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
 
-    void initializeServerCapabilities(ServerCapabilities result);
+    void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);

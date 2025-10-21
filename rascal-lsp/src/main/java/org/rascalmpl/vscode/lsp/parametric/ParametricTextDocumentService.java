@@ -48,6 +48,7 @@ import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
@@ -122,6 +123,8 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.AbstractDynamicCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -229,7 +232,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -244,7 +247,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
-        result.setCompletionProvider(new CompletionOptions(false, null));
+
+        if (!clientCapabilities.getTextDocument().getCompletion().getDynamicRegistration()) {
+            // TODO Can we do our best to supply a reasonable set of default trigger characters here?
+            result.setCompletionProvider(new CompletionOptions(false, null));
+        }
     }
 
     private String getRascalMetaCommandName() {
@@ -894,8 +901,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, ownExecuter));
 
+        updateDynamicCapabilities(clientCopy, multiplexer);
+
         fact.reloadContributions();
         fact.setClient(clientCopy);
+    }
+
+    private void updateDynamicCapabilities(LanguageClient client, ILanguageContributions contribs) {
+        AbstractDynamicCapability.updateRegistrations(client, contribs, List.of(
+            new CompletionCapability()
+        ));
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
