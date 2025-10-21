@@ -97,7 +97,7 @@ public class DocumentChanges {
         return wsEdit;
     }
 
-    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, Map<String, ChangeAnnotation> changeAnnotations) {
+    static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {

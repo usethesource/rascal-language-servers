@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -36,6 +37,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ChangeAnnotation;
 import org.eclipse.lsp4j.CompletionContext;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
@@ -47,7 +49,6 @@ import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
@@ -129,12 +130,8 @@ public class Completion {
                     .map(IString::getValue)
                     .collect(Collectors.toList()));
 
-                var wsEdit = DocumentChanges.translateDocumentChanges(docService, (IList) kws.getParameter(ADDITIONAL_CHANGES));
-                ci.setAdditionalTextEdits(wsEdit.getDocumentChanges()
-                    .stream()
-                    .map(e -> (TextDocumentEdit) e.get())
-                    .flatMap(t -> t.getEdits().stream())
-                    .collect(Collectors.toList()));
+                var edits = DocumentChanges.translateTextEdits(docService, (IList) kws.getParameter(ADDITIONAL_CHANGES), new HashMap<String, ChangeAnnotation>());
+                ci.setAdditionalTextEdits(edits);
 
                 ci.setCommand(CodeActions.constructorToCommand(dedicatedLanguageName, languageName, (IConstructor) kws.getParameter(COMMAND)));
 
