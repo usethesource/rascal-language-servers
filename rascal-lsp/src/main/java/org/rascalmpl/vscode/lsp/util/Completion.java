@@ -40,6 +40,8 @@ import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionItemLabelDetails;
 import org.eclipse.lsp4j.CompletionItemTag;
 import org.eclipse.lsp4j.InsertReplaceEdit;
+import org.eclipse.lsp4j.MarkupContent;
+import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -104,7 +106,7 @@ public class Completion {
                 var kws = c.asWithKeywordParameters();
 
                 ci.setDetail(getKwParamString(c, DETAILS));
-                ci.setDocumentation(getKwParamString(c, DOCUMENTATION)); // TODO Do we support MD here?
+                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(c, DOCUMENTATION)));
                 ci.setSortText(getKwParamString(c, SORT_TEXT));
                 ci.setFilterText(getKwParamString(c, FILTER_TEXT));
                 ci.setTags(getKwParamBool(c, DEPRECATED) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
