@@ -849,19 +849,18 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var contrib = contributions(loc);
         var file = getFile(loc);
 
-        var completion = new Completion();
-        final TypeStore store;
-
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenCompose(t -> {
-                var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
-                var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
-                var cursorOffset = columns.get(loc).calculateInverseOffset(pos.getLine(), pos.getCharacter());
+                var completion = new Completion();
+                var lspPos = params.getPosition();
+                var rascalPos = Locations.toRascalPosition(loc, lspPos, columns);
+                var focus = TreeSearch.computeFocusList(t, rascalPos.getLine(), rascalPos.getCharacter());
                 var trigger = completion.triggerKindToRascal(params.getContext());
-                var completionItems = contrib.completion(focus, VF.integer(cursorOffset), trigger);
-                return completionItems.get()
-                    .thenApply(ci -> completion.toLSP((IBaseTextDocumentService) this, store, ci, dedicatedLanguageName, contrib.getName(), params.getPosition().getLine(), columns.get(loc)));
+                var cursorOffset = rascalPos.getCharacter() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
+                return contrib.completion(focus, VF.integer(cursorOffset), trigger)
+                    .get()
+                    .thenApply(ci -> completion.toLSP((IBaseTextDocumentService) this, ci, dedicatedLanguageName, contrib.getName(), rascalPos.getLine(), columns.get(loc)));
             })
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
