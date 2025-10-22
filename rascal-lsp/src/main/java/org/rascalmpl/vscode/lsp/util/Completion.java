@@ -27,17 +27,15 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ChangeAnnotation;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionContext;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
@@ -60,7 +58,7 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IString;
-import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
@@ -103,51 +101,50 @@ public class Completion {
         return items.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
+                var kws = c.asWithKeywordParameters();
                 var ci = new CompletionItem();
                 ci.setKind(itemKindToLSP((IConstructor) c.get(KIND)));
 
-                var edit = editToLSP(store, (IConstructor) c.get(EDIT), editLine, offsets);
+                var edit = editToLSP((IConstructor) c.get(EDIT), editLine, offsets);
                 ci.setTextEdit(Either.forRight(edit.getLeft()));
                 ci.setInsertTextFormat(edit.getRight() ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
 
                 ci.setLabel(((IString) c.get(LABEL)).getValue());
 
                 var details = new CompletionItemLabelDetails();
-                details.setDetail(getKwParamString(c, LABEL_DETAIL));
-                details.setDescription(getKwParamString(c, LABEL_DESCRIPTION));
+                details.setDetail(getKwParamString(kws, LABEL_DETAIL, ""));
+                details.setDescription(getKwParamString(kws, LABEL_DESCRIPTION, ""));
                 ci.setLabelDetails(details);
 
-                var kws = c.asWithKeywordParameters();
-
-                ci.setDetail(getKwParamString(c, DETAILS));
-                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(c, DOCUMENTATION)));
-                ci.setSortText(getKwParamString(c, SORT_TEXT));
-                ci.setFilterText(getKwParamString(c, FILTER_TEXT));
-                ci.setTags(getKwParamBool(c, DEPRECATED) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
-                ci.setPreselect(getKwParamBool(c, PRESELECT));
-                ci.setCommitCharacters(getKwParamList(c, COMMIT_CHARACTERS)
+                ci.setDetail(getKwParamString(kws, DETAILS, ""));
+                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, DOCUMENTATION, "")));
+                ci.setSortText(getKwParamString(kws, SORT_TEXT, ""));
+                ci.setFilterText(getKwParamString(kws, FILTER_TEXT, ""));
+                ci.setTags(getKwParamBool(kws, DEPRECATED, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
+                ci.setPreselect(getKwParamBool(kws, PRESELECT, false));
+                ci.setCommitCharacters(getKwParamList(kws, COMMIT_CHARACTERS, VF.list())
+                    .stream()
                     .map(IString.class::cast)
                     .map(IString::getValue)
                     .collect(Collectors.toList()));
 
-                var edits = DocumentChanges.translateTextEdits(docService, (IList) kws.getParameter(ADDITIONAL_CHANGES), new HashMap<String, ChangeAnnotation>());
-                ci.setAdditionalTextEdits(edits);
-
-                ci.setCommand(CodeActions.constructorToCommand(dedicatedLanguageName, languageName, (IConstructor) kws.getParameter(COMMAND)));
+                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(docService, getKwParamList(kws, ADDITIONAL_CHANGES, VF.list())));
+                ci.setCommand(getCommand(kws, dedicatedLanguageName, languageName));
 
                 return ci;
             })
             .collect(Collectors.toList());
     }
 
-    private Pair<InsertReplaceEdit, Boolean> editToLSP(TypeStore store, IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
-        // var completionEditAdt = Objects.requireNonNull(
-        //     store.lookupAbstractDataType("CompletionEdit"),
-        //     "No `data CompletionEdit` defined in environment.");
-        // var completionEditCons = Objects.requireNonNull(
-        //     store.lookupConstructor(completionEditAdt, "completionEdit", TF.tupleType(TF.integerType(), TF.integerType(), TF.integerType(), TF.stringType())),
-        //     "No constructor `data CompletionEdit = completionEdit(int, int, int, str)` defined in environment.");
+    private @Nullable Command getCommand(IWithKeywordParameters<? extends IConstructor> kws, String dedicatedLanguageName, String languageName) {
+        var command = (IConstructor) kws.getParameter(COMMAND);
+        if (command == null) {
+            return null;
+        }
+        return CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command);
+    }
 
+    private Pair<InsertReplaceEdit, Boolean> editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
         var text = ((IString) edit.get("newText")).getValue();
         var startColumn = ((IInteger) edit.get("startColumn")).intValue();
         var insertEndColumn = ((IInteger) edit.get("insertEndColumn")).intValue();
@@ -181,31 +178,31 @@ public class Completion {
         }
     }
 
-    private String getKwParamString(IConstructor c, String label) {
-        var param = c.asWithKeywordParameters().getParameter(label);
+    private String getKwParamString(IWithKeywordParameters<? extends IConstructor> c, String label, String defaultVal) {
+        var param = c.getParameter(label);
         if (param instanceof IString) {
             return ((IString) param).getValue();
         }
 
-        throw new IllegalArgumentException(String.format("Constructor has no keyword argument '%s' of type `str`", label));
+        return defaultVal;
     }
 
-    private boolean getKwParamBool(IConstructor c, String label) {
-        var param = c.asWithKeywordParameters().getParameter(label);
+    private boolean getKwParamBool(IWithKeywordParameters<? extends IConstructor> c, String label, boolean defaultVal) {
+        var param = c.getParameter(label);
         if (param instanceof IBool) {
             return ((IBool) param).getValue();
         }
 
-        throw new IllegalArgumentException(String.format("Constructor has no keyword argument '%s' of type `bool`", label));
+        return defaultVal;
     }
 
-    private Stream<? extends IValue> getKwParamList(IConstructor c, String label) {
-        var param = c.asWithKeywordParameters().getParameter(label);
+    private IList getKwParamList(IWithKeywordParameters<? extends IConstructor> c, String label, IList defaultVal) {
+        var param = c.getParameter(label);
         if (param instanceof IList) {
-            return ((IList) param).stream();
+            return ((IList) param);
         }
 
-        throw new IllegalArgumentException(String.format("Constructor has no keyword argument '%s' of type `bool`", label));
+        return defaultVal;
     }
 
     public IConstructor triggerKindToRascal(@Nullable CompletionContext context) {
