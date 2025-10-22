@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.CompletionItemLabelDetails;
 import org.eclipse.lsp4j.CompletionItemTag;
 import org.eclipse.lsp4j.InsertReplaceEdit;
 import org.eclipse.lsp4j.InsertTextFormat;
+import org.eclipse.lsp4j.InsertTextMode;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.Position;
@@ -83,32 +84,30 @@ public class Completion {
 
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final TypeFactory TF = TypeFactory.getInstance();
+    private static final TypeStore store = new TypeStore();
 
     private final IConstructor invoked;
     private final Function<IString, IConstructor> character;
 
-    private TypeStore store;
-
     public Completion() {
-        this.store = new TypeStore();
-
         final var completionTriggerAdt = TF.abstractDataType(store, "CompletionTrigger");
         this.invoked = VF.constructor(TF.constructor(store, completionTriggerAdt, "invoked"));
-        this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, "character", TF.tupleType(TF.stringType())), c);
+        this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, "character", TF.stringType(), "trigger"), c);
     }
 
-    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, TypeStore store, IList items, String dedicatedLanguageName, String languageName, int editLine, LineColumnOffsetMap offsets) {
+    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String dedicatedLanguageName, String languageName, int editLine, LineColumnOffsetMap offsets) {
         return items.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
                 var kws = c.asWithKeywordParameters();
                 var ci = new CompletionItem();
+
                 ci.setKind(itemKindToLSP((IConstructor) c.get(KIND)));
 
                 var edit = editToLSP((IConstructor) c.get(EDIT), editLine, offsets);
                 ci.setTextEdit(Either.forRight(edit.getLeft()));
                 ci.setInsertTextFormat(edit.getRight() ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
-
+                ci.setInsertTextMode(InsertTextMode.AsIs);
                 ci.setLabel(((IString) c.get(LABEL)).getValue());
 
                 var details = new CompletionItemLabelDetails();
