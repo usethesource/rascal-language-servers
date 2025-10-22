@@ -85,6 +85,21 @@ public class CompletableFutureUtils {
      * @param <I> The type of the result of the futures.
      * @param futures The futures of which to reduce the result lists.
      * @param identity The identity function of {@link I}.
+     * @return A future that yields a list of all the elements in the lists from the reduced futures.
+     */
+    public static <I> CompletableFuture<List<I>> flatten(Stream<CompletableFuture<List<I>>> futures, Supplier<List<I>> identity) {
+        return reduce(futures,
+            identity,
+            Function.identity(),
+            CompletableFutureUtils::concat
+        );
+    }
+
+    /**
+     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
+     * @param <I> The type of the result of the futures.
+     * @param futures The futures of which to reduce the result lists.
+     * @param identity The identity function of {@link I}.
      * @param concat A function that merges two values of {@link I}.
      * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */

@@ -26,22 +26,21 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang3.tuple.Pair;
-import org.eclipse.lsp4j.Registration;
-import org.eclipse.lsp4j.RegistrationParams;
-import org.eclipse.lsp4j.Unregistration;
-import org.eclipse.lsp4j.UnregistrationParams;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 public abstract class AbstractDynamicCapability<OptionsType> {
 
-    public abstract String id();
+    private final String id;
+
+    public AbstractDynamicCapability() {
+        id = UUID.randomUUID().toString();
+    }
+
+    public final String id() {
+        return id;
+    }
 
     public abstract String methodName();
 
@@ -49,34 +48,6 @@ public abstract class AbstractDynamicCapability<OptionsType> {
 
     public abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
-    public final CompletableFuture<Registration> registration(ILanguageContributions contribs) {
-        return options(contribs).thenApply(opts -> new Registration(id(), methodName(), opts));
-    }
+    public abstract OptionsType mergeOptions(Object existingOpts, Object newOpts);
 
-    public final Unregistration unregistration() {
-        return new Unregistration(id(), methodName());
-    }
-
-    public final CompletableFuture<Either<Registration, Unregistration>> updateRegistration(ILanguageContributions contribs) {
-        return hasContribution(contribs).thenCompose(contributes -> contributes
-            ? registration(contribs).thenApply(Either::forLeft)
-            : CompletableFuture.completedFuture(Either.forRight(unregistration()))
-        );
-    }
-
-    public static CompletableFuture<Void> updateRegistrations(LanguageClient client, ILanguageContributions contribs, List<AbstractDynamicCapability<?>> capabilities) {
-        return CompletableFutureUtils.reduce(capabilities.stream().map(c -> c.updateRegistration(contribs)))
-            .thenApply(ts -> {
-                List<Registration> regs = new LinkedList<>();
-                List<Unregistration> unregs = new LinkedList<>();
-
-                for (var t : ts) {
-                    t.map(regs::add, unregs::add);
-                }
-
-                return Pair.of(regs, unregs);
-            })
-            .thenCompose(ts -> client.unregisterCapability(new UnregistrationParams(ts.getRight())).thenApply(v -> ts))
-            .thenCompose(ts -> client.registerCapability(new RegistrationParams(ts.getLeft())));
-    }
 }

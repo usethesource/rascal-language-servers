@@ -30,15 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.Lists;
 
 import io.usethesource.vallang.IString;
 
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
-
-    @Override
-    public String id() {
-        return "79b28ee9-c396-48e9-904b-49993d7ac3da";
-    }
 
     @Override
     public String methodName() {
@@ -58,6 +54,13 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     @Override
     public CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs) {
         return contribs.hasCompletion();
+    }
+
+    @Override
+    public CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
+        var newOpts = (CompletionRegistrationOptions) newObj;
+        var existingOpts = (CompletionRegistrationOptions) existingObj;
+        return new CompletionRegistrationOptions(Lists.union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);
     }
 
 }

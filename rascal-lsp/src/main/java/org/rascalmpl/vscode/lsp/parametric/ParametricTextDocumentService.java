@@ -123,8 +123,8 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.AbstractDynamicCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -169,6 +169,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
+    private @MonotonicNonNull DynamicCapabilities dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -285,6 +286,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
+        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
         facts.values().forEach(v -> v.setClient(client));
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
@@ -901,17 +903,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, ownExecuter));
 
-        updateDynamicCapabilities(clientCopy, multiplexer);
+        dynamicCapabilities.registerCapabilities(multiplexer);
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
     }
 
-    private void updateDynamicCapabilities(LanguageClient client, ILanguageContributions contribs) {
-        AbstractDynamicCapability.updateRegistrations(client, contribs, List.of(
-            new CompletionCapability()
-        ));
-    }
 
     private static String buildContributionKey(LanguageParameter lang) {
         return lang.getMainFunction() + "::" + lang.getMainFunction();
