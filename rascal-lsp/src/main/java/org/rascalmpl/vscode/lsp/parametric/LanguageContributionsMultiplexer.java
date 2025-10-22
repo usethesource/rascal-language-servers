@@ -31,7 +31,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -343,20 +342,23 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
-        return InterruptibleFuture.flatten(contributions.stream()
-            .map(klc -> klc.contrib)
-            .map(c ->   InterruptibleFuture.flatten(Completion.isTriggered(trigger, c.completionTriggerCharacters()).thenApply(b -> b
-                ? c.completion(focus, cursorOffset, trigger)
-                : InterruptibleFuture.completedFuture(VF.list())), ownExecuter)
-            )
-            .collect(Collectors.toList()), ownExecuter);
+        // Instead of pre-computing the completion contribution, we need to dynamically route based on the trigger here
+        var completion = findFirstOrDefault(c -> CompletableFutureUtils.and(
+            c.hasCompletion(),
+            () -> Completion.isTriggered(trigger, c.completionTriggerCharacters())
+        ));
+
+        return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
     }
 
     @Override
     public CompletableFuture<IList> completionTriggerCharacters() {
-        return CompletableFutureUtils.flatten(contributions.stream()
-            .map(klc -> klc.contrib)
-            .map(ILanguageContributions::completionTriggerCharacters));
+        // A multiplexer supports the union of triggers of its implementations
+        return CompletableFutureUtils.flatten(
+            contributions.stream().map(c -> c.contrib.completionTriggerCharacters()),
+            VF::list,
+            IList::union // remove duplicates
+        );
     }
 
     @Override

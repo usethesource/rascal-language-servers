@@ -63,8 +63,8 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger);
-    public CompletableFuture<IList> completionTriggerCharacters();
 
+    public CompletableFuture<IList> completionTriggerCharacters();
     public CompletableFuture<IList> parseCodeActions(String command);
 
     public CompletableFuture<Boolean> hasAnalysis();
