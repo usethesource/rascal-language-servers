@@ -54,13 +54,17 @@ import lang::rascalcore::check::ModuleLocations;
 }
 map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
-    openFile = getParseTree(l);
-    openFileHeader = openFile.top.header.name;
-
+    start[Module] openFile;
+    try {
+        openFile = getParseTree(l);
+    } catch ParseError(loc err): {
+        return (l: {error("Cannot typecheck this module, since it has parse error(s).", err)});
+    }
     if (hasParseErrors(openFile)) {
         // We cannot typecheck this file, since it has type errors. Do not return any errors, since the parse triggered by the IDE will take care of that.
         return ();
     }
+    openFileHeader = openFile.top.header.name;
 
     checkForImports = [openFile];
     checkedForImports = {};
@@ -69,7 +73,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     rel[loc, loc] dependencies = {};
 
     step("Dependency graph", 1);
-    parseMsgs = job("Building dependency graph", rel[loc, Message] (void (str, int) step2) {
+    parseMsgs = job("Building dependency graph", map[loc, set[Message]] (void (str, int) step2) {
         while (tree <- checkForImports) {
             step2("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
@@ -81,15 +85,18 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                         ml = locateRascalModule(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders);
                         if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
                             if (hasParseErrors(mlpt)) {
-                                return {<l, error("Cannot typecheck this module, since <modName> has parse error(s) (<tree.src.top>).", openFileHeader.src)>};
+                                return (l: {error("Cannot typecheck this module.", openFileHeader.src,
+                                    causes=[error("Parse error", e.src) | Tree e <- findBestParseErrors(mlpt)])
+                                });
                             }
                             checkForImports += mlpt;
                             jobTodo("Building dependency graph");
                             dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                         }
-                    } catch ParseError(loc l): {
-                        return {<l, error("Cannot typecheck this module, since <modName> has parse error(s) (<tree.src.top>).", openFileHeader.src)>};
-                    } catch _: {
+                    } catch ParseError(loc err): {
+                        return (l: {error("Cannot typecheck this module.", openFileHeader.src, causes=[error("<modName> has parse error(s).", err)])});
+                    } catch e: {
+                        println("Exception while building dependency graph at <currentSrc>: <e>");
                         ;// Continue
                     }
                 }
@@ -97,11 +104,12 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             checkedForImports += currentSrc;
             checkForImports -= tree;
         }
-        return {};
+
+        return ();
     }, totalWork=1);
 
-    if ({} !:= parseMsgs) {
-        return toMap(parseMsgs);
+    if (() != parseMsgs) {
+        return parseMsgs;
     }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
