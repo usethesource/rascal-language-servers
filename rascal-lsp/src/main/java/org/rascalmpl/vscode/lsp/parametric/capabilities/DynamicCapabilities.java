@@ -26,14 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -43,7 +42,6 @@ import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -54,14 +52,16 @@ public class DynamicCapabilities {
 
     private final LanguageClient client;
     private final List<AbstractDynamicCapability<?>> supportedCapabilities;
+    private final Executor exec;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
     // private @MonotonicNonNull ClientCapabilities clientCapabilities;
     // private @MonotonicNonNull ServerCapabilities serverCapabilities;
 
-    public DynamicCapabilities(LanguageClient client, List<AbstractDynamicCapability<? extends Object>> supportedCapabilities) {
+    public DynamicCapabilities(LanguageClient client, List<AbstractDynamicCapability<? extends Object>> supportedCapabilities, Executor exec) {
         this.client = client;
         this.supportedCapabilities = supportedCapabilities;
+        this.exec = exec;
     }
 
     // public void setStaticCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities serverCapabilities) {
@@ -71,52 +71,97 @@ public class DynamicCapabilities {
     //     this.serverCapabilities = serverCapabilities;
     // }
 
-    // private CompletableFuture<List<Either<Registration, Unregistration>>> registration(AbstractDynamicCapability<?> cap, ILanguageContributions contribs) {
-    //     return cap.options(contribs).thenApply(opts -> {
-    //         var existing = currentRegistrations.get(cap.methodName());
-    //         if (existing != null) {
-    //             return List.of(unregistration(cap));
-    //             actualOpts = cap.mergeOptions(existing.getRegisterOptions(), opts);
-
-    //         }
-    //         var mergedOpts = existing == null
-    //             ? opts
-    //             : cap.mergeOptions(existing.getRegisterOptions(), opts);
-    //         return new Registration(cap.id(), cap.methodName(), mergedOpts);
-    //     });
-    // }
-
     public CompletableFuture<Void> registerCapabilities(ILanguageContributions contribs) {
-        return CompletableFutureUtils.flatten(supportedCapabilities.stream().map(c -> updateRegistration(c, contribs)), LinkedList::new)
-            .thenCompose(this::doRegistrationRequests);
-    }
+        logger.debug("Registering some capabilities");
 
-    public CompletableFuture<Void> unregisterCapabilties(ILanguageContributions contribs) {
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> removeRegistration(c, contribs)))
-            .thenApply(us -> us.stream()
-                .filter(Objects::nonNull)
-                .map(u -> Either.<Registration, Unregistration>forRight(u))
-                .collect(Collectors.toList()))
-            .thenCompose(this::doRegistrationRequests);
-    }
-
-    private CompletableFuture<List<Either<Registration, Unregistration>>> updateRegistration(AbstractDynamicCapability<?> cap, ILanguageContributions contribs) {
-        return cap.hasContribution(contribs).thenCompose(contributes -> {
-            if (!contributes) {
-                return CompletableFuture.completedFuture(Collections.emptyList());
-            }
-
-            return cap.options(contribs).thenApply(opts -> {
-                var existing = currentRegistrations.get(cap.methodName());
-                if (existing != null) {
-                    return List.of(Either.forRight(unregistration(cap)), Either.forLeft(registration(cap, cap.mergeOptions(existing.getRegisterOptions(), opts))));
+        // Compute registrations purely based on contributions
+        // This requires waiting for an evaluator to load, which takes long, and should not block our logbook
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> registration(c, contribs)))
+            .thenApply(LinkedList::new) // Make sure the list is modifiable
+            .thenAccept(capabilities -> {
+                // Remove capabilities that these contributions do not have
+                capabilities.removeIf(p -> p == null);
+                logger.debug("Contributions support {}/{} dynamic capabilities", capabilities.size(), supportedCapabilities.size());
+                if (capabilities.isEmpty()) {
+                    return; // Void
                 }
-                return List.of(Either.forLeft(registration(cap, opts)));
-            });
+
+                // Since we have some bookkeeping to do, we will now block our logbook for a moment
+                synchronized (currentRegistrations) {
+                    List<Registration> registrations = new LinkedList<>();
+                    List<Unregistration> unregistrations = new LinkedList<>();
+                    for (var entry : capabilities) {
+                        var cap = entry.getLeft();
+                        var registration = entry.getRight();
+                        var opts = registration.getRegisterOptions();
+
+                        logger.debug("Processing capability {}", registration.getMethod());
+
+                        // Check if we already have this registration
+                        var existing = currentRegistrations.get(registration.getMethod());
+                        if (existing != null) {
+                            logger.debug("We registered {} before", registration.getMethod());
+                            // We registered this capability before.
+                            // Let's see if we need to make any changes do the registration.
+                            var mergedOpts = cap.mergeOptions(existing.getRegisterOptions(), opts);
+                            if (!mergedOpts.equals(opts)) {
+                                logger.debug("Options for {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
+                                // The options of the registration changed; we need to unregister it, and update the options for the new registration.
+                                unregistrations.add(unregistration(cap));
+                                registration.setRegisterOptions(mergedOpts);
+                            } else {
+                                // Nothing changed; do not register this.
+                                logger.debug("No option changes for {}", registration.getMethod());
+                                continue;
+                            }
+                        }
+
+                        logger.debug("Adding {} to task list", registration.getMethod());
+                        registrations.add(registration);
+                    }
+
+                    logger.debug("Unregistering: {}", unregistrations.stream().map(Unregistration::getMethod).collect(Collectors.toList()));
+                    client.unregisterCapability(new UnregistrationParams(unregistrations)).join();
+                    unregistrations.forEach(u -> currentRegistrations.remove(u.getMethod()));
+                    logger.debug("Registering: {}", registrations.stream().map(Registration::getMethod).collect(Collectors.toList()));
+                    client.registerCapability(new RegistrationParams(registrations)).join();
+                    registrations.forEach(r -> currentRegistrations.put(r.getMethod(), r));
+
+                    return;
+
+                    // return doUnregistrations(unregistrations)
+                    //     .thenCompose((v) -> doRegistrations(registrations));
+                }
+        })
+        .exceptionally(e -> {
+            logger.error("Unexpected error occurred while updating dynamic capabilities", e);
+            return null;
         });
     }
 
+    public CompletableFuture<Void> unregisterCapabilties(ILanguageContributions contribs) {
+        logger.warn("Unegistering dynmaic capabilities not yet supported");
+        return CompletableFuture.runAsync(() -> {});
+        // return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> removeRegistration(c, contribs)))
+        //     .thenApply(us -> us.stream()
+        //         .filter(Objects::nonNull)
+        //         .map(u -> Either.<Registration, Unregistration>forRight(u))
+        //         .collect(Collectors.toList()))
+        //     .thenCompose(this::doRegistrationRequests);
+    }
+
+    private <T> CompletableFuture<@Nullable Pair<AbstractDynamicCapability<T>, Registration>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
+        return cap.hasContribution(contribs).thenCompose(contributes -> contributes
+            ? cap.options(contribs)
+                .thenApply(opts -> registration(cap, opts))
+                .thenApply(r -> Pair.of(cap, r))
+            : null
+        );
+    }
+
     private CompletableFuture<@Nullable Unregistration> removeRegistration(AbstractDynamicCapability<?> cap, ILanguageContributions contribs) {
+        // TODO This is not right, since another contribution might still supply this.
+        // We probably need to recalculate all capabilities when something changes in the multiplexer
         return cap.hasContribution(contribs).thenApply(contributes -> contributes
             ? unregistration(cap)
             : null);
@@ -130,30 +175,32 @@ public class DynamicCapabilities {
         return new Unregistration(cap.id(), cap.methodName());
     }
 
-    private CompletableFuture<Void> doRegistrationRequests(List<Either<Registration, Unregistration>> tasks) {
-        var pair = unzip(tasks);
-        return unregister(pair.getRight()).thenCompose((_v) -> register(pair.getLeft()));
-    }
+    private CompletableFuture<Void> doRegistrations(List<Registration> rs) {
+        if (rs.isEmpty()) {
+            logger.debug("Skipping registration; nothing to do.");
+            return CompletableFuture.completedFuture(null);
+        }
 
-    private CompletableFuture<Void> register(List<Registration> rs) {
+        logger.debug("Registering capabilities: {}", rs.stream().map(Registration::getMethod).collect(Collectors.toList()));
         return client.registerCapability(new RegistrationParams(rs))
-            .thenAccept((v) -> {
-                rs.forEach(r -> currentRegistrations.put(r.getMethod(), r));
-            });
+            .thenAcceptAsync((v) -> rs.forEach(r -> {
+                var rem = currentRegistrations.put(r.getMethod(), r);
+                logger.debug("Added {}", rem);
+            }), exec);
     }
 
-    private CompletableFuture<Void> unregister(List<Unregistration> us) {
-        return client.unregisterCapability(new UnregistrationParams(us))
-            .thenAccept((v) -> {
-                us.forEach(u -> currentRegistrations.remove(u.getMethod()));
-            });
-    }
+    // private CompletableFuture<Void> doUnregistrations(List<Unregistration> us) {
+    //     if (us.isEmpty()) {
+    //         logger.debug("Skipping unregistration; nothing to do.");
+    //         return CompletableFuture.completedFuture(null);
+    //     }
 
-    private <L, R> Pair<List<L>, List<R>> unzip(List<Either<L, R>> eithers) {
-        List<L> ls = new ArrayList<>();
-        List<R> rs = new ArrayList<>();
-        eithers.forEach(e -> e.map(ls::add, rs::add));
-        return Pair.of(ls, rs);
-    }
+    //     logger.debug("Unregistering capabilities: {}", us.stream().map(Unregistration::getMethod).collect(Collectors.toList()));
+    //     return client.unregisterCapability(new UnregistrationParams(us))
+    //         .thenAcceptAsync((v) -> us.forEach(u -> {
+    //             var rem = currentRegistrations.remove(u.getMethod());
+    //             logger.debug("Removed {}", rem);
+    //         }), exec);
+    // }
 
 }
