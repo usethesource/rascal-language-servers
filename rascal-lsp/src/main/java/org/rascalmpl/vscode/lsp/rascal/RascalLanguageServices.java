@@ -167,7 +167,7 @@ public class RascalLanguageServices {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(false).get();
                 if (tree != null) {
                     return tree.get();
                 }
