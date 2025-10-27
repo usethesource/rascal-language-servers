@@ -286,7 +286,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()), ownExecuter);
+        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
         facts.values().forEach(v -> v.setClient(client));
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
@@ -941,6 +941,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
         }
+
+        dynamicCapabilities.updateCapabilities(contributions);
     }
 
     @Override
