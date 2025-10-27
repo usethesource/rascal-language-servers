@@ -26,11 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.Lists;
 
 import io.usethesource.vallang.IString;
 
@@ -60,7 +61,24 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     public CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
         var newOpts = (CompletionRegistrationOptions) newObj;
         var existingOpts = (CompletionRegistrationOptions) existingObj;
-        return new CompletionRegistrationOptions(Lists.union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);
+        return new CompletionRegistrationOptions(union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);
+    }
+
+    private <T> List<T> union(List<T> left, List<T> right) {
+        if (right.isEmpty()) {
+             return left;
+        }
+        if (left.isEmpty()) {
+            return right;
+        }
+        var merged = new LinkedList<>(left);
+        for (T t : right) {
+            if (!left.contains(t)) {
+                merged.add(t);
+            }
+        }
+
+        return merged;
     }
 
 }
