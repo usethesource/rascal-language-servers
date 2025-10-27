@@ -306,7 +306,7 @@ The following fields can be used:
     * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
     * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
     * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completion is a function or variable.
-    * *details*: Text that is shown when the user asks for more information about a particular completion.
+    * *detail*: Text that is shown when the user asks for more information about a particular completion.
     * *documentation*: Markup that documents the construct that a completion will generate.
     * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
     * *filterText*: Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
@@ -328,7 +328,7 @@ data CompletionItem = completionItem(
     str labelDetail = "",
     str labelDescription = "",
 
-    str details = "",
+    str detail = "",
     str documentation = "",
 
     str sortText = "",

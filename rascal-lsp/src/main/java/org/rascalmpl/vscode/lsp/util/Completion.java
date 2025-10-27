@@ -72,7 +72,7 @@ public class Completion {
     private static final String LABEL = "label";
     private static final String LABEL_DETAIL = "labelDetail";
     private static final String LABEL_DESCRIPTION = "labelDescription";
-    private static final String DETAILS = "details";
+    private static final String DETAIL = "detail";
     private static final String DOCUMENTATION = "documentation";
     private static final String SORT_TEXT = "sortText";
     private static final String FILTER_TEXT = "filterText";
@@ -110,12 +110,12 @@ public class Completion {
                 ci.setInsertTextMode(InsertTextMode.AsIs);
                 ci.setLabel(((IString) c.get(LABEL)).getValue());
 
-                var details = new CompletionItemLabelDetails();
-                details.setDetail(getKwParamString(kws, LABEL_DETAIL, ""));
-                details.setDescription(getKwParamString(kws, LABEL_DESCRIPTION, ""));
-                ci.setLabelDetails(details);
+                var label = new CompletionItemLabelDetails();
+                label.setDetail(getKwParamString(kws, LABEL_DETAIL, ""));
+                label.setDescription(getKwParamString(kws, LABEL_DESCRIPTION, ""));
+                ci.setLabelDetails(label);
 
-                ci.setDetail(getKwParamString(kws, DETAILS, ""));
+                ci.setDetail(getKwParamString(kws, DETAIL, ""));
                 ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, DOCUMENTATION, "")));
                 ci.setSortText(getKwParamString(kws, SORT_TEXT, ""));
                 ci.setFilterText(getKwParamString(kws, FILTER_TEXT, ""));
