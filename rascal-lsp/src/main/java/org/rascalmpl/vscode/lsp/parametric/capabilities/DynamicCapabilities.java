@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -120,12 +119,21 @@ public class DynamicCapabilities {
                         registrations.add(registration);
                     }
 
-                    logger.debug("Unregistering: {}", unregistrations.stream().map(Unregistration::getMethod).collect(Collectors.toList()));
-                    client.unregisterCapability(new UnregistrationParams(unregistrations)).join();
-                    unregistrations.forEach(u -> currentRegistrations.remove(u.getMethod()));
-                    logger.debug("Registering: {}", registrations.stream().map(Registration::getMethod).collect(Collectors.toList()));
-                    client.registerCapability(new RegistrationParams(registrations)).join();
-                    registrations.forEach(r -> currentRegistrations.put(r.getMethod(), r));
+                    if (!unregistrations.isEmpty()) {
+                        logger.debug("Unregistering: {}", unregistrations.stream().map(Unregistration::getMethod).collect(Collectors.toList()));
+                        client.unregisterCapability(new UnregistrationParams(unregistrations)).join();
+                        unregistrations.forEach(u -> currentRegistrations.remove(u.getMethod()));
+                    } else {
+                        logger.debug("No capabilities to unregister");
+                    }
+
+                    if (!registrations.isEmpty()) {
+                        logger.debug("Registering: {}", registrations.stream().map(Registration::getMethod).collect(Collectors.toList()));
+                        client.registerCapability(new RegistrationParams(registrations)).join();
+                        registrations.forEach(r -> currentRegistrations.put(r.getMethod(), r));
+                    } else  {
+                        logger.debug("No capabilities to register");
+                    }
 
                     return;
 
