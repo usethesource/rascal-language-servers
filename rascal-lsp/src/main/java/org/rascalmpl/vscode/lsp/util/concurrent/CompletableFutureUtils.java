@@ -31,10 +31,14 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.rascalmpl.values.IRascalValueFactory;
+
+import io.usethesource.vallang.IList;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
@@ -68,6 +72,30 @@ public class CompletableFutureUtils {
     }
 
     /**
+     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link IList} to a single future that produces an {@link Iterable}.
+     * @param futures The futures of which to reduce the result lists.
+     * @return A future that yields a list of all the elements in the lists from the reduced futures.
+     */
+    public static CompletableFuture<IList> flatten(Stream<CompletableFuture<IList>> futures) {
+        return flatten(futures, IRascalValueFactory.getInstance()::list, IList::concat);
+    }
+
+    /**
+     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
+     * @param <I> The type of the result of the futures.
+     * @param futures The futures of which to reduce the result lists.
+     * @param identity The identity function of {@link I}.
+     * @return A future that yields a list of all the elements in the lists from the reduced futures.
+     */
+    public static <I> CompletableFuture<List<I>> flatten(Stream<CompletableFuture<List<I>>> futures, Supplier<List<I>> identity) {
+        return reduce(futures,
+            identity,
+            Function.identity(),
+            CompletableFutureUtils::concat
+        );
+    }
+
+    /**
      * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
      * @param <I> The type of the result of the futures.
      * @param futures The futures of which to reduce the result lists.
@@ -95,7 +123,7 @@ public class CompletableFutureUtils {
      *
      */
     public static <I, C> CompletableFuture<C> reduce(Stream<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
+            Supplier<? extends C> identity, Function<I, C> map, BinaryOperator<C> concat) {
         return futures
                 .map(t -> t.thenApply(map))
                 .reduce(CompletableFuture.completedFuture(identity.get()),
@@ -113,7 +141,7 @@ public class CompletableFutureUtils {
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
+            Supplier<? extends C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat) {
         CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
@@ -133,5 +161,15 @@ public class CompletableFutureUtils {
         var ls = new LinkedList<>(l);
         ls.addAll(r);
         return ls;
+    }
+
+    /**
+     * Lazy logical and on futures.
+     * @param left The future to evaluate first. Only if this results in {@link Boolean.TRUE}, the second operand will be evaluated.
+     * @param right A {@link Supplier} of the future to evaluate second.
+     * @return The result of lazily evaluating both boolean values (`true` if both evaluate to `true`, `false` otherwise).
+     */
+    public static CompletableFuture<Boolean> and(CompletableFuture<Boolean> left, Supplier<CompletableFuture<Boolean>> right) {
+        return left.thenCompose(l -> l ? right.get() : CompletableFuture.completedFuture(false));
     }
 }

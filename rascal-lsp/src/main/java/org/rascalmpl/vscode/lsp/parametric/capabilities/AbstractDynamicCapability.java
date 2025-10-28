@@ -24,18 +24,30 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util.locations;
+package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import org.apache.commons.lang3.tuple.Pair;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
-/**
- * Translate ISourceLocation columns to LSP columns
- *
- * vallang uses UTF-32-bit codepoints, while lsp uses UTF-16, so in cases where a codepoint wouldn't fit inside 16bit char, it takes up two chars. Implementations of this class translate these efficiently.
- */
-public interface LineColumnOffsetMap {
-    int translateColumn(int line, int column, boolean isEnd);
-    int translateInverseColumn(int line, int column, boolean isEnd);
-    int calculateInverseOffset(int line, int column);
-    Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn);
+public abstract class AbstractDynamicCapability<OptionsType> {
+
+    private final String id;
+
+    public AbstractDynamicCapability() {
+        id = UUID.randomUUID().toString();
+    }
+
+    public final String id() {
+        return id;
+    }
+
+    public abstract String methodName();
+
+    public abstract CompletableFuture<OptionsType> options(ILanguageContributions contribs);
+
+    public abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
+
+    public abstract OptionsType mergeOptions(Object existingOpts, Object newOpts);
+
 }

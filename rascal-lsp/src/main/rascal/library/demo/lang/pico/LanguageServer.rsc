@@ -40,6 +40,8 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 import lang::pico::\syntax::Main;
 import DateTime;
+import IO;
+import String;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,7 +63,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -226,6 +229,30 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
+
+CompletionItem createVarCompletion(int cursorColumn, loc selectedIdent, IdType decl) {
+    str name = "<decl.id>";
+    CompletionEdit edit = completionEdit(
+        selectedIdent.begin.column,
+        cursorColumn,
+        selectedIdent.end.column,
+        name
+    );
+
+    return completionItem(\variable(), edit, name, labelDetail=": <decl.t>");
+}
+
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger _) {
+    str prefix = "<focus[0]>"[..cursorOffset];
+    return [createVarCompletion(focus[0].src.begin.column + cursorOffset, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
+}
+
+void testCompletion() {
+    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; va := 1 end");
+    Focus focus = computeFocusList(prg, 1, 47); // after v
+    completions = picoCompletionService(focus, 2, invoked());
+    println("completions: <completions>");
+}
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

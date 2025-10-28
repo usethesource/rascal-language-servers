@@ -50,12 +50,17 @@ import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionOptions;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -120,12 +125,15 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
+import org.rascalmpl.vscode.lsp.util.Completion;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
@@ -164,6 +172,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
+    private @MonotonicNonNull DynamicCapabilities dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -227,7 +236,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -242,6 +251,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
+
+        if (!clientCapabilities.getTextDocument().getCompletion().getDynamicRegistration()) {
+            // TODO Can we do our best to supply a reasonable set of default trigger characters here?
+            result.setCompletionProvider(new CompletionOptions(false, null));
+        }
     }
 
     private String getRascalMetaCommandName() {
@@ -275,6 +289,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
+        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
         facts.values().forEach(v -> v.setClient(client));
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
@@ -847,6 +862,30 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
+        logger.debug("Completion: {} at {} with {}", params.getTextDocument(), params.getPosition(), params.getContext());
+
+        var loc = Locations.toLoc(params.getTextDocument());
+        var contrib = contributions(loc);
+        var file = getFile(loc);
+
+        return recoverExceptions(file.getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(t -> {
+                var completion = new Completion();
+                var lspPos = params.getPosition();
+                var rascalPos = Locations.toRascalPosition(loc, lspPos, columns);
+                var focus = TreeSearch.computeFocusList(t, rascalPos.getLine(), rascalPos.getCharacter());
+                var trigger = completion.triggerKindToRascal(params.getContext());
+                var cursorOffset = rascalPos.getCharacter() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
+                return contrib.completion(focus, VF.integer(cursorOffset), trigger)
+                    .get()
+                    .thenApply(ci -> completion.toLSP((IBaseTextDocumentService) this, ci, dedicatedLanguageName, contrib.getName(), rascalPos.getLine(), columns.get(loc)));
+            })
+            .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
+    }
+
+    @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
@@ -878,6 +917,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, ownExecuter));
 
+        dynamicCapabilities.registerCapabilities(multiplexer);
+
         fact.reloadContributions();
         fact.setClient(clientCopy);
 
@@ -907,6 +948,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
         triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
+
 
     private static String buildContributionKey(LanguageParameter lang) {
         return lang.getMainFunction() + "::" + lang.getMainFunction();
@@ -939,6 +981,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
         }
+
+        dynamicCapabilities.updateCapabilities(contributions);
     }
 
     @Override

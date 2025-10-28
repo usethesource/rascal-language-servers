@@ -48,6 +48,8 @@ public class RascalADTs {
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
         public static final String SELECTION_RANGE = "selectionRange";
+        public static final String COMPLETION = "completion";
+        public static final String COMPLETION_TRIGGER_CHARACTERS = "additionalTriggerCharacters";
 
         public static final String RENAME_SERVICE = "renameService";
         public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
