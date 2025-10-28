@@ -313,7 +313,7 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
-    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
+    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.extremelySlow, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
