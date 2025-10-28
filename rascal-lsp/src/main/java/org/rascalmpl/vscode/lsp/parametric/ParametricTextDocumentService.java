@@ -30,10 +30,12 @@ import java.io.IOException;
 import java.io.Reader;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -137,6 +139,7 @@ import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -317,8 +320,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         if (files.remove(loc) == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-                "Unknown file: " + loc, params));
+            throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
     }
@@ -328,7 +330,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ownExecuter.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
-                if (registeredExtensions.containsKey(extension(URIUtil.assumeCorrectLocation(f.getUri())))) {
+                if (isLanguageRegistered(URIUtil.assumeCorrectLocation(f.getUri()))) {
                     availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
                 }
             }
@@ -339,12 +341,21 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
         triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
     }
+
     private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        logger.trace("Triggering analyzer for {}", doc.getUri());
         var location = Locations.toLoc(doc);
-        var fileFacts = facts(location);
-        fileFacts.invalidateAnalyzer(location);
-        fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), doc.getVersion(), delay);
+        triggerAnalyzer(location, doc.getVersion(), delay);
+    }
+
+    private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
+        if (isLanguageRegistered(location)) {
+            logger.trace("Triggering analyzer for {}", location);
+            var fileFacts = facts(location);
+            fileFacts.invalidateAnalyzer(location);
+            fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+        } else {
+            logger.debug("Not triggering analyzer, since no language is registered for {}", location);
+        }
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
@@ -355,12 +366,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
-        TextDocumentState file = getFile(Locations.toLoc(doc));
+    private void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         logger.trace("New contents for {}", doc);
+        TextDocumentState file = getFile(Locations.toLoc(doc));
         columns.clear(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
-        return file;
     }
 
     private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
@@ -535,8 +545,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            String language = registeredExtensions.get(extension(URIUtil.assumeCorrectLocation(rename.getNewUri())));
-            if (language != null) {
+            var l = URIUtil.assumeCorrectLocation(rename.getNewUri());
+            if (isLanguageRegistered(l)) {
+                var language = language(l);
                 ILanguageContributions contrib = contributions.get(language);
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
@@ -611,17 +622,26 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return l.get(l.size() - 1);
     }
 
+    private boolean isLanguageRegistered(ISourceLocation loc) {
+        return registeredExtensions.containsKey(extension(loc));
+    }
+
+    private Optional<String> safeLanguage(ISourceLocation loc) {
+        return Optional.ofNullable(registeredExtensions.get(extension(loc)));
+    }
+
+    private String language(ISourceLocation loc) {
+        return safeLanguage(loc).orElseThrow(() ->
+            new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", extension(loc), loc))
+        );
+    }
+
     private ILanguageContributions contributions(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ILanguageContributions contrib = contributions.get(language);
-
-            if (contrib != null) {
-                return contrib;
-            }
-        }
-
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+        return safeLanguage(doc)
+            .map(contributions::get)
+            .map(ILanguageContributions.class::cast)
+            .flatMap(Optional::ofNullable)
+            .orElseGet(() -> new NoContributions(extension(doc)));
     }
 
     private static String extension(ISourceLocation doc) {
@@ -629,26 +649,24 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        String language = registeredExtensions.get(extension(doc));
-        if (language != null) {
-            ParametricFileFacts fact = facts.get(language);
-            if (fact != null) {
-                return fact;
-            }
+        ParametricFileFacts fact = facts.get(language(doc));
+
+        if (fact == null) {
+            throw new ResponseErrorException(unknownFileError(doc, doc));
         }
-        throw new UnsupportedOperationException("Rascal Parametric LSP has no support for this file: " + doc);
+
+        return fact;
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp)
-        );
+            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp));
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
         TextDocumentState file = files.get(loc);
         if (file == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, loc));
+            throw new ResponseErrorException(unknownFileError(loc, loc));
         }
         return file;
     }
@@ -832,10 +850,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
-        for (var extension: lang.getExtensions()) {
-            this.registeredExtensions.put(extension, lang.getName());
-        }
-
         var multiplexer = contributions.computeIfAbsent(lang.getName(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
         );
@@ -866,6 +880,32 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
+
+        for (var extension: lang.getExtensions()) {
+            this.registeredExtensions.put(extension, lang.getName());
+        }
+
+        // If we opened any files with this extension before, now associate them with contributions
+        var extensions = Arrays.asList(lang.getExtensions());
+        for (var f : files.keySet()) {
+            if (extensions.contains(extension(f))) {
+                updateFileState(lang, f);
+            }
+        }
+    }
+
+    private void updateFileState(LanguageParameter lang, ISourceLocation f) {
+        logger.trace("File of language {} - updating state: {}", lang.getName(), f);
+        // Since we cannot know what happened to this file before we were called, we need to be careful about races.
+        // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
+        var state = files.computeIfPresent(f, (loc, currentState) -> currentState.changeParser(contributions(loc)::parsing));
+        if (state == null) {
+            logger.debug("Updating the parser of {} failed, since it was closed.", f);
+            return;
+        }
+        // Update open editor
+        handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
@@ -938,5 +978,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void cancelProgress(String progressId) {
         contributions.values().forEach(plex ->
             plex.cancelProgress(progressId));
+    }
+
+    private ResponseError unknownFileError(ISourceLocation loc, Object data) {
+        return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
     }
 }
