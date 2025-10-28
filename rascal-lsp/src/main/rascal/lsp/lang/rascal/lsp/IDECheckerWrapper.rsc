@@ -85,7 +85,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                         ml = locateRascalModule(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders);
                         if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
                             if (hasParseErrors(mlpt)) {
-                                return (l: {error("Cannot typecheck this module, since a dependency has parse error(s).", openFileHeader.src,
+                                return (l: {error("Cannot typecheck this module, since dependency `<modName>` has parse error(s).", openFileHeader.src,
                                     causes=[error("Has a parse error around this position.", e.src) | Tree e <- findBestParseErrors(mlpt)])
                                 });
                             }
@@ -94,7 +94,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                             dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                         }
                     } catch ParseError(loc err): {
-                        return (l: {error("Cannot typecheck this module, since a dependency has parse error(s).", openFileHeader.src, causes=[error("Has parse error(s).", err)])});
+                        return (l: {error("Cannot typecheck this module, since dependency `<modName>` has parse error(s).", openFileHeader.src, causes=[error("Has parse error(s).", err)])});
                     } catch e: {
                         println("Exception while building dependency graph at <currentSrc>: <e>");
                         ;// Continue
