@@ -238,7 +238,7 @@ Register the Pico language and the contributions that supply the IDE with featur
 The `errorRecovery` parameter can be set to `true` to enable error recovery in the parser.
 When enabled, all the contributions in this file will mostly work when parse errors are
 present in the input because the contributions are written to be robust
-in the presence of error trees. See ((util::LanguageServer::LanguageServer)) for more details.
+in the presence of error trees. See ((util::LanguageServer)) for more details.
 }
 @benefits{
 * You can run each contribution on an example in the terminal to test it first.
