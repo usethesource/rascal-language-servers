@@ -464,43 +464,40 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(ide: IDEOperations, channel: 'Language Parametric Rascal' | 'Rascal MPL') {
-
+export async function printRascalOutputOnFailure(context: Mocha.Context, ide: IDEOperations, channel: 'Language Parametric Rascal' | 'Rascal MPL') {
     const ZOOM_OUT_FACTOR = 5;
-    afterEach("print output in case of failure", async function () {
-        if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        await ide.screenshot(`failure - ${this.currentTest.fullTitle()}`);
-        try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            const bbp = new BottomBarPanel();
-            await bbp.maximize();
-            console.log('**********************************************');
-            console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
-            if (textLines.length === 0) {
-                console.log("We could not capture the output lines");
-            }
+    if (!context.currentTest || context.currentTest.state !== "failed") { return; }
+    await ide.screenshot(`failure - ${context.currentTest.fullTitle()}`);
+    try {
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomOut');
+        }
+        const bbp = new BottomBarPanel();
+        await bbp.maximize();
+        console.log('**********************************************');
+        console.log('***** Rascal MPL output for the failed tests: ');
+        let textLines: WebElement[] = [];
+        let tries = 0;
+        while (textLines.length === 0 && tries < 3) {
+            await showRascalOutput(bbp, channel);
+            textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+            tries++;
+        }
+        if (textLines.length === 0) {
+            console.log("We could not capture the output lines");
+        }
 
-            for (const l of textLines) {
-                console.log(await l.getText());
-            }
-            await bbp.closePanel();
-        } catch (e) {
-            console.log('Error capturing output: ', e);
+        for (const l of textLines) {
+            console.log(await l.getText());
         }
-        finally {
-            console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
-            }
+        await bbp.closePanel();
+    } catch (e) {
+        console.log('Error capturing output: ', e);
+    }
+    finally {
+        console.log('*******End output*****************************');
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomIn');
         }
-    });
+    }
 }
