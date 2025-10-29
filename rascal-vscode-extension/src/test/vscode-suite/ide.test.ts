@@ -49,8 +49,6 @@ describe('IDE', function () {
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
 
-        printRascalOutputOnFailure(ide, 'Rascal MPL');
-
         await ide.load();
         // trigger rascal type checker to be sure
         for (const f of protectFiles) {
@@ -75,6 +73,9 @@ describe('IDE', function () {
         }
     });
 
+    afterEach("print output in case of test failure",
+        async function () { await printRascalOutputOnFailure(this, ide, "Rascal MPL"); }
+    );
 
     async function makeSureRascalModulesAreLoaded(delay = Delays.verySlow) {
         try {
