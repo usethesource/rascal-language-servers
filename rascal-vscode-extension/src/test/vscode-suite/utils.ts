@@ -320,7 +320,11 @@ export class IDEOperations {
         }
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
         await sleep(50);
+        const fileName = await editor.getFileUri();
+        await this.screenshot(`just before saving (for type-check) ${fileName}`);
         await editor.save();
+        await sleep(50);
+        await this.screenshot(`just after saving (for type-check) ${fileName}`);
         if (waitForFinish) {
             const hasStatus = this.statusContains(checkName);
             await ignoreFails(this.driver.wait(hasStatus, Delays.normal, `${checkName} should have started after a save`));
