@@ -91,4 +91,16 @@ public class RascalADTs {
         public static final String TITLE = "title";
         public static final String KIND = "kind";
     }
+
+    public static class CallHierarchyFields {
+        private CallHierarchyFields() { }
+
+        public static final String NAME = "name";
+        public static final String KIND = "kind";
+        public static final String DEFINITION = "src";
+        public static final String SELECTION = "selection";
+        public static final String TAGS = "tags";
+        public static final String DETAIL = "detail";
+        public static final String DATA = "data";
+    }
 }

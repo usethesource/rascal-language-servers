@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CallHierarchyFields;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -56,17 +57,7 @@ public class CallHierarchy {
 
     private final IConstructor incoming;
     private final IConstructor outgoing;
-
     private final Type callHierarchyItemCons;
-
-    private static final String NAME = "name";
-    private static final String KIND = "kind";
-    private static final String DEFINITION = "src";
-    private static final String SELECTION = "selection";
-    private static final String TAGS = "tags";
-    private static final String DETAIL = "detail";
-    private static final String DATA = "data";
-
 
     public CallHierarchy() {
         var store = new TypeStore();
@@ -75,10 +66,10 @@ public class CallHierarchy {
         this.outgoing = VF.constructor(TF.constructor(store, directionAdt, "outgoing"));
         var callHierarchyItemAdt = TF.abstractDataType(store, "CallHierarchyItem");
         this.callHierarchyItemCons = TF.constructor(store, callHierarchyItemAdt, "callHierarchyItem",
-            TF.stringType(), NAME,
-            DocumentSymbols.getSymbolKindType(), KIND,
-            TF.sourceLocationType(), DEFINITION,
-            TF.sourceLocationType(), SELECTION
+            TF.stringType(), CallHierarchyFields.NAME,
+            DocumentSymbols.getSymbolKindType(), CallHierarchyFields.KIND,
+            TF.sourceLocationType(), CallHierarchyFields.DEFINITION,
+            TF.sourceLocationType(), CallHierarchyFields.SELECTION
         );
     }
 
@@ -91,23 +82,23 @@ public class CallHierarchy {
     }
 
     public CallHierarchyItem toLSP(IConstructor cons, ColumnMaps columns) {
-        var name = ((IString) cons.get(NAME)).getValue();
-        var kind = DocumentSymbols.symbolKindToLSP((IConstructor) cons.get(KIND));
-        var def = (ISourceLocation) cons.get(DEFINITION);
+        var name = ((IString) cons.get(CallHierarchyFields.NAME)).getValue();
+        var kind = DocumentSymbols.symbolKindToLSP((IConstructor) cons.get(CallHierarchyFields.KIND));
+        var def = (ISourceLocation) cons.get(CallHierarchyFields.DEFINITION);
         var definitionRange = Locations.toRange(def, columns);
-        var selection = (ISourceLocation) cons.get(SELECTION);
+        var selection = (ISourceLocation) cons.get(CallHierarchyFields.SELECTION);
         var selectionRange = Locations.toRange(selection, columns);
 
         var ci = new CallHierarchyItem(name, kind, def.top().getURI().toString(), definitionRange, selectionRange);
         var kws = cons.asWithKeywordParameters();
-        if (kws.hasParameter(TAGS)) {
-            ci.setTags(DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(TAGS)));
+        if (kws.hasParameter(CallHierarchyFields.TAGS)) {
+            ci.setTags(DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(CallHierarchyFields.TAGS)));
         }
-        if (kws.hasParameter(DETAIL)) {
-            ci.setDetail(((IString) kws.getParameter(DETAIL)).getValue());
+        if (kws.hasParameter(CallHierarchyFields.DETAIL)) {
+            ci.setDetail(((IString) kws.getParameter(CallHierarchyFields.DETAIL)).getValue());
         }
-        if (kws.hasParameter(DATA)) {
-            ci.setData(serializeData((IConstructor) kws.getParameter(DATA)));
+        if (kws.hasParameter(CallHierarchyFields.DATA)) {
+            ci.setData(serializeData((IConstructor) kws.getParameter(CallHierarchyFields.DATA)));
         }
 
         return ci;
@@ -128,9 +119,9 @@ public class CallHierarchy {
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
             ).toArray(new IValue[0]), Map.of(
-                TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
-                DETAIL, VF.string(ci.getDetail()),
-                DATA, data
+                CallHierarchyFields.TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
+                CallHierarchyFields.DETAIL, VF.string(ci.getDetail()),
+                CallHierarchyFields.DATA, data
             )));
     }
 }
