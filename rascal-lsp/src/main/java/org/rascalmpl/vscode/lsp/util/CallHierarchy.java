@@ -46,6 +46,13 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
+/**
+ * Converts call hierarchy items from Rascal to LSP and vice versa.
+ *
+ * LSP requires and produces {@link CallHierarchyItem} and {@link CallHierarchyItem.Direction}.
+ * In Rascal, those are modeled as {@link IConstructor}, possibly with keyword fields.
+ * This class serves to convert one to the other.
+ */
 public class CallHierarchy {
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final TypeFactory TF = TypeFactory.getInstance();
@@ -104,6 +111,10 @@ public class CallHierarchy {
         return ci;
     }
 
+    /**
+     * Serializes the call hierarchy item data field as a {@link String}.
+     * The deserialization counterpart is {@link org.rascalmpl.vscode.lsp.parametric.ILanguageContributions#parseCallHierarchyData}.
+     */
     private String serializeData(IConstructor data) {
         return data.toString();
     }
