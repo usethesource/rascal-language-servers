@@ -849,8 +849,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenCompose(t -> {
                 final var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
-                final var focus = TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter());
-                return contrib.prepareCallHierarchy(focus)
+                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
                     .get()
                     .thenApply(items -> {
                         var ch = new CallHierarchy();
@@ -874,8 +873,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
                     Lists::union,
                     LinkedHashMap::new
-                )))
-            .thenApply(map -> map.entrySet().stream()
+                ))
+                .entrySet().stream()
                 .map(e -> constructor.apply(e.getKey(), e.getValue()))
                 .collect(Collectors.toList()));
     }
