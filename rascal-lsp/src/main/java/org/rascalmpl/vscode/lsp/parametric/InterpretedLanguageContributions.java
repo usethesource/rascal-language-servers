@@ -31,8 +31,6 @@ import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -272,6 +270,31 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
+    @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        return store.thenApply(completionStore -> {
+            try {
+                var callHierarchyDataAdt = completionStore.lookupAbstractDataType("CallHierarchyData");
+                if (callHierarchyDataAdt == null) {
+                    throw new IllegalArgumentException("CallHierarchyData is not defined in environment");
+                }
+                if (data == null || data == "") {
+                    var none = completionStore.lookupConstructor(callHierarchyDataAdt, "none", TypeFactory.getInstance().tupleEmpty());
+                    if (none == null) {
+                        throw new IllegalArgumentException("CallHierarchyData::none() is not defined in environment");
+                    }
+                    return VF.constructor(none);
+                }
+                return (IConstructor) new StandardTextReader().read(VF, completionStore, callHierarchyDataAdt, new StringReader(data));
+            } catch (FactTypeUseException | IOException e) {
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new IllegalArgumentException("The call hierarchy item data could not be parsed", e);
+            }
+        });
+    }
+
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
@@ -419,23 +442,15 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
         debug(LanguageContributions.CALL_HIERARCHY, "prepare", focus.length());
-        return withStore(execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus));
+        return execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus);
     }
 
     @Override
-    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> computeHierarchyItem, Function<TypeStore, IConstructor> computeDirection) {
-        return withStore(InterruptibleFuture.flatten(store.thenApply(store -> {
-            var hierarchyItem = computeHierarchyItem.apply(store);
-            var direction = computeDirection.apply(store);
-            debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
-            return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
-        }), exec));
-    }
-
-    private <V> InterruptibleFuture<Pair<V, TypeStore>> withStore(InterruptibleFuture<V> contrib) {
-        return contrib.thenCombineAsync(store, Pair::of, exec);
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
+        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
     }
 
     private void debug(String name, Object param) {

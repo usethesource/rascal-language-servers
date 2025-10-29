@@ -31,7 +31,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
-import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -43,7 +42,6 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.type.TypeStore;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
@@ -291,6 +289,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        return incomingOutgoingCalls.thenApply(c -> c.parseCallHierarchyData(data)).thenCompose(Function.identity());
+    }
+
+    @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
         return flatten(inlayHint, c -> c.inlayHint(input));
     }
@@ -346,12 +349,12 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus) {
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
         return flatten(prepareCallHierarchy, c -> c.prepareCallHierarchy(focus));
     }
 
     @Override
-    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> hierarchyItem, Function<TypeStore, IConstructor> direction) {
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
         return flatten(incomingOutgoingCalls, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
     }
 

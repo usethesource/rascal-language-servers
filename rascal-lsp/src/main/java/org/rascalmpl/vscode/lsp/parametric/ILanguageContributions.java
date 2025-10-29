@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.commons.lang3.tuple.Pair;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -60,14 +59,15 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
-    public InterruptibleFuture<Pair<IList, TypeStore>> prepareCallHierarchy(IList focus);
-    public InterruptibleFuture<Pair<IList, TypeStore>> incomingOutgoingCalls(Function<TypeStore, IConstructor> hierarchyItem, Function<TypeStore, IConstructor> direction);
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus);
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
 
     public CompletableFuture<IList> parseCodeActions(String command);
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data);
 
     public CompletableFuture<Boolean> hasAnalysis();
     public CompletableFuture<Boolean> hasBuild();
