@@ -47,8 +47,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal');
-
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
@@ -82,6 +80,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         bench = new Workbench();
         await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser);
+
+        printRascalOutputOnFailure(ide, 'Language Parametric Rascal');
+
         await ide.load();
         await loadPico();
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);

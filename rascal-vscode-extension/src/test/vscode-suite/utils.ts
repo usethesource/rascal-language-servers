@@ -464,11 +464,12 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+export function printRascalOutputOnFailure(ide: IDEOperations, channel: 'Language Parametric Rascal' | 'Rascal MPL') {
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
+        await ide.screenshot(`failure - ${this.currentTest.fullTitle}`);
         try {
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                 await new Workbench().executeCommand('workbench.action.zoomOut');

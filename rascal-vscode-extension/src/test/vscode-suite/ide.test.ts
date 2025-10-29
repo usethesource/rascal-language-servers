@@ -42,14 +42,15 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
+
+        printRascalOutputOnFailure(ide, 'Rascal MPL');
+
         await ide.load();
         // trigger rascal type checker to be sure
         for (const f of protectFiles) {
