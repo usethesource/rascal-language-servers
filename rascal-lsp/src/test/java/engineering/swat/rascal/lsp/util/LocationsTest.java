@@ -35,10 +35,15 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class LocationsTest {
 
+    private static IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private String fileName = "PNG.bird";
+
+    private static ColumnMaps columns(String contents) {
+        return new ColumnMaps(f -> contents);
+    }
+
     @Test
-    public void roundtrip() {
-        var VF = IRascalValueFactory.getInstance();
-        var fileName = "PNG.bird";
+    public void roundtripWindowsEmptyLine() {
         var contents = "module images::PNG\r\n" + //
                         "\r\n" + //
                         "struct Signature {\r\n" + //
@@ -47,10 +52,55 @@ public class LocationsTest {
                         "    byte[] _[4] ?(== <0x0d, 0x0a, 0x1a, 0x0a>)\r\n" + //
                         "}\r\n" + //
                         "";
-        var columns = new ColumnMaps(f -> contents);
+        var columns = columns(contents);
         var in = VF.sourceLocation(fileName, 22, 119, 3, 7, 0, 1); // the structure
-        var range = Locations.toRange(in, columns);
-        var out = Locations.setRange(in, range, columns);
+        var out = Locations.setRange(in, Locations.toRange(in, columns), columns);
+        assertEquals(in, out);
+    }
+
+    @Test
+    public void roundtripWindows() {
+        var contents = "module images::PNG\r\n" + //
+                        "struct Signature {\r\n" + //
+                        "    u8 _ ?(== 0x89)\r\n" + //
+                        "    byte[] _[3] ?(== \"PNG\")\r\n" + //
+                        "    byte[] _[4] ?(== <0x0d, 0x0a, 0x1a, 0x0a>)\r\n" + //
+                        "}\r\n" + //
+                        "";
+        var columns = columns(contents);
+        var in = VF.sourceLocation(fileName, 20, 119, 2, 6, 0, 1); // the structure
+        var out = Locations.setRange(in, Locations.toRange(in, columns), columns);
+        assertEquals(in, out);
+    }
+
+    @Test
+    public void roundtripUnixEmptyLine() {
+        var contents = "module images::PNG\n" + //
+                        "\n" + //
+                        "struct Signature {\n" + //
+                        "    u8 _ ?(== 0x89)\n" + //
+                        "    byte[] _[3] ?(== \"PNG\")\n" + //
+                        "    byte[] _[4] ?(== <0x0d, 0x0a, 0x1a, 0x0a>)\n" + //
+                        "}\n" + //
+                        "";
+        var columns = columns(contents);
+        var in = VF.sourceLocation(fileName, 20, 115, 3, 7, 0, 1); // the structure
+        var out = Locations.setRange(in, Locations.toRange(in, columns), columns);
+        assertEquals(in, out);
+    }
+
+    @Test
+    public void roundtripUnix() {
+        var contents = "module images::PNG\n" + //
+                        "struct Signature {\n" + //
+                        "    u8 _ ?(== 0x89)\n" + //
+                        "    byte[] _[3] ?(== \"PNG\")\n" + //
+                        "    byte[] _[4] ?(== <0x0d, 0x0a, 0x1a, 0x0a>)\n" + //
+                        "}\n" + //
+                        "";
+        var columns = columns(contents);
+        var in = VF.sourceLocation(fileName, 19, 115, 2, 6, 0, 1); // the structure
+        var out = Locations.setRange(in, Locations.toRange(in, columns), columns);
         assertEquals(in, out);
     }
 }
