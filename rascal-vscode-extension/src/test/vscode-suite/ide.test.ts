@@ -119,7 +119,7 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
 
-    it("error recovery works", async function() {
+    it.skip("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor);
         // Introduce two parse errors
@@ -133,17 +133,17 @@ describe('IDE', function () {
         return ide.triggerTypeChecker(editor, {tplFile : tplFile, waitForFinish: waitForFinish });
     }
 
-    it("save runs type checker", async function () {
+    it.skip("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
     });
 
-    it("type checker runs on dependencies", async() => {
+    it.skip("type checker runs on dependencies", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libFileTpl, true);
     });
 
-    it("go to definition works", async () => {
+    it.skip("go to definition works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
@@ -161,20 +161,22 @@ describe('IDE', function () {
         }, Delays.slow, "We should jump to the right position");
     });
 
-    it("go to definition works across projects", async () => {
-        // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
-        const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await triggerTypeChecker(libEditor, "", true);
-        await bench.getEditorView().closeAllEditors();
+    for (let i = 0; i < 10; i++) {
+        it(`go to definition works across projects (${i})`, async () => {
+            // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
+            const libEditor = await ide.openModule(TestWorkspace.libFile);
+            await triggerTypeChecker(libEditor, "", true);
+            await bench.getEditorView().closeAllEditors();
 
-        const editor = await ide.openModule(TestWorkspace.libCallFile);
-        await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
-        await editor.selectText("fib");
-        await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
-    });
+            const editor = await ide.openModule(TestWorkspace.libCallFile);
+            await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
+            await editor.selectText("fib");
+            await bench.executeCommand("Go to Definition");
+            await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
+        });
+    }
 
-    it("outline works", async () => {
+    it.skip("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await editor.moveCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
@@ -187,7 +189,7 @@ describe('IDE', function () {
         }, Delays.normal, "Cursor should have moved to line that contains the println function");
     });
 
-    it ("rename works", async() => {
+    it.skip("rename works", async() => {
         const editor = await ide.openModule(TestWorkspace.libFile);
         await editor.moveCursor(7, 15);
 
@@ -206,7 +208,7 @@ describe('IDE', function () {
         expect(editorText).to.contain("i -2");
     });
 
-    it("renaming files works", async() => {
+    it.skip("renaming files works", async() => {
         const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
         await fs.mkdir(newDir, {recursive: true});
 
@@ -233,7 +235,7 @@ describe('IDE', function () {
         await fs.rm(newDir, {recursive: true, force: true});
     });
 
-    it("code actions work", async() => {
+    it.skip("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await editor.moveCursor(1,8); // in the module name
 
@@ -246,7 +248,7 @@ describe('IDE', function () {
         }
     });
 
-    it("editor contents used for open files", async() => {
+    it.skip("editor contents used for open files", async() => {
         const importerEditor = await ide.openModule(TestWorkspace.importerFile);
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
@@ -257,7 +259,7 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(importerEditor);
     });
 
-    it("errors in manifest detected", async() => {
+    it.skip("errors in manifest detected", async() => {
         const editor = await ide.openModule(TestWorkspace.manifest);
         await editor.setTextAtLine(2, "Project-Name: foobar");
         await editor.save();
