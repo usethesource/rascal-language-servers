@@ -57,25 +57,18 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.library.lang.json.internal.JsonValueReader;
-import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
+import org.rascalmpl.ideservices.RemoteIDEServices;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
+import org.rascalmpl.vscode.lsp.terminal.TerminalIDEClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
