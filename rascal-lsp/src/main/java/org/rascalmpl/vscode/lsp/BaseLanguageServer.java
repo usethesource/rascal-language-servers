@@ -219,15 +219,6 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
-            if (ideServicesConfiguration != null) {
-                return CompletableFuture.completedFuture(ideServicesConfiguration);
-            }
-
-            throw new RuntimeException("no IDEServicesConfiguration is set?");
-        }
-
-        @Override
         public CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
             return CompletableFuture.completedFuture(remoteIDEServicesConfiguration);
         }

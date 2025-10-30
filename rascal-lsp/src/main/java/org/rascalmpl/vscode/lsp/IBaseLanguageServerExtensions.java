@@ -38,11 +38,6 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 
 public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalFileSystemServices {
-    @JsonRequest("rascal/supplyIDEServicesConfiguration")
-    default CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
-        throw new UnsupportedOperationException();
-    }
-
     @JsonRequest("rascal/sendRegisterLanguage")
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
