@@ -278,7 +278,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 if (callHierarchyDataAdt == null) {
                     throw new IllegalArgumentException("CallHierarchyData is not defined in environment");
                 }
-                if (data == null || data == "") {
+                if (data == null || "".equals(data)) {
                     var none = completionStore.lookupConstructor(callHierarchyDataAdt, "none", TypeFactory.getInstance().tupleEmpty());
                     if (none == null) {
                         throw new IllegalArgumentException("CallHierarchyData::none() is not defined in environment");
