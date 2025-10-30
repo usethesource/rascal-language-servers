@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
 public class VFSRegister {
@@ -44,7 +45,7 @@ public class VFSRegister {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof VFSRegister) {
             return port == ((VFSRegister)obj).port;
         }

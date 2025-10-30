@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -66,7 +67,7 @@ public class RenameRequest {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof RenameRequest) {
             var other = (RenameRequest)obj;
             return Objects.equals(from, other.from)

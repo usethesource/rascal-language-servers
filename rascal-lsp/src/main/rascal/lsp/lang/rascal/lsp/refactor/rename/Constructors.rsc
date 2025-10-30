@@ -31,6 +31,7 @@ extend analysis::typepal::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 import lang::rascal::lsp::refactor::rename::Functions;
 
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascalcore::check::Import;
 

@@ -28,25 +28,20 @@ package org.rascalmpl.vscode.lsp;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.DiagnosticSeverity;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
-import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.parametric.NoContributions.NoContributionException;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -60,15 +55,16 @@ import io.usethesource.vallang.IValue;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    @SuppressWarnings("unused")
     private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
     private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
 
-    private final AtomicReference<@MonotonicNonNull Versioned<Update>> current;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> lastWithoutErrors;
-    private final AtomicReference<@MonotonicNonNull Versioned<ITree>> last;
+    private final AtomicReference<Versioned<Update>> current;
+    private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
+    private final AtomicReference<@Nullable Versioned<ITree>> last;
 
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
@@ -98,7 +94,7 @@ public class TextDocumentState {
         return unpackCurrent().getContent();
     }
 
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
+    private CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
         return unpackCurrent().getTreeAsync();
     }
 
@@ -110,13 +106,57 @@ public class TextDocumentState {
         return current.get().get();
     }
 
-    public @MonotonicNonNull Versioned<ITree> getLastTree() {
-        return last.get();
-    }
-
-    public @MonotonicNonNull Versioned<ITree> getLastTreeWithoutErrors() {
+    public @Nullable Versioned<ITree> getLastTreeWithoutErrors() {
         return lastWithoutErrors.get();
     }
+
+    /**
+     * Wait for the current content to get parsed and get the parse tree from it.
+     * @param allowRecoveredErrors if false parse trees with recovered errors complete the future exceptionally
+     * @return the current parse tree
+     */
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(boolean allowRecoveredErrors) {
+        if (allowRecoveredErrors) {
+            return getCurrentTreeAsync();
+        }
+        return getCurrentTreeAsync().thenApply(t -> {
+            var withoutErrors = lastWithoutErrors.get();
+            // side-effect of a succesfull parse without any recovered errors is that
+            // `getLastTreeWithoutErrors` is updated to the same tree
+            if (withoutErrors == null || withoutErrors.get() != t.get()) {
+                throw new IllegalStateException("File has parse errors");
+            }
+            return t;
+        });
+    }
+
+    /**
+     * Wait for current tree to parse. Then return the last tree that matches the allowRecoveredErrors conditation.
+     * @param allowRecoveredErrors if false, the result will not contain a tree with recovered errors.
+     * @return the last parse tree, or an exception if non existed.
+     */
+    public CompletableFuture<Versioned<ITree>> getLastTreeAsync(boolean allowRecoveredErrors) {
+        var result = getCurrentTreeAsync()
+            .<@Nullable Versioned<ITree>>handle((t, e) -> {
+                if (t == null) {
+                    return last.get();
+                }
+                return t;
+            });
+        if (!allowRecoveredErrors) {
+            // if a parse is done, always overwrite it with the
+            // last tree that did not have any errors, also not recovered errors
+            result = result.thenApply(t -> lastWithoutErrors.get());
+        }
+
+        return result.handle((t, e) -> {
+            if (t == null) {
+                throw new IllegalStateException("No previous parse tree without errors for: " + getLocation());
+            }
+            return t;
+        });
+    }
+
 
     /**
      * An update of a text document, characterized in terms of its
@@ -157,46 +197,45 @@ public class TextDocumentState {
         }
 
         private void parse() {
-            parser.apply(location, content)
-                .whenComplete((t, e) -> {
-                    var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
-
-                    // Complete future to get the tree
-                    if (t == null) {
-                        treeAsync.completeExceptionally(e);
-                    } else {
-                        var tree = new Versioned<>(version, t, timestamp);
-                        Versioned.replaceIfNewer(last, tree);
-                        if (diagnosticsList.isEmpty()) {
-                            Versioned.replaceIfNewer(lastWithoutErrors, tree);
+            try {
+                parser.apply(location, content)
+                    .whenComplete((t, e) -> {
+                        if (e instanceof CompletionException && e.getCause() != null) {
+                            e = e.getCause();
                         }
-                        treeAsync.complete(tree);
-                    }
+                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
 
-                    // Complete future to get diagnostics
-                    var diagnostics = new Versioned<>(version, diagnosticsList);
-                    diagnosticsAsync.complete(diagnostics);
-                });
+                        // Complete future to get the tree
+                        if (t == null) {
+                            treeAsync.completeExceptionally(e);
+                        } else {
+                            var tree = new Versioned<>(version, t, timestamp);
+                            Versioned.replaceIfNewer(last, tree);
+                            if (diagnosticsList.isEmpty()) {
+                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                            }
+                            treeAsync.complete(tree);
+                        }
+
+                        // Complete future to get diagnostics
+                        var diagnostics = new Versioned<>(version, diagnosticsList);
+                        diagnosticsAsync.complete(diagnostics);
+                    });
+            } catch (NoContributionException e) {
+                logger.debug("Ignoring missing parser for {}", location, e);
+                treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
+            }
         }
 
-        private List<Diagnostics.Template> toDiagnosticsList(ITree tree, Throwable excp) {
+        private List<Diagnostics.Template> toDiagnosticsList(@Nullable ITree tree, @Nullable Throwable excp) {
             List<Diagnostics.Template> diagnostics = new ArrayList<>();
 
-            if (excp instanceof CompletionException) {
-                excp = excp.getCause();
-            }
+            if (excp != null) {
+                if (excp instanceof CompletionException && excp.getCause() != null) {
+                    excp = excp.getCause();
+                }
 
-            if (excp instanceof ParseError) {
-                var parseError = (ParseError) excp;
-                diagnostics.add(Diagnostics.generateParseErrorDiagnostic(parseError));
-            } else if (excp != null) {
-                logger.error("Parsing crashed", excp);
-                var diagnostic = new Diagnostic(
-                    new Range(new Position(0,0), new Position(0,1)),
-                    "Parsing failed: " + excp.getMessage(),
-                    DiagnosticSeverity.Error,
-                    "parser");
-                diagnostics.add(columns -> diagnostic);
+                diagnostics.add(Diagnostics.generateParseErrorDiagnostic(excp));
             }
 
             if (tree != null) {
@@ -211,5 +250,10 @@ public class TextDocumentState {
 
     public long getLastModified() {
         return unpackCurrent().getTimestamp();
+    }
+
+    public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
+        var c = getCurrentContent();
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified());
     }
 }

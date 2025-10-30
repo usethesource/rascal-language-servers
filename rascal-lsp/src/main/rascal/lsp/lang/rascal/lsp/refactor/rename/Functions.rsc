@@ -33,6 +33,8 @@ import lang::rascal::lsp::refactor::rename::Constructors;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
+
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import util::Maybe;

@@ -28,12 +28,12 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -73,6 +74,7 @@ import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -189,12 +191,13 @@ public class RascalLanguageServices {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
         var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
 
-        return runEvaluator("Rascal check", compilerEvaluator,
+        var shortModuleName = URIUtil.getLocationName(URIUtil.removeExtension(file));
+        return runEvaluator("Rascal check (" + shortModuleName +")", compilerEvaluator,
             e -> translateCheckResults((IMap) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(file, VF.set()), exec, false, client);
     }
 
-    private ISourceLocation getFileLoc(ITree moduleTree) {
+    private @Nullable ISourceLocation getFileLoc(ITree moduleTree) {
         try {
             if (TreeAdapter.isTop(moduleTree)) {
                 moduleTree = TreeAdapter.getStartTop(moduleTree);
@@ -313,8 +316,11 @@ public class RascalLanguageServices {
     public CompletableFuture<IList> parseCodeActions(String command) {
         return actionStore.thenApply(commandStore -> {
             try {
-                var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+                var codeActionADT = commandStore.lookupAbstractDataType("CodeAction");
+                if (codeActionADT == null) {
+                    throw new IllegalStateException("Type store is missing CodeAction ADT");
+                }
+                return (IList) new StandardTextReader().read(VF, commandStore, TypeFactory.getInstance().listType(codeActionADT), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
@@ -346,7 +352,11 @@ public class RascalLanguageServices {
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return actionStore.thenApply(commandStore -> {
             try {
-                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+                var commandADT = commandStore.lookupAbstractDataType("Command");
+                if (commandADT == null) {
+                    throw new IllegalStateException("Type store is missing Command ADT");
+                }
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandADT, new StringReader(command));
             }
             catch (FactTypeUseException | IOException e) {
                 logger.catching(e);

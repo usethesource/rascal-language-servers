@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.SemanticTokenTypes;
 import org.eclipse.lsp4j.SemanticTokens;
@@ -49,10 +50,8 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -320,16 +319,15 @@ public class SemanticTokenizer {
 
         private static Stream<String> getPublicStaticFieldValues(Class<?> cls) {
             return Arrays.stream(SemanticTokenTypes.class.getFields())
-                .filter(f -> f.getType() == String.class && Modifier.isStatic(f.getModifiers()))
+                .filter(f -> f.getType() == String.class && Modifier.isStatic(f.getModifiers()) && f.canAccess(null))
                 .map(f -> {
                     try {
                         return (String)(f.get(null));
                     } catch (ReflectiveOperationException | RuntimeException e) {
                         logger.error("We could not get field {} from {}", f, cls, e);
-                        return null;
+                        throw new IllegalStateException(e);
                     }
                 })
-                .filter(f -> f != null)
                 ;
         }
 
@@ -496,11 +494,11 @@ public class SemanticTokenizer {
     // (i.e., semantic token types). These categories should eventually be
     // incorporated directly in the grammar. Additional background:
     // https://github.com/SWAT-engineering/rascal-textmate/pull/6.
-    private interface CategoryPatch extends BiFunction<IConstructor, String, String> {}
+    private interface CategoryPatch extends BiFunction<IConstructor, @Nullable String, @Nullable String> {}
 
     private static class DefaultCategoryPatch implements CategoryPatch {
         @Override
-        public String apply(IConstructor prod, String defaultCategory) {
+        public @Nullable String apply(IConstructor prod, @Nullable String defaultCategory) {
             return defaultCategory;
         }
     }
@@ -516,7 +514,7 @@ public class SemanticTokenizer {
 
         @SuppressWarnings("java:S131") // Switches without defaults are intended in this method
         @Override
-        public String apply(IConstructor prod, String defaultCategory) {
+        public @Nullable String apply(IConstructor prod, @Nullable String defaultCategory) {
 
             // Check the caches
             var category = doPatch.getIfPresent(prod);
@@ -552,7 +550,7 @@ public class SemanticTokenizer {
                 SymbolAdapter.getName(SymbolAdapter.getLabeledSymbol(def)).equals("Literal");
         }
 
-        private static <V> Cache<IConstructor, V> buildCache() {
+        private static <V extends @NonNull Object> Cache<IConstructor, V> buildCache() {
             // The usage of weak keys ensures: (1) identity equality is used to
             // compare keys; (2) entries are automatically evicted and
             // garbage-collected when they are no longer strongly reachable.

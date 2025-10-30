@@ -39,8 +39,10 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
+import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
+import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -87,7 +89,31 @@ public class Diagnostics {
         public Diagnostic instantiate(ColumnMaps columns);
     }
 
-    public static Template generateParseErrorDiagnostic(ParseError e) {
+    public static Template generateParseErrorDiagnostic(Throwable t) {
+        if (t instanceof ParseError) {
+            return generateParseErrorDiagnostic((ParseError) t);
+        }
+
+        if (t instanceof Throw) {
+            IValue e = ((Throw) t).getException();
+            if (e instanceof IConstructor) {
+                IConstructor error = (IConstructor) e;
+                if (error.getName().equals(RuntimeExceptionFactory.ParseError.getName())) {
+                    ISourceLocation loc = (ISourceLocation) error.get(0);
+                    return cm -> new Diagnostic(Locations.toRange(loc, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error,
+                            PARSER_DIAGNOSTICS_SOURCE);
+                }
+            }
+        }
+
+        logger.error("Parsing crashed", t);
+        return cm -> new Diagnostic(new Range(new Position(0,0), new Position(0,1)),
+                        "Parsing failed: " + t.getMessage(),
+                        DiagnosticSeverity.Error,
+                        "parser");
+    }
+
+    private static Template generateParseErrorDiagnostic(ParseError e) {
         return cm -> new Diagnostic(toRange(e, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
     }
 
@@ -156,27 +182,16 @@ public class Diagnostics {
         return new DiagnosticRelatedInformation(Locations.toLSPLocation(loc, cm), message);
     }
 
-    public static Diagnostic translateRascalParseError(IValue e, ColumnMaps cm) {
-        if (e instanceof IConstructor) {
-            IConstructor error = (IConstructor) e;
-            if (error.getName().equals(RuntimeExceptionFactory.ParseError.getName())) {
-                ISourceLocation loc = (ISourceLocation) error.get(0);
-                return new Diagnostic(Locations.toRange(loc, cm), PARSE_ERROR_MESSAGE, DiagnosticSeverity.Error, PARSER_DIAGNOSTICS_SOURCE);
-            }
-        }
-
-        throw new IllegalArgumentException(e.toString());
-    }
-
     private static void storeFixCommands(IConstructor d, Diagnostic result) {
         // Here we attach quick-fix commands to every Diagnostic, if present.
         // Later when codeActions are requested, the LSP client sends selected
         // messages back to us, in which we can find these commands and send
         // them right back in response to the codeActions request.
 
-        if (d.asWithKeywordParameters().hasParameter("fixes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("fixes")) {
             // setData is meant exactly for this!
-            result.setData(d.asWithKeywordParameters().getParameter("fixes").toString());
+            result.setData(dKW.getParameter("fixes").toString());
         }
     }
 
@@ -184,19 +199,28 @@ public class Diagnostics {
         return translateDiagnostic(d, Locations.toRange(getMessageLocation(d), cm), cm);
     }
 
+    private static DiagnosticSeverity translateSeverity(IConstructor d) {
+        var result = severityMap.get(d.getName());
+        if (result == null) {
+            throw new IllegalArgumentException(d.getName() + " is not a valid severity");
+        }
+        return result;
+    }
+
     public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
-        result.setSeverity(severityMap.get(d.getName()));
+        result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
         result.setRange(range);
 
 
-        if (d.asWithKeywordParameters().hasParameter("causes")) {
+        var dKW = d.asWithKeywordParameters();
+        if (dKW.hasParameter("causes")) {
             result.setRelatedInformation(
-                ((IList) d.asWithKeywordParameters().getParameter("causes")).stream()
+                ((IList) dKW.getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
-                    Locations.toLSPLocation(getMessageLocation(d), otherFiles.get(getMessageLocation(d))),
+                    Locations.toLSPLocation(getMessageLocation(c), otherFiles),
                     getMessageString(c)))
                 .collect(Collectors.toList())
             );
@@ -204,10 +228,6 @@ public class Diagnostics {
 
         storeFixCommands(d, result);
         return result;
-    }
-
-    private static Range toRange(ITree t, ColumnMaps cm) {
-        return toRange(TreeAdapter.getLocation(t), cm);
     }
 
     private static Range toRange(ParseError pe, ColumnMaps cm) {

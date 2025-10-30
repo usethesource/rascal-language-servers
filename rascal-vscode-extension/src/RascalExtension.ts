@@ -146,13 +146,11 @@ export class RascalExtension implements vscode.Disposable {
                 }
                 progress.report({increment: 20, message: "Requesting IDE configuration"});
                 const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-                progress.report({increment: 25, message: "Calculating project class path"});
-                const compilationPath = await rascal.sendRequest<string[]>("rascal/supplyProjectCompilationClasspath", { uri: uri?.toString() });
                 progress.report({increment: 25, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
-                    shellArgs: this.buildShellArgs(compilationPath, serverConfig),
+                    shellArgs: this.buildShellArgs(serverConfig),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
@@ -181,21 +179,12 @@ export class RascalExtension implements vscode.Disposable {
                     return "no project";
                 }
                 case 'Module (qualified)': {
-                    const name = startCommand.match(this.qualifiedName);
-                    if (name && name[1]) {
-                        if (name[0] !== '') {
-                            return name[0] + "::" + name[1];
-                        }
-                        return name[1];
-                    }
-                    return "no module";
+                    const [_, qualifiers, name] = startCommand.match(this.qualifiedName) ?? [];
+                    return name ? `${qualifiers ?? ''}${name}` : 'no module';
                 }
                 case 'Module (unqualified)': {
-                    const name = startCommand.match(this.qualifiedName);
-                    if (name && name[1]) {
-                        return name[1];
-                    }
-                    return "no module";
+                    const [_1, _2, name] = startCommand.match(this.qualifiedName) ?? [];
+                    return name ?? "no module";
                 }
                 default:
                     this.log.warn(`Unknown origin format: ${originFormat}`);
@@ -208,7 +197,7 @@ export class RascalExtension implements vscode.Disposable {
         const name1 = '(?:[A-Z_a-z][0-9A-Z_a-z]*)';
         const name2 = '(?:\\\\[A-Z_a-z][\\-0-9A-Z_a-z]*)';
         const name = `(?:${name1}|${name2})`;
-        const qualifiedName = `(?:(?:${name}::)*(${name}))`;
+        const qualifiedName = `((?:${name}::)*)(${name})`;
         return new RegExp(`^import ${qualifiedName};`);
     })(); // Build the regex only once
 
@@ -257,7 +246,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private buildShellArgs(classPath: string[], ide: IDEServicesConfiguration, ...extraArgs: string[]) {
+    private buildShellArgs(ide: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -267,7 +256,7 @@ export class RascalExtension implements vscode.Disposable {
         }
         shellArgs.push(
             '-cp'
-            , this.buildTerminalJVMPath() + (classPath.length > 0 ? (path.delimiter + classPath.join(path.delimiter)) : ''),
+            , this.buildTerminalJVMPath()
         );
         if (!this.isDeploy) {
             // for development mode we always start the terminal with debuging ready to go

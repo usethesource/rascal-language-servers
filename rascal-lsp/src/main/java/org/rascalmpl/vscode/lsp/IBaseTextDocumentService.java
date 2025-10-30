@@ -29,7 +29,7 @@ package org.rascalmpl.vscode.lsp;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -54,10 +54,14 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void initialized();
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
+
+    void projectAdded(String name, ISourceLocation projectRoot);
+    void projectRemoved(String name, ISourceLocation projectRoot);
+
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();
-    TextDocumentState getDocumentState(ISourceLocation file);
+    @Nullable TextDocumentState getDocumentState(ISourceLocation file);
 
     boolean isManagingFile(ISourceLocation file);
 

@@ -29,8 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -52,8 +50,8 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IList> documentSymbol(ITree input);
     public InterruptibleFuture<IList> codeLens(ITree input);
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<@Nullable IValue> execution(String command);
+    public InterruptibleFuture<IList> inlayHint(ITree input);
+    public InterruptibleFuture<IValue> execution(String command);
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
     public InterruptibleFuture<ISet> references(IList focus);

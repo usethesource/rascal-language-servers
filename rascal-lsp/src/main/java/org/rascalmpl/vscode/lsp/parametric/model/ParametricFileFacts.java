@@ -112,7 +112,7 @@ public class ParametricFileFacts {
         return files.computeIfAbsent(file.top(), FileFact::new);
     }
 
-    private FileFact removeFile(ISourceLocation file) {
+    private @Nullable FileFact removeFile(ISourceLocation file) {
         return files.remove(file.top());
     }
 

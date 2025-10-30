@@ -30,14 +30,14 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.function.Function;
-
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 
-public class TreeMapLookup<T> implements IRangeMap<T> {
+public class TreeMapLookup<T extends @NonNull Object> implements IRangeMap<T> {
 
     private final NavigableMap<Range, T> data = new TreeMap<>(TreeMapLookup::compareRanges);
 

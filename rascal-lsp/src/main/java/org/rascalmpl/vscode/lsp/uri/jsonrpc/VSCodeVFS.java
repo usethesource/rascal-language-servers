@@ -26,7 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * This singleton keeps track of the current VFS server instance
@@ -40,18 +42,20 @@ public enum VSCodeVFS {
     private volatile @MonotonicNonNull VSCodeUriResolverServer server = null;
     private volatile @MonotonicNonNull VSCodeUriResolverClient client = null;
 
-    public @MonotonicNonNull VSCodeUriResolverServer getServer() {
+    public @Nullable VSCodeUriResolverServer getServer() {
         return server;
     }
 
+    @EnsuresNonNull("this.server")
     public void provideServer(VSCodeUriResolverServer server) {
         this.server = server;
     }
 
-    public @MonotonicNonNull VSCodeUriResolverClient getClient() {
+    public @Nullable VSCodeUriResolverClient getClient() {
         return client;
     }
 
+    @EnsuresNonNull("this.client")
     public void provideClient(VSCodeUriResolverClient client) {
         this.client = client;
     }

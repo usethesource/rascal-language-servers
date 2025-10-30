@@ -44,6 +44,7 @@ import Set;
 import String;
 
 import util::FileSystem;
+import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
@@ -170,7 +171,7 @@ list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldNam
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     try {
         start[Module] m = parseModuleWithSpaces(f);
-        return [replace(l, newName)
+        return [replace(l, normalizeEscaping(newName))
             | /QualifiedName qn := m
             , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
             , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
@@ -184,30 +185,53 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
     return [];
 }
 
-set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathConfig(loc) getPathConfig) {
+set[tuple[str, str, PathConfig]] getQualifiedNameChanges(loc old, loc new, PathConfig(loc) getPathConfig, void(Message) msg) {
     PathConfig oldPcfg = getPathConfig(old);
     PathConfig newPcfg = getPathConfig(new);
-    if (isFile(new) && endsWith(new.file, ".rsc")) {
-        return {<safeRelativeModuleName(old, oldPcfg), safeRelativeModuleName(new, newPcfg), newPcfg>};
+    // Moved a single file
+    if (isFile(new)) {
+        if(new.extension == "rsc") {
+            // Moved a single Rascal module
+            try {
+                return {<normalizeEscaping(srcsModule(old, oldPcfg, fileConfig())), normalizeEscaping(srcsModule(new, newPcfg, fileConfig())), newPcfg>};
+            } catch PathNotFound(loc f): {
+                msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
+                return {};
+            }
+        } else {
+            // Renamed from .rsc to a non-Rascal extension
+            str reason = new.extension == ""
+                ? "its extension was removed"
+                : "it was renamed to the non-Rascal extension \'<new.extension>\'"
+                ;
+
+            msg(error("Cannot rename references to thie file, since <reason>.", new));
+            return {};
+        }
     }
 
-    return {
-        <safeRelativeModuleName(oldFile, oldPcfg), safeRelativeModuleName(newFile, newPcfg), newPcfg>
-        | loc newFile <- find(new, "rsc")
-        , loc relFilePath := relativize(new, newFile)
-        , loc oldFile := old + relFilePath.path
-    };
+    // Moved directories
+    set[tuple[str, str, PathConfig]] moves = {};
+    for (loc newFile <- find(new, "rsc")
+       , loc relFilePath := relativize(new, newFile)
+       , loc oldFile := old + relFilePath.path) {
+        try {
+            moves += <normalizeEscaping(srcsModule(oldFile, oldPcfg, fileConfig())), normalizeEscaping(srcsModule(newFile, newPcfg, fileConfig())), newPcfg>;
+        } catch PathNotFound(loc f): {
+            msg(error("Cannot rename references to this file, since it was moved outside of the project\'s source directories.", f));
+        }
+    }
+
+    return moves;
 }
 
 tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc new] renames, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = [
-        rename
-        | <oldLoc, newLoc> <- renames
-        , tuple[str, str, PathConfig] rename <- getQualifiedNameChanges(oldLoc, newLoc, getPathConfig)
-    ];
-
     set[Message] messages = {};
     void registerMessage(Message msg) { messages += msg; }
+    lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges = [
+        *getQualifiedNameChanges(oldLoc, newLoc, getPathConfig, registerMessage)
+        | <oldLoc, newLoc> <- renames
+    ];
 
     list[PathConfig] projectWithRenamedModule = qualifiedNameChanges.pcfg;
     set[DocumentEdit] edits = flatMap(workspaceFolders, set[DocumentEdit](loc wsFolder) {
@@ -217,7 +241,8 @@ tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc
         if (!any(PathConfig changedProj <- projectWithRenamedModule, isReachable(changedProj, wsFolderPcfg))) return {};
 
         return {changed(file, changes)
-            | loc file <- find(wsFolder, "rsc")
+            | loc srcFolder <- wsFolderPcfg.srcs
+            , loc file <- find(srcFolder, "rsc")
             , changes:[_, *_] := getChanges(file, wsFolderPcfg, qualifiedNameChanges, registerMessage)
         };
     });

@@ -46,7 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
@@ -69,7 +69,7 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver {
 
-    private static FallbackResolver instance = null;
+    private static @MonotonicNonNull FallbackResolver instance = null;
 
     // The FallbackResolver is dynamically instantiated by URIResolverRegistry. By implementing it as a singleton and
     // making it avaible through this method, we allow the IBaseTextDocumentService implementations to interact with it.

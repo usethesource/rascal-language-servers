@@ -23,7 +23,10 @@ Have a look here for more information:
 The Rascal VScode extension currently is bundled with the following libraries:
    * Rascal standard library
    * Rascal-LSP LanguageServer library
-   * Java analysis library based on Eclipse JDT
+
+Previous versions also bundled language analysis support for the Java language.
+You can find this now the [java-air package](https://www.rascal-mpl.org/docs/Packages/). 
+Add it to your pom.xml or have a look at the C/C++ or PHP support packages.
 
 ## Requirements
 

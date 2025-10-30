@@ -28,22 +28,31 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -52,6 +61,9 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
+    private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
@@ -59,25 +71,50 @@ public class PathConfigs {
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
 
+    private final Executor executor;
+    private final PathConfigDiagnostics diagnostics;
+
+
+    public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
+        this.diagnostics = diagnostics;
+        this.executor = executor;
+    }
+
+    public void expungePathConfig(ISourceLocation project) {
+        var projectRoot = inferProjectRoot(project);
+        try {
+            updater.unregisterProject(project);
+        } catch (IOException e) {
+            logger.warn("Unregistration of meta files for project {} failed.", project, e);
+        }
+        currentPathConfigs.remove(projectRoot);
+    }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
+    }
 
+    private static long safeLastModified(ISourceLocation uri) {
+        try {
+            return reg.lastModified(uri);
+        } catch (IOException e) {
+            logger.debug("Cannot get last modified time of {}", uri, e);
+            return Long.MAX_VALUE;
+        }
     }
 
     private PathConfig buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building pcfg from: {}", projectRoot);
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
             }
             registerMavenWatches(reg, projectRoot);
 
-            var result = actualBuild(projectRoot);
-            logger.debug("new pcfg: {}", result);
+            var result = updater.actualBuild(projectRoot);
+            logger.debug("New path config: {}", result);
             return result;
         }
         catch (IOException e) {
@@ -85,28 +122,56 @@ public class PathConfigs {
         }
     }
 
-    private static class PathConfigUpdater extends Thread {
+    private static class WatchRegistration {
+        final ISourceLocation file;
+        final Consumer<ISourceLocationChanged> callback;
+
+        WatchRegistration(ISourceLocation file, Consumer<ISourceLocationChanged> callback) {
+            this.file = file;
+            this.callback = callback;
+        }
+    }
+
+    private class PathConfigUpdater extends Thread {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+        private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
             super("Path Config updater");
             setDaemon(true);
             this.currentPathConfigs = currentPathConfigs;
+            projectWatches = new ConcurrentHashMap<>();
         }
 
         // we detect changes to roots, and keep track of the last changed time
         // the thread will clear them if the time is longer than the timeout
         private final Map<ISourceLocation, Long> changedRoots = new ConcurrentHashMap<>();
+
+        /**
+         *  Watch a single file. We keep track of the watch registrations so we can unwatch
+         * these files when the project is closed.
+         */
         public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
             if (!isAlive() && !isInterrupted()) {
                 start();
             }
-            URIResolverRegistry.getInstance().watch(sourceFile, false, ignored ->
-                changedRoots.put(projectRoot, System.nanoTime())
-            );
+            Consumer<ISourceLocationChanged> callback = ignored ->
+                changedRoots.put(projectRoot, safeLastModified(sourceFile));
+            reg.watch(sourceFile, false, callback);
+
+            var watchList = projectWatches.computeIfAbsent(projectRoot, root -> new CopyOnWriteArrayList<>());
+            watchList.add(new WatchRegistration(sourceFile, callback));
         }
 
-        private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+        public void unregisterProject(ISourceLocation projectRoot) throws IOException {
+            List<WatchRegistration> registrations = projectWatches.remove(projectRoot);
+            if (registrations != null) {
+                for (WatchRegistration registration : registrations) {
+                    reg.unwatch(registration.file, false, registration.callback);
+                }
+            }
+            diagnostics.clearDiagnostics(projectRoot);
+        }
 
         @Override
         public void run() {
@@ -119,7 +184,7 @@ public class PathConfigs {
                 }
 
                 List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
-                    .filter(e -> System.nanoTime() - e.getValue() >= UPDATE_DELAY)
+                    .filter(e -> FileTime.from(Instant.now()).to(TimeUnit.NANOSECONDS) - e.getValue() >= UPDATE_DELAY)
                     .map(Entry::getKey)
                     .collect(Collectors.toList());
 
@@ -135,6 +200,13 @@ public class PathConfigs {
                     logger.error("Unexpected error while building PathConfigs", e) ;
                 }
             }
+        }
+
+        private PathConfig actualBuild(ISourceLocation projectRoot) {
+            var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            // Publish diagnostics in a background thread
+            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
+            return pathConfig;
         }
 
     }
@@ -169,13 +241,6 @@ public class PathConfigs {
         }
     }
 
-    private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
-    }
-
-
-
-
     private static ISourceLocation inferProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
@@ -198,7 +263,4 @@ public class PathConfigs {
 
         return current;
     }
-
-
-
 }

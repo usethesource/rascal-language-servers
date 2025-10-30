@@ -7,7 +7,7 @@ languages defined in or implemented in Rascal.
 Currently we provide installers and client-specific features for VScode and 
 no others.
 
-This project is in beta stage; under development but used regularly by a group of early adopters.
+This project is no longer in beta stage; it is under development but used regularly by commercial, educational and academic users.
 The VScode extension can be found [here](https://marketplace.visualstudio.com/items?itemName=usethesource.rascalmpl).
 
 ### Origin story

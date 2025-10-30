@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @description{
 The core functionality of this module is built upon these concepts:
 * ((registerLanguage)) for enabling your language services for a given file extension _in the current IDE_.
-* ((Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
+* ((LanguageServer-Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
 * A ((LanguageService)) is a specific feature for an IDE. Each service comes with one Rascal function that implements it.
 }
 module demo::lang::pico::LanguageServer
@@ -49,7 +49,7 @@ private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
 @description{
 Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
-with the ((Language)) definition later.
+with the ((LanguageServer-Language)) definition later.
 }
 set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),

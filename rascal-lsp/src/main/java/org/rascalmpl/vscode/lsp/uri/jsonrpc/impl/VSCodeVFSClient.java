@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.vscode.lsp.IRascalFileSystemServices;
@@ -138,7 +139,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
         }
 
         @Override
-        public boolean equals(Object obj) {
+        public boolean equals(@Nullable Object obj) {
             if (this == obj) {
                 return true;
             }
