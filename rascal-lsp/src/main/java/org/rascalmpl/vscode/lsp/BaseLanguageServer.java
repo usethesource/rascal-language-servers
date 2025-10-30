@@ -115,31 +115,13 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(BaseLanguageServer::configureGson)
+            .configureGson(RemoteIDEServices::configureGson)
             .setExecutorService(threadPool)
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
 
         return clientLauncher;
-    }
-
-    private static void configureGson(GsonBuilder builder) {
-        JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
-        writer.setDatesAsInt(true);
-
-        builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
-            @Override
-            public IValue read(JsonReader source) throws IOException {
-                return reader.read(source, TypeFactory.getInstance().valueType());
-            }
-
-            @Override
-            public void write(JsonWriter target, IValue value) throws IOException {
-                writer.write(target, value);
-            }
-        });
     }
 
     private static void printClassPath() {
