@@ -29,19 +29,17 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 import java.util.Objects;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.FileAttributes;
 
-public class FileAttributesResult extends IOResult {
-    private @Nullable Boolean exists;
-    private @Nullable Integer type;
-    private @Nullable Long ctime;
-    private @Nullable Long mtime;
-    private @Nullable Integer size;
-    private @Nullable Integer permissions;
+public class FileAttributesResult {
+    private Boolean exists;
+    private Integer type;
+    private Long ctime;
+    private Long mtime;
+    private Integer size;
+    private Integer permissions;
 
-    public FileAttributesResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean exists, @Nullable Integer type, @Nullable Long ctime, @Nullable Long mtime, @Nullable Integer size, @Nullable Integer permissions) {
-        super(errorCode, errorMessage);
+    public FileAttributesResult(Boolean exists, Integer type, Long ctime, Long mtime, Integer size, Integer permissions) {
         this.exists = exists;
         this.type = type;
         this.ctime = ctime;

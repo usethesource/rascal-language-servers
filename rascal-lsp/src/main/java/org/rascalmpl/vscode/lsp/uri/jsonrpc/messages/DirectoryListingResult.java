@@ -30,24 +30,23 @@ import java.util.Arrays;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public class DirectoryListingResult extends IOResult {
+public class DirectoryListingResult {
 
-    private  String @Nullable[] entries;
-    private boolean @Nullable[] areDirectory;
+    private  String[] entries;
+    private boolean[] areDirectory;
 
-    public DirectoryListingResult(int errorCode, @Nullable String errorMessage,  String @Nullable[] entries, boolean @Nullable[] areDirectory) {
-        super(errorCode, errorMessage);
+    public DirectoryListingResult(String [] entries, boolean [] areDirectory) {
         this.entries = entries;
         this.areDirectory = areDirectory;
     }
 
     public DirectoryListingResult() {}
 
-    public String @Nullable[] getEntries() {
+    public String [] getEntries() {
         return entries;
     }
 
-    public boolean @Nullable[] getAreDirectory() {
+    public boolean [] getAreDirectory() {
         return areDirectory;
     }
 
