@@ -152,6 +152,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String commands) {
+        throw new IllegalStateException("This method should not be called; this contribution only has a parser");
+    }
+
+    @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
@@ -198,6 +203,16 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
         return InterruptibleFuture.completedFuture(VF.list());
     }
 
@@ -268,6 +283,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
         return CompletableFuture.completedFuture(false);
     }
 
