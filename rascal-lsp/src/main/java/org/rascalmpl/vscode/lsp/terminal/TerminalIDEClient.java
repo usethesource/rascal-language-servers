@@ -42,7 +42,6 @@ import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.DocumentEditsParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
@@ -141,13 +140,21 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
+        registerLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void registerLanguage(LanguageParameter language) {
+        server.receiveRegisterLanguage(language);
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
+        unregisterLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void unregisterLanguage(LanguageParameter language) {
+        server.receiveUnregisterLanguage(language);
     }
 
     @Override
