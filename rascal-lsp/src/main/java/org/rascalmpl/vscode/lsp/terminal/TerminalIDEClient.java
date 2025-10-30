@@ -149,16 +149,6 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void applyDocumentsEdits(IList edits) {
-        server.applyDocumentEdits(new DocumentEditsParameter(edits));
-    }
-
-    @Override
-    public void applyFileSystemEdits(IList edits) {
-        applyDocumentsEdits(edits);
-    }
-
-    @Override
     public void jobStart(String name, int workShare, int totalWork) {
         monitor.jobStart(name, workShare, totalWork);
     }
