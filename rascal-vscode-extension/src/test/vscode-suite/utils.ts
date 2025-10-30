@@ -315,12 +315,14 @@ export class IDEOperations {
 
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.extremelySlow, tplFile = "" } = {}) {
         const lastLine = await editor.getNumberOfLines();
+        const fileName = await editor.getTitle();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
+        await this.screenshot(`just before modifying file (for type-check) ${fileName}`);
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.screenshot(`just after modifying file (for type-check) ${fileName}`);
         await sleep(50);
-        const fileName = await editor.getFileUri();
         await this.screenshot(`just before saving (for type-check) ${fileName}`);
         await editor.save();
         await sleep(50);
