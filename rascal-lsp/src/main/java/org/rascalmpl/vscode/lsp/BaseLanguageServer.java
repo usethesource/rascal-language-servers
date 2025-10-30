@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -43,6 +44,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -79,6 +81,7 @@ public abstract class BaseLanguageServer {
     private static final InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
+    private static IDEServicesConfiguration remoteIDEServicesConfiguration = null;
 
     static {
         DEPLOY_MODE = System.getProperty("rascal.lsp.deploy", "false").equalsIgnoreCase("true");
@@ -120,6 +123,15 @@ public abstract class BaseLanguageServer {
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
+
+        try (ServerSocket serverSocket = new ServerSocket()) {
+            var terminalClient = new TerminalIDEClient(server.ideServicesConfiguration.getPort(), new PrintWriter(System.err), null, null);
+            //TODO: fix nulls
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(terminalClient);
+            logger.info("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+        } catch (IOException e) {
+            logger.error("Failed to start Remote IDE Services thread");
+        }
 
         return clientLauncher;
     }
@@ -215,6 +227,10 @@ public abstract class BaseLanguageServer {
             throw new RuntimeException("no IDEServicesConfiguration is set?");
         }
 
+        @Override
+        public CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
+            return CompletableFuture.completedFuture(remoteIDEServicesConfiguration);
+        }
 
         private static URI[] toURIArray(IList src) {
             return src.stream()
