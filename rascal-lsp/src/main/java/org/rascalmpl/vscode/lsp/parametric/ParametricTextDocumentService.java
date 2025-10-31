@@ -655,6 +655,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private ILanguageContributions contributions(ISourceLocation doc) {
+        // If exactly one language contribution is registered, use it for all files
+        if (this.contributions.size() == 1) {
+            return this.contributions.values().stream()
+                .findFirst()
+                .map(ILanguageContributions.class::cast)
+                .orElseGet(() -> new NoContributions(extension(doc)));
+        }
+
         return safeLanguage(doc)
             .map(contributions::get)
             .map(ILanguageContributions.class::cast)
