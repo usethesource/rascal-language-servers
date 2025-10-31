@@ -278,8 +278,9 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                const title = await new TextEditor().getTitle();
+                this.screenshot(`revert of ${title} failed ` + tryCount);
+                console.log(`Revert of $(title) failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
