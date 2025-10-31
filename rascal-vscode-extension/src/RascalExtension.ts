@@ -144,13 +144,13 @@ export class RascalExtension implements vscode.Disposable {
                         }
                     }
                 }
-                progress.report({increment: 20, message: "Requesting IDE configuration"});
-                const serverConfig = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyIDEServicesConfiguration");
-                progress.report({increment: 25, message: "Creating terminal"});
+                progress.report({increment: 25, message: "Requesting remote IDE services configuration"});
+                const remoteIDEServicesConfiguration = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyRemoteIDEServicesConfiguration");
+                progress.report({increment: 50, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
-                    shellArgs: this.buildShellArgs(serverConfig),
+                    shellArgs: this.buildShellArgs(remoteIDEServicesConfiguration),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
@@ -246,7 +246,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private buildShellArgs(ide: IDEServicesConfiguration, ...extraArgs: string[]) {
+    private buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -270,8 +270,8 @@ export class RascalExtension implements vscode.Disposable {
             '-Dfile.encoding=UTF8'
             , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
             , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
-            , '--ideServicesPort'
-            , '' + ide.port
+            , '--remoteIDEServicesPort'
+            , '' + remoteIDEServicesConfiguration.port
             , '--vfsPort'
             , '' + this.vfsServer.port
         );

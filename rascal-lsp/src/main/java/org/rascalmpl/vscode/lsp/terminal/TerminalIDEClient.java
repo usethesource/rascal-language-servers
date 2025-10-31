@@ -33,6 +33,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Range;
@@ -40,18 +41,18 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
+import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
+import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -139,13 +140,21 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
+        registerLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void registerLanguage(LanguageParameter language) {
+        server.receiveRegisterLanguage(language);
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
+        unregisterLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void unregisterLanguage(LanguageParameter language) {
+        server.receiveUnregisterLanguage(language);
     }
 
     @Override
