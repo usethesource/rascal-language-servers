@@ -278,8 +278,9 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                const title = await new TextEditor().getTitle();
+                this.screenshot(`revert of ${title} failed ` + tryCount);
+                console.log(`Revert of $(title) failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
@@ -313,14 +314,22 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
-    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
+    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.extremelySlow, tplFile = "" } = {}) {
+        await this.screenshot(`just before getNumberOfLines (for type-check)`);
         const lastLine = await editor.getNumberOfLines();
+        await this.screenshot(`just before getTitle (for type-check)`);
+        const fileName = await editor.getTitle();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
+        await this.screenshot(`just before modifying file (for type-check) ${fileName}`);
         await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.screenshot(`just after modifying file (for type-check) ${fileName}`);
         await sleep(50);
+        await this.screenshot(`just before saving (for type-check) ${fileName}`);
         await editor.save();
+        await sleep(50);
+        await this.screenshot(`just after saving (for type-check) ${fileName}`);
         if (waitForFinish) {
             const hasStatus = this.statusContains(checkName);
             await ignoreFails(this.driver.wait(hasStatus, Delays.normal, `${checkName} should have started after a save`));
@@ -464,42 +473,40 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
-
+export async function printRascalOutputOnFailure(context: Mocha.Context, ide: IDEOperations, channel: 'Language Parametric Rascal' | 'Rascal MPL') {
     const ZOOM_OUT_FACTOR = 5;
-    afterEach("print output in case of failure", async function () {
-        if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            const bbp = new BottomBarPanel();
-            await bbp.maximize();
-            console.log('**********************************************');
-            console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
-            if (textLines.length === 0) {
-                console.log("We could not capture the output lines");
-            }
+    if (!context.currentTest || context.currentTest.state !== "failed") { return; }
+    await ide.screenshot(`failure - ${context.currentTest.fullTitle()}`);
+    try {
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomOut');
+        }
+        const bbp = new BottomBarPanel();
+        await bbp.maximize();
+        console.log('**********************************************');
+        console.log('***** Rascal MPL output for the failed tests: ');
+        let textLines: WebElement[] = [];
+        let tries = 0;
+        while (textLines.length === 0 && tries < 3) {
+            await showRascalOutput(bbp, channel);
+            textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+            tries++;
+        }
+        if (textLines.length === 0) {
+            console.log("We could not capture the output lines");
+        }
 
-            for (const l of textLines) {
-                console.log(await l.getText());
-            }
-            await bbp.closePanel();
-        } catch (e) {
-            console.log('Error capturing output: ', e);
+        for (const l of textLines) {
+            console.log(await l.getText());
         }
-        finally {
-            console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
-            }
+        await bbp.closePanel();
+    } catch (e) {
+        console.log('Error capturing output: ', e);
+    }
+    finally {
+        console.log('*******End output*****************************');
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomIn');
         }
-    });
+    }
 }
