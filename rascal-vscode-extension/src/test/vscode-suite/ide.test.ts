@@ -42,14 +42,13 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
+
         await ide.load();
         // trigger rascal type checker to be sure
         for (const f of protectFiles) {
@@ -58,7 +57,10 @@ describe('IDE', function () {
         await makeSureRascalModulesAreLoaded();
     });
 
-    beforeEach(async () => {
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("IDE-" + this.test?.title);
+        }
     });
 
     afterEach(async function () {
@@ -71,6 +73,9 @@ describe('IDE', function () {
         }
     });
 
+    afterEach("print output in case of test failure",
+        async function () { await printRascalOutputOnFailure(this, ide, "Rascal MPL"); }
+    );
 
     async function makeSureRascalModulesAreLoaded(delay = Delays.verySlow) {
         try {
@@ -159,6 +164,7 @@ describe('IDE', function () {
     it("go to definition works across projects", async () => {
         // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
         const libEditor = await ide.openModule(TestWorkspace.libFile);
+        await ide.screenshot(`just after opening ${TestWorkspace.libFile}`);
         await triggerTypeChecker(libEditor, "", true);
         await bench.getEditorView().closeAllEditors();
 
