@@ -50,7 +50,7 @@ import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsP
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -146,16 +146,6 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void unregisterLanguage(IConstructor language) {
         server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
-    }
-
-    @Override
-    public void applyDocumentsEdits(IList edits) {
-        server.applyDocumentEdits(new DocumentEditsParameter(edits));
-    }
-
-    @Override
-    public void applyFileSystemEdits(IList edits) {
-        applyDocumentsEdits(edits);
     }
 
     @Override

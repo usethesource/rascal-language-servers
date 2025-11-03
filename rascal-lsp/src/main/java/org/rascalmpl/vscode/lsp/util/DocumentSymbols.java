@@ -29,14 +29,13 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.SymbolKind;
 import org.eclipse.lsp4j.SymbolTag;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
