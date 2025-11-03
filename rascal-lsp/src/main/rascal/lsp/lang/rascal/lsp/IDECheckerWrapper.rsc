@@ -54,11 +54,12 @@ import lang::rascalcore::check::ModuleLocations;
 }
 map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
-    start[Module] openFile;
+    openFile = (start[Module]) `module Placeholder`;
     try {
+        // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime
         openFile = getParseTree(l);
     } catch ParseError(loc err): {
-        return (l: {error("Cannot typecheck this module, since it has parse error(s).", err)});
+        return ();
     }
     if (hasParseErrors(openFile)) {
         // We cannot typecheck this file, since it has type errors. Do not return any errors, since the parse triggered by the IDE will take care of that.
