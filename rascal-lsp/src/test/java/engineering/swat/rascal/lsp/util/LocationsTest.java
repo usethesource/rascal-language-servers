@@ -29,8 +29,8 @@ package engineering.swat.rascal.lsp.util;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class LocationsTest {
