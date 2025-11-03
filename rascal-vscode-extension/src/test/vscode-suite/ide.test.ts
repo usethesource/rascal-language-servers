@@ -165,7 +165,7 @@ describe('IDE', function () {
         // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
         const libEditor = await ide.openModule(TestWorkspace.libFile);
         await ide.screenshot(`just after opening ${TestWorkspace.libFile}`);
-        await triggerTypeChecker(libEditor, "", true);
+        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
         await bench.getEditorView().closeAllEditors();
 
         const editor = await ide.openModule(TestWorkspace.libCallFile);
