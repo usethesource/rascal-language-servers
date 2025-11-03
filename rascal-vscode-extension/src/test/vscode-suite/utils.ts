@@ -280,7 +280,7 @@ export class IDEOperations {
             } catch (ex) {
                 const title = await new TextEditor().getTitle();
                 this.screenshot(`revert of ${title} failed ` + tryCount);
-                console.log(`Revert of $(title) failed, but we ignore it`, ex);
+                console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
@@ -296,7 +296,7 @@ export class IDEOperations {
             }
             catch (ignored) {
                 this.screenshot("open editor check failed " + tryCount);
-                console.log("Open editor dirtry check failed: ", ignored);
+                console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
             }
