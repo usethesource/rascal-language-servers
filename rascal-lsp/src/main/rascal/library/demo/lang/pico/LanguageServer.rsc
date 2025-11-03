@@ -38,8 +38,16 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
 import DateTime;
+
+syntax IdType
+    = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
+    ;
+
+syntax Expression
+    = call: Id id "(" {Expression ","}* args ")"
+    ;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -61,7 +69,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
-    selectionRange(picoSelectionRangeService)
+    selectionRange(picoSelectionRangeService),
+    callHierarchy(picoPrepareCallHierarchy, picoIncomingOutgoingCalls)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -226,6 +235,51 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
+
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id id>(<{Expression ","}* args>)`, *_, start[Program] prog])
+    = [callHierarchyItem(prog, findDefinition(prog, e))];
+
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`, *_, start[Program] prog])
+    = [callHierarchyItem(prog, d)];
+
+IdType findDefinition(start[Program] prog, e:(Expression) `<Id id>(<{Expression ","}* args>)`) {
+    for (/d:(IdType) `<Id did>(<{IdType ","}* dargs>): <Type _> := <Expression _>` := prog
+        , signatureMatches(d, e)) {
+        return d;
+    }
+    fail;
+}
+
+bool signatureMatches(
+    (IdType) `<Id fid>(<{IdType ","}* fargs>): <Type retType> := <Expression body>`,
+    (Expression) `<Id id>(<{Expression ","}* args>)`)
+    = "<fid>" == "<id>" && size(args) == size(fargs);
+
+default bool signatureMatches(_, _) = false;
+
+int size({IdType ","}* args) = size([a | a <- args]);
+int size({Expression ","}* args) = size([a | a <- args]);
+
+CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression _>`)
+    = callHierarchyItem(
+        "<id>",
+        function(),
+        d.src,
+        id.src,
+        detail = "<id>(<intercalate(",", [typeOf(a) | a <- args])>): <retType>",
+        \data = \data(prog, d)
+    );
+
+data CallHierarchyData = \data(start[Program] prog, IdType def);
+
+str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
+str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
+    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <typeOf(retType)>";
+
+lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, incoming())
+    = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.prog, signatureMatches(ci.\data.def, c)];
+lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, outgoing())
+    = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.def];
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
