@@ -38,7 +38,7 @@ import org.eclipse.lsp4j.Range;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;

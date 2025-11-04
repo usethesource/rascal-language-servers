@@ -47,7 +47,7 @@ import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;

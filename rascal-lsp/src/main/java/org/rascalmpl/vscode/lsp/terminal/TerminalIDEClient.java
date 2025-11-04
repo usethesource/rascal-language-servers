@@ -49,8 +49,8 @@ import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;

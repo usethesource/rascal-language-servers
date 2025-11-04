@@ -124,8 +124,8 @@ import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
