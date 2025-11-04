@@ -38,7 +38,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
@@ -66,14 +65,26 @@ import io.usethesource.vallang.IString;
  * the request to the Rascal IDE client (@see TerminalIDEServer)
  */
 public class TerminalIDEClient implements IDEServices {
-    private final ITerminalIDEServer server;
+    private ITerminalIDEServer server = null;
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
-    private final IRascalMonitor monitor;
-    private final Terminal terminal;
-    private final PrintWriter err;
+    private IRascalMonitor monitor = null;
+    private final PrintWriter err = new PrintWriter(System.err);
 
-    public TerminalIDEClient(int port, PrintWriter err, IRascalMonitor monitor, Terminal term) throws IOException {
+    private static TerminalIDEClient instance = null;
+
+    public static TerminalIDEClient getInstance() {
+        if (instance == null) {
+            instance = new TerminalIDEClient();
+        }
+        return instance;
+    }
+
+    private TerminalIDEClient() {
+
+    }
+
+    public void connectToServer(int port) throws IOException {
         @SuppressWarnings({"resource"}) // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
@@ -85,11 +96,11 @@ public class TerminalIDEClient implements IDEServices {
             .create();
         launch.startListening();
         server = launch.getRemoteProxy();
-        this.err = err;
-        this.monitor = monitor;
-        this.terminal = term;
     }
 
+    public void registerMonitor(IRascalMonitor monitor) {
+        this.monitor = monitor;
+    }
 
     @Override
     public PrintWriter stderr() {
@@ -219,11 +230,5 @@ public class TerminalIDEClient implements IDEServices {
     public void registerDebugServerPort(int processID, int serverPort){
         server.registerDebugServerPort(processID, serverPort);
     }
-
-    @Override
-    public Terminal activeTerminal() {
-        return terminal;
-    }
-
 
 }

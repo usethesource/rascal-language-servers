@@ -125,8 +125,8 @@ public abstract class BaseLanguageServer {
         server.connect(clientLauncher.getRemoteProxy());
 
         try (ServerSocket serverSocket = new ServerSocket()) {
-            var terminalClient = new TerminalIDEClient(server.ideServicesConfiguration.getPort(), new PrintWriter(System.err), null, null);
-            //TODO: fix nulls
+            var terminalClient = TerminalIDEClient.getInstance();
+            terminalClient.connectToServer(server.ideServicesConfiguration.getPort());
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(terminalClient);
             logger.info("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         } catch (IOException e) {
