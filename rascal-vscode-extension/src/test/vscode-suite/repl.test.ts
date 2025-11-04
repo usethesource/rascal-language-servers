@@ -42,7 +42,6 @@ describe('REPL', function () {
         driver = browser.driver;
         bench = new Workbench();
         ide = new IDEOperations(browser);
-
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();

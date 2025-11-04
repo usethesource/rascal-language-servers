@@ -80,7 +80,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         bench = new Workbench();
         await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser);
-
         await ide.load();
         await loadPico();
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);

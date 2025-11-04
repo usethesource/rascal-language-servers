@@ -327,7 +327,6 @@ export class IDEOperations {
         await this.appendSpace(editor);
         await sleep(50);
         await editor.save();
-        await sleep(50);
         if (waitForFinish) {
             const hasStatus = this.statusContains(checkName);
             await ignoreFails(this.driver.wait(hasStatus, Delays.normal, `${checkName} should have started after a save`));

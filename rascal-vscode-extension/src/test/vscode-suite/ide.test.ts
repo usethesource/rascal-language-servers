@@ -48,7 +48,6 @@ describe('IDE', function () {
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
-
         await ide.load();
         // trigger rascal type checker to be sure
         for (const f of protectFiles) {
