@@ -37,14 +37,13 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
+    printRascalOutputOnFailure('Rascal MPL');
+
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         ide = new IDEOperations(browser);
-
-        printRascalOutputOnFailure(ide, 'Rascal MPL');
-
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();
