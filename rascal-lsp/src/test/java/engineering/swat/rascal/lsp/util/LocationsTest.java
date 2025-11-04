@@ -35,7 +35,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class LocationsTest {
 
-    private static IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private String fileName = "PNG.bird";
 
     private static ColumnMaps columns(String contents) {

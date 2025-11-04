@@ -242,8 +242,8 @@ list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`, *_, start[Program] prog])
     = [callHierarchyItem(prog, d)];
 
-IdType findDefinition(start[Program] prog, e:(Expression) `<Id id>(<{Expression ","}* args>)`) {
-    for (/d:(IdType) `<Id did>(<{IdType ","}* dargs>): <Type _> := <Expression _>` := prog
+IdType findDefinition(start[Program] prog, e:(Expression) `<Id _>(<{Expression ","}* _>)`) {
+    for (/d:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>` := prog
         , signatureMatches(d, e)) {
         return d;
     }
