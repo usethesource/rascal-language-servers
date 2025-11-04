@@ -84,6 +84,18 @@ public class TerminalIDEClient implements IDEServices {
 
     }
 
+    private void ensureServerInitialized() {
+        if (server == null) {
+            throw new IllegalStateException("Connection to TerminalIDEServer has not been established yet");
+        }
+    }
+
+    private void ensureMonitorRegistered() {
+        if (monitor == null) {
+            throw new IllegalStateException("No monitor has been registered yet");
+        }
+    }
+
     public void connectToServer(int port) throws IOException {
         @SuppressWarnings({"resource"}) // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
@@ -109,11 +121,13 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void browse(URI uri, String title, int viewColumn) {
+        ensureServerInitialized();
         server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
     public void edit(ISourceLocation path, int viewColumn) {
+        ensureServerInitialized();
         ISourceLocation physical = Locations.toClientLocation(path);
 
         Range range = null;
@@ -136,6 +150,7 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
+        ensureServerInitialized();
         try {
             return server.resolveProjectLocation(new SourceLocationParameter(input))
                 .get()
@@ -155,6 +170,7 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     public void registerLanguage(LanguageParameter language) {
+        ensureServerInitialized();
         server.receiveRegisterLanguage(language);
     }
 
@@ -165,41 +181,49 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     public void unregisterLanguage(LanguageParameter language) {
+        ensureServerInitialized();
         server.receiveUnregisterLanguage(language);
     }
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
+        ensureMonitorRegistered();
         monitor.jobStart(name, workShare, totalWork);
     }
 
     @Override
     public void jobStep(String name, String message, int inc) {
+        ensureMonitorRegistered();
         monitor.jobStep(name, message, inc);
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
+        ensureMonitorRegistered();
         return monitor.jobEnd(name, succeeded);
     }
 
     @Override
     public void endAllJobs() {
+        ensureMonitorRegistered();
         monitor.endAllJobs();
     }
 
     @Override
     public boolean jobIsCanceled(String name) {
+        ensureMonitorRegistered();
         return monitor.jobIsCanceled(name);
     }
 
     @Override
     public void jobTodo(String name, int work) {
+        ensureMonitorRegistered();
         monitor.jobTodo(name, work);
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
+        ensureMonitorRegistered();
         monitor.warning(message, src);
     }
 
@@ -207,27 +231,32 @@ public class TerminalIDEClient implements IDEServices {
     public void registerLocations(IString scheme, IString auth, IMap map) {
         // register the map both on the LSP server side, for handling links and stuff,
         // locally here in the terminal, for local IO:
+        ensureServerInitialized();
         server.registerLocations(new RegisterLocationsParameters(scheme, auth, map));
         IDEServices.super.registerLocations(scheme, auth, map);
     }
 
     @Override
     public void registerDiagnostics(IList messages) {
+        ensureServerInitialized();
         server.registerDiagnostics(new RegisterDiagnosticsParameters(messages));
     }
 
     @Override
     public void unregisterDiagnostics(IList resources) {
+        ensureServerInitialized();
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
     @Override
     public void startDebuggingSession(int serverPort){
+        ensureServerInitialized();
         server.startDebuggingSession(serverPort);
     }
 
     @Override
     public void registerDebugServerPort(int processID, int serverPort){
+        ensureServerInitialized();
         server.registerDebugServerPort(processID, serverPort);
     }
 
