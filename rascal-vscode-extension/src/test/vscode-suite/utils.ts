@@ -320,8 +320,7 @@ export class IDEOperations {
         await editor.typeText(' ');
     }
 
-    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.extremelySlow, tplFile = "" } = {}) {
-        await this.screenshot(`just before getTitle (for type-check)`);
+    async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
         const fileName = await editor.getTitle();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
