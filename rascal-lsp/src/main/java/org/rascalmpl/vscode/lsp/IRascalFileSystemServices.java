@@ -49,6 +49,7 @@ import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
@@ -340,8 +341,8 @@ public interface IRascalFileSystemServices {
     }
 
     public static class SourceLocation {
-        private final String uri;
-        private final int @Nullable[]  offsetLength;
+        @NonNull private final String uri;
+        private final int @Nullable[] offsetLength;
         private final int @Nullable[] beginLineColumn;
         private final int @Nullable[] endLineColumn;
 
@@ -452,10 +453,10 @@ public interface IRascalFileSystemServices {
     }
 
     public static class FileChangeEvent {
-        private final FileChangeType type;
-        private final String uri;
+        @NonNull private final FileChangeType type;
+        @NonNull private final String uri;
 
-        public FileChangeEvent(FileChangeType type, String uri) {
+        public FileChangeEvent(FileChangeType type, @NonNull String uri) {
             this.type = type;
             this.uri = uri;
         }
@@ -485,12 +486,12 @@ public interface IRascalFileSystemServices {
     }
 
     public static class FileStat {
-        FileType type;
-        long ctime;
-        long mtime;
-        long size;
+        private final FileType type;
+        private final long ctime;
+        private final long mtime;
+        private final long size;
 
-        @Nullable FilePermission permissions;
+        private @Nullable FilePermission permissions;
 
         public FileStat(FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
             this.type = type;
@@ -533,10 +534,10 @@ public interface IRascalFileSystemServices {
     }
 
     public static class FileWithType {
-        private final String name;
-        private final FileType type;
+        @NonNull private final String name;
+        @NonNull private final FileType type;
 
-        public FileWithType(String name, FileType type) {
+        public FileWithType(@NonNull String name, @NonNull FileType type) {
             this.name = name;
             this.type = type;
         }
@@ -551,9 +552,9 @@ public interface IRascalFileSystemServices {
     }
 
     public static class LocationContent {
-        private String content;
+        @NonNull private final String content;
 
-        public LocationContent(String content) {
+        public LocationContent(@NonNull String content) {
             this.content = content;
         }
 
@@ -563,9 +564,9 @@ public interface IRascalFileSystemServices {
     }
 
     public static class URIParameter {
-        private String uri;
+        @NonNull private final String uri;
 
-        public URIParameter(String uri) {
+        public URIParameter(@NonNull String uri) {
             this.uri = uri;
         }
 
@@ -579,12 +580,12 @@ public interface IRascalFileSystemServices {
     }
 
     public static class WriteFileParameters {
-        private final String uri;
-        private final String content;
+        @NonNull private final String uri;
+        @NonNull private final String content;
         private final boolean create;
         private final boolean overwrite;
 
-        public WriteFileParameters(String uri, String content, boolean create, boolean overwrite) {
+        public WriteFileParameters(@NonNull String uri, @NonNull String content, boolean create, boolean overwrite) {
             this.uri = uri;
             this.content = content;
             this.create = create;
