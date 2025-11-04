@@ -244,7 +244,14 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
         ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
 
         <found, tm, ms> = getTModelForModule(mname, ms);
-        if (!found) throw "No TModel for module \'<mname>\'";
+        if (!found) {
+            if (ms.status[mname]?) {
+                // If a module is annotated with `@ignoreCompiler`, silently skip it
+                if (MStatus::ignored() in ms.status[mname]) return tmodel();
+                throw "No TModel for module \'<mname>\'";
+            }
+            throw "No TModel for module \'<mname>\'";
+        }
         return tm;
     }
 
