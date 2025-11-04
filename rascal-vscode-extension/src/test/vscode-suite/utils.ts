@@ -25,13 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { assert } from "chai";
+import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
-import path = require("path");
+import * as os from 'os';
 import { env } from "process";
 import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import * as os from 'os';
-import { expect } from 'chai';
+import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -278,8 +277,9 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                this.screenshot(`revert of ${title} failed ` + tryCount);
+                console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
@@ -295,7 +295,7 @@ export class IDEOperations {
             }
             catch (ignored) {
                 this.screenshot("open editor check failed " + tryCount);
-                console.log("Open editor dirtry check failed: ", ignored);
+                console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
             }
@@ -313,12 +313,18 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
+    async appendSpace(editor: TextEditor, line = 1) {
+        const prompt = await new Workbench().openCommandPrompt();
+        await prompt.setText(`:${line},10000`);
+        await prompt.confirm();
+        await editor.typeText(' ');
+    }
+
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
-        const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
-        await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.appendSpace(editor);
         await sleep(50);
         await editor.save();
         if (waitForFinish) {
