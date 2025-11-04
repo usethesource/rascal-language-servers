@@ -38,7 +38,7 @@ public class ISourceLocationRequest {
     public ISourceLocationRequest() {
     }
 
-    public ISourceLocationRequest(@NonNull final String uri) {
+    public ISourceLocationRequest(@NonNull String uri) {
         this.uri = uri;
     }
 
@@ -49,7 +49,7 @@ public class ISourceLocationRequest {
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof ISourceLocationRequest) {
-            return Objects.equals(uri, ((ISourceLocationRequest)obj).uri);
+            return uri.equals(((ISourceLocationRequest)obj).uri);
         }
         return false;
     }

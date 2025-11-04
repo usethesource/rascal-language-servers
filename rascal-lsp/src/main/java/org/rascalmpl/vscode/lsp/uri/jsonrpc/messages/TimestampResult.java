@@ -26,39 +26,37 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class TimestampResult {
-    private Long timestamp;
+    private long timestamp;
 
-    public TimestampResult(Long timestamp) {
+    public TimestampResult(long timestamp) {
         this.timestamp = timestamp;
     }
 
     public TimestampResult() {}
 
-    public Long getTimestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * (Objects.hashCode(timestamp) + 1);
+        return Long.hashCode(timestamp);
     }
 
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof TimestampResult) {
-            return super.equals(obj)
-                && Objects.equals(timestamp, ((TimestampResult)obj).timestamp);
+            return timestamp == ((TimestampResult)obj).timestamp;
         }
         return false;
     }
 
     @Override
     public String toString() {
-        return "TimestampResult [timestamp=" + timestamp + "io= " + super.toString() + "]";
+        return "TimestampResult [timestamp=" + timestamp + "]";
     }
 
 

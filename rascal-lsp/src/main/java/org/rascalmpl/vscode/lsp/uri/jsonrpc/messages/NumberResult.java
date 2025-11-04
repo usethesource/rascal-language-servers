@@ -30,35 +30,34 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class NumberResult {
-    private Integer result;
+    private int result;
 
-    public NumberResult(Integer result) {
+    public NumberResult(int result) {
         this.result = result;
     }
 
     public NumberResult() {}
 
-    public Integer getResult() {
+    public int getResult() {
         return result;
     }
 
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof NumberResult) {
-            return super.equals(obj)
-                && Objects.equals(result, ((NumberResult)obj).result);
+            return result == ((NumberResult)obj).result;
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * (Objects.hashCode(result) + 1);
+        return result * 11;
     }
 
     @Override
     public String toString() {
-        return "NumberResult [result=" + result + " io=" + super.toString() + "]";
+        return "NumberResult [result=" + result + "]";
     }
 
 }

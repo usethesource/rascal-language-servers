@@ -32,14 +32,14 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.uri.FileAttributes;
 
 public class FileAttributesResult {
-    private Boolean exists;
-    private Integer type;
-    private Long ctime;
-    private Long mtime;
-    private Integer size;
-    private Integer permissions;
+    private boolean exists;
+    private int type;
+    private long ctime;
+    private long mtime;
+    private int size;
+    private int permissions;
 
-    public FileAttributesResult(Boolean exists, Integer type, Long ctime, Long mtime, Integer size, Integer permissions) {
+    public FileAttributesResult(boolean exists, int type, long ctime, long mtime, int size, int permissions) {
         this.exists = exists;
         this.type = type;
         this.ctime = ctime;
@@ -58,13 +58,12 @@ public class FileAttributesResult {
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof FileAttributesResult) {
             var other = (FileAttributesResult)obj;
-            return super.equals(obj)
-                && Objects.equals(exists, other.exists)
-                && Objects.equals(type, other.type)
-                && Objects.equals(ctime, other.ctime)
-                && Objects.equals(mtime, other.mtime)
-                && Objects.equals(size, other.size)
-                && Objects.equals(permissions, other.permissions);
+            return exists == other.exists
+                && type == other.type
+                && ctime == other.ctime
+                && mtime == other.mtime
+                && size == other.size
+                && permissions == other.permissions;
         }
         return false;
     }
@@ -76,7 +75,7 @@ public class FileAttributesResult {
 
     @Override
     public String toString() {
-        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + " io=" + super.toString() + "]";
+        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + "]";
     }
 
 }
