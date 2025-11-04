@@ -162,12 +162,6 @@ describe('IDE', function () {
     });
 
     it("go to definition works across projects", async () => {
-        // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
-        const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await ide.screenshot(`just after opening ${TestWorkspace.libFile}`);
-        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
-        await bench.getEditorView().closeAllEditors();
-
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
