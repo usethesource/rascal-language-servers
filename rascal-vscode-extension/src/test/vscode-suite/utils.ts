@@ -321,18 +321,13 @@ export class IDEOperations {
     }
 
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
-        const fileName = await editor.getTitle();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
-        await this.screenshot(`just before modifying file (for type-check) ${fileName}`);
         await this.appendSpace(editor);
-        await this.screenshot(`just after modifying file (for type-check) ${fileName}`);
         await sleep(50);
-        await this.screenshot(`just before saving (for type-check) ${fileName}`);
         await editor.save();
         await sleep(50);
-        await this.screenshot(`just after saving (for type-check) ${fileName}`);
         if (waitForFinish) {
             const hasStatus = this.statusContains(checkName);
             await ignoreFails(this.driver.wait(hasStatus, Delays.normal, `${checkName} should have started after a save`));
