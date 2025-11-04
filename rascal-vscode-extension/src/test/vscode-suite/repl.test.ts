@@ -42,6 +42,9 @@ describe('REPL', function () {
         driver = browser.driver;
         bench = new Workbench();
         ide = new IDEOperations(browser);
+
+        printRascalOutputOnFailure(ide, 'Rascal MPL');
+
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();
@@ -54,10 +57,6 @@ describe('REPL', function () {
         await bench.executeCommand("workbench.action.terminal.killAll");
         await ide.cleanup();
     });
-
-    afterEach("print output in case of test failure",
-        async function () { await printRascalOutputOnFailure(this, ide, "Rascal MPL"); }
-    );
 
     it("should open without a project", async () => {
         await new RascalREPL(bench, driver).start();
