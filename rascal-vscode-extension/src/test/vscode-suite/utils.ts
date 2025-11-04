@@ -25,13 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { assert } from "chai";
+import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
-import path = require("path");
+import * as os from 'os';
 import { env } from "process";
 import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import * as os from 'os';
-import { expect } from 'chai';
+import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -314,16 +313,21 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
+    async appendSpace(editor: TextEditor, line = 1) {
+        const prompt = await new Workbench().openCommandPrompt();
+        await prompt.setText(`:${line},10000`);
+        await prompt.confirm();
+        await editor.typeText(' ');
+    }
+
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.extremelySlow, tplFile = "" } = {}) {
-        await this.screenshot(`just before getNumberOfLines (for type-check)`);
-        const lastLine = await editor.getNumberOfLines();
         await this.screenshot(`just before getTitle (for type-check)`);
         const fileName = await editor.getTitle();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
         await this.screenshot(`just before modifying file (for type-check) ${fileName}`);
-        await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.appendSpace(editor);
         await this.screenshot(`just after modifying file (for type-check) ${fileName}`);
         await sleep(50);
         await this.screenshot(`just before saving (for type-check) ${fileName}`);
