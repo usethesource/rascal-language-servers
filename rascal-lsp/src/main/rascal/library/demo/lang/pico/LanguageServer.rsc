@@ -277,7 +277,7 @@ str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expressio
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <typeOf(retType)>";
 
 lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, incoming())
-    = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.prog, signatureMatches(ci.\data.def, c)];
+    = [<callHierarchyItem(ci.\data.prog, caller), c.src> | /caller:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
 lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, outgoing())
     = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.def];
 
