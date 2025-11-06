@@ -37,7 +37,6 @@ import analysis::graphs::Graph;
 import util::FileSystem;
 import util::Monitor;
 import util::ParseErrorRecovery;
-import util::Reflective;
 
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
