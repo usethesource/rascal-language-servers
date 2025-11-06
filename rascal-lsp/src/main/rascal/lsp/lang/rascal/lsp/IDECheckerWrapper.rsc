@@ -63,12 +63,13 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                 : {};
             return <t, errors>;
         } catch ParseError(loc err): {
-            return <(start[Module]) `module Placeholder`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
+            return <(start[Module]) `module ModuleHadParseError`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
         }
     }
 
-    // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime
-    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", |unknown:///|);
+    // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime.
+    // We cannot fix that here, unless we pass `getParseTree` to `check`.
+    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l);
     if ({} != parseErrors) {
         // No need to return the errors, since the language server will take care of parse errors in open modules
         return ();
@@ -95,6 +96,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                         if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, openFileHeader.src)) {
                             if ({} !:= importErrors) {
                                 parseErrors += importErrors;
+                                checkedForImports += currentSrc; // do not check this module again
                                 continue; // since there is an error in this module, we do not recurse into its imports
                             }
                             if (mlpt.src.top notin checkedForImports) {
@@ -116,7 +118,8 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     }, totalWork=1);
 
     if ({} != parseErrors) {
-        return toMap({<e.at.top, e> | e <- parseErrors});
+        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
+        return (l: parseErrors);
     }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
