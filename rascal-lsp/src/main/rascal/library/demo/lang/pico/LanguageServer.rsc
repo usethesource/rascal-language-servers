@@ -266,7 +266,7 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{I
         function(),
         d.src,
         id.src,
-        detail = "<id>(<intercalate(",", [typeOf(a) | a <- args])>): <retType>",
+        detail = typeOf(d),
         \data = \data(prog, d)
     );
 
@@ -274,7 +274,7 @@ data CallHierarchyData = \data(start[Program] prog, IdType def);
 
 str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
 str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
-    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <typeOf(retType)>";
+    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
 lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, incoming())
     = [<callHierarchyItem(ci.\data.prog, caller), c.src> | /caller:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
