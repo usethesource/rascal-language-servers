@@ -25,13 +25,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { Dirent } from 'fs';
 import path from 'path/posix';
 import * as vscode from 'vscode';
 
 export class TestVirtualFileSystem implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly root = new DirEntry();
+    private readonly root = new RootEntry();
 
     watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
         // we don't have changes to files
@@ -111,6 +112,13 @@ abstract class FSEntry {
     abstract clone(): FSEntry;
     abstract stat(): vscode.FileStat;
 
+    constructor(protected readonly self: string) {}
+
+    protected lastPart(uri: vscode.Uri) {
+        return path.basename(uri.path);
+
+    }
+
     isFile(): this is FileEntry {
         return false;
     }
@@ -120,20 +128,33 @@ abstract class FSEntry {
     }
 }
 
+
 class DirEntry extends FSEntry {
-    deleteRaw(oldUri: vscode.Uri) {
+    override clone(): FSEntry {
         throw new Error('Method not implemented.');
     }
-    put(newUri: vscode.Uri, old: FSEntry, overwrite: boolean) {
+    override stat(): vscode.FileStat {
         throw new Error('Method not implemented.');
     }
-    delete(uri: vscode.Uri, recursive: boolean) {
-        throw new Error('Method not implemented.');
+    protected readonly children: Map<string, FSEntry> = new Map();
+
+    deleteRaw(uri: vscode.Uri) {
+        if (!this.children.delete(this.lastPart(uri))) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+    }
+
+    protected putRaw(newUri: vscode.Uri, newEntry: FSEntry, overwrite: boolean) {
+        const key = this.lastPart(newUri);
+        if (!overwrite && this.children.has(key)) {
+            throw vscode.FileSystemError.FileExists(newUri);
+        }
+        this.children.set(key, newEntry);
     }
     createFile(uri: vscode.Uri): FileEntry  {
         throw new Error('Method not implemented.');
     }
-    getEntry(uri: vscode.Uri): FSEntry {
+    getEntry(uri: vscode.Uri | string): FSEntry {
         throw new Error('Method not implemented.');
     }
     createDirectory(uri: vscode.Uri) {
@@ -157,6 +178,12 @@ class DirEntry extends FSEntry {
 }
 
 class FileEntry extends FSEntry {
+    override clone(): FSEntry {
+        throw new Error('Method not implemented.');
+    }
+    override stat(): vscode.FileStat {
+        throw new Error('Method not implemented.');
+    }
     override isFile(): this is FileEntry {
         return true;
     }
@@ -168,4 +195,39 @@ class FileEntry extends FSEntry {
     read(): Uint8Array<ArrayBufferLike> {
         throw new Error('Method not implemented.');
     }
+}
+
+class RootEntry extends DirEntry {
+
+    constructor() {
+        super("");
+    }
+
+    private locateEntry(uri: vscode.Uri) {
+        if (uri.path === "/") {
+            return this;
+        }
+        let result: FSEntry | undefined = undefined;
+        for (const chunk of uri.path.split(path.sep)) {
+            if (!result || result.isDir()) {
+                result = (result??this).getEntry(chunk);
+                if (!result) {
+                    return undefined;
+                }
+            }
+            else {
+                return undefined;
+            }
+        }
+    }
+    delete(uri: vscode.Uri, recursive: boolean) {
+        throw new Error('Method not implemented.');
+    }
+
+    put(newUri: vscode.Uri, newEntry: FSEntry, overwrite: boolean): void {
+
+
+    }
+
+
 }
