@@ -167,7 +167,8 @@ public class RascalLanguageServices {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(false).get();
+                // although we cannot type-check modules with errors, we prefer to get the errors here instead of retrying the parse and still failing after this try-block
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
                 if (tree != null) {
                     return tree.get();
                 }
