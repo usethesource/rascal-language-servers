@@ -32,7 +32,11 @@ import * as vscode from 'vscode';
 export class TestVirtualFileSystem implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly root = new RootEntry();
+    private readonly root = new DirEntry();
+
+    locate(uri: vscode.Uri) : FSEntry {
+
+    }
 
     watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
         // we don't have changes to files
@@ -92,16 +96,26 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
         child.write(content);
     }
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
-        this.root.delete(uri, options.recursive);
+        const parent = this.locate(this.parentUri(uri));
+        const entry = parent.getEntry(uri);
+        if (entry.isDir()) {
+            if (!entry.isEmpty() && !options.recursive) {
+                throw vscode.FileSystemError.NoPermissions(uri.toString() + " is not empty");
+            }
+        }
+        parent.deleteRaw(uri);
     }
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        const old = this.root.lookup(oldUri);
-        this.root.put(newUri, old, options.overwrite);
-        this.root.deleteRaw(oldUri);
+        const oldParent = this.locate(this.parentUri(oldUri));
+        const old = oldParent.gerEntry(oldUri);
+        const newParent = this.locate(this.parentUri(newUri));
+        newParent.put(newUri, old, options.overwrite);
+        oldParent.deleteRaw(oldUri);
     }
     copy(source: vscode.Uri, destination: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        const sourceEntry = this.root.lookup(source);
-        this.root.put(destination, sourceEntry.clone(), options.overwrite);
+        const sourceEntry = this.locate(source);
+        const newParent = this.locate(this.parentUri(destination));
+        newParent.put(destination, sourceEntry.clone(), options.overwrite);
     }
 }
 
@@ -163,13 +177,6 @@ class DirEntry extends FSEntry {
     list(uri: vscode.Uri): [string, vscode.FileType][] {
         throw new Error('Method not implemented.');
     }
-    lookup(uri: vscode.Uri): FSEntry {
-
-        if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        }
-        throw new Error('Method not implemented.');
-    }
 
     override isDir(): this is DirEntry {
         return true;
@@ -203,6 +210,14 @@ class RootEntry extends DirEntry {
         super("");
     }
 
+    lookup(uri: vscode.Uri): FSEntry {
+
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+        throw new Error('Method not implemented.');
+    }
+
     private locateEntry(uri: vscode.Uri) {
         if (uri.path === "/") {
             return this;
@@ -221,7 +236,20 @@ class RootEntry extends DirEntry {
         }
     }
     delete(uri: vscode.Uri, recursive: boolean) {
-        throw new Error('Method not implemented.');
+        const result = this.locateEntry(uri);
+        if (!result) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+        if (result === this) {
+            throw vscode.FileSystemError.NoPermissions(uri);
+        }
+        if (result.isDir()) {
+            result.delete(uri, recursive);
+        }
+        else if(result.isFile()) {
+
+
+        }
     }
 
     put(newUri: vscode.Uri, newEntry: FSEntry, overwrite: boolean): void {
