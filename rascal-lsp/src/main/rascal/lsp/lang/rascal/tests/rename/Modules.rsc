@@ -34,6 +34,9 @@ import Set;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascalcore::check::Checker;
+import analysis::diff::edits::TextEdits;
+
+import util::PathConfig;
 
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
@@ -213,3 +216,74 @@ test bool moduleRenameOutsideSources()
             return false;
         }
     );
+
+//// File moves
+bool moved(byText(name, _, _, newName = newName)) = name != newName;
+
+private bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = true) {
+    testDir = |memory:///tests/move|;
+    remove(testDir);
+    pcfg = getTestPathConfig(testDir);
+    srcDir = pcfg.srcs[0];
+    getPathConfig = PathConfig(loc l) {
+        return pcfg;
+    };
+
+    // We test renaming *after* files have been moved, so we use the new name for the path here
+    modsAndPaths = {<m, srcDir + "<m.newName>.rsc"> | m <- modules, moved(m)};
+
+    for (<byText(name, body, _), p> <- modsAndPaths) {
+        writeFile(p, "module <name>\n<body>");
+    }
+
+    renames = [<old, new> | <m, new> <- modsAndPaths, old := new.parent + "<m.name>.rsc"];
+
+    edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
+
+    expectedEdits = {
+        replace(\mod.top.header.name.src, m.newName)
+        | <m, p> <- modsAndPaths
+        , start[Module] \mod := parse(#start[Module], p)
+        , moved(m)
+    };
+
+    if (debug) {
+        print("Edits: ");
+        iprintln(edits<0>);
+
+        print("Expected edits: ");
+        iprintln(expectedEdits);
+    }
+
+    verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
+
+    if (edits<1> != {}) {
+        throw edits<1>;
+    }
+
+    return {r | /r:replace(_, _) := edits<0>}
+        == expectedEdits + additionalReplaces;
+}
+
+test bool moveWithinFolder() = moveRenameTest({byText("A", "", {}, newName = "B")});
+test bool moveDeepWithinFolder() = moveRenameTest({byText("foo::bar::A", "", {}, newName = "foo::bar::B")});
+test bool moveFolder() = moveRenameTest({
+    byText("foo::bar::A", "", {}, newName = "foo::baz::A"),
+    byText("foo::bar::B", "", {}, newName = "foo::baz::B")
+});
+
+test bool moveReferenced() = moveRenameTest({
+    byText("A", "
+        'import B;
+        'int a = B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+}, additionalEdits = {<<0, 7>, <0, 8>>});
+
+test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
+test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
+test bool moveEscaped3() = moveRenameTest({
+    byText("A", "
+        import B;
+        int a = \\B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+}, additionalEdits = {/* TODO Replace qualified name */});

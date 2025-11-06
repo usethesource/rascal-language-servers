@@ -76,7 +76,7 @@ private list[DocumentEdit] groupEditsByFile(list[DocumentEdit] _: [*pre, changed
     groupEditsByFile([*pre, changed(f, [*e1, *e2]), *mid, *post]);
 private default list[DocumentEdit] groupEditsByFile(list[DocumentEdit] edits) = edits;
 
-private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
 
@@ -379,10 +379,9 @@ private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
-    str moduleStr = "
-    'module <name>
-    '<body>
-    ";
+    str moduleStr = "module <trim(name)>
+                    '<trim(body)>
+                    '";
 
     loc moduleFile = dir + "rascal" + (moduleNameToPath(name) + ".rsc");
     writeFile(moduleFile, moduleStr);
