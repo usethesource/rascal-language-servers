@@ -36,9 +36,9 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
     private readonly fs : vscode.Disposable;
 
-    constructor(private readonly log: vscode.LogOutputChannel) {
+    constructor(private readonly logger: vscode.LogOutputChannel) {
         this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
-        log.info("Rascal Test VFS is registered under: ", TestVirtualFileSystem.rootScheme.scheme);
+        logger.info("Rascal Test VFS is registered under: ", TestVirtualFileSystem.rootScheme.scheme);
     }
     dispose() {
         this._emitter.dispose();
@@ -58,7 +58,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             return [this.root, this.root];
         }
         let result : FSEntry = this.root;
-        const parts = uri.path.split(path.sep);
+        const parts = uri.path.substring(1).split(path.sep);
         for (const chunk of parts.splice(0, parts.length - 1)) {
             if (result.isDir()) {
                 const entry = result.getEntry(chunk);
@@ -83,12 +83,12 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         throw new Error("Not supported yet");
     }
     stat(uri: vscode.Uri): vscode.FileStat {
-        this.log.debug("[TVFS] stat: ", uri);
+        this.logger.debug("[TVFS] stat: ", uri);
         return this.locate(uri).stat();
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-        this.log.debug("[TVFS] readDirectory: ", uri);
+        this.logger.debug("[TVFS] readDirectory: ", uri);
         const entry = this.locate(uri);
         if (!entry.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(uri);
@@ -101,7 +101,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     createDirectory(uri: vscode.Uri) {
-        this.log.debug("[TVFS] createDirectory: ", uri);
+        this.logger.debug("[TVFS] createDirectory: ", uri);
         const [parent, self] = this.locateWithParent(uri);
         if (!parent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
@@ -113,7 +113,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     readFile(uri: vscode.Uri): Uint8Array {
-        this.log.debug("[TVFS] readFile: ", uri);
+        this.logger.debug("[TVFS] readFile: ", uri);
         const entry = this.locate(uri);
         if (!entry.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
@@ -122,7 +122,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
-        this.log.debug("[TVFS] writeFile: ", uri, options);
+        this.logger.debug("[TVFS] writeFile: ", uri, options);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -135,9 +135,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileExists(uri);
         }
 
-        if (!child) {
-            child = parent.putEntry(uri, new FileEntry(uri));
-        }
+        child ??= parent.putEntry(uri, new FileEntry(uri));
         if (!child.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
@@ -145,7 +143,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
-        this.log.debug("[TVFS] delete: ", uri);
+        this.logger.debug("[TVFS] delete: ", uri);
         if (uri.path === "/") {
             throw vscode.FileSystemError.NoPermissions(uri);
         }
@@ -165,13 +163,13 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        this.log.debug("[TVFS] rename: ", oldUri, newUri);
+        this.logger.debug("[TVFS] rename: ", oldUri, newUri);
         this.copy(oldUri, newUri, options);
         this.delete(oldUri, { recursive: true });
     }
 
     copy(sourceUri: vscode.Uri, destinationUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        this.log.debug("[TVFS] copy: ", sourceUri, destinationUri);
+        this.logger.debug("[TVFS] copy: ", sourceUri, destinationUri);
         const [sourceParent, source] = this.locateWithParent(sourceUri);
         if (!sourceParent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(sourceUri));
@@ -257,6 +255,7 @@ class DirEntry extends FSEntry {
     putEntry(newUri: vscode.Uri, newEntry: FSEntry): FSEntry {
         this.children.set(this.lastPart(newUri), newEntry);
         this.changed();
+        console.log("After put: ", this);
         return newEntry;
     }
 
