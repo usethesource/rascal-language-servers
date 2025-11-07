@@ -63,6 +63,11 @@
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
+      },
+      {
+        "command": "rascalmpl.registerTestVFS",
+        "title": "Start Rascal Test Virtual File System",
+        "icon": "$(test-view-icon)"
       }
     ],
     "menus": {

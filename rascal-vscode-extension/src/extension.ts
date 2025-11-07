@@ -30,10 +30,10 @@ import * as vscode from 'vscode';
 import { RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
+import { TestVirtualFileSystem } from './fs/TestVirtualFileSystem';
 
 const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
 const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
-
 
 export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
@@ -42,6 +42,10 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new RascalProjectValidator(extension.logger()));
+    context.subscriptions.push(vscode.commands.registerCommand("rascalmpl.registerTestVFS", () => {
+        context.subscriptions.push(new TestVirtualFileSystem(extension.logger()));
+    }));
+
     return extension.externalLanguageRegistry();
 }
 

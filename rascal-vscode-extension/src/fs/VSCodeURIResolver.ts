@@ -333,6 +333,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
     async readFile(req: ISourceLocationRequest): Promise<ReadFileResult> {
+        this.logger.trace("[VFS] readFile: ", req.uri);
         return asyncCatcher(async () => <ReadFileResult>{
             errorCode: 0,
             contents: Buffer.from(
@@ -348,6 +349,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async exists(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] exists: ", req.uri);
         try {
             await this.stat(req);
             return { result: true };
@@ -372,6 +374,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async stat(req: ISourceLocationRequest): Promise<vscode.FileStat> {
+        this.logger.trace("[VFS] stat: ", req.uri);
         return this.fs.stat(this.toUri(req));
     }
 
@@ -382,9 +385,11 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResult> {
+        this.logger.trace("[VFS] lastModified: ", req.uri);
         return this.timeStampResult(req, f => f.mtime);
     }
     created(req: ISourceLocationRequest): Promise<TimestampResult> {
+        this.logger.trace("[VFS] created: ", req.uri);
         return this.timeStampResult(req, f => f.ctime);
     }
 
@@ -395,6 +400,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     size(req: ISourceLocationRequest): Promise<NumberResult> {
+        this.logger.trace("[VFS] size: ", req.uri);
         return this.numberResult(req, f => f.size);
     }
 
@@ -405,20 +411,24 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isDirectory: ", req.uri);
         return this.boolResult(req, f => f.type === vscode.FileType.Directory);
     }
 
     isFile(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isFile: ", req.uri);
         // TODO: figure out how to handle vscode.FileType.Symlink
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isReadable: ", req.uri);
         // if we can do a stat, we can read
         return this.boolResult(req, _ => true);
     }
 
     async isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isWritable: ", req.uri);
         const scheme = this.toUri(req).scheme;
         const writable = this.fs.isWritableFileSystem(scheme);
         if (writable === undefined) {
@@ -432,6 +442,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
+        this.logger.trace("[VFS] list: ", req.uri);
         return asyncCatcher(async () => {
             const entries = await this.fs.readDirectory(this.toUri(req));
             return <DirectoryListingResult>{
@@ -444,17 +455,21 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
     async writeFile(req: WriteFileRequest): Promise<void> {
+        this.logger.trace("[VFS] writeFile: ", req.uri);
         return asyncVoidCatcher(
             this.fs.writeFile(this.toUri(req), Buffer.from(req.content, "base64"))
         );
     }
     async mkDirectory(req: ISourceLocationRequest): Promise<void> {
+        this.logger.trace("[VFS] mkDirectory: ", req.uri);
         return asyncVoidCatcher(this.fs.createDirectory(this.toUri(req)));
     }
     async remove(req: ISourceLocationRequest): Promise<void> {
+        this.logger.trace("[VFS] remove: ", req.uri);
         return asyncVoidCatcher(this.fs.delete(this.toUri(req)));
     }
     async rename(req: RenameRequest): Promise<void> {
+        this.logger.trace("[VFS] rename: ", req.from, req.to);
         const from = this.toUri(req.from);
         const to = this.toUri(req.to);
         return asyncVoidCatcher(this.fs.rename(from, to, { overwrite: req.overwrite }));
@@ -463,6 +478,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
 
     async watch(newWatch: WatchRequest): Promise<void> {
+        this.logger.trace("[VFS] watch: ", newWatch.uri);
         const watchKey = newWatch.uri + newWatch.recursive;
         if (!this.activeWatches.has(watchKey)) {
             const watcher = new WatcherCallbacks(this.toUri(newWatch.uri), newWatch.recursive, this.watchListener, newWatch.watcher);
@@ -476,6 +492,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
     async unwatch(removeWatch: WatchRequest): Promise<void> {
+        this.logger.trace("[VFS] unwatch: ", removeWatch.uri);
         const watchKey = removeWatch.uri + removeWatch.recursive;
         const watcher = this.activeWatches.get(watchKey);
         if (watcher) {

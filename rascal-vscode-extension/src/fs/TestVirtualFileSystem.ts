@@ -25,35 +25,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { Dirent } from 'fs';
 import path from 'path/posix';
 import * as vscode from 'vscode';
 
-export class TestVirtualFileSystem implements vscode.FileSystemProvider {
+/* This class is used to testing purposes of the VFS forwarding to rascal */
+export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.Disposable {
+    public static readonly rootScheme = vscode.Uri.from({scheme: "rascal-vscode-test"});
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly root = new DirEntry("");
+    private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
+    private readonly fs : vscode.Disposable;
 
-    locate(uri: vscode.Uri) : FSEntry {
-        if (uri.path === "/") {
-            return this.root;
-        }
-        let result : FSEntry = this.root;
-        for (const chunk of uri.path.split(path.sep)) {
-            if (result.isDir()) {
-                result = result.getEntry(chunk);
-                if (!result) {
-                    throw vscode.FileSystemError.FileNotFound(uri);
-                }
-            }
-            else {
-                throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
-            }
+    constructor(private readonly log: vscode.LogOutputChannel) {
+        this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
+        log.info("Rascal Test VFS is registered under: ", TestVirtualFileSystem.rootScheme.scheme);
+    }
+    dispose() {
+        this._emitter.dispose();
+        this.fs.dispose();
+    }
+
+    private locate(uri: vscode.Uri) : FSEntry {
+        const [_, result] = this.locateWithParent(uri);
+        if (!result) {
+            throw vscode.FileSystemError.FileNotFound(uri);
         }
         return result;
     }
 
-    locateWithParent(uri:vscode.Uri) : [FSEntry, FSEntry | undefined] {
+    private locateWithParent(uri:vscode.Uri) : [FSEntry, FSEntry | undefined] {
         if (uri.path === "/") {
             return [this.root, this.root];
         }
@@ -61,10 +61,11 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
         const parts = uri.path.split(path.sep);
         for (const chunk of parts.splice(0, parts.length - 1)) {
             if (result.isDir()) {
-                result = result.getEntry(chunk);
-                if (!result) {
+                const entry = result.getEntry(chunk);
+                if (!entry) {
                     throw vscode.FileSystemError.FileNotFound(uri);
                 }
+                result = entry;
             }
             else {
                 throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
@@ -79,19 +80,20 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
     }
 
     watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
-        // we don't have changes to files
-        // so we never generate watch events
+        throw new Error("Not supported yet");
     }
     stat(uri: vscode.Uri): vscode.FileStat {
+        this.log.debug("[TVFS] stat: ", uri);
         return this.locate(uri).stat();
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
+        this.log.debug("[TVFS] readDirectory: ", uri);
         const entry = this.locate(uri);
         if (!entry.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(uri);
         }
-        return entry.list(uri);
+        return entry.list();
     }
 
     parentUri(uri: vscode.Uri) {
@@ -99,27 +101,33 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
     }
 
     createDirectory(uri: vscode.Uri) {
-        const parentUri = this.parentUri(uri);
-        const parent = this.locate(parentUri);
+        this.log.debug("[TVFS] createDirectory: ", uri);
+        const [parent, self] = this.locateWithParent(uri);
         if (!parent.isDir()) {
-            throw vscode.FileSystemError.FileNotADirectory(parentUri);
+            throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
         }
-        parent.createDirectory(uri);
+        if (self) {
+            throw vscode.FileSystemError.FileExists(uri);
+        }
+        parent.putEntry(uri, new DirEntry(uri));
     }
 
     readFile(uri: vscode.Uri): Uint8Array {
+        this.log.debug("[TVFS] readFile: ", uri);
         const entry = this.locate(uri);
         if (!entry.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
         return entry.read();
     }
+
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
-        const parent = this.locate(this.parentUri(uri));
+        this.log.debug("[TVFS] writeFile: ", uri, options);
+        const [parent, childConst] = this.locateWithParent(uri);
+        let child = childConst;
         if (!parent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
         }
-        let child = parent.getEntry(uri);
         if (!child && !options.create) {
             throw vscode.FileSystemError.FileNotFound(uri);
         }
@@ -128,40 +136,57 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
         }
 
         if (!child) {
-            child = parent.createFile(uri);
+            child = parent.putEntry(uri, new FileEntry(uri));
         }
         if (!child.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
         child.write(content);
     }
+
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
+        this.log.debug("[TVFS] delete: ", uri);
         if (uri.path === "/") {
             throw vscode.FileSystemError.NoPermissions(uri);
         }
-        const parent = this.locate(this.parentUri(uri));
+        const [parent, entry] = this.locateWithParent(uri);
         if (!parent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
         }
-        const entry = parent.getEntry(uri);
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
         if (entry.isDir()) {
             if (!entry.isEmpty && !options.recursive) {
                 throw vscode.FileSystemError.NoPermissions(uri.toString() + " is not empty");
             }
         }
-        parent.deleteRaw(uri);
+        parent.deleteEntry(uri);
     }
+
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        const oldParent = this.locate(this.parentUri(oldUri));
-        const old = oldParent.getEntry(oldUri);
-        const newParent = this.locate(this.parentUri(newUri));
-        newParent.put(newUri, old, options.overwrite);
-        oldParent.deleteRaw(oldUri);
+        this.log.debug("[TVFS] rename: ", oldUri, newUri);
+        this.copy(oldUri, newUri, options);
+        this.delete(oldUri, { recursive: true });
     }
-    copy(source: vscode.Uri, destination: vscode.Uri, options: { readonly overwrite: boolean; }) {
-        const sourceEntry = this.locate(source);
-        const newParent = this.locate(this.parentUri(destination));
-        newParent.put(destination, sourceEntry.clone(), options.overwrite);
+
+    copy(sourceUri: vscode.Uri, destinationUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
+        this.log.debug("[TVFS] copy: ", sourceUri, destinationUri);
+        const [sourceParent, source] = this.locateWithParent(sourceUri);
+        if (!sourceParent.isDir()) {
+            throw vscode.FileSystemError.FileNotADirectory(this.parentUri(sourceUri));
+        }
+        if (!source) {
+            throw vscode.FileSystemError.FileNotFound(sourceUri);
+        }
+        const [destinationParent, destination] = this.locateWithParent(destinationUri);
+        if (!destinationParent.isDir()) {
+            throw vscode.FileSystemError.FileNotADirectory(this.parentUri(destinationUri));
+        }
+        if (destination && !options.overwrite) {
+            throw vscode.FileSystemError.NoPermissions(destinationUri);
+        }
+        destinationParent.putEntry(destinationUri, source.clone(destinationUri));
     }
 }
 
@@ -169,15 +194,15 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider {
 
 
 abstract class FSEntry {
-    abstract clone(): FSEntry;
-    abstract stat(): vscode.FileStat;
-
-    constructor(protected readonly self: string) {}
+    constructor(protected readonly self: vscode.Uri, public lastModified: Date) {}
 
     protected lastPart(uri: vscode.Uri) {
         return path.basename(uri.path);
 
     }
+
+    abstract clone(newName: vscode.Uri): FSEntry;
+    abstract stat(): vscode.FileStat;
 
     isFile(): this is FileEntry {
         return false;
@@ -186,43 +211,68 @@ abstract class FSEntry {
     isDir(): this is DirEntry {
         return false;
     }
+
+    protected changed() {
+        this.lastModified = new Date();
+
+    }
 }
 
 
 class DirEntry extends FSEntry {
-    get isEmpty() { return this.children.size === 0; }
-    override clone(): FSEntry {
-        throw new Error('Method not implemented.');
-    }
-    override stat(): vscode.FileStat {
-        throw new Error('Method not implemented.');
-    }
-    protected readonly children: Map<string, FSEntry> = new Map();
+    private readonly children: Map<string, FSEntry> = new Map();
 
-    deleteRaw(uri: vscode.Uri) {
+    constructor(name: vscode.Uri) {
+        super(name, new Date());
+    }
+
+    get isEmpty() { return this.children.size === 0; }
+
+    override clone(newName: vscode.Uri): FSEntry {
+        const result = new DirEntry(newName);
+        for (const [name,entry] of this.children) {
+            const copy = entry.clone(newName.with({path : path.join(newName.path, name)}));
+            copy.lastModified = entry.lastModified;
+            result.children.set(name, copy);
+        }
+        return result;
+    }
+
+    override stat(): vscode.FileStat {
+        return {
+            ctime: this.lastModified.getTime(),
+            mtime: this.lastModified.getTime(),
+            size: this.children.size,
+            type: vscode.FileType.Directory,
+        };
+    }
+
+    deleteEntry(uri: vscode.Uri) {
         if (!this.children.delete(this.lastPart(uri))) {
             throw vscode.FileSystemError.FileNotFound(uri);
         }
+        this.changed();
     }
 
-    protected putRaw(newUri: vscode.Uri, newEntry: FSEntry, overwrite: boolean) {
-        const key = this.lastPart(newUri);
-        if (!overwrite && this.children.has(key)) {
-            throw vscode.FileSystemError.FileExists(newUri);
+    putEntry(newUri: vscode.Uri, newEntry: FSEntry): FSEntry {
+        this.children.set(this.lastPart(newUri), newEntry);
+        this.changed();
+        return newEntry;
+    }
+
+    getEntry(uri: vscode.Uri | string): FSEntry | undefined {
+        if (typeof uri !== 'string') {
+            uri = this.lastPart(uri);
         }
-        this.children.set(key, newEntry);
+        return this.children.get(uri);
     }
-    createFile(uri: vscode.Uri): FileEntry  {
-        throw new Error('Method not implemented.');
-    }
-    getEntry(uri: vscode.Uri | string): FSEntry {
-        throw new Error('Method not implemented.');
-    }
-    createDirectory(uri: vscode.Uri) {
-        throw new Error('Method not implemented.');
-    }
-    list(uri: vscode.Uri): [string, vscode.FileType][] {
-        throw new Error('Method not implemented.');
+
+    list(): [string, vscode.FileType][] {
+        const result : [string, vscode.FileType][] = [];
+        for (const [name, entry] of this.children) {
+            result.push([name, entry.isFile() ? vscode.FileType.File : vscode.FileType.Directory]);
+        }
+        return result;
     }
 
     override isDir(): this is DirEntry {
@@ -232,77 +282,38 @@ class DirEntry extends FSEntry {
 }
 
 class FileEntry extends FSEntry {
-    override clone(): FSEntry {
-        throw new Error('Method not implemented.');
+    private content: Uint8Array<ArrayBufferLike>;
+
+    constructor(name: vscode.Uri) {
+        super(name, new Date());
+        this.content = Uint8Array.of();
     }
+
+    override clone(newName: vscode.Uri): FSEntry {
+        const result = new FileEntry(newName);
+        result.content = Uint8Array.from(this.content);
+        return result;
+    }
+
     override stat(): vscode.FileStat {
-        throw new Error('Method not implemented.');
+        return {
+            ctime: this.lastModified.getTime(),
+            mtime: this.lastModified.getTime(),
+            size: this.content.length,
+            type: vscode.FileType.File
+        };
     }
+
     override isFile(): this is FileEntry {
         return true;
     }
 
     write(content: Uint8Array<ArrayBufferLike>) {
-        throw new Error('Method not implemented.');
+        this.content = Uint8Array.from(content);
+        this.changed();
     }
 
     read(): Uint8Array<ArrayBufferLike> {
-        throw new Error('Method not implemented.');
+        return Uint8Array.from(this.content);
     }
-}
-
-class RootEntry extends DirEntry {
-
-    constructor() {
-        super("");
-    }
-
-    lookup(uri: vscode.Uri): FSEntry {
-
-        if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        }
-        throw new Error('Method not implemented.');
-    }
-
-    private locateEntry(uri: vscode.Uri) {
-        if (uri.path === "/") {
-            return this;
-        }
-        let result: FSEntry | undefined = undefined;
-        for (const chunk of uri.path.split(path.sep)) {
-            if (!result || result.isDir()) {
-                result = (result??this).getEntry(chunk);
-                if (!result) {
-                    return undefined;
-                }
-            }
-            else {
-                return undefined;
-            }
-        }
-    }
-    delete(uri: vscode.Uri, recursive: boolean) {
-        const result = this.locateEntry(uri);
-        if (!result) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        }
-        if (result === this) {
-            throw vscode.FileSystemError.NoPermissions(uri);
-        }
-        if (result.isDir()) {
-            result.delete(uri, recursive);
-        }
-        else if(result.isFile()) {
-
-
-        }
-    }
-
-    put(newUri: vscode.Uri, newEntry: FSEntry, overwrite: boolean): void {
-
-
-    }
-
-
 }
