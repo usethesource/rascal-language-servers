@@ -360,14 +360,19 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     if (data.isString()) {
                         switch (data.getAsString()) {
                             case "FileExists": // fall-through
-                            case "EntryExists": return new FileAlreadyExistsException(error.getMessage());
+                            case "EntryExists":
+                                return new FileAlreadyExistsException(error.getMessage());
                             case "FileNotFound": // fall-through
-                            case "EntryNotFound": return new NoSuchFileException(error.getMessage());
+                            case "EntryNotFound":
+                                return new NoSuchFileException(error.getMessage());
                             case "FileNotADirectory": // fall-through
-                            case "EntryNotADirectory": return new NotDirectoryException(error.getMessage());
+                            case "EntryNotADirectory":
+                                return new NotDirectoryException(error.getMessage());
                             case "FileIsADirectory": // fall-through
-                            case "EntryIsADirectory": return new IOException("File is a directory: " + error.getMessage());
-                            case "NoPermissions": return new AccessDeniedException(error.getMessage());
+                            case "EntryIsADirectory":
+                                return new IOException("File is a directory: " + error.getMessage());
+                            case "NoPermissions":
+                                return new AccessDeniedException(error.getMessage());
                         }
                     }
                 }

@@ -255,7 +255,6 @@ class DirEntry extends FSEntry {
     putEntry(newUri: vscode.Uri, newEntry: FSEntry): FSEntry {
         this.children.set(this.lastPart(newUri), newEntry);
         this.changed();
-        console.log("After put: ", this);
         return newEntry;
     }
 
