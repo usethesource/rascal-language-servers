@@ -95,7 +95,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
+                this.startTerminal(text.document.uri, `import ${moduleName};\n${moduleName}::main();\n`);
             })
         );
     }
