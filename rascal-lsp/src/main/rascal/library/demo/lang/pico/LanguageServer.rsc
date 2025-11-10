@@ -262,7 +262,7 @@ default bool signatureMatches(_, _) = false;
 int size({IdType ","}* args) = size([a | a <- args]);
 int size({Expression ","}* args) = size([a | a <- args]);
 
-CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression _>`)
+CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
     = callHierarchyItem(
         "<id>",
         function(),
@@ -279,7 +279,7 @@ str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expressio
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming())
-    = [<callHierarchyItem(ci.\data.prog, caller), c.id.src> | /caller:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
+    = [<callHierarchyItem(ci.\data.prog, caller), c.id.src> | /caller:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing())
     = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.id.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.def];
 
