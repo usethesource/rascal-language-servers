@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import com.google.gson.JsonPrimitive;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -123,16 +124,24 @@ public class CallHierarchy {
         var serializedData = ci.getData() != null
             ? ((JsonPrimitive) ci.getData()).getAsString()
             : "";
-        return dataParser.apply(serializedData).thenApply(data ->
-            VF.constructor(callHierarchyItemCons, List.of(
+
+        return dataParser.apply(serializedData).thenApply(data -> {
+            Map<String, IValue> kwArgs = new HashMap<>();
+            var tags = ci.getTags();
+            if (tags != null) {
+                kwArgs.put(CallHierarchyFields.TAGS, DocumentSymbols.symbolTagsToRascal(tags));
+            }
+            var detail = ci.getDetail();
+            if (detail != null) {
+                kwArgs.put(CallHierarchyFields.DETAIL, VF.string(detail));
+            }
+            kwArgs.put(CallHierarchyFields.DATA, data);
+            return VF.constructor(callHierarchyItemCons, List.of(
                 VF.string(ci.getName()),
                 DocumentSymbols.symbolKindToRascal(ci.getKind()),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
-            ).toArray(new IValue[0]), Map.of(
-                CallHierarchyFields.TAGS, DocumentSymbols.symbolTagsToRascal(ci.getTags()),
-                CallHierarchyFields.DETAIL, VF.string(ci.getDetail()),
-                CallHierarchyFields.DATA, data
-            )));
+            ).toArray(new IValue[0]), kwArgs);
+        });
     }
 }
