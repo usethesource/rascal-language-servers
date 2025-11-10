@@ -223,12 +223,12 @@ public class Completion {
     }
 
     public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars) {
-        if (kind.getName() == "invoked") {
+        if ("invoked".equals(kind.getName())) {
             // Manual invocation always triggers completion
             return CompletableFuture.completedFuture(true);
         }
 
-        if (kind.getName() == "character" && kind.has("trigger")) {
+        if ("character".equals(kind.getName()) && kind.has("trigger")) {
             // A character only triggers completion when it's in the list of supported trigger characters
             var trigger = kind.get("trigger");
             return triggerChars.thenApply(chars -> chars.contains(trigger));
