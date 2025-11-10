@@ -36,7 +36,7 @@ public class RenameRequest {
     private String from;
     @NonNull
     private String to;
-    @NonNull
+
     private boolean overwrite;
 
     public RenameRequest() {
