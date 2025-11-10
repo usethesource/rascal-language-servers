@@ -886,6 +886,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
             .thenApply(callRel -> callRel.stream()
                 .map(ITuple.class::cast)
+                // Collect call sites (value) by associated definition (key) as a map
                 .collect(Collectors.toMap(
                     t -> ch.toLSP((IConstructor) t.get(0), columns),
                     t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),

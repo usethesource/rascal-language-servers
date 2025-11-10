@@ -85,7 +85,7 @@ public class CallHierarchy {
         switch (dir) {
             case INCOMING: return this.incoming;
             case OUTGOING: return this.outgoing;
-            default: throw new IllegalArgumentException();
+            default: throw new IllegalArgumentException("Unknown call direction: " + dir.name().toLowerCase());
         }
     }
 

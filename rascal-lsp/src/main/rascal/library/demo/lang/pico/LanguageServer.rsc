@@ -41,6 +41,8 @@ import util::Reflective;
 extend lang::pico::\syntax::Main;
 import DateTime;
 
+// We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
+// For most use-cases, one should not extend the grammar in the language server implementation
 syntax IdType
     = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
     ;
