@@ -70,7 +70,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
-    callHierarchy(picoPrepareCallHierarchy, picoIncomingOutgoingCalls)
+    callHierarchy(picoPrepareCallHierarchy, picoCallsService)
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -276,9 +276,9 @@ str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
 str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
-lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, incoming())
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming())
     = [<callHierarchyItem(ci.\data.prog, caller), c.id.src> | /caller:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
-lrel[CallHierarchyItem, loc] picoIncomingOutgoingCalls(CallHierarchyItem ci, outgoing())
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing())
     = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.id.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.def];
 
 @synopsis{The main function registers the Pico language with the IDE}
