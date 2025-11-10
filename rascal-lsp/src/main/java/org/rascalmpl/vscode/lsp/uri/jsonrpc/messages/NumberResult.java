@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class NumberResult {

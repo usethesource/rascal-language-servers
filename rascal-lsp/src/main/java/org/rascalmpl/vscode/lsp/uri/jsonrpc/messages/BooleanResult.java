@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
 public class BooleanResult {
     private boolean result;
