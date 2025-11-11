@@ -33,25 +33,25 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.util.concurrent.ExecutionException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
+import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
+import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
+import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -65,14 +65,38 @@ import io.usethesource.vallang.IString;
  * the request to the Rascal IDE client (@see TerminalIDEServer)
  */
 public class TerminalIDEClient implements IDEServices {
-    private final ITerminalIDEServer server;
+    private ITerminalIDEServer server = null;
     private static final Logger logger = LogManager.getLogger(TerminalIDEClient.class);
     private final ColumnMaps columns = new ColumnMaps(this::getContents);
-    private final IRascalMonitor monitor;
-    private final Terminal terminal;
-    private final PrintWriter err;
+    private IRascalMonitor monitor = null;
+    private final PrintWriter err = new PrintWriter(System.err);
 
-    public TerminalIDEClient(int port, PrintWriter err, IRascalMonitor monitor, Terminal term) throws IOException {
+    private static TerminalIDEClient instance = null;
+
+    public static TerminalIDEClient getInstance() {
+        if (instance == null) {
+            instance = new TerminalIDEClient();
+        }
+        return instance;
+    }
+
+    private TerminalIDEClient() {
+
+    }
+
+    private void ensureServerInitialized() {
+        if (server == null) {
+            throw new IllegalStateException("Connection to TerminalIDEServer has not been established yet");
+        }
+    }
+
+    private void ensureMonitorRegistered() {
+        if (monitor == null) {
+            throw new IllegalStateException("No monitor has been registered yet");
+        }
+    }
+
+    public void connectToServer(int port) throws IOException {
         @SuppressWarnings({"resource"}) // we don't have to close the socket, we are passing it off to the lsp4j framework
         Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
         socket.setTcpNoDelay(true);
@@ -84,11 +108,11 @@ public class TerminalIDEClient implements IDEServices {
             .create();
         launch.startListening();
         server = launch.getRemoteProxy();
-        this.err = err;
-        this.monitor = monitor;
-        this.terminal = term;
     }
 
+    public void registerMonitor(IRascalMonitor monitor) {
+        this.monitor = monitor;
+    }
 
     @Override
     public PrintWriter stderr() {
@@ -97,11 +121,13 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void browse(URI uri, String title, int viewColumn) {
+        ensureServerInitialized();
         server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
     }
 
     @Override
     public void edit(ISourceLocation path, int viewColumn) {
+        ensureServerInitialized();
         ISourceLocation physical = Locations.toClientLocation(path);
 
         Range range = null;
@@ -124,6 +150,7 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
+        ensureServerInitialized();
         try {
             return server.resolveProjectLocation(new SourceLocationParameter(input))
                 .get()
@@ -139,47 +166,64 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
+        registerLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void registerLanguage(LanguageParameter language) {
+        ensureServerInitialized();
+        server.receiveRegisterLanguage(language);
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
+        unregisterLanguage(LanguageParameter.fromRascalValue(language));
+    }
+
+    public void unregisterLanguage(LanguageParameter language) {
+        ensureServerInitialized();
+        server.receiveUnregisterLanguage(language);
     }
 
     @Override
     public void jobStart(String name, int workShare, int totalWork) {
+        ensureMonitorRegistered();
         monitor.jobStart(name, workShare, totalWork);
     }
 
     @Override
     public void jobStep(String name, String message, int inc) {
+        ensureMonitorRegistered();
         monitor.jobStep(name, message, inc);
     }
 
     @Override
     public int jobEnd(String name, boolean succeeded) {
+        ensureMonitorRegistered();
         return monitor.jobEnd(name, succeeded);
     }
 
     @Override
     public void endAllJobs() {
+        ensureMonitorRegistered();
         monitor.endAllJobs();
     }
 
     @Override
     public boolean jobIsCanceled(String name) {
+        ensureMonitorRegistered();
         return monitor.jobIsCanceled(name);
     }
 
     @Override
     public void jobTodo(String name, int work) {
+        ensureMonitorRegistered();
         monitor.jobTodo(name, work);
     }
 
     @Override
     public void warning(String message, ISourceLocation src) {
+        ensureMonitorRegistered();
         monitor.warning(message, src);
     }
 
@@ -187,34 +231,33 @@ public class TerminalIDEClient implements IDEServices {
     public void registerLocations(IString scheme, IString auth, IMap map) {
         // register the map both on the LSP server side, for handling links and stuff,
         // locally here in the terminal, for local IO:
+        ensureServerInitialized();
         server.registerLocations(new RegisterLocationsParameters(scheme, auth, map));
         IDEServices.super.registerLocations(scheme, auth, map);
     }
 
     @Override
     public void registerDiagnostics(IList messages) {
+        ensureServerInitialized();
         server.registerDiagnostics(new RegisterDiagnosticsParameters(messages));
     }
 
     @Override
     public void unregisterDiagnostics(IList resources) {
+        ensureServerInitialized();
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
     @Override
     public void startDebuggingSession(int serverPort){
+        ensureServerInitialized();
         server.startDebuggingSession(serverPort);
     }
 
     @Override
     public void registerDebugServerPort(int processID, int serverPort){
+        ensureServerInitialized();
         server.registerDebugServerPort(processID, serverPort);
     }
-
-    @Override
-    public Terminal activeTerminal() {
-        return terminal;
-    }
-
 
 }
