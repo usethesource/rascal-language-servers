@@ -40,6 +40,7 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 extend lang::pico::\syntax::Main;
 import DateTime;
+import Location;
 
 // We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
 // For most use-cases, one should not extend the grammar in the language server implementation
@@ -115,15 +116,31 @@ data PicoSummarizerMode
     | build()
     ;
 
+rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
+    rel[DocumentSymbolKind, loc, Id, str] defs = {};
+    top-down-break visit (input) {
+        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeOf(var)>;
+        case func:(IdType) `<Id id>(<{IdType ","}* args>): <Type _> := <Expression _>`: {
+            defs += <function(), func.src, id, typeOf(func)>;
+            defs += findDefinitions(args, funcScope = true);
+        }
+    }
+    return defs;
+}
+
+data Summary(rel[DocumentSymbolKind, loc, Id, str] definitionsByKind = {});
+
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
+@memo{maximumSize(10), expireAfter(minutes=5)}
 Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, var.id?};
+    s.definitionsByKind = findDefinitions(input);
+    rel[str, loc] defs = {<"<id>", d> | <d, id> <- s.definitionsByKind<1, 2>};
 
     // uses of identifiers
-    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input, id notin s.definitionsByKind<2>};
 
     // documentation strings for identifier uses
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
@@ -144,7 +161,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     // Provide warnings (expensive to compute) only in build mode
     if (build() := mode) {
         rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
-        s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
+        s.messages += {<src, warning("<id> is not assigned", src)> | <src, id, _> <- s.definitionsByKind[variable()], "<id>" notin asgn<1>};
     }
 
     return s;
@@ -239,28 +256,24 @@ list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id id>(<{Expression ","}* args>)`, *_, start[Program] prog])
-    = [callHierarchyItem(prog, findDefinition(prog, e))];
+    = [ callHierarchyItem(s, prog, id, d, tp)
+        | s := picoSummaryService(prog.src.top, prog, analyze())
+        , d <- s.definitions[e.src]
+        , <id, tp> <- s.definitionsByKind[function(), d]
+    ];
 
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`, *_, start[Program] prog])
     = [callHierarchyItem(prog, d)];
 
-IdType findDefinition(start[Program] prog, e:(Expression) `<Id _>(<{Expression ","}* _>)`) {
-    for (/d:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>` := prog
-        , signatureMatches(d, e)) {
-        return d;
-    }
-    fail;
-}
-
-bool signatureMatches(
-    (IdType) `<Id fid>(<{IdType ","}* fargs>): <Type retType> := <Expression body>`,
-    (Expression) `<Id id>(<{Expression ","}* args>)`)
-    = "<fid>" == "<id>" && size(args) == size(fargs);
-
-default bool signatureMatches(_, _) = false;
-
-int size({IdType ","}* args) = size([a | a <- args]);
-int size({Expression ","}* args) = size([a | a <- args]);
+CallHierarchyItem callHierarchyItem(Summary s, start[Program] prog, Id id, loc decl, str tp)
+    = callHierarchyItem(
+        "<id>",
+        function(),
+        decl,
+        id.src,
+        detail = tp,
+        \data = \data(prog)
+    );
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
     = callHierarchyItem(
@@ -269,19 +282,40 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{I
         d.src,
         id.src,
         detail = typeOf(d),
-        \data = \data(prog, d)
+        \data = \data(prog)
     );
 
-data CallHierarchyData = \data(start[Program] prog, IdType def);
+data CallHierarchyData = \data(start[Program] prog);
 
 str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
 str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
-lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming())
-    = [<callHierarchyItem(ci.\data.prog, caller), c.id.src> | /caller:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>` := ci.\data.prog, /c:(Expression) `<Id _>(<{Expression ","}* _>)` := caller, signatureMatches(ci.\data.def, c)];
-lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing())
-    = [<callHierarchyItem(ci.\data.prog, findDefinition(ci.\data.prog, c)), c.id.src> | /c:(Expression) `<Id _>(<{Expression ","}* _>)` := ci.\data.def];
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming()) {
+    s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
+    calls = [];
+    for (<d, id, t> <- s.definitionsByKind[function()]) {
+        caller = callHierarchyItem(s, ci.\data.prog, id, d, t);
+        for (use <- s.references[ci.src], isContainedIn(use, caller.src)) {
+            calls += <caller, use>;
+        }
+    };
+
+    return calls;
+}
+
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing()) {
+    s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
+    calls = [];
+    for (<d, id, t> <- s.definitionsByKind[function()]) {
+        callee = callHierarchyItem(s, ci.\data.prog, id, d, t);
+        for (use <- s.references[callee.src], isContainedIn(use, ci.src)) {
+            calls += <callee, use>;
+        }
+    };
+
+    return calls;
+}
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
