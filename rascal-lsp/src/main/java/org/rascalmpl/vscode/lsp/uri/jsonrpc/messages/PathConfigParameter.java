@@ -27,15 +27,20 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.net.URISyntaxException;
+import java.util.Objects;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.URIUtil;
 import io.usethesource.vallang.ISourceLocation;
 
 public class PathConfigParameter {
+    @NonNull
     private String uri;
+
+    @NonNull
     private PathConfigMode mode;
 
 
-    public PathConfigParameter(String uri, PathConfigMode mode) {
+    public PathConfigParameter(@NonNull String uri, @NonNull PathConfigMode mode) {
         this.uri = uri;
         this.mode = mode;
     }
@@ -50,6 +55,27 @@ public class PathConfigParameter {
 
     public PathConfigMode getMode() {
         return mode;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof PathConfigParameter) {
+            var other = (PathConfigParameter)obj;
+            return uri.equals(other.uri)
+                && mode == other.mode
+                ;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(uri, mode);
+    }
+
+    @Override
+    public String toString() {
+        return "PathConfigParameter [uri=" + uri + ", mode=" + mode + "]";
     }
 
 }

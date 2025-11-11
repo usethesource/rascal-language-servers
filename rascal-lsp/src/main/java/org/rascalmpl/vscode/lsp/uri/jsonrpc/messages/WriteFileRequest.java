@@ -35,7 +35,7 @@ public class WriteFileRequest extends ISourceLocationRequest {
 
     @NonNull
     private String content;
-    @NonNull
+
     private boolean append;
 
     public WriteFileRequest() {}
@@ -46,7 +46,7 @@ public class WriteFileRequest extends ISourceLocationRequest {
         this.append = append;
     }
 
-    public WriteFileRequest(ISourceLocation loc, @NonNull String content, @NonNull boolean append) {
+    public WriteFileRequest(ISourceLocation loc, String content, boolean append) {
         super(loc);
         this.content = content;
         this.append = append;
@@ -65,7 +65,7 @@ public class WriteFileRequest extends ISourceLocationRequest {
         if (obj instanceof WriteFileRequest) {
             var other = (WriteFileRequest)obj;
             return super.equals(obj)
-                && Objects.equals(content, other.content)
+                && content.equals(other.content)
                 && append == other.append;
         }
         return false;
@@ -73,7 +73,7 @@ public class WriteFileRequest extends ISourceLocationRequest {
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * Objects.hash(content, append);
+        return Objects.hash(super.hashCode(), content, append);
     }
 
 }

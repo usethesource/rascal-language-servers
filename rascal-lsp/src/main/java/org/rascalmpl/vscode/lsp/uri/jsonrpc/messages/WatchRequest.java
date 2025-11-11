@@ -46,7 +46,7 @@ public class WatchRequest extends ISourceLocationRequest {
 
     public WatchRequest() {}
 
-    public WatchRequest(String uri, boolean recursive, String watcher) {
+    public WatchRequest(@NonNull String uri, @NonNull boolean recursive, @NonNull String watcher) {
         super(uri);
         this.recursive = recursive;
         this.watcher = watcher;
