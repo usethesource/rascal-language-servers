@@ -204,7 +204,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
     }
 
-    protected final ExecutorService getExecuter() {
+    protected final ExecutorService getExecutor() {
         return ownExecuter;
     }
 
