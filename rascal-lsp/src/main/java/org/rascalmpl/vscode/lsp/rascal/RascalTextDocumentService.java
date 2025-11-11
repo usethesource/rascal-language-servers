@@ -28,7 +28,9 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +40,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +52,7 @@ import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -91,6 +93,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -104,6 +107,9 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -124,8 +130,6 @@ import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.util.locations.ColumnMaps;
-import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
@@ -488,9 +492,43 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+    public void didCreateFiles(CreateFilesParams params) {
+        Map<String, List<TextEdit>> edits = new HashMap<>();
 
+        for (var file : params.getFiles()) {
+            var uri = file.getUri();
+            try {
+                var loc = URIUtil.createFromURI(uri);
+                var pcfg = availableFacts().getPathConfig(loc);
+                var template = "module " + pcfg.getModuleName(loc) + "\n\n// TODO Auto-generated module contents\n";
+                var endLine = Math.toIntExact(template.lines().count()) - 1;
+                var endCol = template.length() - template.lastIndexOf('\n');
+                edits.put(uri, Collections.singletonList(new TextEdit(new Range(new Position(0, 0), new Position(endLine, endCol)), template)));
+            } catch (URISyntaxException | IOException e) {
+                logger.catching(e);
+            }
+        }
+
+        availableClient().applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(edits)))
+            .thenAccept(res -> {
+                if (!res.isApplied()) {
+                    logger.error("Applying new module template failed" + (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
+                }
+            })
+            .exceptionally(e -> {
+                var cause = e.getCause();
+                logger.catching(Level.ERROR, cause);
+                String message = "unkown error";
+                if (cause != null && cause.getMessage() != null) {
+                    message = cause.getMessage();
+                }
+                availableClient().showMessage(new MessageParams(MessageType.Error, message));
+                return null; // Return of type `Void` is unused, but required
+            });
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         Set<ISourceLocation> folders = workspaceFolders.stream()
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());

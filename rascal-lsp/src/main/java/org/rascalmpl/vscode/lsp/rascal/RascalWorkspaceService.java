@@ -28,9 +28,13 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
@@ -40,6 +44,16 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(exec, documentService, fileFilters);
+    }
+
+    @Override
+    public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders,
+            ServerCapabilities capabilities) {
+        super.initialize(clientCap, currentWorkspaceFolders, capabilities);
+        var workspaceCapabilities = capabilities.getWorkspace();
+        if (clientCap.getWorkspace().getFileOperations().getDidCreate().booleanValue()) {
+            workspaceCapabilities.getFileOperations().setDidCreate(new FileOperationOptions(fileFilters));
+        }
     }
 
 }

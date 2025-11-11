@@ -38,6 +38,7 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
@@ -159,6 +160,15 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
             }
         }
+    }
+
+    @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+
+        ownExecuter.submit(() -> {
+            documentService.didCreateFiles(params);
+        });
     }
 
     @Override
