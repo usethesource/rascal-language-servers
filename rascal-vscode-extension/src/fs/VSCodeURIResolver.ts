@@ -28,7 +28,7 @@ import { AddressInfo, createServer, Server, Socket } from "net";
 import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
-import { integer, URI } from "vscode-languageclient";
+import { URI } from "vscode-languageclient";
 
 declare type ISourceLocation = URI;
 
@@ -80,38 +80,38 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
 
 // Rascal's interface reduce to a subset we can support
 interface ISourceLocationOutput {
-    writeFile(req: WriteFileRequest ): Promise<IOResult>;
-    mkDirectory(req: ISourceLocationRequest): Promise<IOResult>;
-    remove(req: ISourceLocationRequest): Promise<IOResult>;
-    rename(req: RenameRequest): Promise<IOResult>;
+    writeFile(req: WriteFileRequest ): Promise<void>;
+    mkDirectory(req: ISourceLocationRequest): Promise<void>;
+    remove(req: ISourceLocationRequest): Promise<void>;
+    rename(req: RenameRequest): Promise<void>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput) {
-    function req<Arg> (method: string, h: rpc.RequestHandler1<Arg, IOResult, void>) {
+    function req<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
         connection.onRequest(
-            new rpc.RequestType1<Arg, IOResult, void>("rascal/vfs/output/" + method),
+            new rpc.RequestType1<Arg, ReturnT, void>("rascal/vfs/output/" + method),
             h.bind(handler));
     }
-    req<WriteFileRequest>("writeFile", handler.writeFile);
-    req<ISourceLocationRequest>("mkDirectory", handler.mkDirectory);
-    req<ISourceLocationRequest>("remove", handler.remove);
-    req<RenameRequest>("rename", handler.rename);
+    req("writeFile", handler.writeFile);
+    req("mkDirectory", handler.mkDirectory);
+    req("remove", handler.remove);
+    req("rename", handler.rename);
 }
 
 // Rascal's interface reduce to a subset we can support
 interface ISourceLocationWatcher {
-    watch(newWatch: WatchRequest): Promise<IOResult>;
-    unwatch(removeWatch: WatchRequest): Promise<IOResult>;
+    watch(newWatch: WatchRequest): Promise<void>;
+    unwatch(removeWatch: WatchRequest): Promise<void>;
 }
 
 function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher) {
-    function req<Arg> (method: string, h: rpc.RequestHandler1<Arg, IOResult, void>) {
+    function req<ArgT, ResultT> (method: string, h: rpc.RequestHandler1<ArgT, ResultT, void>) {
         connection.onRequest(
-            new rpc.RequestType1<Arg, IOResult, void>("rascal/vfs/watcher/" + method),
+            new rpc.RequestType1<ArgT, ResultT, void>("rascal/vfs/watcher/" + method),
             h.bind(handler));
     }
-    req<WatchRequest>("watch", handler.watch);
-    req<WatchRequest>("unwatch", handler.unwatch);
+    req("watch", handler.watch);
+    req("unwatch", handler.unwatch);
 }
 
 // client side implementation receiving watch events
@@ -133,49 +133,41 @@ interface ISourceLocationRequest {
     uri: ISourceLocation;
 }
 
-interface IOResult {
-    /**
-     * Error type occurred (or 0 if success)
-     */
-    errorCode: integer;
-    errorMessage?: string;
-}
-
-interface ReadFileResult extends IOResult {
+interface ReadFileResult {
     /**
      * base64 encoding of file
      */
-    contents?: string;
+    contents: string;
 }
 
-export interface BooleanResult extends IOResult {
-    result?: boolean;
+export interface BooleanResult {
+    result: boolean;
 }
 
 
-export interface TimestampResult extends IOResult {
+export interface TimestampResult {
     /**
      * Epoch seconds
      */
-    timestamp?: number;
+    timestamp: number;
 }
 
-export interface DirectoryListingResult extends IOResult {
-    entries?: string[];
-    areDirectory?: boolean[]
+export interface DirectoryListingResult {
+    entries: string[];
+    areDirectory: boolean[]
 }
 
-export interface NumberResult extends IOResult {
-    result?: number;
+export interface NumberResult {
+    result: number;
 }
 
-export interface FileAttributesResult extends IOResult {
-    exists? : boolean;
-    type?: vscode.FileType;
-    ctime?: number;
-    mtime?: number;
-    size?: number;
-    permissions?: vscode.FilePermission;
+export interface FileAttributesResult {
+    exists : boolean;
+    type: vscode.FileType;
+    ctime: number;
+    mtime: number;
+    size: number;
+    permissions: vscode.FilePermission;
 }
 
 export interface WriteFileRequest extends ISourceLocationRequest {
@@ -210,6 +202,13 @@ export interface ISourceLocationChanged {
     watchId: string;
     location: ISourceLocation;
     changeType: ISourceLocationChangeType;
+}
+
+enum ErrorCodes {
+    generic = -1,
+    fileSystem = -2,
+    nativeRascal = -3
+
 }
 
 
@@ -269,52 +268,34 @@ export class VSCodeUriResolverServer implements Disposable {
 
 }
 
-function toUri(req: ISourceLocationRequest | ISourceLocation): vscode.Uri {
-    if (typeof req !== 'string') {
-        req = req.uri;
-    }
-    return vscode.Uri.parse(req);
-}
 
-async function asyncCatcher<T>(build: () => Promise<T>): Promise<T | IOResult> {
+async function asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
     try {
         return await build();
     }
     catch (e: unknown) {
-        return <IOResult>{
-            errorCode: 1,
-            errorMessage: "" + e
-        };
+        if (e instanceof vscode.FileSystemError) {
+            throw new rpc.ResponseError(ErrorCodes.fileSystem, e.message, e.code);
+        }
+        if (e instanceof rpc.ResponseError) {
+            throw e;
+        }
+        throw new rpc.ResponseError(ErrorCodes.generic, "" + e);
     }
 }
 
-async function asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Promise<IOResult> {
-    try {
+async function asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Promise<void> {
+    return asyncCatcher<void>(() => {
         if (typeof run === "function") {
-            await run();
+            return run();
         }
         else {
-            await run;
+            return run;
         }
-        return {
-            errorCode: 0
-        };
-    }
-    catch (e: unknown) {
-        return {
-            errorCode: 1,
-            errorMessage: "" + e
-        };
-    }
+    });
 }
 
 
-async function buildIOError(message: string, errorCode = -1): Promise<IOResult> {
-    return {
-        errorCode: errorCode,
-        errorMessage: message
-    };
-}
 class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly connection: rpc.MessageConnection;
     private readonly watchListener: WatchEventReceiver;
@@ -338,135 +319,133 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         connectWatchHandler(connection, this);
     }
 
+    toUri(req: ISourceLocationRequest | ISourceLocation): vscode.Uri {
+        if (typeof req !== 'string') {
+            req = req.uri;
+        }
+        const uri = vscode.Uri.parse(req);
+        if (this.isRascalNative(uri)) {
+            throw new rpc.ResponseError(ErrorCodes.nativeRascal, "Cannot request VFS jobs on native rascal URIs: " + req);
+        }
+        return uri;
+    }
+
 
 
     async readFile(req: ISourceLocationRequest): Promise<ReadFileResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot read a from a rascal uri: " + req.uri);
-        }
+        this.logger.trace("[VFS] readFile: ", req.uri);
         return asyncCatcher(async () => <ReadFileResult>{
             errorCode: 0,
             contents: Buffer.from(
-                await this.fs.readFile(toUri(req))
+                await this.fs.readFile(this.toUri(req))
             ).toString("base64")
         });
     }
 
-    isRascalNative(req: ISourceLocationRequest) : boolean {
-        const scheme = req.uri.substring(0, req.uri.indexOf(":"));
+    isRascalNative(req: ISourceLocationRequest | vscode.Uri) : boolean {
+        //this.rascalNativeSchemes.has(uri.scheme)
+        const scheme = "scheme" in req ? req.scheme : req.uri.substring(0, req.uri.indexOf(":"));
         return this.rascalNativeSchemes.has(scheme);
     }
 
     async exists(req: ISourceLocationRequest): Promise<BooleanResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot exist on a rascal uri: " + req.uri);
-        }
+        this.logger.trace("[VFS] exists: ", req.uri);
         try {
             await this.stat(req);
-            return {
-                errorCode: 0,
-                result: true
-            };
+            return { result: true };
         }
         catch (_e) {
-            return {
-                errorCode: 0,
-                result: false
-            };
+            return { result: false };
         }
     }
 
     async fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult> {
-        const fileInfo = await this.stat(req);
-        return {
-            errorCode: 0,
-            exists: (await this.exists(req)).result!,
-            type: fileInfo.type.valueOf(),
-            ctime: fileInfo.ctime,
-            mtime: fileInfo.mtime,
-            size: fileInfo.size,
-            permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0
-        };
+        return asyncCatcher(async () => {
+            const fileInfo = await this.stat(req);
+            return {
+                exists: true,
+                type: fileInfo.type.valueOf(),
+                ctime: fileInfo.ctime,
+                mtime: fileInfo.mtime,
+                size: fileInfo.size,
+                permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0
+            };
+        });
     }
 
     private async stat(req: ISourceLocationRequest): Promise<vscode.FileStat> {
-        const uri = toUri(req);
-        if (this.rascalNativeSchemes.has(uri.scheme)) {
-            throw new Error("Cannot stat a URI that's actually on the rascal side: " + req.uri);
-        }
-        return this.fs.stat(toUri(req));
+        this.logger.trace("[VFS] stat: ", req.uri);
+        return this.fs.stat(this.toUri(req));
     }
 
     private async timeStampResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => number): Promise<TimestampResult> {
         return asyncCatcher(async () => <TimestampResult>{
-            errorCode: 0,
             timestamp: mapper((await this.stat(req)))
         });
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResult> {
+        this.logger.trace("[VFS] lastModified: ", req.uri);
         return this.timeStampResult(req, f => f.mtime);
     }
     created(req: ISourceLocationRequest): Promise<TimestampResult> {
+        this.logger.trace("[VFS] created: ", req.uri);
         return this.timeStampResult(req, f => f.ctime);
     }
 
     private async numberResult(req: ISourceLocationRequest, mapper: (s: vscode.FileStat) => number): Promise<NumberResult> {
         return asyncCatcher(async () => <NumberResult>{
-            errorCode: 0,
             result: mapper((await this.stat(req)))
         });
     }
 
     size(req: ISourceLocationRequest): Promise<NumberResult> {
+        this.logger.trace("[VFS] size: ", req.uri);
         return this.numberResult(req, f => f.size);
     }
 
     private async boolResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResult> {
         return asyncCatcher(async () => <BooleanResult>{
-            errorCode: 0,
             result: mapper((await this.stat(req)))
         });
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isDirectory: ", req.uri);
         return this.boolResult(req, f => f.type === vscode.FileType.Directory);
     }
 
     isFile(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isFile: ", req.uri);
         // TODO: figure out how to handle vscode.FileType.Symlink
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isReadable: ", req.uri);
         // if we can do a stat, we can read
         return this.boolResult(req, _ => true);
     }
 
-    isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
-        const scheme = toUri(req).scheme;
+    async isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+        this.logger.trace("[VFS] isWritable: ", req.uri);
+        const scheme = this.toUri(req).scheme;
         const writable = this.fs.isWritableFileSystem(scheme);
         if (writable === undefined) {
-            return buildIOError("Unsupported scheme: " + scheme, 1);
+            throw new rpc.ResponseError(ErrorCodes.fileSystem, "Unsupported scheme: " + scheme, "Unsupported file system");
         }
         if (!writable) {
             // not a writable file system, so no need to check the uri
-            return asyncCatcher(async () => <BooleanResult>{
-                errorCode: 0,
-                result: false
-            });
+            return {result : false };
         }
         return this.boolResult(req, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot list on a rascal uri: " + req.uri);
-        }
+        this.logger.trace("[VFS] list: ", req.uri);
         return asyncCatcher(async () => {
-            const entries = await this.fs.readDirectory(toUri(req));
+            const entries = await this.fs.readDirectory(this.toUri(req));
             return <DirectoryListingResult>{
-                errorCode: 0,
                 entries: entries.map(([entry, _type], _index) => entry),
                 areDirectory: entries.map(([_entry, type], _index) => type === vscode.FileType.Directory)
             };
@@ -475,60 +454,45 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
 
-    async writeFile(req: WriteFileRequest): Promise<IOResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot writeFile on a rascal uri: " + req.uri);
-        }
+    async writeFile(req: WriteFileRequest): Promise<void> {
+        this.logger.trace("[VFS] writeFile: ", req.uri);
         return asyncVoidCatcher(
-            this.fs.writeFile(toUri(req), Buffer.from(req.content, "base64"))
+            this.fs.writeFile(this.toUri(req), Buffer.from(req.content, "base64"))
         );
     }
-    async mkDirectory(req: ISourceLocationRequest): Promise<IOResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot mkDirectory on a rascal uri: " + req.uri);
-        }
-        return asyncVoidCatcher(this.fs.createDirectory(toUri(req)));
+    async mkDirectory(req: ISourceLocationRequest): Promise<void> {
+        this.logger.trace("[VFS] mkDirectory: ", req.uri);
+        return asyncVoidCatcher(this.fs.createDirectory(this.toUri(req)));
     }
-    async remove(req: ISourceLocationRequest): Promise<IOResult> {
-        if (this.isRascalNative(req)) {
-            return buildIOError("Cannot remove on a rascal uri: " + req.uri);
-        }
-        return asyncVoidCatcher(this.fs.delete(toUri(req)));
+    async remove(req: ISourceLocationRequest): Promise<void> {
+        this.logger.trace("[VFS] remove: ", req.uri);
+        return asyncVoidCatcher(this.fs.delete(this.toUri(req)));
     }
-    rename(req: RenameRequest): Promise<IOResult> {
-        const from = toUri(req.from);
-        const to = toUri(req.to);
-        if (this.rascalNativeSchemes.has(from.scheme) || this.rascalNativeSchemes.has(to.scheme)) {
-            return buildIOError("Cannot rename on a rascal uri: " + req.from + " and " + req.to);
-        }
+    async rename(req: RenameRequest): Promise<void> {
+        this.logger.trace("[VFS] rename: ", req.from, req.to);
+        const from = this.toUri(req.from);
+        const to = this.toUri(req.to);
         return asyncVoidCatcher(this.fs.rename(from, to, { overwrite: req.overwrite }));
     }
 
-    private activeWatches = new Map<string, WatcherCallbacks>();
+    private readonly activeWatches = new Map<string, WatcherCallbacks>();
 
-    watch(newWatch: WatchRequest): Promise<IOResult> {
-        if (this.isRascalNative(newWatch)) {
-            return buildIOError("Cannot watch on a rascal uri: " + newWatch.uri);
-        }
+    async watch(newWatch: WatchRequest): Promise<void> {
+        this.logger.trace("[VFS] watch: ", newWatch.uri);
         const watchKey = newWatch.uri + newWatch.recursive;
         if (!this.activeWatches.has(watchKey)) {
-            const watcher = new WatcherCallbacks(newWatch.uri, newWatch.recursive, this.watchListener, newWatch.watcher);
+            const watcher = new WatcherCallbacks(this.toUri(newWatch.uri), newWatch.recursive, this.watchListener, newWatch.watcher);
             this.activeWatches.set(watchKey, watcher);
             this.toClear.push(watcher);
-            return Promise.resolve({ errorCode: 0 });
+            return;
         }
-        return Promise.resolve({
-            errorCode: 1,
-            errorMessage: 'Watch already defined for: ' + newWatch.uri
-        });
+        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch already defined for: ' + newWatch.uri, 'AlreadyDefined');
     }
 
 
 
-    unwatch(removeWatch: WatchRequest): Promise<IOResult> {
-        if (this.isRascalNative(removeWatch)) {
-            return buildIOError("Cannot watch on a rascal uri: " + removeWatch.uri);
-        }
+    async unwatch(removeWatch: WatchRequest): Promise<void> {
+        this.logger.trace("[VFS] unwatch: ", removeWatch.uri);
         const watchKey = removeWatch.uri + removeWatch.recursive;
         const watcher = this.activeWatches.get(watchKey);
         if (watcher) {
@@ -538,12 +502,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             if (index >= 0) {
                 this.toClear.splice(index, 1);
             }
-            return Promise.resolve({ errorCode: 0 });
+            return;
         }
-        return Promise.resolve({
-            errorCode: 1,
-            errorMessage: 'Watch not defined for: ' + removeWatch.uri
-        });
+        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch not defined for: ' + removeWatch.uri, 'NotDefined');
     }
 
     dispose() {
@@ -563,11 +524,11 @@ class WatcherCallbacks implements Disposable {
     private readonly watchId: string;
     private readonly toClear: Disposable[] = [];
     private readonly watchListener: WatchEventReceiver;
-    constructor(uri: string, recursive: boolean, watchListener: WatchEventReceiver, watchId: string) {
+    constructor(uri: vscode.Uri, recursive: boolean, watchListener: WatchEventReceiver, watchId: string) {
         this.watchId = watchId;
         this.watchListener = watchListener;
         const newWatcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(toUri(uri), recursive ? '**/*' : '*')
+            new vscode.RelativePattern(uri, recursive ? '**/*' : '*')
         );
         this.toClear.push(newWatcher);
         newWatcher.onDidCreate(e => this.sendWatchEvent(e, ISourceLocationChangeType.created), this.toClear);

@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -168,12 +169,16 @@ public class RascalLanguageServices {
         return e.getFunctionValueFactory().function(getParseTreeType, (t, u) -> {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getLastTreeWithoutErrors();
+                // although we cannot type-check modules with errors, we prefer to get the errors here instead of retrying the parse and still failing after this try-block
+                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
                 if (tree != null) {
                     return tree.get();
                 }
-            } catch (ResponseErrorException e1) {
-                // File is not open in the IDE
+            } catch (ResponseErrorException | ExecutionException e1) {
+                // File is not open in the IDE | Parse threw an exception
+                // In either case, fall through and try a direct parse
+            } catch (InterruptedException e1) {
+                Thread.currentThread().interrupt();
             }
             // Parse the source file
             try (var reader = URIResolverRegistry.getInstance().getCharacterReader(resolvedLocation)) {

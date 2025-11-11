@@ -29,33 +29,33 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 import java.util.Arrays;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class DirectoryListingResult extends IOResult {
+public class DirectoryListingResult {
 
-    private  String @Nullable[] entries;
-    private boolean @Nullable[] areDirectory;
 
-    public DirectoryListingResult(int errorCode, @Nullable String errorMessage,  String @Nullable[] entries, boolean @Nullable[] areDirectory) {
-        super(errorCode, errorMessage);
+    @NonNull private String[] entries;
+    @NonNull private boolean[] areDirectory;
+
+    public DirectoryListingResult(@NonNull String [] entries, @NonNull boolean [] areDirectory) {
         this.entries = entries;
         this.areDirectory = areDirectory;
     }
 
     public DirectoryListingResult() {}
 
-    public String @Nullable[] getEntries() {
+    public String [] getEntries() {
         return entries;
     }
 
-    public boolean @Nullable[] getAreDirectory() {
+    public boolean [] getAreDirectory() {
         return areDirectory;
     }
 
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof DirectoryListingResult) {
-            return super.equals(obj)
-                && Objects.deepEquals(entries, ((DirectoryListingResult)obj).entries)
+            return Objects.deepEquals(entries, ((DirectoryListingResult)obj).entries)
                 && Objects.deepEquals(areDirectory, ((DirectoryListingResult)obj).areDirectory)
                 ;
         }
@@ -64,12 +64,12 @@ public class DirectoryListingResult extends IOResult {
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * (Arrays.deepHashCode(entries) + 1) + 19 * (Arrays.hashCode(areDirectory) + 1);
+        return (Arrays.deepHashCode(entries) + 1) + 19 * (Arrays.hashCode(areDirectory) + 1);
     }
 
     @Override
     public String toString() {
-        return "DirectoryListingResult [entries=" + Arrays.toString(entries) + "areDirectory=" +Arrays.toString(areDirectory) + " io=" + super.toString() + "]";
+        return "DirectoryListingResult [entries=" + Arrays.toString(entries) + "areDirectory=" +Arrays.toString(areDirectory) + "]";
     }
 
 }

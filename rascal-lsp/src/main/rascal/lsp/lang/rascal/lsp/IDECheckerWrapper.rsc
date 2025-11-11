@@ -36,7 +36,7 @@ import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
 import util::Monitor;
-import util::Reflective;
+import util::ParseErrorRecovery;
 
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
@@ -53,7 +53,30 @@ import lang::rascalcore::check::ModuleLocations;
 }
 map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
-    checkForImports = [getParseTree(l)];
+
+    tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation) {
+        try {
+            t = getParseTree(l);
+            errors = hasParseErrors(t)
+                ? {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
+                        causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])}
+                : {};
+            return <t, errors>;
+        } catch ParseError(loc err): {
+            return <(start[Module]) `module ModuleHadParseError`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
+        }
+    }
+
+    // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime.
+    // We cannot fix that here, unless we pass `getParseTree` to `check`.
+    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l);
+    if ({} != parseErrors) {
+        // No need to return the errors, since the language server will take care of parse errors in open modules
+        return ();
+    }
+
+    openFileHeader = openFile.top.header.name;
+    checkForImports = [openFile];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
@@ -67,14 +90,23 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             currentProject = inferProjectRoot(currentSrc);
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
+                    modName = "<i.\module>";
                     try {
-                        ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig, workspaceFolders);
-                        if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
-                            checkForImports += mlpt;
-                            jobTodo("Building dependency graph");
-                            dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                        ml = locateRascalModule(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders);
+                        if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, openFileHeader.src)) {
+                            if ({} !:= importErrors) {
+                                parseErrors += importErrors;
+                                checkedForImports += currentSrc; // do not check this module again
+                                continue; // since there is an error in this module, we do not recurse into its imports
+                            }
+                            if (mlpt.src.top notin checkedForImports) {
+                                checkForImports += mlpt;
+                                jobTodo("Building dependency graph");
+                                dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                            }
                         }
-                    } catch _: {
+                    } catch e: {
+                        println("Exception while building dependency graph at <currentSrc>: <e>");
                         ;// Continue
                     }
                 }
@@ -84,6 +116,11 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
         }
         return true;
     }, totalWork=1);
+
+    if ({} != parseErrors) {
+        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
+        return (l: parseErrors);
+    }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {

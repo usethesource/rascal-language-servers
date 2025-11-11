@@ -182,6 +182,11 @@ interpreter lock will make the editor services less responsive.
      syntax highlighting can update their grammars and explicitly opt-out of the
      special case by passing `usesSpecialCaseHighlighting = false` when
      registering the ((parsing)) service.
+   * You can enable error recovery in the parser like by setting `allowRecovery` to `true`: `parser(#start[Program], allowRecovery=true)`.
+With error recovery enabled  "hard" parse errors can still occur but that will be rare. In most cases parsing with error recovery enabled
+will produce a parse tree with error nodes. Syntax highlighting will still work on such trees. Note that any contributions that you add must be
+able to handle such error trees or unexpected things will happen like strange results and crashes. More information on error recovery and error trees
+can be found in ((ParseTree::Production)), ((ParseTree::parser)), and ((util::ParseErrorRecovery)).
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
 hover documentation, definition with uses, references to declarations, implementations of types and compiler errors and warnings.
    * ((analysis)) focuses on their own file, but may reuse cached or stored indices from other files.
