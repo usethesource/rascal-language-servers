@@ -28,15 +28,18 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-
+import org.eclipse.lsp4j.FileOperationFilter;
+import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
+    private static final List<FileOperationFilter> fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
+
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService, List.of(new FileOperationPattern("**/*.rsc")));
+        super(exec, documentService, fileFilters);
     }
 
 }
