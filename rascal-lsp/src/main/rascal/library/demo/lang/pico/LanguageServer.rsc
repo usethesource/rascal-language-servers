@@ -255,17 +255,20 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
-list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id id>(<{Expression ","}* args>)`, *_, start[Program] prog])
-    = [ callHierarchyItem(s, prog, id, d, tp)
-        | s := picoSummaryService(prog.src.top, prog, analyze())
-        , d <- s.definitions[e.src]
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id callId>(<{Expression ","}* _>)`, *_, start[Program] prog]) {
+    s = picoSummaryService(prog.src.top, prog, analyze());
+    return [ callHierarchyItem(prog, id, d, tp)
+        | d <- s.definitions[callId.src]
         , <id, tp> <- s.definitionsByKind[function(), d]
     ];
+}
 
-list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`, *_, start[Program] prog])
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>`, *_, start[Program] prog])
     = [callHierarchyItem(prog, d)];
 
-CallHierarchyItem callHierarchyItem(Summary s, start[Program] prog, Id id, loc decl, str tp)
+default list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _) = [];
+
+CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp)
     = callHierarchyItem(
         "<id>",
         function(),
@@ -295,7 +298,7 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming()) 
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
     calls = [];
     for (<d, id, t> <- s.definitionsByKind[function()]) {
-        caller = callHierarchyItem(s, ci.\data.prog, id, d, t);
+        caller = callHierarchyItem(ci.\data.prog, id, d, t);
         for (use <- s.references[ci.src], isContainedIn(use, caller.src)) {
             calls += <caller, use>;
         }
@@ -308,7 +311,7 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing()) 
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
     calls = [];
     for (<d, id, t> <- s.definitionsByKind[function()]) {
-        callee = callHierarchyItem(s, ci.\data.prog, id, d, t);
+        callee = callHierarchyItem(ci.\data.prog, id, d, t);
         for (use <- s.references[callee.src], isContainedIn(use, ci.src)) {
             calls += <callee, use>;
         }
