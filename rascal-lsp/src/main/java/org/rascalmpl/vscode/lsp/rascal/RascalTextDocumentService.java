@@ -506,7 +506,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 }
 
                 var changes = DocumentChanges.translateDocumentChanges(this, edits);
-                availableClient().applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
+                availableClient().applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
                     if (!editResponse.isApplied()) {
                         throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
                     }
