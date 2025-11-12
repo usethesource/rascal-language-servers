@@ -165,19 +165,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
-
-        ownExecuter.submit(() -> {
-            documentService.didCreateFiles(params);
-        });
+        ownExecuter.submit(() -> documentService.didCreateFiles(params));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        ownExecuter.submit(() -> {
-            documentService.didRenameFiles(params, workspaceFolders());
-        });
+        ownExecuter.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
 
         ownExecuter.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)

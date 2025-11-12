@@ -512,7 +512,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         availableClient().applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(edits)))
             .thenAccept(res -> {
                 if (!res.isApplied()) {
-                    logger.error("Applying new module template failed" + (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
+                    logger.error("Applying new module template failed{}", (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
                 }
             })
             .exceptionally(e -> {
