@@ -870,7 +870,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
                     .get()
                     .thenApply(items -> {
-                        var ch = new CallHierarchy();
+                        var ch = new CallHierarchy(ownExecuter);
                         return items.stream()
                             .map(IConstructor.class::cast)
                             .map(ci -> ch.toLSP(ci, columns))
@@ -881,7 +881,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
         final var contrib = contributions(Locations.toLoc(source.getUri()));
-        var ch = new CallHierarchy();
+        var ch = new CallHierarchy(ownExecuter);
         return ch.toRascal(source, contrib::parseCallHierarchyData, columns)
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
             .thenApply(callRel -> callRel.stream()
