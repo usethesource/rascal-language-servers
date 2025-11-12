@@ -523,7 +523,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     var client = availableClient();
                     showMessages(client, messages);
 
-                    if (edits.size() == 0) {
+                    if (edits.isEmpty()) {
                         return;
                     }
 

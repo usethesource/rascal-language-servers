@@ -491,9 +491,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public void didCreateFiles(CreateFilesParams params) {
         availableRascalServices().newModuleTemplates(params.getFiles())
             .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
-            .thenCompose(wsEdit -> wsEdit.getDocumentChanges().size() != 0
-                    ? availableClient().applyEdit(new ApplyWorkspaceEditParams(wsEdit, "Auto-insert module headers"))
-                    : null)
+            .thenCompose(wsEdit -> wsEdit.getDocumentChanges().isEmpty()
+                    ? null
+                    : availableClient().applyEdit(new ApplyWorkspaceEditParams(wsEdit, "Auto-insert module headers")))
                 .thenAccept(res -> {
                     if (res != null && !res.isApplied()) {
                         logger.error("Applying new module template failed{}", (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
@@ -523,7 +523,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 var messages = (ISet) res.get(1);
                 showMessages(messages);
 
-                if (edits.size() == 0) {
+                if (edits.isEmpty()) {
                     return;
                 }
 
