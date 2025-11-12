@@ -164,7 +164,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+        logger.debug("workspace/didCreateFiles: {}", params.getFiles());
         ownExecuter.submit(() -> documentService.didCreateFiles(params));
     }
 
