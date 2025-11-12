@@ -53,9 +53,9 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
         } catch str s: {
             // We're probably outside of a source directory
             ; // Since the IDE has a warning for this, do nothing
-            println(s);
-        } catch e:IO(_): {
-            println(e);
+            println("Ignored error: <s>");
+        } catch e: {
+            println("Error while processing new file <f>: <e>");
         }
     }
 
