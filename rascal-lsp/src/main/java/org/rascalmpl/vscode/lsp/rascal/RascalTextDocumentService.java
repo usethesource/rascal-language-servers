@@ -419,7 +419,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
                 var cursorTree = findQualifiedNameUnderCursor(focus);
-                return availableRascalServices().getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, availableFacts()::getPathConfig, params.getNewName()).get();
+                return availableRascalServices().getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, params.getNewName()).get();
             })
             .thenApply(t -> {
                 showMessages((ISet) t.get(1));
@@ -495,7 +495,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        availableRascalServices().getModuleRenames(params.getFiles(), folders, availableFacts()::getPathConfig)
+        availableRascalServices().getModuleRenames(params.getFiles(), folders)
             .thenAccept(res -> {
                 var edits = (IList) res.get(0);
                 var messages = (ISet) res.get(1);
