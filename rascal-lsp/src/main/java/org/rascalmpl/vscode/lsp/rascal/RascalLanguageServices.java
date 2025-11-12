@@ -41,12 +41,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FileCreate;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -126,7 +125,7 @@ public class RascalLanguageServices {
 
         var context = new LSPContext(exec, docService, workspaceService, client);
 
-        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols");
+        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates");
         semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
@@ -284,6 +283,17 @@ public class RascalLanguageServices {
                 }, emptyResult, exec, false, client).get());
     }
 
+    public CompletableFuture<IList> newModuleTemplates(List<FileCreate> newFiles) {
+        return EvaluatorUtil.runEvaluator("Rascal module templates", shortRunningTaskEvaluator,
+            eval -> {
+                var newFilesList = newFiles
+                    .stream()
+                    .map(FileCreate::getUri)
+                    .map(URIUtil::assumeCorrectLocation)
+                    .collect(VF.listWriter());
+                return (IList) eval.call("newModuleTemplates", newFilesList, makePathConfigGetter(eval));
+            }, VF.list(), exec, false, client).get();
+    }
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);

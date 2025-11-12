@@ -28,9 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,7 +91,6 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -107,7 +104,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -493,38 +489,26 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        Map<String, List<TextEdit>> edits = new HashMap<>();
-
-        for (var file : params.getFiles()) {
-            var uri = file.getUri();
-            try {
-                var loc = URIUtil.createFromURI(uri);
-                var pcfg = availableFacts().getPathConfig(loc);
-                var template = "module " + pcfg.getModuleName(loc) + "\n\n// TODO Auto-generated module contents\n";
-                var endLine = Math.toIntExact(template.lines().count()) - 1;
-                var endCol = template.length() - template.lastIndexOf('\n');
-                edits.put(uri, Collections.singletonList(new TextEdit(new Range(new Position(0, 0), new Position(endLine, endCol)), template)));
-            } catch (URISyntaxException | IOException e) {
-                logger.catching(e);
-            }
-        }
-
-        availableClient().applyEdit(new ApplyWorkspaceEditParams(new WorkspaceEdit(edits)))
-            .thenAccept(res -> {
-                if (!res.isApplied()) {
-                    logger.error("Applying new module template failed{}", (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
-                }
-            })
-            .exceptionally(e -> {
-                var cause = e.getCause();
-                logger.catching(Level.ERROR, cause);
-                String message = "unkown error";
-                if (cause != null && cause.getMessage() != null) {
-                    message = cause.getMessage();
-                }
-                availableClient().showMessage(new MessageParams(MessageType.Error, message));
-                return null; // Return of type `Void` is unused, but required
-            });
+        availableRascalServices().newModuleTemplates(params.getFiles())
+            .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
+            .thenCompose(wsEdit -> wsEdit.getDocumentChanges().size() != 0
+                    ? availableClient().applyEdit(new ApplyWorkspaceEditParams(wsEdit, "Auto-insert module headers"))
+                    : null)
+                .thenAccept(res -> {
+                    if (res != null && !res.isApplied()) {
+                        logger.error("Applying new module template failed{}", (res.getFailureReason() != null ? (": " + res.getFailureReason()) : ""));
+                    }
+                })
+                .exceptionally(e -> {
+                    var cause = e.getCause();
+                    logger.catching(Level.ERROR, cause);
+                    String message = "unkown error";
+                    if (cause != null && cause.getMessage() != null) {
+                        message = cause.getMessage();
+                    }
+                    availableClient().showMessage(new MessageParams(MessageType.Error, message));
+                    return null; // Return of type `Void` is unused, but required
+                });
     }
 
     @Override
