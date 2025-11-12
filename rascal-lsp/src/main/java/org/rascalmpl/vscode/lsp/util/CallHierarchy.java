@@ -135,7 +135,9 @@ public class CallHierarchy {
             if (detail != null) {
                 kwArgs.put(CallHierarchyFields.DETAIL, VF.string(detail));
             }
-            kwArgs.put(CallHierarchyFields.DATA, data);
+            if (ci.getData() != null) {
+                kwArgs.put(CallHierarchyFields.DATA, data);
+            }
             return VF.constructor(callHierarchyItemCons, List.of(
                 VF.string(ci.getName()),
                 DocumentSymbols.symbolKindToRascal(ci.getKind()),
