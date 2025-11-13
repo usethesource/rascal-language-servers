@@ -51,6 +51,8 @@ import util::Monitor;
 import util::Reflective;
 import util::Util;
 
+public ChangeAnnotation defaultRenameAnnotation = changeAnnotation("Rename", "Verified edits");
+
 data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }

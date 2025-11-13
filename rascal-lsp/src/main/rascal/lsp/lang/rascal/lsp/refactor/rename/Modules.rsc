@@ -122,7 +122,7 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     // Re-implement `relativize(loc, list[loc])`
     if (loc srcDir <- pcfg.srcs, loc relModulePath := relativize(srcDir, moduleFile), relModulePath != moduleFile) {
         // Change the file header
-        r.textEdit(replace(nameLoc, newName));
+        r.textEdit(replace(nameLoc, newName, annotation = defaultRenameAnnotation));
         // Rename the file
         r.documentEdit(renamed(moduleFile, srcDir + makeFileName(forceUnescapeNames(newName))));
     } else {
@@ -136,7 +136,7 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
             pref := qualifiedPrefix(qn), moduleName == normalizeEscaping(pref.name)) {
-            r.textEdit(replace(pref.l, newName));
+            r.textEdit(replace(pref.l, newName, annotation = defaultRenameAnnotation));
         }
     }
 }
@@ -171,7 +171,7 @@ list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldNam
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     try {
         start[Module] m = parseModuleWithSpaces(f);
-        return [replace(l, normalizeEscaping(newName))
+        return [replace(l, normalizeEscaping(newName), annotation = defaultRenameAnnotation)
             | /QualifiedName qn := m
             , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
             , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
