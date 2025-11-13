@@ -259,13 +259,9 @@ public class RascalLanguageServices {
             return InterruptibleFuture.completedFuture(emptyResult);
         }
 
-        return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
-            try {
-                return (ITuple) eval.call("rascalRenameModule", fileRenames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
-            } catch (Throw e) {
-                throw new RuntimeException(e.getMessage());
-            }
-        }, emptyResult, exec, false, client);
+        return runEvaluator("Rascal module rename", semanticEvaluator, eval ->
+            (ITuple) eval.call("rascalRenameModule", fileRenames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval))
+        , emptyResult, exec, false, client);
     }
 
 
