@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -126,7 +127,11 @@ public class CallHierarchy {
     }
 
     public CompletableFuture<IConstructor> toRascal(CallHierarchyItem ci, Function<String, CompletableFuture<IConstructor>> dataParser, ColumnMaps columns) {
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<@Nullable IConstructor> parseData = ci.getData() != null
+            ? dataParser.apply(((JsonPrimitive) ci.getData()).getAsString())
+            : CompletableFuture.completedFuture(null);
+
+        return parseData.thenApply(data -> {
             Map<String, IValue> kwArgs = new HashMap<>();
             var tags = ci.getTags();
             if (tags != null) {
@@ -136,18 +141,15 @@ public class CallHierarchy {
             if (detail != null) {
                 kwArgs.put(CallHierarchyFields.DETAIL, VF.string(detail));
             }
+            if (data != null) {
+                kwArgs.put(CallHierarchyFields.DATA, data);
+            }
             return VF.constructor(callHierarchyItemCons, List.of(
                 VF.string(ci.getName()),
                 DocumentSymbols.symbolKindToRascal(ci.getKind()),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
             ).toArray(new IValue[0]), kwArgs);
-        }, exec).thenCompose(c -> {
-            if (ci.getData() == null) {
-                return CompletableFuture.completedFuture(c);
-            }
-            return dataParser.apply(((JsonPrimitive) ci.getData()).getAsString())
-                .thenApply(data -> c.asWithKeywordParameters().setParameter(CallHierarchyFields.DATA, data));
         });
     }
 }
