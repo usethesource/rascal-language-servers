@@ -288,8 +288,11 @@ public class RascalLanguageServices {
     public InterruptibleFuture<IList> newModuleTemplates(IList newFiles) {
         return EvaluatorUtil.runEvaluator("Rascal new module", shortRunningTaskEvaluator,
             eval -> {
-                // TODO Catch Throw
-                return (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval));
+                try {
+                    return (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval));
+                } catch (Throw e) {
+                    throw new RuntimeException(e.getMessage());
+                }
             }, VF.list(), exec, false, client);
     }
 
