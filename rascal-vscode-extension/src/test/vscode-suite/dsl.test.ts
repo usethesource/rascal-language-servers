@@ -264,8 +264,10 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await editor.selectText("multiply");
         await bench.executeCommand("view.showCallHierarchy");
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")));
+        await ide.screenshot("Show call hierarchy");
 
-        await bench.executeCommand("view.showOutgoingCalls");
+        // Wait until the call hierarchy finished loading, and request outgoing calls
+        await driver.wait(ignoreFails(bench.executeCommand("view.showOutgoingCalls")));
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")));
         await driver.wait(async () => {
             const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
