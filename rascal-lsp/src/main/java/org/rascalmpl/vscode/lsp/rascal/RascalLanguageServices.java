@@ -253,10 +253,10 @@ public class RascalLanguageServices {
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
     }
 
-    public CompletableFuture<ITuple> getModuleRenames(IList fileRenames, Set<ISourceLocation> workspaceFolders) {
+    public InterruptibleFuture<ITuple> getModuleRenames(IList fileRenames, Set<ISourceLocation> workspaceFolders) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
-            return CompletableFuture.completedFuture(emptyResult);
+            return InterruptibleFuture.completedFuture(emptyResult);
         }
 
         return runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
@@ -265,7 +265,7 @@ public class RascalLanguageServices {
             } catch (Throw e) {
                 throw new RuntimeException(e.getMessage());
             }
-        }, emptyResult, exec, false, client).get();
+        }, emptyResult, exec, false, client);
     }
 
 

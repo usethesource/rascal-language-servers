@@ -521,6 +521,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     }
                 });
             })
+            .get()
             .exceptionally(e -> {
                 var cause = e.getCause();
                 logger.catching(Level.ERROR, cause);
