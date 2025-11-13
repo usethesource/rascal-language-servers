@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
+import { By, until, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Suite } from 'mocha';
 import { expect } from 'chai';
+import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+import * as path from 'path';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -257,5 +257,26 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
+    });
+
+    it("call hierarchy works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoCallsFile);
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showCallHierarchy");
+        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")));
+
+        await bench.executeCommand("view.showOutgoingCalls");
+        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")));
+        await driver.wait(async () => {
+            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
+            return hieraryItems.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+
+        await bench.executeCommand("view.showIncomingCalls");
+        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")));
+        await driver.wait(async () => {
+            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
+            return hieraryItems.length === 2;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
     });
 });
