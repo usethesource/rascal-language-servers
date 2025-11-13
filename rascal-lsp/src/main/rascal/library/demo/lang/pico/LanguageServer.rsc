@@ -284,8 +284,10 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirectio
     calls = [];
     for (<d, id, t> <- s.definitionsByKind[function()]) {
         newItem = callHierarchyItem(ci.\data.prog, id, d, t);
-        callee = dir is outgoing ? ci : newItem;
-        caller = dir is incoming ? newItem : ci;
+        <caller, callee> = dir is incoming
+            ? <newItem, ci>
+            : <ci, newItem>
+            ;
         for (use <- s.references[callee.src], isContainedIn(use, caller.src)) {
             calls += <newItem, use>;
         }
