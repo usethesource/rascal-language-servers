@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.FileCreate;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -286,16 +285,12 @@ public class RascalLanguageServices {
                 }, emptyResult, exec, false, client).get());
     }
 
-    public CompletableFuture<IList> newModuleTemplates(List<FileCreate> newFiles) {
-        return EvaluatorUtil.runEvaluator("Rascal module templates", shortRunningTaskEvaluator,
+    public InterruptibleFuture<IList> newModuleTemplates(IList newFiles) {
+        return EvaluatorUtil.runEvaluator("Rascal new module", shortRunningTaskEvaluator,
             eval -> {
-                var newFilesList = newFiles
-                    .stream()
-                    .map(FileCreate::getUri)
-                    .map(URIUtil::assumeCorrectLocation)
-                    .collect(VF.listWriter());
-                return (IList) eval.call("newModuleTemplates", newFilesList, makePathConfigGetter(eval));
-            }, VF.list(), exec, false, client).get();
+                // TODO Catch Throw
+                return (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval));
+            }, VF.list(), exec, false, client);
     }
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {

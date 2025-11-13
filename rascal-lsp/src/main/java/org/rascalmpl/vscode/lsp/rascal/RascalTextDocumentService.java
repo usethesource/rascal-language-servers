@@ -61,6 +61,7 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FileCreate;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -104,8 +105,10 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -135,8 +138,10 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+    private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
     private final ExecutorService ownExecuter;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
@@ -489,7 +494,13 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        availableRascalServices().newModuleTemplates(params.getFiles())
+        var newFiles = params.getFiles()
+            .stream()
+            .map(FileCreate::getUri)
+            .map(URIUtil::assumeCorrectLocation)
+            .collect(VF.listWriter());
+
+        availableRascalServices().newModuleTemplates(newFiles).get()
             .thenApply(edits -> DocumentChanges.translateDocumentChanges(this, edits))
             .thenCompose(wsEdit -> wsEdit.getDocumentChanges().isEmpty()
                     ? null
