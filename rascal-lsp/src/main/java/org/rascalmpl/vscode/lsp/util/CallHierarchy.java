@@ -28,10 +28,8 @@ package org.rascalmpl.vscode.lsp.util;
 
 import com.google.gson.JsonPrimitive;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
@@ -69,11 +67,7 @@ public class CallHierarchy {
     private final IConstructor outgoing;
     private final Type callHierarchyItemCons;
 
-    private final Executor exec;
-
-    public CallHierarchy(Executor exec) {
-        this.exec = exec;
-
+    public CallHierarchy() {
         var store = new TypeStore();
         Type directionAdt = TF.abstractDataType(store, "CallDirection");
         this.incoming = VF.constructor(TF.constructor(store, directionAdt, "incoming"));
