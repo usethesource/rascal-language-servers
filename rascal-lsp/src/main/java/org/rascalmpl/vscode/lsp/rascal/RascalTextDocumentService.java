@@ -145,6 +145,7 @@ import io.usethesource.vallang.IValueFactory;
 public class RascalTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
+
     private final ExecutorService ownExecuter;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -426,7 +427,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
                 var cursorTree = findQualifiedNameUnderCursor(focus);
-                return availableRascalServices().getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, availableFacts()::getPathConfig, params.getNewName()).get();
+                return availableRascalServices().getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, params.getNewName()).get();
             })
             .thenApply(t -> {
                 showMessages((ISet) t.get(1));
@@ -515,7 +516,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
 
-        var rascalEdits = availableRascalServices().getModuleRenames(params.getFiles(), folders, availableFacts()::getPathConfig)
+        IList renames = params.getFiles().stream()
+            .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
+            .collect(VF.listWriter());
+
+        var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)
+            .get()
             .thenApply(res -> {
                 var edits = (IList) res.get(0);
                 var messages = (ISet) res.get(1);
