@@ -569,6 +569,10 @@ the right ((DocumentEdit))s immediately.
 }
 data Message(list[CodeAction] fixes = []);
 
+@synopsis{Annotate any text edit with a label and description and require user confirmation.}
+data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
+data TextEdit(ChangeAnnotation annotation = changeAnnotation("", ""));
+
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
 Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters

@@ -46,6 +46,7 @@ import analysis::diff::edits::TextEdits;
 
 import Map;
 import util::Maybe;
+import util::LanguageServer;
 
 set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
 bool isFieldRole(IdRole role) = role in fieldRoles;
