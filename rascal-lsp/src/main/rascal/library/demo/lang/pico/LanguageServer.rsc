@@ -131,7 +131,6 @@ rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope
 data Summary(rel[DocumentSymbolKind, loc, Id, str] definitionsByKind = {});
 
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
-@memo{maximumSize(10), expireAfter(minutes=5)}
 Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
@@ -269,24 +268,10 @@ list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id _
 default list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _) = [];
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp)
-    = callHierarchyItem(
-        "<id>",
-        function(),
-        decl,
-        id.src,
-        detail = tp,
-        \data = \data(prog)
-    );
+    = callHierarchyItem("<id>", function(), decl, id.src, detail = tp, \data = \data(prog));
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
-    = callHierarchyItem(
-        "<id>",
-        function(),
-        d.src,
-        id.src,
-        detail = typeOf(d),
-        \data = \data(prog)
-    );
+    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeOf(d), \data = \data(prog));
 
 data CallHierarchyData = \data(start[Program] prog);
 
@@ -294,26 +279,15 @@ str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
 str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
-lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, incoming()) {
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
     calls = [];
     for (<d, id, t> <- s.definitionsByKind[function()]) {
-        caller = callHierarchyItem(ci.\data.prog, id, d, t);
-        for (use <- s.references[ci.src], isContainedIn(use, caller.src)) {
-            calls += <caller, use>;
-        }
-    };
-
-    return calls;
-}
-
-lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, outgoing()) {
-    s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
-    calls = [];
-    for (<d, id, t> <- s.definitionsByKind[function()]) {
-        callee = callHierarchyItem(ci.\data.prog, id, d, t);
-        for (use <- s.references[callee.src], isContainedIn(use, ci.src)) {
-            calls += <callee, use>;
+        newItem = callHierarchyItem(ci.\data.prog, id, d, t);
+        callee = dir is outgoing ? ci : newItem;
+        caller = dir is incoming ? newItem : ci;
+        for (use <- s.references[callee.src], isContainedIn(use, caller.src)) {
+            calls += <newItem, use>;
         }
     };
 

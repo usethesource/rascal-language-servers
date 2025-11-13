@@ -144,12 +144,12 @@ public class CallHierarchy {
             if (data != null) {
                 kwArgs.put(CallHierarchyFields.DATA, data);
             }
-            return VF.constructor(callHierarchyItemCons, List.of(
+            return VF.constructor(callHierarchyItemCons, new IValue[] {
                 VF.string(ci.getName()),
                 DocumentSymbols.symbolKindToRascal(ci.getKind()),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getRange(), columns),
                 Locations.setRange(Locations.toLoc(ci.getUri()), ci.getSelectionRange(), columns)
-            ).toArray(new IValue[0]), kwArgs);
+            }, kwArgs);
         });
     }
 }
