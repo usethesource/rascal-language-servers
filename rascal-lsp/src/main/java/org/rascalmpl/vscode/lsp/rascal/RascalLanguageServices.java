@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -230,10 +231,11 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, String newName) {
+    public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
-                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
+                IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> getPathConfig.apply((ISourceLocation) t[0]).asConstructor());
+                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();
@@ -263,7 +265,7 @@ public class RascalLanguageServices {
         }
     }
 
-    public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders) {
+    public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
             return CompletableFuture.completedFuture(emptyResult);
@@ -275,8 +277,9 @@ public class RascalLanguageServices {
             , exec)
             .thenCompose(renames ->
                 runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
+                    IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> getPathConfig.apply((ISourceLocation) t[0]).asConstructor());
                     try {
-                        return (ITuple) eval.call("rascalRenameModule", renames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
+                        return (ITuple) eval.call("rascalRenameModule", renames, workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
                     } catch (Throw e) {
                         throw new RuntimeException(e.getMessage());
                     }
