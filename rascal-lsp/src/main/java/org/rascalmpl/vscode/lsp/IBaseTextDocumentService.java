@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -65,6 +66,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
 
     boolean isManagingFile(ISourceLocation file);
 
+    void didCreateFiles(CreateFilesParams params);
     void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);
     void didDeleteFiles(DeleteFilesParams params);
     void cancelProgress(String progressId);
