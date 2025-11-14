@@ -263,13 +263,13 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.openModule(TestWorkspace.picoCallsFile);
         await editor.selectText("multiply");
         await bench.executeCommand("view.showCallHierarchy");
-        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")), Delays.normal, "References panel should open");
+        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")), Delays.normal, "References panel should open");
         await ide.screenshot("Show call hierarchy");
 
         await editor.click();
         await bench.executeCommand("view.showIncomingCalls");
         await ide.screenshot("Show incoming calls");
-        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")), Delays.normal, "View should switch to incoming calls");
+        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")), Delays.normal, "View should switch to incoming calls");
         await driver.wait(async () => {
             const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
             return hieraryItems.length === 2;
@@ -278,7 +278,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await editor.click();
         await bench.executeCommand("view.showOutgoingCalls");
         await ide.screenshot("Show outgoing calls");
-        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")), Delays.normal, "View should switch to outgoing calls");
+        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")), Delays.normal, "View should switch to outgoing calls");
         await driver.wait(async () => {
             const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
             return hieraryItems.length === 3;
