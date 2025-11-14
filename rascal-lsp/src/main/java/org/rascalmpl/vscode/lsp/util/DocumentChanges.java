@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.AnnotatedTextEdit;
 import org.eclipse.lsp4j.ChangeAnnotation;
 import org.eclipse.lsp4j.CreateFile;
@@ -44,8 +44,8 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -54,6 +54,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * Translates Rascal data-type representation of document edits to the LSP representation.
@@ -70,23 +71,33 @@ public class DocumentChanges {
 
         for (IValue elem : list) {
             IConstructor edit = (IConstructor) elem;
+            var anno = extractAnnotation(edit, changeAnnotations);
 
             switch (edit.getName()) {
-                case "removed":
-                    result.add(Either.forRight(new DeleteFile(getFileURI(edit, "file"))));
+                case "removed": {
+                    var delete = new DeleteFile(getFileURI(edit, "file"));
+                    delete.setAnnotationId(anno);
+                    result.add(Either.forRight(delete));
                     break;
-                case "created":
-                    result.add(Either.forRight(new CreateFile(getFileURI(edit, "file"))));
+                }
+                case "created": {
+                    var create = new CreateFile(getFileURI(edit, "file"));
+                    create.setAnnotationId(anno);
+                    result.add(Either.forRight(create));
                     break;
-                case "renamed":
-                    result.add(Either.forRight(new RenameFile(getFileURI(edit, "from"), getFileURI(edit, "to"))));
+                }
+                case "renamed": {
+                    var rename = new RenameFile(getFileURI(edit, "from"), getFileURI(edit, "to"));
+                    rename.setAnnotationId(anno);
+                    result.add(Either.forRight(rename));
                     break;
+                }
                 case "changed":
                     // TODO: file document identifier version is unknown here. that may be problematic
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits(docService, (IList) edit.get("edits"), changeAnnotations))));
+                            translateTextEdits(docService, (IList) edit.get("edits"), anno, changeAnnotations))));
                     break;
             }
         }
@@ -97,29 +108,53 @@ public class DocumentChanges {
         return wsEdit;
     }
 
-    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, Map<String, ChangeAnnotation> changeAnnotations) {
+    private static boolean hasAnnotation(IWithKeywordParameters<? extends IConstructor> cons) {
+        return cons.hasParameter("label")
+            || cons.hasParameter("description")
+            || cons.hasParameter("needsConfirmation");
+    }
+
+    private static @Nullable String extractAnnotation(IConstructor cons, Map<String, ChangeAnnotation> changeAnnotations) {
+        var kws = cons.asWithKeywordParameters();
+        if (!hasAnnotation(kws)) {
+            return null;
+        }
+
+        // Mirror defaults in `util::LanguageServer`
+        var label = kws.hasParameter("label")
+            ? ((IString) kws.getParameter("label")).getValue()
+            : "";
+        var description = kws.hasParameter("description")
+            ? ((IString) kws.getParameter("description")).getValue()
+            : label;
+        var needsConfirmation = kws.hasParameter("needsConfirmation")
+            ? ((IBool) kws.getParameter("needsConfirmation")).getValue()
+            : false;
+        var key = String.format("%s_%s_%b", label, description, needsConfirmation);
+
+        if (!changeAnnotations.containsKey(key)) {
+            var anno = new ChangeAnnotation(label);
+            anno.setDescription(description);
+            anno.setNeedsConfirmation(needsConfirmation);
+            changeAnnotations.put(key, anno);
+        }
+
+        return key;
+    }
+
+    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, @Nullable String parentAnno, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
                 var range = locationToRange(docService, (ISourceLocation) c.get("range"));
                 var replacement = ((IString) c.get("replacement")).getValue();
-                // Check annotation
-                var kw = c.asWithKeywordParameters();
-                if (kw.hasParameter("annotation")) {
-                    var anno = (IConstructor) kw.getParameter("annotation");
-                    var label = ((IString) anno.get("label")).getValue();
-                    var description = ((IString) anno.get("description")).getValue();
-                    var annoKW = anno.asWithKeywordParameters();
-                    var needsConfirmation = annoKW.hasParameter("needsConfirmation") && ((IBool) annoKW.getParameter("needsConfirmation")).getValue();
-                    var annoKey = String.format("%s_%s_%b", label, description, needsConfirmation);
-
-                    if (!changeAnnotations.containsKey(annoKey)) {
-                        var annotation = new ChangeAnnotation(label);
-                        annotation.setDescription(description);
-                        annotation.setNeedsConfirmation(needsConfirmation);
-                        changeAnnotations.put(annoKey, annotation);
-                    }
-                    return new AnnotatedTextEdit(range, replacement, annoKey);
+                var anno = extractAnnotation(c, changeAnnotations);
+                if (anno == null) {
+                    // If this edit has no annotation, inherit from its parent.
+                    anno = parentAnno;
+                }
+                if (anno != null) {
+                    return new AnnotatedTextEdit(range, replacement, anno);
                 }
                 return new TextEdit(range, replacement);
             })

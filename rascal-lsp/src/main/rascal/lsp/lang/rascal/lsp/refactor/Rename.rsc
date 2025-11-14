@@ -372,7 +372,7 @@ void validateNewNameOccurrences(set[Define] cursorDefs, str newName, Tree tr, Re
 }
 
 default void renameDefinitionUnchecked(Define _, loc nameLoc, str newName, Renamer r) {
-    r.textEdit(replace(nameLoc, newName, annotation = defaultRenameAnnotation));
+    r.textEdit(replace(nameLoc, newName));
 }
 
 void renameDefinition(Define d, loc nameLoc, str newName, TModel _, Renamer r) {
@@ -401,7 +401,7 @@ void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     useDefs = toMap(tm.useDef o definitions);
     for (loc u <- useDefs) {
         if (set[Define] ds:{_, *_} := useDefs[u], u notin defs.defined) {
-            r.textEdit(replace(nameSuffix(u, ds, r), escName, annotation = defaultRenameAnnotation));
+            r.textEdit(replace(nameSuffix(u, ds, r), escName));
         }
     }
 
