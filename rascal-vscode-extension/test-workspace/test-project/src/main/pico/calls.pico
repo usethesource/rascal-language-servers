@@ -1,0 +1,5 @@
+begin
+    declare
+      add(x: natural, y: natural): natural := x + y,
+      multiply(x: natural, y: natural): natural := add(x, multiply(x - 1, y));
+end

@@ -3,7 +3,9 @@ begin
     input   : natural,  
     output  : natural,           
     repnr   : natural,
-    rep     : natural;
+    rep     : natural,
+    add(x: natural, y: natural): natural := x + y,
+    multiply(x: natural, y: natural): natural := add(x, multiply(x - 1, y));
  
     input := 6;
     while input - 1 do 

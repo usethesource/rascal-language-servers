@@ -146,8 +146,23 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        throw new NoContributionException("prepareCallHierarchy");
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        throw new NoContributionException("incomingOutgoingCalls");
+    }
+
+    @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
         throw new NoContributionException("parseCodeActions");
+    }
+
+    @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        throw new NoContributionException("parseCallHierarchyData");
     }
 
     @Override
@@ -217,6 +232,11 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
+        return FALSE;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
         return FALSE;
     }
 
