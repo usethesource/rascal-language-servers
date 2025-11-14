@@ -266,19 +266,21 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")));
         await ide.screenshot("Show call hierarchy");
 
-        // Wait until the call hierarchy finished loading, and request outgoing calls
-        await driver.wait(ignoreFails(bench.executeCommand("view.showOutgoingCalls")));
-        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")));
-        await driver.wait(async () => {
-            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
-            return hieraryItems.length === 3;
-        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
-
-        await bench.executeCommand("view.showIncomingCalls");
+        // Wait until the call hierarchy finished loading, and request incoming calls
+        await driver.wait(ignoreFails(bench.executeCommand("view.showIncomingCalls")));
+        await ide.screenshot("Show incoming calls");
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")));
         await driver.wait(async () => {
             const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
             return hieraryItems.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+
+        await driver.wait(ignoreFails(bench.executeCommand("view.showOutgoingCalls")));
+        await ide.screenshot("Show outgoing calls");
+        await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")));
+        await driver.wait(async () => {
+            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
+            return hieraryItems.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });
