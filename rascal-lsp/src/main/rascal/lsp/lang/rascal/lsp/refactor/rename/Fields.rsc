@@ -46,6 +46,7 @@ import analysis::diff::edits::TextEdits;
 
 import Map;
 import util::Maybe;
+import util::LanguageServer;
 
 set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
 bool isFieldRole(IdRole role) = role in fieldRoles;
@@ -174,7 +175,11 @@ void renameAdditionalUses(set[Define] fieldDefs, str newName, TModel tm, Renamer
             if (size(fieldDefs & eFieldDefs) > 0) {
                 fieldName = "<n>";
                 if (fieldName in fieldDefs.id) {
-                    r.textEdit(replace(n.src, newName, annotation = changeAnnotation("Use of `has <fieldName>` on value of <describeFact(getFact(tm, e.src))>", "Due to the dynamic nature of these names, please review these suggested changes.", needsConfirmation = true)));
+                    r.textEdit(replace(n.src, newName,
+                        label = "Use of `has <fieldName>` on value of <describeFact(getFact(tm, e.src))>",
+                        description = "Due to the dynamic nature of these names, please review these suggested changes.",
+                        needsConfirmation = true
+                    ));
                 }
             }
         }

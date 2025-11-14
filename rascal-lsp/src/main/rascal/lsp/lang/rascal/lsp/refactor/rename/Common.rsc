@@ -45,6 +45,7 @@ import Relation;
 import Set;
 import String;
 import util::FileSystem;
+import util::LanguageServer;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
@@ -55,9 +56,6 @@ data RenameConfig(
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
   , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
 );
-
-data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
-data TextEdit(ChangeAnnotation annotation = changeAnnotation("Rename", "Rename"));
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
     // lexical containment
