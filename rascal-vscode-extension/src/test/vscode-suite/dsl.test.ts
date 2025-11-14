@@ -266,6 +266,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")), Delays.normal, "References panel should open");
         await ide.screenshot("Show call hierarchy");
 
+        await editor.click();
         await bench.executeCommand("view.showIncomingCalls");
         await ide.screenshot("Show incoming calls");
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")), Delays.normal, "View should switch to incoming calls");
@@ -274,6 +275,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             return hieraryItems.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
+        await editor.click();
         await bench.executeCommand("view.showOutgoingCalls");
         await ide.screenshot("Show outgoing calls");
         await driver.wait(until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")), Delays.normal, "View should switch to outgoing calls");
