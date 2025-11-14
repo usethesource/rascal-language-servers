@@ -46,6 +46,7 @@ import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -109,9 +110,9 @@ public class DocumentChanges {
     }
 
     private static boolean hasAnnotation(IWithKeywordParameters<? extends IConstructor> cons) {
-        return cons.hasParameter("label")
-            || cons.hasParameter("description")
-            || cons.hasParameter("needsConfirmation");
+        return cons.hasParameter(RascalADTs.TextEditFields.LABEL)
+            || cons.hasParameter(RascalADTs.TextEditFields.DESCRIPTION)
+            || cons.hasParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION);
     }
 
     private static @Nullable String extractAnnotation(IConstructor cons, Map<String, ChangeAnnotation> changeAnnotations) {
@@ -121,23 +122,22 @@ public class DocumentChanges {
         }
 
         // Mirror defaults in `util::LanguageServer`
-        var label = kws.hasParameter("label")
-            ? ((IString) kws.getParameter("label")).getValue()
+        var label = kws.hasParameter(RascalADTs.TextEditFields.LABEL)
+            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.LABEL)).getValue()
             : "";
-        var description = kws.hasParameter("description")
-            ? ((IString) kws.getParameter("description")).getValue()
+        var description = kws.hasParameter(RascalADTs.TextEditFields.DESCRIPTION)
+            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.DESCRIPTION)).getValue()
             : label;
-        var needsConfirmation = kws.hasParameter("needsConfirmation")
-            ? ((IBool) kws.getParameter("needsConfirmation")).getValue()
-            : false;
+        var needsConfirmation = kws.hasParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)
+            && ((IBool) kws.getParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)).getValue();
         var key = String.format("%s_%s_%b", label, description, needsConfirmation);
 
-        if (!changeAnnotations.containsKey(key)) {
+        changeAnnotations.computeIfAbsent(key, k -> {
             var anno = new ChangeAnnotation(label);
             anno.setDescription(description);
             anno.setNeedsConfirmation(needsConfirmation);
-            changeAnnotations.put(key, anno);
-        }
+            return anno;
+        });
 
         return key;
     }
