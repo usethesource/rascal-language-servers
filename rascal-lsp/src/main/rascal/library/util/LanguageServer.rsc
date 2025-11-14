@@ -570,7 +570,20 @@ the right ((DocumentEdit))s immediately.
 data Message(list[CodeAction] fixes = []);
 
 @synopsis{Annotate any text edit with a label and description and require user confirmation.}
+@description{
+Annotations contain extra information about text edits in LSP.
+* label: Human-readable string that describes the change.
+* description: Human-readable string that additionally describes the change, rendered less prominently.
+* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user information.
+
+See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation).
+}
+@pitfalls{
+When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
+}
 data ChangeAnnotation = changeAnnotation(str label, str description, bool needsConfirmation = false);
+
+@synopsis{An extension of ((analysis::diff::edits::TextEdits::TextEdit)) that can be annotated. See ((ChangeAnnotation)).}
 data TextEdit(ChangeAnnotation annotation = changeAnnotation("", ""));
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
