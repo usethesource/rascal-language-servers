@@ -75,30 +75,30 @@ public class DocumentChanges {
             var anno = extractAnnotation(edit, changeAnnotations);
 
             switch (edit.getName()) {
-                case "removed": {
-                    var delete = new DeleteFile(getFileURI(edit, "file"));
+                case RascalADTs.FileSystemChangeFields.REMOVED: {
+                    var delete = new DeleteFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE));
                     delete.setAnnotationId(anno);
                     result.add(Either.forRight(delete));
                     break;
                 }
-                case "created": {
-                    var create = new CreateFile(getFileURI(edit, "file"));
+                case RascalADTs.FileSystemChangeFields.CREATED: {
+                    var create = new CreateFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE));
                     create.setAnnotationId(anno);
                     result.add(Either.forRight(create));
                     break;
                 }
-                case "renamed": {
-                    var rename = new RenameFile(getFileURI(edit, "from"), getFileURI(edit, "to"));
+                case RascalADTs.FileSystemChangeFields.RENAMED: {
+                    var rename = new RenameFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FROM), getFileURI(edit, RascalADTs.FileSystemChangeFields.TO));
                     rename.setAnnotationId(anno);
                     result.add(Either.forRight(rename));
                     break;
                 }
-                case "changed":
+                case RascalADTs.FileSystemChangeFields.CHANGED:
                     // TODO: file document identifier version is unknown here. that may be problematic
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
-                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits(docService, (IList) edit.get("edits"), anno, changeAnnotations))));
+                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE), null),
+                            translateTextEdits(docService, (IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, changeAnnotations))));
                     break;
             }
         }
@@ -146,8 +146,8 @@ public class DocumentChanges {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
-                var range = locationToRange(docService, (ISourceLocation) c.get("range"));
-                var replacement = ((IString) c.get("replacement")).getValue();
+                var range = locationToRange(docService, (ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE));
+                var replacement = ((IString) c.get(RascalADTs.TextEditFields.REPLACEMENT)).getValue();
                 var anno = extractAnnotation(c, changeAnnotations);
                 if (anno == null) {
                     // If this edit has no annotation, inherit from its parent.
