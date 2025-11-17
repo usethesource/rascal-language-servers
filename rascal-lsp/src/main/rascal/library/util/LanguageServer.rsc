@@ -587,7 +587,7 @@ data TextEdit(str label = "", str description = label, bool needsConfirmation = 
 
 @synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
 @description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit::replace)) at once.
+Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
 }
 data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
 
