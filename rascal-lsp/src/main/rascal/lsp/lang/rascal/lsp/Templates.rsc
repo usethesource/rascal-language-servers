@@ -43,13 +43,19 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
     list[FileSystemChange] edits = [];
     for (f <- newFiles) {
         try {
-            // check if file is empty
-            if (!(f.extension == "rsc" && exists(f) && isBlank(f))) {
+            if (!(f.extension == "rsc" && exists(f))) {
                 continue;
             }
 
-            template = moduleTemplate(f, getPathConfig);
-            edits += changed([replace(resetRange(f), template)]);
+            name = srcsModule(f, getPathConfig(f), rascalConfig);
+            parse(#QualifiedName, name); // Check if name is valid
+            if (isBlank(f)) {
+                // If the file is empty, add a module header
+                edits += changed([replace(resetRange(f), "module <name>\n\n")]);
+            } else if (m := parseModuleWithSpaces(f)) {
+                // If an existing module was pasted, replace the module name
+                edits += changed([replace(m.top.header.name.src, name)]);
+            }
         } catch str s: {
             // We're probably outside of a source directory
             ; // Since the IDE has a warning for this, do nothing
@@ -69,19 +75,3 @@ bool isBlank(loc l) = isBlank(readFile(l));
 
 bool isBlank(str s)
     = isEmpty(trim(replaceAll(replaceAll(s, "\n", ""), "\r", "")));
-
-str moduleTemplate(loc f, PathConfig(loc) getPathConfig) {
-    pcfg = getPathConfig(f);
-
-    // If this throws, we're most likely outside of a source directory.
-    // Let this bubble up to our caller.
-    qname = srcsModule(f, pcfg, rascalConfig);
-    try {
-        // Test if the qualified name is valid
-        parse(#QualifiedName, qname);
-        // VS Code automatically converts newlines to the editor setting on save
-        return "module <qname>\n\n";
-    } catch ParseError(_): {
-        return "module Invalid\n\n// \'<qname>\' is not a valid module name!\n// TODO Fix the path and module name.";
-    }
-}
