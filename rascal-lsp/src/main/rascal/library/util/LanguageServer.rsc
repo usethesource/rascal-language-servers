@@ -576,9 +576,9 @@ In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits:
 * description: Human-readable string that additionally describes the change, rendered less prominently.
 * needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user information.
 
-Typically, clients group edits by label when showing them to the user.
+Typically, clients provide options to group edits by label/description when showing them to the user.
 
-See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation).
+See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
 }
 @pitfalls{
 When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
