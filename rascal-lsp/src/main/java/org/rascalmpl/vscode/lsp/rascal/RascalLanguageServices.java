@@ -31,7 +31,6 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -41,13 +40,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -231,11 +228,10 @@ public class RascalLanguageServices {
     }
 
 
-    public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig, String newName) {
+    public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
-                IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> getPathConfig.apply((ISourceLocation) t[0]).asConstructor());
-                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
+                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();
@@ -257,33 +253,15 @@ public class RascalLanguageServices {
         }, VF.tuple(VF.list(), VF.map()), exec, false, client);
     }
 
-    private ISourceLocation sourceLocationFromUri(String uri) {
-        try {
-            return URIUtil.createFromURI(uri);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public CompletableFuture<ITuple> getModuleRenames(List<FileRename> fileRenames, Set<ISourceLocation> workspaceFolders, Function<ISourceLocation, PathConfig> getPathConfig) {
+    public InterruptibleFuture<ITuple> getModuleRenames(IList fileRenames, Set<ISourceLocation> workspaceFolders) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
-            return CompletableFuture.completedFuture(emptyResult);
+            return InterruptibleFuture.completedFuture(emptyResult);
         }
 
-        return CompletableFuture.supplyAsync(() -> fileRenames.stream()
-                .map(r -> VF.tuple(sourceLocationFromUri(r.getOldUri()), sourceLocationFromUri(r.getNewUri())))
-                .collect(VF.listWriter())
-            , exec)
-            .thenCompose(renames ->
-                runEvaluator("Rascal module rename", semanticEvaluator, eval -> {
-                    IFunction rascalGetPathConfig = eval.getFunctionValueFactory().function(getPathConfigType, (t, u) -> getPathConfig.apply((ISourceLocation) t[0]).asConstructor());
-                    try {
-                        return (ITuple) eval.call("rascalRenameModule", renames, workspaceFolders.stream().collect(VF.setWriter()), rascalGetPathConfig);
-                    } catch (Throw e) {
-                        throw new RuntimeException(e.getMessage());
-                    }
-                }, emptyResult, exec, false, client).get());
+        return runEvaluator("Rascal module rename", semanticEvaluator, eval ->
+            (ITuple) eval.call("rascalRenameModule", fileRenames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval))
+        , emptyResult, exec, false, client);
     }
 
 

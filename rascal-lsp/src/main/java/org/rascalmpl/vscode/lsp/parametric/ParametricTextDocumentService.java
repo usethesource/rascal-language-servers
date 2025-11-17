@@ -532,7 +532,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     }
 
                     WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(this, edits);
-                    client.applyEdit(new ApplyWorkspaceEditParams(changes)).thenAccept(editResponse -> {
+                    client.applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
                         if (!editResponse.isApplied()) {
                             throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
                                 + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
