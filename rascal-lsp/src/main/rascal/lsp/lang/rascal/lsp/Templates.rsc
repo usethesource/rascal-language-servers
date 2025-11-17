@@ -79,7 +79,8 @@ str moduleTemplate(loc f, PathConfig(loc) getPathConfig) {
     try {
         // Test if the qualified name is valid
         parse(#QualifiedName, qname);
-        return "module <qname>\n\n// TODO Auto-generated module contents.\n";
+        // VS Code automatically converts newlines to the editor setting on save
+        return "module <qname>\n\n";
     } catch ParseError(_): {
         return "module Invalid\n\n// \'<qname>\' is not a valid module name!\n// TODO Fix the path and module name.";
     }
