@@ -34,6 +34,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,8 +47,14 @@ import org.eclipse.lsp4j.debug.services.IDebugProtocolClient;
 import org.eclipse.lsp4j.debug.services.IDebugProtocolServer;
 import org.rascalmpl.debug.DebugHandler;
 import org.rascalmpl.debug.DebugMessageFactory;
+import org.rascalmpl.debug.AbstractInterpreterEventTrigger;
 import org.rascalmpl.debug.IRascalFrame;
 import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.env.Environment;
+import org.rascalmpl.interpreter.env.Pair;
+import org.rascalmpl.interpreter.result.AbstractFunction;
+import org.rascalmpl.interpreter.result.NamedFunction;
+import org.rascalmpl.interpreter.result.Result;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -63,6 +70,7 @@ import org.rascalmpl.vscode.lsp.util.RascalServices;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 /**
@@ -109,8 +117,9 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             capabilities.setExceptionBreakpointFilters(new ExceptionBreakpointsFilter[]{});
             capabilities.setSupportsStepBack(false);
             capabilities.setSupportsRestartFrame(false);
-            capabilities.setSupportsSetVariable(false);
+            capabilities.setSupportsSetVariable(true);
             capabilities.setSupportsRestartRequest(false);
+            capabilities.setSupportsCompletionsRequest(true);
 
             return capabilities;
         });
@@ -447,5 +456,178 @@ public class RascalDebugAdapter implements IDebugProtocolServer {
             return null;
         });
     }
+
+    @Override
+    public CompletableFuture<EvaluateResponse> evaluate(EvaluateArguments args) {
+        return CompletableFuture.supplyAsync(() -> {
+            EvaluateResponse response = new EvaluateResponse();
+            try {
+                // Run the evaluation in the same evaluator (so mutations affect
+                // the real execution context).
+                // To avoid implicitly continuing or firing debug events during this
+                // evaluation we temporarily remove the debugHandler suspend
+                // listener and replace the event trigger with a null trigger.
+                // This prevents the debug adapter to break on any events during evaluation.
+                Result<IValue> result;
+                AbstractInterpreterEventTrigger oldTrigger = evaluator.getEventTrigger();
+                try {
+                    evaluator.removeSuspendTriggerListener(debugHandler);
+                    evaluator.setEventTrigger(AbstractInterpreterEventTrigger.newNullEventTrigger());
+                    result = evaluator.eval(
+                        evaluator.getMonitor(),
+                        args.getExpression(),
+                        URIUtil.rootLocation("prompt")
+                    );
+                } finally {
+                    evaluator.setEventTrigger(oldTrigger);
+                    evaluator.addSuspendTriggerListener(debugHandler);
+                }
+
+                response.setResult(result.toString());
+                response.setType(result.getValue().getType().toString());
+                return response;
+            }
+            catch (Throwable e) {
+                response.setResult(e.getMessage());
+                response.setType("error");
+                return response;
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<SetVariableResponse> setVariable(SetVariableArguments args) {
+        return CompletableFuture.supplyAsync(() -> {
+            SetVariableResponse response = new SetVariableResponse();
+            int reference = args.getVariablesReference();
+            
+            RascalVariable variable = suspendedState.setVariable(reference, args.getName(), args.getValue());
+            if(variable == null){
+                response.setValue("<<unable to set variable>>");
+                response.setType("error");
+                return response;
+            }
+            response.setValue(variable.getDisplayValue());
+            response.setType(variable.getType().toString());
+            response.setVariablesReference(variable.getReferenceID());
+            return response;
+        });
+	}
+
+    private String getFunctionDetail(AbstractFunction func) {
+        StringBuilder detail = new StringBuilder();
+        detail.append(func.toString());
+        if (func instanceof NamedFunction) {
+            NamedFunction nf = (NamedFunction) func;
+            if (nf.hasTag("synopsis")) {
+                IValue v = nf.getTag("synopsis");
+                if (v instanceof IString) {
+                    detail.append(((IString) v).getValue());
+                }
+            }
+        }
+        return detail.toString();
+    }
+
+    private List<CompletionItem> getVariablesCompletionsFromFrame(IRascalFrame frame, String text) {
+        List<CompletionItem> completions = new ArrayList<>();
+        Set<String> frameVariables = frame.getFrameVariables();
+        for(String var : frameVariables){
+            if(var.startsWith(text)){
+                CompletionItem completion = new CompletionItem();
+                completion.setLabel(var);
+                if (text.length() < var.length()) { //remove the prefix
+                    completion.setText(var.substring(text.length()));
+                }
+                else { // exact match
+                    completion.setText("");
+                }
+                completion.setType(CompletionItemType.VARIABLE);
+                completions.add(completion);
+            }
+        }
+        return completions;
+    }
+
+    private List<CompletionItem> getFunctionsCompletionsFromEnvironment(Environment env, String text) {
+        List<CompletionItem> completions = new ArrayList<>();
+        for(Pair<String,List<AbstractFunction>> functions :env.getFunctions()){
+            String funcName = functions.getFirst();
+            if(funcName.startsWith(text)){
+                for(AbstractFunction func : functions.getSecond()){
+                    CompletionItem completion = new CompletionItem();
+                    completion.setLabel(func.getHeader());
+                    if (text.length() < funcName.length()) { //remove the prefix
+                        completion.setText(funcName.substring(text.length()));
+                    }
+                    else { // exact match
+                        completion.setText("");
+                    }
+                    completion.setType(CompletionItemType.FUNCTION);
+                    completion.setDetail(getFunctionDetail(func));
+                    completions.add(completion);
+                }
+            }
+        }
+        return completions;
+    }
+    
+
+    @Override
+    public CompletableFuture<CompletionsResponse> completions(CompletionsArguments args) {
+        return CompletableFuture.supplyAsync(() -> {
+            CompletionsResponse response = new CompletionsResponse();
+            List<CompletionItem> completions = new ArrayList<>();
+            // If in a suspended state, offer completions from the current frame (variables in scope)
+            // Otherwise, return empty completions but could offer completions from the global scope ?
+            if(suspendedState.isSuspended()) {
+                Integer frameId = args.getFrameId();
+                assert frameId != null;
+                IRascalFrame frame = suspendedState.getCurrentStackFrames()[frameId];
+                
+                // Variable names starting with the typed text
+                completions.addAll(getVariablesCompletionsFromFrame(frame, args.getText()));
+
+                // Add functions from current frame's module
+                if(frame instanceof Environment){
+                    Environment env = (Environment) frame;
+                    completions.addAll(getFunctionsCompletionsFromEnvironment(env, args.getText()));
+                }
+
+                // Add module for namespace calls
+                for(String importName : frame.getImports()){
+                    if(importName.startsWith(args.getText())){
+                        CompletionItem completion = new CompletionItem();
+                        completion.setLabel(importName);
+                        if (args.getText().length() < importName.length()) { //remove the prefix
+                            completion.setText(importName.substring(args.getText().length()));
+                        }
+                        else { // exact match
+                            completion.setText("");
+                        }
+                        completion.setType(CompletionItemType.MODULE);
+                        completions.add(completion);
+                    }
+                }
+
+                // Add functions from imported modules
+                // First check for prefix with ::
+                String[] parts = args.getText().split("::");
+                Set<String> importsToSearch = parts.length > 1 ? Set.of(parts[0]) : frame.getImports();
+                String functionToSearch = parts.length > 1 ? parts[1] : args.getText();
+                for(String importName : importsToSearch){
+                    IRascalFrame module = evaluator.getModule(importName);
+                    // Try to cast module IRascalFrame as an Environment to get its functions
+                    if(module != null && module instanceof Environment){
+                        Environment env = (Environment) module;
+                        completions.addAll(getFunctionsCompletionsFromEnvironment(env, functionToSearch));
+                    }
+                }                
+            }
+            response.setTargets(completions.toArray(new CompletionItem[completions.size()]));
+            return response;
+        });
+	}
+
 }
 
