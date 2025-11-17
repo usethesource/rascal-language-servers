@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { By, until, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -263,22 +263,16 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.openModule(TestWorkspace.picoCallsFile);
         await editor.selectText("multiply");
         await bench.executeCommand("view.showCallHierarchy");
-        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'References')]")), Delays.normal, "References panel should open");
+        await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
 
         await editor.selectText("multiply");
         await bench.executeCommand("view.showIncomingCalls");
-        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Callers Of')]")), Delays.normal, "View should switch to incoming calls");
-        await driver.wait(async () => {
-            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
-            return hieraryItems.length === 2;
-        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+        const outgoing = await driver.wait(async () => ignoreFails(new SideBarView().getContent().getSection("Callers Of")), Delays.normal, "View should switch to incoming calls.");
+        await driver.wait(async () => (await outgoing!.getVisibleItems()).length === 2, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
         await editor.selectText("multiply");
         await bench.executeCommand("view.showOutgoingCalls");
-        await driver.wait(() => until.elementLocated(By.xpath("//div[contains(@class, 'title-label')]/h2[contains(text(), 'Calls From')]")), Delays.normal, "View should switch to outgoing calls");
-        await driver.wait(async () => {
-            const hieraryItems = await bench.getSideBar().findElements(By.xpath("//div[@role='treeitem']"));
-            return hieraryItems.length === 3;
-        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+        const incoming = await driver.wait(() => ignoreFails(new SideBarView().getContent().getSection("Calls From")), Delays.normal, "View should switch to outgoing calls");
+        await driver.wait(async () => (await incoming!.getVisibleItems()).length === 3, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });
