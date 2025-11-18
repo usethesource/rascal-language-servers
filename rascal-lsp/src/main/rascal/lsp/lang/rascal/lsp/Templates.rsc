@@ -53,10 +53,10 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
             [QualifiedName] name;
             if (isBlank(f)) {
                 // If the file is empty, add a module header
-                edits += changed([replace(resetRange(f), "module <name>\n\n")]);
+                edits += changed([replace(resetRange(f), "module <name>\n\n")], label = "Empty module", description = "", needsConfirmation = true);
             } else if (m := parseModuleWithSpaces(f)) {
                 // If an existing module was pasted, replace the module name
-                edits += changed([replace(m.top.header.name.src, name)]);
+                edits += changed([replace(m.top.header.name.src, name)], label = "Moved module", description = "", needsConfirmation = true);
             }
         } catch str s: {
             // We're probably outside of a source directory
