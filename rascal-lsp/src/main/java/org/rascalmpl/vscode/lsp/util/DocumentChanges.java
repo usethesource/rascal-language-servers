@@ -43,7 +43,7 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -64,7 +64,7 @@ import io.usethesource.vallang.IWithKeywordParameters;
 public class DocumentChanges {
     private DocumentChanges() { }
 
-    public static WorkspaceEdit translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
+    public static WorkspaceEdit translateDocumentChanges(IList list, final ColumnMaps columns) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
         Map<String, ChangeAnnotation> changeAnnotations = new HashMap<>();
 
@@ -96,7 +96,7 @@ public class DocumentChanges {
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE), null),
-                            translateTextEdits(docService, (IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, changeAnnotations))));
+                            translateTextEdits((IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, columns, changeAnnotations))));
                     break;
             }
         }
@@ -140,11 +140,11 @@ public class DocumentChanges {
         return key;
     }
 
-    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, @Nullable String parentAnno, Map<String, ChangeAnnotation> changeAnnotations) {
+    private static List<TextEdit> translateTextEdits(IList edits, @Nullable String parentAnno, final ColumnMaps columns, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
-                var range = Locations.toRange((ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE), docService.getColumnMaps());
+                var range = Locations.toRange((ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE), columns);
                 var replacement = ((IString) c.get(RascalADTs.TextEditFields.REPLACEMENT)).getValue();
                 var anno = extractAnnotation(c, changeAnnotations);
                 if (anno == null) {

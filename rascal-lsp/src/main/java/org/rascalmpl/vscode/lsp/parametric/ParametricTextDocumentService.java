@@ -466,7 +466,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(tuple -> {
                     IList documentEdits = (IList) tuple.get(0);
                     showMessages(availableClient(), (ISet) tuple.get(1));
-                    return DocumentChanges.translateDocumentChanges(this, documentEdits);
+                    return DocumentChanges.translateDocumentChanges(documentEdits, columns);
                 })
                 .get();
     }
@@ -531,7 +531,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                         return;
                     }
 
-                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(this, edits);
+                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(edits, columns);
                     client.applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
                         if (!editResponse.isApplied()) {
                             throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"

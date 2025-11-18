@@ -428,7 +428,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             })
             .thenApply(t -> {
                 showMessages((ISet) t.get(1));
-                return DocumentChanges.translateDocumentChanges(this, (IList) t.get(0));
+                return DocumentChanges.translateDocumentChanges((IList) t.get(0), columns);
             });
     }
 
@@ -514,7 +514,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     return;
                 }
 
-                var changes = DocumentChanges.translateDocumentChanges(this, edits);
+                var changes = DocumentChanges.translateDocumentChanges(edits, columns);
                 availableClient().applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
                     if (!editResponse.isApplied()) {
                         throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
