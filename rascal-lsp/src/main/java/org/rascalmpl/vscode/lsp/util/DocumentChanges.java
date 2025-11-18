@@ -120,6 +120,7 @@ public class DocumentChanges {
         }
 
         // Mirror defaults in `util::LanguageServer`
+        // Setting any of those, means setting the defaults for the remaing ones
         var label = kws.hasParameter(RascalADTs.TextEditFields.LABEL)
             ? ((IString) kws.getParameter(RascalADTs.TextEditFields.LABEL)).getValue()
             : "";

@@ -28,13 +28,17 @@ package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.AnnotatedTextEdit;
 import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.junit.Test;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -63,6 +67,10 @@ public class DocumentChangesTest {
     private static final Type changeType = TF.abstractDataType(store, "FileSystemChange");
     private static final Type changedCons = TF.constructor(store, changeType, "changed", TF.sourceLocationType(), "file", TF.listType(editType), "edits");
 
+    private IConstructor replace(ISourceLocation loc, String replacement) {
+        return replace(loc, replacement, null, null, null);
+    }
+
     private IConstructor replace(ISourceLocation loc, String replacement, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation) {
         Map<String, IValue> kwArgs = new HashMap<>();
         if (label != null) {
@@ -75,20 +83,38 @@ public class DocumentChangesTest {
             kwArgs.put("needsConfirmation", VF.bool(needsConfirmation));
         }
 
-
         return VF.constructor(replaceCons, new IValue[] {randomSourceLocation(), VF.string(replacement)}, kwArgs);
     }
 
     private IConstructor change(ISourceLocation file, String... replacements) {
-        return change(file, Arrays.stream(replacements).map(r -> replace(file, r, null, null, null)).toArray(s -> new IConstructor[s]));
-    }
-
-    private IConstructor change(ISourceLocation file, IConstructor... replacements) {
         return change(file, null, null, null, replacements);
     }
 
+    private IConstructor change(ISourceLocation file, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation, String... replacements) {
+        return change(file, label, description, needsConfirmation, Arrays.stream(replacements)
+                .map(r -> replace(file, r, null, null, null))
+                .toArray(size -> new IConstructor[size]));
+    }
+
+    private IConstructor change(ISourceLocation file, IConstructor... edits) {
+        return change(file, null, null, null, edits);
+    }
+
     private IConstructor change(ISourceLocation file, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation, IConstructor... edits) {
-        return VF.constructor(changedCons, file.top(), VF.list(edits));
+        Map<String, IValue> kws = new HashMap<>();
+        if (label != null) {
+            kws.put("label", VF.string(label));
+        }
+        if (description != null) {
+            kws.put("description", VF.string(description));
+        }
+        if (needsConfirmation != null) {
+            kws.put("needsConfirmation", VF.bool(needsConfirmation));
+        }
+
+        return VF.constructor(changedCons, file.top(), VF.list(edits))
+            .asWithKeywordParameters()
+            .setParameters(kws);
     }
 
     @Test
@@ -101,5 +127,71 @@ public class DocumentChangesTest {
         assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
         assertEquals(3, docEdit.getEdits().size());
         assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+    }
+
+    @Test
+    public void individualAnnotations() {
+        var file = randomSourceLocation();
+        var rascalEdits = VF.list(change(file, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
+        var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
+        assertEquals(1, wsEdit.getDocumentChanges().size());
+
+        var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
+        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
+        assertEquals(3, docEdit.getEdits().size());
+        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+
+        assertNotAnnotated(docEdit.getEdits().get(0));
+        assertAnnotated(docEdit.getEdits().get(1), "bar", "barDesc", true, wsEdit);
+        assertNotAnnotated(docEdit.getEdits().get(2));
+    }
+
+    @Test
+    public void pushAnnotationsDown() {
+        var rascalEdits = VF.list(change(randomSourceLocation(), "foo", null, (Boolean) null, "a", "b", "c"));
+        var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
+        assertEquals(1, wsEdit.getDocumentChanges().size());
+
+        var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
+        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
+        assertEquals(3, docEdit.getEdits().size());
+        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+
+        for (var e : docEdit.getEdits()) {
+            assertAnnotated(e, "foo", "foo", false, wsEdit);
+        }
+    }
+
+    @Test
+    public void keepAnnotationsOnIndividualEdits() {
+        var file = randomSourceLocation();
+        var rascalEdits = VF.list(change(file, "foo", null, (Boolean) null, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
+        var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
+        assertEquals(1, wsEdit.getDocumentChanges().size());
+
+        var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
+        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
+        assertEquals(3, docEdit.getEdits().size());
+        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+
+        assertAnnotated(docEdit.getEdits().get(0), "foo", "foo", false, wsEdit);
+        assertAnnotated(docEdit.getEdits().get(1), "bar", "barDesc", true, wsEdit);
+        assertAnnotated(docEdit.getEdits().get(2), "foo", "foo", false, wsEdit);
+    }
+
+    // Utility methods
+
+    private void assertNotAnnotated(TextEdit e) {
+        assertFalse(String.format("Edit that replaces '%s' should not be annotated", e.getNewText()), e instanceof AnnotatedTextEdit);
+    }
+
+    private void assertAnnotated(TextEdit e, String label, String description, boolean needsConfirmation, WorkspaceEdit wsEdit) {
+        assertTrue(String.format("Edit that replaces '%s' should be annotated", e.getNewText()), e instanceof AnnotatedTextEdit);
+        var annoId = ((AnnotatedTextEdit) e).getAnnotationId();
+        var anno = wsEdit.getChangeAnnotations().get(annoId);
+
+        assertEquals(label, anno.getLabel());
+        assertEquals(description, anno.getDescription());
+        assertEquals(needsConfirmation, anno.getNeedsConfirmation());
     }
 }
