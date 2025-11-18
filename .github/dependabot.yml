@@ -25,3 +25,7 @@ updates:
         dependency-type: "development"
         exclude-patterns:
         - "@types/vscode"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
