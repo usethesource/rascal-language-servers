@@ -18,7 +18,7 @@ We only list significant changes, for a full changelog [please review the commit
 * Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambiguous parts.
 * DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
-* DSLs can annotate text edits with descriptions and require user confirmation using `ChangeAnnotation`.
+* DSLs can extend text edits with labels and descriptions, and mark them as requiring user confirmation, using keyword parameters (`str label`, `str description`, `bool needsConfirmation`). See `util::LanguageServer::TextEdit`.
 
 ### Improved features
 
