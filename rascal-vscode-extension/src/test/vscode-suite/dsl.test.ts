@@ -267,12 +267,18 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
         await editor.selectText("multiply");
         await bench.executeCommand("view.showIncomingCalls");
-        const outgoing = await driver.wait(async () => ignoreFails(new SideBarView().getContent().getSection("Callers Of")), Delays.normal, "View should switch to incoming calls.");
-        await driver.wait(async () => (await outgoing!.getVisibleItems()).length === 2, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+        await driver.wait(async () => {
+            const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
+            const items = await ignoreFails(outgoing!.getVisibleItems());
+            return items!.length === 2;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
         await editor.selectText("multiply");
         await bench.executeCommand("view.showOutgoingCalls");
-        const incoming = await driver.wait(() => ignoreFails(new SideBarView().getContent().getSection("Calls From")), Delays.normal, "View should switch to outgoing calls");
-        await driver.wait(async () => (await incoming!.getVisibleItems()).length === 3, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+        await driver.wait(async () => {
+            const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
+            const items = await ignoreFails(incoming!.getVisibleItems());
+            return items!.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });
