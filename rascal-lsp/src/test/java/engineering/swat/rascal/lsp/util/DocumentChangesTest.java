@@ -89,20 +89,16 @@ public class DocumentChangesTest {
     }
 
     private IConstructor change(ISourceLocation file, String... replacements) {
-        return change(file, null, null, null, replacements);
-    }
-
-    private IConstructor change(ISourceLocation file, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation, String... replacements) {
-        return change(file, label, description, needsConfirmation, Arrays.stream(replacements)
-                .map(r -> replace(file, r, null, null, null))
-                .toArray(size -> new IConstructor[size]));
+        return change(file, null, null, null, Arrays.stream(replacements)
+            .map(r -> replace(file, r, null, null, null))
+            .toArray(size -> new IConstructor[size]));
     }
 
     private IConstructor change(ISourceLocation file, IConstructor... edits) {
         return change(file, null, null, null, edits);
     }
 
-    private IConstructor change(ISourceLocation file, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation, IConstructor... edits) {
+    private IConstructor change(ISourceLocation file, @Nullable String label, @Nullable String description, @Nullable Boolean needsConfirmation, IConstructor[] edits) {
         Map<String, IValue> kws = new HashMap<>();
         if (label != null) {
             kws.put("label", VF.string(label));
@@ -140,7 +136,8 @@ public class DocumentChangesTest {
 
     @Test
     public void pushAnnotationsDown() {
-        var rascalEdits = VF.list(change(randomSourceLocation(), "foo", null, (Boolean) null, "a", "b", "c"));
+        var file = randomSourceLocation();
+        var rascalEdits = VF.list(change(file, "foo", null, null, new IConstructor[] {replace(file, "a"), replace(file, "b"), replace(file, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
         assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
 
@@ -153,7 +150,7 @@ public class DocumentChangesTest {
     @Test
     public void keepAnnotationsOnIndividualEdits() {
         var file = randomSourceLocation();
-        var rascalEdits = VF.list(change(file, "foo", null, (Boolean) null, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
+        var rascalEdits = VF.list(change(file, "foo", null, null, new IConstructor[] {replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
         assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
 
