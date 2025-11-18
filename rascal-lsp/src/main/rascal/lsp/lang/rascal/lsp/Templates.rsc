@@ -29,7 +29,6 @@ module lang::rascal::lsp::Templates
 
 import IO;
 import Location;
-import ParseTree;
 import String;
 import util::PathConfig;
 import util::Reflective;
@@ -49,7 +48,9 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
             }
 
             name = srcsModule(f, getPathConfig(f), rascalConfig);
-            parse(#QualifiedName, name); // Check if name is valid
+            // Check if name is valid
+            // Instead of `parse`, use as-type to work around https://github.com/usethesource/rascal/issues/2522
+            [QualifiedName] name;
             if (isBlank(f)) {
                 // If the file is empty, add a module header
                 edits += changed([replace(resetRange(f), "module <name>\n\n")]);
