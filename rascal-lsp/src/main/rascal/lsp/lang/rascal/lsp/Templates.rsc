@@ -50,7 +50,7 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
             name = srcsModule(f, getPathConfig(f), rascalConfig);
             // Check if name is valid
             // Instead of `parse`, use as-type to work around https://github.com/usethesource/rascal/issues/2522
-            [QualifiedName] name;
+            _ = [QualifiedName] name;
             if (isBlank(f)) {
                 // If the file is empty, add a module header
                 edits += changed([replace(resetRange(f), "module <name>\n\n")], label = "Empty module", description = "", needsConfirmation = true);
