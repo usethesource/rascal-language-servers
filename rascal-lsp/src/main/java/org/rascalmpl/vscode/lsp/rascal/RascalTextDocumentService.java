@@ -398,7 +398,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
                 return findQualifiedNameUnderCursor(focus);
             })
-            .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
+            .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), columns))
             .thenApply(Either3::forFirst), () -> null);
     }
 

@@ -36,7 +36,6 @@ import org.eclipse.lsp4j.AnnotatedTextEdit;
 import org.eclipse.lsp4j.ChangeAnnotation;
 import org.eclipse.lsp4j.CreateFile;
 import org.eclipse.lsp4j.DeleteFile;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFile;
 import org.eclipse.lsp4j.ResourceOperation;
 import org.eclipse.lsp4j.TextDocumentEdit;
@@ -44,7 +43,6 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -146,7 +144,7 @@ public class DocumentChanges {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
-                var range = locationToRange(docService, (ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE));
+                var range = Locations.toRange((ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE), docService.getColumnMaps());
                 var replacement = ((IString) c.get(RascalADTs.TextEditFields.REPLACEMENT)).getValue();
                 var anno = extractAnnotation(c, changeAnnotations);
                 if (anno == null) {
@@ -159,11 +157,6 @@ public class DocumentChanges {
                 return new TextEdit(range, replacement);
             })
             .collect(Collectors.toList());
-    }
-
-    public static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
-        LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
-        return Locations.toRange(loc, columnMap);
     }
 
     private static String getFileURI(IConstructor edit, String label) {
