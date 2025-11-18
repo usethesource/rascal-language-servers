@@ -29,6 +29,7 @@ package engineering.swat.rascal.lsp.util;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
@@ -45,6 +46,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
@@ -120,13 +122,7 @@ public class DocumentChangesTest {
     @Test
     public void basicEdits() {
         var rascalEdits = VF.list(change(randomSourceLocation(), "a", "b", "c"));
-        var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEquals(1, wsEdit.getDocumentChanges().size());
-
-        var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
-        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
-        assertEquals(3, docEdit.getEdits().size());
-        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
     }
 
     @Test
@@ -134,13 +130,9 @@ public class DocumentChangesTest {
         var file = randomSourceLocation();
         var rascalEdits = VF.list(change(file, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEquals(1, wsEdit.getDocumentChanges().size());
+        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
-        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
-        assertEquals(3, docEdit.getEdits().size());
-        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
-
         assertNotAnnotated(docEdit.getEdits().get(0));
         assertAnnotated(docEdit.getEdits().get(1), "bar", "barDesc", true, wsEdit);
         assertNotAnnotated(docEdit.getEdits().get(2));
@@ -150,13 +142,9 @@ public class DocumentChangesTest {
     public void pushAnnotationsDown() {
         var rascalEdits = VF.list(change(randomSourceLocation(), "foo", null, (Boolean) null, "a", "b", "c"));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEquals(1, wsEdit.getDocumentChanges().size());
+        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
-        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
-        assertEquals(3, docEdit.getEdits().size());
-        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
-
         for (var e : docEdit.getEdits()) {
             assertAnnotated(e, "foo", "foo", false, wsEdit);
         }
@@ -167,13 +155,9 @@ public class DocumentChangesTest {
         var file = randomSourceLocation();
         var rascalEdits = VF.list(change(file, "foo", null, (Boolean) null, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEquals(1, wsEdit.getDocumentChanges().size());
+        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
-        assertEquals(randomSourceLocation().getURI().toString(), docEdit.getTextDocument().getUri());
-        assertEquals(3, docEdit.getEdits().size());
-        assertArrayEquals(new String [] {"a", "b", "c"}, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
-
         assertAnnotated(docEdit.getEdits().get(0), "foo", "foo", false, wsEdit);
         assertAnnotated(docEdit.getEdits().get(1), "bar", "barDesc", true, wsEdit);
         assertAnnotated(docEdit.getEdits().get(2), "foo", "foo", false, wsEdit);
@@ -193,5 +177,20 @@ public class DocumentChangesTest {
         assertEquals(label, anno.getLabel());
         assertEquals(description, anno.getDescription());
         assertEquals(needsConfirmation, anno.getNeedsConfirmation());
+    }
+
+    private void assertEditStructure(IList rascalEdits, Map<String, String[]> edits) {
+        var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
+        assertEquals(edits.size(), wsEdit.getDocumentChanges().size());
+
+        var expectedEdits = new HashMap<>(edits);
+        for (var either : wsEdit.getDocumentChanges()) {
+            var docEdit = either.getLeft();
+            var expected = expectedEdits.remove(docEdit.getTextDocument().getUri());
+            assertNotNull("Unexpected TextDocumentEdit for " + docEdit.getTextDocument().getUri(), expected);
+            assertEquals(expected.length, docEdit.getEdits().size());
+            assertArrayEquals(expected, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+        }
+        assertTrue(String.format("Expected edits for %s, but got none", expectedEdits.keySet()), expectedEdits.isEmpty());
     }
 }
