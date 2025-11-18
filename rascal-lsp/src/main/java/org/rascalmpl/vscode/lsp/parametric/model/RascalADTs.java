@@ -48,6 +48,7 @@ public class RascalADTs {
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
         public static final String SELECTION_RANGE = "selectionRange";
+        public static final String CALL_HIERARCHY = "callHierarchy";
 
         public static final String RENAME_SERVICE = "renameService";
         public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
@@ -89,6 +90,18 @@ public class RascalADTs {
         public static final String COMMAND = "command";
         public static final String TITLE = "title";
         public static final String KIND = "kind";
+    }
+
+    public static class CallHierarchyFields {
+        private CallHierarchyFields() { }
+
+        public static final String NAME = "name";
+        public static final String KIND = "kind";
+        public static final String DEFINITION = "src";
+        public static final String SELECTION = "selection";
+        public static final String TAGS = "tags";
+        public static final String DETAIL = "detail";
+        public static final String DATA = "data";
     }
 
     public static class FileSystemChangeFields {
