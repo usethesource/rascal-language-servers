@@ -60,9 +60,7 @@ public class DocumentChangesTest {
 
     private static final ColumnMaps columns = new ColumnMaps(l -> "");
 
-    private ISourceLocation randomSourceLocation() {
-        return VF.sourceLocation("foo.rsc", 0, 0, 1, 1, 0, 0);
-    }
+    private static final ISourceLocation TEST_LOC = VF.sourceLocation("foo.rsc", 0, 0, 1, 1, 0, 0);
 
     private static final Type editType = TF.abstractDataType(store, "TextEdit");
     private static final Type replaceCons = TF.constructor(store, editType, "replace", TF.sourceLocationType(), "range", TF.stringType(), "replacement");
@@ -117,16 +115,15 @@ public class DocumentChangesTest {
 
     @Test
     public void basicEdits() {
-        var rascalEdits = VF.list(change(randomSourceLocation(), "a", "b", "c"));
-        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
+        var rascalEdits = VF.list(change(TEST_LOC, "a", "b", "c"));
+        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
     }
 
     @Test
     public void individualAnnotations() {
-        var file = randomSourceLocation();
-        var rascalEdits = VF.list(change(file, replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")));
+        var rascalEdits = VF.list(change(TEST_LOC, replace(TEST_LOC, "a"), replace(TEST_LOC, "b", "bar", "barDesc", true), replace(TEST_LOC, "c")));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         assertNotAnnotated(docEdit.getEdits().get(0));
@@ -136,10 +133,9 @@ public class DocumentChangesTest {
 
     @Test
     public void pushAnnotationsDown() {
-        var file = randomSourceLocation();
-        var rascalEdits = VF.list(change(file, "foo", null, null, new IConstructor[] {replace(file, "a"), replace(file, "b"), replace(file, "c")}));
+        var rascalEdits = VF.list(change(TEST_LOC, "foo", null, null, new IConstructor[] {replace(TEST_LOC, "a"), replace(TEST_LOC, "b"), replace(TEST_LOC, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         for (var e : docEdit.getEdits()) {
@@ -149,10 +145,9 @@ public class DocumentChangesTest {
 
     @Test
     public void keepAnnotationsOnIndividualEdits() {
-        var file = randomSourceLocation();
-        var rascalEdits = VF.list(change(file, "foo", null, null, new IConstructor[] {replace(file, "a"), replace(file, "b", "bar", "barDesc", true), replace(file, "c")}));
+        var rascalEdits = VF.list(change(TEST_LOC, "foo", null, null, new IConstructor[] {replace(TEST_LOC, "a"), replace(TEST_LOC, "b", "bar", "barDesc", true), replace(TEST_LOC, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(randomSourceLocation().getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         assertAnnotated(docEdit.getEdits().get(0), "foo", "foo", false, wsEdit);
