@@ -85,7 +85,7 @@ public class DocumentChangesTest {
             kwArgs.put("needsConfirmation", VF.bool(needsConfirmation));
         }
 
-        return VF.constructor(replaceCons, new IValue[] {randomSourceLocation(), VF.string(replacement)}, kwArgs);
+        return VF.constructor(replaceCons, new IValue[] {loc, VF.string(replacement)}, kwArgs);
     }
 
     private IConstructor change(ISourceLocation file, String... replacements) {
