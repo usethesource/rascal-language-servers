@@ -26,19 +26,18 @@
     POSSIBILITY OF SUCH DAMAGE.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.22.0-SNAPSHOT</version>
+  <version>2.22.0-RC3-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
-    <log4j2.version>2.24.3</log4j2.version>
+    <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+    <log4j2.version>2.25.2</log4j2.version>
     <lsp4j.version>0.24.0</lsp4j.version>
+    <mockito.version>5.20.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -65,7 +64,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.0-RC42</version>
+      <version>0.41.0-RC76</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -101,9 +100,20 @@
       <version>${log4j2.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-layout-template-json</artifactId>
+      <version>${log4j2.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j.debug</artifactId>
       <version>${lsp4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <build>
@@ -128,14 +138,14 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.0</version>
+        <version>3.14.1</version>
         <configuration>
           <release>11</release>
           <showWarnings>true</showWarnings>
-          <compilerArguments>
+          <compilerArgs>
             <parameters />
             <Werror />
-          </compilerArguments>
+          </compilerArgs>
         </configuration>
       </plugin>
       <plugin>
@@ -147,73 +157,52 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.4</version>
           </dependency>
         </dependencies>
       </plugin>
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.0-RC22</version>
+        <version>0.30.0-RC25</version>
         <configuration>
-          <errorsAsWarnings>false</errorsAsWarnings>
-          <bin>${project.build.outputDirectory}</bin>
-          <srcs>
-            <src>${project.basedir}/src/main/rascal</src>
-          </srcs>
-          <srcIgnores>
-            <!-- after we get a new version of the rascal-maven plugin, we might be able to typecheck these modules as well, untill then, no such luck -->
-            <ignore>${project.basedir}/src/main/rascal/framework/</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/refactor/</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/lsp/IDECheckerWrapper.rsc</ignore>
-            <ignore>${project.basedir}/src/main/rascal/lang/rascal/tests/rename</ignore>
-          </srcIgnores>
-          <sourceLookup>|mvn://${project.groupId}--${project.name}--${project.version}|</sourceLookup>
-          <enableStandardLibrary>false</enableStandardLibrary>
+            <errorsAsWarnings>false</errorsAsWarnings>
+            <bin>${project.build.outputDirectory}</bin>
+            <srcs>
+                <src>${project.basedir}/src/main/rascal/library</src>
+            </srcs>
+            <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
+            <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
         </configuration>
         <executions>
           <execution>
             <?m2e ignore?>
-            <id>it-compile</id>
+            <id>default-compile</id>
             <phase>compile</phase>
             <goals>
               <goal>compile</goal>
             </goals>
           </execution>
           <execution>
-            <id>it-package</id>
+            <id>default-package</id>
             <phase>prepare-package</phase>
             <goals>
               <goal>package</goal>
             </goals>
           </execution>
-          <!-- while we have RC builds of rascal, we cannot have tutor builds
           <execution>
-            <id>default-cli</id>
-            <phase>compile</phase>
+            <id>default-tutor</id>
+            <phase>process-resources</phase>
             <goals>
               <goal>tutor</goal>
             </goals>
-            <configuration>
-              <enableStandardLibrary>false</enableStandardLibrary>
-              <errorsAsWarnings>false</errorsAsWarnings>
-              <bin>${project.build.outputDirectory}</bin>
-              <sources>|http://github.com/usethesource/rascal-language-servers/blob/main/rascal-lsp|</sources>
-              <issues>|http://github.com/usethesource/rascal-language-servers/issues|</issues>
-              <srcs>
-                <src>${project.basedir}/src/main/rascal</src>
-              </srcs>
-              <ignores>
-                <ignore>${project.basedir}/src/main/rascal/lang</ignore>
-              </ignores>
-            </configuration>
-          </execution> -->
+          </execution>
         </executions>
       </plugin>
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>3.9.0</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -242,7 +231,14 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.6.1</version>
+        <dependencies>
+          <dependency> <!-- correctly shade multiple log4j2 depencneis -->
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
+              <version>0.2.0</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <phase>package</phase>
@@ -251,9 +247,12 @@
             </goals>
             <configuration>
               <transformers>
+                <transformer implementation="org.apache.logging.log4j.maven.plugins.shade.transformer.Log4j2PluginCacheFileTransformer"/>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
                     <Name>rascal-lsp</Name>
+                    <Multi-Release>true</Multi-Release>
                     <Main-Class>org.rascalmpl.vscode.lsp.RascalLanguageServer</Main-Class>
                     <Specification-Version>${project.version}</Specification-Version>
                     <Specification-Vendor>http://www.usethesource.io</Specification-Vendor>
@@ -334,7 +333,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.5.0</version>
+        <version>3.6.2</version>
         <executions>
           <execution>
             <id>enforce-maven</id>
@@ -376,7 +375,7 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.12</version>
+            <version>0.8.14</version>
             <executions>
               <execution>
                 <id>prepare-agent</id>

@@ -26,31 +26,49 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.util.Set;
+import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public interface IBaseTextDocumentService extends TextDocumentService {
+    static final Duration NO_DEBOUNCE = Duration.ZERO;
+    static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
+
     void initializeServerCapabilities(ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
+    void initialized();
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
+
+    void projectAdded(String name, ISourceLocation projectRoot);
+    void projectRemoved(String name, ISourceLocation projectRoot);
+
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
-    TextDocumentState getDocumentState(ISourceLocation file);
+    ColumnMaps getColumnMaps();
+    @Nullable TextDocumentState getDocumentState(ISourceLocation file);
 
     boolean isManagingFile(ISourceLocation file);
 
-    default void didRenameFiles(RenameFilesParams params, Set<ISourceLocation> workspaceFolders) {}
+    void didCreateFiles(CreateFilesParams params);
+    void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);
+    void didDeleteFiles(DeleteFilesParams params);
+    void cancelProgress(String progressId);
+
 }

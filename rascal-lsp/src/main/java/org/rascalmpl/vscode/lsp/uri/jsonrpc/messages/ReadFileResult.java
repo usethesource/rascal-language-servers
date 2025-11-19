@@ -26,16 +26,14 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class ReadFileResult extends IOResult {
+public class ReadFileResult {
 
-    private @Nullable String contents;
+    @NonNull private String contents;
 
-    public ReadFileResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable String contents) {
-        super(errorCode, errorMessage);
+    public ReadFileResult(@NonNull String contents) {
         this.contents = contents;
     }
 
@@ -46,22 +44,21 @@ public class ReadFileResult extends IOResult {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof ReadFileResult) {
-            return super.equals(obj)
-                && Objects.equals(contents, ((ReadFileResult)obj).contents);
+            return contents.equals(((ReadFileResult)obj).contents);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * (Objects.hashCode(contents) + 1);
+        return contents.hashCode();
     }
 
     @Override
     public String toString() {
-        return "ReadFileResult [contents=" + contents + " io=" + super.toString() + "]";
+        return "ReadFileResult [contents=" + contents + "]";
     }
 
 }

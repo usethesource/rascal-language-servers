@@ -55,6 +55,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
@@ -73,16 +74,15 @@ import org.rascalmpl.interpreter.utils.LimitedResultWriter;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.uri.classloaders.SourceLocationClassLoader;
 import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
+import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.io.StandardTextWriter;
@@ -90,26 +90,50 @@ import io.usethesource.vallang.io.StandardTextWriter;
 public class EvaluatorUtil {
     private static final Logger logger = LogManager.getLogger(EvaluatorUtil.class);
 
-    public static <T> InterruptibleFuture<T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, T> call, T defaultResult, Executor exec, boolean isParametric, LanguageClient client) {
+    public static <T> InterruptibleFuture<@PolyNull T> runEvaluator(String task, CompletableFuture<Evaluator> eval, Function<Evaluator, @PolyNull T> call, @PolyNull T interruptedResult, Executor exec, boolean isParametric, LanguageClient client) {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         AtomicReference<@Nullable Evaluator> runningEvaluator = new AtomicReference<>(null);
-        return new InterruptibleFuture<>(eval.thenApplyAsync(actualEval -> {
+        AtomicReference<InterruptibleFuture<@PolyNull T>> future = new AtomicReference<>();
+
+        future.set(new InterruptibleFuture<>(eval.<@PolyNull T>thenApplyAsync(actualEval -> {
             try {
+                InterruptibleFuture<@PolyNull T> self;
+                while ((self = future.get()) == null) {
+                    // yield until our value has been set
+                    Thread.yield();
+                }
+                var monitor = actualEval.getMonitor();
+                // unwrap until we find the RascalLSPMonitor doing the heavy lifting
+                if (monitor instanceof LSPIDEServices) {
+                    monitor = ((LSPIDEServices) monitor).getMonitor();
+                }
+                if (monitor instanceof RascalLSPMonitor) {
+                    ((RascalLSPMonitor) monitor).registerActiveFuture(task, self);
+                }
+
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
                     boolean jobSuccess = false;
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
-                            return defaultResult;
+                            return interruptedResult;
                         }
-                        T result = call.apply(actualEval);
+                        var result = call.apply(actualEval);
                         jobSuccess = true;
                         return result;
                     } catch (InterruptException e) {
-                        return defaultResult;
+                        // Since the interrupt is not caught by try-catch in Rascal, any jobs started from Rascal with the same name as this task will be 'nested', and might lead to stale progress bars.
+                        // Here, we remove all (nested) jobs.
+                        actualEval.endAllJobs();
+                        return interruptedResult;
                     } finally {
-                        actualEval.jobEnd(task, jobSuccess);
+                        if (jobSuccess) {
+                            actualEval.jobEnd(task, jobSuccess);
+                        }
+                        if (monitor instanceof RascalLSPMonitor) {
+                            ((RascalLSPMonitor) monitor).unregisterActiveFuture(task);
+                        }
                         runningEvaluator.set(null);
                         actualEval.__setInterrupt(false);
                     }
@@ -148,7 +172,9 @@ public class EvaluatorUtil {
             if (actualEval != null) {
                 actualEval.interrupt();
             }
-        });
+        }));
+
+        return future.get();
     }
 
     private static void extractReasonAndStackTrace(Throwable e, String task, StringWriter reason, StringWriter stackTrace) {
@@ -169,7 +195,7 @@ public class EvaluatorUtil {
 
     private enum ErrorHandlingOption {
         // The order in which these values are declared is the order in which they will appear in the VS Code tooltip
-        REPORT_ON_GITHUB("Report on GitHub"),
+        REPORT_ON_GITHUB("Report on Rascal GitHub"),
         COPY_STACK_TRACE("Copy stack trace to clipboard"),
         IGNORE("Ignore");
 
@@ -193,7 +219,11 @@ public class EvaluatorUtil {
         }
 
         public static ErrorHandlingOption valueOfLabel(String label) {
-            return BY_LABEL.get(label);
+            var result = BY_LABEL.get(label);
+            if (result == null) {
+                throw new IllegalArgumentException(label + " is not a handling option");
+            }
+            return result;
         }
     }
 
@@ -299,55 +329,83 @@ public class EvaluatorUtil {
         return "Static error: " + e.getMessage();
     }
 
+    public static PathConfig addLSPSources(PathConfig pcfg, boolean includingInternalModules) {
+        try {
+            var lspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
+            pcfg = pcfg.addSourceLoc(URIUtil.getChildLocation(lspJar, "library"));
+            if (includingInternalModules) {
+                pcfg = pcfg.addSourceLoc(URIUtil.getChildLocation(lspJar, "lsp"));
+            }
+            return pcfg;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Could not add rascal-lsp to the path config", ex);
+        }
+    }
+
+    public static PathConfig addRascalCompilerSources(PathConfig pcfg) {
+        try {
+            var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntimeJar());
+            return pcfg
+                .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/compiler"))
+                .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/typepal"))
+                ;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Could not add rascal-compiler to the path config", ex);
+        }
+    }
+
+    public static class LSPContext {
+        private final ExecutorService exec;
+        private final IBaseTextDocumentService docService;
+        private final BaseWorkspaceService workspaceService;
+        private final IBaseLanguageClient client;
+
+        public LSPContext(ExecutorService exec, IBaseTextDocumentService docService,
+            BaseWorkspaceService workspaceService, IBaseLanguageClient client) {
+            this.exec = exec;
+            this.docService = docService;
+            this.workspaceService = workspaceService;
+            this.client = client;
+        }
+    }
+
     /**
      * This function is used to construct evaluators used by LSP servers, not the terminal REPL
      */
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(ExecutorService exec, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, String label, IRascalMonitor monitor, PathConfig pcfg, boolean addRascalCore, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            IDEServices services = new LSPIDEServices(client, docService, workspaceService, customLog, monitor);
+            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, customLog, monitor);
             boolean jobSuccess = false;
             String jobName = "Loading " + label;
             try {
                 services.jobStart(jobName, imports.length);
-                Evaluator eval = ShellEvaluatorFactory.getDefaultEvaluator(Reader.nullReader(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.INFO).buildPrintWriter(),
-                        IoBuilder.forLogger(customLog).setLevel(Level.ERROR).buildPrintWriter(), services);
+                var eval = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(
+                    pcfg.getProjectRoot(),
+                    pcfg,
+                    Reader.nullReader(),
+                    logWriter(customLog, Level.INFO),
+                    logWriter(customLog, Level.ERROR),
+                    services
+                );
 
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
-                eval.addClassLoader(IValue.class.getClassLoader());
-
-                if (addRascalCore) {
-                    var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntimeJar());
-                    var rascalCore = URIUtil.getChildLocation(rascalJar, "org/rascalmpl/compiler");
-                    var typePalJar = URIUtil.getChildLocation(rascalJar, "org/rascalmpl/typepal");
-
-                    eval.addRascalSearchPath(typePalJar);
-                    eval.addRascalSearchPath(rascalCore);
-                }
-
-                var rascalLspJar = JarURIResolver.jarify(PathConfig.resolveProjectOnClasspath("rascal-lsp"));
-                eval.addRascalSearchPath(rascalLspJar);
-
-                if (pcfg != null) {
-                    for (IValue src : pcfg.getSrcs()) {
-                        eval.addRascalSearchPath((ISourceLocation) src);
-                    }
-                    eval.addClassLoader(new SourceLocationClassLoader(pcfg.getLibsAndTarget(), ClassLoader.getSystemClassLoader()));
-                }
 
                 eval.doImport(services, imports);
 
                 jobSuccess = true;
                 return eval;
             }
-            catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
             finally {
                 services.jobEnd(jobName, jobSuccess);
             }
-        }, exec);
+        }, context.exec);
+    }
+
+    private static PrintWriter logWriter(Logger customLog, Level level) {
+        return IoBuilder.forLogger(customLog)
+            .setLevel(level)
+            .buildPrintWriter();
     }
 
 }

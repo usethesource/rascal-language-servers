@@ -27,19 +27,45 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
+import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.parser.Parser;
-import org.rascalmpl.parser.gtd.result.action.IActionExecutor;
 import org.rascalmpl.parser.gtd.result.out.DefaultNodeFlattener;
+import org.rascalmpl.parser.gtd.util.StackNodeIdDispenser;
 import org.rascalmpl.parser.uptr.UPTRNodeFactory;
 import org.rascalmpl.parser.uptr.action.NoActionExecutor;
+import org.rascalmpl.parser.uptr.recovery.ToTokenRecoverer;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 
 import io.usethesource.vallang.ISourceLocation;
 
 public class RascalServices {
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(VF);
+    public static final int MAX_AMB_DEPTH = 2;
+    public static final int MAX_RECOVERY_ATTEMPTS = 50;
+    public static final int MAX_RECOVERY_TOKENS = 3;
+
+    private RascalServices() { /* hide implicit public constructor */ }
+
     public static ITree parseRascalModule(ISourceLocation loc, char[] input) {
-        IActionExecutor<ITree> actions = new NoActionExecutor();
-        return new RascalParser().parse(Parser.START_MODULE, loc.getURI(), input, actions,
-            new DefaultNodeFlattener<>(), new UPTRNodeFactory(true));
+        // TODO: Which of these objects are stateless and can be reused?
+
+        // Parse
+        RascalParser parser = new RascalParser();
+        ITree tree = parser.parse(
+            Parser.START_MODULE, loc.getURI(), input, MAX_AMB_DEPTH,
+            new NoActionExecutor(),
+            new DefaultNodeFlattener<>(),
+            new UPTRNodeFactory(true),
+            new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
+
+        // We pre-emptively disambiguate parse errors here to avoid performance issues.
+        // Parse forests with parse errors can be very large, and Rascal is currently
+        // not well equipped to handle such large forests. For instance visits and deep matches
+        // can take a long time until we implement memoization in those constructs.
+        // In the future we will remove this automatic disambiguation so language developers are free
+        // to handle parse errors as they see fit.
+        return (ITree) RECOVERY.disambiguateParseErrors(tree, VF.bool(true));
     }
 }

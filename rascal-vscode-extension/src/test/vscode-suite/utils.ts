@@ -25,11 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { assert } from "chai";
+import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
-import path = require("path");
+import * as os from 'os';
 import { env } from "process";
 import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -60,12 +61,14 @@ export class TestWorkspace {
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
+    public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
+    public static readonly picoCallsFile = path.join(src(this.testProject, 'pico'), 'calls.pico');
 }
 
 
@@ -117,6 +120,8 @@ export class RascalREPL {
             } catch (_ignored) {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
+                console.log('Terminal contents after failing to initialize REPL:');
+                console.log(await this.terminal.getText());
                 return false;
             }
         }
@@ -170,9 +175,24 @@ export class RascalREPL {
 function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCondition {
     return new WebElementCondition("locating element in scope", async (_driver) => {
         try {
-            const result = await scope.findElements(selector);
+            const result = await ignoreFails(scope.findElements(selector));
             if (result && result.length > 0) {
                 return result[0] ?? null;
+            }
+            return null;
+        }
+        catch (_ignored) {
+            return null;
+        }
+    });
+}
+
+function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
+    return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
+        try {
+            const result = await scope.findElements(selector);
+            if (result && result.length >= minCount) {
+                return scope;
             }
             return null;
         }
@@ -208,6 +228,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
+        await assureDebugLevelLoggingIsEnabled();
     }
 
     async cleanup() {
@@ -237,6 +258,11 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
     }
 
+    hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
+        // We need to differentiate between real parse errors (error at first line) and recovered parse error (error at parse position).
+        return this.driver.wait(scopedElementLocatedCountTimes(editor, By.className("squiggly-error"), errorCount), timeout, message, 50);
+    }
+
     hasSyntaxHighlighting(editor: TextEditor, timeout = Delays.normal, message = "Syntax highlighting should be present"): Promise<WebElement> {
         return this.hasElement(editor, By.css('span[class^="mtk"]:not(.mtk1)'), timeout, message);
     }
@@ -252,8 +278,9 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                this.screenshot(`revert of ${title} failed ` + tryCount);
+                console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
@@ -269,7 +296,7 @@ export class IDEOperations {
             }
             catch (ignored) {
                 this.screenshot("open editor check failed " + tryCount);
-                console.log("Open editor dirtry check failed: ", ignored);
+                console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
             }
@@ -277,7 +304,7 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        this.browser.openResources(file); // intentionally not waiting, since it sleeps for 3s without anything happening
+        await this.browser.openResources(file);
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
@@ -287,12 +314,18 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
+    async appendSpace(editor: TextEditor, line = 1) {
+        const prompt = await new Workbench().openCommandPrompt();
+        await prompt.setText(`:${line},10000`);
+        await prompt.confirm();
+        await editor.typeText(' ');
+    }
+
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
-        const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
-        await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.appendSpace(editor);
         await sleep(50);
         await editor.save();
         if (waitForFinish) {
@@ -330,8 +363,71 @@ export class IDEOperations {
         await menuContainer.sendKeys(Key.RETURN);
     }
 
+    async renameSymbol(editor: TextEditor, bench: Workbench, newName: string) {
+        let renameSuccess = false;
+        let tries = 0;
+        while (!renameSuccess && tries < 5) {
+            try {
+                await bench.executeCommand("Rename Symbol");
+                const renameBox = await this.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
+                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, newName, Key.ENTER);
+                renameSuccess = true;
+            }
+            catch (e) {
+                console.log("Rename failed to succeed, lets try again");
+                await this.screenshot(`DSL-failed-rename-round-${tries}`);
+                tries++;
+            }
+        }
+        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+    }
+
+    async moveFile(fromFile: string, toDir: string, bench: Workbench) {
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+
+        // Move the file
+        if (os.type() === "Darwin") {
+            // Context menus are not supported for macOS:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
+            //
+            // The following workaround triggers a move of `Lib.rsc` by cutting
+            // and pasting that file using keyboard input. It works under the
+            // assumption that `Lib.rsc` and `lib` are visible in the Explorer.
+            // If this assumption breaks in the future, then see the
+            // implementation of `DefaultTreeSection.findItem` for inspiration
+            // on how to scroll the Explorer down:
+            // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
+
+            // Find the div that contains the whole visible tree in the Explorer
+            const treeDiv = await workspace.findElement(By.className('monaco-list'));
+
+            // Cut
+            const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
+            await libFileInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'x', Key.COMMAND); // Only this div handles key events; not `libFileInTreeDiv`
+
+            // Paste
+            const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
+            await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
+            await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
+        }
+
+        else {
+            // Context menus are supported for Windows and Linux
+            const libFileInTree = await this.driver.wait(async() => workspace.findItem(fromFile), Delays.normal, "Cannot find source file");
+            const libFolderInTree = await this.driver.wait(async() => workspace.findItem(toDir), Delays.normal, "Cannot find destination folder");
+            await (await libFileInTree!.openContextMenu()).select("Cut");
+            await (await libFolderInTree!.openContextMenu()).select("Paste");
+        }
+    }
+
+
     findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => editor.getCodeLens(name), timeout, message);
+        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
+
     }
 
     statusContains(needle: string): () => Promise<boolean> {
@@ -361,6 +457,20 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
+let alreadySetup = false;
+
+async function assureDebugLevelLoggingIsEnabled() {
+    if (alreadySetup) {
+        return;
+    }
+    alreadySetup = true; // to avoid doing this twice/parallel
+    const prompt = await new Workbench().openCommandPrompt();
+    await prompt.setText(">workbench.action.setLogLevel");
+    await prompt.confirm();
+    await prompt.setText("Debug");
+    await prompt.confirm();
+}
+
 export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
 
     const ZOOM_OUT_FACTOR = 5;
@@ -378,8 +488,11 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             let tries = 0;
             while (textLines.length === 0 && tries < 3) {
                 await showRascalOutput(bbp, channel);
-                textLines = await bbp.findElements(By.className('view-line'));
+                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
                 tries++;
+            }
+            if (textLines.length === 0) {
+                console.log("We could not capture the output lines");
             }
 
             for (const l of textLines) {

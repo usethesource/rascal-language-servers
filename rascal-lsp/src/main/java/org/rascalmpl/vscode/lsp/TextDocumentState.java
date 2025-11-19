@@ -26,14 +26,24 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.library.util.ParseErrorRecovery;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.parametric.NoContributions.NoContributionException;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 /**
  * TextDocumentState encapsulates the current contents of every open file editor,
@@ -45,68 +55,205 @@ import io.usethesource.vallang.ISourceLocation;
  * and ParametricTextDocumentService.
  */
 public class TextDocumentState {
+    @SuppressWarnings("unused")
+    private static final Logger logger = LogManager.getLogger(TextDocumentState.class);
+    private static final ParseErrorRecovery RECOVERY = new ParseErrorRecovery(IRascalValueFactory.getInstance());
+
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
+    private final ISourceLocation location;
 
-    private final ISourceLocation file;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile Versioned<String> currentContent;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile @MonotonicNonNull Versioned<ITree> lastFullTree;
-    @SuppressWarnings("java:S3077") // we are use volatile correctly
-    private volatile CompletableFuture<Versioned<ITree>> currentTree;
+    private final AtomicReference<Versioned<Update>> current;
+    private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
+    private final AtomicReference<@Nullable Versioned<ITree>> last;
 
-    public TextDocumentState(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, ISourceLocation file, int initialVersion, String initialContent, long timestamp) {
+    public TextDocumentState(
+            BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
+            ISourceLocation location,
+            int initialVersion, String initialContent, long initialTimestamp) {
+
         this.parser = parser;
-        this.file = file;
-        this.currentContent = new Versioned<>(initialVersion, initialContent, timestamp);
-        this.currentTree = newTreeAsync(initialVersion, initialContent);
-    }
+        this.location = location;
 
-    /**
-     * The current call of this method guarantees that, until the next call,
-     * each intermediate call of `getCurrentTreeAsync` returns (a future for) a
-     * *correct* versioned tree. This means that:
-     *   - the version of the tree is parameter `version`;
-     *   - the tree is produced by parsing parameter `content`.
-     *
-     * Thus, callers of `getCurrentTreeAsync` are guaranteed to obtain a
-     * consistent <version, tree> pair.
-     */
-    public CompletableFuture<Versioned<ITree>> update(int version, String content, long timestamp) {
-        currentContent = new Versioned<>(version, content, timestamp);
-        var newTree = newTreeAsync(version, content);
-        currentTree = newTree;
-        return newTree;
-    }
-
-    @SuppressWarnings("java:S1181") // we want to catch all Java exceptions from the parser
-    private CompletableFuture<Versioned<ITree>> newTreeAsync(int version, String content) {
-        return parser.apply(file, content)
-            .thenApply(t -> new Versioned<ITree>(version, t))
-            .whenComplete((r, t) -> {
-                if (r != null) {
-                    lastFullTree = r;
-                }
-            });
-    }
-
-    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
-        return currentTree;
-    }
-
-    public @MonotonicNonNull Versioned<ITree> getMostRecentTree() {
-        return lastFullTree;
+        var u = new Update(initialVersion, initialContent, initialTimestamp);
+        this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
+        this.lastWithoutErrors = new AtomicReference<>();
+        this.last = new AtomicReference<>();
     }
 
     public ISourceLocation getLocation() {
-        return file;
+        return location;
+    }
+
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> update(int version, String content, long timestamp) {
+        var u = new Update(version, content, timestamp);
+        Versioned.replaceIfNewer(current, new Versioned<>(version, u));
+        return u.getDiagnosticsAsync();
     }
 
     public Versioned<String> getCurrentContent() {
-        return currentContent;
+        return unpackCurrent().getContent();
+    }
+
+    private CompletableFuture<Versioned<ITree>> getCurrentTreeAsync() {
+        return unpackCurrent().getTreeAsync();
+    }
+
+    public CompletableFuture<Versioned<List<Diagnostics.Template>>> getCurrentDiagnosticsAsync() {
+        return unpackCurrent().getDiagnosticsAsync();
+    }
+
+    private Update unpackCurrent() {
+        return current.get().get();
+    }
+
+    public @Nullable Versioned<ITree> getLastTreeWithoutErrors() {
+        return lastWithoutErrors.get();
+    }
+
+    /**
+     * Wait for the current content to get parsed and get the parse tree from it.
+     * @param allowRecoveredErrors if false parse trees with recovered errors complete the future exceptionally
+     * @return the current parse tree
+     */
+    public CompletableFuture<Versioned<ITree>> getCurrentTreeAsync(boolean allowRecoveredErrors) {
+        if (allowRecoveredErrors) {
+            return getCurrentTreeAsync();
+        }
+        return getCurrentTreeAsync().thenApply(t -> {
+            var withoutErrors = lastWithoutErrors.get();
+            // side-effect of a succesfull parse without any recovered errors is that
+            // `getLastTreeWithoutErrors` is updated to the same tree
+            if (withoutErrors == null || withoutErrors.get() != t.get()) {
+                throw new IllegalStateException("File has parse errors");
+            }
+            return t;
+        });
+    }
+
+    /**
+     * Wait for current tree to parse. Then return the last tree that matches the allowRecoveredErrors conditation.
+     * @param allowRecoveredErrors if false, the result will not contain a tree with recovered errors.
+     * @return the last parse tree, or an exception if non existed.
+     */
+    public CompletableFuture<Versioned<ITree>> getLastTreeAsync(boolean allowRecoveredErrors) {
+        var result = getCurrentTreeAsync()
+            .<@Nullable Versioned<ITree>>handle((t, e) -> {
+                if (t == null) {
+                    return last.get();
+                }
+                return t;
+            });
+        if (!allowRecoveredErrors) {
+            // if a parse is done, always overwrite it with the
+            // last tree that did not have any errors, also not recovered errors
+            result = result.thenApply(t -> lastWithoutErrors.get());
+        }
+
+        return result.handle((t, e) -> {
+            if (t == null) {
+                throw new IllegalStateException("No previous parse tree without errors for: " + getLocation());
+            }
+            return t;
+        });
+    }
+
+
+    /**
+     * An update of a text document, characterized in terms of its
+     * {@link #version} (typically provied by the client), its {@link #content}
+     * (typically provided by the client), and a {@link #timestamp} (typically
+     * provided by the server).
+     */
+    private class Update {
+        private final int version;
+        private final String content;
+        private final long timestamp;
+        private final CompletableFuture<Versioned<ITree>> treeAsync;
+        private final CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync;
+
+        public Update(int version, String content, long timestamp) {
+            this.version = version;
+            this.content = content;
+            this.timestamp = timestamp;
+            this.treeAsync = new CompletableFuture<>();
+            this.diagnosticsAsync = new CompletableFuture<>();
+            parse();
+        }
+
+        public Versioned<String> getContent() {
+            return new Versioned<>(version, content, timestamp);
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public CompletableFuture<Versioned<ITree>> getTreeAsync() {
+            return treeAsync;
+        }
+
+        public CompletableFuture<Versioned<List<Diagnostics.Template>>> getDiagnosticsAsync() {
+            return diagnosticsAsync;
+        }
+
+        private void parse() {
+            try {
+                parser.apply(location, content)
+                    .whenComplete((t, e) -> {
+                        if (e instanceof CompletionException && e.getCause() != null) {
+                            e = e.getCause();
+                        }
+                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
+
+                        // Complete future to get the tree
+                        if (t == null) {
+                            treeAsync.completeExceptionally(e);
+                        } else {
+                            var tree = new Versioned<>(version, t, timestamp);
+                            Versioned.replaceIfNewer(last, tree);
+                            if (diagnosticsList.isEmpty()) {
+                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                            }
+                            treeAsync.complete(tree);
+                        }
+
+                        // Complete future to get diagnostics
+                        var diagnostics = new Versioned<>(version, diagnosticsList);
+                        diagnosticsAsync.complete(diagnostics);
+                    });
+            } catch (NoContributionException e) {
+                logger.debug("Ignoring missing parser for {}", location, e);
+                treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
+            }
+        }
+
+        private List<Diagnostics.Template> toDiagnosticsList(@Nullable ITree tree, @Nullable Throwable excp) {
+            List<Diagnostics.Template> diagnostics = new ArrayList<>();
+
+            if (excp != null) {
+                if (excp instanceof CompletionException && excp.getCause() != null) {
+                    excp = excp.getCause();
+                }
+
+                diagnostics.add(Diagnostics.generateParseErrorDiagnostic(excp));
+            }
+
+            if (tree != null) {
+                for (IValue error : RECOVERY.findAllParseErrors(tree)) {
+                    diagnostics.addAll(Diagnostics.generateParseErrorDiagnostics((ITree) error));
+                }
+            }
+
+            return diagnostics;
+        }
     }
 
     public long getLastModified() {
-        return currentContent.getTimestamp();
+        return unpackCurrent().getTimestamp();
+    }
+
+    public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
+        var c = getCurrentContent();
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified());
     }
 }

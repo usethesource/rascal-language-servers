@@ -33,6 +33,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
@@ -46,7 +50,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
@@ -56,19 +62,17 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.IOResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-
+import com.google.gson.JsonPrimitive;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver {
 
-    private static FallbackResolver instance = null;
+    private static @MonotonicNonNull FallbackResolver instance = null;
 
     // The FallbackResolver is dynamically instantiated by URIResolverRegistry. By implementing it as a singleton and
     // making it avaible through this method, we allow the IBaseTextDocumentService implementations to interact with it.
@@ -99,14 +103,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         return result;
     }
 
-    private static <T extends IOResult> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
+    private static <T> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
         try {
-            var waitingForServer = target.apply(getServer());
-            var result = waitingForServer.get(5, TimeUnit.MINUTES);
-            if (result.getErrorCode() != 0) {
-                throw new IOException("" + result.getErrorCode() + ": " + result.getErrorMessage());
-            }
-            return result;
+            return target.apply(getServer()).get(5, TimeUnit.MINUTES);
         }
         catch (TimeoutException te) {
             throw new IOException("VSCode took too long to reply, interruption to avoid deadlocks");
@@ -116,11 +115,19 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
             throw new UnsupportedOperationException("Thread should have been interrupted");
         }
         catch (CompletionException | ExecutionException ce) {
-            throw new IOException(ce.getCause());
+            var cause = ce.getCause();
+            if (cause != null) {
+                if (cause instanceof ResponseErrorException) {
+                    throw translateException((ResponseErrorException)cause);
+                }
+                throw new IOException(cause);
+            }
+            throw new IOException(ce);
         }
     }
 
-    private static ISourceLocationRequest param(ISourceLocation uri) {
+
+    private ISourceLocationRequest param(ISourceLocation uri) {
         return new ISourceLocationRequest(uri);
     }
 
@@ -265,16 +272,20 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
-        getClient().addWatcher(root, watcher, getServer());
+    public void watch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
+        getClient().addWatcher(root, recursive, watcher, getServer());
     }
 
     @Override
-    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher) throws IOException {
-        getClient().removeWatcher(root, watcher, getServer());
-
+    public void unwatch(ISourceLocation root, Consumer<ISourceLocationChanged> watcher, boolean recursive) throws IOException {
+        getClient().removeWatcher(root, recursive, watcher, getServer());
     }
-    
+
+    @Override
+    public boolean supportsRecursiveWatch() {
+        return true;
+    }
+
     public boolean isFileManaged(ISourceLocation file) {
         for (var service : textDocumentServices) {
             if (service.isManagingFile(file)) {
@@ -319,4 +330,57 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         }
         throw new IOException("File is not managed by lsp");
     }
+
+    @Override
+    public long size(ISourceLocation uri) throws IOException {
+        return call(s -> s.size(param(uri))).getResult();
+    }
+
+    @Override
+    public boolean isReadable(ISourceLocation uri) throws IOException {
+        return call(s -> s.isReadable(param(uri))).getResult();
+    }
+    @Override
+    public boolean isWritable(ISourceLocation uri) throws IOException {
+        return call(s -> s.isWritable(param(uri))).getResult();
+    }
+
+    @Override
+    public FileAttributes stat(ISourceLocation uri) throws IOException {
+        return call(s -> s.stat(param(uri))).getFileAttributes();
+    }
+
+    private static IOException translateException(ResponseErrorException cause) {
+        var error = cause.getResponseError();
+        switch (error.getCode()) {
+            case -1: return new IOException("Generic error: " + error.getMessage());
+            case -2: {
+                if (error.getData() instanceof JsonPrimitive) {
+                    var data = (JsonPrimitive)error.getData();
+                    if (data.isString()) {
+                        switch (data.getAsString()) {
+                            case "FileExists": // fall-through
+                            case "EntryExists":
+                                return new FileAlreadyExistsException(error.getMessage());
+                            case "FileNotFound": // fall-through
+                            case "EntryNotFound":
+                                return new NoSuchFileException(error.getMessage());
+                            case "FileNotADirectory": // fall-through
+                            case "EntryNotADirectory":
+                                return new NotDirectoryException(error.getMessage());
+                            case "FileIsADirectory": // fall-through
+                            case "EntryIsADirectory":
+                                return new IOException("File is a directory: " + error.getMessage());
+                            case "NoPermissions":
+                                return new AccessDeniedException(error.getMessage());
+                        }
+                    }
+                }
+                return new IOException("File system error: " + error.getMessage() + " data: " + error.getData());
+            }
+            case -3: return new IOException("Rascal native scheme's should not be forwarded to VS Code");
+            default: return new IOException("Missing case for: " + error);
+        }
+    }
+
 }

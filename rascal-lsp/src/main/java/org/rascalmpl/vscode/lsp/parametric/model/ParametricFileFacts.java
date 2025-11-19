@@ -52,7 +52,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -108,8 +108,12 @@ public class ParametricFileFacts {
         getFile(file).reportParseErrors(version, msgs);
     }
 
-    private FileFact getFile(ISourceLocation l) {
-        return files.computeIfAbsent(l, FileFact::new);
+    private FileFact getFile(ISourceLocation file) {
+        return files.computeIfAbsent(file.top(), FileFact::new);
+    }
+
+    private @Nullable FileFact removeFile(ISourceLocation file) {
+        return files.remove(file.top());
     }
 
     public void reloadContributions() {
@@ -122,14 +126,14 @@ public class ParametricFileFacts {
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
-        var current = files.get(file);
+        var current = getFile(file);
         if (current != null) {
             current.invalidateAnalyzer(false);
         }
     }
 
     public void invalidateBuilder(ISourceLocation file) {
-        var current = files.get(file);
+        var current = getFile(file);
         if (current != null) {
             current.invalidateBuilder(false);
         }
@@ -147,8 +151,8 @@ public class ParametricFileFacts {
         return getFile(file).lookupInSummaries(lookup, tree, cursor);
     }
 
-    public void close(ISourceLocation loc) {
-        var present = files.get(loc);
+    public void close(ISourceLocation file) {
+        var present = getFile(file);
         if (present != null) {
             present.invalidateAnalyzer(true);
             present.invalidateBuilder(true);
@@ -159,7 +163,7 @@ public class ParametricFileFacts {
                 if (aMessages.isEmpty() && bMessages.isEmpty()) {
                     // only if there are no messages for this class, can we remove it
                     // else vscode comes back and we've dropped the messages in our internal data
-                    files.remove(loc);
+                    removeFile(file);
                 }
             });
         }
@@ -319,20 +323,25 @@ public class ParametricFileFacts {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
             }
-            var messages = Lists.union(
-                unwrap(parserDiagnostics),
-                unwrap(analyzerDiagnostics),
-                unwrap(builderDiagnostics));
-            logger.trace("Sending diagnostics for {}. {} messages", file, messages.size());
+
+            // Read the atomic references once for the whole method, to ensure
+            // that published diagnostics correspond with logged versions
+            var fromParser = parserDiagnostics.get();
+            var fromAnalyzer = analyzerDiagnostics.get();
+            var fromBuilder = builderDiagnostics.get();
+
+            var diagnostics = Lists.union(
+                fromParser.get(),
+                fromAnalyzer.get(),
+                fromBuilder.get());
+
+            logger.trace(
+                "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
+                diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
+
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 file.getURI().toString(),
-                messages));
-        }
-
-        private List<Diagnostic> unwrap(AtomicReference<Versioned<List<Diagnostic>>> wrappedDiagnostics) {
-            return wrappedDiagnostics
-                .get()  // Unwrap `AtomicReference`
-                .get(); // Unwrap `Versioned`
+                diagnostics));
         }
 
         /**

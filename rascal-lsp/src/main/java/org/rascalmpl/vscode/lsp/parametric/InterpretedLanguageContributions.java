@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
@@ -50,12 +51,15 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
+import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -87,6 +91,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> references;
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
+    private final CompletableFuture<@Nullable IFunction> prepareRename;
+    private final CompletableFuture<@Nullable IFunction> rename;
+    private final CompletableFuture<@Nullable IFunction> didRenameFiles;
+    private final CompletableFuture<@Nullable IFunction> selectionRange;
+    private final CompletableFuture<@Nullable IFunction> prepareCallHierarchy;
+    private final CompletableFuture<@Nullable IFunction> callHierarchyService;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -99,6 +109,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasReferences;
     private final CompletableFuture<Boolean> hasImplementation;
     private final CompletableFuture<Boolean> hasCodeAction;
+    private final CompletableFuture<Boolean> hasRename;
+    private final CompletableFuture<Boolean> hasDidRenameFiles;
+    private final CompletableFuture<Boolean> hasSelectionRange;
+    private final CompletableFuture<Boolean> hasCallHierarchy;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -106,6 +120,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<SummaryConfig> builderSummaryConfig;
     private final CompletableFuture<SummaryConfig> ondemandSummaryConfig;
     private final IBaseLanguageClient client;
+    private final RascalLSPMonitor monitor;
 
     public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
@@ -114,12 +129,13 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         this.exec = exec;
 
         try {
-            PathConfig pcfg = new PathConfig().parse(lang.getPathConfig());
+            var pcfg = PathConfig.parse(lang.getPathConfig());
+            pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
-            var monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
+            monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
-            this.eval =
-                EvaluatorUtil.makeFutureEvaluator(exec, docService, workspaceService, client, "evaluator for " + lang.getName(), monitor, pcfg, false, lang.getMainModule());
+            this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
+                "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),
@@ -127,7 +143,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             this.store = eval.thenApply(e -> ((ModuleEnvironment)e.getModule(mainModule)).getStore());
 
-            this.parsing = getFunctionFor(contributions, LanguageContributions.PARSING);
+            this.parsing = requireFunction(contributions, LanguageContributions.PARSING);
             this.analysis = getFunctionFor(contributions, LanguageContributions.ANALYSIS);
             this.build = getFunctionFor(contributions, LanguageContributions.BUILD);
             this.documentSymbol = getFunctionFor(contributions, LanguageContributions.DOCUMENT_SYMBOL);
@@ -139,6 +155,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
+            this.prepareRename = getKeywordParamFunctionFor(contributions, LanguageContributions.RENAME, LanguageContributions.PREPARE_RENAME_SERVICE);
+            this.rename = getFunctionFor(contributions, LanguageContributions.RENAME);
+            this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
+            this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
+            this.prepareCallHierarchy = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 0);
+            this.callHierarchyService = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 1);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -152,6 +174,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasReferences = nonNull(this.references);
             this.hasImplementation = nonNull(this.implementation);
             this.hasCodeAction = nonNull(this.codeAction);
+            this.hasRename = nonNull(this.rename);
+            this.hasDidRenameFiles = nonNull(this.didRenameFiles);
+            this.hasSelectionRange = nonNull(this.selectionRange);
+            this.hasCallHierarchy = nonNull(this.prepareCallHierarchy);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -223,16 +249,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
-        return (ISet) eval.eval(eval.getMonitor(), lang.getMainFunction() + "()", URIUtil.rootLocation("lsp"))
-            .getValue();
+        return (ISet) eval.call(eval.getMonitor(), lang.getMainFunction());
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
         return store.thenApply(commandStore -> {
             try {
-                var TF = TypeFactory.getInstance();
-                return (IList) new StandardTextReader().read(VF, commandStore, TF.listType(commandStore.lookupAbstractDataType("CodeAction")), new StringReader(command));
+                var codeActionADT = commandStore.lookupAbstractDataType("CodeAction");
+                if (codeActionADT == null) {
+                    throw new IllegalArgumentException("CodeAction is not defined in environment");
+                }
+                return (IList) new StandardTextReader().read(VF, commandStore, TypeFactory.getInstance().listType(codeActionADT), new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 // this should never happen as long as the Rascal code
                 // for creating errors is type-correct. So it _might_ happen
@@ -242,10 +270,39 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
+    @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        return store.thenApply(completionStore -> {
+            try {
+                var callHierarchyDataAdt = completionStore.lookupAbstractDataType("CallHierarchyData");
+                if (callHierarchyDataAdt == null) {
+                    throw new IllegalArgumentException("CallHierarchyData is not defined in environment");
+                }
+                if (data.isEmpty()) {
+                    var none = completionStore.lookupConstructor(callHierarchyDataAdt, "none", TypeFactory.getInstance().tupleEmpty());
+                    if (none == null) {
+                        throw new IllegalArgumentException("CallHierarchyData::none() is not defined in environment");
+                    }
+                    return VF.constructor(none);
+                }
+                return (IConstructor) new StandardTextReader().read(VF, completionStore, callHierarchyDataAdt, new StringReader(data));
+            } catch (FactTypeUseException | IOException e) {
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new IllegalArgumentException("The call hierarchy item data could not be parsed", e);
+            }
+        });
+    }
+
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
-                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandStore.lookupAbstractDataType("Command"), new StringReader(command));
+                var commandADT = commandStore.lookupAbstractDataType("Command");
+                if (commandADT == null) {
+                    throw new IllegalArgumentException("Command is not defined in environment");
+                }
+                return (IConstructor) new StandardTextReader().read(VF, commandStore, commandADT, new StringReader(command));
             } catch (FactTypeUseException | IOException e) {
                 logger.catching(e);
                 throw new IllegalArgumentException("The command could not be parsed", e);
@@ -253,17 +310,40 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
-    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+    private static CompletableFuture<@Nullable IConstructor> getContribution(CompletableFuture<ISet> contributions, String cons) {
         return contributions.thenApply(conts -> {
             for (IValue elem : conts) {
                 IConstructor contrib = (IConstructor) elem;
                 if (cons.equals(contrib.getConstructorType().getName())) {
-                    return (IFunction) contrib.get(0);
+                    return contrib;
                 }
             }
             logger.debug("No {} defined", cons);
             return null;
         });
+    }
+
+    private static CompletableFuture<IFunction> requireFunction(CompletableFuture<ISet> contributions, String cons) {
+        return getContribution(contributions, cons).thenApply(con -> {
+            if (con == null) {
+                throw new IllegalStateException("Missing required contribution: "+ cons);
+            }
+            return (IFunction)con.get(0);
+        });
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
+        return getFunctionFor(contributions, cons, 0);
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons, int argumentPos) {
+        return getContribution(contributions, cons).thenApply(contribution -> contribution != null ? (IFunction) contribution.get(argumentPos) : null);
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
+        return getContribution(contributions, cons).thenApply(contribution ->
+            contribution != null ? (IFunction) contribution.asWithKeywordParameters().getParameter(kwParam) : null
+        );
     }
 
     @Override
@@ -302,9 +382,27 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
-        debug(LanguageContributions.INLAY_HINT, input != null ? TreeAdapter.getLocation(input) : null);
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
+        debug(LanguageContributions.INLAY_HINT, TreeAdapter.getLocation(input));
         return execFunction(LanguageContributions.INLAY_HINT, inlayHint, VF.list(), input);
+    }
+
+    @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        debug(LanguageContributions.PREPARE_RENAME_SERVICE, focus.isEmpty() ? "" : focus.get(0));
+        return execFunction(LanguageContributions.PREPARE_RENAME_SERVICE, prepareRename, URIUtil.unknownLocation(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String newName) {
+        debug(LanguageContributions.RENAME_SERVICE, newName, focus.isEmpty() ? "" : focus.get(0));
+        return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.list()), focus, VF.string(newName));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
+        debug(LanguageContributions.DID_RENAME_FILES, fileRenames);
+        return execFunction(LanguageContributions.DID_RENAME_FILES, didRenameFiles, VF.tuple(VF.list(), VF.set()), fileRenames);
     }
 
     @Override
@@ -335,6 +433,24 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     public InterruptibleFuture<IList> codeAction(IList focus) {
         debug(LanguageContributions.CODE_ACTION, focus.length());
         return execFunction(LanguageContributions.CODE_ACTION, codeAction, VF.list(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        debug(LanguageContributions.SELECTION_RANGE, focus.length());
+        return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        debug(LanguageContributions.CALL_HIERARCHY, "prepare", focus.length());
+        return execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
+        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
     }
 
     private void debug(String name, Object param) {
@@ -376,6 +492,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return hasRename;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return hasDidRenameFiles;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasCodeLens() {
         return hasCodeLens;
     }
@@ -388,6 +514,16 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
         return hasCodeAction;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return hasCallHierarchy;
     }
 
     @Override
@@ -421,7 +557,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         logger.debug("executeCommand({}...) (full command value in TRACE level)", () -> command.substring(0, Math.min(10, command.length())));
         logger.trace("Full command: {}", command);
 
@@ -432,13 +568,14 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 if (func == null) {
                     logger.warn("Command is being executed without a registered command executor; for language {}", name);
                     throw new IllegalStateException("No command executor registered for " + name);
+
                 }
 
-                return EvaluatorUtil.<@Nullable IValue>runEvaluator(
+                return EvaluatorUtil.runEvaluator(
                     "executeCommand",
                     eval,
                     ev -> func.call(cons),
-                    null,
+                    VF.bool(false),
                     exec,
                     true,
                     client
@@ -447,7 +584,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         ), exec);
     }
 
-    private <T> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+    private <T extends @NonNull Object> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+        if (target == null) {
+            return InterruptibleFuture.completedFuture(defaultResult);
+        }
         return InterruptibleFuture.flatten(target.thenApply(
             s -> {
                 if (s == null) {
@@ -457,5 +597,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true, client);
             }),
             exec);
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        monitor.cancelProgress(progressId);
     }
 }

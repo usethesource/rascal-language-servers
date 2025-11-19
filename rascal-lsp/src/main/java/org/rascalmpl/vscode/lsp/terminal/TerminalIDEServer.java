@@ -28,27 +28,17 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.ShowDocumentResult;
-import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkDoneProgressEnd;
-import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.WorkspaceFolder;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.uri.LogicalMapResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -58,6 +48,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -70,7 +61,6 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     private static final Logger logger = LogManager.getLogger(TerminalIDEServer.class);
 
     private final IBaseLanguageClient languageClient;
-    private final Set<String> jobs = new HashSet<>();
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
 
@@ -83,13 +73,13 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     @Override
     public CompletableFuture<Void> browse(BrowseParameter uri) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> { languageClient.showContent(uri); });
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri));
     }
 
     @Override
-    public CompletableFuture<ShowDocumentResult> edit(ShowDocumentParams edit) {
+    public CompletableFuture<Void> edit(EditorParameter edit) {
         logger.trace("edit({})", edit);
-        return languageClient.showDocument(edit);
+        return CompletableFuture.runAsync(() -> languageClient.editDocument(edit));
     }
 
     @Override
@@ -121,18 +111,16 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveRegisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveRegisterLanguage(lang));
     }
 
     @Override
     public CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
-        return CompletableFuture.runAsync(() -> {
-            languageClient.receiveUnregisterLanguage(lang);
-        });
+        return CompletableFuture.runAsync(() ->
+            languageClient.receiveUnregisterLanguage(lang));
     }
 
     @Override
@@ -144,78 +132,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
         IList list = edits.getEdits();
 
-        return CompletableFuture.runAsync(() -> {
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list)));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> jobStart(JobStartParameter param) {
-        // TODO does this have the intended semantics?
-        if (!jobs.contains(param.getName())) {
-            jobs.add(param.getName());
-            return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(param.getName())));
-        }
-        else {
-            logger.debug("job " + param.getName() + " was already running. ignored.");
-            return CompletableFuture.completedFuture(null);
-        }
-    }
-
-    @Override
-    public CompletableFuture<Void> jobStep(JobStepParameter param) {
-        if (jobs.contains(param.getName())) {
-            return CompletableFuture.supplyAsync(() -> {
-                languageClient.notifyProgress(
-                        new ProgressParams(
-                                Either.forLeft(param.getName()),
-                                Either.forLeft(new WorkDoneProgressReport()))
-                    );
-                return null;
-            }
-            );
-        }
-        else {
-            logger.debug("stepping a job that does not exist: " + param.getName());
-            return CompletableFuture.completedFuture(null);
-        }
-    }
-
-    @Override
-    public CompletableFuture<AmountOfWork> jobEnd(JobEndParameter param) {
-        if (jobs.contains(param.getName())) {
-            jobs.remove(param.getName());
-            return CompletableFuture.supplyAsync(() -> {
-                languageClient.notifyProgress(
-                    new ProgressParams(
-                        Either.forLeft(param.getName()),
-                        Either.forLeft(new WorkDoneProgressEnd())
-                    ));
-                return new AmountOfWork(1);
-            }
-            );
-        }
-        else {
-            logger.debug("ended an non-existing job: " + param.getName());
-            return CompletableFuture.completedFuture(new AmountOfWork(1));
-        }
-    }
-
-    @Override
-    public CompletableFuture<Void> jobTodo(AmountOfWork param) {
-         // TODO think of how to implement this
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<BooleanParameter> jobIsCanceled() {
-        // TODO think of how to implement this
-        return CompletableFuture.completedFuture(new BooleanParameter(false));
-    }
-
-    @Override
-    public void warning(WarningMessage param) {
-        languageClient.showMessage(new MessageParams(MessageType.Warning, param.getLocation() + ":" + param.getMessage()));
+        return CompletableFuture.runAsync(() ->
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(list, docService.getColumnMaps()))));
     }
 
     @Override
@@ -231,7 +149,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
 
     @Override
     public void registerDiagnostics(RegisterDiagnosticsParameters param) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService);
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             String uri = entry.getKey().getURI().toString();

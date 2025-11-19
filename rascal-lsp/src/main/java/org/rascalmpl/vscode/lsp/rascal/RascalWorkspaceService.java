@@ -27,67 +27,33 @@
 package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
-import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
-    private static final Logger logger = LogManager.getLogger(RascalWorkspaceService.class);
 
-    private final IBaseTextDocumentService docService;
-    private @MonotonicNonNull LanguageClient client;
+    private static final List<FileOperationFilter> fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService);
-        this.docService = documentService;
+        super(exec, documentService, fileFilters);
     }
 
     @Override
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders,
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
-
-        var fileCap = new FileOperationsServerCapabilities();
-        fileCap.setDidRename(new FileOperationOptions(
-            List.of(new FileOperationFilter(new FileOperationPattern("**")))
-        ));
-
-        capabilities.getWorkspace().setFileOperations(fileCap);
+        var workspaceCapabilities = capabilities.getWorkspace();
+        if (clientCap.getWorkspace().getFileOperations().getDidCreate().booleanValue()) {
+            workspaceCapabilities.getFileOperations().setDidCreate(new FileOperationOptions(fileFilters));
+        }
     }
 
-    @Override
-    public void connect(LanguageClient client) {
-        super.connect(client);
-        this.client = client;
-    }
-
-    @Override
-    public void didRenameFiles(RenameFilesParams params) {
-        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
-
-        CompletableFuture.supplyAsync(() ->
-            workspaceFolders()
-                .stream()
-                .map(f -> Locations.toLoc(f.getUri()))
-                .collect(Collectors.toSet())
-            , getExecuter()
-        ).thenAccept(folders -> docService.didRenameFiles(params, folders));
-    }
 }

@@ -29,15 +29,15 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
@@ -51,27 +51,39 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IList> documentSymbol(ITree input);
     public InterruptibleFuture<IList> codeLens(ITree input);
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<@Nullable IValue> execution(String command);
+    public InterruptibleFuture<IList> inlayHint(ITree input);
+    public InterruptibleFuture<IValue> execution(String command);
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
+    public InterruptibleFuture<IList> selectionRange(IList focus);
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus);
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction);
+
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
+    public InterruptibleFuture<ITuple> rename(IList focus, String name);
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
 
     public CompletableFuture<IList> parseCodeActions(String command);
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data);
 
     public CompletableFuture<Boolean> hasAnalysis();
     public CompletableFuture<Boolean> hasBuild();
     public CompletableFuture<Boolean> hasDocumentSymbol();
     public CompletableFuture<Boolean> hasCodeLens();
     public CompletableFuture<Boolean> hasInlayHint();
+    public CompletableFuture<Boolean> hasRename();
     public CompletableFuture<Boolean> hasExecution();
     public CompletableFuture<Boolean> hasHover();
     public CompletableFuture<Boolean> hasDefinition();
     public CompletableFuture<Boolean> hasReferences();
     public CompletableFuture<Boolean> hasImplementation();
     public CompletableFuture<Boolean> hasCodeAction();
+    public CompletableFuture<Boolean> hasDidRenameFiles();
+    public CompletableFuture<Boolean> hasSelectionRange();
+    public CompletableFuture<Boolean> hasCallHierarchy();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
@@ -117,6 +129,8 @@ public interface ILanguageContributions {
      * `references`, and `implementations` as parameter.
      */
     public static interface OnDemandFocusToSetCalculator extends Function<IList, InterruptibleFuture<ISet>> { }
+
+    public void cancelProgress(String progressId);
 }
 
 /*package*/ class EmptySummary {

@@ -41,7 +41,7 @@ describe('DSL unregister/register race', function () {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::OldStyleLanguageServer;");
+        await repl.execute("import demo::lang::pico::LanguageServer;");
         const replExecuteMain = repl.execute("main(unregister=true);"); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");

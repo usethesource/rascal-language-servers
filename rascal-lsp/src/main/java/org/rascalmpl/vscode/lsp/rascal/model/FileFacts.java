@@ -26,30 +26,27 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -58,24 +55,25 @@ public class FileFacts {
     private static final Logger logger = LogManager.getLogger(FileFacts.class);
     private final Executor exec;
     private final RascalLanguageServices rascal;
-    private volatile @MonotonicNonNull LanguageClient client;
+    private final LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
 
-    public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
+    public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
-        this.cm = cm;
-        this.confs = new PathConfigs();
-    }
-
-    public void setClient(LanguageClient client) {
         this.client = client;
+        this.cm = cm;
+        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
     }
 
-    public void invalidate(ISourceLocation changedFile) {
-        getFile(changedFile).invalidate();
+    public void projectRemoved(ISourceLocation projectLocation) {
+        confs.expungePathConfig(projectLocation);
+    }
+
+    public void invalidate(ISourceLocation file) {
+        getFile(file).invalidate();
     }
 
     public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
@@ -87,13 +85,9 @@ public class FileFacts {
     }
 
     private FileFact getFile(ISourceLocation l) {
-        ISourceLocation resolved = null;
-        try {
-            resolved = Locations.toClientLocation(l);
-            if (resolved == null) {
-                resolved = l;
-            }
-        } catch (IOException e) {
+        l = l.top();
+        ISourceLocation resolved = Locations.toClientLocation(l);
+        if (resolved == null) {
             resolved = l;
         }
         return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
@@ -118,11 +112,11 @@ public class FileFacts {
                 }),
                 r -> {
                     r.interrupt();
-                    InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
-                        .thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
+                    var summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
+                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
                     // only run get summary after the typechecker for this file is done running
                     // (we cannot now global running type checkers, that is a different subject)
-                    CompletableFuture<@Nullable SummaryBridge> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());
+                    var mergedCalc = typeCheckResults.get().<@Nullable SummaryBridge>thenCompose(o -> summaryCalc.get());
                     return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
                 });
         }
@@ -157,11 +151,7 @@ public class FileFacts {
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
                 rascal.compileFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(m -> {
-                        Map<ISourceLocation, List<Diagnostic>> result = new HashMap<>(m.size());
-                        m.forEach((l, msgs) -> result.put(l, Diagnostics.translateDiagnostics(l, msgs, cm)));
-                        return result;
-                    })
+                    .thenApply(m -> Diagnostics.translateMessages(m, cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 

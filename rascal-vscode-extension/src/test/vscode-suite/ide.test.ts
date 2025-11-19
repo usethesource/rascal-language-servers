@@ -28,12 +28,10 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { By, Key, TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-import * as os from 'os';
 
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
+const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -60,7 +58,10 @@ describe('IDE', function () {
         await makeSureRascalModulesAreLoaded();
     });
 
-    beforeEach(async () => {
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("IDE-" + this.test?.title);
+        }
     });
 
     afterEach(async function () {
@@ -111,9 +112,19 @@ describe('IDE', function () {
 
     it("has syntax highlighting and parsing errors", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await ide.hasSyntaxHighlighting(editor);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
+    }).retries(2);
+
+    it("error recovery works", async function() {
+        const editor = await ide.openModule(TestWorkspace.mainFile);
+        await ide.hasSyntaxHighlighting(editor);
+        // Introduce two parse errors
+        await editor.setTextAtLine(2, "1 2 3");
+        await editor.setTextAtLine(4, "1 2 3");
+        await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+        await ide.hasSyntaxHighlighting(editor);
     });
 
     function triggerTypeChecker(editor: TextEditor, tplFile : string, waitForFinish = false) {
@@ -136,14 +147,19 @@ describe('IDE', function () {
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
+
+        await editor.selectText("&T", 0);
+        const defLoc = await editor.getCoordinates();
+
+        await editor.selectText("&T", 1);
+        await bench.executeCommand("Go to Definition");
+        await driver.wait(async () => {
+            const jumpLoc = await editor.getCoordinates();
+            return defLoc[0] === jumpLoc[0] && defLoc[1] === jumpLoc[1];
+        }, Delays.slow, "We should jump to the right position");
     });
 
     it("go to definition works across projects", async () => {
-        // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
-        const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await triggerTypeChecker(libEditor, TestWorkspace.libFileTpl, true);
-        await bench.getEditorView().closeAllEditors();
-
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
@@ -172,22 +188,7 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        let renameSuccess = false;
-        let tries = 0;
-        while (!renameSuccess && tries < 5) {
-            try {
-                await bench.executeCommand("Rename Symbol");
-                const renameBox = await ide.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
-                await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, "i", Key.ENTER);
-                renameSuccess = true;
-            }
-            catch (e) {
-                console.log("Rename failed to succeed, lets try again");
-                await ide.screenshot(`IDE-failed-rename-round-${tries}`);
-                tries++;
-            }
-        }
-        expect(renameSuccess, "We should have been able to trigger the rename box after 5 times");
+        ide.renameSymbol(editor, bench, "i");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -202,11 +203,6 @@ describe('IDE', function () {
         const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
         await fs.mkdir(newDir, {recursive: true});
 
-        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
-        const workspace = await explorer.getContent().getSection("test (Workspace)");
-        await workspace.expand();
-
         // Open the lib file before moving it, so we have the editor ready to inspect afterwards
         const libFile = await ide.openModule(TestWorkspace.libFile);
 
@@ -214,40 +210,7 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        // Move the file
-        if (os.type() === "Darwin") {
-            // Context menus are not supported for macOS:
-            // https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#macos-known-limitations-of-native-objects
-            //
-            // The following workaround triggers a move of `Lib.rsc` by cutting
-            // and pasting that file using keyboard input. It works under the
-            // assumption that `Lib.rsc` and `lib` are visible in the Explorer.
-            // If this assumption breaks in the future, then see the
-            // implementation of `DefaultTreeSection.findItem` for inspiration
-            // on how to scroll the Explorer down:
-            // https://github.com/redhat-developer/vscode-extension-tester/blob/1bd6c23b25673a76f4a9d139f4572c0ea6f55a7b/packages/page-objects/src/components/sidebar/tree/default/DefaultTreeSection.ts#L36-L59
-
-            // Find the div that contains the whole visible tree in the Explorer
-            const treeDiv = await workspace.findElement(By.className('monaco-list'));
-
-            // Cut
-            const libFileInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='Lib.rsc']`)))[0];
-            await libFileInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
-            await treeDiv.sendKeys(Key.COMMAND, 'x', Key.COMMAND); // Only this div handles key events; not `libFileInTreeDiv`
-
-            // Paste
-            const libFolderInTreeDiv = (await treeDiv.findElements(By.xpath(`.//div[@role='treeitem' and @aria-label='lib']`)))[0];
-            await libFolderInTreeDiv?.click(); // Must click on this div instead of the object returned by `findItem`
-            await treeDiv.sendKeys(Key.COMMAND, 'v', Key.COMMAND); // Only this div handles key events; not `libFolderInTreeDiv`
-        }
-
-        else {
-            // Context menus are supported for Windows and Linux
-            const libFileInTree = await driver.wait(async() => workspace.findItem("Lib.rsc"), Delays.normal, "Cannot find Lib.rsc");
-            const libFolderInTree = await driver.wait(async() => workspace.findItem("lib"), Delays.normal, "Cannot find lib folder");
-            await (await libFileInTree!.openContextMenu()).select("Cut");
-            await (await libFolderInTree!.openContextMenu()).select("Paste");
-        }
+        await ide.moveFile("Lib.rsc", "lib", bench);
 
         await driver.wait(async() => {
             const text = await libFile.getText();
@@ -285,5 +248,15 @@ describe('IDE', function () {
 
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+    });
+
+    it("errors in manifest detected", async() => {
+        const editor = await ide.openModule(TestWorkspace.manifest);
+        await editor.setTextAtLine(2, "Project-Name: foobar");
+        await editor.save();
+        const element = await ide.hasErrorSquiggly(editor);
+        await editor.setTextAtLine(2, "Project-Name: test-project");
+        await editor.save();
+        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
     });
 });

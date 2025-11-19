@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -35,6 +36,9 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -48,21 +52,14 @@ import io.usethesource.vallang.IValue;
  * strip source locations of their "lsp+" prefix.
  */
 public class Locations {
-    public static ISourceLocation toClientLocation(ISourceLocation loc) throws IOException {
-        return LSPOpenFileResolver.stripLspPrefix(URIResolverRegistry.getInstance().logicalToPhysical(loc));
+    public static ISourceLocation toClientLocation(ISourceLocation loc) {
+        loc = LSPOpenFileResolver.stripLspPrefix(loc);
+        if (loc.getScheme().equals("project")) {
+            return toPhysicalIfPossible(loc);
+        }
+        return loc;
     }
 
-    public static ISourceLocation toClientLocationIfPossible(ISourceLocation loc) {
-        var result = toPhysicalIfPossible(loc);
-        if (result.getScheme().startsWith("lsp+")) {
-            try {
-                return URIUtil.changeScheme(result, result.getScheme().substring("lsp+".length()));
-            } catch (URISyntaxException e) {
-                // fall through
-            }
-        }
-        return result;
-    }
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
         ISourceLocation physical;
         try {
@@ -89,9 +86,17 @@ public class Locations {
      * Mapping them from the LSP standard to the Rascal standard.
      */
     public static Range toRascalRange(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
+        return toRascalRange(toLoc(doc), range, columns);
+    }
+
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
+    public static Range toRascalRange(ISourceLocation loc, Range range, ColumnMaps columns) {
         return new Range(
-            toRascalPosition(doc, range.getStart(), columns),
-            toRascalPosition(doc, range.getEnd(), columns)
+            toRascalPosition(loc, range.getStart(), columns),
+            toRascalPosition(loc, range.getEnd(), columns)
         );
     }
 
@@ -119,7 +124,7 @@ public class Locations {
         try {
             return URIUtil.createFromURI(uri);
         } catch (UnsupportedOperationException e) {
-            if (e.getMessage().contains("Opaque URI schemes are not supported")) {
+            if (e.getMessage() != null && e.getMessage().contains("Opaque URI schemes are not supported")) {
                 int colonPos = uri.indexOf(':');
                 try {
                     return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos));
@@ -165,6 +170,23 @@ public class Locations {
         else {
             return new Range(new Position(0, 0), new Position(0,0));
         }
+    }
+
+    public static ISourceLocation setRange(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
+        var map = columns.get(loc);
+        final var lspStart = lspRange.getStart();
+        final var lspEnd = lspRange.getEnd();
+        final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
+        final var rascalStart = toRascalPosition(loc, lspStart, columns);
+        final var rascalEnd = toRascalPosition(loc, lspEnd, columns);
+        return IRascalValueFactory.getInstance().sourceLocation(loc,
+            offsetLength.getLeft(),
+            offsetLength.getRight(),
+            rascalStart.getLine(),
+            rascalEnd.getLine(),
+            rascalStart.getCharacter(),
+            rascalEnd.getCharacter()
+        );
     }
 
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {

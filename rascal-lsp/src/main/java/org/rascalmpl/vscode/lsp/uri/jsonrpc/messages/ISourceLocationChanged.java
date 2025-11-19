@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -39,18 +40,15 @@ public class ISourceLocationChanged {
     private String location;
     @NonNull
     private ISourceLocationChangeType changeType;
-    @NonNull
-    private ISourceLocationType type;
 
 
     public ISourceLocationChanged() {
     }
 
-    public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType, @NonNull ISourceLocationType type) {
+    public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType) {
         this.watchId = watchId;
         this.location = location;
         this.changeType = changeType;
-        this.type = type;
     }
 
     public ISourceLocationChangeType getChangeType() {
@@ -62,22 +60,18 @@ public class ISourceLocationChanged {
     public ISourceLocation getSourceLocation() {
         return Locations.toLoc(location);
     }
-    public ISourceLocationType getType() {
-        return type;
-    }
 
     public String getWatchId() {
         return watchId;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof ISourceLocationChanged) {
             var other = (ISourceLocationChanged)obj;
             return Objects.equals(watchId, other.watchId)
                 && Objects.equals(location, other.location)
                 && Objects.equals(changeType, other.changeType)
-                && Objects.equals(type, other.type)
                 ;
         }
         return false;
@@ -85,21 +79,19 @@ public class ISourceLocationChanged {
 
     @Override
     public int hashCode() {
-        return Objects.hash(watchId, location, changeType, type);
+        return Objects.hash(watchId, location, changeType);
     }
 
     public ISourceLocationWatcher.ISourceLocationChanged translate() {
         return ISourceLocationWatcher.makeChange(
             getSourceLocation(),
-            ISourceLocationChangeType.translate(changeType),
-            ISourceLocationType.translate(type)
+            ISourceLocationChangeType.translate(changeType)
         );
     }
 
     @Override
     public String toString() {
-        return "ISourceLocationChanged [changeType=" + changeType + ", location=" + location + ", type=" + type
-            + ", watchId=" + watchId + "]";
+        return "ISourceLocationChanged [changeType=" + changeType + ", location=" + location + ", watchId=" + watchId + "]";
     }
 
 

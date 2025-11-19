@@ -31,14 +31,14 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.interpreter.env.GlobalEnvironment;
-import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.shell.ShellEvaluatorFactory;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
@@ -46,10 +46,12 @@ import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
@@ -61,9 +63,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
     private final CompletableFuture<Boolean> specialCaseHighlighting;
+    private final ExecutorService ownExecutor;
 
-    public ParserOnlyContribution(String name, ParserSpecification spec) {
+    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService ownExecutor) {
         this.name = name;
+        this.ownExecutor = ownExecutor;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
@@ -79,17 +83,17 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        if (loadingParserError != null || parser == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("Parser function did not load", loadingParserError));
-        }
-
-        return CompletableFuture.supplyAsync(() -> parser.call(VF.string(input), loc));
+        return CompletableFuture.supplyAsync(() -> {
+            if (loadingParserError != null || parser == null) {
+                throw new IllegalStateException("Parser function did not load", loadingParserError);
+            }
+            return parser.call(VF.string(input), loc);
+        }, ownExecutor);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
         // the next two object are scaffolding. we only need them temporarily, and they will not be used by the returned IFunction if the (internal) _call_ methods are not used from ICallableValue.
-        GlobalEnvironment unusedHeap = new GlobalEnvironment();
-        Evaluator unusedEvaluator = new Evaluator(VF, Reader.nullReader(), new PrintWriter(Writer.nullWriter()), new PrintWriter(Writer.nullWriter()), new NullRascalMonitor(), new ModuleEnvironment("***unused***", unusedHeap), unusedHeap);
+        var unusedEvaluator = ShellEvaluatorFactory.getBasicEvaluator(Reader.nullReader(), new PrintWriter(Writer.nullWriter()), new PrintWriter(Writer.nullWriter()), new NullRascalMonitor(), "***unused***");
         // this is what we are after: a factory that can load back parsers.
         IRascalValueFactory vf = new RascalFunctionValueFactory(unusedEvaluator /*can not be null unfortunately*/);
         IConstructor reifiedType = makeReifiedType(spec, vf);
@@ -97,7 +101,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
         try {
             logger.debug("Loading parser {} at {}", reifiedType, spec.getParserLocation());
             // this hides all the loading and instantiation details of Rascal-generated parsers
-            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.bool(false), VF.bool(false), VF.bool(false), vf.set());
+            var parser = vf.loadParser(reifiedType, spec.getParserLocation(), VF.bool(spec.getAllowAmbiguity()), VF.integer(spec.getMaxAmbDepth()),
+                VF.bool(spec.getAllowRecovery()), VF.integer(spec.getMaxRecoveryAttempts()), VF.integer(spec.getMaxRecoveryTokens()), VF.bool(false), VF.bool(false), vf.set());
             logger.debug("Got parser: {}", parser);
             return Either.forLeft(parser);
         }
@@ -137,7 +142,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<@Nullable IValue> execution(String command) {
+    public InterruptibleFuture<IValue> execution(String command) {
         return InterruptibleFuture.completedFuture(VF.bool(false));
     }
 
@@ -147,8 +152,28 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input) {
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String commands) {
+        throw new IllegalStateException("This method should not be called; this contribution only has a parser");
+    }
+
+    @Override
+    public InterruptibleFuture<IList> inlayHint(ITree input) {
         return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
+        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation());
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> rename(IList focus, String name) {
+        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()));
+    }
+
+    @Override
+    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
+        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()));
     }
 
     @Override
@@ -174,6 +199,21 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
         return InterruptibleFuture.completedFuture(VF.set());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return InterruptibleFuture.completedFuture(VF.list());
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        return InterruptibleFuture.completedFuture(VF.list());
     }
 
     @Override
@@ -232,6 +272,26 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
+    public CompletableFuture<Boolean> hasRename() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasDidRenameFiles() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
         return specialCaseHighlighting;
     }
@@ -249,6 +309,11 @@ public class ParserOnlyContribution implements ILanguageContributions {
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
         return CompletableFuture.completedFuture(SummaryConfig.FALSY);
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        // empty, since this contribution does not have any running tasks nor a monitor
     }
 
 }

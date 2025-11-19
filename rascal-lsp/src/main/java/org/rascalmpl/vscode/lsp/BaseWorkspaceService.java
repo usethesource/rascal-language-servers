@@ -26,19 +26,29 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-
-import com.google.gson.JsonPrimitive;
+import java.util.stream.Collectors;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.FileDelete;
+import org.eclipse.lsp4j.FileOperationFilter;
+import org.eclipse.lsp4j.FileOperationOptions;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceFoldersOptions;
@@ -46,8 +56,13 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.uri.URIUtil;
 
-public class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+    private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
+
+    private @MonotonicNonNull LanguageClient client;
+
     public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
@@ -56,13 +71,14 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
+    private final List<FileOperationFilter> interestedInFiles;
 
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationFilter> interestedInFiles) {
         this.documentService = documentService;
         this.ownExecuter = exec;
+        this.interestedInFiles = interestedInFiles;
     }
-
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
         this.workspaceFolders.clear();
@@ -72,13 +88,32 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
         var clientWorkspaceCap = clientCap.getWorkspace();
 
-        if (clientWorkspaceCap != null && Boolean.TRUE.equals(clientWorkspaceCap.getWorkspaceFolders())) {
-            var workspaceCap = new WorkspaceFoldersOptions();
-            workspaceCap.setSupported(true);
-            workspaceCap.setChangeNotifications(true);
-            capabilities.setWorkspace(new WorkspaceServerCapabilities(workspaceCap));
+        WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
+        if (clientWorkspaceCap != null) {
+            if (clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
+                var folderOptions = new WorkspaceFoldersOptions();
+                folderOptions.setSupported(true);
+                folderOptions.setChangeNotifications(true);
+                workspaceCapabilities.setWorkspaceFolders(folderOptions);
+            }
+
+            var fileOperationCapabilities = new FileOperationsServerCapabilities();
+            var whichFiles = new FileOperationOptions(interestedInFiles);
+            boolean watchesSet = false;
+            if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
+                fileOperationCapabilities.setDidRename(whichFiles);
+                watchesSet = true;
+            }
+            if (clientWorkspaceCap.getFileOperations().getDidDelete().booleanValue()) {
+                fileOperationCapabilities.setDidDelete(whichFiles);
+                watchesSet = true;
+            }
+            if (watchesSet) {
+                workspaceCapabilities.setFileOperations(fileOperationCapabilities);
+            }
         }
 
+        capabilities.setWorkspace(workspaceCapabilities);
     }
 
     public List<WorkspaceFolder> workspaceFolders() {
@@ -87,12 +122,20 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
 
     @Override
     public void connect(LanguageClient client) {
-        // reserved for the future
+        this.client = client;
+    }
+
+    /**
+     * After the client has been initialized, register dynamic capabilities.
+     */
+    @SuppressWarnings("java:S1172")
+    void initialized() {
+        // not in use
     }
 
     @Override
     public void didChangeConfiguration(DidChangeConfigurationParams params) {
-        // not used yet
+        // not in use
     }
 
     @Override
@@ -105,26 +148,64 @@ public class BaseWorkspaceService implements WorkspaceService, LanguageClientAwa
         var removed = params.getEvent().getRemoved();
         if (removed != null) {
             workspaceFolders.removeAll(removed);
+            for (WorkspaceFolder folder : removed) {
+                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
+
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
+            for (WorkspaceFolder folder : added) {
+                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+            }
         }
     }
 
     @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        logger.debug("workspace/didCreateFiles: {}", params.getFiles());
+        ownExecuter.submit(() -> documentService.didCreateFiles(params));
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params) {
+        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+
+        ownExecuter.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
+
+        ownExecuter.submit(() -> {
+            // cleanup the old files (we do not get a `didDelete` event)
+            var oldFiles = params.getFiles().stream()
+                .map(f -> f.getOldUri())
+                .map(FileDelete::new)
+                .collect(Collectors.toList());
+            documentService.didDeleteFiles(new DeleteFilesParams(oldFiles));
+        });
+    }
+
+    @Override
+    public void didDeleteFiles(DeleteFilesParams params) {
+        logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
+
+        ownExecuter.submit(() -> {
+            documentService.didDeleteFiles(params);
+        });
+    }
+
+    @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
+        logger.debug("workspace/executeCommand: {}", params);
         if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
             String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
             String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
             return documentService.executeCommand(languageName, command).thenApply(v -> v);
         }
 
-        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.");
+        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
     }
 
-
-    protected final ExecutorService getExecuter() {
+    protected final ExecutorService getExecutor() {
         return ownExecuter;
     }
 

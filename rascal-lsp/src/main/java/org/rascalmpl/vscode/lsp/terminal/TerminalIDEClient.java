@@ -35,7 +35,7 @@ import java.net.URI;
 import java.util.concurrent.ExecutionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.jline.terminal.Terminal;
 import org.rascalmpl.debug.IRascalMonitor;
@@ -44,12 +44,13 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -100,20 +101,15 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void edit(ISourceLocation path) {
-        try {
-            ISourceLocation physical = Locations.toClientLocation(path);
-            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-            params.setTakeFocus(true);
+    public void edit(ISourceLocation path, int viewColumn) {
+        ISourceLocation physical = Locations.toClientLocation(path);
 
-            if (physical.hasOffsetLength()) {
-                params.setSelection(Locations.toRange(physical, columns));
-            }
-
-            server.edit(params);
-        } catch (IOException e) {
-            logger.info("ignored edit of {} because {}", path, e);
+        Range range = null;
+        if (physical.hasOffsetLength()) {
+            range = Locations.toRange(physical, columns);
         }
+
+        server.edit(new EditorParameter(physical.getURI().toASCIIString(), range, viewColumn));
     }
 
     private String getContents(ISourceLocation file) {
@@ -150,11 +146,6 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void unregisterLanguage(IConstructor language) {
         server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
-    }
-
-    @Override
-    public void applyDocumentsEdits(IList edits) {
-        server.applyDocumentEdits(new DocumentEditsParameter(edits));
     }
 
     @Override
@@ -210,10 +201,12 @@ public class TerminalIDEClient implements IDEServices {
         server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
     }
 
+    @Override
     public void startDebuggingSession(int serverPort){
         server.startDebuggingSession(serverPort);
     }
 
+    @Override
     public void registerDebugServerPort(int processID, int serverPort){
         server.registerDebugServerPort(processID, serverPort);
     }

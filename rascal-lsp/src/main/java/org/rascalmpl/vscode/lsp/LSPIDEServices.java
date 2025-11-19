@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -39,12 +38,13 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -90,20 +90,15 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void edit(ISourceLocation path) {
-        try {
-            ISourceLocation physical = Locations.toClientLocation(path);
-            ShowDocumentParams params = new ShowDocumentParams(physical.getURI().toASCIIString());
-            params.setTakeFocus(true);
+    public void edit(ISourceLocation path, int viewColumn) {
+        ISourceLocation physical = Locations.toClientLocation(path);
 
-            if (physical.hasOffsetLength()) {
-                params.setSelection(Locations.toRange(physical, docService.getColumnMap(physical)));
-            }
-
-            languageClient.showDocument(params);
-        } catch (IOException e) {
-            logger.info("ignored edit of {}, because {}", path, e);
+        Range range = null;
+        if (physical.hasOffsetLength()) {
+            range = Locations.toRange(physical, docService.getColumnMap(physical));
         }
+
+        languageClient.editDocument(new EditorParameter(path.getURI().toASCIIString(), range, viewColumn));
     }
 
     @Override
@@ -138,9 +133,13 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void applyDocumentsEdits(IList edits) {
-        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, edits)));
+        applyFileSystemEdits(edits);
     }
 
+    @Override
+    public void applyFileSystemEdits(IList edits) {
+        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits, docService.getColumnMaps())));
+    }
 
     @Override
     public void registerLocations(IString scheme, IString auth, IMap map) {
@@ -149,7 +148,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerDiagnostics(IList messages) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService);
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             String uri = entry.getKey().getURI().toString();
@@ -198,6 +197,10 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void warning(String message, ISourceLocation src) {
         monitor.warning(message, src);
+    }
+
+    public IRascalMonitor getMonitor() {
+        return monitor;
     }
 
 }

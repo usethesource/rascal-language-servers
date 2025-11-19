@@ -45,6 +45,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import com.google.gson.JsonPrimitive;
 
@@ -58,6 +59,9 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * Reusable utilities for code actions and commands (maps between Rascal and LSP world)
  */
 public class CodeActions {
+
+    private CodeActions() { /* hide implicit public constructor */ }
+
     /**
      *  Makes a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
      *  and which came back with the codeAction's list of relevant (in scope) diagnostics.
@@ -67,9 +71,7 @@ public class CodeActions {
      * @return              a future stream of parsed and type-checked Rascal CodeAction terms.
      */
     public static CompletableFuture<Stream<IValue>> extractActionsFromDiagnostics(CodeActionParams params, Function<String, CompletableFuture<IList>> actionParser) {
-        final var emptyListFuture = CompletableFuture.completedFuture(IRascalValueFactory.getInstance().list());
-
-        return params.getContext().getDiagnostics()
+        var actions = params.getContext().getDiagnostics()
             .stream()
             .map(Diagnostic::getData)
             .filter(Objects::nonNull)
@@ -77,9 +79,10 @@ public class CodeActions {
             .map(JsonPrimitive.class::cast)
             .map(JsonPrimitive::getAsString)
             // this is the "magic" resurrection of command terms from the JSON data field
-            .map(actionParser)
-            // this serializes the stream of futures and accumulates their results as a flat list again
-            .reduce(emptyListFuture, (acc, next) -> acc.thenCombine(next, IList::concat))
+            .map(actionParser);
+
+        return CompletableFutureUtils
+            .flatten(actions, IRascalValueFactory.getInstance()::list, IList::concat)
             .thenApply(IList::stream);
     }
 
@@ -89,7 +92,7 @@ public class CodeActions {
             Stream.concat(quicks, actions)
                 .map(IConstructor.class::cast)
                 .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
-                .map(cmd  -> Either.<Command,CodeAction>forRight(cmd))
+                .map(Either::<Command,CodeAction>forRight)
                 .collect(Collectors.toList())
         );
     }
@@ -119,7 +122,7 @@ public class CodeActions {
         }
 
         if (edits != null) {
-            result.setEdit(DocumentChanges.translateDocumentChanges(doc, edits));
+            result.setEdit(DocumentChanges.translateDocumentChanges(edits, doc.getColumnMaps()));
         }
 
         result.setKind(constructorToCodeActionKind(kind));

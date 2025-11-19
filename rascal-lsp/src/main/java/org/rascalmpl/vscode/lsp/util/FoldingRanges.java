@@ -28,7 +28,7 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
 import java.util.List;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeKind;
 import org.rascalmpl.values.RascalValueFactory;
@@ -43,11 +43,14 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
 public class FoldingRanges {
+
+    private FoldingRanges() { /* hide implicit public constructor */ }
+
     public static List<FoldingRange> getFoldingRanges(ITree tree) {
         List<FoldingRange> result = new ArrayList<>();
         tree.accept(new TreeVisitor<RuntimeException>() {
             @Override
-            public ITree visitTreeAppl(ITree arg) throws RuntimeException {
+            public @Nullable ITree visitTreeAppl(ITree arg) throws RuntimeException {
                 if (TreeAdapter.isComment(arg)) {
                     addFoldingRegion(result, TreeAdapter.getLocation(arg), FoldingRangeKind.Comment);
                 } else if (arg.asWithKeywordParameters().getParameter("foldable") != null) {
@@ -65,17 +68,17 @@ public class FoldingRanges {
             }
 
             @Override
-            public ITree visitTreeAmb(ITree arg) throws RuntimeException {
+            public @Nullable ITree visitTreeAmb(ITree arg) throws RuntimeException {
                 return null;
             }
 
             @Override
-            public ITree visitTreeChar(ITree arg) throws RuntimeException {
+            public @Nullable ITree visitTreeChar(ITree arg) throws RuntimeException {
                 return null;
             }
 
             @Override
-            public ITree visitTreeCycle(ITree arg) throws RuntimeException {
+            public @Nullable ITree visitTreeCycle(ITree arg) throws RuntimeException {
                 return null;
             }
 

@@ -40,12 +40,19 @@ public class RascalADTs {
         public static final String DOCUMENT_SYMBOL = "documentSymbol";
         public static final String CODE_LENS = "codeLens";
         public static final String INLAY_HINT = "inlayHint";
+        public static final String RENAME = "rename";
         public static final String EXECUTION = "execution";
         public static final String HOVER = "hover";
         public static final String DEFINITION = "definition";
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
+        public static final String SELECTION_RANGE = "selectionRange";
+        public static final String CALL_HIERARCHY = "callHierarchy";
+
+        public static final String RENAME_SERVICE = "renameService";
+        public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
+        public static final String DID_RENAME_FILES = "didRenameFiles";
 
         public static class Parameters {
             private Parameters() {}
@@ -83,5 +90,41 @@ public class RascalADTs {
         public static final String COMMAND = "command";
         public static final String TITLE = "title";
         public static final String KIND = "kind";
+    }
+
+    public static class CallHierarchyFields {
+        private CallHierarchyFields() { }
+
+        public static final String NAME = "name";
+        public static final String KIND = "kind";
+        public static final String DEFINITION = "src";
+        public static final String SELECTION = "selection";
+        public static final String TAGS = "tags";
+        public static final String DETAIL = "detail";
+        public static final String DATA = "data";
+    }
+
+    public static class FileSystemChangeFields {
+        private FileSystemChangeFields() { }
+
+        public static final String CREATED = "created";
+        public static final String RENAMED = "renamed";
+        public static final String REMOVED = "removed";
+        public static final String CHANGED = "changed";
+
+        public static final String FILE = "file";
+        public static final String FROM = "from";
+        public static final String TO = "to";
+        public static final String EDITS = "edits";
+    }
+
+    public static class TextEditFields {
+        private TextEditFields() { }
+
+        public static final String RANGE = "range";
+        public static final String REPLACEMENT = "replacement";
+        public static final String LABEL = "label";
+        public static final String DESCRIPTION = "description";
+        public static final String NEEDS_CONFIRMATION = "needsConfirmation";
     }
 }
