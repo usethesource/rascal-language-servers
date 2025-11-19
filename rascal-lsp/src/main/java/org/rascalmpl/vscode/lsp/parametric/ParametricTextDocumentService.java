@@ -659,7 +659,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .map(contributions::get)
             .map(ILanguageContributions.class::cast)
             .flatMap(Optional::ofNullable)
-            .orElseGet(() -> new NoContributions(extension(doc)));
+            .orElseGet(() -> new NoContributions(extension(doc), ownExecuter));
     }
 
     private static String extension(ISourceLocation doc) {
@@ -746,8 +746,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var location = Locations.toLoc(params.getTextDocument());
         final ILanguageContributions contribs = contributions(location);
 
-        var range = Locations.toRascalRange(location, params.getRange(), columns);
-
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
@@ -759,7 +757,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(location)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree))
+                .thenCompose(tree -> {
+                    var range = Locations.toRascalRange(location, params.getRange(), columns);
+                    return computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree);
+                })
                 .thenApply(IList::stream)
             , Stream::empty)
             ;
@@ -776,7 +777,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         else {
             logger.log(Level.DEBUG, "no tree focus found at {}:{}", startLine, startColumn);
-            return CompletableFuture.completedFuture(VF.list());
+            return CompletableFutureUtils.completedFuture(VF.list(), ownExecuter);
         }
     }
 
@@ -848,7 +849,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.hasSelectionRange().thenApply(hasDef -> {
             if (!hasDef.booleanValue()) {
                 logger.debug("Selection range not implemented; falling back to default implementation ({})", params.getTextDocument());
-                return focus -> CompletableFuture.completedFuture(SelectionRanges.uniqueTreeLocations(focus));
+                return focus -> CompletableFutureUtils.completedFuture(SelectionRanges.uniqueTreeLocations(focus), ownExecuter);
             }
             return focus -> contrib.selectionRange(focus).get();
         });
@@ -877,7 +878,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
                     .get()
                     .thenApply(items -> {
-                        var ch = new CallHierarchy();
+                        var ch = new CallHierarchy(ownExecuter);
                         return items.stream()
                             .map(IConstructor.class::cast)
                             .map(ci -> ch.toLSP(ci, columns))
@@ -888,7 +889,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
         final var contrib = contributions(Locations.toLoc(source.getUri()));
-        var ch = new CallHierarchy();
+        var ch = new CallHierarchy(ownExecuter);
         return ch.toRascal(source, contrib::parseCallHierarchyData, columns)
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
             .thenApply(callRel -> callRel.stream()
@@ -1030,7 +1031,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
         else {
             logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
-            return CompletableFuture.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName));
+            return CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName), ownExecuter);
         }
     }
 

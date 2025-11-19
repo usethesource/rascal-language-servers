@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.util.concurrent;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -110,7 +111,7 @@ public class ReplaceableFuture<T> {
         return new InterruptibleFuture<>(result, with::interrupt);
     }
 
-    public static <T> ReplaceableFuture<T> completed(T result) {
-        return new ReplaceableFuture<>(CompletableFuture.completedFuture(result));
+    public static <T> ReplaceableFuture<T> completed(T result, Executor exec) {
+        return new ReplaceableFuture<>(CompletableFutureUtils.completedFuture(result, exec));
     }
 }

@@ -27,9 +27,11 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
@@ -46,9 +48,9 @@ import io.usethesource.vallang.IValue;
 public class NoContributions implements ILanguageContributions {
 
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
-    private static final CompletableFuture<Boolean> FALSE = CompletableFuture.completedFuture(false);
 
     private String name;
+    private final CompletableFuture<Boolean> FALSE;
 
     public class NoContributionException extends RuntimeException {
         private NoContributionException(String message) {
@@ -56,8 +58,9 @@ public class NoContributions implements ILanguageContributions {
         }
     }
 
-    public NoContributions(String name) {
+    public NoContributions(String name, Executor ownExecutor) {
         this.name = name;
+        FALSE = CompletableFutureUtils.completedFuture(false, ownExecutor);
     }
 
     @Override

@@ -57,6 +57,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
@@ -194,15 +195,18 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     }
 
     @Override
-    public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        logger.debug("workspace/executeCommand: {}", params);
-        if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
-            String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
-            String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-            return documentService.executeCommand(languageName, command).thenApply(v -> v);
-        }
+    public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
+        logger.debug("workspace/executeCommand: {}", commandParams);
+        return CompletableFutureUtils.completedFuture(commandParams, ownExecuter)
+            .thenCompose(params -> {
+                if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
+                    String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
+                    String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
+                    return documentService.executeCommand(languageName, command).thenApply(v -> v);
+                }
 
-        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
+                return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", ownExecuter);
+            });
     }
 
     protected final ExecutorService getExecutor() {
