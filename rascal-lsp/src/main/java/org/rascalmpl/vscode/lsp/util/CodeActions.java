@@ -122,7 +122,7 @@ public class CodeActions {
         }
 
         if (edits != null) {
-            result.setEdit(DocumentChanges.translateDocumentChanges(doc, edits));
+            result.setEdit(DocumentChanges.translateDocumentChanges(edits, doc.getColumnMaps()));
         }
 
         result.setKind(constructorToCodeActionKind(kind));

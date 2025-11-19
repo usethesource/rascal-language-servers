@@ -401,7 +401,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
                 return findQualifiedNameUnderCursor(focus);
             })
-            .thenApply(cur -> DocumentChanges.locationToRange(this, TreeAdapter.getLocation(cur)))
+            .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), columns))
             .thenApply(Either3::forFirst), () -> null);
     }
 
@@ -431,7 +431,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             })
             .thenApply(t -> {
                 showMessages((ISet) t.get(1));
-                return DocumentChanges.translateDocumentChanges(this, (IList) t.get(0));
+                return DocumentChanges.translateDocumentChanges((IList) t.get(0), columns);
             });
     }
 
@@ -610,7 +610,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private <T> CompletableFuture<@Nullable T> applyDocumentEdits(String task, CompletableFuture<IList> rascalEdits, Function<ApplyWorkspaceEditResponse, T> notApplied) {
-        return rascalEdits.thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(this, edits) : null) // pass null all the way through if our list of edits is empty
+        return rascalEdits.thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(edits, getColumnMaps()) : null) // pass null all the way through if our list of edits is empty
             .thenCompose(edits -> edits != null ? availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task)) : null)
             .thenApply(res -> {
                 if (res != null && !res.isApplied()) {

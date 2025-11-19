@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
+import { SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Suite } from 'mocha';
 import { expect } from 'chai';
+import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+import * as path from 'path';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -257,5 +257,28 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
+    });
+
+    it("call hierarchy works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoCallsFile);
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showCallHierarchy");
+        await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showIncomingCalls");
+        await driver.wait(async () => {
+            const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
+            const items = await ignoreFails(outgoing!.getVisibleItems());
+            return items!.length === 2;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showOutgoingCalls");
+        await driver.wait(async () => {
+            const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
+            const items = await ignoreFails(incoming!.getVisibleItems());
+            return items!.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });
