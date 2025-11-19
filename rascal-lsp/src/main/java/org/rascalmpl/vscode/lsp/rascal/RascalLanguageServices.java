@@ -41,7 +41,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -92,7 +91,7 @@ public class RascalLanguageServices {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalLanguageServices.class);
 
-    private final CompletableFuture<Evaluator> documentSymbolEvaluator;
+    private final CompletableFuture<Evaluator> shortRunningTaskEvaluator;
     private final CompletableFuture<Evaluator> semanticEvaluator;
     private final CompletableFuture<Evaluator> compilerEvaluator;
 
@@ -123,7 +122,7 @@ public class RascalLanguageServices {
 
         var context = new LSPContext(exec, docService, workspaceService, client);
 
-        documentSymbolEvaluator = makeFutureEvaluator(context, "Rascal document symbols", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols");
+        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates");
         semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
@@ -223,7 +222,7 @@ public class RascalLanguageServices {
             });
         }
 
-        return runEvaluator("Rascal Document Symbols", documentSymbolEvaluator, eval -> (IList) eval.call("documentRascalSymbols", module),
+        return runEvaluator("Rascal Document Symbols", shortRunningTaskEvaluator, eval -> (IList) eval.call("documentRascalSymbols", module),
             VF.list(), exec, false, client);
     }
 
@@ -264,6 +263,10 @@ public class RascalLanguageServices {
         , emptyResult, exec, false, client);
     }
 
+    public InterruptibleFuture<IList> newModuleTemplates(IList newFiles) {
+        return EvaluatorUtil.runEvaluator("Rascal new module", shortRunningTaskEvaluator, eval ->
+            (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval)), VF.list(), exec, false, client);
+    }
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);

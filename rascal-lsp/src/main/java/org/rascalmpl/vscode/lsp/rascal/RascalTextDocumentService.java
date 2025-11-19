@@ -35,22 +35,24 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -61,6 +63,7 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FileCreate;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -493,9 +496,22 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        logger.debug("workspace/didRenameFiles: {}", params.getFiles());
+    public void didCreateFiles(CreateFilesParams params) {
+        var newFiles = params.getFiles()
+            .stream()
+            .map(FileCreate::getUri)
+            .map(URIUtil::assumeCorrectLocation)
+            .collect(VF.listWriter());
 
+        var edits = availableRascalServices().newModuleTemplates(newFiles).get();
+        applyDocumentEdits("Auto-insert module headers", edits, res -> {
+            logger.error("Applying new module template failed{}", failureReason(res));
+            return null;
+        });
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         Set<ISourceLocation> folders = workspaceFolders.stream()
             .map(f -> Locations.toLoc(f.getUri()))
             .collect(Collectors.toSet());
@@ -504,37 +520,25 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
             .collect(VF.listWriter());
 
-        availableRascalServices().getModuleRenames(renames, folders)
-            .thenAccept(res -> {
+        var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)
+            .get()
+            .thenApply(res -> {
                 var edits = (IList) res.get(0);
                 var messages = (ISet) res.get(1);
                 showMessages(messages);
-
-                if (edits.size() == 0) {
-                    return;
-                }
-
-                var changes = DocumentChanges.translateDocumentChanges(edits, columns);
-                availableClient().applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
-                    if (!editResponse.isApplied()) {
-                        throw new RuntimeException("Applying module rename failed" + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
-                    }
-                });
-            })
-            .get()
-            .exceptionally(e -> {
-                var cause = e.getCause();
-                logger.catching(Level.ERROR, cause);
-                String message = "unkown error";
-                if (cause != null && cause.getMessage() != null) {
-                    message= cause.getMessage();
-                }
-                availableClient().showMessage(new MessageParams(MessageType.Error, message));
-                return null; // Return of type `Void` is unused, but required
+                return edits;
             });
+
+        applyDocumentEdits("Module rename", rascalEdits, res -> {
+            throw new RuntimeException("Applying module rename failed" + failureReason(res));
+        });
     }
 
     // Private utility methods
+
+    private String failureReason(ApplyWorkspaceEditResponse res) {
+        return res.getFailureReason() != null ? (": " + res.getFailureReason()) : "";
+    }
 
     private static <T> T last(List<T> l) {
         return l.get(l.size() - 1);
@@ -603,6 +607,28 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                     return SelectionRanges.toSelectionRange(p, locs, columns);
                 })
                 .collect(Collectors.toList())));
+    }
+
+    private <T> CompletableFuture<@Nullable T> applyDocumentEdits(String task, CompletableFuture<IList> rascalEdits, Function<ApplyWorkspaceEditResponse, T> notApplied) {
+        return rascalEdits.thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(edits, getColumnMaps()) : null) // pass null all the way through if our list of edits is empty
+            .thenCompose(edits -> edits != null ? availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task)) : null)
+            .thenApply(res -> {
+                if (res != null && !res.isApplied()) {
+                    logger.trace("Could not apply workspace edits: {}", res.getFailureReason());
+                    return notApplied.apply(res);
+                }
+                return null;
+            })
+            .exceptionally(e -> {
+                var cause = e.getCause();
+                logger.catching(Level.ERROR, cause);
+                String message = "unkown error";
+                if (cause != null && cause.getMessage() != null) {
+                    message = cause.getMessage();
+                }
+                availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Error during '%s': %s", task, message)));
+                return null; // Return of type `Void` is unused, but required
+            });
     }
 
     @Override

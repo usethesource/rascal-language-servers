@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
@@ -45,7 +47,6 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
-import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -56,7 +57,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.uri.URIUtil;
-import com.google.gson.JsonPrimitive;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
@@ -71,10 +71,10 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-    private final List<FileOperationPattern> interestedInFiles;
+    private final List<FileOperationFilter> interestedInFiles;
 
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationPattern> interestedInFiles) {
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationFilter> interestedInFiles) {
         this.documentService = documentService;
         this.ownExecuter = exec;
         this.interestedInFiles = interestedInFiles;
@@ -98,10 +98,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             }
 
             var fileOperationCapabilities = new FileOperationsServerCapabilities();
-            var whichFiles = new FileOperationOptions(interestedInFiles.stream()
-                .map(FileOperationFilter::new)
-                .collect(Collectors.toList())
-            );
+            var whichFiles = new FileOperationOptions(interestedInFiles);
             boolean watchesSet = false;
             if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
                 fileOperationCapabilities.setDidRename(whichFiles);
@@ -166,12 +163,16 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     }
 
     @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        logger.debug("workspace/didCreateFiles: {}", params.getFiles());
+        ownExecuter.submit(() -> documentService.didCreateFiles(params));
+    }
+
+    @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        ownExecuter.submit(() -> {
-            documentService.didRenameFiles(params, workspaceFolders());
-        });
+        ownExecuter.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
 
         ownExecuter.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)
@@ -204,7 +205,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
     }
 
-    protected final ExecutorService getExecuter() {
+    protected final ExecutorService getExecutor() {
         return ownExecuter;
     }
 

@@ -64,6 +64,7 @@ import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -512,6 +513,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        // This is fine, as long as `ParametricWorkspaceService` doet not claim to support the `didCreateFiles` capability.
+        throw new UnsupportedOperationException("Unimplemented method 'didCreateFiles'");
+    }
+
+    @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         Map<ILanguageContributions, List<FileRename>> byContrib =  bundleRenamesByContribution(params.getFiles());
         for (var entry : byContrib.entrySet()) {
@@ -527,7 +534,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     var client = availableClient();
                     showMessages(client, messages);
 
-                    if (edits.size() == 0) {
+                    if (edits.isEmpty()) {
                         return;
                     }
 
