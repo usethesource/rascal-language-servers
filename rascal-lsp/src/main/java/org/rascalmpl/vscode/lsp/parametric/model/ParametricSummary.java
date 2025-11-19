@@ -126,8 +126,6 @@ public interface ParametricSummary {
         return summary.getImplementations(position);
     }
 
-    public static final ParametricSummary NULL = new NullSummary();
-
     public static InterruptibleFuture<List<Diagnostic>> getMessages(CompletableFuture<Versioned<ParametricSummary>> summary, Executor exec) {
         var messages = summary
             .thenApply(Versioned<ParametricSummary>::get)
@@ -137,6 +135,12 @@ public interface ParametricSummary {
 }
 
 class NullSummary implements ParametricSummary {
+    private final Executor exec;
+
+    NullSummary(Executor exec) {
+        this.exec = exec;
+    }
+
     @Override
     @SuppressWarnings("deprecation") // For `MarkedString`
     public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
@@ -160,7 +164,7 @@ class NullSummary implements ParametricSummary {
 
     @Override
     public InterruptibleFuture<List<Diagnostic>> getMessages() {
-        return InterruptibleFuture.completedFuture(Collections.emptyList());
+        return InterruptibleFuture.completedFuture(Collections.emptyList(), exec);
     }
 
     @Override
@@ -208,7 +212,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
     public CompletableFuture<Versioned<ParametricSummary>> createMessagesOnlySummary(
             ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
-        return createSummary(file, tree, MessagesOnlyScheduledSummary::new);
+        return createSummary(file, tree, cons -> new MessagesOnlyScheduledSummary(cons, exec));
     }
 
     public CompletableFuture<Versioned<ParametricSummary>> createFullSummary(
@@ -230,7 +234,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
     public class MessagesOnlyScheduledSummary extends NullSummary {
         private final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
 
-        public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
+        public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation, Executor exec) {
+            super(exec);
             this.messages = extractMessages(calculation);
         }
 
@@ -266,7 +271,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
-            super(calculation);
+            super(calculation, exec);
 
             // for temporary backward compatibility between SummaryFields.HOVERS and SummaryFields.DEPRECATED_DOCUMENTATION
             calculation = calculation.thenApply(summary -> {
@@ -466,7 +471,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
         @Override
         public InterruptibleFuture<List<Diagnostic>> getMessages() {
-            return InterruptibleFuture.completedFuture(Collections.emptyList());
+            return InterruptibleFuture.completedFuture(Collections.emptyList(), exec);
         }
 
         @Override
@@ -497,7 +502,7 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
 
             if (focus.isEmpty()) {
                 logger.trace("{}: could not find substree at line {} and offset {}", logName, pos.getLine(), pos.getCharacter());
-                set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set());
+                set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set(), exec);
             } else {
                 logger.trace("{}: looked up focus with length: {}, now calling dedicated function", logName, focus.length());
                 set = calculator.apply(focus);
