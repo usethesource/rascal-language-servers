@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Assure different pom cache hit
         run: echo "  " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Assure different pom cache hit
         run: echo " " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
@@ -141,7 +141,7 @@ jobs:
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
