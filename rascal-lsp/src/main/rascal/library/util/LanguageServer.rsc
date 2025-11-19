@@ -609,7 +609,7 @@ data Message(list[CodeAction] fixes = []);
 In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
 * label: Human-readable string that describes the change.
 * description: Human-readable string that additionally describes the change, rendered less prominently.
-* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user information.
+* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user confirmation.
 
 Typically, clients provide options to group edits by label/description when showing them to the user.
 See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
