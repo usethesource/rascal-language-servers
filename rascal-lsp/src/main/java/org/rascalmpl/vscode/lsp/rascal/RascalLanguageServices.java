@@ -264,14 +264,8 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<IList> newModuleTemplates(IList newFiles) {
-        return EvaluatorUtil.runEvaluator("Rascal new module", shortRunningTaskEvaluator,
-            eval -> {
-                try {
-                    return (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval));
-                } catch (Throw e) {
-                    throw new RuntimeException(e.getMessage());
-                }
-            }, VF.list(), exec, false, client);
+        return EvaluatorUtil.runEvaluator("Rascal new module", shortRunningTaskEvaluator, eval ->
+            (IList) eval.call("newModuleTemplates", newFiles, makePathConfigGetter(eval)), VF.list(), exec, false, client);
     }
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
