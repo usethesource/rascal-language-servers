@@ -27,7 +27,7 @@ jobs:
     name: SonarCloud 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # sonar needs full checkout for better blame information
       - uses: actions/setup-java@v4
@@ -51,7 +51,7 @@ jobs:
     name: eslint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: setup node
         uses: actions/setup-node@v4
         with:
@@ -77,7 +77,7 @@ jobs:
     name: checkstyle 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: 
           ref: ${{ github.event.pull_request.head.sha }} # run it on the PR, not on the merged commit, for better line numbers
         
@@ -123,7 +123,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - if: ${{ matrix.language == 'java' }}
         uses: actions/setup-java@v4
