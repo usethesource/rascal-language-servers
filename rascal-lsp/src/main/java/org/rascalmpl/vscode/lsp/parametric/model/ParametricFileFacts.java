@@ -186,14 +186,14 @@ public class ParametricFileFacts {
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger(-1);
 
-        private final ParametricSummary NULL = new NullSummary(exec);
+        private final ParametricSummary nullSummary = new NullSummary(exec);
 
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
-            CompletableFutureUtils.completedFuture(new Versioned<>(-1, NULL), exec);
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderBuild =
-            CompletableFutureUtils.completedFuture(new Versioned<>(-1, NULL), exec);
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis =
-            CompletableFutureUtils.completedFuture(new Versioned<>(-1, NULL), exec);
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -261,7 +261,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    return CompletableFutureUtils.completedFuture(new Versioned<>(version, NULL), exec);
+                    return CompletableFutureUtils.completedFuture(new Versioned<>(version, nullSummary), exec);
                 }
             }, delayed);
 

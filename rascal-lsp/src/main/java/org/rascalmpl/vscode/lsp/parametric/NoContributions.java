@@ -50,7 +50,7 @@ public class NoContributions implements ILanguageContributions {
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
 
     private String name;
-    private final CompletableFuture<Boolean> FALSE;
+    private final CompletableFuture<Boolean> falsy;
 
     public class NoContributionException extends RuntimeException {
         private NoContributionException(String message) {
@@ -60,7 +60,7 @@ public class NoContributions implements ILanguageContributions {
 
     public NoContributions(String name, Executor ownExecutor) {
         this.name = name;
-        FALSE = CompletableFutureUtils.completedFuture(false, ownExecutor);
+        this.falsy = CompletableFutureUtils.completedFuture(false, ownExecutor);
     }
 
     @Override
@@ -170,82 +170,82 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasAnalysis() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasBuild() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeLens() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasRename() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecution() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasHover() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDefinition() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasReferences() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasImplementation() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> hasCallHierarchy() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
-        return FALSE;
+        return falsy;
     }
 
     @Override
