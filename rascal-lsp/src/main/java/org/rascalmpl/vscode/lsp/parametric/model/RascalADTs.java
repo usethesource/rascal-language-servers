@@ -103,4 +103,28 @@ public class RascalADTs {
         public static final String DETAIL = "detail";
         public static final String DATA = "data";
     }
+
+    public static class FileSystemChangeFields {
+        private FileSystemChangeFields() { }
+
+        public static final String CREATED = "created";
+        public static final String RENAMED = "renamed";
+        public static final String REMOVED = "removed";
+        public static final String CHANGED = "changed";
+
+        public static final String FILE = "file";
+        public static final String FROM = "from";
+        public static final String TO = "to";
+        public static final String EDITS = "edits";
+    }
+
+    public static class TextEditFields {
+        private TextEditFields() { }
+
+        public static final String RANGE = "range";
+        public static final String REPLACEMENT = "replacement";
+        public static final String LABEL = "label";
+        public static final String DESCRIPTION = "description";
+        public static final String NEEDS_CONFIRMATION = "needsConfirmation";
+    }
 }

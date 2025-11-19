@@ -19,6 +19,7 @@ We only list significant changes, for a full changelog [please review the commit
 * DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
 * DSLs can contribute their own call hierarchies using the `LanguageServer::callHierachy` contribution.
+* DSLs can extend text edits with labels and descriptions, and mark them as requiring user confirmation, using keyword parameters (`str label`, `str description`, `bool needsConfirmation`). See `util::LanguageServer::TextEdit`.
 
 ### Improved features
 
