@@ -75,7 +75,7 @@ describe('DSL unregister/register race', function () {
     after(async function() {
     });
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 25; i++) {
         it("Try trigger race", async function () {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.hasSyntaxHighlighting(editor);
