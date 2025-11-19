@@ -37,7 +37,6 @@ import analysis::diff::edits::TextEdits;
 
 import lang::rascal::\syntax::Rascal;
 
-LanguageFileConfig rascalConfig = fileConfig();
 
 list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) getPathConfig) {
     list[FileSystemChange] edits = [];
@@ -47,7 +46,7 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
                 continue;
             }
 
-            name = srcsModule(f, getPathConfig(f), rascalConfig);
+            name = srcsModule(f, getPathConfig(f), fileConfig());
             // Check if name is valid
             // Instead of `parse`, use as-type to work around https://github.com/usethesource/rascal/issues/2522
             _ = [QualifiedName] name;
