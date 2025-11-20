@@ -75,14 +75,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.terminate();
     }
 
-    async function waitForPico() {
-        const isPicoLoading = ide.statusContains("Pico");
-        // we might miss this event, but we wait for it to show up
-        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
-        // now wait for the Pico parser generator to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
-    }
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
@@ -113,7 +105,11 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     it("has highlighting and parse errors", async function () {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await waitForPico();
+        const isPicoLoading = ide.statusContains("Pico");
+        // we might miss this event, but we wait for it to show up
+        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
+        // now wait for the Pico parser generator to disappear
+        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         console.log("We got syntax highlighting");
         try {
