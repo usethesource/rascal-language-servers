@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
@@ -229,7 +230,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             Function<ILanguageContributions, CompletableFuture<T>> predicate,
             T falsy, BinaryOperator<T> or) {
 
-        var result = CompletableFuture.completedFuture(falsy);
+        var result = CompletableFutureUtils.completedFuture(falsy, ownExecuter);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
         for (var c: contributions) {

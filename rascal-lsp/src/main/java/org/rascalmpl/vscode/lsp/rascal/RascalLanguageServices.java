@@ -139,8 +139,7 @@ public class RascalLanguageServices {
             }, null, exec, false, client);
         } catch (IOException e) {
             logger.error("Error looking up module name from source location {}", occ, e);
-            return new InterruptibleFuture<>(CompletableFuture.completedFuture(null), () -> {
-            });
+            return InterruptibleFuture.completedFuture(null, exec);
         }
     }
 
@@ -218,8 +217,7 @@ public class RascalLanguageServices {
     public InterruptibleFuture<IList> getDocumentSymbols(IConstructor module) {
         ISourceLocation loc = getFileLoc((ITree) module);
         if (loc == null) {
-            return new InterruptibleFuture<>(CompletableFuture.completedFuture(VF.list()), () -> {
-            });
+            return InterruptibleFuture.completedFuture(VF.list(), exec);
         }
 
         return runEvaluator("Rascal Document Symbols", shortRunningTaskEvaluator, eval -> (IList) eval.call("documentRascalSymbols", module),
@@ -255,7 +253,7 @@ public class RascalLanguageServices {
     public InterruptibleFuture<ITuple> getModuleRenames(IList fileRenames, Set<ISourceLocation> workspaceFolders) {
         var emptyResult = VF.tuple(VF.list(), VF.map());
         if (fileRenames.isEmpty()) {
-            return InterruptibleFuture.completedFuture(emptyResult);
+            return InterruptibleFuture.completedFuture(emptyResult, exec);
         }
 
         return runEvaluator("Rascal module rename", semanticEvaluator, eval ->
