@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.io.IOException;
 
 import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
+import org.rascalmpl.shell.RascalShell;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 
 /**
@@ -54,7 +55,7 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
-        RascalInterpreterREPL.main(args);
+        RascalShell.main(args);
     }
 }
 
