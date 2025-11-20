@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import org.apache.logging.log4j.LogManager;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
@@ -47,11 +48,13 @@ public class RascalInterface {
     }
 
     public void registerLanguage(IConstructor lang) {
-        services.registerLanguage(lang);
+        LogManager.getLogger(RascalInterface.class).warn("Cannot currently register languages");
+        // services.registerLanguage(lang);
     }
 
     public void unregisterLanguage(IConstructor lang) {
-        services.unregisterLanguage(lang);
+        LogManager.getLogger(RascalInterface.class).warn("Cannot currently unregister languages");
+        // services.unregisterLanguage(lang);
     }
 
     public ISourceLocation resolveProjectLocation(ISourceLocation project) {
