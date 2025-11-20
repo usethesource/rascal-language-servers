@@ -38,7 +38,7 @@ describe('DSL unregister/register race', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal');
+    printRascalOutputOnFailure('Language Parametric Rascal', () => driver);
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
@@ -78,13 +78,14 @@ describe('DSL unregister/register race', function () {
     });
 
     for (let i = 0; i < 100; i++) {
-        if (!failed) {
-            it.only("Try trigger race", async function () {
-                const editor = await ide.openModule(TestWorkspace.picoFile);
-                await ide.hasSyntaxHighlighting(editor);
-                await ide.hasInlayHint(editor);
-            });
-        }
+        it.only("Try trigger race", async function () {
+            if (failed) {
+                this.skip();
+            }
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.hasSyntaxHighlighting(editor);
+            await ide.hasInlayHint(editor);
+        });
     }
 });
 
