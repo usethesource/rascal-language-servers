@@ -646,9 +646,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
         var ext = extension(loc);
-        if ("".equals(ext) && contributions.size() == 1) {
-            // If no extension is present, and exactly one language contribution is registered, use it for all files
-            return contributions.keySet().stream().findFirst();
+        if ("".equals(ext)) {
+            if (contributions.size() == 1) {
+                logger.trace("file was openeed without an extension; falling back to the single registered language for: {}", loc);
+                return contributions.keySet().stream().findFirst();
+            } else {
+                logger.error("file was openeed without an extension and there are multiple languages registered, so we cannot pick a fall-back for: {}", loc);
+                return Optional.empty();
+            }
         }
         return Optional.ofNullable(registeredExtensions.get(ext));
     }
