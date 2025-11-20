@@ -31,7 +31,8 @@ import java.net.Socket;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.debug.IRascalMonitor;
@@ -53,6 +54,8 @@ public class RascalInterface {
     private final @Nullable LanguageRegistry languageRegistry;
     private final IRascalMonitor monitor;
 
+    private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
+
     @SuppressWarnings("resource")
     public RascalInterface(IRascalMonitor monitor) {
         this.monitor = monitor;
@@ -68,7 +71,7 @@ public class RascalInterface {
                     .setInput(socket.getInputStream())
                     .setOutput(socket.getOutputStream())
                     .create();
-                
+
                 clientLauncher.startListening();
                 registry = clientLauncher.getRemoteProxy();
             }
@@ -79,6 +82,7 @@ public class RascalInterface {
     }
 
     public void registerLanguage(IConstructor lang) {
+        logger.info("registerLanguage({})", lang);
         if (languageRegistry == null) {
             monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
         } else {
@@ -94,6 +98,7 @@ public class RascalInterface {
     }
 
     public void unregisterLanguage(IConstructor lang) {
+        logger.info("unregisterLanguage({})", lang);
         if (languageRegistry == null) {
             monitor.warning("Could not unregister language: no connection", URIUtil.unknownLocation());
         } else {
