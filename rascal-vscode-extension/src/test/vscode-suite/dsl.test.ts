@@ -47,7 +47,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal', () => driver);
+    printRascalOutputOnFailure('Language Parametric Rascal', () => driver, () => ide);
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
