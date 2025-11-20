@@ -27,8 +27,8 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 
-import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 import com.google.gson.GsonBuilder;
