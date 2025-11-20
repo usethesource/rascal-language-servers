@@ -26,26 +26,39 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.net.URI;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.ideservices.IRemoteIDEServices.DocumentEditsParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
-import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
+import org.rascalmpl.values.IRascalValueFactory;
+
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.IList;
+import io.usethesource.vallang.ISet;
+import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
+import io.usethesource.vallang.exceptions.FactTypeUseException;
+import io.usethesource.vallang.io.StandardTextReader;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 /**
  * Server interface for remote implementation of @see IDEServices
  */
 public interface ITerminalIDEServer {
     @JsonRequest
-    default CompletableFuture<Void> browse(BrowseParameter uri) {
+    default CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
         throw new UnsupportedOperationException();
     }
 
@@ -55,7 +68,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonRequest
-    default CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter edit) {
+    default CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation edit) {
         throw new UnsupportedOperationException();
     }
 
@@ -75,7 +88,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonNotification("rascal/showHTML")
-    default void showHTML(BrowseParameter content) {
+    default void showHTML(URI uri, IString title, IInteger viewColumn) {
         throw new UnsupportedOperationException();
     }
 
@@ -90,7 +103,7 @@ public interface ITerminalIDEServer {
     }
 
     @JsonNotification("rascal/unregisterDiagnostics")
-    default void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
+    default void unregisterDiagnostics(ISourceLocation[] locs) {
         throw new UnsupportedOperationException();
     }
 

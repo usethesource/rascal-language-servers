@@ -49,7 +49,7 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -84,8 +84,8 @@ public class LSPIDEServices implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri, String title, int viewColumn) {
-        languageClient.showContent(new BrowseParameter(uri.toString(), title, viewColumn));
+    public void browse(URI uri, IString title, IInteger viewColumn) {
+        languageClient.showContent(new BrowseParameter(uri, title, viewColumn));
     }
 
     @Override
@@ -118,16 +118,6 @@ public class LSPIDEServices implements IDEServices {
             logger.catching(e);
             return input;
         }
-    }
-
-    @Override
-    public void registerLanguage(IConstructor language) {
-        languageClient.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
-    }
-
-    @Override
-    public void unregisterLanguage(IConstructor language) {
-        languageClient.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
     @Override

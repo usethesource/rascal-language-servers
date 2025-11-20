@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -39,13 +40,9 @@ import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
-import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.DocumentEditsParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
-import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.uri.LogicalMapResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -56,9 +53,10 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IString;
 
 /**
  * This server forwards IDE services requests by a Rascal terminal
@@ -78,9 +76,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<Void> browse(BrowseParameter uri) {
+    public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> languageClient.showContent(uri));
+        return CompletableFuture.runAsync(() -> languageClient.showContent(new BrowseParameter(uri, title, viewColumn)));
     }
 
     @Override
@@ -90,9 +88,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter loc) {
+    public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation loc) {
         logger.trace("resolveProjectLocation({})", loc);
-        ISourceLocation input = loc.getLocation();
+        ISourceLocation input = loc;
         String projectName = input.getAuthority();
 
         for (var folder: workspaceService.workspaceFolders()) {
@@ -103,11 +101,11 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         return CompletableFuture.completedFuture(loc);
     }
 
-    private SourceLocationParameter buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input, SourceLocationParameter fallback) {
+    private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input, ISourceLocation fallback) {
         try {
             ISourceLocation root = URIUtil.createFromURI(folder.getUri());
             ISourceLocation newLoc = URIUtil.getChildLocation(root, input.getPath());
-            return new SourceLocationParameter(newLoc);
+            return newLoc;
         } catch (URISyntaxException e) {
             logger.catching(e);
             return fallback;
@@ -131,8 +129,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public void showHTML(BrowseParameter content) {
-        languageClient.showContent(content);
+    public void showHTML(URI uri, IString title, IInteger viewColumn) {
+        languageClient.showContent(new BrowseParameter(uri, title, viewColumn));
     }
 
     @Override
@@ -147,8 +145,8 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public void registerLocations(RegisterLocationsParameters param) {
         URIResolverRegistry.getInstance().registerLogical(
             new LogicalMapResolver(
-                param.getRawScheme(),
-                param.getRawAuthority(),
+                param.getScheme().getValue(),
+                param.getAuthority().getValue(),
                 param.getMapping()
             )
         );
@@ -165,9 +163,9 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     }
 
     @Override
-    public void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
-        for (IValue elem : param.getLocations()) {
-            ISourceLocation loc = Locations.toPhysicalIfPossible((ISourceLocation) elem);
+    public void unregisterDiagnostics(ISourceLocation[] locs) {
+        for (ISourceLocation loc : locs) {
+            loc = Locations.toPhysicalIfPossible(loc);
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
         }
     }

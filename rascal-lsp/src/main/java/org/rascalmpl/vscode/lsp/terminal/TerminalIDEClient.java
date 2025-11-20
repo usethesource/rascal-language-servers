@@ -40,19 +40,15 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
-import org.rascalmpl.ideservices.IRemoteIDEServices.BrowseParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
 import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
-import org.rascalmpl.ideservices.IRemoteIDEServices.SourceLocationParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.UnRegisterDiagnosticsParameters;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
 import io.usethesource.vallang.ISourceLocation;
@@ -120,9 +116,9 @@ public class TerminalIDEClient implements IDEServices {
     }
 
     @Override
-    public void browse(URI uri, String title, int viewColumn) {
+    public void browse(URI uri, IString title, IInteger viewColumn) {
         ensureServerInitialized();
-        server.browse(new BrowseParameter(uri.toString(), title, viewColumn));
+        server.browse(uri, title, viewColumn);
     }
 
     @Override
@@ -152,9 +148,7 @@ public class TerminalIDEClient implements IDEServices {
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
         ensureServerInitialized();
         try {
-            return server.resolveProjectLocation(new SourceLocationParameter(input))
-                .get()
-                .getLocation();
+            return server.resolveProjectLocation(input).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return input;
@@ -162,27 +156,6 @@ public class TerminalIDEClient implements IDEServices {
             logger.error("Failed to resolve project location: {}", input, e.getCause());
             return input;
         }
-    }
-
-    @Override
-    public void registerLanguage(IConstructor language) {
-        registerLanguage(LanguageParameter.fromRascalValue(language));
-    }
-
-    public void registerLanguage(LanguageParameter language) {
-        ensureServerInitialized();
-        server.receiveRegisterLanguage(language);
-    }
-
-
-    @Override
-    public void unregisterLanguage(IConstructor language) {
-        unregisterLanguage(LanguageParameter.fromRascalValue(language));
-    }
-
-    public void unregisterLanguage(LanguageParameter language) {
-        ensureServerInitialized();
-        server.receiveUnregisterLanguage(language);
     }
 
     @Override
@@ -245,7 +218,7 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void unregisterDiagnostics(IList resources) {
         ensureServerInitialized();
-        server.unregisterDiagnostics(new UnRegisterDiagnosticsParameters(resources));
+        server.unregisterDiagnostics(resources.stream().map(ISourceLocation.class::cast).toArray(ISourceLocation[]::new));
     }
 
     @Override

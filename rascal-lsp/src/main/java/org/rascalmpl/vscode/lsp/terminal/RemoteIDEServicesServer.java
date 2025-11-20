@@ -28,16 +28,17 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
-import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
-import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.ideservices.IRemoteIDEServices;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.values.ValueFactoryFactory;
+
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 
 public class RemoteIDEServicesServer implements IRemoteIDEServices {
     private final static Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
@@ -48,52 +49,29 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     }
 
     @Override
-    public CompletableFuture<Void> edit(SourceLocationParameter loc) {
-        terminalClient.edit(loc.getLocation());
+    public CompletableFuture<Void> edit(ISourceLocation loc) {
+        terminalClient.edit(loc);
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> browse(BrowseParameter param) {
-        try {
-            terminalClient.browse(new URI(param.getUri()), param.getTitle(), param.getViewColumn());
-            return CompletableFuture.completedFuture(null);
-        } catch (URISyntaxException e) {
-            // Should never happen
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InvalidParams, "Could not create URI", e));
-        }
+    public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
+        terminalClient.browse(uri, title, viewColumn);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<SourceLocationParameter> resolveProjectLocation(SourceLocationParameter param) {
+    public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation param) {
         try {
-            return CompletableFuture.completedFuture(new SourceLocationParameter(URIResolverRegistry.getInstance().logicalToPhysical(param.getLocation())));
+            return CompletableFuture.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(param));
         } catch (IOException e) {
             return CompletableFuture.completedFuture(param);
         }
     }
 
     @Override
-    public CompletableFuture<Void> registerLanguage(LanguageParameter language) {
-        terminalClient.registerLanguage(language);
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<Void> unregisterLanguage(LanguageParameter language) {
-        terminalClient.unregisterLanguage(language);
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
     public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter param) {
         terminalClient.applyFileSystemEdits(param.getEdits());
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public CompletableFuture<Void> warning(String message, SourceLocationParameter param) {
-        terminalClient.warning(message, param.getLocation());
         return CompletableFuture.completedFuture(null);
     }
 
@@ -110,8 +88,8 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     }
 
     @Override
-    public CompletableFuture<Void> unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
-        terminalClient.unregisterDiagnostics(param.getLocations());
+    public CompletableFuture<Void> unregisterDiagnostics(ISourceLocation[] locs) {
+        terminalClient.unregisterDiagnostics(ValueFactoryFactory.getValueFactory().list(locs));
         return CompletableFuture.completedFuture(null);
     }
 
@@ -126,5 +104,4 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
         terminalClient.registerDebugServerPort(processID, serverPort);
         return CompletableFuture.completedFuture(null);
     }
-
 }
