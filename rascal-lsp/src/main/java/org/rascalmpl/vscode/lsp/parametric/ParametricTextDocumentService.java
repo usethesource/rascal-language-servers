@@ -646,10 +646,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
         var ext = extension(loc);
-        if ("".equals(ext) && registeredExtensions.size() == 1)
+        if ("".equals(ext) && contributions.size() == 1)
         {
             // If no extension is present, and exactly one language contribution is registered, use it for all files
-            return registeredExtensions.values().stream().findFirst();
+            return contributions.keySet().stream().findFirst();
         }
         return Optional.ofNullable(registeredExtensions.get(ext));
     }
