@@ -60,7 +60,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.IRemoteIDEServices.LanguageParameter;
-import org.rascalmpl.ideservices.RemoteIDEServices;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
@@ -118,7 +118,7 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(RemoteIDEServices::configureGson)
+            .configureGson(GsonUtils::configureGson)
             .setExecutorService(threadPool)
             .create();
 

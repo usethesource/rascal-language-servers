@@ -35,8 +35,8 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.ideservices.IRemoteIDEServices;
-import org.rascalmpl.ideservices.RemoteIDEServices;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
 public class RemoteIDEServicesThread extends Thread {
@@ -64,7 +64,7 @@ public class RemoteIDEServicesThread extends Thread {
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
-                        .configureGson(RemoteIDEServices::configureGson)
+                        .configureGson(GsonUtils::configureGson)
                         .setExceptionHandler(e -> {
                             logger.error(e);
                             return new ResponseError(ResponseErrorCode.InternalError, e.getMessage(), e);
