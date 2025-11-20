@@ -34,6 +34,8 @@ describe('DSL unregister/register race', function () {
     let bench: Workbench;
     let ide : IDEOperations;
 
+    let failed: boolean = false;
+
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Language Parametric Rascal');
@@ -67,7 +69,7 @@ describe('DSL unregister/register race', function () {
 
     afterEach(async function () {
         if (this.currentTest && this.currentTest.state === 'failed') {
-            throw Error('Race successfully triggered');
+            failed = true;
         }
         await ide.cleanup();
     });
@@ -76,11 +78,13 @@ describe('DSL unregister/register race', function () {
     });
 
     for (let i = 0; i < 100; i++) {
-        it.only("Try trigger race", async function () {
-            const editor = await ide.openModule(TestWorkspace.picoFile);
-            await ide.hasSyntaxHighlighting(editor);
-            await ide.hasInlayHint(editor);
-        });
+        if (!failed) {
+            it.only("Try trigger race", async function () {
+                const editor = await ide.openModule(TestWorkspace.picoFile);
+                await ide.hasSyntaxHighlighting(editor);
+                await ide.hasInlayHint(editor);
+            });
+        }
     }
 });
 
