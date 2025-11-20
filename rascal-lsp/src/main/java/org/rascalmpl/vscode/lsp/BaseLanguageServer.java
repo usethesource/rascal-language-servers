@@ -243,10 +243,12 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            logger.debug("sendRegisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+            logger.debug("sendUnregisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
         }
 
