@@ -451,9 +451,21 @@ export class IDEOperations {
 }
 
 
-async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
+async function showRascalOutput(bbp: BottomBarPanel, channel: string, driver: WebDriver) {
     const outputView = await bbp.openOutputView();
-    await outputView.selectChannel(`${channel} Language Server`);
+    const channels = await outputView.getChannelNames();
+    const rascalChannels = channels.filter(c => c.includes("Rascal"));
+    if (rascalChannels.length === 1) {
+        await outputView.selectChannel(`${channel} Language Server`);
+    } else {
+        // Create a compound channel so we can see everything
+        const bench = new Workbench();
+        await bench.executeCommand("workbench.action.output.addCompoundLog");
+        const filter = await driver.wait(() => outputView.findElement(By.xpath("//div[contains(@class, 'quick-input-filter')]//input")));
+        await filter.sendKeys("rascal");
+        await filter.sendKeys(Key.SHIFT, Key.TAB, Key.NULL, Key.SPACE);
+        await filter.sendKeys(Key.TAB, Key.TAB, Key.ENTER);
+    }
     return outputView;
 }
 
@@ -471,7 +483,7 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL', driver: () => WebDriver) {
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
@@ -487,7 +499,7 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             let textLines: WebElement[] = [];
             let tries = 0;
             while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
+                await showRascalOutput(bbp, channel, driver());
                 textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
                 tries++;
             }
