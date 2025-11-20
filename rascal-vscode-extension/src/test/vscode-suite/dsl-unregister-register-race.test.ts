@@ -64,7 +64,6 @@ describe('DSL unregister/register race', function () {
     });
 
     beforeEach(async function () {
-        await loadPico();
     });
 
     afterEach(async function () {
@@ -82,6 +81,9 @@ describe('DSL unregister/register race', function () {
             if (failed) {
                 this.skip();
             }
+
+            await loadPico();
+
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.hasSyntaxHighlighting(editor);
             await ide.hasInlayHint(editor);
