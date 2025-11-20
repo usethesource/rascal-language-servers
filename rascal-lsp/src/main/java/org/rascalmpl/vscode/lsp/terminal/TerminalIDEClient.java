@@ -42,16 +42,16 @@ import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterLocationsParameters;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.SourceLocationParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.UnRegisterDiagnosticsParameters;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -139,13 +139,35 @@ public class TerminalIDEClient implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
-        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
+        logger.debug("registerLanguage({})", language.getName());
+        try {
+            server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language)).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                logger.error("Error during `receiveRegisterLanguage`", e.getCause());
+            } else {
+                logger.error(e);
+            }
+        }
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
-        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
+        logger.debug("unregisterLanguage({})", language.getName());
+        try {
+            server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language)).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                logger.error("Error during `receiveUnregisterLanguage`", e.getCause());
+            } else {
+                logger.error(e);
+            }
+        }
     }
 
     @Override

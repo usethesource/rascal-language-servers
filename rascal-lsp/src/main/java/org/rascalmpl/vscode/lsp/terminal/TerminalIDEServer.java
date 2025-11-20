@@ -111,6 +111,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
+        logger.debug("receiveRegisterLanguage({})", lang.getName());
         return CompletableFuture.runAsync(() ->
             languageClient.receiveRegisterLanguage(lang));
     }
@@ -119,6 +120,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
         // we forward the request from the terminal to register a language
         // straight into the client:
+        logger.debug("receiveUnregisterLanguage({})", lang.getName());
         return CompletableFuture.runAsync(() ->
             languageClient.receiveUnregisterLanguage(lang));
     }

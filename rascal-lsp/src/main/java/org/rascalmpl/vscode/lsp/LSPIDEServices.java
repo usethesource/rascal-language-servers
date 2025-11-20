@@ -123,11 +123,13 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerLanguage(IConstructor language) {
+        logger.debug("registerLanguage({})", language.getName());
         languageClient.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
     @Override
     public void unregisterLanguage(IConstructor language) {
+        logger.debug("unregisterLanguage({})", language.getName());
         languageClient.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
     }
 
