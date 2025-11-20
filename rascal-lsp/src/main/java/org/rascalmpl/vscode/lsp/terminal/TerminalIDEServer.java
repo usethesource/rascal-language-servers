@@ -140,7 +140,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         IList list = edits.getEdits();
 
         return CompletableFuture.runAsync(() ->
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, list))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(list, docService.getColumnMaps()))));
     }
 
     @Override

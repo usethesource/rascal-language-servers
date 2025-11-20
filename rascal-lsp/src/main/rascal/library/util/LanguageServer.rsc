@@ -159,7 +159,7 @@ alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor
 @synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
 @description{
 Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
-Their names coincide exactly with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
+Their names coincide with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
 * The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
 All other other services are optional.
@@ -217,6 +217,9 @@ hover documentation, definition with uses, references to declarations, implement
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
+* The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
+    1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
+    2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -282,10 +285,42 @@ data LanguageService
         , loc (Focus _focus) prepareRenameService = defaultPrepareRenameService)
     | didRenameFiles(tuple[list[DocumentEdit], set[Message]] (list[DocumentEdit] fileRenames) didRenameFilesService)
     | selectionRange(list[loc](Focus _focus) selectionRangeService)
+    | callHierarchy (
+        list[CallHierarchyItem] (Focus _focus) prepareService,
+        lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
     ;
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
+
+@synopsis{A node in a call hierarchy, either a caller or a callee.}
+@description{
+A ((CallHierarchyItem)) represents a single function, method, or procedure in the call hierarchy.
+* `name` is the name of the callable/calling entity.
+* `kind` is the ((DocumentSymbolKind)) of the callable/calling entity, e.g., function, method, constructor, etc.
+* `src` is the location of the definition of the callable/calling entity.
+* `selection` is the location of the name of the definition of the callable/calling entity, or another range within `src` to select when the hierarchy item is clicked.
+* `tags` are additional metadata tags for the item, e.g., `deprecated`.
+* `detail` has additional information about the callable/calling entity, e.g., the function signature.
+* `data` can be used to store state that is shared between the `prepareService` and `callsService`.
+}
+data CallHierarchyItem
+    = callHierarchyItem(
+        str name,
+        DocumentSymbolKind kind,
+        loc src,                            // location of the definition
+        loc selection,                      // location of the name of the definition
+        set[DocumentSymbolTag] tags = {},
+        str detail = "",                    // detailed description, e.g. the function signature
+        CallHierarchyData \data = none()    // shared state between `callHierarchy::prepareService` and `callHierarchy::callsService`
+    );
+
+data CallHierarchyData = none();
+
+data CallDirection
+    = incoming()
+    | outgoing()
+    ;
 
 @deprecated{Backward compatible with ((parsing)).}
 @synopsis{Construct a `parsing` ((LanguageService))}
@@ -568,6 +603,29 @@ the right ((DocumentEdit))s immediately.
 * don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
+
+@synopsis{A ((analysis::diff::edits::TextEdits::TextEdit)) with additional context for LSP.}
+@description{
+In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
+* label: Human-readable string that describes the change.
+* description: Human-readable string that additionally describes the change, rendered less prominently.
+* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user confirmation.
+
+Typically, clients provide options to group edits by label/description when showing them to the user.
+See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
+
+Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((util::LanguageServer::FileSystemChange)).
+}
+@pitfalls{
+When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
+}
+data TextEdit(str label = "", str description = label, bool needsConfirmation = false);
+
+@synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
+@description{
+Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
+}
+data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{

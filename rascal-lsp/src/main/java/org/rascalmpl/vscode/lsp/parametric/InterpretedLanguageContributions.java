@@ -96,6 +96,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> rename;
     private final CompletableFuture<@Nullable IFunction> didRenameFiles;
     private final CompletableFuture<@Nullable IFunction> selectionRange;
+    private final CompletableFuture<@Nullable IFunction> prepareCallHierarchy;
+    private final CompletableFuture<@Nullable IFunction> callHierarchyService;
 
     private final CompletableFuture<Boolean> hasAnalysis;
     private final CompletableFuture<Boolean> hasBuild;
@@ -111,6 +113,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> hasRename;
     private final CompletableFuture<Boolean> hasDidRenameFiles;
     private final CompletableFuture<Boolean> hasSelectionRange;
+    private final CompletableFuture<Boolean> hasCallHierarchy;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -157,6 +160,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.rename = getFunctionFor(contributions, LanguageContributions.RENAME);
             this.didRenameFiles = getFunctionFor(contributions, LanguageContributions.DID_RENAME_FILES);
             this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
+            this.prepareCallHierarchy = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 0);
+            this.callHierarchyService = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 1);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -173,6 +178,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hasRename = nonNull(this.rename);
             this.hasDidRenameFiles = nonNull(this.didRenameFiles);
             this.hasSelectionRange = nonNull(this.selectionRange);
+            this.hasCallHierarchy = nonNull(this.prepareCallHierarchy);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -265,6 +271,31 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         });
     }
 
+    @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        return store.thenApply(completionStore -> {
+            try {
+                var callHierarchyDataAdt = completionStore.lookupAbstractDataType("CallHierarchyData");
+                if (callHierarchyDataAdt == null) {
+                    throw new IllegalArgumentException("CallHierarchyData is not defined in environment");
+                }
+                if (data.isEmpty()) {
+                    var none = completionStore.lookupConstructor(callHierarchyDataAdt, "none", TypeFactory.getInstance().tupleEmpty());
+                    if (none == null) {
+                        throw new IllegalArgumentException("CallHierarchyData::none() is not defined in environment");
+                    }
+                    return VF.constructor(none);
+                }
+                return (IConstructor) new StandardTextReader().read(VF, completionStore, callHierarchyDataAdt, new StringReader(data));
+            } catch (FactTypeUseException | IOException e) {
+                // this should never happen as long as the Rascal code
+                // for creating errors is type-correct. So it _might_ happen
+                // when running the interpreter on broken code.
+                throw new IllegalArgumentException("The call hierarchy item data could not be parsed", e);
+            }
+        });
+    }
+
     private CompletableFuture<IConstructor> parseCommand(String command) {
         return store.thenApply(commandStore -> {
             try {
@@ -303,7 +334,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons) {
-        return getContribution(contributions, cons).thenApply(contribution -> contribution != null ? (IFunction) contribution.get(0) : null);
+        return getFunctionFor(contributions, cons, 0);
+    }
+
+    private static CompletableFuture<@Nullable IFunction> getFunctionFor(CompletableFuture<ISet> contributions, String cons, int argumentPos) {
+        return getContribution(contributions, cons).thenApply(contribution -> contribution != null ? (IFunction) contribution.get(argumentPos) : null);
     }
 
     private static CompletableFuture<@Nullable IFunction> getKeywordParamFunctionFor(CompletableFuture<ISet> contributions, String cons, String kwParam) {
@@ -407,6 +442,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
     }
 
+    @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        debug(LanguageContributions.CALL_HIERARCHY, "prepare", focus.length());
+        return execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        debug(LanguageContributions.CALL_HIERARCHY, hierarchyItem.has("name") ? hierarchyItem.get("name") : "?", direction.getName());
+        return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
+    }
+
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
     }
@@ -473,6 +520,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
         return hasSelectionRange;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return hasCallHierarchy;
     }
 
     @Override

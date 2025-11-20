@@ -138,7 +138,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void applyFileSystemEdits(IList edits) {
-        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(docService, edits)));
+        languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits, docService.getColumnMaps())));
     }
 
     @Override
