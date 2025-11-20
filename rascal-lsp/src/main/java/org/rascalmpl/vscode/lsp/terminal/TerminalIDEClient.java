@@ -140,14 +140,34 @@ public class TerminalIDEClient implements IDEServices {
     @Override
     public void registerLanguage(IConstructor language) {
         logger.debug("registerLanguage({})", language.getName());
-        server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language));
+        try {
+            server.receiveRegisterLanguage(LanguageParameter.fromRascalValue(language)).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                logger.error("Error during `receiveRegisterLanguage`", e.getCause());
+            } else {
+                logger.error(e);
+            }
+        }
     }
 
 
     @Override
     public void unregisterLanguage(IConstructor language) {
         logger.debug("unregisterLanguage({})", language.getName());
-        server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language));
+        try {
+            server.receiveUnregisterLanguage(LanguageParameter.fromRascalValue(language)).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                logger.error("Error during `receiveUnregisterLanguage`", e.getCause());
+            } else {
+                logger.error(e);
+            }
+        }
     }
 
     @Override
