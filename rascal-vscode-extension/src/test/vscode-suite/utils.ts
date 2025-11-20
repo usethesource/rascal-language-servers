@@ -483,7 +483,7 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL', driver: () => WebDriver) {
+export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL', driver: () => WebDriver, ide: () => IDEOperations) {
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
@@ -513,6 +513,7 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             await bbp.closePanel();
         } catch (e) {
             console.log('Error capturing output: ', e);
+            ide().screenshot("uncaptured-output");
         }
         finally {
             console.log('*******End output*****************************');
