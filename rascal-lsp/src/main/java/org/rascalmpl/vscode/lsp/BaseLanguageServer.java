@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,25 +58,17 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.library.lang.json.internal.JsonValueReader;
-import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -86,6 +79,7 @@ public abstract class BaseLanguageServer {
     private static final InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
+    private static IDEServicesConfiguration remoteIDEServicesConfiguration = null;
 
     static {
         DEPLOY_MODE = System.getProperty("rascal.lsp.deploy", "false").equalsIgnoreCase("true");
@@ -122,31 +116,13 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(BaseLanguageServer::configureGson)
+            .configureGson(GsonUtils::configureGson)
             .setExecutorService(threadPool)
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
 
         return clientLauncher;
-    }
-
-    private static void configureGson(GsonBuilder builder) {
-        JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
-        writer.setDatesAsInt(true);
-
-        builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
-            @Override
-            public IValue read(JsonReader source) throws IOException {
-                return reader.read(source, TypeFactory.getInstance().valueType());
-            }
-
-            @Override
-            public void write(JsonWriter target, IValue value) throws IOException {
-                writer.write(target, value);
-            }
-        });
     }
 
     private static void printClassPath() {
@@ -222,7 +198,6 @@ public abstract class BaseLanguageServer {
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
-        private IDEServicesConfiguration ideServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
@@ -232,14 +207,9 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
-            if (ideServicesConfiguration != null) {
-                return CompletableFuture.completedFuture(ideServicesConfiguration);
-            }
-
-            throw new RuntimeException("no IDEServicesConfiguration is set?");
+        public CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
+            return CompletableFuture.completedFuture(remoteIDEServicesConfiguration);
         }
-
 
         private static URI[] toURIArray(IList src) {
             return src.stream()
@@ -330,9 +300,10 @@ public abstract class BaseLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             var actualClient = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(actualClient, lspDocumentService, lspWorkspaceService);
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService);
+            logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
 
         @Override
