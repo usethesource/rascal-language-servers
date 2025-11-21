@@ -95,12 +95,12 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     }
 
     @Override
-    public CompletableFuture<Void> registerLocations(RegisterLocationsParameters param) {
+    public CompletableFuture<Void> registerLocations(IString scheme, IString authority, ISourceLocation[][] mapping) {
         URIResolverRegistry.getInstance().registerLogical(
             new LogicalMapResolver(
-                param.getScheme().getValue(),
-                param.getAuthority().getValue(),
-                param.getMapping()
+                scheme.getValue(),
+                authority.getValue(),
+                IRemoteIDEServices.locArrayToMapLocLoc(mapping)
             )
         );
         return CompletableFuture.completedFuture(null);
