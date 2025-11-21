@@ -27,26 +27,18 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import org.apache.logging.log4j.LogManager;
-import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
-import io.usethesource.vallang.ISourceLocation;
 
 /**
  * This is to call the language registry from Rascal (for example in REPL code)
  * @param services
  */
 public class RascalInterface {
-    private final IDEServices services;
-
-    public RascalInterface(IDEServices services) {
-        this.services = services;
-    }
-
     public void registerLanguage(IConstructor lang) {
         LogManager.getLogger(RascalInterface.class).warn("Cannot currently register languages");
         // services.registerLanguage(lang);
@@ -55,10 +47,6 @@ public class RascalInterface {
     public void unregisterLanguage(IConstructor lang) {
         LogManager.getLogger(RascalInterface.class).warn("Cannot currently unregister languages");
         // services.unregisterLanguage(lang);
-    }
-
-    public ISourceLocation resolveProjectLocation(ISourceLocation project) {
-        return services.resolveProjectLocation(project);
     }
 
     public IList computeFocusList(IConstructor input, IInteger line, IInteger column) {
