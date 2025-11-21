@@ -28,13 +28,28 @@ package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.Diagnostic;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.ideservices.IRemoteIDEServices;
+import org.rascalmpl.uri.LogicalMapResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
+import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
@@ -42,22 +57,26 @@ import io.usethesource.vallang.IString;
 
 public class RemoteIDEServicesServer implements IRemoteIDEServices {
     private final static Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
-    private final TerminalIDEClient terminalClient;
+    private final IBaseLanguageClient languageClient;
+    private final IBaseTextDocumentService docService;
 
-    public RemoteIDEServicesServer(TerminalIDEClient terminalClient) {
-        this.terminalClient = terminalClient;
+    public RemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService) {
+        this.languageClient = (IBaseLanguageClient) languageClient;
+        this.docService = docService;
     }
 
     @Override
-    public CompletableFuture<Void> edit(ISourceLocation loc) {
-        terminalClient.edit(loc);
-        return CompletableFuture.completedFuture(null);
+    public CompletableFuture<Void> edit(ISourceLocation loc, int viewColumn) {
+        logger.trace("edit({})", loc);
+        var physical = Locations.toClientLocation(loc);
+        var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
+        return CompletableFuture.runAsync(() -> languageClient.editDocument(new EditorParameter(physical.getURI().toASCIIString(), range, viewColumn)));
     }
 
     @Override
     public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
-        terminalClient.browse(uri, title, viewColumn);
-        return CompletableFuture.completedFuture(null);
+        logger.trace("browse({})", uri);
+        return CompletableFuture.runAsync(() -> languageClient.showContent(new BrowseParameter(uri, title, viewColumn)));
     }
 
     @Override
@@ -70,38 +89,52 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     }
 
     @Override
-    public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter param) {
-        terminalClient.applyFileSystemEdits(param.getEdits());
-        return CompletableFuture.completedFuture(null);
+    public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter edits) {
+        return CompletableFuture.runAsync(() ->
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))));
     }
 
     @Override
     public CompletableFuture<Void> registerLocations(RegisterLocationsParameters param) {
-        terminalClient.registerLocations(param.getScheme(), param.getAuthority(), param.getMapping());
+        URIResolverRegistry.getInstance().registerLogical(
+            new LogicalMapResolver(
+                param.getScheme().getValue(),
+                param.getAuthority().getValue(),
+                param.getMapping()
+            )
+        );
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> registerDiagnostics(RegisterDiagnosticsParameters param) {
-        terminalClient.registerDiagnostics(param.getMessages());
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
+
+        for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
+            String uri = entry.getKey().getURI().toString();
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
+        }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> unregisterDiagnostics(ISourceLocation[] locs) {
-        terminalClient.unregisterDiagnostics(ValueFactoryFactory.getValueFactory().list(locs));
+        for (ISourceLocation loc : locs) {
+            loc = Locations.toPhysicalIfPossible(loc);
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+        }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> startDebuggingSession(int serverPort) {
-        terminalClient.startDebuggingSession(serverPort);
+        languageClient.startDebuggingSession(serverPort);
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> registerDebugServerPort(int processID, int serverPort) {
-        terminalClient.registerDebugServerPort(processID, serverPort);
+        languageClient.registerDebugServerPort(processID, serverPort);
         return CompletableFuture.completedFuture(null);
     }
 }

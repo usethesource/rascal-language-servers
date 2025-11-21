@@ -66,7 +66,6 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
-import org.rascalmpl.vscode.lsp.terminal.TerminalIDEClient;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
@@ -117,7 +116,6 @@ public class RascalLanguageServices {
         this.exec = exec;
 
         monitor = new RascalLSPMonitor(client, logger);
-        TerminalIDEClient.getInstance().registerMonitor(monitor);
 
         var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
         var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);

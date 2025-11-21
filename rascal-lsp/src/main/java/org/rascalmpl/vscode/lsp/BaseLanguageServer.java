@@ -63,7 +63,6 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.terminal.TerminalIDEClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
@@ -122,15 +121,6 @@ public abstract class BaseLanguageServer {
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
-
-        try (ServerSocket serverSocket = new ServerSocket()) {
-            var terminalClient = TerminalIDEClient.getInstance();
-            terminalClient.connectToServer(server.ideServicesConfiguration.getPort());
-            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(terminalClient);
-            logger.info("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
-        } catch (IOException e) {
-            logger.error("Failed to start Remote IDE Services thread");
-        }
 
         return clientLauncher;
     }
@@ -208,7 +198,6 @@ public abstract class BaseLanguageServer {
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
-        private IDEServicesConfiguration ideServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
@@ -311,9 +300,10 @@ public abstract class BaseLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             var actualClient = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(actualClient, lspDocumentService, lspWorkspaceService);
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService);
+            logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
 
         @Override

@@ -35,20 +35,24 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.ideservices.IRemoteIDEServices;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
 public class RemoteIDEServicesThread extends Thread {
     private final ServerSocket serverSocket;
-    private final TerminalIDEClient terminalClient;
+    private final LanguageClient languageClient;
+    private final IBaseTextDocumentService docService;
 
     public final static Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
 
-    public RemoteIDEServicesThread(ServerSocket serverSocket, TerminalIDEClient terminalClient) {
+    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService) {
         super("Remote IDE Services Thread");
         this.serverSocket = serverSocket;
-        this.terminalClient = terminalClient;
+        this.languageClient = languageClient;
+        this.docService = docService;
     }
 
     @Override
@@ -60,7 +64,7 @@ public class RemoteIDEServicesThread extends Thread {
                     connection.setTcpNoDelay(true);
 
                     Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
-                        .setLocalService(new RemoteIDEServicesServer(terminalClient))
+                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService))
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
@@ -86,10 +90,10 @@ public class RemoteIDEServicesThread extends Thread {
         }
     }
 
-    public static IDEServicesConfiguration startRemoteIDEServicesServer(TerminalIDEClient terminalClient) {
+    public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService) {
         try {
             ServerSocket socket = new ServerSocket(0);
-            new RemoteIDEServicesThread(socket, terminalClient).start();
+            new RemoteIDEServicesThread(socket, languageClient, docService).start();
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
             throw new RuntimeException(e);
