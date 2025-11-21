@@ -106,7 +106,7 @@ public interface ITerminalIDEServer {
         }
     }
 
-        public static class LanguageParameter {
+    public static class LanguageParameter {
         private final String pathConfig;
         private final String name; // name of the language
         private final String[] extensions; // extension for files in this language

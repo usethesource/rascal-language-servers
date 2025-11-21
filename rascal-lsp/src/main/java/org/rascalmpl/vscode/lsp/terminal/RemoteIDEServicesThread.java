@@ -46,7 +46,7 @@ public class RemoteIDEServicesThread extends Thread {
     private final LanguageClient languageClient;
     private final IBaseTextDocumentService docService;
 
-    public final static Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
+    public static final Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
 
     public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService) {
         super("Remote IDE Services Thread");

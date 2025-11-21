@@ -56,7 +56,7 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
 public class RemoteIDEServicesServer implements IRemoteIDEServices {
-    private final static Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
+    private static final Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
 
