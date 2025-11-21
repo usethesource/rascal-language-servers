@@ -30,93 +30,24 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
 import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.rascalmpl.ideservices.GsonUtils;
-import org.rascalmpl.ideservices.IRemoteIDEServices.DocumentEditsParameter;
-import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterDiagnosticsParameters;
-import org.rascalmpl.ideservices.IRemoteIDEServices.RegisterLocationsParameters;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
-import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 import io.usethesource.vallang.io.StandardTextReader;
 import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
 
 /**
  * Server interface for remote implementation of @see IDEServices
  */
 public interface ITerminalIDEServer {
-    @JsonRequest
-    default CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest
-    default CompletableFuture<Void> edit(EditorParameter edit)  {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest
-    default CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation edit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/receiveRegisterLanguage")
-    default CompletableFuture<Void> receiveRegisterLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/receiveUnregisterLanguage")
-    default CompletableFuture<Void> receiveUnregisterLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonRequest("rascal/applyDocumentEdits")
-    default CompletableFuture<Void> applyDocumentEdits(DocumentEditsParameter edits) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/showHTML")
-    default void showHTML(URI uri, IString title, IInteger viewColumn) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/registerLocations")
-    default void registerLocations(RegisterLocationsParameters param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/registerDiagnostics")
-    default void registerDiagnostics(RegisterDiagnosticsParameters param) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/unregisterDiagnostics")
-    default void unregisterDiagnostics(ISourceLocation[] locs) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/startDebuggingSession")
-    default void startDebuggingSession(int serverPort) {
-        throw new UnsupportedOperationException();
-    }
-
-    @JsonNotification("rascal/registerDebugServerPort")
-    default void registerDebugServerPort(int processID, int serverPort) {
-        throw new UnsupportedOperationException();
-    }
-
     public static class EditParameter {
         private String module;
 
