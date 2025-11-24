@@ -163,11 +163,11 @@ public class Locations {
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
-        return new Location(sloc.getURI().toString(), toRange(sloc, cm));
+        return new Location(Locations.toUri(sloc), toRange(sloc, cm));
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
-        return new Location(sloc.getURI().toString(), toRange(sloc, map));
+        return new Location(Locations.toUri(sloc), toRange(sloc, map));
     }
 
     public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {
