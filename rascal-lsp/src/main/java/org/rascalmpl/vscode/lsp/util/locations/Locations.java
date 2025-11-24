@@ -27,8 +27,11 @@
 package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
-
+import java.util.Set;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -52,6 +55,13 @@ import io.usethesource.vallang.IValue;
  * strip source locations of their "lsp+" prefix.
  */
 public class Locations {
+
+    private static final Logger logger = LogManager.getLogger(Locations.class);
+
+    private static final Set<String> OPAQUE_SCHEMES = Set.of(
+        "untitled"
+    );
+
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
         loc = LSPOpenFileResolver.stripLspPrefix(loc);
         if (loc.getScheme().equals("project")) {
@@ -122,23 +132,27 @@ public class Locations {
 
     public static ISourceLocation toLoc(String uri) {
         try {
-            return URIUtil.createFromURI(uri);
-        } catch (UnsupportedOperationException e) {
-            if (e.getMessage() != null && e.getMessage().contains("Opaque URI schemes are not supported")) {
-                int colonPos = uri.indexOf(':');
-                try {
-                    return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos));
-                } catch (URISyntaxException e1) {
-                    throw new RuntimeException(e);
+            var u = URI.create(uri);
+            if (u.isOpaque()) {
+                if (!OPAQUE_SCHEMES.contains(u.getScheme())) {
+                    logger.warn("Converting opaque URI with unexpected scheme: {}", uri);
                 }
+                // Coerce into a hierarchical URI.
+                int colonPos = uri.indexOf(':');
+                return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos + 1));
             }
-            else {
-                throw e;
-            }
-        }
-        catch (URISyntaxException e) {
+            return URIUtil.createFromURI(uri);
+        } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static String toUri(ISourceLocation loc) {
+        var uri = loc.getURI();
+        if (OPAQUE_SCHEMES.contains(uri.getScheme())) {
+            return uri.toString().replaceFirst(":///", ":");
+        }
+        return uri.toString();
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {

@@ -52,6 +52,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -339,8 +340,9 @@ public class ParametricFileFacts {
                 "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
+            var uri = Locations.toUri(file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                file.getURI().toString(),
+                uri,
                 diagnostics));
         }
 
