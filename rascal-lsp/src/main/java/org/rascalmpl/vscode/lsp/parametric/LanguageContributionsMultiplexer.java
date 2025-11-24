@@ -47,7 +47,7 @@ import io.usethesource.vallang.IValue;
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
 
-    private final ExecutorService ownExecuter;
+    private final ExecutorService exec;
     private final String name;
 
     private static final <T> CompletableFuture<T> failedInitialization() {
@@ -98,7 +98,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
-        this.ownExecuter = ownService;
+        this.exec = ownService;
     }
 
     private final CopyOnWriteArrayList<KeyedLanguageContribution> contributions = new CopyOnWriteArrayList<>();
@@ -219,7 +219,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             }
             // otherwise return the first one, that contains defaults on what to do if it's missing
             return firstOrFail();
-        }, ownExecuter);
+        }, exec);
     }
 
     private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
@@ -230,7 +230,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             Function<ILanguageContributions, CompletableFuture<T>> predicate,
             T falsy, BinaryOperator<T> or) {
 
-        var result = CompletableFutureUtils.completedFuture(falsy, ownExecuter);
+        var result = CompletableFutureUtils.completedFuture(falsy, exec);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
         for (var c: contributions) {
@@ -256,7 +256,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     private <T> InterruptibleFuture<T> flatten(CompletableFuture<ILanguageContributions> target, Function<ILanguageContributions, InterruptibleFuture<T>> call) {
-        return InterruptibleFuture.flatten(target.thenApply(call), ownExecuter);
+        return InterruptibleFuture.flatten(target.thenApply(call), exec);
     }
 
     @Override

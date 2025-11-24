@@ -68,7 +68,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 
-    private final ExecutorService ownExecuter;
+    private final ExecutorService exec;
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
@@ -77,7 +77,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationFilter> interestedInFiles) {
         this.documentService = documentService;
-        this.ownExecuter = exec;
+        this.exec = exec;
         this.interestedInFiles = interestedInFiles;
     }
 
@@ -166,16 +166,16 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         logger.debug("workspace/didCreateFiles: {}", params.getFiles());
-        ownExecuter.submit(() -> documentService.didCreateFiles(params));
+        exec.submit(() -> documentService.didCreateFiles(params));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        ownExecuter.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
+        exec.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
 
-        ownExecuter.submit(() -> {
+        exec.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)
             var oldFiles = params.getFiles().stream()
                 .map(f -> f.getOldUri())
@@ -189,7 +189,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     public void didDeleteFiles(DeleteFilesParams params) {
         logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
 
-        ownExecuter.submit(() -> {
+        exec.submit(() -> {
             documentService.didDeleteFiles(params);
         });
     }
@@ -197,7 +197,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         logger.debug("workspace/executeCommand: {}", commandParams);
-        return CompletableFutureUtils.completedFuture(commandParams, ownExecuter)
+        return CompletableFutureUtils.completedFuture(commandParams, exec)
             .thenCompose(params -> {
                 if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
                     String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
@@ -205,12 +205,12 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                     return documentService.executeCommand(languageName, command).thenApply(v -> v);
                 }
 
-                return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", ownExecuter);
+                return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
             });
     }
 
     protected final ExecutorService getExecutor() {
-        return ownExecuter;
+        return exec;
     }
 
 

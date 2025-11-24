@@ -68,9 +68,9 @@ public class CallHierarchy {
     private final IConstructor incoming;
     private final IConstructor outgoing;
     private final Type callHierarchyItemCons;
-    private final Executor ownExecutor;
+    private final Executor exec;
 
-    public CallHierarchy(Executor ownExecutor) {
+    public CallHierarchy(Executor exec) {
         var store = new TypeStore();
         Type directionAdt = TF.abstractDataType(store, "CallDirection");
         this.incoming = VF.constructor(TF.constructor(store, directionAdt, "incoming"));
@@ -82,7 +82,7 @@ public class CallHierarchy {
             TF.sourceLocationType(), CallHierarchyFields.DEFINITION,
             TF.sourceLocationType(), CallHierarchyFields.SELECTION
         );
-        this.ownExecutor = ownExecutor;
+        this.exec = exec;
     }
 
     public IConstructor direction(Direction dir) {
@@ -127,7 +127,7 @@ public class CallHierarchy {
     public CompletableFuture<IConstructor> toRascal(CallHierarchyItem ci, Function<String, CompletableFuture<IConstructor>> dataParser, ColumnMaps columns) {
         CompletableFuture<@Nullable IConstructor> parseData = ci.getData() != null
             ? dataParser.apply(((JsonPrimitive) ci.getData()).getAsString())
-            : CompletableFutureUtils.completedFuture(null, ownExecutor);
+            : CompletableFutureUtils.completedFuture(null, exec);
 
         return parseData.thenApply(data -> {
             Map<String, IValue> kwArgs = new HashMap<>();

@@ -64,17 +64,17 @@ public class ParserOnlyContribution implements ILanguageContributions {
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
     private final CompletableFuture<Boolean> specialCaseHighlighting;
-    private final ExecutorService ownExecutor;
+    private final ExecutorService exec;
 
-    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService ownExecutor) {
+    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService exec) {
         this.name = name;
-        this.ownExecutor = ownExecutor;
+        this.exec = exec;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
         this.parser = result.getLeft();
         this.loadingParserError = result.getRight();
-        this.specialCaseHighlighting = CompletableFutureUtils.completedFuture(spec.getSpecialCaseHighlighting(), ownExecutor);
+        this.specialCaseHighlighting = CompletableFutureUtils.completedFuture(spec.getSpecialCaseHighlighting(), exec);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
                 throw new IllegalStateException("Parser function did not load", loadingParserError);
             }
             return parser.call(VF.string(input), loc);
-        }, ownExecutor);
+        }, exec);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
@@ -124,32 +124,32 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public InterruptibleFuture<IList> documentSymbol(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), ownExecutor);
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), exec);
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), ownExecutor);
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> codeLens(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<IValue> execution(String command) {
-        return InterruptibleFuture.completedFuture(VF.bool(false), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.bool(false), exec);
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String commands) {
-        return CompletableFutureUtils.completedFuture(VF.list(), ownExecutor);
+        return CompletableFutureUtils.completedFuture(VF.list(), exec);
     }
 
     @Override
@@ -159,137 +159,137 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation(), ownExecutor);
+        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation(), exec);
     }
 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String name) {
-        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()), exec);
     }
 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
-        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()), exec);
     }
 
     @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.set(), exec);
     }
 
     @Override
     public InterruptibleFuture<ISet> definition(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.set(), exec);
     }
 
     @Override
     public InterruptibleFuture<ISet> references(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.set(), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.set(), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        return InterruptibleFuture.completedFuture(VF.list(), ownExecutor);
+        return InterruptibleFuture.completedFuture(VF.list(), exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasHover() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasDefinition() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasReferences() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasImplementation() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasAnalysis() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasBuild() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeAction() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasCodeLens() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasExecution() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasInlayHint() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasRename() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasSelectionRange() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
     public CompletableFuture<Boolean> hasCallHierarchy() {
-        return CompletableFutureUtils.completedFuture(false, ownExecutor);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
@@ -299,17 +299,17 @@ public class ParserOnlyContribution implements ILanguageContributions {
 
     @Override
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, ownExecutor);
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, ownExecutor);
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, ownExecutor);
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
     }
 
     @Override

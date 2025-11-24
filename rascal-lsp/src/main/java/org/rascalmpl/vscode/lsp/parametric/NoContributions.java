@@ -58,9 +58,9 @@ public class NoContributions implements ILanguageContributions {
         }
     }
 
-    public NoContributions(String name, Executor ownExecutor) {
+    public NoContributions(String name, Executor exec) {
         this.name = name;
-        this.falsy = CompletableFutureUtils.completedFuture(false, ownExecutor);
+        this.falsy = CompletableFutureUtils.completedFuture(false, exec);
     }
 
     @Override
