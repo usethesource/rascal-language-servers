@@ -698,7 +698,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var specialCaseHighlighting = contributions(loc).specialCaseHighlighting();
         return recoverExceptions(getFile(loc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCombineAsync(specialCaseHighlighting, tokenizer::semanticTokensFull, exec)
+                .thenCombine(specialCaseHighlighting, tokenizer::semanticTokensFull)
                 .whenComplete((r, e) ->
                     logger.trace("Semantic tokens success, reporting {} tokens back", r == null ? 0 : r.getData().size() / 5)
                 )

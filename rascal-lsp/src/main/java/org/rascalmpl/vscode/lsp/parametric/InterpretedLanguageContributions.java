@@ -354,7 +354,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
         debug(LanguageContributions.PARSING, loc, input);
-        return parsing.thenApplyAsync(p -> p.call(VF.string(input), loc), exec);
+        return parsing.thenApply(p -> p.call(VF.string(input), loc));
     }
 
     @Override

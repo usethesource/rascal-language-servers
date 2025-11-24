@@ -489,7 +489,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges))
+        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges))
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             );
@@ -660,7 +660,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState f = getFile(params.getTextDocument());
         return recoverExceptions(f.getLastTreeAsync(false)
             .thenApply(Versioned::get)
-            .thenApplyAsync(availableRascalServices()::locateCodeLenses, exec)
+            .thenApply(availableRascalServices()::locateCodeLenses)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList())), () -> null)
