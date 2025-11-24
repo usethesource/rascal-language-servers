@@ -25,8 +25,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import assert from 'assert';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
+import { Delays, IDEOperations, RascalREPL, getLogs, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 describe('DSL unregister/register race', function () {
     let browser: VSBrowser;
@@ -70,7 +71,9 @@ describe('DSL unregister/register race', function () {
         if (this.currentTest && this.currentTest.state === 'failed') {
             failed = true;
         }
-        await ide.cleanup();
+        if (this.currentTest) {
+            await ide.cleanup();
+        }
     });
 
     after(async function() {
@@ -83,10 +86,10 @@ describe('DSL unregister/register race', function () {
             }
 
             await loadPico();
-
-            const editor = await ide.openModule(TestWorkspace.picoFile);
-            await ide.hasSyntaxHighlighting(editor);
-            await ide.hasInlayHint(editor);
+            const logs: string[] = await getLogs(driver);
+            const lastUnregister = logs.findLastIndex(l => l.match("\bunregisterLanguage\b/i"));
+            const firstRegister = logs.findIndex(l => l.match("\bregisterLanguage\b/i"));
+            assert(lastUnregister > firstRegister, "Language unregistration was not finished before registration started");
         });
     }
 });
