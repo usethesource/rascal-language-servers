@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.rascalmpl.repl.rascal.RascalInterpreterREPL;
 import org.rascalmpl.shell.RascalShell;
@@ -45,17 +46,22 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
     public static void main(String[] args) throws IOException, InterruptedException {
         int vfsPort = -1;
 
+        var rascalShellArgs = new ArrayList<String>();
+
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--vfsPort")) {
                 vfsPort = Integer.parseInt(args[++i]);
+            } else {
+                rascalShellArgs.add(args[i]);
             }
         }
 
+        //Even opruimen
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
 
-        RascalShell.main(args);
+        RascalShell.main(rascalShellArgs.toArray(new String[rascalShellArgs.size()]));
     }
 }
 
