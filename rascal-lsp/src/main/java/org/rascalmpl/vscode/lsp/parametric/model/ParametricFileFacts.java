@@ -340,9 +340,8 @@ public class ParametricFileFacts {
                 "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
-            var uri = Locations.toUri(file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                uri,
+                Locations.toUri(file),
                 diagnostics));
         }
 

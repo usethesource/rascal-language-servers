@@ -56,7 +56,7 @@ public class Locations {
     // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
     // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
     // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
-    private static final String OPAQUE_SCHEME = "opaque---";
+    private static final String OPAQUE_SCHEME = "opaque-lsp-";
 
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
         loc = LSPOpenFileResolver.stripLspPrefix(loc);
@@ -134,9 +134,12 @@ public class Locations {
         try {
             var u = new URI(uri);
             if (u.isOpaque()) {
-                // Rascal does not support opaque URIs
-                // Wrap as a hierarchical URI with all the original information, so we can get the original URI back later.
-                // Note: since an absolute URI requires an absolute path, prefix the scheme-specific part with "/"
+                // Rascal does not support opaque URIs, so we wrap those as hierarchical URIs.
+                // - Replace the scheme by a unique, recognizable scheme.
+                // - Put the original opaque scheme in the authority (which opaque URIs do not have).
+                // - A hierarchical URI requires an absolute path; prefix the scheme-specific part with "/".
+                // - Opaque URIs do not have a query, so we leave that unset.
+                // - Clone the (optional) fragment.
                 uri = new URI(OPAQUE_SCHEME, u.getScheme(), "/" + u.getSchemeSpecificPart(), null, u.getFragment()).toString();
             }
             return URIUtil.createFromURI(uri);
