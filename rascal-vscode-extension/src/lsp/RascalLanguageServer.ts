@@ -29,19 +29,22 @@ import * as vscode from 'vscode';
 import { BaseLanguageClient } from 'vscode-languageclient';
 import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
 import { activateLanguageClient } from './RascalLSPConnection';
-import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
+import { LanguageRegistry } from './LanguageRegistry';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
+    public readonly languageRegistry: LanguageRegistry;
 
     constructor(
         _context: vscode.ExtensionContext,
         vfsServer: VSCodeUriResolverServer,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,
+        logger: vscode.LogOutputChannel,
         deployMode = true) {
         this.rascalClient = activateLanguageClient({
             deployMode: deployMode,
@@ -57,13 +60,9 @@ export class RascalLanguageServer implements vscode.Disposable {
 
         this.rascalDebugClient = new RascalDebugClient();
 
+        this.languageRegistry = new LanguageRegistry(dslLSP, logger);
+
         this.rascalClient.then(client => {
-            client.onNotification("rascal/receiveRegisterLanguage", (lang:LanguageParameter) => {
-                dslLSP.registerLanguage(lang);
-            });
-            client.onNotification("rascal/receiveUnregisterLanguage", (lang:LanguageParameter) => {
-                dslLSP.unregisterLanguage(lang);
-            });
             client.onNotification("rascal/startDebuggingSession", (serverPort:number) => {
                 this.rascalDebugClient.startDebuggingSession(serverPort);
             });
@@ -74,6 +73,7 @@ export class RascalLanguageServer implements vscode.Disposable {
     }
     dispose() {
         this.rascalClient.then(c => c.dispose());
+        this.languageRegistry.dispose();
     }
 }
 
