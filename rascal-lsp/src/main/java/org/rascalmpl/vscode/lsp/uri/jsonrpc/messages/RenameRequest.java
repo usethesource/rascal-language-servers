@@ -41,6 +41,7 @@ public class RenameRequest {
 
     private boolean overwrite;
 
+    @SuppressWarnings("initialization.fields.uninitialized")
     public RenameRequest() {
     }
 

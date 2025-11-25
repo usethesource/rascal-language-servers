@@ -230,6 +230,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
     public class MessagesOnlyScheduledSummary extends NullSummary {
         private final InterruptibleFuture<Lazy<List<Diagnostic>>> messages;
 
+        @SuppressWarnings("initialization")
         public MessagesOnlyScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             this.messages = extractMessages(calculation);
         }
@@ -265,6 +266,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
+        @SuppressWarnings("initialization")
         public FullScheduledSummary(InterruptibleFuture<IConstructor> calculation) {
             super(calculation);
 

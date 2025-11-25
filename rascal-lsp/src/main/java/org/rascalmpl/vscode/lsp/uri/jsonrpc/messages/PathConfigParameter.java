@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.net.URISyntaxException;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.URIUtil;
 import io.usethesource.vallang.ISourceLocation;
@@ -58,7 +59,7 @@ public class PathConfigParameter {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof PathConfigParameter) {
             var other = (PathConfigParameter)obj;
             return uri.equals(other.uri)

@@ -158,6 +158,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
+    @SuppressWarnings("initialization")
     public RascalTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();

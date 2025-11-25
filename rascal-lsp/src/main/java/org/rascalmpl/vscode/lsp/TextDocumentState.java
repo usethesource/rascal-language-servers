@@ -164,7 +164,7 @@ public class TextDocumentState {
      * (typically provided by the client), and a {@link #timestamp} (typically
      * provided by the server).
      */
-    private class Update {
+    private final class Update {
         private final int version;
         private final String content;
         private final long timestamp;

@@ -71,13 +71,14 @@ public class RascalLSPMonitor implements IRascalMonitor {
         this.progressPrefix = progressPrefix;
     }
 
-    private class LSPProgressBar {
+    private final class LSPProgressBar {
         private final String rootName;
         private final String progressId;
         private final CompletableFuture<Void> created;
         /** Sometimes we get multiple starts for the same job, so we count them to responds to the right end */
         private int nested = 0;
 
+        @SuppressWarnings("initialization")
         public LSPProgressBar(String rootName, String progressId) {
             this.rootName = rootName;
             this.progressId = progressId;

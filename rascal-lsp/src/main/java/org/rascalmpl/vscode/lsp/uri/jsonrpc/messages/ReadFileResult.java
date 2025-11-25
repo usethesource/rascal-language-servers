@@ -37,8 +37,6 @@ public class ReadFileResult {
         this.contents = contents;
     }
 
-    public ReadFileResult() {}
-
     public String getContents() {
         return contents;
     }
