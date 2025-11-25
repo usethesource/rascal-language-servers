@@ -24,30 +24,25 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+import * as rpc from 'vscode-jsonrpc/node';
+import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { Disposable, LogOutputChannel } from 'vscode';
+import { JsonRpcServer } from '../util/JsonRpcServer';
 
-
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
-
-import com.google.gson.GsonBuilder;
-
-public class ParametricLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
-        }
-
-        startLanguageServer(NamedThreadPool.single("parametric-lsp")
-            , NamedThreadPool.cached("parametric")
-            , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
-            , ParametricWorkspaceService::new
-            , 9999
-        );
+/**
+ * Json-rpc server that handles registration and unregistration of languages
+ */
+export class LanguageRegistry extends JsonRpcServer {
+    constructor(dslLSP: ParameterizedLanguageServer, logger: LogOutputChannel) {
+        super("LanguageRegistry", connection => Disposable.from(
+            connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveRegisterLanguage"), lang => {
+                logger.info("LanguageRegistry: registerLanguage", lang);
+                return dslLSP.registerLanguage(lang);
+            }),
+            connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveUnregisterLanguage"), lang => {
+                logger.info("LanguageRegistry: unregisterLanguage", lang);
+                return dslLSP.unregisterLanguage(lang);
+            })
+        ), logger);
     }
 }

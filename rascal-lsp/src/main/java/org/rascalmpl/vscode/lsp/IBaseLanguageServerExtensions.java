@@ -28,17 +28,18 @@ package org.rascalmpl.vscode.lsp;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 
-public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalFileSystemServices {
-    @JsonRequest("rascal/supplyIDEServicesConfiguration")
-    default CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
+public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFileSystemServices {
+    @JsonNotification("rascal/supplyRemoteIDEServicesConfiguration")
+    default CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
         throw new UnsupportedOperationException();
     }
 
@@ -46,6 +47,7 @@ public interface IBaseLanguageServerExtensions  extends LanguageServer, IRascalF
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
+
     @JsonRequest("rascal/sendUnregisterLanguage")
     default CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
