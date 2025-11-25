@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -61,10 +62,12 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     private static final Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
+    private final ExecutorService threadPool;
 
-    public RemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService) {
+    public RemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         this.languageClient = (IBaseLanguageClient) languageClient;
         this.docService = docService;
+        this.threadPool = threadPool;
     }
 
     @Override
@@ -74,13 +77,13 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
             var physical = Locations.toClientLocation(loc);
             var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
             languageClient.editDocument(physical.getURI(), range, viewColumn);
-        });
+        }, threadPool);
     }
 
     @Override
     public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> languageClient.showContent(uri, title, viewColumn));
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri, title, viewColumn), threadPool);
     }
 
     @Override
@@ -97,7 +100,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter edits) {
         logger.trace("applyDocumentsEdits({})", edits);
         return CompletableFuture.runAsync(() ->
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))));
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))), threadPool);
     }
 
     @Override
@@ -110,7 +113,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                     authority.getValue(),
                     IRemoteIDEServices.locArrayToMapLocLoc(mapping)
                 )
-            ));
+            ), threadPool);
     }
 
     @Override
@@ -123,7 +126,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                 String uri = entry.getKey().getURI().toString();
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
             }
-        });
+        }, threadPool);
     }
 
     @Override
@@ -134,18 +137,18 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                 loc = Locations.toPhysicalIfPossible(loc);
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
             }
-        });
+        }, threadPool);
     }
 
     @Override
     public CompletableFuture<Void> startDebuggingSession(int serverPort) {
         logger.trace("startDebuggingSession({})", serverPort);
-        return CompletableFuture.runAsync(() -> languageClient.startDebuggingSession(serverPort));
+        return CompletableFuture.runAsync(() -> languageClient.startDebuggingSession(serverPort), threadPool);
     }
 
     @Override
     public CompletableFuture<Void> registerDebugServerPort(int processID, int serverPort) {
         logger.trace("registerDebugServerPort({}, {})", processID, serverPort);
-        return CompletableFuture.runAsync(() -> languageClient.registerDebugServerPort(processID, serverPort));
+        return CompletableFuture.runAsync(() -> languageClient.registerDebugServerPort(processID, serverPort), threadPool);
     }
 }

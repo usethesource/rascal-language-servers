@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.terminal;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,14 +49,16 @@ public class RemoteIDEServicesThread extends Thread {
     private final ServerSocket serverSocket;
     private final LanguageClient languageClient;
     private final IBaseTextDocumentService docService;
+    private final ExecutorService threadPool;
 
     public static final Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
 
-    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService) {
+    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         super("Remote IDE Services Thread");
         this.serverSocket = serverSocket;
         this.languageClient = languageClient;
         this.docService = docService;
+        this.threadPool = threadPool;
     }
 
     @Override
@@ -67,11 +70,12 @@ public class RemoteIDEServicesThread extends Thread {
                     connection.setTcpNoDelay(true);
 
                     Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
-                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService))
+                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService, threadPool))
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
                         .configureGson(GsonUtils::configureGson)
+                        .setExecutorService(threadPool)
                         .setExceptionHandler(e -> {
                             logger.error(e);
                             return new ResponseError(ResponseErrorCode.InternalError, e.getMessage() == null ? "unknown" : e.getMessage(), e);
@@ -93,10 +97,10 @@ public class RemoteIDEServicesThread extends Thread {
         }
     }
 
-    public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService) {
+    public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         try {
             ServerSocket socket = new ServerSocket(0);
-            new RemoteIDEServicesThread(socket, languageClient, docService).start();
+            new RemoteIDEServicesThread(socket, languageClient, docService, threadPool).start();
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
             throw new RuntimeException(e);
