@@ -35,7 +35,7 @@ import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         try {
-            startLanguageServer(NamedThreadPool.single("rascal-request"), NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
+            startLanguageServer(NamedThreadPool.single("rascal-lsp"), NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);

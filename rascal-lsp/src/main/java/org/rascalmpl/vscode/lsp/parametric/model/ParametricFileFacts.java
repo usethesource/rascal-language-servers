@@ -63,6 +63,7 @@ public class ParametricFileFacts {
     private final Executor exec;
     private final ColumnMaps columns;
     private final ILanguageContributions contrib;
+    private final ParametricSummary nullSummary;
 
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
 
@@ -99,6 +100,7 @@ public class ParametricFileFacts {
         this.exec = exec;
         this.columns = columns;
         this.contrib = contrib;
+        this.nullSummary = new NullSummary(exec);
     }
 
     public void setClient(LanguageClient client) {
@@ -185,8 +187,6 @@ public class ParametricFileFacts {
         private final AtomicReference<Versioned<List<Diagnostic>>> builderDiagnostics = Versioned.atomic(-1, Collections.emptyList());
 
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger(-1);
-
-        private final ParametricSummary nullSummary = new NullSummary(exec);
 
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
             CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
