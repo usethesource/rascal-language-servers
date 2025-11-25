@@ -188,10 +188,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
-
-        exec.submit(() -> {
-            documentService.didDeleteFiles(params);
-        });
+        exec.submit(() -> documentService.didDeleteFiles(params));
     }
 
     @Override
