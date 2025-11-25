@@ -106,7 +106,7 @@ public class FileFacts {
 
         public FileFact(ISourceLocation file, Executor exec) {
             this.file = file;
-            this.typeCheckResults = ReplaceableFuture.completed(Collections.emptyMap(), exec);
+            this.typeCheckResults = ReplaceableFuture.completedFuture(Collections.emptyMap(), exec);
             this.summary = new LazyUpdateableReference<>(
                 InterruptibleFuture.completedFuture(new SummaryBridge(), exec),
                 r -> {

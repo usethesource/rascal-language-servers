@@ -111,7 +111,7 @@ public class ReplaceableFuture<T> {
         return new InterruptibleFuture<>(result, with::interrupt);
     }
 
-    public static <T> ReplaceableFuture<T> completed(T result, Executor exec) {
+    public static <T> ReplaceableFuture<T> completedFuture(T result, Executor exec) {
         return new ReplaceableFuture<>(CompletableFutureUtils.completedFuture(result, exec));
     }
 }
