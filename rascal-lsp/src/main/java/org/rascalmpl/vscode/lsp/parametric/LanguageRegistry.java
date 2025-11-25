@@ -62,7 +62,7 @@ public interface LanguageRegistry {
         private final @Nullable ParserSpecification precompiledParser;
 
         public LanguageParameter(String pathConfig, String name, String[] extensions, String mainModule, String mainFunction, @Nullable ParserSpecification precompiledParser) {
-            this.pathConfig = pathConfig.toString();
+            this.pathConfig = pathConfig;
             this.name = name;
             this.extensions = extensions;
             this.mainModule = mainModule;
