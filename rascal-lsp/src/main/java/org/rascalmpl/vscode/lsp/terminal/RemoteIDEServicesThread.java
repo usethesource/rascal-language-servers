@@ -41,6 +41,9 @@ import org.rascalmpl.ideservices.IRemoteIDEServices;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
+/**
+ * Thread launcher for (remote) IDEServices, running within rascal-lsp
+ */
 public class RemoteIDEServicesThread extends Thread {
     private final ServerSocket serverSocket;
     private final LanguageClient languageClient;

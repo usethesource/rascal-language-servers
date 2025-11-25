@@ -55,6 +55,10 @@ import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
+/**
+ * Server implementation of (remote) IDEServices, running within rascal-lsp
+ * Most calls are preprocessed and subsequently forwarded to the LSP language client
+ */
 public class RemoteIDEServicesServer implements IRemoteIDEServices {
     private static final Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
     private final IBaseLanguageClient languageClient;
