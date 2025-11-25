@@ -26,11 +26,16 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.net.URI;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
+
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.IString;
 
 public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/showContent")
@@ -58,4 +63,44 @@ public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/registerDebugServerPort")
     void registerDebugServerPort(int processID, int serverPort);
 
+    public static class BrowseParameter {
+        private String uri;
+        private String title;
+        private int viewColumn;
+
+        public BrowseParameter(URI uri, IString title, IInteger viewColumn) {
+            this.uri = uri.toString();
+            this.title = title.getValue();
+            this.viewColumn = viewColumn.intValue();
+        }
+
+        @Override
+        public String toString() {
+            return "BrowseParameter:\n\tbrowseParameter:" + uri + "\n\ttitle: " + title + "\n\tviewColumn: " + viewColumn;
+        }
+    }
+    
+    public static class EditorParameter {
+        private String uri;
+        private int viewColumn;
+        private @Nullable Range range;
+
+        public EditorParameter(String uri, @Nullable Range range, int viewColumn) {
+            this.uri = uri;
+            this.range = range;
+            this.viewColumn = viewColumn;
+        }
+
+        public @Nullable Range getRange() {
+            return range;
+        }
+
+        public String getUri() {
+            return uri;
+        }
+
+        public int getViewColumn() {
+            return viewColumn;
+        }
+    }
 }
