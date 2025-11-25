@@ -72,9 +72,11 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     @Override
     public CompletableFuture<Void> edit(ISourceLocation loc, int viewColumn) {
         logger.trace("edit({})", loc);
-        var physical = Locations.toClientLocation(loc);
-        var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
-        return CompletableFuture.runAsync(() -> languageClient.editDocument(new EditorParameter(physical.getURI().toASCIIString(), range, viewColumn)));
+        return CompletableFuture.runAsync(() -> {
+            var physical = Locations.toClientLocation(loc);
+            var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
+            languageClient.editDocument(new EditorParameter(physical.getURI().toASCIIString(), range, viewColumn));
+        });
     }
 
     @Override
