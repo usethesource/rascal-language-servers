@@ -485,6 +485,8 @@ public interface IRascalFileSystemServices {
         }
     }
 
+    // The fields of are only used on the TS side
+    @SuppressWarnings("unused")
     public static class FileStat {
         private final FileType type;
         private final long ctime;

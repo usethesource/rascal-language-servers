@@ -43,7 +43,6 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.DocumentEditsParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.RegisterDiagnosticsParameters;
