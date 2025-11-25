@@ -138,7 +138,7 @@ public class LSPIDEServices implements IDEServices {
         Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
-            String uri = entry.getKey().getURI().toString();
+            String uri = Locations.toUri(entry.getKey());
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
         }
     }
@@ -147,7 +147,7 @@ public class LSPIDEServices implements IDEServices {
     public void unregisterDiagnostics(IList resources) {
         for (IValue elem : resources) {
             ISourceLocation loc = (ISourceLocation) elem;
-            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(loc), Collections.emptyList()));
         }
     }
 

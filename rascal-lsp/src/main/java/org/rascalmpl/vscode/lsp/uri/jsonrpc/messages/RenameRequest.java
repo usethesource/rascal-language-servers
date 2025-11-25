@@ -29,6 +29,8 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class RenameRequest {
@@ -49,8 +51,8 @@ public class RenameRequest {
     }
 
     public RenameRequest(ISourceLocation from, ISourceLocation to, boolean overwrite) {
-        this.from = from.getURI().toString();
-        this.to = to.getURI().toString();
+        this.from = Locations.toUri(from);
+        this.to = Locations.toUri(to);
         this.overwrite = overwrite;
     }
 
