@@ -130,7 +130,7 @@ public class LocationsTest {
                 fail("Mapped invalid URI " + uri + " to " + loc + ", but should have failed");
             } catch (RuntimeException e) {
                 if (!(e.getCause() instanceof URISyntaxException)) {
-                    fail("Expected excepted caused by URISyntaxException, but got " + e.getCause());
+                    fail("Expected exception caused by URISyntaxException, but got " + e.getCause());
                 }
             }
         }
