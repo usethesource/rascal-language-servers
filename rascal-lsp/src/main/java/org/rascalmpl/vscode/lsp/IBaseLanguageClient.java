@@ -26,15 +26,20 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.net.URI;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.BrowseParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.EditorParameter;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.IString;
 
 public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+    void showContent(URI uri, IString title, IInteger viewColumn);
 
     @JsonNotification("rascal/receiveRegisterLanguage")
     void receiveRegisterLanguage(LanguageParameter lang);
@@ -43,7 +48,7 @@ public interface IBaseLanguageClient extends LanguageClient {
     void receiveUnregisterLanguage(LanguageParameter lang);
 
     @JsonNotification("rascal/editDocument")
-    void editDocument(EditorParameter params);
+    void editDocument(URI uri, @Nullable Range range, int viewColumn);
 
     /**
      * Notification sent to the vscode client to start a debugging session on the given debug adapter port
@@ -57,5 +62,4 @@ public interface IBaseLanguageClient extends LanguageClient {
      */
     @JsonNotification("rascal/registerDebugServerPort")
     void registerDebugServerPort(int processID, int serverPort);
-
 }
