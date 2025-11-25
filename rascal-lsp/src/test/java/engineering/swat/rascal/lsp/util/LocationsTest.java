@@ -139,8 +139,9 @@ public class LocationsTest {
     public void roundtripOpaqueUris() {
         // New, unsaved file from VS Code
         roundtripUri("untitled:Untitled-1");
-        roundtripUri("untitled:foo/bar/Untitled-1");
-        roundtripUri("untitled:Untitled%201");
+        roundtripUri("untitled:foo/bar/Untitled-1"); // separators in scheme-specific part
+        roundtripUri("untitled:Untitled%201"); // encoded characters
+        roundtripUri("untitled:Untitled-1#header1"); // with fragment
 
         // Examples from Java documentation (https://docs.oracle.com/javase/8/docs/api/java/net/URI.html)
         roundtripUri("mailto:java-net@java.sun.com");

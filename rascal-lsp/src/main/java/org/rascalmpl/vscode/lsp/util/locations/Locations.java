@@ -137,7 +137,10 @@ public class Locations {
                 // Rascal does not support opaque URIs
                 // Wrap as a hierarchical URI with all the original information, so we can get the original URI back later.
                 // Since the scheme cannot contain "/", we can use that as a separator in the new URI.
-                return URIUtil.createFromURI(String.format("%s:///%s/%s", OPAQUE_SCHEME, u.getScheme(), u.getRawSchemeSpecificPart()));
+                var fragmentPart = u.getRawFragment() == null
+                    ? ""
+                    : "#" + u.getRawFragment();
+                return URIUtil.createFromURI(String.format("%s:///%s/%s%s", OPAQUE_SCHEME, u.getScheme(), u.getRawSchemeSpecificPart(), fragmentPart));
             }
             return URIUtil.createFromURI(uri);
         } catch (URISyntaxException e) {
