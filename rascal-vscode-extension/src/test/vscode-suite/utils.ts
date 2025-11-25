@@ -451,9 +451,17 @@ export class IDEOperations {
 }
 
 
-async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
+async function showRascalOutput(bbp: BottomBarPanel, driver: WebDriver) {
     const outputView = await bbp.openOutputView();
-    await outputView.selectChannel(`${channel} Language Server`);
+
+    // Create a compound channel so we can see everything
+    const bench = new Workbench();
+    await bench.executeCommand("workbench.action.output.addCompoundLog");
+    const filter = await driver.wait(() => outputView.findElement(By.xpath("//div[contains(@class, 'quick-input-filter')]//input")));
+    await filter.sendKeys("rascal");
+    await filter.sendKeys(Key.SHIFT, Key.TAB, Key.NULL, Key.SPACE);
+    await filter.sendKeys(Key.TAB, Key.TAB, Key.ENTER);
+
     return outputView;
 }
 
@@ -471,42 +479,57 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
-
+export async function getLogs(driver: WebDriver): Promise<string[]> {
     const ZOOM_OUT_FACTOR = 5;
+    const logs: string[] = [];
+    try {
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomOut');
+        }
+        const bbp = new BottomBarPanel();
+        await bbp.maximize();
+        let textLines: WebElement[] = [];
+        let tries = 0;
+        while (textLines.length === 0 && tries < 3) {
+            await showRascalOutput(bbp, driver);
+            textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+            tries++;
+        }
+
+        for (const l of textLines) {
+            logs.push(await l.getText());
+        }
+        await bbp.closePanel();
+    }
+    finally {
+        console.log('*******End output*****************************');
+        for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+            await new Workbench().executeCommand('workbench.action.zoomIn');
+        }
+    }
+    return logs;
+}
+
+export function printRascalOutputOnFailure(driver: () => WebDriver, ide: () => IDEOperations) {
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
         try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            const bbp = new BottomBarPanel();
-            await bbp.maximize();
             console.log('**********************************************');
             console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
+            const textLines = await getLogs(driver());
             if (textLines.length === 0) {
                 console.log("We could not capture the output lines");
+            } else {
+                for (const l of textLines) {
+                    console.log(l);
+                }
             }
-
-            for (const l of textLines) {
-                console.log(await l.getText());
-            }
-            await bbp.closePanel();
         } catch (e) {
             console.log('Error capturing output: ', e);
+            ide().screenshot("uncaptured-output");
         }
         finally {
             console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
-            }
         }
     });
 }

@@ -919,7 +919,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
-        logger.info("registerLanguage({})", lang.getName());
+        logger.info("registerLanguage({})/begin", lang.getName());
 
         var multiplexer = contributions.computeIfAbsent(lang.getName(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), ownExecuter)
@@ -963,6 +963,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 updateFileState(lang, f);
             }
         }
+
+        logger.info("registerLanguage({})/end", lang.getName());
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
@@ -985,6 +987,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
+        logger.info("unregisterLanguage({})/begin", lang.getName());
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());
@@ -1010,6 +1013,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
         }
+        logger.info("unregisterLanguage({})/end", lang.getName());
     }
 
     @Override

@@ -39,6 +39,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         context: vscode.ExtensionContext,
         private readonly vfsServer: VSCodeUriResolverServer,
         private readonly absoluteJarPath: string,
+        private readonly log: vscode.LogOutputChannel,
         private readonly deployMode = true,
         private readonly languageId = 'parametric-rascalmpl',
         private readonly title = 'Language Parametric Rascal Language Server',
@@ -94,9 +95,11 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
 
     async registerLanguage(lang:LanguageParameter) {
-        const client = this.getLanguageClient();
+        const client = await this.getLanguageClient();
         // first we load the new language into the parametric server
-        await (await client).sendRequest("rascal/sendRegisterLanguage", lang);
+        this.log.debug(`rascal/sendRegisterLanguage(${lang.name})`);
+        await client.sendRequest("rascal/sendRegisterLanguage", lang);
+        this.log.debug(`rascal/sendRegisterLanguage(${lang.name}) [done]`);
 
         if (this.dedicatedLanguage === undefined) {
             for (const editor of vscode.window.visibleTextEditors) {
@@ -120,8 +123,10 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
     }
 
     async unregisterLanguage(lang: LanguageParameter) {
-        const client = this.getLanguageClient();
-        (await client).sendRequest("rascal/sendUnregisterLanguage", lang);
+        const client = await this.getLanguageClient();
+        this.log.debug(`rascal/sendUnregisterLanguage(${lang.name})`);
+        await client.sendRequest("rascal/sendUnregisterLanguage", lang);
+        this.log.debug(`rascal/sendUnregisterLanguage(${lang.name}) [done]`);
 
         if (this.dedicatedLanguage === undefined) {
             for (const ext of lang.extensions) {
