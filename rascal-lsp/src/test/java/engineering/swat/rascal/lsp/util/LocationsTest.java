@@ -109,7 +109,7 @@ public class LocationsTest {
     private void roundtripUri(String uri) {
         var loc = Locations.toLoc(uri);
         var uri2 = Locations.toUri(loc);
-        assertEquals(uri, uri2);
+        assertEquals(uri, uri2.toString());
     }
 
     @Test

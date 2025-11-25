@@ -77,7 +77,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
         return CompletableFuture.runAsync(() -> {
             var physical = Locations.toClientLocation(loc);
             var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
-            languageClient.editDocument(physical.getURI(), range, viewColumn);
+            languageClient.editDocument(Locations.toUri(physical), range, viewColumn);
         }, exec);
     }
 
@@ -124,8 +124,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
             Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
 
             for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
-                String uri = entry.getKey().getURI().toString();
-                languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
+                languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(entry.getKey()).toString(), entry.getValue()));
             }
         }, exec);
     }
@@ -136,7 +135,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
         return CompletableFuture.runAsync(() -> {
             for (ISourceLocation loc : locs) {
                 loc = Locations.toPhysicalIfPossible(loc);
-                languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+                languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(loc).toString(), Collections.emptyList()));
             }
         }, exec);
     }

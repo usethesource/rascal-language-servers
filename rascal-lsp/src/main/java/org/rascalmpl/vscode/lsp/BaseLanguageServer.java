@@ -67,6 +67,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -218,7 +219,7 @@ public abstract class BaseLanguageServer {
         private static URI[] toURIArray(IList src) {
             return src.stream()
                 .map(ISourceLocation.class::cast)
-                .map(ISourceLocation::getURI)
+                .map(Locations::toUri)
                 .toArray(URI[]::new);
         }
 

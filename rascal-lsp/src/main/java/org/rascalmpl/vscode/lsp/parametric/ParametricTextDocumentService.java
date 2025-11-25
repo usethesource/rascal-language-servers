@@ -503,7 +503,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         var msgText = ((IString) message.get("msg")).getValue();
         if (message.has("at")) {
-            var at = ((ISourceLocation) message.get("at")).getURI();
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
             params.setMessage(String.format("%s (at %s)", msgText, at));
         } else {
             params.setMessage(msgText);

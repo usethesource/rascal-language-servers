@@ -152,19 +152,19 @@ public class Locations {
      * Map a Rascal source location to a VS Code URI.
      * Inverse of {@link toLoc}.
      */
-    public static String toUri(ISourceLocation loc) {
+    public static URI toUri(ISourceLocation loc) {
         var uri = loc.getURI();
         if (OPAQUE_SCHEME.equals(uri.getScheme())) {
             // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
             // Split the original scheme and scheme specific part
             try {
                 // Note: since `toLoc` prefixes the SSC with "/", remove that while unwrapping
-                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment()).toString();
+                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment());
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
         }
-        return uri.toString();
+        return uri;
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
@@ -175,11 +175,11 @@ public class Locations {
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
-        return new Location(Locations.toUri(sloc), toRange(sloc, cm));
+        return new Location(Locations.toUri(sloc).toString(), toRange(sloc, cm));
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
-        return new Location(Locations.toUri(sloc), toRange(sloc, map));
+        return new Location(Locations.toUri(sloc).toString(), toRange(sloc, map));
     }
 
     public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {

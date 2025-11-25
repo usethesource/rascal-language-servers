@@ -109,7 +109,7 @@ public interface IRascalFileSystemServices {
 
     static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
         return new FileChangeEvent(convertFileChangeType(changed.getChangeType()),
-                changed.getLocation().getURI().toASCIIString());
+                Locations.toUri(changed.getLocation()).toASCIIString());
     }
 
     static FileChangeType convertFileChangeType(ISourceLocationChangeType changeType) throws IOException {
@@ -350,14 +350,14 @@ public interface IRascalFileSystemServices {
         public static SourceLocation fromRascalLocation(ISourceLocation loc) {
             if (loc.hasOffsetLength()) {
                 if (loc.hasLineColumn()) {
-                    return new SourceLocation(Locations.toUri(loc), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
+                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
                 }
                 else {
-                    return new SourceLocation(Locations.toUri(loc), loc.getOffset(), loc.getLength());
+                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength());
                 }
             }
             else {
-                return new SourceLocation(Locations.toUri(loc));
+                return new SourceLocation(Locations.toUri(loc).toString());
             }
         }
 

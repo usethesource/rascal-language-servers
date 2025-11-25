@@ -100,7 +100,7 @@ public class CallHierarchy {
         var selection = (ISourceLocation) cons.get(CallHierarchyFields.SELECTION);
         var selectionRange = Locations.toRange(selection, columns);
 
-        var ci = new CallHierarchyItem(name, kind, Locations.toUri(def.top()), definitionRange, selectionRange);
+        var ci = new CallHierarchyItem(name, kind, Locations.toUri(def.top()).toString(), definitionRange, selectionRange);
         var kws = cons.asWithKeywordParameters();
         if (kws.hasParameter(CallHierarchyFields.TAGS)) {
             ci.setTags(DocumentSymbols.symbolTagsToLSP((ISet) kws.getParameter(CallHierarchyFields.TAGS)));
