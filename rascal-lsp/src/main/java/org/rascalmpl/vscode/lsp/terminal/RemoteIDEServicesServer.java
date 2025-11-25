@@ -80,61 +80,68 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     }
 
     @Override
-    public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation param) {
+    public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation loc) {
+        logger.trace("resolveProjectLocation({})", loc);
         try {
-            return CompletableFuture.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(param));
+            return CompletableFuture.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc));
         } catch (IOException e) {
-            return CompletableFuture.completedFuture(param);
+            return CompletableFuture.completedFuture(loc);
         }
     }
 
     @Override
     public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter edits) {
+        logger.trace("applyDocumentsEdits({})", edits);
         return CompletableFuture.runAsync(() ->
             languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))));
     }
 
     @Override
     public CompletableFuture<Void> registerLocations(IString scheme, IString authority, ISourceLocation[][] mapping) {
-        URIResolverRegistry.getInstance().registerLogical(
-            new LogicalMapResolver(
-                scheme.getValue(),
-                authority.getValue(),
-                IRemoteIDEServices.locArrayToMapLocLoc(mapping)
-            )
-        );
-        return CompletableFuture.completedFuture(null);
+        logger.trace("registerLocaions({}, {}, {})", scheme, authority, mapping);
+        return CompletableFuture.runAsync(() ->
+            URIResolverRegistry.getInstance().registerLogical(
+                new LogicalMapResolver(
+                    scheme.getValue(),
+                    authority.getValue(),
+                    IRemoteIDEServices.locArrayToMapLocLoc(mapping)
+                )
+            ));
     }
 
     @Override
     public CompletableFuture<Void> registerDiagnostics(RegisterDiagnosticsParameters param) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
+        logger.trace("registerDiagnostics({})", param);
+        return CompletableFuture.runAsync(() -> {
+            Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
 
-        for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
-            String uri = entry.getKey().getURI().toString();
-            languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
-        }
-        return CompletableFuture.completedFuture(null);
+            for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
+                String uri = entry.getKey().getURI().toString();
+                languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Void> unregisterDiagnostics(ISourceLocation[] locs) {
-        for (ISourceLocation loc : locs) {
-            loc = Locations.toPhysicalIfPossible(loc);
-            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
-        }
-        return CompletableFuture.completedFuture(null);
+        logger.trace("unregisterDiagnostics({})", (Object[]) locs);
+        return CompletableFuture.runAsync(() -> {
+            for (ISourceLocation loc : locs) {
+                loc = Locations.toPhysicalIfPossible(loc);
+                languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Void> startDebuggingSession(int serverPort) {
-        languageClient.startDebuggingSession(serverPort);
-        return CompletableFuture.completedFuture(null);
+        logger.trace("startDebuggingSession({})", serverPort);
+        return CompletableFuture.runAsync(() -> languageClient.startDebuggingSession(serverPort));
     }
 
     @Override
     public CompletableFuture<Void> registerDebugServerPort(int processID, int serverPort) {
-        languageClient.registerDebugServerPort(processID, serverPort);
-        return CompletableFuture.completedFuture(null);
+        logger.trace("registerDebugServerPort({}, {})", processID, serverPort);
+        return CompletableFuture.runAsync(() -> languageClient.registerDebugServerPort(processID, serverPort));
     }
 }
