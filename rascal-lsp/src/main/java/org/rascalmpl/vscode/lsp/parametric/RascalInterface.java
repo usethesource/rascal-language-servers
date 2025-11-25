@@ -26,8 +26,19 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import org.apache.logging.log4j.LogManager;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
@@ -39,14 +50,56 @@ import io.usethesource.vallang.IList;
  * @param services
  */
 public class RascalInterface {
+    private final @Nullable LanguageRegistry languageRegistry;
+    private final IRascalMonitor monitor;
+
+    @SuppressWarnings("resource")
+    public RascalInterface(IRascalMonitor monitor) {
+        this.monitor = monitor;
+        LanguageRegistry registry = null;
+        try {
+            var property = System.getProperty("rascal.languageRegistryPort");
+            if (property != null) {
+                var port = Integer.parseInt(property);
+                Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+                Launcher<LanguageRegistry> clientLauncher = new Launcher.Builder<LanguageRegistry>()
+                    .setLocalService(new Object())
+                    .setRemoteInterface(LanguageRegistry.class)
+                    .setInput(socket.getInputStream())
+                    .setOutput(socket.getOutputStream())
+                    .create();
+                
+                clientLauncher.startListening();
+                registry = clientLauncher.getRemoteProxy();
+            }
+        } catch (Throwable e) {
+            monitor.warning("Could not establish connection with Rascal language registry: " + e.getMessage(), URIUtil.unknownLocation());
+        }
+        languageRegistry = registry;
+    }
+
     public void registerLanguage(IConstructor lang) {
-        LogManager.getLogger(RascalInterface.class).warn("Cannot currently register languages");
-        // services.registerLanguage(lang);
+        if (languageRegistry == null) {
+            monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
+        } else {
+            try {
+                languageRegistry.registerLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw RuntimeExceptionFactory.io("Could not register language " + lang + "\n" + e);
+            }
+        }
     }
 
     public void unregisterLanguage(IConstructor lang) {
-        LogManager.getLogger(RascalInterface.class).warn("Cannot currently unregister languages");
-        // services.unregisterLanguage(lang);
+        if (languageRegistry == null) {
+            monitor.warning("Could not unregister language: no connection", URIUtil.unknownLocation());
+        } else {
+            try {
+                languageRegistry.unregisterLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw RuntimeExceptionFactory.io("Could not unregister language " + lang + "\n" + e);
+            }
+        }
     }
 
     public IList computeFocusList(IConstructor input, IInteger line, IInteger column) {
