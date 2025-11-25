@@ -29,9 +29,6 @@ package org.rascalmpl.vscode.lsp.util.locations;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Set;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -56,11 +53,10 @@ import io.usethesource.vallang.IValue;
  */
 public class Locations {
 
-    private static final Logger logger = LogManager.getLogger(Locations.class);
-
-    private static final Set<String> OPAQUE_SCHEMES = Set.of(
-        "untitled"
-    );
+    // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
+    // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
+    // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
+    private static final String OPAQUE_SCHEME = "opaque---";
 
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
         loc = LSPOpenFileResolver.stripLspPrefix(loc);
@@ -130,16 +126,18 @@ public class Locations {
         );
     }
 
+    /**
+     * Map a VS Code URI to a Rascal source location.
+     * Inverse of {@link toUri}.
+     */
     public static ISourceLocation toLoc(String uri) {
         try {
-            var u = URI.create(uri);
+            var u = new URI(uri);
             if (u.isOpaque()) {
-                if (!OPAQUE_SCHEMES.contains(u.getScheme())) {
-                    logger.warn("Converting opaque URI with unexpected scheme: {}", uri);
-                }
-                // Coerce into a hierarchical URI.
-                int colonPos = uri.indexOf(':');
-                return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos + 1));
+                // Rascal does not support opaque URIs
+                // Wrap as a hierarchical URI with all the original information, so we can get the original URI back later.
+                // Since the scheme cannot contain "/", we can use that as a separator in the new URI.
+                return URIUtil.createFromURI(String.format("%s:///%s/%s", OPAQUE_SCHEME, u.getScheme(), u.getRawSchemeSpecificPart()));
             }
             return URIUtil.createFromURI(uri);
         } catch (URISyntaxException e) {
@@ -147,10 +145,18 @@ public class Locations {
         }
     }
 
+    /**
+     * Map a Rascal source location to a VS Code URI.
+     * Inverse of {@link toLoc}.
+     */
     public static String toUri(ISourceLocation loc) {
         var uri = loc.getURI();
-        if (OPAQUE_SCHEMES.contains(uri.getScheme())) {
-            return uri.toString().replaceFirst(":///", ":");
+        if (OPAQUE_SCHEME.equals(uri.getScheme())) {
+            // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
+            var parts = uri.toString()
+                .replaceFirst(OPAQUE_SCHEME + ":///", "") // remove the synthetic opacity prefix
+                .split("/", 2);                           // split the original scheme and scheme specific part
+            return String.format("%s:%s", parts[0], parts[1]);
         }
         return uri.toString();
     }
