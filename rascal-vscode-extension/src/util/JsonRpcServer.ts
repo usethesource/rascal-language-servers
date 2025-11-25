@@ -75,6 +75,7 @@ export class JsonRpcServer implements Disposable {
             });
         });
     }
+
     dispose() {
         this.server.close();
         this.activeClients.forEach(c => c.destroy());

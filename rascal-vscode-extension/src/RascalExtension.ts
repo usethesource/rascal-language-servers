@@ -274,7 +274,7 @@ export class RascalExtension implements vscode.Disposable {
             , '--remoteIDEServicesPort'
             , '' + remoteIDEServicesConfiguration.port
             , '--vfsPort'
-            , '' + await this.vfsServer.port()
+            , '' + await this.vfsServer.serverPort
         );
         return shellArgs.concat(extraArgs || []);
     }

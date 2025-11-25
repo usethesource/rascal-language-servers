@@ -221,10 +221,6 @@ export class VSCodeUriResolverServer extends JsonRpcServer {
     ignoreSchemes(toIgnore: string[]) {
         toIgnore.forEach(v => this.rascalNativeSchemes.add(v));
     }
-
-    async port(): Promise<number> {
-        return this.serverPort;
-    }
 }
 
 
