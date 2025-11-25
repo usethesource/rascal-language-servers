@@ -126,7 +126,7 @@ public class LocationsTest {
         for (var uri : new String[] {"file:///foo/bar baz.txt"}) {
             try {
                 var loc = Locations.toLoc(uri);
-                fail(String.format("Mapped invalid URI %s to %s, but should have failed", uri, loc));
+                fail("Mapped invalid URI " + uri + " to " + loc + ", but should have failed");
             } catch (RuntimeException e) {
                 if (!(e.getCause() instanceof URISyntaxException)) {
                     fail("Expected excepted caused by URISyntaxException, but got " + e.getCause());
