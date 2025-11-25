@@ -56,7 +56,6 @@ public class LSPTerminalREPL extends RascalInterpreterREPL {
             }
         }
 
-        //Even opruimen
         if (vfsPort != -1) {
             VSCodeVFSClient.buildAndRegister(vfsPort);
         }
