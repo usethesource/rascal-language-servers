@@ -144,7 +144,7 @@ export class RascalExtension implements vscode.Disposable {
                         }
                     }
                 }
-                progress.report({increment: 25, message: "Requesting remote IDE services configuration"});
+                progress.report({increment: 20, message: "Requesting remote IDE services configuration"});
                 const remoteIDEServicesConfiguration = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyRemoteIDEServicesConfiguration");
                 progress.report({increment: 50, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
