@@ -49,7 +49,7 @@ export class RascalExtension implements vscode.Disposable {
         this.vfsServer = new VSCodeUriResolverServer(!isDeploy, this.log);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
-        this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, isDeploy);
+        this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, this.log, isDeploy);
 
         this.registerTerminalCommand();
         this.registerMainRun();
@@ -150,7 +150,7 @@ export class RascalExtension implements vscode.Disposable {
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
-                    shellArgs: this.buildShellArgs(remoteIDEServicesConfiguration),
+                    shellArgs: await this.buildShellArgs(remoteIDEServicesConfiguration),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
@@ -246,7 +246,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, ...extraArgs: string[]) {
+    private async buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -269,11 +269,12 @@ export class RascalExtension implements vscode.Disposable {
         shellArgs.push(
             '-Dfile.encoding=UTF8'
             , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
+            , `-Drascal.languageRegistryPort=${await this.rascal.languageRegistry.serverPort}`
             , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
             , '--remoteIDEServicesPort'
             , '' + remoteIDEServicesConfiguration.port
             , '--vfsPort'
-            , '' + this.vfsServer.port
+            , '' + await this.vfsServer.port()
         );
         return shellArgs.concat(extraArgs || []);
     }
