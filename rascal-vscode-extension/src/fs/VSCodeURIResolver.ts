@@ -29,6 +29,7 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { URI } from "vscode-languageclient";
+import { JsonRpcServer } from "../util/JsonRpcServer";
 
 declare type ISourceLocation = URI;
 
@@ -59,11 +60,11 @@ interface ISourceLocationInput {
 }
 
 
-function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput) {
+function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
     function req<T> (method: string, h: rpc.RequestHandler1<ISourceLocationRequest, T, void>) {
-        connection.onRequest(
+        toClear.push(connection.onRequest(
             new rpc.RequestType1<ISourceLocationRequest, T, void>("rascal/vfs/input/" + method),
-            h.bind(handler));
+            h.bind(handler)));
     }
     req<ReadFileResult>("readFile", handler.readFile);
     req<BooleanResult>("exists", handler.exists);
@@ -86,11 +87,11 @@ interface ISourceLocationOutput {
     rename(req: RenameRequest): Promise<void>;
 }
 
-function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput) {
+function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
     function req<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
-        connection.onRequest(
+        toClear.push(connection.onRequest(
             new rpc.RequestType1<Arg, ReturnT, void>("rascal/vfs/output/" + method),
-            h.bind(handler));
+            h.bind(handler)));
     }
     req("writeFile", handler.writeFile);
     req("mkDirectory", handler.mkDirectory);
@@ -104,11 +105,11 @@ interface ISourceLocationWatcher {
     unwatch(removeWatch: WatchRequest): Promise<void>;
 }
 
-function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher) {
+function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher, toClear: Disposable[]) {
     function req<ArgT, ResultT> (method: string, h: rpc.RequestHandler1<ArgT, ResultT, void>) {
-        connection.onRequest(
+        toClear.push(connection.onRequest(
             new rpc.RequestType1<ArgT, ResultT, void>("rascal/vfs/watcher/" + method),
-            h.bind(handler));
+            h.bind(handler)));
     }
     req("watch", handler.watch);
     req("unwatch", handler.unwatch);
@@ -212,60 +213,19 @@ enum ErrorCodes {
 }
 
 
-export class VSCodeUriResolverServer implements Disposable {
-    private readonly server: Server;
-    private activeClients: ResolverClient[] = [];
+export class VSCodeUriResolverServer extends JsonRpcServer {
     private rascalNativeSchemes: Set<string> = new Set();
     constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
-        this.server = createServer(newClient => {
-            if (debug) {
-                this.logger.info("VFS: new connection: " + JSON.stringify(newClient));
-            }
-            newClient.setNoDelay(true);
-            this.handleNewClient(newClient, debug);
-        });
-        this.server.on('error', this.logger.error);
-        this.server.listen(0, "localhost", () => this.logger.info("VFS: started listening on " + JSON.stringify(this.server.address())));
+        super("VFS", connection => new ResolverClient(connection, debug, this.rascalNativeSchemes, this.logger), logger);
     }
 
     ignoreSchemes(toIgnore: string[]) {
         toIgnore.forEach(v => this.rascalNativeSchemes.add(v));
     }
 
-    dispose() {
-        this.server.close();
-        this.activeClients.forEach(c => c.dispose());
+    async port(): Promise<number> {
+        return this.serverPort;
     }
-
-    private handleNewClient(newClient: Socket, debug: boolean) {
-        const connection = rpc.createMessageConnection(newClient, newClient, {
-            log: (msg) => this.logger.trace(`VFS: ${msg}`),
-            error: (msg) => this.logger.error(`VFS: ${msg}`),
-            warn: (msg) => this.logger.warn(`VFS: ${msg}`),
-            info: (msg) => this.logger.info(`VFS: ${msg}`),
-        });
-        newClient.on("error", e => {
-            this.logger.error(`VFS (socket): ${e}`);
-        });
-
-        const client = new ResolverClient(connection, debug, this.rascalNativeSchemes, this.logger);
-        this.activeClients.push(client);
-
-        newClient.on('end', () => {
-            const index = this.activeClients.indexOf(client, 0);
-            if (index >= 0) {
-                this.activeClients.splice(index, 1);
-            }
-            client.dispose();
-        });
-        connection.listen();
-    }
-
-
-    get port(): number {
-        return (this.server.address() as AddressInfo).port;
-    }
-
 }
 
 
@@ -314,9 +274,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             });
         }
         this.watchListener = buildWatchReceiver(connection);
-        connectInputHandler(connection, this);
-        connectOutputHandler(connection, this);
-        connectWatchHandler(connection, this);
+        connectInputHandler(connection, this, this.toClear);
+        connectOutputHandler(connection, this, this.toClear);
+        connectWatchHandler(connection, this, this.toClear);
     }
 
     toUri(req: ISourceLocationRequest | ISourceLocation): vscode.Uri {
