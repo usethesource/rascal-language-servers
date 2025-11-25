@@ -136,7 +136,7 @@ public class FileFacts {
             }
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                file.getURI().toString(),
+                Locations.toUri(file),
                 Lists.union(typeCheckerMessages, parseMessages)));
         }
 

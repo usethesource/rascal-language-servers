@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -54,6 +53,7 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -343,7 +343,7 @@ public class ParametricFileFacts {
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                file.getURI().toString(),
+                Locations.toUri(file),
                 diagnostics));
         }
 
