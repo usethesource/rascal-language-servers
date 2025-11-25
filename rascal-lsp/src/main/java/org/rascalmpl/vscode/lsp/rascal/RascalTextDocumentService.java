@@ -660,7 +660,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState f = getFile(params.getTextDocument());
         return recoverExceptions(f.getLastTreeAsync(false)
             .thenApply(Versioned::get)
-            .thenApply(availableRascalServices()::locateCodeLenses)
+            .thenApplyAsync(availableRascalServices()::locateCodeLenses, exec)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList())), () -> null)
