@@ -79,7 +79,6 @@ public abstract class BaseLanguageServer {
     private static final InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
-    private static IDEServicesConfiguration remoteIDEServicesConfiguration = null;
 
     static {
         DEPLOY_MODE = System.getProperty("rascal.lsp.deploy", "false").equalsIgnoreCase("true");
@@ -192,12 +191,13 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
+        private IDEServicesConfiguration remoteIDEServicesConfiguration = null;
 
         private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
