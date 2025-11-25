@@ -66,6 +66,7 @@ import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -211,7 +212,7 @@ public abstract class BaseLanguageServer {
             if (remoteIDEServicesConfiguration == null) {
                 return CompletableFuture.failedFuture(new IllegalStateException("No RemoteIDEServices configuration is set"));
             }
-            return CompletableFuture.completedFuture(remoteIDEServicesConfiguration);
+            return CompletableFutureUtils.completedFuture(remoteIDEServicesConfiguration, executor);
         }
 
         private static URI[] toURIArray(IList src) {

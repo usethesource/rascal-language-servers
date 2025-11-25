@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IInteger;
@@ -90,9 +91,9 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation loc) {
         logger.trace("resolveProjectLocation({})", loc);
         try {
-            return CompletableFuture.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc));
+            return CompletableFutureUtils.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc), exec);
         } catch (IOException e) {
-            return CompletableFuture.completedFuture(loc);
+            return CompletableFutureUtils.completedFuture(loc, exec);
         }
     }
 
