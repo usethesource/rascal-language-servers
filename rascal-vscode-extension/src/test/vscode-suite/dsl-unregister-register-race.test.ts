@@ -87,8 +87,14 @@ describe('DSL unregister/register race', function () {
 
             await loadPico();
             const logs: string[] = await getLogs(driver);
-            const lastUnregister = logs.findLastIndex(l => l.match("\bunregisterLanguage\b/i"));
-            const firstRegister = logs.findIndex(l => l.match("\bregisterLanguage\b/i"));
+            const lastUnregister = logs.findLastIndex(l => l.match(/\bunregisterLanguage\b/i));
+            const firstRegister = logs.findIndex(l => l.match(/\bregisterLanguage\b/i));
+            if (lastUnregister === -1) {
+                throw Error("Could not find `unregisterLanguage` in logs!");
+            }
+            if (firstRegister === -1) {
+                throw Error("Could not find `registerLanguage` in logs!");
+            }
             assert(lastUnregister > firstRegister, "Language unregistration was not finished before registration started");
         });
     }
