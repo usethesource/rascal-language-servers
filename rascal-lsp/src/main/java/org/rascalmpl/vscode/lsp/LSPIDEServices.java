@@ -43,8 +43,6 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient.BrowseParameter;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient.EditorParameter;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -85,7 +83,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void browse(URI uri, IString title, IInteger viewColumn) {
-        languageClient.showContent(new BrowseParameter(uri, title, viewColumn));
+        languageClient.showContent(uri, title, viewColumn);
     }
 
     @Override
@@ -97,7 +95,7 @@ public class LSPIDEServices implements IDEServices {
             range = Locations.toRange(physical, docService.getColumnMap(physical));
         }
 
-        languageClient.editDocument(new EditorParameter(path.getURI().toASCIIString(), range, viewColumn));
+        languageClient.editDocument(path.getURI(), range, viewColumn);
     }
 
     @Override

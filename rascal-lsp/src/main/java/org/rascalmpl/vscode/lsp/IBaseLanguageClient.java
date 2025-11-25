@@ -39,7 +39,7 @@ import io.usethesource.vallang.IString;
 
 public interface IBaseLanguageClient extends LanguageClient {
     @JsonNotification("rascal/showContent")
-    void showContent(BrowseParameter uri);
+    void showContent(URI uri, IString title, IInteger viewColumn);
 
     @JsonNotification("rascal/receiveRegisterLanguage")
     void receiveRegisterLanguage(LanguageParameter lang);
@@ -48,7 +48,7 @@ public interface IBaseLanguageClient extends LanguageClient {
     void receiveUnregisterLanguage(LanguageParameter lang);
 
     @JsonNotification("rascal/editDocument")
-    void editDocument(EditorParameter params);
+    void editDocument(URI uri, @Nullable Range range, int viewColumn);
 
     /**
      * Notification sent to the vscode client to start a debugging session on the given debug adapter port
@@ -62,45 +62,4 @@ public interface IBaseLanguageClient extends LanguageClient {
      */
     @JsonNotification("rascal/registerDebugServerPort")
     void registerDebugServerPort(int processID, int serverPort);
-
-    public static class BrowseParameter {
-        private String uri;
-        private String title;
-        private int viewColumn;
-
-        public BrowseParameter(URI uri, IString title, IInteger viewColumn) {
-            this.uri = uri.toString();
-            this.title = title.getValue();
-            this.viewColumn = viewColumn.intValue();
-        }
-
-        @Override
-        public String toString() {
-            return "BrowseParameter:\n\tbrowseParameter:" + uri + "\n\ttitle: " + title + "\n\tviewColumn: " + viewColumn;
-        }
-    }
-    
-    public static class EditorParameter {
-        private String uri;
-        private int viewColumn;
-        private @Nullable Range range;
-
-        public EditorParameter(String uri, @Nullable Range range, int viewColumn) {
-            this.uri = uri;
-            this.range = range;
-            this.viewColumn = viewColumn;
-        }
-
-        public @Nullable Range getRange() {
-            return range;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        public int getViewColumn() {
-            return viewColumn;
-        }
-    }
 }

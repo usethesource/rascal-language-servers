@@ -44,8 +44,6 @@ import org.rascalmpl.ideservices.IRemoteIDEServices;
 import org.rascalmpl.uri.LogicalMapResolver;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient.BrowseParameter;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient.EditorParameter;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
@@ -75,14 +73,14 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
         return CompletableFuture.runAsync(() -> {
             var physical = Locations.toClientLocation(loc);
             var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
-            languageClient.editDocument(new EditorParameter(physical.getURI().toASCIIString(), range, viewColumn));
+            languageClient.editDocument(physical.getURI(), range, viewColumn);
         });
     }
 
     @Override
     public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> languageClient.showContent(new BrowseParameter(uri, title, viewColumn)));
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri, title, viewColumn));
     }
 
     @Override

@@ -55,16 +55,16 @@ export async function activateLanguageClient(
     await client.start();
     logger.setClient(client);
     client.sendNotification("rascal/vfs/register", {
-        port: await vfsServer.port()
+        port: await vfsServer.serverPort
     });
 
-    client.onNotification("rascal/showContent", (bp:BrowseParameter) => {
-        showContentPanel(bp.uri, bp.title, bp.viewColumn);
+    client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
+        showContentPanel(uri, title, viewColumn);
     });
 
 
-    client.onNotification("rascal/editDocument", (e:EditorParameter) => {
-        openEditor(e.uri, e.range, e.viewColumn);
+    client.onNotification("rascal/editDocument", (uri: string, viewColumn: integer, range: vscode.Range) => {
+        openEditor(uri, range, viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
@@ -154,20 +154,6 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
             </body>
             </html>`;
 }
-
-interface BrowseParameter {
-    uri: string;
-    mimetype: string;
-    title: string;
-    viewColumn:integer;
-}
-
-interface EditorParameter {
-    uri: string;
-    viewColumn: integer;
-    range: vscode.Range;
-}
-
 
 async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
