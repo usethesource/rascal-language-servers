@@ -48,22 +48,6 @@ import io.usethesource.vallang.type.TypeFactory;
  * Server interface for remote implementation of @see IDEServices
  */
 public interface ITerminalIDEServer {
-    public static class EditParameter {
-        private String module;
-
-        public EditParameter(String module) {
-            this.module = module;
-        }
-
-        public String getModule() {
-            return module;
-        }
-
-        @Override
-        public String toString() {
-            return "editParameter: " + module;
-        }
-    }
 
     public static class EditorParameter {
         private String uri;
