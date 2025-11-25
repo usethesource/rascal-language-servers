@@ -117,6 +117,7 @@ public class LocationsTest {
         roundtripUri("file:///foo/bar");
         roundtripUri("file:///foo/bar%20baz.txt");
         roundtripUri("unknown:///foo/bar");
+        roundtripUri("untitled://foo/bar");
         roundtripUri("untitled:///foo/bar");
         roundtripUri("memory:///foo/bar");
     }

@@ -136,11 +136,8 @@ public class Locations {
             if (u.isOpaque()) {
                 // Rascal does not support opaque URIs
                 // Wrap as a hierarchical URI with all the original information, so we can get the original URI back later.
-                // Since the scheme cannot contain "/", we can use that as a separator in the new URI.
-                var fragmentPart = u.getRawFragment() == null
-                    ? ""
-                    : "#" + u.getRawFragment();
-                return URIUtil.createFromURI(String.format("%s:///%s/%s%s", OPAQUE_SCHEME, u.getScheme(), u.getRawSchemeSpecificPart(), fragmentPart));
+                // Note: since an absolute URI requires an absolute path, prefix the scheme-specific part with "/"
+                uri = new URI(OPAQUE_SCHEME, u.getScheme(), "/" + u.getSchemeSpecificPart(), null, u.getFragment()).toString();
             }
             return URIUtil.createFromURI(uri);
         } catch (URISyntaxException e) {
@@ -156,10 +153,13 @@ public class Locations {
         var uri = loc.getURI();
         if (OPAQUE_SCHEME.equals(uri.getScheme())) {
             // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
-            var parts = uri.toString()
-                .replaceFirst(OPAQUE_SCHEME + ":///", "") // remove the synthetic opacity prefix
-                .split("/", 2);                           // split the original scheme and scheme specific part
-            return String.format("%s:%s", parts[0], parts[1]);
+            // Split the original scheme and scheme specific part
+            try {
+                // Note: since `toLoc` prefixes the SSC with "/", remove that while unwrapping
+                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment()).toString();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
         }
         return uri.toString();
     }
