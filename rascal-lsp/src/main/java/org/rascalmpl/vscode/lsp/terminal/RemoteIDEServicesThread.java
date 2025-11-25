@@ -49,16 +49,16 @@ public class RemoteIDEServicesThread extends Thread {
     private final ServerSocket serverSocket;
     private final LanguageClient languageClient;
     private final IBaseTextDocumentService docService;
-    private final ExecutorService threadPool;
+    private final ExecutorService exec;
 
     public static final Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
 
-    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
+    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService exec) {
         super("Remote IDE Services Thread");
         this.serverSocket = serverSocket;
         this.languageClient = languageClient;
         this.docService = docService;
-        this.threadPool = threadPool;
+        this.exec = exec;
     }
 
     @Override
@@ -70,18 +70,18 @@ public class RemoteIDEServicesThread extends Thread {
                     connection.setTcpNoDelay(true);
 
                     Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
-                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService, threadPool))
+                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService, exec))
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
                         .configureGson(GsonUtils::configureGson)
-                        .setExecutorService(threadPool)
+                        .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);
                             return new ResponseError(ResponseErrorCode.InternalError, e.getMessage() == null ? "unknown" : e.getMessage(), e);
                         })
                         .create();
-                    
+
                     logger.trace("Remote IDE services thread started");
                     remoteIDEServicesLauncher.startListening();
                 } catch (Throwable e) {
