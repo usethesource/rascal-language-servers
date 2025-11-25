@@ -39,11 +39,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
  * provide IDE feature to the user of a terminal instance.
  */
 public class LSPTerminalREPL extends RascalInterpreterREPL {
-    private LSPTerminalREPL(int ideServicesPort) {
-        super(ideServicesPort);
-    }
-
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException {
         int vfsPort = -1;
 
         var rascalShellArgs = new ArrayList<String>();
