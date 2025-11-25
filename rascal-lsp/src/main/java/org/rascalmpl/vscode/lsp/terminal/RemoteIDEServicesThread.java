@@ -71,7 +71,7 @@ public class RemoteIDEServicesThread extends Thread {
                         .configureGson(GsonUtils::configureGson)
                         .setExceptionHandler(e -> {
                             logger.error(e);
-                            return new ResponseError(ResponseErrorCode.InternalError, e.getMessage(), e);
+                            return new ResponseError(ResponseErrorCode.InternalError, e.getMessage() == null ? "unknown" : e.getMessage(), e);
                         })
                         .create();
                     
