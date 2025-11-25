@@ -28,6 +28,8 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class ISourceLocationRequest {
@@ -42,7 +44,7 @@ public class ISourceLocationRequest {
     }
 
     public ISourceLocationRequest(ISourceLocation loc) {
-        this(loc.getURI().toString());
+        this(Locations.toUri(loc));
     }
 
     @Override

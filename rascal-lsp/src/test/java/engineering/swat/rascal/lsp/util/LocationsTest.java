@@ -27,7 +27,9 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
+import java.net.URISyntaxException;
 import org.junit.Test;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -102,5 +104,49 @@ public class LocationsTest {
         var in = VF.sourceLocation(fileName, 19, 115, 2, 6, 0, 1); // the structure
         var out = Locations.setRange(in, Locations.toRange(in, columns), columns);
         assertEquals(in, out);
+    }
+
+    private void roundtripUri(String uri) {
+        var loc = Locations.toLoc(uri);
+        var uri2 = Locations.toUri(loc);
+        assertEquals(uri, uri2);
+    }
+
+    @Test
+    public void roundtripAbsoluteUris() {
+        roundtripUri("file:///foo/bar");
+        roundtripUri("file:///foo/bar%20baz.txt");
+        roundtripUri("unknown:///foo/bar");
+        roundtripUri("untitled://foo/bar");
+        roundtripUri("untitled:///foo/bar");
+        roundtripUri("memory:///foo/bar");
+    }
+
+    @Test
+    public void illegalUris() {
+        for (var uri : new String[] {"file:///foo/bar baz.txt"}) {
+            try {
+                var loc = Locations.toLoc(uri);
+                fail("Mapped invalid URI " + uri + " to " + loc + ", but should have failed");
+            } catch (RuntimeException e) {
+                if (!(e.getCause() instanceof URISyntaxException)) {
+                    fail("Expected exception caused by URISyntaxException, but got " + e.getCause());
+                }
+            }
+        }
+    }
+
+    @Test
+    public void roundtripOpaqueUris() {
+        // New, unsaved file from VS Code
+        roundtripUri("untitled:Untitled-1");
+        roundtripUri("untitled:foo/bar/Untitled-1"); // separators in scheme-specific part
+        roundtripUri("untitled:Untitled%201"); // encoded characters
+        roundtripUri("untitled:Untitled-1#header1"); // with fragment
+
+        // Examples from Java documentation (https://docs.oracle.com/javase/8/docs/api/java/net/URI.html)
+        roundtripUri("mailto:java-net@java.sun.com");
+        roundtripUri("news:comp.lang.java");
+        roundtripUri("urn:isbn:096139210x");
     }
 }

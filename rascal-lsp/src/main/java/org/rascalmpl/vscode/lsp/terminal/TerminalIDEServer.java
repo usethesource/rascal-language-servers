@@ -152,7 +152,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
         Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
-            String uri = entry.getKey().getURI().toString();
+            String uri = Locations.toUri(entry.getKey());
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
         }
     }
@@ -161,7 +161,7 @@ public class TerminalIDEServer implements ITerminalIDEServer {
     public void unregisterDiagnostics(UnRegisterDiagnosticsParameters param) {
         for (IValue elem : param.getLocations()) {
             ISourceLocation loc = Locations.toPhysicalIfPossible((ISourceLocation) elem);
-            languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(loc), Collections.emptyList()));
         }
     }
 

@@ -27,8 +27,8 @@
 package org.rascalmpl.vscode.lsp.util.locations;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
-
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -52,6 +52,12 @@ import io.usethesource.vallang.IValue;
  * strip source locations of their "lsp+" prefix.
  */
 public class Locations {
+
+    // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
+    // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
+    // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
+    private static final String OPAQUE_SCHEME = "opaque-lsp-";
+
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
         loc = LSPOpenFileResolver.stripLspPrefix(loc);
         if (loc.getScheme().equals("project")) {
@@ -120,25 +126,45 @@ public class Locations {
         );
     }
 
+    /**
+     * Map a VS Code URI to a Rascal source location.
+     * Inverse of {@link toUri}.
+     */
     public static ISourceLocation toLoc(String uri) {
         try {
+            var u = new URI(uri);
+            if (u.isOpaque()) {
+                // Rascal does not support opaque URIs, so we wrap those as hierarchical URIs.
+                // - Replace the scheme by a unique, recognizable scheme.
+                // - Put the original opaque scheme in the authority (which opaque URIs do not have).
+                // - A hierarchical URI requires an absolute path; prefix the scheme-specific part with "/".
+                // - Opaque URIs do not have a query, so we leave that unset.
+                // - Clone the (optional) fragment.
+                uri = new URI(OPAQUE_SCHEME, u.getScheme(), "/" + u.getSchemeSpecificPart(), null, u.getFragment()).toString();
+            }
             return URIUtil.createFromURI(uri);
-        } catch (UnsupportedOperationException e) {
-            if (e.getMessage() != null && e.getMessage().contains("Opaque URI schemes are not supported")) {
-                int colonPos = uri.indexOf(':');
-                try {
-                    return URIUtil.createFromURI(uri.substring(0, colonPos) + ":///" + uri.substring(colonPos));
-                } catch (URISyntaxException e1) {
-                    throw new RuntimeException(e);
-                }
-            }
-            else {
-                throw e;
-            }
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Map a Rascal source location to a VS Code URI.
+     * Inverse of {@link toLoc}.
+     */
+    public static String toUri(ISourceLocation loc) {
+        var uri = loc.getURI();
+        if (OPAQUE_SCHEME.equals(uri.getScheme())) {
+            // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
+            // Split the original scheme and scheme specific part
+            try {
+                // Note: since `toLoc` prefixes the SSC with "/", remove that while unwrapping
+                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment()).toString();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return uri.toString();
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
@@ -149,11 +175,11 @@ public class Locations {
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
-        return new Location(sloc.getURI().toString(), toRange(sloc, cm));
+        return new Location(Locations.toUri(sloc), toRange(sloc, cm));
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
-        return new Location(sloc.getURI().toString(), toRange(sloc, map));
+        return new Location(Locations.toUri(sloc), toRange(sloc, map));
     }
 
     public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {
