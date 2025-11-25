@@ -150,17 +150,24 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             if (result && await ignoreFails(result.getTitle()) === file) {
                 return result;
             }
-            return undefined;
+            return undefined! as TextEditor;
         }, Delays.normal, "Could not open file");
         expect(editor).to.not.be.undefined;
 
-        await editor!.setText(`begin
+        await editor.setText(`begin
   declare
      a : natural;
-  a := 2;
+  a := 2
 end
 `, true);
-        await ide.hasSyntaxHighlighting(editor!, Delays.slow);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+
+        try {
+            await editor.setTextAtLine(4, "  a := ");
+            await ide.hasErrorSquiggly(editor, Delays.slow);
+        } finally {
+            await ide.revertOpenChanges();
+        }
     }).retries(2);
 
     it("error recovery works", async function () {
