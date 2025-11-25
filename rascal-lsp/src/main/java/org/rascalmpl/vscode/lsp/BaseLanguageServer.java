@@ -61,7 +61,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;

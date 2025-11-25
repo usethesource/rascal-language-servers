@@ -45,7 +45,7 @@ import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.ParserSpecification;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
