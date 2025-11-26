@@ -40,13 +40,13 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -106,10 +106,9 @@ public class FileFacts {
 
         public FileFact(ISourceLocation file, Executor exec) {
             this.file = file;
-            this.typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Collections.emptyMap()));
+            this.typeCheckResults = ReplaceableFuture.completedFuture(Collections.emptyMap(), exec);
             this.summary = new LazyUpdateableReference<>(
-                new InterruptibleFuture<>(CompletableFuture.completedFuture(new SummaryBridge()), () -> {
-                }),
+                InterruptibleFuture.completedFuture(new SummaryBridge(), exec),
                 r -> {
                     r.interrupt();
                     var summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))

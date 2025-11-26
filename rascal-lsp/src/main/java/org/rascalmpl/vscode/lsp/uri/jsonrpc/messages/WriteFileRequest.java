@@ -38,8 +38,6 @@ public class WriteFileRequest extends ISourceLocationRequest {
 
     private boolean append;
 
-    public WriteFileRequest() {}
-
     public WriteFileRequest(@NonNull String uri, @NonNull String content, @NonNull boolean append) {
         super(uri);
         this.content = content;

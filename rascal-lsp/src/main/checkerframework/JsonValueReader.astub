@@ -1,0 +1,11 @@
+package org.rascalmpl.library.lang.json.internal;
+
+import org.rascalmpl.debug.IRascalMonitor;
+import io.usethesource.vallang.type.TypeFactory;
+import org.rascalmpl.values.IRascalValueFactory;
+import io.usethesource.vallang.ISourceLocation;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class JsonValueReader {
+    public JsonValueReader(IRascalValueFactory vf, TypeStore store, IRascalMonitor monitor, @Nullable ISourceLocation src) { }
+}

@@ -36,9 +36,6 @@ public class ISourceLocationRequest {
     @NonNull
     private String uri;
 
-    public ISourceLocationRequest() {
-    }
-
     public ISourceLocationRequest(@NonNull String uri) {
         this.uri = uri;
     }

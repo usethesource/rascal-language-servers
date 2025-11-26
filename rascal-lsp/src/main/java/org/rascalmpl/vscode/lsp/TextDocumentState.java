@@ -164,7 +164,7 @@ public class TextDocumentState {
      * (typically provided by the client), and a {@link #timestamp} (typically
      * provided by the server).
      */
-    private class Update {
+    private final class Update {
         private final int version;
         private final String content;
         private final long timestamp;
@@ -199,7 +199,7 @@ public class TextDocumentState {
         private void parse() {
             try {
                 parser.apply(location, content)
-                    .whenComplete((t, e) -> {
+                    .whenComplete((ITree t, Throwable e) -> {
                         if (e instanceof CompletionException && e.getCause() != null) {
                             e = e.getCause();
                         }

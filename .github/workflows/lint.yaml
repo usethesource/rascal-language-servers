@@ -147,3 +147,22 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{matrix.language}}"   
+
+
+  checker-framework:
+    name: checker-framework 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Assure different pom cache hit
+        run: echo "    " >> rascal-lsp/pom.xml
+        
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Run checkstyle and print errors
+        run: mvn -Pchecker-framework clean compile
+        working-directory: ./rascal-lsp

@@ -42,8 +42,6 @@ public class DirectoryListingResult {
         this.areDirectory = areDirectory;
     }
 
-    public DirectoryListingResult() {}
-
     public String [] getEntries() {
         return entries;
     }
