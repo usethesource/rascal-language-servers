@@ -28,15 +28,15 @@ package org.rascalmpl.vscode.lsp.util;
 
 import com.google.gson.JsonPrimitive;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CallHierarchyFields;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
@@ -67,8 +67,9 @@ public class CallHierarchy {
     private final IConstructor incoming;
     private final IConstructor outgoing;
     private final Type callHierarchyItemCons;
+    private final Executor exec;
 
-    public CallHierarchy() {
+    public CallHierarchy(Executor exec) {
         var store = new TypeStore();
         Type directionAdt = TF.abstractDataType(store, "CallDirection");
         this.incoming = VF.constructor(TF.constructor(store, directionAdt, "incoming"));
@@ -80,6 +81,7 @@ public class CallHierarchy {
             TF.sourceLocationType(), CallHierarchyFields.DEFINITION,
             TF.sourceLocationType(), CallHierarchyFields.SELECTION
         );
+        this.exec = exec;
     }
 
     public IConstructor direction(Direction dir) {
@@ -124,7 +126,7 @@ public class CallHierarchy {
     public CompletableFuture<IConstructor> toRascal(CallHierarchyItem ci, Function<String, CompletableFuture<IConstructor>> dataParser, ColumnMaps columns) {
         CompletableFuture<Optional<IConstructor>> parseData = ci.getData() != null
             ? dataParser.apply(((JsonPrimitive) ci.getData()).getAsString()).thenApply(Optional::of)
-            : CompletableFuture.completedFuture(Optional.empty());
+            : CompletableFutureUtils.completedFuture(Optional.empty(), exec);
 
         return parseData.thenApply(data -> {
             var kwArgs = new HashMap<String, IValue>();

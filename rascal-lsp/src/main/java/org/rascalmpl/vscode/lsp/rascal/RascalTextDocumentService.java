@@ -134,6 +134,7 @@ import org.rascalmpl.vscode.lsp.util.FoldingRanges;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
@@ -149,7 +150,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
-    private final ExecutorService ownExecuter;
+    private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer(true);
@@ -165,7 +166,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
-        this.ownExecuter = exec;
+        this.exec = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
         FallbackResolver.getInstance().registerTextDocumentService(this);
@@ -254,8 +255,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), (IBaseLanguageClient) client, ownExecuter);
-        this.facts = new FileFacts(ownExecuter, rascalServices, client, columns);
+        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), (IBaseLanguageClient) client, exec);
+        this.facts = new FileFacts(exec, rascalServices, client, columns);
     }
 
     @Override
@@ -292,7 +293,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        ownExecuter.submit(() -> {
+        exec.submit(() -> {
             // if a file is deleted, we remove our diagnostics
             for (var f : params.getFiles()) {
                 availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
@@ -342,7 +343,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             , () -> Either.forLeft(Collections.emptyList()));
         }
         else {
-            return CompletableFuture.completedFuture(Either.forLeft(Collections.emptyList()));
+            return CompletableFutureUtils.completedFuture(Either.forLeft(Collections.emptyList()), exec);
         }
     }
 
@@ -414,11 +415,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         logger.debug("textDocument/rename: {} at {} to {}", params.getTextDocument(), params.getPosition(), params.getNewName());
 
         TextDocumentState file = getFile(params.getTextDocument());
-        Set<ISourceLocation> workspaceFolders = availableWorkspaceServices().workspaceFolders()
-            .stream()
-            .map(f -> Locations.toLoc(f.getUri()))
-            .collect(Collectors.toSet());
-
         return file.getCurrentTreeAsync(false)
             .thenApply(Versioned::get)
             .handle((t, e) -> {
@@ -431,6 +427,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
                 var cursorTree = findQualifiedNameUnderCursor(focus);
+                var workspaceFolders = availableWorkspaceServices().workspaceFolders()
+                    .stream()
+                    .map(f -> Locations.toLoc(f.getUri()))
+                    .collect(Collectors.toSet());
                 return availableRascalServices().getRename(TreeAdapter.getLocation(cursorTree), focus, workspaceFolders, params.getNewName()).get();
             })
             .thenApply(t -> {
@@ -440,7 +440,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private void showMessages(ISet messages) {
-        ownExecuter.submit(() -> {
+        exec.submit(() -> {
             for (var msg : messages) {
                 availableClient().showMessage(setMessageParams((IConstructor) msg));
             }
@@ -493,7 +493,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
         logger.debug("textDocument/foldingRange: {}", params.getTextDocument());
         TextDocumentState file = getFile(params.getTextDocument());
-        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApplyAsync(FoldingRanges::getFoldingRanges))
+        return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges))
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
             );
@@ -515,25 +515,27 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        Set<ISourceLocation> folders = workspaceFolders.stream()
-            .map(f -> Locations.toLoc(f.getUri()))
-            .collect(Collectors.toSet());
+        exec.submit(() -> {
+            Set<ISourceLocation> folders = workspaceFolders.stream()
+                .map(f -> Locations.toLoc(f.getUri()))
+                .collect(Collectors.toSet());
 
-        IList renames = params.getFiles().stream()
-            .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
-            .collect(VF.listWriter());
+            IList renames = params.getFiles().stream()
+                .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
+                .collect(VF.listWriter());
 
-        var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)
-            .get()
-            .thenApply(res -> {
-                var edits = (IList) res.get(0);
-                var messages = (ISet) res.get(1);
-                showMessages(messages);
-                return edits;
+            var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)
+                .get()
+                .thenApply(res -> {
+                    var edits = (IList) res.get(0);
+                    var messages = (ISet) res.get(1);
+                    showMessages(messages);
+                    return edits;
+                });
+
+            applyDocumentEdits("Module rename", rascalEdits, res -> {
+                throw new RuntimeException("Applying module rename failed" + failureReason(res));
             });
-
-        applyDocumentEdits("Module rename", rascalEdits, res -> {
-            throw new RuntimeException("Applying module rename failed" + failureReason(res));
         });
     }
 
@@ -565,7 +567,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     public void shutdown() {
-        ownExecuter.shutdown();
+        exec.shutdown();
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
@@ -661,7 +663,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         TextDocumentState f = getFile(params.getTextDocument());
         return recoverExceptions(f.getLastTreeAsync(false)
             .thenApply(Versioned::get)
-            .thenApplyAsync(availableRascalServices()::locateCodeLenses, ownExecuter)
+            .thenApplyAsync(availableRascalServices()::locateCodeLenses, exec)
             .thenApply(List::stream)
             .thenApply(res -> res.map(this::makeRunCodeLens))
             .thenApply(s -> s.collect(Collectors.toList())), () -> null)
@@ -671,10 +673,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("textDocument/codeAction: {}", params);
-
-        var range = Locations.toRascalRange(params.getTextDocument(), params.getRange(), columns);
-        var loc = Locations.toLoc(params.getTextDocument());
-
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
@@ -688,7 +686,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             getFile(params.getTextDocument())
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose((ITree tree) -> computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, availableFacts().getPathConfig(loc)))
+                .thenCompose((ITree tree) -> {
+                    var doc = params.getTextDocument();
+                    var range = Locations.toRascalRange(doc, params.getRange(), columns);
+                    return computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, availableFacts().getPathConfig(Locations.toLoc(doc)));
+                })
                 .thenApply(IList::stream)
             , Stream::empty)
             ;
@@ -698,7 +700,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
-        return CompletableFuture.<IList>supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn), ownExecuter)
+        return CompletableFuture.supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn), exec)
             .thenCompose(focus -> focus.isEmpty()
                 ? CompletableFuture.completedFuture(focus /* an empty list */)
                 : availableRascalServices().codeActions(focus, pcfg).get());
@@ -748,6 +750,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void cancelProgress(String progressId) {
-        availableRascalServices().cancelProgress(progressId);
+        exec.submit(() -> availableRascalServices().cancelProgress(progressId));
     }
 }

@@ -68,6 +68,7 @@ import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -131,24 +132,24 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
-            var docService = docServiceProvider.apply(threadPool);
-            var wsService = workspaceServiceProvider.apply(threadPool, docService);
+            var docService = docServiceProvider.apply(workerPool);
+            var wsService = workspaceServiceProvider.apply(workerPool, docService);
             docService.pair(wsService);
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), threadPool, docService, wsService), threadPool));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    var docService = docServiceProvider.apply(threadPool);
-                    var wsService = workspaceServiceProvider.apply(threadPool, docService);
+                    var docService = docServiceProvider.apply(workerPool);
+                    var wsService = workspaceServiceProvider.apply(workerPool, docService);
                     docService.pair(wsService);
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, threadPool, docService, wsService), threadPool));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);
@@ -213,7 +214,7 @@ public abstract class BaseLanguageServer {
             if (remoteIDEServicesConfiguration == null) {
                 return CompletableFuture.failedFuture(new IllegalStateException("No RemoteIDEServices configuration is set"));
             }
-            return CompletableFuture.completedFuture(remoteIDEServicesConfiguration);
+            return CompletableFutureUtils.completedFuture(remoteIDEServicesConfiguration, executor);
         }
 
         private static URI[] toURIArray(IList src) {
