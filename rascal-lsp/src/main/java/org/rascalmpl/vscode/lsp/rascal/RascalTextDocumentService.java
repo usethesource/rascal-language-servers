@@ -31,10 +31,12 @@ import java.io.Reader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -158,7 +160,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
-    @SuppressWarnings("initialization")
+    @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public RascalTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -506,9 +508,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             .collect(VF.listWriter());
 
         var edits = availableRascalServices().newModuleTemplates(newFiles).get();
-        applyDocumentEdits("Auto-insert module headers", edits, res -> {
+        this.applyDocumentEdits("Auto-insert module headers", edits, res -> {
             logger.error("Applying new module template failed{}", failureReason(res));
-            return null;
         });
     }
 
@@ -611,10 +612,32 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .collect(Collectors.toList())));
     }
 
-    private <T> CompletableFuture<@Nullable T> applyDocumentEdits(String task, CompletableFuture<IList> rascalEdits, Function<ApplyWorkspaceEditResponse, T> notApplied) {
-        return rascalEdits.thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(edits, getColumnMaps()) : null) // pass null all the way through if our list of edits is empty
-            .thenCompose(edits -> edits != null ? availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task)) : null)
-            .thenApply(res -> {
+    private CompletableFuture<Void> applyDocumentEdits(String task, CompletableFuture<IList> rascalEdits, Consumer<ApplyWorkspaceEditResponse> notApplied) {
+        return rascalEdits.<Optional<WorkspaceEdit>>thenApply(edits -> !edits.isEmpty() ? Optional.of(DocumentChanges.translateDocumentChanges(edits, getColumnMaps())) : Optional.empty())
+            .thenApply(e -> e.map(edits -> availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task))))
+            .thenCompose(o -> o.orElse(CompletableFuture.supplyAsync(() -> new ApplyWorkspaceEditResponse(true), ownExecuter)))
+            .thenAccept(res -> {
+                if (!res.isApplied()) {
+                    logger.trace("Could not apply workspace edits: {}", res.getFailureReason());
+                    notApplied.accept(res);
+                }
+            })
+            .exceptionally(e -> {
+                var cause = e.getCause();
+                logger.catching(Level.ERROR, cause);
+                String message = "unkown error";
+                if (cause != null && cause.getMessage() != null) {
+                    message = cause.getMessage();
+                }
+                availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Error during '%s': %s", task, message)));
+                return null;
+            });
+
+            /*
+         // pass null all the way through if our list of edits is empty
+        return rascalEdits.<@Nullable WorkspaceEdit>thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(edits, getColumnMaps()) : null) // pass null all the way through if our list of edits is empty
+            .<@Nullable ApplyWorkspaceEditResponse>thenCompose((@Nullable WorkspaceEdit edits) -> edits != null ? availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task)) : null)
+            .<@Nullable T>thenApply(res -> {
                 if (res != null && !res.isApplied()) {
                     logger.trace("Could not apply workspace edits: {}", res.getFailureReason());
                     return notApplied.apply(res);
@@ -631,6 +654,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Error during '%s': %s", task, message)));
                 return null; // Return of type `Void` is unused, but required
             });
+            */
     }
 
     @Override

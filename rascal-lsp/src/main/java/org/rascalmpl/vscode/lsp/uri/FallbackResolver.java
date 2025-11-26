@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.rascalmpl.uri.FileAttributes;
@@ -317,7 +318,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     private final List<IBaseTextDocumentService> textDocumentServices = new CopyOnWriteArrayList<>();
 
-    public void registerTextDocumentService(IBaseTextDocumentService service) {
+    @SuppressWarnings({"initialization", "argument"})
+    public void registerTextDocumentService(@UnderInitialization IBaseTextDocumentService service) {
         textDocumentServices.add(service);
     }
 

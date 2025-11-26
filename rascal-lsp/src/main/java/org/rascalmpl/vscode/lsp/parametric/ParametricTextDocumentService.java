@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -196,7 +198,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
-    @SuppressWarnings("initialization")
+    @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -893,18 +895,26 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var ch = new CallHierarchy();
         return ch.toRascal(source, contrib::parseCallHierarchyData, columns)
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
-            .thenApply(callRel -> callRel.stream()
-                .map(ITuple.class::cast)
-                // Collect call sites (value) by associated definition (key) as a map
-                .collect(Collectors.toMap(
-                    t -> ch.toLSP((IConstructor) t.get(0), columns),
-                    t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
-                    Lists::union,
-                    LinkedHashMap::new
-                ))
-                .entrySet().stream()
-                .map(e -> constructor.apply(e.getKey(), e.getValue()))
-                .collect(Collectors.toList()));
+            .thenApply(callRel -> {
+                // we need to maintain the order
+                var orderedEdges = new LinkedHashMap<IConstructor, List<Range>>();
+                for (var entry : callRel) {
+                    var ciItem = (IConstructor)((ITuple)entry).get(0);
+                    var sites = orderedEdges.computeIfAbsent(ciItem, _k -> new ArrayList<>());
+                    var callSite = (ISourceLocation)((ITuple)entry).get(1);
+                    sites.add(Locations.toRange(callSite, columns));
+                }
+                return orderedEdges.entrySet().stream()
+                    .map(entry -> constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()))
+                    .collect(Collectors.toList());
+                    /*
+                var result = new ArrayList<T>(orderedEdges.size());
+                for (var entry: orderedEdges.entrySet()) {
+                    result.add(constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()));
+                }
+                return result;
+                */
+            });
     }
 
     @Override

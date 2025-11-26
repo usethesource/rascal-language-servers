@@ -39,3 +39,13 @@ public final class Class<T> implements java.io.Serializable,
   public @NonNull ClassLoader getClassLoader() {
   }
 }
+
+package java.net;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class URI {
+    public URI(@Nullable String scheme, @Nullable String host, @Nullable String path, @Nullable String fragment) throws URISyntaxException {}
+    public URI(@Nullable String scheme, @Nullable String authority, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
+    public URI(@Nullable String scheme, @Nullable String userInfo, @Nullable String host, int port, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
+}

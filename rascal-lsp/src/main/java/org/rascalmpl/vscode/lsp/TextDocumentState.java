@@ -199,7 +199,7 @@ public class TextDocumentState {
         private void parse() {
             try {
                 parser.apply(location, content)
-                    .whenComplete((t, e) -> {
+                    .whenComplete((ITree t, Throwable e) -> {
                         if (e instanceof CompletionException && e.getCause() != null) {
                             e = e.getCause();
                         }

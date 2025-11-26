@@ -36,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Location;
@@ -245,7 +246,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             messages.interrupt();
         }
 
-        private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(InterruptibleFuture<IConstructor> summary) {
+        private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(@UnderInitialization MessagesOnlyScheduledSummary this, InterruptibleFuture<IConstructor> summary) {
             return summary.thenApply(s -> Lazy.defer(() -> {
                 var sum = s.asWithKeywordParameters();
                 if (sum.hasParameter("messages")) {
@@ -325,7 +326,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             interruptNullable(implementations);
         }
 
-        private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(String logName,
+        private <T> InterruptibleFuture<Lazy<IRangeMap<List<T>>>> mapCalculation(@UnderInitialization FullScheduledSummary this, String logName,
                 InterruptibleFuture<IConstructor> calculation, String kwField, Function<IValue, T> valueMapper) {
 
             logger.trace("{}: Mapping summary by getting {}", logName, kwField);
@@ -336,14 +337,14 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                         translateRelation(logName, getKWFieldSet(s, kwField), valueMapper)));
         }
 
-        private IRelation<ISet> getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
+        private IRelation<ISet> getKWFieldSet(@UnderInitialization FullScheduledSummary this, IWithKeywordParameters<? extends IConstructor> data, String name) {
             if (data.hasParameter(name)) {
                 return ((ISet) data.getParameter(name)).asRelation();
             }
             return IRascalValueFactory.getInstance().set().asRelation();
         }
 
-        private <T> IRangeMap<List<T>> translateRelation(String logName,
+        private <T> IRangeMap<List<T>> translateRelation(@UnderInitialization FullScheduledSummary this, String logName,
                 IRelation<ISet> binaryRel, Function<IValue, T> mapValue) {
 
             logger.trace("{}: summary contain rel of size:{}", logName, binaryRel.asContainer().size());

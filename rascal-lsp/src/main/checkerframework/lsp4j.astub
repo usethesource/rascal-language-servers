@@ -75,3 +75,13 @@ public interface TextDocumentService {
 	@JsonRequest
 	default CompletableFuture<@Nullable Hover> hover(HoverParams params) { }
 }
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public abstract class ResourceOperation {
+  public @Nullable String getAnnotationId() {}
+  public void setAnnotationId(final @Nullable String annotationId) { }
+}

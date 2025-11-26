@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.ProgressParams;
@@ -106,18 +107,18 @@ public class RascalLSPMonitor implements IRascalMonitor {
             notifyProgress(new WorkDoneProgressEnd());
         }
 
-        private CompletableFuture<Void> createProgressBar(String id) {
+        private CompletableFuture<Void> createProgressBar(@UnderInitialization LSPProgressBar this, String id) {
             return tryRegisterProgress(id)
                 .thenApply(CompletableFuture::completedFuture)
                 .exceptionally(t -> retry(t, 0, id))
                 .thenCompose(Function.identity());
         }
 
-        private CompletableFuture<Void> tryRegisterProgress(String id) {
+        private CompletableFuture<Void> tryRegisterProgress(@UnderInitialization LSPProgressBar this, String id) {
             return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
         }
 
-        private CompletableFuture<Void> retry(Throwable first, int retry, String id) {
+        private CompletableFuture<Void> retry(@UnderInitialization LSPProgressBar this, Throwable first, int retry, String id) {
             if(retry >= 100) {
                 return CompletableFuture.failedFuture(first);
             }
