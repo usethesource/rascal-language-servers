@@ -164,5 +164,5 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: Run checkstyle and print errors
-        run: mvn -Pchecker-framework mvn clean compile
+        run: mvn -Pchecker-framework clean compile
         working-directory: ./rascal-lsp
