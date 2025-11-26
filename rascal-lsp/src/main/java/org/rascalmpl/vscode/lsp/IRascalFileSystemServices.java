@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.logging.log4j.LogManager;
@@ -401,10 +402,13 @@ public interface IRascalFileSystemServices {
             return uri;
         }
 
+        @EnsuresNonNullIf(expression = "this.offsetLength", result = true)
         public boolean hasOffsetLength() {
             return offsetLength != null;
         }
 
+        @EnsuresNonNullIf(expression = "this.endLineColumn", result = true)
+        @EnsuresNonNullIf(expression = "this.beginLineColumn", result = true)
         public boolean hasLineColumn() {
             return beginLineColumn != null && endLineColumn != null;
         }

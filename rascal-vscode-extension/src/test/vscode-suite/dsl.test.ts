@@ -270,7 +270,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => {
             const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
             const items = await ignoreFails(outgoing!.getVisibleItems());
-            return items!.length === 2;
+            return items?.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
         await editor.selectText("multiply");
@@ -278,7 +278,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => {
             const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
             const items = await ignoreFails(incoming!.getVisibleItems());
-            return items!.length === 3;
+            return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });

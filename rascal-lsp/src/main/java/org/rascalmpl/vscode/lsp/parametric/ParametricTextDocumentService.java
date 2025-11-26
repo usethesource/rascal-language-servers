@@ -45,7 +45,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -143,7 +142,6 @@ import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.SelectionRanges;
 import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -196,6 +194,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
+    @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -893,18 +892,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var ch = new CallHierarchy(exec);
         return ch.toRascal(source, contrib::parseCallHierarchyData, columns)
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
-            .thenApply(callRel -> callRel.stream()
-                .map(ITuple.class::cast)
-                // Collect call sites (value) by associated definition (key) as a map
-                .collect(Collectors.toMap(
-                    t -> ch.toLSP((IConstructor) t.get(0), columns),
-                    t -> List.of(Locations.toRange((ISourceLocation) t.get(1), columns)),
-                    Lists::union,
-                    LinkedHashMap::new
-                ))
-                .entrySet().stream()
-                .map(e -> constructor.apply(e.getKey(), e.getValue()))
-                .collect(Collectors.toList()));
+            .thenApply(callRel -> {
+                // we need to maintain the order
+                var orderedEdges = new LinkedHashMap<IConstructor, List<Range>>();
+                for (var entry : callRel) {
+                    var ciItem = (IConstructor)((ITuple)entry).get(0);
+                    var sites = orderedEdges.computeIfAbsent(ciItem, _k -> new ArrayList<>());
+                    var callSite = (ISourceLocation)((ITuple)entry).get(1);
+                    sites.add(Locations.toRange(callSite, columns));
+                }
+                return orderedEdges.entrySet().stream()
+                    .map(entry -> constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()))
+                    .collect(Collectors.toList());
+            });
     }
 
     @Override
