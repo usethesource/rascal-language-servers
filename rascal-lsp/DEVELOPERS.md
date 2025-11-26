@@ -15,3 +15,10 @@ When writing code that uses futures, please adhere to the following guidelines.
 - When creating a future that immediately completes (e.g. by calling `CompletableFuture::completedFuture`), instead use `CompletableFutureUtils::completedFuture` and pass the pass the thread pool for the server instance as the last argument. If not,  any chaining calls (e.g. `thenApply`, `thenCombine`, `thenCompose`) will be performed on the common fork join pool.
 - When merging futures using `thenCompose` or `thenCombine`, where it is not guaranteed that both merged futures run on the right thread pool, use `thenComposeAsync`/`theCombineAsync` instead, and pass the thread pool for the server instance as the last argument.
 - Never use `...Async` variants of `CompletableFuture` methods without an explicit executor (as the last argument). Otherwise, work will be scheduled on the common fork join pool.
+
+## URIs & source locations
+
+Throughout our LSP implementation, there are two main ways to identify resources:
+- VS Code uses URIs - often represented as a `String`, although there is also `java.net.URI`.
+- Rascal uses `ISourceLocation` (`loc`).
+- To convert between the two, use `Locations::toLoc` and `Locations::toUri`, which make sure that URIs are mapped properly and safely. Avoid using `ISourcelocation::getURI`, and conversion functions from `org.rascalmpl.uri.URIUtil`.
