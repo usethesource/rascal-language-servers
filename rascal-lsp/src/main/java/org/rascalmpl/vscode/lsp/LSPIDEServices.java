@@ -32,7 +32,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
@@ -57,19 +56,16 @@ import io.usethesource.vallang.IValue;
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
-    private final Logger logger;
-
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
 
     private final IRascalMonitor monitor;
 
-    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger, IRascalMonitor monitor) {
+    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IRascalMonitor monitor) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
         this.docService = docService;
-        this.logger = logger;
         this.monitor = monitor;
     }
 
