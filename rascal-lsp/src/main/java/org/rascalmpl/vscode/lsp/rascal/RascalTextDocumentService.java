@@ -632,29 +632,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Error during '%s': %s", task, message)));
                 return null;
             });
-
-            /*
-         // pass null all the way through if our list of edits is empty
-        return rascalEdits.<@Nullable WorkspaceEdit>thenApply(edits -> !edits.isEmpty() ? DocumentChanges.translateDocumentChanges(edits, getColumnMaps()) : null) // pass null all the way through if our list of edits is empty
-            .<@Nullable ApplyWorkspaceEditResponse>thenCompose((@Nullable WorkspaceEdit edits) -> edits != null ? availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task)) : null)
-            .<@Nullable T>thenApply(res -> {
-                if (res != null && !res.isApplied()) {
-                    logger.trace("Could not apply workspace edits: {}", res.getFailureReason());
-                    return notApplied.apply(res);
-                }
-                return null;
-            })
-            .exceptionally(e -> {
-                var cause = e.getCause();
-                logger.catching(Level.ERROR, cause);
-                String message = "unkown error";
-                if (cause != null && cause.getMessage() != null) {
-                    message = cause.getMessage();
-                }
-                availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Error during '%s': %s", task, message)));
-                return null; // Return of type `Void` is unused, but required
-            });
-            */
     }
 
     @Override

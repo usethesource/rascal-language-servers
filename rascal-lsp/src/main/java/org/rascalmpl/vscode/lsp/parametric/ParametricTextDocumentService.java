@@ -907,13 +907,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 return orderedEdges.entrySet().stream()
                     .map(entry -> constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()))
                     .collect(Collectors.toList());
-                    /*
-                var result = new ArrayList<T>(orderedEdges.size());
-                for (var entry: orderedEdges.entrySet()) {
-                    result.add(constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()));
-                }
-                return result;
-                */
             });
     }
 
