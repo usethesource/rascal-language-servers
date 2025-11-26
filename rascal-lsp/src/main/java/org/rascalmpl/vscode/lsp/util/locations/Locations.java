@@ -164,7 +164,7 @@ public class Locations {
             try {
                 uri = new URI(OPAQUE_SCHEME, uri.getScheme(), "/" + uri.getSchemeSpecificPart(), null, uri.getFragment());
             } catch (URISyntaxException e) {
-                logger.error("Cannot convert opaque URI: " + uri, e);
+                logger.error("Cannot convert opaque URI: {}", uri, e);
                 return VF.sourceLocation(uri);
             }
         }
