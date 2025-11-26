@@ -109,7 +109,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -473,7 +472,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
         var msgText = ((IString) message.get("msg")).getValue();
         if (message.has("at")) {
-            var at = ((ISourceLocation) message.get("at")).getURI();
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
             params.setMessage(String.format("%s (at %s)", msgText, at));
         } else {
             params.setMessage(msgText);
@@ -510,7 +509,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         var newFiles = params.getFiles()
             .stream()
             .map(FileCreate::getUri)
-            .map(URIUtil::assumeCorrectLocation)
+            .map(Locations::toLoc)
             .collect(VF.listWriter());
 
         var edits = availableRascalServices().newModuleTemplates(newFiles).get();
@@ -527,7 +526,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .collect(Collectors.toSet());
 
             IList renames = params.getFiles().stream()
-                .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
+                .map(r -> VF.tuple(Locations.toLoc(r.getOldUri()), Locations.toLoc(r.getNewUri())))
                 .collect(VF.listWriter());
 
             var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)

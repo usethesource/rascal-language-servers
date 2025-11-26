@@ -161,6 +161,6 @@ public class DocumentChanges {
     }
 
     private static String getFileURI(IConstructor edit, String label) {
-        return Locations.toUri(Locations.toClientLocation((ISourceLocation) edit.get(label)));
+        return Locations.toUri(Locations.toClientLocation((ISourceLocation) edit.get(label))).toString();
     }
 }

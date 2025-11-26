@@ -29,13 +29,14 @@ package org.rascalmpl.vscode.lsp.util.locations;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -52,6 +53,9 @@ import io.usethesource.vallang.IValue;
  * strip source locations of their "lsp+" prefix.
  */
 public class Locations {
+
+    private static final Logger logger = LogManager.getLogger(Locations.class);
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
     // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
@@ -111,8 +115,8 @@ public class Locations {
      * Mapping them from the LSP standard to the Rascal standard.
      */
     public static Position toRascalPosition(TextDocumentIdentifier doc, Position pos, ColumnMaps columns) {
-        var uri = toLoc(doc.getUri());
-        return toRascalPosition(uri, pos, columns);
+        var loc = toLoc(doc.getUri());
+        return toRascalPosition(loc, pos, columns);
     }
 
     /**
@@ -127,44 +131,64 @@ public class Locations {
     }
 
     /**
+     * Map a VS Code URI string to a Rascal source location.
+     * Only to be used when the URI string is known to be syntactically valid.
+     * @throws IllegalArgumentException if the URI is not syntactically valid.
+     * @see toCheckedLoc which throws a checked exception in case of a syntax error.
+     */
+    public static ISourceLocation toLoc(String uri) {
+        return toLoc(URI.create(uri));
+    }
+
+    /**
+     * Map a VS Code URI string to a Rascal source location.
+     * @throws URISyntaxException when the URI string has invalid syntax.
+     * @see toLoc which throws an unchecked exception in case of a syntax error.
+     */
+    public static ISourceLocation toCheckedLoc(String uri) throws URISyntaxException {
+        return toLoc(new URI(uri));
+    }
+
+    /**
      * Map a VS Code URI to a Rascal source location.
      * Inverse of {@link toUri}.
      */
-    public static ISourceLocation toLoc(String uri) {
-        try {
-            var u = new URI(uri);
-            if (u.isOpaque()) {
-                // Rascal does not support opaque URIs, so we wrap those as hierarchical URIs.
-                // - Replace the scheme by a unique, recognizable scheme.
-                // - Put the original opaque scheme in the authority (which opaque URIs do not have).
-                // - A hierarchical URI requires an absolute path; prefix the scheme-specific part with "/".
-                // - Opaque URIs do not have a query, so we leave that unset.
-                // - Clone the (optional) fragment.
-                uri = new URI(OPAQUE_SCHEME, u.getScheme(), "/" + u.getSchemeSpecificPart(), null, u.getFragment()).toString();
+    public static ISourceLocation toLoc(URI uri) {
+        if (uri.isOpaque()) {
+            // Rascal does not support opaque URIs, so we wrap those as hierarchical URIs.
+            // - Replace the scheme by a unique, recognizable scheme.
+            // - Put the original opaque scheme in the authority (which opaque URIs do not have).
+            // - A hierarchical URI requires an absolute path; prefix the scheme-specific part with "/".
+            // - Opaque URIs do not have a query, so we leave that unset.
+            // - Clone the (optional) fragment.
+            try {
+                uri = new URI(OPAQUE_SCHEME, uri.getScheme(), "/" + uri.getSchemeSpecificPart(), null, uri.getFragment());
+            } catch (URISyntaxException e) {
+                logger.error("Cannot convert opaque URI: {}", uri, e);
+                return VF.sourceLocation(uri);
             }
-            return URIUtil.createFromURI(uri);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
         }
+        // Inlined URIUtil.createFromURI, but without parsing the URI first
+        return VF.sourceLocation(URI.create(uri.toASCIIString()));
     }
 
     /**
      * Map a Rascal source location to a VS Code URI.
      * Inverse of {@link toLoc}.
      */
-    public static String toUri(ISourceLocation loc) {
+    public static URI toUri(ISourceLocation loc) {
         var uri = loc.getURI();
         if (OPAQUE_SCHEME.equals(uri.getScheme())) {
             // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
             // Split the original scheme and scheme specific part
             try {
                 // Note: since `toLoc` prefixes the SSC with "/", remove that while unwrapping
-                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment()).toString();
+                return new URI(uri.getAuthority(), uri.getPath().substring(1), uri.getFragment());
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
         }
-        return uri.toString();
+        return uri;
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
@@ -175,11 +199,11 @@ public class Locations {
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
-        return new Location(Locations.toUri(sloc), toRange(sloc, cm));
+        return new Location(Locations.toUri(sloc).toString(), toRange(sloc, cm));
     }
 
     public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
-        return new Location(Locations.toUri(sloc), toRange(sloc, map));
+        return new Location(Locations.toUri(sloc).toString(), toRange(sloc, map));
     }
 
     public static Range toRange(ISourceLocation sloc, ColumnMaps cm) {
@@ -205,7 +229,7 @@ public class Locations {
         final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
         final var rascalStart = toRascalPosition(loc, lspStart, columns);
         final var rascalEnd = toRascalPosition(loc, lspEnd, columns);
-        return IRascalValueFactory.getInstance().sourceLocation(loc,
+        return VF.sourceLocation(loc,
             offsetLength.getLeft(),
             offsetLength.getRight(),
             rascalStart.getLine(),

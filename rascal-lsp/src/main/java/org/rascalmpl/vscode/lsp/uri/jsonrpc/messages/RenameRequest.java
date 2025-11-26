@@ -52,8 +52,8 @@ public class RenameRequest {
     }
 
     public RenameRequest(ISourceLocation from, ISourceLocation to, boolean overwrite) {
-        this.from = Locations.toUri(from);
-        this.to = Locations.toUri(to);
+        this.from = Locations.toUri(from).toString();
+        this.to = Locations.toUri(to).toString();
         this.overwrite = overwrite;
     }
 

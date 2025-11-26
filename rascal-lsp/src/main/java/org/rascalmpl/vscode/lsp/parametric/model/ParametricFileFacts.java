@@ -343,7 +343,7 @@ public class ParametricFileFacts {
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                Locations.toUri(file),
+                Locations.toUri(file).toString(),
                 diagnostics));
         }
 

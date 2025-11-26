@@ -375,7 +375,7 @@ public class EvaluatorUtil {
     public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, customLog, monitor);
+            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, monitor);
             boolean jobSuccess = false;
             String jobName = "Loading " + label;
             try {

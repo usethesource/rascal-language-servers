@@ -41,7 +41,7 @@ public class ISourceLocationRequest {
     }
 
     public ISourceLocationRequest(ISourceLocation loc) {
-        this(Locations.toUri(loc));
+        this(Locations.toUri(loc).toString());
     }
 
     @Override

@@ -511,7 +511,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         var msgText = ((IString) message.get("msg")).getValue();
         if (message.has("at")) {
-            var at = ((ISourceLocation) message.get("at")).getURI();
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
             params.setMessage(String.format("%s (at %s)", msgText, at));
         } else {
             params.setMessage(msgText);
@@ -571,7 +571,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            var l = URIUtil.assumeCorrectLocation(rename.getNewUri());
+            var l = Locations.toLoc(rename.getNewUri());
             if (isLanguageRegistered(l)) {
                 var language = language(l);
                 ILanguageContributions contrib = contributions.get(language);

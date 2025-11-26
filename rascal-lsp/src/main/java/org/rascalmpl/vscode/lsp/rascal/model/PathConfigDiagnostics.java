@@ -135,7 +135,7 @@ import io.usethesource.vallang.ISourceLocation;
             for (List<Diagnostic> diags : perFileProjectDiagnostics.getOrDefault(file, Collections.emptyMap()).values()) {
                 fileDiagnostics.addAll(diags);
             }
-            publishList.add(new PublishDiagnosticsParams(Locations.toUri(file), fileDiagnostics));
+            publishList.add(new PublishDiagnosticsParams(Locations.toUri(file).toString(), fileDiagnostics));
         }
         return publishList;
     }
