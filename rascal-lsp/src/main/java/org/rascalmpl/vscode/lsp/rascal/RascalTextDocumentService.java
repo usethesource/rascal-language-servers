@@ -282,11 +282,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
+        logger.debug("Close: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        logger.debug("Close: {}", loc);
         if (documents.remove(loc) == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-                "Unknown file: " + loc, params));
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, "Unknown file: " + loc, params));
         }
         exec.execute(() -> {
             // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
