@@ -337,7 +337,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
-        ownExecuter.execute(() -> {
+        exec.execute(() -> {
             // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
             // we mimic a delete event to ensure all diagnostics are cleared.
             if (!URIResolverRegistry.getInstance().exists(loc)) {
