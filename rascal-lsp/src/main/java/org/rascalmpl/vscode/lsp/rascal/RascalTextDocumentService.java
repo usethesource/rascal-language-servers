@@ -65,6 +65,7 @@ import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileCreate;
+import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -282,10 +283,17 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Close: {}", params.getTextDocument());
-        if (documents.remove(Locations.toLoc(params.getTextDocument())) == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError,
-                "Unknown file: " + Locations.toLoc(params.getTextDocument()), params));
+        var loc = Locations.toLoc(params.getTextDocument());
+        if (documents.remove(loc) == null) {
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, "Unknown file: " + loc, params));
         }
+        exec.execute(() -> {
+            // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
+            // we mimic a delete event to ensure all diagnostics are cleared.
+            if (!URIResolverRegistry.getInstance().exists(loc)) {
+                didDeleteFiles(new DeleteFilesParams(List.of(new FileDelete(params.getTextDocument().getUri()))));
+            }
+        });
     }
 
     @Override

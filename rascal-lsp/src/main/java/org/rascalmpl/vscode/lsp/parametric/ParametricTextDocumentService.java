@@ -75,6 +75,7 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
@@ -335,6 +336,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
+        exec.execute(() -> {
+            // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
+            // we mimic a delete event to ensure all diagnostics are cleared.
+            if (!URIResolverRegistry.getInstance().exists(loc)) {
+                didDeleteFiles(new DeleteFilesParams(List.of(new FileDelete(params.getTextDocument().getUri()))));
+            }
+        });
     }
 
     @Override
