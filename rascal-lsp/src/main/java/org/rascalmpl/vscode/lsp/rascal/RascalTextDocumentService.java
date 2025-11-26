@@ -37,11 +37,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -617,7 +615,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private CompletableFuture<Void> applyDocumentEdits(String task, CompletableFuture<IList> rascalEdits, Consumer<ApplyWorkspaceEditResponse> notApplied) {
         return rascalEdits.<Optional<WorkspaceEdit>>thenApply(edits -> !edits.isEmpty() ? Optional.of(DocumentChanges.translateDocumentChanges(edits, getColumnMaps())) : Optional.empty())
             .thenApply(e -> e.map(edits -> availableClient().applyEdit(new ApplyWorkspaceEditParams(edits, task))))
-            .thenCompose(o -> o.orElse(CompletableFuture.supplyAsync(() -> new ApplyWorkspaceEditResponse(true), ownExecuter)))
+            .thenCompose(o -> o.orElse(CompletableFuture.supplyAsync(() -> new ApplyWorkspaceEditResponse(true), exec)))
             .thenAccept(res -> {
                 if (!res.isApplied()) {
                     logger.trace("Could not apply workspace edits: {}", res.getFailureReason());
