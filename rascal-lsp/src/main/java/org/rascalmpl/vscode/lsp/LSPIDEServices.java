@@ -110,7 +110,7 @@ public class LSPIDEServices implements IDEServices {
 
     private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input) {
         try {
-            ISourceLocation root = URIUtil.createFromURI(folder.getUri());
+            ISourceLocation root = Locations.toCheckedLoc(folder.getUri());
             return URIUtil.getChildLocation(root, input.getPath());
         } catch (URISyntaxException e) {
             logger.catching(e);

@@ -56,8 +56,8 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
@@ -150,7 +150,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+                documentService.projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
 
@@ -158,7 +158,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (added != null) {
             workspaceFolders.addAll(added);
             for (WorkspaceFolder folder : added) {
-                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+                documentService.projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
     }

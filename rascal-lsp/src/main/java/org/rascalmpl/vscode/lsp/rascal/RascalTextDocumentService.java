@@ -519,7 +519,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .collect(Collectors.toSet());
 
             IList renames = params.getFiles().stream()
-                .map(r -> VF.tuple(URIUtil.assumeCorrectLocation(r.getOldUri()), URIUtil.assumeCorrectLocation(r.getNewUri())))
+                .map(r -> VF.tuple(Locations.toLoc(r.getOldUri()), Locations.toLoc(r.getNewUri())))
                 .collect(VF.listWriter());
 
             var rascalEdits = availableRascalServices().getModuleRenames(renames, folders)

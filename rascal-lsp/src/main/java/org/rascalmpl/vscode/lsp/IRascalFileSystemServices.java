@@ -363,7 +363,7 @@ public interface IRascalFileSystemServices {
 
         public ISourceLocation toRascalLocation() throws URISyntaxException {
             final IValueFactory VF = IRascalValueFactory.getInstance();
-            ISourceLocation tmp = URIUtil.createFromURI(uri);
+            ISourceLocation tmp = Locations.toCheckedLoc(uri);
 
             if (hasOffsetLength()) {
                 if (hasLineColumn()) {
@@ -581,7 +581,7 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return URIUtil.createFromURI(uri);
+            return Locations.toCheckedLoc(uri);
         }
     }
 
