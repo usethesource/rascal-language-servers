@@ -108,7 +108,6 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -502,7 +501,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         var newFiles = params.getFiles()
             .stream()
             .map(FileCreate::getUri)
-            .map(URIUtil::assumeCorrectLocation)
+            .map(Locations::toLoc)
             .collect(VF.listWriter());
 
         var edits = availableRascalServices().newModuleTemplates(newFiles).get();
