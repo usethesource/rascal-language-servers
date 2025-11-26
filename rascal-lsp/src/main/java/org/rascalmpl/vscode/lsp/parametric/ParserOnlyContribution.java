@@ -32,54 +32,42 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;
 import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.ParserSpecification;
-import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IList;
-import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.ITuple;
-import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.exceptions.FactTypeUseException;
 
-public class ParserOnlyContribution implements ILanguageContributions {
+public class ParserOnlyContribution extends NoContributions {
     private static final Logger logger = LogManager.getLogger(ParserOnlyContribution.class);
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
-    private final String name;
     private final @Nullable Exception loadingParserError;
     private final @Nullable IFunction parser;
     private final CompletableFuture<Boolean> specialCaseHighlighting;
-    private final ExecutorService ownExecutor;
+    private final ExecutorService exec;
 
-    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService ownExecutor) {
-        this.name = name;
-        this.ownExecutor = ownExecutor;
+    public ParserOnlyContribution(String name, ParserSpecification spec, ExecutorService exec) {
+        super(name, exec);
+        this.exec = exec;
 
         // we use an entry and a single initialization function to make sure that parser and loadingParserError can be `final`:
         Either<IFunction,Exception> result = loadParser(spec);
         this.parser = result.getLeft();
         this.loadingParserError = result.getRight();
-        this.specialCaseHighlighting = CompletableFuture.completedFuture(spec.getSpecialCaseHighlighting());
-    }
-
-    @Override
-    public String getName() {
-        return name;
+        this.specialCaseHighlighting = CompletableFutureUtils.completedFuture(spec.getSpecialCaseHighlighting(), exec);
     }
 
     @Override
@@ -89,7 +77,7 @@ public class ParserOnlyContribution implements ILanguageContributions {
                 throw new IllegalStateException("Parser function did not load", loadingParserError);
             }
             return parser.call(VF.string(input), loc);
-        }, ownExecutor);
+        }, exec);
     }
 
     private static Either<IFunction, Exception> loadParser(ParserSpecification spec) {
@@ -123,198 +111,8 @@ public class ParserOnlyContribution implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> documentSymbol(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
-    }
-
-    @Override
-    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc));
-    }
-
-    @Override
-    public InterruptibleFuture<IList> codeLens(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<IValue> execution(String command) {
-        return InterruptibleFuture.completedFuture(VF.bool(false));
-    }
-
-    @Override
-    public CompletableFuture<IList> parseCodeActions(String commands) {
-        return CompletableFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public CompletableFuture<IConstructor> parseCallHierarchyData(String commands) {
-        throw new IllegalStateException("This method should not be called; this contribution only has a parser");
-    }
-
-    @Override
-    public InterruptibleFuture<IList> inlayHint(ITree input) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return InterruptibleFuture.completedFuture(URIUtil.unknownLocation());
-    }
-
-    @Override
-    public InterruptibleFuture<ITuple> rename(IList focus, String name) {
-        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()));
-    }
-
-    @Override
-    public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
-        return InterruptibleFuture.completedFuture(VF.tuple(VF.list(), VF.list()));
-    }
-
-    @Override
-    public InterruptibleFuture<ISet> hover(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set());
-    }
-
-    @Override
-    public InterruptibleFuture<ISet> definition(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set());
-    }
-
-    @Override
-    public InterruptibleFuture<ISet> references(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set());
-    }
-
-    @Override
-    public InterruptibleFuture<IList> codeAction(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<ISet> implementation(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.set());
-    }
-
-    @Override
-    public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        return InterruptibleFuture.completedFuture(VF.list());
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasHover() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasDefinition() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasReferences() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasImplementation() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasAnalysis() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasBuild() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasCodeAction() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasCodeLens() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasExecution() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasRename() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasCallHierarchy() {
-        return CompletableFuture.completedFuture(false);
-    }
-
-    @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
         return specialCaseHighlighting;
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
-    }
-
-    @Override
-    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-        return CompletableFuture.completedFuture(SummaryConfig.FALSY);
-    }
-
-    @Override
-    public void cancelProgress(String progressId) {
-        // empty, since this contribution does not have any running tasks nor a monitor
     }
 
 }

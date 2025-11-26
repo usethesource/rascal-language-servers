@@ -587,12 +587,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private <T extends @NonNull Object> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         if (target == null) {
-            return InterruptibleFuture.completedFuture(defaultResult);
+            return InterruptibleFuture.completedFuture(defaultResult, exec);
         }
         return InterruptibleFuture.flatten(target.thenApply(
             s -> {
                 if (s == null) {
-                    return InterruptibleFuture.completedFuture(defaultResult);
+                    return InterruptibleFuture.completedFuture(defaultResult, exec);
                 }
 
                 return EvaluatorUtil.runEvaluator(name, eval, e -> s.call(args), defaultResult, exec, true, client);

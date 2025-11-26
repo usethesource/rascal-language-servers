@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -47,13 +46,14 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -63,6 +63,7 @@ public class ParametricFileFacts {
     private final Executor exec;
     private final ColumnMaps columns;
     private final ILanguageContributions contrib;
+    private final ParametricSummary nullSummary;
 
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
 
@@ -99,6 +100,7 @@ public class ParametricFileFacts {
         this.exec = exec;
         this.columns = columns;
         this.contrib = contrib;
+        this.nullSummary = new NullSummary(exec);
     }
 
     public void setClient(LanguageClient client) {
@@ -187,11 +189,11 @@ public class ParametricFileFacts {
         private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger(-1);
 
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
-            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderBuild =
-            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis =
-            CompletableFuture.completedFuture(new Versioned<>(-1, ParametricSummary.NULL));
+            CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
 
         public FileFact(ISourceLocation file) {
             this.file = file;
@@ -259,7 +261,7 @@ public class ParametricFileFacts {
                 if (latestVersion.get() == version) {
                     return calculation.get();
                 } else {
-                    return CompletableFuture.completedFuture(new Versioned<>(version, ParametricSummary.NULL));
+                    return CompletableFutureUtils.completedFuture(new Versioned<>(version, nullSummary), exec);
                 }
             }, delayed);
 
@@ -386,16 +388,15 @@ public class ParametricFileFacts {
 
             // Else, if an on-demand summary is available, use that.
             return ondemandSummaryFactory
-                .thenApply(f -> {
+                .thenCompose(f -> {
                     var result = f.createSummaryThenLookup(file, tree, cursor, lookup);
                     if (result != null) {
                         logger.trace("Look-up in on-demand summary succeeded");
                         return result.get();
                     } else {
                         logger.trace("Look-up failed");
-                        return CompletableFuture.completedFuture(Collections.<T>emptyList());
-                    }})
-                .thenCompose(Function.identity());
+                        return CompletableFutureUtils.completedFuture(Collections.<T>emptyList(), exec);
+                    }});
         }
     }
 }

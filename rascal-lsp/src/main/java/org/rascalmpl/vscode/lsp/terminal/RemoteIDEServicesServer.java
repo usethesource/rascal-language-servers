@@ -48,6 +48,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IInteger;
@@ -62,12 +63,12 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     private static final Logger logger = LogManager.getLogger(RemoteIDEServicesServer.class);
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
-    private final ExecutorService threadPool;
+    private final ExecutorService exec;
 
-    public RemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
+    public RemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService exec) {
         this.languageClient = (IBaseLanguageClient) languageClient;
         this.docService = docService;
-        this.threadPool = threadPool;
+        this.exec = exec;
     }
 
     @Override
@@ -77,22 +78,22 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
             var physical = Locations.toClientLocation(loc);
             var range = loc.hasOffsetLength() ? Locations.toRange(physical, docService.getColumnMaps()) : null;
             languageClient.editDocument(physical.getURI(), range, viewColumn);
-        }, threadPool);
+        }, exec);
     }
 
     @Override
     public CompletableFuture<Void> browse(URI uri, IString title, IInteger viewColumn) {
         logger.trace("browse({})", uri);
-        return CompletableFuture.runAsync(() -> languageClient.showContent(uri, title, viewColumn), threadPool);
+        return CompletableFuture.runAsync(() -> languageClient.showContent(uri, title, viewColumn), exec);
     }
 
     @Override
     public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation loc) {
         logger.trace("resolveProjectLocation({})", loc);
         try {
-            return CompletableFuture.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc));
+            return CompletableFutureUtils.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc), exec);
         } catch (IOException e) {
-            return CompletableFuture.completedFuture(loc);
+            return CompletableFutureUtils.completedFuture(loc, exec);
         }
     }
 
@@ -100,7 +101,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<Void> applyDocumentsEdits(DocumentEditsParameter edits) {
         logger.trace("applyDocumentsEdits({})", edits);
         return CompletableFuture.runAsync(() ->
-            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))), threadPool);
+            languageClient.applyEdit(new ApplyWorkspaceEditParams(DocumentChanges.translateDocumentChanges(edits.getEdits(), docService.getColumnMaps()))), exec);
     }
 
     @Override
@@ -113,7 +114,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                     authority.getValue(),
                     IRemoteIDEServices.locArrayToMapLocLoc(mapping)
                 )
-            ), threadPool);
+            ), exec);
     }
 
     @Override
@@ -126,7 +127,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                 String uri = entry.getKey().getURI().toString();
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
             }
-        }, threadPool);
+        }, exec);
     }
 
     @Override
@@ -137,18 +138,18 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
                 loc = Locations.toPhysicalIfPossible(loc);
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(loc.getURI().toString(), Collections.emptyList()));
             }
-        }, threadPool);
+        }, exec);
     }
 
     @Override
     public CompletableFuture<Void> startDebuggingSession(int serverPort) {
         logger.trace("startDebuggingSession({})", serverPort);
-        return CompletableFuture.runAsync(() -> languageClient.startDebuggingSession(serverPort), threadPool);
+        return CompletableFuture.runAsync(() -> languageClient.startDebuggingSession(serverPort), exec);
     }
 
     @Override
     public CompletableFuture<Void> registerDebugServerPort(int processID, int serverPort) {
         logger.trace("registerDebugServerPort({}, {})", processID, serverPort);
-        return CompletableFuture.runAsync(() -> languageClient.registerDebugServerPort(processID, serverPort), threadPool);
+        return CompletableFuture.runAsync(() -> languageClient.registerDebugServerPort(processID, serverPort), exec);
     }
 }
