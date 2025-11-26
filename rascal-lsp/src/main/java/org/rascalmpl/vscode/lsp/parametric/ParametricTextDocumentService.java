@@ -649,10 +649,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var ext = extension(loc);
         if ("".equals(ext)) {
             if (contributions.size() == 1) {
-                logger.trace("file was openeed without an extension; falling back to the single registered language for: {}", loc);
+                logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
                 return contributions.keySet().stream().findFirst();
             } else {
-                logger.error("file was openeed without an extension and there are multiple languages registered, so we cannot pick a fall-back for: {}", loc);
+                logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
