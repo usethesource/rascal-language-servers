@@ -28,12 +28,10 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.PrintWriter;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
@@ -109,13 +107,8 @@ public class LSPIDEServices implements IDEServices {
     }
 
     private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input) {
-        try {
-            ISourceLocation root = Locations.toCheckedLoc(folder.getUri());
-            return URIUtil.getChildLocation(root, input.getPath());
-        } catch (URISyntaxException e) {
-            logger.catching(e);
-            return input;
-        }
+        ISourceLocation root = Locations.toLoc(folder.getUri());
+        return URIUtil.getChildLocation(root, input.getPath());
     }
 
     @Override
