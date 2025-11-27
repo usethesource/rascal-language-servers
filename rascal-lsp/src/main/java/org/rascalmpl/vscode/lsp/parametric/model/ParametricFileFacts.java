@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -46,6 +47,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -112,11 +114,19 @@ public class ParametricFileFacts {
     }
 
     private FileFact getFile(ISourceLocation file) {
-        return files.computeIfAbsent(file.top(), FileFact::new);
-    }
-
-    private @Nullable FileFact removeFile(ISourceLocation file) {
-        return files.remove(file.top());
+        var fact = files.get(file);
+        if (fact == null) {
+            if (URIResolverRegistry.getInstance().exists(file)) {
+                fact = new ActualFileFact(file);
+                var existing = files.putIfAbsent(file, fact);
+                if (existing != null) {
+                    fact = existing;
+                }
+            } else {
+                fact = new NopFileFact();
+            }
+        }
+        return fact;
     }
 
     public void reloadContributions() {
@@ -129,17 +139,11 @@ public class ParametricFileFacts {
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
-        var current = getFile(file);
-        if (current != null) {
-            current.invalidateAnalyzer(false);
-        }
+        getFile(file).invalidateAnalyzer(false);
     }
 
     public void invalidateBuilder(ISourceLocation file) {
-        var current = getFile(file);
-        if (current != null) {
-            current.invalidateBuilder(false);
-        }
+        getFile(file).invalidateBuilder(false);
     }
 
     public void calculateAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
@@ -155,25 +159,22 @@ public class ParametricFileFacts {
     }
 
     public void close(ISourceLocation file) {
-        var present = getFile(file);
-        if (present != null) {
-            present.invalidateAnalyzer(true);
-            present.invalidateBuilder(true);
-
-            var analyzerMessages = ParametricSummary.getMessages(present.latestAnalyzerAnalysis, exec).get();
-            var builderMessages = ParametricSummary.getMessages(present.latestBuilderBuild, exec).get();
-            analyzerMessages.thenAcceptBothAsync(builderMessages, (aMessages, bMessages) -> {
-                if (aMessages.isEmpty() && bMessages.isEmpty()) {
-                    // only if there are no messages for this class, can we remove it
-                    // else vscode comes back and we've dropped the messages in our internal data
-                    removeFile(file);
-                }
-            });
-        }
+        getFile(file).close();
     }
 
+    private interface FileFact {
+        void invalidateAnalyzer(boolean isClosing);
+        void invalidateBuilder(boolean isClosing);
+        void close();
+        void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay);
+        void calculateBuilder(CompletableFuture<Versioned<ITree>> tree);
+        void reportParseErrors(int version, List<Diagnostic> messages);
+        void clearDiagnostics();
+        <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor);
+    }
+    
     @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
-    private class FileFact {
+    private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
 
         // To replace old diagnostics when new diagnostics become available in a
@@ -195,7 +196,7 @@ public class ParametricFileFacts {
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestBuilderAnalysis =
             CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
 
-        public FileFact(ISourceLocation file) {
+        public ActualFileFact(ISourceLocation file) {
             this.file = file;
         }
 
@@ -206,10 +207,12 @@ public class ParametricFileFacts {
             }
         }
 
+        @Override
         public void invalidateAnalyzer(boolean isClosing) {
             invalidate(latestAnalyzerAnalysis, isClosing);
         }
 
+        @Override
         public void invalidateBuilder(boolean isClosing) {
             invalidate(latestBuilderAnalysis, isClosing);
             invalidate(latestBuilderBuild, isClosing);
@@ -221,6 +224,30 @@ public class ParametricFileFacts {
                     .thenApply(Versioned<ParametricSummary>::get)
                     .thenAccept(ParametricSummary::invalidate);
             }
+        }
+
+        @Override
+        public void close() {
+            invalidateAnalyzer(true);
+            invalidateBuilder(true);
+
+            var analyzerMessages = ParametricSummary.getMessages(latestAnalyzerAnalysis, exec).get();
+            var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec).get();
+            analyzerMessages.thenAcceptBothAsync(builderMessages, (aMessages, bMessages) -> {
+                if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+                    // If there are no messages for this file or the file has been deleted, can we remove it
+                    // else VS Code comes back and we've dropped the messages in our internal data
+                    remove(file);
+                }
+            });
+        }
+
+        private @Nullable FileFact remove(ISourceLocation file) {
+            var removed = files.remove(file.top());
+            if (removed != null) {
+                removed.clearDiagnostics();
+            }
+            return removed;
         }
 
         /**
@@ -268,6 +295,7 @@ public class ParametricFileFacts {
             return summary.thenCompose(Function.identity());
         }
 
+        @Override
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
                 var summary = analyzerSummaryFactory
@@ -287,6 +315,7 @@ public class ParametricFileFacts {
          * the builder diagnostics to avoid reporting duplicates produced by
          * both analyzer and builder.
          */
+        @Override
         public void calculateBuilder(CompletableFuture<Versioned<ITree>> tree) {
 
             // Schedule the analyzer. This is *always* needed, because the
@@ -317,8 +346,20 @@ public class ParametricFileFacts {
             });
         }
 
+        @Override
         public void reportParseErrors(int version, List<Diagnostic> messages) {
             reportDiagnostics(parserDiagnostics, version, messages);
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            var emptyDiagnostics = new Versioned<List<Diagnostic>>(latestVersionCalculateAnalyzer.get(), Collections.emptyList());
+            parserDiagnostics.set(emptyDiagnostics);
+            analyzerDiagnostics.set(emptyDiagnostics);
+            builderDiagnostics.set(emptyDiagnostics);
+            if (client != null) {
+                client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), Collections.emptyList()));
+            }
         }
 
         private void sendDiagnostics() {
@@ -354,7 +395,8 @@ public class ParametricFileFacts {
          * summary to use depends on the version of `tree`, which is known only
          * dynamically.
          */
-        private <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
+        @Override
+        public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
             return latestAnalyzerAnalysis
                 .thenCombine(latestBuilderBuild, (a, b) -> lookupInSummaries(lookup, tree, cursor, a, b))
                 .thenCompose(Function.identity());
@@ -397,6 +439,48 @@ public class ParametricFileFacts {
                         logger.trace("Look-up failed");
                         return CompletableFutureUtils.completedFuture(Collections.<T>emptyList(), exec);
                     }});
+        }
+    }
+
+    class NopFileFact implements FileFact {
+        @Override
+        public void invalidateAnalyzer(boolean isClosing) {
+            // NOP
+        }
+
+        @Override
+        public void invalidateBuilder(boolean isClosing) {
+            // NOP
+        }
+
+        @Override
+        public void close() {
+            // NOP
+        }
+
+        @Override
+        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+            // NOP
+        }
+
+        @Override
+        public void calculateBuilder(CompletableFuture<Versioned<ITree>> tree) {
+            // NOP
+        }
+
+        @Override
+        public void reportParseErrors(int version, List<Diagnostic> messages) {
+            // NOP
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            // NOP
+        }
+
+        @Override
+        public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
+            return CompletableFuture.completedFuture(List.of());
         }
     }
 }
