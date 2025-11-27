@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
@@ -91,8 +92,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
                     modName = "<i.\module>";
-                    try {
-                        ml = locateRascalModule(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders);
+                    for (ml <- locateRascalModules(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders)) {
                         if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, openFileHeader.src)) {
                             if ({} !:= importErrors) {
                                 parseErrors += importErrors;
@@ -105,9 +105,6 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                                 dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
                             }
                         }
-                    } catch e: {
-                        println("Exception while building dependency graph at <currentSrc>: <e>");
-                        ;// Continue
                     }
                 }
             }
@@ -194,19 +191,12 @@ void checkOutdatedPathConfig(PathConfig pcfg) {
 
 bool tplInputsChanged(PathConfig old, PathConfig new) = old[messages=[]] != new[messages=[]];
 
-loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
+set[loc] locateRascalModules(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
     // Check the source directories
-    for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
-        return fileLoc;
-    }
-
+    return {fileLoc | dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)}
     // And libraries available in the current workspace
-    if (lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
-        return fileLoc;
-    }
-
-    throw "Module `<fqn>` not found!";
+         + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
 }
 
 loc targetToProject(loc l) {
