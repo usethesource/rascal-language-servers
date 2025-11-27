@@ -30,7 +30,8 @@ import java.net.URISyntaxException;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
-import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class PathConfigParameter {
@@ -51,7 +52,7 @@ public class PathConfigParameter {
     }
 
     public ISourceLocation getLocation() throws URISyntaxException {
-        return URIUtil.createFromURI(uri);
+        return Locations.toCheckedLoc(uri);
     }
 
     public PathConfigMode getMode() {

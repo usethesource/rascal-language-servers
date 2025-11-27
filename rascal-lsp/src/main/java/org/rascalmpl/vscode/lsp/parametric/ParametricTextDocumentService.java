@@ -336,13 +336,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
-        exec.execute(() -> {
-            // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
-            // we mimic a delete event to ensure all diagnostics are cleared.
-            if (!URIResolverRegistry.getInstance().exists(loc)) {
-                didDeleteFiles(new DeleteFilesParams(List.of(new FileDelete(params.getTextDocument().getUri()))));
-            }
-        });
+        // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
+        // we mimic a delete event to ensure all diagnostics are cleared.
+        if (!URIResolverRegistry.getInstance().exists(loc)) {
+            didDeleteFiles(new DeleteFilesParams(List.of(new FileDelete(params.getTextDocument().getUri()))));
+        }
     }
 
     @Override
@@ -350,13 +348,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         exec.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
-                if (isLanguageRegistered(Locations.toLoc(f.getUri()))) {
-                    availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
-                }
+                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
             }
         });
     }
-
 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
         triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
@@ -368,7 +363,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        if (isLanguageRegistered(location)) {
+        if (safeLanguage(location).isPresent()) {
             logger.trace("Triggering analyzer for {}", location);
             var fileFacts = facts(location);
             fileFacts.invalidateAnalyzer(location);
@@ -511,7 +506,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         var msgText = ((IString) message.get("msg")).getValue();
         if (message.has("at")) {
-            var at = ((ISourceLocation) message.get("at")).getURI();
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
             params.setMessage(String.format("%s (at %s)", msgText, at));
         } else {
             params.setMessage(msgText);
@@ -571,10 +566,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
-            var l = URIUtil.assumeCorrectLocation(rename.getNewUri());
-            if (isLanguageRegistered(l)) {
-                var language = language(l);
-                ILanguageContributions contrib = contributions.get(language);
+            var l = Locations.toLoc(rename.getNewUri());
+            var language = safeLanguage(l);
+            if (language.isPresent()) {
+                ILanguageContributions contrib = contributions.get(language.get());
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
                 }
@@ -646,10 +641,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private static <T> T last(List<T> l) {
         return l.get(l.size() - 1);
-    }
-
-    private boolean isLanguageRegistered(ISourceLocation loc) {
-        return registeredExtensions.containsKey(extension(loc));
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {

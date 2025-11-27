@@ -28,13 +28,10 @@ package org.rascalmpl.vscode.lsp;
 
 import java.io.PrintWriter;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
@@ -59,19 +56,16 @@ import io.usethesource.vallang.IValue;
  * directly to the LSP language client.
  */
 public class LSPIDEServices implements IDEServices {
-    private final Logger logger;
-
     private final IBaseLanguageClient languageClient;
     private final IBaseTextDocumentService docService;
     private final BaseWorkspaceService workspaceService;
 
     private final IRascalMonitor monitor;
 
-    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, Logger logger, IRascalMonitor monitor) {
+    public LSPIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IRascalMonitor monitor) {
         this.languageClient = client;
         this.workspaceService = workspaceService;
         this.docService = docService;
-        this.logger = logger;
         this.monitor = monitor;
     }
 
@@ -95,7 +89,7 @@ public class LSPIDEServices implements IDEServices {
             range = Locations.toRange(physical, docService.getColumnMap(physical));
         }
 
-        languageClient.editDocument(path.getURI(), range, viewColumn);
+        languageClient.editDocument(Locations.toUri(path), range, viewColumn);
     }
 
     @Override
@@ -109,13 +103,8 @@ public class LSPIDEServices implements IDEServices {
     }
 
     private ISourceLocation buildProjectChildLoc(WorkspaceFolder folder, ISourceLocation input) {
-        try {
-            ISourceLocation root = URIUtil.createFromURI(folder.getUri());
-            return URIUtil.getChildLocation(root, input.getPath());
-        } catch (URISyntaxException e) {
-            logger.catching(e);
-            return input;
-        }
+        ISourceLocation root = Locations.toLoc(folder.getUri());
+        return URIUtil.getChildLocation(root, input.getPath());
     }
 
     @Override
@@ -138,7 +127,7 @@ public class LSPIDEServices implements IDEServices {
         Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
-            String uri = Locations.toUri(entry.getKey());
+            var uri = Locations.toUri(entry.getKey()).toString();
             languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, entry.getValue()));
         }
     }
@@ -146,8 +135,8 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public void unregisterDiagnostics(IList resources) {
         for (IValue elem : resources) {
-            ISourceLocation loc = (ISourceLocation) elem;
-            languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(loc), Collections.emptyList()));
+            var uri = Locations.toUri((ISourceLocation) elem).toString();
+            languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
         }
     }
 

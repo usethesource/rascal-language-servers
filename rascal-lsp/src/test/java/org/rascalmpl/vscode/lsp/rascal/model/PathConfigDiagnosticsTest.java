@@ -38,6 +38,7 @@ import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IConstructor;
@@ -76,8 +77,8 @@ public class PathConfigDiagnosticsTest {
         projectA = resourceLocation(PROJECT_A);
         projectB = resourceLocation(PROJECT_B);
 
-        pomAUrl = resourceLocation(POM_A).getURI().toString();
-        pomBUrl = resourceLocation(POM_A).getURI().toString();
+        pomAUrl = Locations.toUri(resourceLocation(POM_A)).toString();
+        pomBUrl = Locations.toUri(resourceLocation(POM_A)).toString();
     }
 
     @Before

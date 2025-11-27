@@ -44,6 +44,7 @@ import org.junit.Test;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -116,14 +117,14 @@ public class DocumentChangesTest {
     @Test
     public void basicEdits() {
         var rascalEdits = VF.list(change(TEST_LOC, "a", "b", "c"));
-        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(Locations.toUri(TEST_LOC).toString(), new String[] {"a", "b", "c"}));
     }
 
     @Test
     public void individualAnnotations() {
         var rascalEdits = VF.list(change(TEST_LOC, replace(TEST_LOC, "a"), replace(TEST_LOC, "b", "bar", "barDesc", true), replace(TEST_LOC, "c")));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(Locations.toUri(TEST_LOC).toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         assertNotAnnotated(docEdit.getEdits().get(0));
@@ -135,7 +136,7 @@ public class DocumentChangesTest {
     public void pushAnnotationsDown() {
         var rascalEdits = VF.list(change(TEST_LOC, "foo", null, null, new IConstructor[] {replace(TEST_LOC, "a"), replace(TEST_LOC, "b"), replace(TEST_LOC, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(Locations.toUri(TEST_LOC).toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         for (var e : docEdit.getEdits()) {
@@ -147,7 +148,7 @@ public class DocumentChangesTest {
     public void keepAnnotationsOnIndividualEdits() {
         var rascalEdits = VF.list(change(TEST_LOC, "foo", null, null, new IConstructor[] {replace(TEST_LOC, "a"), replace(TEST_LOC, "b", "bar", "barDesc", true), replace(TEST_LOC, "c")}));
         var wsEdit = DocumentChanges.translateDocumentChanges(rascalEdits, columns);
-        assertEditStructure(rascalEdits, Map.of(TEST_LOC.getURI().toString(), new String[] {"a", "b", "c"}));
+        assertEditStructure(rascalEdits, Map.of(Locations.toUri(TEST_LOC).toString(), new String[] {"a", "b", "c"}));
 
         var docEdit = wsEdit.getDocumentChanges().get(0).getLeft();
         assertAnnotated(docEdit.getEdits().get(0), "foo", "foo", false, wsEdit);

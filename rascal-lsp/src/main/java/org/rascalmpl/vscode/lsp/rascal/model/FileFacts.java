@@ -40,6 +40,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -90,21 +91,54 @@ public class FileFacts {
         if (resolved == null) {
             resolved = l;
         }
-        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
+        var fact = files.get(resolved);
+        if (fact == null) {
+            if (URIResolverRegistry.getInstance().exists(resolved)) {
+                fact = new ActualFileFact(resolved, exec);
+                var existing = files.putIfAbsent(resolved, fact);
+                if (existing != null) {
+                    fact = existing;
+                }
+            } else {
+                fact = new NopFileFact();
+            }
+        }
+        return fact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
         return confs.lookupConfig(file);
     }
 
-    private class FileFact {
+    public void close(ISourceLocation file) {
+        getFile(file).close();
+    }
+
+    private @Nullable FileFact remove(ISourceLocation file) {
+        var removed = files.remove(file.top());
+        if (removed != null) {
+            removed.clearDiagnostics();
+        }
+        return removed;
+    }
+
+    private interface FileFact {
+        void reportParseErrors(List<Diagnostic> msgs);
+        void reportTypeCheckerErrors(List<Diagnostic> msgs);
+        CompletableFuture<@Nullable SummaryBridge> getSummary();
+        void invalidate();
+        void close();
+        void clearDiagnostics();
+    }
+
+    private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
-        public FileFact(ISourceLocation file, Executor exec) {
+        public ActualFileFact(ISourceLocation file, Executor exec) {
             this.file = file;
             this.typeCheckResults = ReplaceableFuture.completedFuture(Collections.emptyMap(), exec);
             this.summary = new LazyUpdateableReference<>(
@@ -120,11 +154,14 @@ public class FileFacts {
                 });
         }
 
+        @Override
         public void reportParseErrors(List<Diagnostic> msgs) {
             parseMessages = msgs;
             sendDiagnostics();
         }
-        private void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+        
+        @Override
+        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
             sendDiagnostics();
         }
@@ -136,15 +173,16 @@ public class FileFacts {
             }
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                Locations.toUri(file),
+                Locations.toUri(file).toString(),
                 Lists.union(typeCheckerMessages, parseMessages)));
         }
 
-
+        @Override
         public CompletableFuture<@Nullable SummaryBridge> getSummary() {
             return summary.get().get();
         }
 
+        @Override
         public void invalidate() {
             summary.invalidate();
             typeCheckerMessages.clear();
@@ -154,5 +192,53 @@ public class FileFacts {
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 
+        @Override
+        public void close() {
+            if ((parseMessages.isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+                // If there are no messages for this file or the file has been deleted, can we remove it
+                // else VS Code comes back and we've dropped the messages in our internal data
+                files.remove(file);
+            }
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            summary.invalidate();
+            typeCheckerMessages.clear();
+            typeCheckResults.replace(CompletableFuture.completedFuture(Map.of()));
+            client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), List.of()));
+        }
+    }
+
+    class NopFileFact implements FileFact {
+        @Override
+        public void reportParseErrors(List<Diagnostic> msgs) {
+            // NOP
+        }
+
+        @Override
+        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+            // NOP
+        }
+
+        @Override
+        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void invalidate() {
+            // NOP
+        }
+
+        @Override
+        public void close() {
+            // NOP
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            // NOP
+        }
     }
 }
