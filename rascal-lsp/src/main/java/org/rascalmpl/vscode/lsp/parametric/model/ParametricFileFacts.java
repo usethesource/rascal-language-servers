@@ -119,7 +119,10 @@ public class ParametricFileFacts {
         if (fact == null) {
             if (URIResolverRegistry.getInstance().exists(file)) {
                 fact = new FileFact(file);
-                fact = files.putIfAbsent(file, fact);
+                var existing = files.putIfAbsent(file, fact);
+                if (existing != null) {
+                    fact = existing;
+                }
             } else {
                 fact = new NopFileFact();
             }

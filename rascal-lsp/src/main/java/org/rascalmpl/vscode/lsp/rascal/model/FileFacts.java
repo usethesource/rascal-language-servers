@@ -97,7 +97,10 @@ public class FileFacts {
         if (fact == null) {
             if (URIResolverRegistry.getInstance().exists(resolved)) {
                 fact = new FileFact(resolved, exec);
-                fact = files.putIfAbsent(resolved, fact);
+                var existing = files.putIfAbsent(resolved, fact);
+                if (existing != null) {
+                    fact = existing;
+                }
             } else {
                 fact = new NopFileFact();
             }
