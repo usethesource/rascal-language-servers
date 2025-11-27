@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,6 +42,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -150,9 +152,14 @@ public class FileFacts {
         }
 
         private FileFact() {
-            file = null;
-            typeCheckResults = null;
-            summary =  null;
+            file = URIUtil.unknownLocation();
+            typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Map.of()));
+            summary = new LazyUpdateableReference<>(
+                InterruptibleFuture.completedFuture(null, new Executor() {
+                    @Override
+                    public void execute(Runnable command) {
+                    }
+                }), Function.identity());
         }
 
         public void reportParseErrors(List<Diagnostic> msgs) {

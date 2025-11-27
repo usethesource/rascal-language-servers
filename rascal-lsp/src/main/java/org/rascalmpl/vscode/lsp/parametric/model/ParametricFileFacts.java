@@ -48,6 +48,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -215,7 +216,7 @@ public class ParametricFileFacts {
         }
 
         private FileFact() {
-            this.file = null;
+            this.file = URIUtil.unknownLocation();
         }
 
         private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
