@@ -129,14 +129,6 @@ public class ParametricFileFacts {
         return fact;
     }
 
-    private @Nullable FileFact removeFile(ISourceLocation file) {
-        var removed = files.remove(file.top());
-        if (removed != null) {
-            removed.clearDiagnostics();
-        }
-        return removed;
-    }
-
     public void reloadContributions() {
         analyzerSummaryFactory = contrib.getAnalyzerSummaryConfig().thenApply(config ->
             new ScheduledSummaryFactory(config, exec, columns, contrib::analysis));
@@ -147,17 +139,11 @@ public class ParametricFileFacts {
     }
 
     public void invalidateAnalyzer(ISourceLocation file) {
-        var current = getFile(file);
-        if (current != null) {
-            current.invalidateAnalyzer(false);
-        }
+        getFile(file).invalidateAnalyzer(false);
     }
 
     public void invalidateBuilder(ISourceLocation file) {
-        var current = getFile(file);
-        if (current != null) {
-            current.invalidateBuilder(false);
-        }
+        getFile(file).invalidateBuilder(false);
     }
 
     public void calculateAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
@@ -173,10 +159,7 @@ public class ParametricFileFacts {
     }
 
     public void close(ISourceLocation file) {
-        var present = getFile(file);
-        if (present != null) {
-            present.close();
-        }
+        getFile(file).close();
     }
 
     private interface FileFact {
@@ -254,9 +237,17 @@ public class ParametricFileFacts {
                 if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
                     // If there are no messages for this file or the file has been deleted, can we remove it
                     // else VS Code comes back and we've dropped the messages in our internal data
-                    removeFile(file);
+                    remove(file);
                 }
             });
+        }
+
+        private @Nullable FileFact remove(ISourceLocation file) {
+            var removed = files.remove(file.top());
+            if (removed != null) {
+                removed.clearDiagnostics();
+            }
+            return removed;
         }
 
         /**
@@ -452,39 +443,44 @@ public class ParametricFileFacts {
     }
 
     class NopFileFact implements FileFact {
-
         @Override
         public void invalidateAnalyzer(boolean isClosing) {
+            // NOP
         }
 
         @Override
         public void invalidateBuilder(boolean isClosing) {
+            // NOP
         }
 
         @Override
         public void close() {
+            // NOP
         }
 
         @Override
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+            // NOP
         }
 
         @Override
         public void calculateBuilder(CompletableFuture<Versioned<ITree>> tree) {
+            // NOP
         }
 
         @Override
         public void reportParseErrors(int version, List<Diagnostic> messages) {
+            // NOP
         }
 
         @Override
         public void clearDiagnostics() {
+            // NOP
         }
 
         @Override
         public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
             return CompletableFuture.completedFuture(List.of());
         }
-
     }
 }

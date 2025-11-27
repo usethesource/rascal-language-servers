@@ -111,10 +111,7 @@ public class FileFacts {
     }
 
     public void close(ISourceLocation file) {
-        var present = getFile(file);
-        if (present != null) {
-            present.close();
-        }
+        getFile(file).close();
     }
 
     private @Nullable FileFact remove(ISourceLocation file) {
@@ -216,10 +213,12 @@ public class FileFacts {
     class NopFileFact implements FileFact {
         @Override
         public void reportParseErrors(List<Diagnostic> msgs) {
+            // NOP
         }
 
         @Override
         public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+            // NOP
         }
 
         @Override
@@ -229,14 +228,17 @@ public class FileFacts {
 
         @Override
         public void invalidate() {
+            // NOP
         }
 
         @Override
         public void close() {
+            // NOP
         }
 
         @Override
         public void clearDiagnostics() {
+            // NOP
         }
     }
 }
