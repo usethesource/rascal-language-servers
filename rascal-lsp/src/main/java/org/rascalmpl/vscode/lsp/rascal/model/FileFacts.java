@@ -40,6 +40,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
@@ -90,11 +91,39 @@ public class FileFacts {
         if (resolved == null) {
             resolved = l;
         }
-        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
+        var fact = files.computeIfAbsent(resolved, l1 -> {
+            if (URIResolverRegistry.getInstance().exists(l1)) {
+                return new FileFact(l1, exec);
+            }
+            return null;
+        });
+        if (fact == null) {
+            return new NopFileFact();
+        }
+        return fact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
         return confs.lookupConfig(file);
+    }
+
+    public void close(ISourceLocation file) {
+        var present = getFile(file);
+        if (present != null) {
+            if (!present.hasDiagnostics() || !URIResolverRegistry.getInstance().exists(file)) {
+                // If there are no messages for this file or the file has been deleted, can we remove it
+                // else VS Code comes back and we've dropped the messages in our internal data
+                files.remove(file);
+            }
+        }
+    }
+
+    private @Nullable FileFact remove(ISourceLocation file) {
+        var removed = files.remove(file.top());
+        if (removed != null) {
+            removed.clearDiagnostics();
+        }
+        return removed;
     }
 
     private class FileFact {
@@ -118,6 +147,12 @@ public class FileFacts {
                     var mergedCalc = typeCheckResults.get().<@Nullable SummaryBridge>thenCompose(o -> summaryCalc.get());
                     return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
                 });
+        }
+
+        private FileFact() {
+            file = null;
+            typeCheckResults = null;
+            summary =  null;
         }
 
         public void reportParseErrors(List<Diagnostic> msgs) {
@@ -154,5 +189,30 @@ public class FileFacts {
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 
+        public boolean hasDiagnostics() {
+            return !parseMessages.isEmpty() && !typeCheckerMessages.isEmpty();
+        }
+
+        public void clearDiagnostics() {
+            summary.invalidate();
+            typeCheckerMessages.clear();
+            typeCheckResults.replace(CompletableFuture.completedFuture(Map.of()));
+            client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), List.of()));
+        }
+    }
+
+    class NopFileFact extends FileFact {
+        @Override
+        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void invalidate() {
+        }
+
+        @Override
+        public void reportParseErrors(List<Diagnostic> msgs) {
+        }
     }
 }

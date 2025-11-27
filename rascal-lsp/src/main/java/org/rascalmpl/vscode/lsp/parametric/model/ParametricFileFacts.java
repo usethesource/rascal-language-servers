@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -46,6 +47,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -112,11 +114,24 @@ public class ParametricFileFacts {
     }
 
     private FileFact getFile(ISourceLocation file) {
-        return files.computeIfAbsent(file.top(), FileFact::new);
+        var fact = files.computeIfAbsent(file.top(), f -> {
+            if (URIResolverRegistry.getInstance().exists(f)) {
+                return new FileFact(f);
+            }
+            return null;
+        });
+        if (fact == null) {
+            return new NopFileFact();
+        }
+        return fact;
     }
 
     private @Nullable FileFact removeFile(ISourceLocation file) {
-        return files.remove(file.top());
+        var removed = files.remove(file.top());
+        if (removed != null) {
+            removed.clearDiagnostics();
+        }
+        return removed;
     }
 
     public void reloadContributions() {
@@ -163,9 +178,9 @@ public class ParametricFileFacts {
             var analyzerMessages = ParametricSummary.getMessages(present.latestAnalyzerAnalysis, exec).get();
             var builderMessages = ParametricSummary.getMessages(present.latestBuilderBuild, exec).get();
             analyzerMessages.thenAcceptBothAsync(builderMessages, (aMessages, bMessages) -> {
-                if (aMessages.isEmpty() && bMessages.isEmpty()) {
-                    // only if there are no messages for this class, can we remove it
-                    // else vscode comes back and we've dropped the messages in our internal data
+                if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+                    // If there are no messages for this file or the file has been deleted, can we remove it
+                    // else VS Code comes back and we've dropped the messages in our internal data
                     removeFile(file);
                 }
             });
@@ -197,6 +212,10 @@ public class ParametricFileFacts {
 
         public FileFact(ISourceLocation file) {
             this.file = file;
+        }
+
+        private FileFact() {
+            this.file = null;
         }
 
         private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
@@ -321,6 +340,16 @@ public class ParametricFileFacts {
             reportDiagnostics(parserDiagnostics, version, messages);
         }
 
+        public void clearDiagnostics() {
+            var emptyDiagnostics = new Versioned<List<Diagnostic>>(latestVersionCalculateAnalyzer.get(), Collections.emptyList());
+            parserDiagnostics.set(emptyDiagnostics);
+            analyzerDiagnostics.set(emptyDiagnostics);
+            builderDiagnostics.set(emptyDiagnostics);
+            if (client != null) {
+                client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), Collections.emptyList()));
+            }
+        }
+
         private void sendDiagnostics() {
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
@@ -397,6 +426,28 @@ public class ParametricFileFacts {
                         logger.trace("Look-up failed");
                         return CompletableFutureUtils.completedFuture(Collections.<T>emptyList(), exec);
                     }});
+        }
+    }
+
+    class NopFileFact extends FileFact {
+        @Override
+        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+        }
+
+        @Override
+        public void calculateBuilder(CompletableFuture<Versioned<ITree>> tree) {
+        }
+
+        @Override
+        public void invalidateAnalyzer(boolean isClosing) {
+        }
+
+        @Override
+        public void invalidateBuilder(boolean isClosing) {
+        }
+
+        @Override
+        public void reportParseErrors(int version, List<Diagnostic> messages) {
         }
     }
 }
