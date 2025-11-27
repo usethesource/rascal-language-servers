@@ -363,7 +363,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        if (isLanguageRegistered(location)) {
+        if (safeLanguage(location).isPresent()) {
             logger.trace("Triggering analyzer for {}", location);
             var fileFacts = facts(location);
             fileFacts.invalidateAnalyzer(location);
@@ -567,9 +567,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
             var l = Locations.toLoc(rename.getNewUri());
-            if (isLanguageRegistered(l)) {
-                var language = language(l);
-                ILanguageContributions contrib = contributions.get(language);
+            var language = safeLanguage(l);
+            if (language.isPresent()) {
+                ILanguageContributions contrib = contributions.get(language.get());
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
                 }
@@ -641,10 +641,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private static <T> T last(List<T> l) {
         return l.get(l.size() - 1);
-    }
-
-    private boolean isLanguageRegistered(ISourceLocation loc) {
-        return registeredExtensions.containsKey(extension(loc));
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
