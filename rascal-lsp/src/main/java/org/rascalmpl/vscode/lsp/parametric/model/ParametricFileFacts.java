@@ -115,14 +115,14 @@ public class ParametricFileFacts {
     }
 
     private FileFact getFile(ISourceLocation file) {
-        var fact = files.computeIfAbsent(file.top(), f -> {
-            if (URIResolverRegistry.getInstance().exists(f)) {
-                return new FileFact(f);
-            }
-            return null;
-        });
+        var fact = files.get(file);
         if (fact == null) {
-            return new NopFileFact();
+            if (URIResolverRegistry.getInstance().exists(file)) {
+                fact = new FileFact(file);
+                fact = files.putIfAbsent(file, fact);
+            } else {
+                fact = new NopFileFact();
+            }
         }
         return fact;
     }

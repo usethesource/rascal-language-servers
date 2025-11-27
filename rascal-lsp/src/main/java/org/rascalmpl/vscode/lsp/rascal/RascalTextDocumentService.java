@@ -287,7 +287,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         if (documents.remove(loc) == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, "Unknown file: " + loc, params));
         }
-        facts.close(loc);
+        if (facts != null) {
+            facts.close(loc);
+        }
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {

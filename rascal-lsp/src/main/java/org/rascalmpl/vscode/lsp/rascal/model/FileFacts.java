@@ -93,14 +93,14 @@ public class FileFacts {
         if (resolved == null) {
             resolved = l;
         }
-        var fact = files.computeIfAbsent(resolved, l1 -> {
-            if (URIResolverRegistry.getInstance().exists(l1)) {
-                return new FileFact(l1, exec);
-            }
-            return null;
-        });
+        var fact = files.get(resolved);
         if (fact == null) {
-            return new NopFileFact();
+            if (URIResolverRegistry.getInstance().exists(resolved)) {
+                fact = new FileFact(resolved, exec);
+                fact = files.putIfAbsent(resolved, fact);
+            } else {
+                fact = new NopFileFact();
+            }
         }
         return fact;
     }
