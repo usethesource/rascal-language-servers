@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import assert from 'assert';
+import assert, { fail } from 'assert';
 import { BottomBarPanel, MarkerType, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
@@ -87,9 +87,19 @@ describe('DSL unregister/register race', function () {
 
             await ide.openModule(TestWorkspace.picoFile);
             const bbp = new BottomBarPanel();
-            const problems = await bbp.openProblemsView();
-            const errors = await problems.getAllVisibleMarkers(MarkerType.Error);
-            const labels: string[] = await Promise.all(errors.map(async e => await e.getLabel()));
+            const labels = await driver.wait(async () => {
+                const problems = await bbp.openProblemsView();
+                const errors = await problems.getAllVisibleMarkers(MarkerType.Error);
+                if (errors.length === 0) {
+                    return false;
+                }
+                return await Promise.all(errors.map(async e => await e.getLabel()));
+
+            });
+
+            if (!labels) {
+                fail("No labels");
+            }
 
             assert(!labels.includes("Registered A"), "A should be unregistered");
             assert(labels.includes("Registered B"), "B should be registered");
