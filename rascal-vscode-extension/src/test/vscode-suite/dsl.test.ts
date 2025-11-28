@@ -163,7 +163,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
      a : natural;
   a := 2
 end
-`, true);
+`);
         console.log("I updated the text");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         console.log("I found highlighting");
