@@ -25,7 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import assert from 'assert';
+import { BottomBarPanel, MarkerType, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 describe('DSL unregister/register race', function () {
@@ -44,7 +45,7 @@ describe('DSL unregister/register race', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import demo::lang::pico::LanguageServer;");
-        const replExecuteMain = repl.execute("main(unregister=true);"); // we don't wait yet, because we might miss pico loading window
+        const replExecuteMain = repl.execute("registrationSandwich();"); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -84,9 +85,14 @@ describe('DSL unregister/register race', function () {
 
             await loadPico();
 
-            const editor = await ide.openModule(TestWorkspace.picoFile);
-            await ide.hasSyntaxHighlighting(editor);
-            await ide.hasInlayHint(editor);
+            await ide.openModule(TestWorkspace.picoFile);
+            const bbp = new BottomBarPanel();
+            const problems = await bbp.openProblemsView();
+            const errors = await problems.getAllVisibleMarkers(MarkerType.Error);
+            const labels: string[] = await Promise.all(errors.map(async e => await e.getLabel()));
+
+            assert(!labels.includes("Registered A"), "A should be unregistered");
+            assert(labels.includes("Registered B"), "B should be registered");
         });
     }
 });

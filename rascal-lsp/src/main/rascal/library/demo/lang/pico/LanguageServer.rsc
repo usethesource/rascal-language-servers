@@ -314,9 +314,6 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
 void main(bool errorRecovery=false, bool unregister=false) {
-    if (unregister) {
-        unregisterLanguage("Pico", {"pico", "pico-new"});
-    }
     registerLanguage(
         language(
             pathConfig(),
@@ -333,6 +330,40 @@ void main(bool errorRecovery=false, bool unregister=false) {
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
             errorRecovery ? "picoLanguageServerSlowSummaryWithRecovery" : "picoLanguageServerSlowSummary"
+        )
+    );
+}
+
+set[LanguageService] picoDiagnosticShower(str message) = {
+    parsing(picoParser(false), usesSpecialCaseHighlighting = false),
+    analysis(Summary(loc l, Tree tr) {
+        Summary s = summary(l);
+        s.messages += {<d.src, error(message, d.src)> | /IdType d := tr};
+        return s;
+    })
+};
+
+set[LanguageService] picoLanguageServerA() = picoDiagnosticShower("Registered A");
+set[LanguageService] picoLanguageServerB() = picoDiagnosticShower("Registered B");
+
+void registrationSandwich() {
+    registerLanguage(
+        language(
+            pathConfig(),
+            "Pico"
+            ,{"pico", "pico-new"},
+            "demo::lang::pico::LanguageServer",
+            "picoLanguageServerA"
+        )
+    );
+    unregisterLanguage("Pico", {"pico", "pico-new"});
+    registerLanguage(
+        language(
+            pathConfig(),
+            "Pico"
+            ,{"pico", "pico-new"},
+            "demo::lang::pico::LanguageServer",
+            "picoLanguageServerB"
         )
     );
 }
