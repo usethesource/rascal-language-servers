@@ -502,7 +502,6 @@ export async function getLogs(driver: WebDriver): Promise<string[]> {
         await bbp.closePanel();
     }
     finally {
-        console.log('*******End output*****************************');
         for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
             await new Workbench().executeCommand('workbench.action.zoomIn');
         }
@@ -516,11 +515,11 @@ export function printRascalOutputOnFailure(driver: () => WebDriver, ide: () => I
         try {
             console.log('**********************************************');
             console.log('***** Rascal MPL output for the failed tests: ');
-            const textLines = await getLogs(driver());
-            if (textLines.length === 0) {
+            const textLines = await driver().wait(async() => await ignoreFails(getLogs(driver())));
+            if (textLines?.length === 0) {
                 console.log("We could not capture the output lines");
             } else {
-                for (const l of textLines) {
+                for (const l of textLines!) {
                     console.log(l);
                 }
             }

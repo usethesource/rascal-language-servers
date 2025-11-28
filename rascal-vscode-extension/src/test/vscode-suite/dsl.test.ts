@@ -38,6 +38,32 @@ function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => vo
     describe('DSL+recovery', function() { body.apply(this, [true]); });
 }
 
+export async function loadPico(bench: Workbench, driver: WebDriver, browser: VSBrowser, errorRecovery: boolean = false, unregister: boolean = false) {
+    const repl = new RascalREPL(bench, driver);
+    await repl.start();
+    await repl.execute("import demo::lang::pico::LanguageServer;");
+
+    // If Pico was registered before as part of another series of tests,
+    // then it needs to be unregistered first (because error recovery
+    // en/disabledness affects which contributors to use). Until issue #630
+    // is fixed (race between `unregister` and `register`), the
+    // unregistration can't reliably be done as part of `main` (tried in
+    // commit `a955a05`). Instead, it's done here and followed by a suitably
+    // long sleep.
+    await repl.execute("import util::LanguageServer;");
+    await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+    await sleep(Delays.normal);
+
+    const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery}, unregister=${unregister});`); // we don't wait yet, because we might miss pico loading window
+    const ide = new IDEOperations(browser);
+    const isPicoLoading = ide.statusContains("Pico");
+    await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
+    // now wait for the Pico loader to disappear
+    await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
+    await replExecuteMain;
+    await repl.terminate();
+}
+
 parameterizedDescribe(function (errorRecovery: boolean) {
     let browser: VSBrowser;
     let driver: WebDriver;
@@ -49,31 +75,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     printRascalOutputOnFailure(() => driver, () => ide);
 
-    async function loadPico() {
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
 
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-        await sleep(Delays.normal);
-
-        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
-        const ide = new IDEOperations(browser);
-        const isPicoLoading = ide.statusContains("Pico");
-        await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
-        // now wait for the Pico loader to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
-        await replExecuteMain;
-        await repl.terminate();
-    }
 
 
     before(async () => {
@@ -83,7 +85,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser);
         await ide.load();
-        await loadPico();
+        await loadPico(bench, driver, browser, errorRecovery);
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();

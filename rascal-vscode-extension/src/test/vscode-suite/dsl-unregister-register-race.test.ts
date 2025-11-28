@@ -25,9 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import assert from 'assert';
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, getLogs, ignoreFails, printRascalOutputOnFailure } from './utils';
+import assert, { fail } from 'assert';
+import { BottomBarPanel, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { loadPico } from './dsl.test';
+import { Delays, IDEOperations, getLogs, ignoreFails, printRascalOutputOnFailure } from './utils';
 
 describe('DSL unregister/register race', function () {
     let browser: VSBrowser;
@@ -40,20 +41,6 @@ describe('DSL unregister/register race', function () {
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure(() => driver, () => ide);
-
-    async function loadPico() {
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
-        const replExecuteMain = repl.execute("main(unregister=true);"); // we don't wait yet, because we might miss pico loading window
-        const ide = new IDEOperations(browser);
-        const isPicoLoading = ide.statusContains("Pico");
-        await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
-        // now wait for the Pico loader to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
-        await replExecuteMain;
-        await repl.terminate();
-    }
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -84,18 +71,23 @@ describe('DSL unregister/register race', function () {
             if (failed) {
                 this.skip();
             }
-
-            await loadPico();
-            const logs: string[] = await getLogs(driver);
-            const lastUnregister = logs.findLastIndex(l => l.match(/\bunregisterLanguage\b/i));
-            const firstRegister = logs.findIndex(l => l.match(/\bregisterLanguage\b/i));
-            if (lastUnregister === -1) {
-                throw Error("Could not find `unregisterLanguage` in logs!");
+            const bbp = new BottomBarPanel();
+            await bbp.openOutputView();
+            await bench.executeCommand("workbench.output.action.clearOutput");
+            await loadPico(bench, driver, browser, false, true);
+            const logs = await driver.wait(async() => await ignoreFails(getLogs(driver)));
+            if (!logs) {
+                fail("No logs");
             }
-            if (firstRegister === -1) {
-                throw Error("Could not find `registerLanguage` in logs!");
+            assert(logs.length > 0);
+            console.log(logs);
+            const lastUnregister = logs.findLastIndex(l => l.match(/ParametricTextDocumentService unregisterLanguage/i));
+            const allRegisters = logs.filter(l => l.match(/ParametricTextDocumentService registerLanguage/i)).map(l => logs.indexOf(l)).sort().slice(-4);
+            assert(lastUnregister > 0, "No `unregisterLanguage` log found");
+            assert(allRegisters.length === 4, "No `registerLanguage` log found");
+            for (const r of allRegisters) {
+                assert(lastUnregister < r, `Language unregistration was not finished before registration started:\n${logs[r]}\n${logs[lastUnregister]}`);
             }
-            assert(lastUnregister > firstRegister, "Language unregistration was not finished before registration started");
         });
     }
 });
