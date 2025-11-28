@@ -138,14 +138,11 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     it("has syntax highlighting in documents without extension", async function () {
         await bench.executeCommand("workbench.action.files.newUntitledFile");
-        console.log("I opened a file");
         await bench.executeCommand("workbench.action.editor.changeLanguageMode");
-        console.log("I triggered change language mode");
 
         const inputBox = new InputBox();
         await inputBox.setText("parametric-rascalmpl");
         await inputBox.confirm();
-        console.log("I changed language mode");
 
         const file = "Untitled-1";
         const editor = await driver.wait(async () => {
@@ -157,22 +154,17 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.normal, "Could not open file");
         expect(editor).to.not.be.undefined;
 
-        console.log("I found an editor");
         await editor.setText(`begin
   declare
      a : natural;
   a := 2
 end
 `);
-        console.log("I updated the text");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
-        console.log("I found highlighting");
 
         try {
             await editor.setTextAtLine(4, "  a := ");
-            console.log("I updated text");
             await ide.hasErrorSquiggly(editor, Delays.slow);
-            console.log("I found errors");
         } finally {
             await ide.revertOpenChanges();
         }
