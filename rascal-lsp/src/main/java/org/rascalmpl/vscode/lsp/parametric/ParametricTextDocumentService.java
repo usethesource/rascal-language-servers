@@ -306,7 +306,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
-        logger.debug("Did Open file: {}", params.getTextDocument());
+        // logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
@@ -315,14 +315,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
-        logger.debug("Did Change file: {}", params.getTextDocument().getUri());
+        // logger.debug("Did Change file: {}", params.getTextDocument().getUri());
         updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        logger.debug("Did Save file: {}", params.getTextDocument());
+        // logger.debug("Did Save file: {}", params.getTextDocument());
         // on save we don't get new file contents, that already came in via didChange
         // but we do trigger the builder on save (if a builder exists)
         triggerBuilder(params.getTextDocument());
@@ -725,7 +725,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(DocumentSymbolParams params) {
-        logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
+        // logger.debug("Outline/documentSymbol: {}", params.getTextDocument());
 
         ISourceLocation location = Locations.toLoc(params.getTextDocument());
         TextDocumentState file = getFile(location);
@@ -740,7 +740,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        logger.debug("codeAction: {}", params);
+        // logger.debug("codeAction: {}", params);
 
         var location = Locations.toLoc(params.getTextDocument());
         final ILanguageContributions contribs = contributions(location);

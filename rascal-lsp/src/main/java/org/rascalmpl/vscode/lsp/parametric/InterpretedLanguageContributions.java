@@ -319,7 +319,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return contrib;
                 }
             }
-            logger.debug("No {} defined", cons);
+            // logger.debug("No {} defined", cons);
             return null;
         });
     }
@@ -455,11 +455,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     private void debug(String name, Object param) {
-        logger.debug("{}({})", name, param);
+        // logger.debug("{}({})", name, param);
     }
 
     private void debug(String name, Object param1, Object param2) {
-        logger.debug("{}({},{})", name, param1, param2);
+        // logger.debug("{}({},{})", name, param1, param2);
     }
 
     @Override
