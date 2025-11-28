@@ -243,10 +243,12 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            logger.debug("sendRegisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+            logger.debug("sendUnregisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
         }
 
@@ -254,11 +256,11 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
             return CompletableFuture.supplyAsync(() -> {
                 logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
-                logger.debug("LSP client capabilities: {}", params.getCapabilities());
+                logger.trace("LSP client capabilities: {}", params.getCapabilities());
                 final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
                 lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
                 lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
-                logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+                logger.trace("Initialized LSP connection with capabilities: {}", initializeResult);
                 return initializeResult;
             }, executor);
         }
