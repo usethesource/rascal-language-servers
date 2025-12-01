@@ -113,12 +113,12 @@ public class DynamicCapabilities {
                         var registration = entry.getRight();
                         var opts = registration.getRegisterOptions();
 
-                        logger.debug("Processing capability {}", registration.getMethod());
+                        logger.trace("Processing capability {}", registration.getMethod());
 
                         // Check if we already have this registration
                         var existing = currentRegistrations.get(registration.getMethod());
                         if (existing != null) {
-                            logger.debug("We registered {} before", registration.getMethod());
+                            logger.trace("We registered {} before", registration.getMethod());
                             // We registered this capability before.
                             // Let's see if we need to make any changes do the registration.
                             var existingOpts = existing.getRegisterOptions();
@@ -126,18 +126,18 @@ public class DynamicCapabilities {
                             if (existingOpts != null &&
                                 (mergedOpts = cap.mergeOptions(existingOpts, opts)) != null &&
                                 !existingOpts.equals(mergedOpts)) {
-                                logger.debug("Options for {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
+                                logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
                                 // The options of the registration changed; we need to unregister it, and update the options for the new registration.
                                 unregistrations.add(unregistration(cap));
                                 registration.setRegisterOptions(mergedOpts);
                             } else {
                                 // Nothing changed; do not register this.
-                                logger.debug("No option changes for {}", registration.getMethod());
+                                logger.trace("No option changes for {}", registration.getMethod());
                                 continue;
                             }
                         }
 
-                        logger.debug("Adding {} to task list", registration.getMethod());
+                        logger.trace("Adding dynamic capability {} to task list", registration.getMethod());
                         registrations.add(registration);
                     }
 
@@ -215,13 +215,13 @@ public class DynamicCapabilities {
 
     private synchronized void doRegistrations(List<Registration> registrations, List<Unregistration> unregistrations) throws InterruptedException, ExecutionException {
         if (!unregistrations.isEmpty()) {
-            logger.debug("Unregistering: {}", unregistrations);
+            logger.debug("Unregistering dynamic capabilities: {}", unregistrations);
             client.unregisterCapability(new UnregistrationParams(unregistrations)).get();
             unregistrations.forEach(u -> currentRegistrations.remove(u.getMethod()));
         }
 
         if (!registrations.isEmpty()) {
-            logger.debug("Registering: {}", registrations);
+            logger.debug("Registering dynamic capabilities: {}", registrations);
             client.registerCapability(new RegistrationParams(registrations)).get();
             registrations.forEach(r -> currentRegistrations.put(r.getMethod(), r));
         }
