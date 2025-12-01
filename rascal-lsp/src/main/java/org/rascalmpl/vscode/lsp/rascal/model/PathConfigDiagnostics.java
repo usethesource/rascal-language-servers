@@ -33,13 +33,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
